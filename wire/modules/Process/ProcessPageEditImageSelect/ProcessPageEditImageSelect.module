@@ -168,6 +168,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function __construct() {
+		parent::__construct();
 		foreach(self::$defaultConfig as $key => $value) $this->set($key, $value);
 		$this->labels = array(
 			'width' => $this->_('Width:'),
@@ -1417,7 +1418,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___executeVariations() {
-		
+
+		$files = $this->wire()->files;
+		$modules = $this->wire()->modules;
+		$user = $this->wire()->user;
+		$input = $this->wire()->input;
+		$sanitizer = $this->wire()->sanitizer;
+		$pages = $this->wire()->pages;
+		$config = $this->wire()->config;
 		$pageimage = $this->getPageimage();
 		
 		if(!$this->page || !$pageimage) throw new WireException("No file provided"); 
@@ -1434,22 +1442,38 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$url = $pageimage->url() . "?nc=$mtime";
 		$originalLabel = $this->_('Original');
 		$extraLabel = $this->_('%s of above'); 
-		$hasEditPermission = $this->wire('user')->hasPermission('page-edit-images', $this->masterPage);
+		$hasEditPermission = $user->hasPermission('page-edit-images', $this->masterPage);
 		$variations = $pageimage->getVariations(array('info' => true, 'verbose' => 1));
-		$adminThumbOptions = $this->wire('config')->adminThumbOptions;
-		$delete = $this->wire('input')->post('delete');
+		$adminThumbOptions = $config->adminThumbOptions;
+		$delete = $input->post('delete');
 		
 		if(is_array($delete) && count($delete) && $hasEditPermission) {
+			$deleteUrls = array();
+			$deleteErrors = array();
 			foreach($delete as $name) {
 				if(!isset($variations[$name])) continue; 
 				$info = $variations[$name]; 
-				if(is_file($info['path']) && $this->wire('files')->unlink($info['path'])) {
-					$this->message($this->_('Deleted image variation') . " - $info[url]"); 
+				if($files->exists($info['path']) && $files->unlink($info['path'])) {
+					$deleteUrls[] = $info['url'];
+					if(!empty($info['webpPath']) && $files->exists($info['webpPath'])) {
+						if($files->unlink($info['webpPath'])) {
+							$deleteUrls[] = $info['webpUrl'];
+						} else {
+							$deleteErrors[] = $info['webpUrl'];
+						}
+					}
 					unset($variations[$name]); 
 				} else {
-					$this->error($this->_('Error deleting image variation') . " - $info[url]"); 
+					$deleteErrors[] = $info['url'];
 				}
 			}
+			foreach($deleteUrls as $url) {
+				$this->message($this->_('Deleted image variation') . " - $url");
+			}
+			foreach($deleteErrors as $url) {
+				$this->error($this->_('Error deleting image variation') . " - $url"); 
+			}
+			$this->wire()->session->redirect("./?id={$this->page->id}&file=$pageimage->basename");
 		}
 		
 		$rows[] = array(
@@ -1506,8 +1530,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				if(strpos($suffix, 'pid') === 0) {
 					$suffix = ltrim($suffix, 'pid');
 					$refpage = null;
-					if(ctype_digit($suffix)) $refpage = $this->wire('pages')->get((int) $suffix);
-					if($refpage && $refpage->id && $this->wire('user')->hasPermission('page-view', $refpage)) {
+					if(ctype_digit($suffix)) $refpage = $pages->get((int) $suffix);
+					if($refpage && $refpage->id && $user->hasPermission('page-view', $refpage)) {
 						$notes[] = $this->_x('Inserted from page:', 'notes') . " <a target='_blank' href='$refpage->url'>$refpage->path</a>";
 					}
 				}
@@ -1516,8 +1540,6 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$width = (int) $info['width'];
 			$height = (int) $info['height'];
 			if(!$width || !$height) list($width, $height) = getimagesize($info['path']);
-			// $dimensions = $width . 'x' . $height; 
-			// if(in_array('hidpi', $info['suffix'])) $dimensions .= " ($info[hidpiWidth]x$info[hidpiHeight] {$this->labels['hidpi']})";
 			$filesize = filesize($info['path']); 
 			$filesizeStr = wireBytesStr($filesize);
 			$mtime = filemtime($info['path']); 
@@ -1567,14 +1589,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 
 		/** @var InputfieldCheckbox $checkbox */
-		$checkbox = $this->wire('modules')->get('InputfieldCheckbox');
+		$checkbox = $modules->get('InputfieldCheckbox');
 		$checkbox->label = ' ';
 		$checkbox->addClass('delete');
 		$checkbox->attr('id+name', 'delete_all');
 		$checkbox->val(1);
 
 		/** @var MarkupAdminDataTable $table */
-		$table = $this->wire('modules')->get('MarkupAdminDataTable');
+		$table = $modules->get('MarkupAdminDataTable');
 		$table->setEncodeEntities(false);
 		$table->headerRow(array(
 			'#',
@@ -1597,7 +1619,6 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				"<span style='display: none;'>$row[filesize] </span>$row[filesizeStr]",
 				$row['modified'],
 				implode('<br />', $row['notes']),
-				//($hasEditPermission ? "<label><input type='checkbox' class='delete' name='delete[]' value='$row[name]' /> &nbsp;</label>" : "&nbsp;")
 				($row['cnt'] && $row['deletable'] ? $checkbox->render() : "&nbsp;")
 			));
 		}
@@ -1607,38 +1628,42 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$num, $pageimage->basename
 		));
 
-		$varcnt = $this->wire('sanitizer')->entities($this->wire('input')->get('varcnt')); 
+		$varcnt = $sanitizer->entities($input->get('varcnt')); 
 
-		$form = $this->wire('modules')->get('InputfieldForm');
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
 		$form->attr('id', 'ImageVariations'); 
 		$form->action = "./?id={$this->page->id}&file=$pageimage->basename&varcnt=$varcnt";
 		$form->prependMarkup = $table->render();
 
 		if($hasEditPermission) {
-			$submit = $this->wire('modules')->get('InputfieldSubmit');
+			/** @var InputfieldSubmit $submit */
+			$submit = $modules->get('InputfieldSubmit');
 			$submit->attr('value', $this->_('Delete Checked'));
 			$submit->addClass('delete-checked');
 			$submit->icon = 'trash';
 			$form->add($submit);
 		}
-		
-		$button = $this->wire('modules')->get('InputfieldButton'); 
+	
+		/** @var InputfieldButton $button */
+		$button = $modules->get('InputfieldButton'); 
 		$button->attr('value', $this->_('Close')); 
 		$button->addClass('pw-modal-cancel'); 
 		$button->icon = 'times-circle';
 		$form->add($button); 
-		
-		$hidden = $this->wire('modules')->get('InputfieldHidden');
+	
+		/** @var InputfieldHidden $hidden */
+		$hidden = $modules->get('InputfieldHidden');
 		$hidden->attr('id+name', 'varcnt_id'); 
 		$hidden->attr('value', $varcnt); 
 		$hidden->attr('data-cnt', count($variations)); 
 		$form->add($hidden); 
 		
-		$this->wire('modules')->get('JqueryMagnific'); 
+		$modules->get('JqueryMagnific'); 
 		
 		$out = $form->render(); 
 		
-		if($this->wire('config')->demo) {
+		if($config->demo) {
 			$out = "<p class='detail'>Note: " . $this->labels['demoMode'] . "</p>" . $out;
 		} else {
 			$out = "<br />" . $out;
