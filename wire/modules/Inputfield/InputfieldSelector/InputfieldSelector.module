@@ -740,7 +740,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	protected function renderTestSelector($selector) {
 		try {
 			$selector = $this->sanitizeSelectorString($selector); 
-			$cnt = $this->wire('pages')->count($selector, array('allowCustom' => true));
+			$cnt = $this->wire()->pages->count($selector, array('allowCustom' => true));
 			$out = '';
 			// take into account a limit=n 
 			if(strpos($selector, 'limit=') !== false && preg_match('/\blimit=(\d+)/', $selector, $matches)) {
@@ -755,12 +755,22 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				$bookmark = array(
 					'defaultSelector' => $selector, 
 					'initSelector' => $this->initValue,
-					);
+				);
 				$previewColumns = $this->sessionGet('previewColumns');
-				if($previewColumns && is_string($previewColumns)) $previewColumns = explode(',', $previewColumns);
-				if(is_array($previewColumns) && count($previewColumns)) $bookmark['columns'] = $previewColumns; 
-				$this->wire('modules')->includeModule('ProcessPageLister'); 
-				$id = ((int) $this->wire('input')->get('id')) . '_' . $this->attr('name'); 
+				if($previewColumns && is_string($previewColumns)) {
+					$previewColumns = explode(',', str_replace(' ', ',', $previewColumns));
+				}
+				if(is_array($previewColumns) && count($previewColumns)) {
+					$a = array();
+					$sanitizer = $this->wire()->sanitizer;
+					foreach($previewColumns as $key => $col) {
+						$col = empty($col) ? '' : $sanitizer->name($col);
+						if(strlen("$col")) $a[] = $col;
+					}
+					if(count($a)) $bookmark['columns'] = $a;
+				}
+				$this->wire()->modules->includeModule('ProcessPageLister'); 
+				$id = ((int) $this->wire()->input->get('id')) . '_' . $this->attr('name'); 
 				$url = ProcessPageLister::addSessionBookmark($id, $bookmark); 
 				if($url) {
 					$title = $this->_('Pages that match your selector'); 

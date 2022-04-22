@@ -104,14 +104,25 @@ class FieldtypeSelector extends Fieldtype {
 
 	public function ___getConfigInputfields(Field $field) {
 		$inputfields = parent::___getConfigInputfields($field);
+		$modules = $this->wire()->modules;
 
-		$f = $this->wire('modules')->get('InputfieldText'); 
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText'); 
 		$f->attr('name', 'initValue'); 
 		$f->label = $this->_('Initial Selector Value'); 
 		$f->description = $this->_('Enter an initial selector string that will be used as the enforced starting point for any selectors generated from this field. Any pages matching the user selector will be bound within the selector you enter here.'); 
 		$f->notes = $this->_('Example: template=product'); 
 		$f->attr('value', $field->get('initValue') ? $field->get('initValue') : ''); 
-		$inputfields->add($f); 
+		$inputfields->add($f);
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->attr('name', 'previewColumns');
+		$f->label = $this->_('Preview Columns');
+		$f->description = $this->_('Enter a CSV string of columns/field names to show in previews generated from this field.');
+		$f->notes = $this->_('Example: name, template, parent, id');
+		$f->attr('value', $field->get('previewColumns') ? $field->get('previewColumns') : '');
+		$inputfields->add($f);
 
 		return $inputfields; 	
 	}
