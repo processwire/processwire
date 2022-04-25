@@ -2560,8 +2560,7 @@ class PageFinder extends Wire {
 			$langNames = null;
 		}
 
-		if($modules->isInstalled('PagePaths') && !$langNames) {
-			// @todo add support to PagePaths module for LanguageSupportPageNames
+		if($modules->isInstalled('PagePaths')) {
 			$pagePaths = $modules->get('PagePaths');
 			/** @var PagePaths $pagePaths */
 			$pagePaths->getMatchQuery($query, $selector); 
