@@ -5,7 +5,7 @@
  * 
  * Helper class for Pageimage that handles variation collection methods
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.137
@@ -460,6 +460,8 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 	 *
 	 */
 	public function rebuild($mode = 0, array $suffix = array(), array $options = array()) {
+		
+		$files = $this->wire()->files;
 
 		$skipped = array();
 		$rebuilt = array();
@@ -528,9 +530,9 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 			$o['suffix'] = $info['suffix'];
 
 			if(is_file($info['path'])) {
-				$this->wire('files')->unlink($info['path'], true);
-				if(!empty($info['webpPath']) && is_file($info['webpPath'])) {
-					$this->wire('files')->unlink($info['webpPath'], true);
+				$files->unlink($info['path'], true);
+				if(!empty($info['webpPath']) && $files->exists($info['webpPath'])) {
+					$files->unlink($info['webpPath'], true);
 					$hadWebp = true;
 				}
 			}
@@ -538,11 +540,11 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 			/*
 			if(!$info['width'] && $info['actualWidth']) {
 				$info['width'] = $info['actualWidth'];
-				$options['nameWidth'] = 0;
+				$o['nameWidth'] = 0;
 			}
 			if(!$info['height'] && $info['actualHeight']) {
 				$info['height'] = $info['actualHeight'];
-				$options['nameHeight'] = 0;
+				$o['nameHeight'] = 0;
 			}
 			*/
 
@@ -550,25 +552,25 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 				// dimensional cropping info contained in filename
 				$cropX = (int) $matches[1];
 				$cropY = (int) $matches[2];
-				$variation = $this->pageimage->crop($cropX, $cropY, $info['width'], $info['height'], $options);
+				$variation = $this->pageimage->crop($cropX, $cropY, $info['width'], $info['height'], $o);
 
 			} else if($info['crop']) {
 				// direct cropping info contained in filename
 				$options['cropping'] = $info['crop'];
-				$variation = $this->pageimage->size($info['width'], $info['height'], $options);
+				$variation = $this->pageimage->size($info['width'], $info['height'], $o);
 
 			} else if($this->pageimage->hasFocus) {
 				// crop to focus area, which the size() method will determine on its own
-				$variation = $this->pageimage->size($info['width'], $info['height'], $options);
+				$variation = $this->pageimage->size($info['width'], $info['height'], $o);
 
 			} else {
 				// no crop, no focus, just resize
-				$variation = $this->pageimage->size($info['width'], $info['height'], $options);
+				$variation = $this->pageimage->size($info['width'], $info['height'], $o);
 			}
 
 			if($variation) {
 				if($variation->name != $name) {
-					rename($variation->filename(), $info['path']);
+					$files->rename($variation->filename(), $info['path']);
 					$variation->data('basename', $name);
 				}
 				$rebuilt[] = $name;
