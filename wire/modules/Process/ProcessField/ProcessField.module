@@ -332,16 +332,19 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___execute() {
-		if($this->wire('config')->ajax) return $this->renderListJSON();
+		
+		if($this->wire()->config->ajax) return $this->renderListJSON();
 	
-		/** @var Session $session */
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
+		$modules = $this->wire()->modules;
+		$textTools = $this->wire()->sanitizer->getTextTools();
+		
 		$out = $this->getListFilterForm()->render() . "\n<div id='ProcessFieldList'>\n";
 		$fieldsByTag = array();
 		$untaggedLabel = $this->_('Untagged');
 		$hasFilters = $session->getFor($this, 'filterTemplate') || $session->getFor($this, 'filterFieldtype');
 		$showSystem = $session->getFor($this, 'filterShowSystem');
-		$collapsedTags = $this->wire('modules')->getConfig($this, 'collapsedTags');
+		$collapsedTags = $modules->getConfig($this, 'collapsedTags');
 		$caseTags = array(); // indexed by lowercase version of tag
 		if(!is_array($collapsedTags)) $collapsedTags = array();
 		$systemTag = $this->_x('System', 'tag'); // Tag applied to the group of built-in/system fields
@@ -355,7 +358,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 			}
 			if(empty($tags)) {
-				$tag = strtolower($untaggedLabel);
+				$tag = $textTools->strtolower($untaggedLabel);
 				if(!isset($fieldsByTag[$tag])) $fieldsByTag[$tag] = array();
 				$fieldsByTag[$tag][$field->name] = $field;
 				$caseTags[$tag] = $untaggedLabel;
@@ -377,7 +380,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			foreach($fieldsByTag as $tag => $fields) {
 				ksort($fields);
 				/** @var InputfieldMarkup $f */
-				$f = $this->modules->get('InputfieldMarkup');
+				$f = $modules->get('InputfieldMarkup');
 				$f->entityEncodeLabel = false;
 				$f->label = $caseTags[$tag];
 				$f->icon = 'tags';
@@ -394,7 +397,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$out .= "\n</div><!--/#ProcessFieldList-->";
 
 		/** @var InputfieldButton $button */
-		$button = $this->modules->get('InputfieldButton');
+		$button = $modules->get('InputfieldButton');
 		$button->id = 'add_field_button'; 
 		$button->href = "./add"; 
 		$button->value = $this->_x('Add New Field', 'list button'); 
@@ -402,15 +405,14 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->showInHeader();
 		$out .= $button->render();
 		
-		$button = $this->modules->get('InputfieldButton');
+		$button = $modules->get('InputfieldButton');
 		$button->id = 'tags_button';
 		$button->href = './tags/';
 		$button->icon = 'tags';
 		$button->value = $this->labels['manage-tags'];
-		//$button->setSecondary();
 		$out .= $button->render();
 
-		$button = $this->modules->get('InputfieldButton');
+		$button = $modules->get('InputfieldButton');
 		$button->id = 'import_button';
 		$button->href = "./import/";
 		$button->value = $this->labels['import'];
@@ -418,7 +420,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->setSecondary();
 		$out .= $button->render();
 		
-		$button = $this->modules->get('InputfieldButton');
+		$button = $modules->get('InputfieldButton');
 		$button->id = 'export_button'; 
 		$button->href = "./export/";
 		$button->value = $this->labels['export'];
@@ -426,7 +428,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->setSecondary();
 		$out .= $button->render();
 
-		if($this->input->get('nosave')) {
+		if($this->wire()->input->get('nosave')) {
 			$session->removeFor($this, 'filterTemplate');
 			$session->removeFor($this, 'filterFieldtype');
 			$session->removeFor($this, 'filterShowSystem');
@@ -518,6 +520,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			// save tag
 			
 			$tagFields = $sanitizer->names($input->post('tag_fields'));
+			if(!is_array($tagFields)) $tagFields = array();
 			$renameTag = $sanitizer->words($input->post->text('rename_tag'), array('separator' => '-')); 
 			$isCollapsed = (int) $input->post('tag_collapsed');
 			$removeTag = '';
@@ -1893,8 +1896,10 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form->attr('title', $this->_x('Advanced', 'tab'));
 	
 		$tags = array();
+		$textTools = $this->wire()->sanitizer->getTextTools();
 		foreach($this->wire()->fields->getTags() as $tagKey => $tagValue) {
-			$tags[strtolower($tagKey)] = $tagValue;
+			$tagKey = $textTools->strtolower($tagKey);
+			$tags[$tagKey] = $tagValue;
 		}
 		ksort($tags);
 		/** @var InputfieldTextTags $field */

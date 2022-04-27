@@ -1435,6 +1435,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function setTags($tagList, $reindex = true) {
+		$textTools = $this->wire()->sanitizer->getTextTools();
 		if($tagList === null || $tagList === '') {
 			$tagList = array();
 		} else if(!is_array($tagList)) {
@@ -1444,7 +1445,7 @@ class Field extends WireData implements Saveable, Exportable {
 			$tags = array();
 			foreach($tagList as $tag) {
 				$tag = trim($tag);
-				if(strlen($tag)) $tags[strtolower($tag)] = $tag;
+				if(strlen($tag)) $tags[$textTools->strtolower($tag)] = $tag;
 			}
 			$tagList = $tags;
 		}
@@ -1465,8 +1466,9 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function addTag($tag) {
+		$textTools = $this->wire()->sanitizer->getTextTools();
 		$tagList = $this->getTags();
-		$tagList[strtolower($tag)] = $tag;
+		$tagList[$textTools->strtolower($tag)] = $tag;
 		$this->setTags($tagList, false);
 		return $tagList;
 	}
@@ -1480,8 +1482,9 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function hasTag($tag) {
+		$textTools = $this->wire()->sanitizer->getTextTools();
 		$tagList = $this->getTags();
-		return isset($tagList[strtolower(trim(ltrim($tag, '-')))]);
+		return isset($tagList[$textTools->strtolower(trim(ltrim($tag, '-')))]);
 	}
 
 	/**
@@ -1493,8 +1496,9 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function removeTag($tag) {
+		$textTools = $this->wire()->sanitizer->getTextTools();
 		$tagList = $this->getTags();
-		$tag = strtolower($tag);
+		$tag = $textTools->strtolower($tag);
 		if(!isset($tagList[$tag])) return $tagList;
 		unset($tagList[$tag]); 
 		return $this->setTags($tagList, false);
