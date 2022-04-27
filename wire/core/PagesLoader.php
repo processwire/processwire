@@ -1522,6 +1522,7 @@ class PagesLoader extends Wire {
 	 *    paths will make this method return a NullPage (or 0 if getID option is true).
 	 * 3) Partial paths may also match, so long as the partial path is completely unique in the site.
 	 *    If you don't want that behavior, double check the path of the returned page.
+	 * 4) See also the newer/more capable `$pages->pathFinder()` methods `get('/path/')` and `getPage('/path/')`.
 	 *
 	 * @param string $path
 	 * @param array|bool $options array of options (below), or specify boolean for $useLanguages option only.
@@ -1535,6 +1536,7 @@ class PagesLoader extends Wire {
 	 *     parent page that allows URL segments will be returned. Found URL segments are populated to a `_urlSegments` array
 	 *     property on the returned page object. This also cancels the allowPartial setting. (default=false) 3.0.184+
 	 * @return Page|int
+	 * @see PagesPathFinder::get(), PagesPathFinder::getPage()
 	 *
 	 */
 	public function getByPath($path, $options = array()) {
@@ -1602,10 +1604,12 @@ class PagesLoader extends Wire {
 		if($languages && !$languages->hasPageNames()) $languages = null;
 
 		$langKeys = array(':name' => 'name');
-		if($languages) foreach($languages as $language) {
-			if($language->isDefault()) continue;
-			$languageID = (int) $language->id;
-			$langKeys[":name$languageID"] = "name$languageID";
+		if($languages) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$languageID = (int) $language->id;
+				$langKeys[":name$languageID"] = "name$languageID";
+			}
 		}
 
 		$pageID = 0;
@@ -1679,6 +1683,10 @@ class PagesLoader extends Wire {
 				$lastAlias = $alias;
 			}
 
+			$isRootParent = !$n;
+			// there were no pathParts, so we are matching just a rootParent
+			if($isRootParent) $wheres[] = "pages.parent_id=1";
+
 			$whereORs = array();
 			foreach($langKeys as $bindKey => $colName) {
 				$whereORs[] = "pages.$colName=$bindKey";
@@ -1687,16 +1695,57 @@ class PagesLoader extends Wire {
 			$wheres[] = '(' . implode(' OR ', $whereORs) . ')';
 
 			$sql =
-				'SELECT pages.id, pages.templates_id, pages.parent_id '  .
+				'SELECT pages.id, pages.templates_id, pages.parent_id, pages.name '  .
 				'FROM pages ' . implode(' ', $joins) . " \n" .
 				'WHERE (' . implode(' AND ', $wheres) . ') ';
 
 			$query = $database->prepare($sql);
 			foreach($binds as $key => $value) $query->bindValue($key, $value);
 			$database->execute($query);
-			if($query->rowCount()) {
-				list($pageID, $templatesID, $parentID) = $query->fetch(\PDO::FETCH_NUM);
+			$rowCount = $query->rowCount();
+			
+			if($rowCount === 1) {
+				// just one page matched
+				$row = $query->fetch(\PDO::FETCH_NUM); 
+				list($pageID, $templatesID, $parentID, ) = $row;
+				
+			} else if($rowCount > 1 && $isRootParent) {
+				// multiple pages matched off root
+				// use either 'default' language match or first matching language
+				$rows = array();
+				while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+					$rows[] = $row;
+					if($row['name'] !== $lastPart) continue;
+					$rows = array($row); // force use of only this row (default language)
+					break;
+				}
+				$row = reset($rows);
+				list($pageID, $templatesID, $parentID) = array($row['id'], $row['templates_id'], $row['parent_id']); 
+				
+			} else if($rowCount > 1) {
+				// multiple pages matched somewhere in site, we need a stronger tool (pagesPathFinder)
+				$pathFinder = $this->pages->pathFinder();
+				$info = $pathFinder->get($_path, array(
+					'useLanguages' => $options['useLanguages'], 
+					'useHistory' => $options['useHistory'], 
+				));
+				if(!empty($info['page']['id'])) {
+					// pathFinder found a match
+					if(count($info['urlSegments']) && !$options['allowUrlSegments']) {
+						// found URL segments and they weren't allowed by options
+					} else {
+						$pageID = $info['page']['id'];
+						$templatesID = $info['page']['templates_id'];
+						$parentID = $info['page']['parent_id'];
+					}
+				}
+			} else if($isRootParent) {
+				// no page matches possible, maybe a URL segment for homepage?
+				
+			} else {
+				// no match found yet
 			}
+			
 			$query->closeCursor();
 		}
 
