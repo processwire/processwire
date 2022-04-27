@@ -3,8 +3,9 @@
  *
  * Code based on ImageUploader (c) Ross Turner (https://github.com/rossturner/HTML5-ImageUploader).
  * Adapted for ProcessWire by Ryan as a resizer-only libary with different behavior and some fixes. 
+ * Updates by Robin S. (https://github.com/toutouwai) to replace exif.js with piexif.js library.
  *
- * Requires exif.js (https://github.com/exif-js/exif-js) for JPEG autoRotate functions. 
+ * Requires piexif.js (https://github.com/hMatoba/piexifjs) to retain EXIF data in resized JPG.
  * 
  * Config settings:
  * 
@@ -106,28 +107,7 @@ PWImageResizer.prototype.resize = function(file, completionCallback) {
 				completionCallback(false);
 				return;
 			}
-
-			if(contentType == 'image/jpeg' && This.config.autoRotate) {
-				// jpeg with autoRotate 
-				This.consoleLog('detecting JPEG image orientation...');
-				
-				if((typeof EXIF.getData === "function") && (typeof EXIF.getTag === "function")) {
-					This.consoleLog('EXIF.getData starting');
-					EXIF.getData(img, function() {
-						This.consoleLog('EXIF.getData done, orientation:');
-						var orientation = EXIF.getTag(this, "Orientation");
-						This.consoleLog('image orientation from EXIF tag: ' + orientation);
-						This.scaleImage(img, orientation, completionCallback);
-					});
-				} else {
-					This.consoleLog("can't read EXIF data, the Exif.js library not found");
-					This.scaleImage(img, 0, completionCallback);
-				}
-				
-			} else {
-				// png or gif (or jpeg with autoRotate==false)
-				This.scaleImage(img, 0, completionCallback);
-			}
+			This.scaleImage(img, completionCallback);
 		}
 	};
 	
@@ -212,11 +192,10 @@ PWImageResizer.prototype.drawImage = function(context, img, x, y, width, height,
  * Scale an image
  * 
  * @param img The <img> element
- * @param orientation Orientation number from Exif.js or 0 bypass
  * @param completionCallback Function to call upon completion
  * 
  */
-PWImageResizer.prototype.scaleImage = function(img, orientation, completionCallback) {
+PWImageResizer.prototype.scaleImage = function(img, completionCallback) {
 	var canvas = document.createElement('canvas');
 	
 	canvas.width = img.width;
@@ -232,48 +211,7 @@ PWImageResizer.prototype.scaleImage = function(img, orientation, completionCallb
 	var styleWidth = canvas.style.width;
 	var height = canvas.height;
 	var styleHeight = canvas.style.height;
-	
-	if(typeof orientation === 'undefined') orientation = 1;
-	
-	if(orientation) {
-		if(orientation > 4) {
-			canvas.width = height;
-			canvas.style.width = styleHeight;
-			canvas.height = width;
-			canvas.style.height = styleWidth;
-		}
-		switch(orientation) {
-			case 2:
-				ctx.translate(width, 0);
-				ctx.scale(-1, 1);
-				break;
-			case 3:
-				ctx.translate(width, height);
-				ctx.rotate(Math.PI);
-				break;
-			case 4:
-				ctx.translate(0, height);
-				ctx.scale(1, -1);
-				break;
-			case 5:
-				ctx.rotate(0.5 * Math.PI);
-				ctx.scale(1, -1);
-				break;
-			case 6:
-				ctx.rotate(0.5 * Math.PI);
-				ctx.translate(0, -height);
-				break;
-			case 7:
-				ctx.rotate(0.5 * Math.PI);
-				ctx.translate(width, -height);
-				ctx.scale(-1, 1);
-				break;
-			case 8:
-				ctx.rotate(-0.5 * Math.PI);
-				ctx.translate(-width, 0);
-				break;
-		}
-	}
+
 	ctx.drawImage(img, 0, 0);
 	ctx.restore();
 
@@ -326,6 +264,32 @@ PWImageResizer.prototype.scaleImage = function(img, orientation, completionCallb
 	if(typeof this.config.onScale === 'function') {
 		this.config.onScale(imageData);
 	}
+
+	/** Added by @Toutouwai for change to piexif **/
+	if(this.currentFile.type === 'image/jpeg') {
+		try {
+			var exifObj = piexif.load(img.src);
+			// Detect if there is a high likelihood this image has already been rotated according to its EXIF orientation
+			var orientation = exifObj['0th'][piexif.ImageIFD.Orientation];
+			if(orientation > 4 && img.height > img.width) {
+				// Set EXIF orientation to normal
+				exifObj['0th'][piexif.ImageIFD.Orientation] = 1;
+			}
+			try {
+				var exifStr = piexif.dump(exifObj);
+				try {
+					imageData = piexif.insert(exifStr, imageData);
+				} catch(error) {
+					console.error(error);
+				}
+			} catch(error) {
+				console.error(error);
+			}
+		} catch(error) {
+			console.error(error);
+		}
+	}
+	/** End added by @Toutouwai for piexif **/
 
 	completionCallback(this.imageDataToBlob(imageData));
 };
