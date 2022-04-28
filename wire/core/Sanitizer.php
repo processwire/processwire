@@ -467,17 +467,17 @@ class Sanitizer extends Wire {
 				
 				if(empty($options['allowAdjacentExtras'])) {
 					// replace any of '-_.' next to each other with a single $replacement
-					$value = preg_replace('/[' . $allowedExtrasStr . ']{2,}/', $replacement, $value);
+					$value = preg_replace('![' . $allowedExtrasStr . ']{2,}!', $replacement, $value);
 				}
 
 				if(empty($options['allowDoubledReplacement'])) {
 					// replace double'd replacements
 					$r = "$replacement$replacement";
-					if(strpos($value, $r) !== false) $value = preg_replace('/' . $r . '+/', $replacement, $value);
+					while(strpos($value, $r) !== false) $value = str_replace($r, $replacement, $value);
 				}
 	
 				// replace double dots
-				if(strpos($value, '..') !== false) $value = preg_replace('/\.\.+/', '.', $value);
+				while(strpos($value, '..') !== false) $value = str_replace('..', '.', $value);
 			}
 			
 			if(strlen($value) > $maxLength) $value = substr($value, 0, $maxLength); 
@@ -1108,66 +1108,81 @@ class Sanitizer extends Wire {
 	 * - `Sanitizer::toAscii` (constant): Convert UTF-8 characters to punycode ASCII. 
 	 * - `Sanitizer::toUTF8` (constant): Convert punycode ASCII to UTF-8. 
 	 * - `Sanitizer::okUTF8` (constant): Allow UTF-8 characters to appear in path (implied if $config->pageNameCharset is 'UTF8'). 
-	 * @param int $maxLength Maximum length (default=1024)
+	 * @param int $maxLength Maximum length (default=2048)
 	 * @return string Sanitized path name
 	 *
 	 */
-	public function pagePathName($value, $beautify = false, $maxLength = 1024) {
+	public function pagePathName($value, $beautify = false, $maxLength = 2048) {
 
 		$value = $this->string($value);
-		$extras = array('/', '-', '_', '.');
-		$options = array('allowedExtras' => $extras);
-		$charset = $this->wire('config')->pageNameCharset;
-		
 		if(!strlen($value)) return '';
-	
-		if($charset === 'UTF8' && $beautify === self::toAscii) {
+		
+		$extras = array('/', '-', '_', '.');
+		$utf8 = $this->wire()->config->pageNameCharset === 'UTF8';
+
+		if($beautify === self::toAscii && $utf8) {
 			// convert UTF8 to punycode when applicable
-			if(!ctype_alnum(str_replace($extras, '', $value))) {
+			if(ctype_alnum(str_replace($extras, '', $value))) {
+				// value needs no ascii conversion
+			} else {
+				// convert UTF8 to ascii value
 				$parts = explode('/', $value);
 				foreach($parts as $n => $part) {
 					if(!strlen($part) || ctype_alnum($part)) continue;
-					if(!ctype_alnum(str_replace($extras, '', $part))) {
-						$parts[$n] = $this->pageName($part, self::toAscii);
-					}
+					$b = (ctype_alnum(str_replace($extras, '', $part)) ? false : self::toAscii);
+					$parts[$n] = $this->pageName($part, $b, $maxLength);
 				}
 				$value = implode('/', $parts);
 			}
-		}
-		
-		if($charset === 'UTF8' && $beautify === self::okUTF8) {
-			$value = $this->pagePathNameUTF8($value);
-		} else {
-			$b = $beautify;
-			if(in_array($beautify, array(self::okUTF8, self::toUTF8, self::toAscii))) $b = false;
-			// regular ascii path
-			$value = $this->name($value, $b, $maxLength, '-', $options);
-		}
-		
-		// disallow double slashes
-		while(strpos($value, '//') !== false) $value = str_replace('//', '/', $value); 
-		
-		// disallow relative paths
-		while(strpos($value, '..') !== false) $value = str_replace('..', '.', $value);
-		
-		// disallow names that start with a period
-		while(strpos($value, '/.') !== false) $value = str_replace('/.', '/', $value);
 
-		// ascii to UTF8 conversion, when requested
-		if($charset === 'UTF8' && $beautify === self::toUTF8) {
-			if(strpos($value, 'xn-') === false) return $value;
+		} else if($beautify === self::okUTF8 && $utf8) {
+			// UTF8 path
+			$value = $this->pagePathNameUTF8($value);
+
+		} else if($beautify === self::toUTF8 && $utf8 && strpos($value, 'xn-') !== false) {
+			// ASCII to UTF8 conversion, when requested
 			$parts = explode('/', $value);
 			foreach($parts as $n => $part) {
-				if(strpos($part, 'xn-') !== 0) continue;
-				$parts[$n] = $this->pageName($part, self::toUTF8);
+				if(!strlen($part)) continue;
+				$b = strpos($part, 'xn-') === 0 ? self::toUTF8 : false;
+				$parts[$n] = $this->pageName($part, $b, $maxLength);
 			}
 			$value = implode('/', $parts);
 			$value = $this->pagePathNameUTF8($value);
+
+		} else {
+			// ASCII path standard
+			$b = $beautify;
+			if($b === self::okUTF8 || $b === self::toUTF8 || $b === self::toAscii) $b = false;
+			$parts = explode('/', $value);
+			foreach($parts as $n => $part) {
+				if(!strlen($part)) continue;
+				$parts[$n] = $this->pageName($part, $b, $maxLength);
+			}
+
+			$value = implode('/', $parts);
 		}
 
-		return $value; 
-	}
+		// no double-slash, double-dot or slash-dot
+		$reps = array('//' => '/', '..' => '.', '/.' => '/');
+		foreach($reps as $find => $replace) {
+			while(strpos($value, $find) !== false) {
+				$value = str_replace(array_keys($reps), array_values($reps), $value);
+			}
+		}
+		
+		// truncate if needed
+		if($maxLength && strlen($value) > $maxLength) {
+			$slash = substr($value, -1) === '/';
+			$value = substr($value, 0, $maxLength);
+			$pos = strrpos($value, '/');
+			if($pos) $value = substr($value, 0, $pos);
+			if($slash) $value = rtrim($value, '/') . '/';
+		}
 
+		return $value;
+	}
+	
 	/**
 	 * Sanitize a UTF-8 page path name (does not perform ASCII/UTF8 conversions)
 	 * 
@@ -1191,10 +1206,10 @@ class Sanitizer extends Wire {
 			$parts[$n] = $this->pageName($part, self::okUTF8);
 		}
 		$value = implode('/', $parts);
-		$disallow = array('..', '/.', '//');
+		$disallow = array('..', '/.', './', '//');
 		foreach($disallow as $x) {
 			while(strpos($value, $x) !== false) {
-				$value = str_replace($x, '', $value);
+				$value = str_replace($disallow, '', $value);
 			}
 		}
 		return $value; 
