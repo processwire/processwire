@@ -34,9 +34,6 @@
  * - `quality` (float): A float between 0.1 and 1.0 for the image quality to use in the resulting image data, 
  *    around 0.9 is recommended. Default value: 1.0. Applies to JPEG images only.
  *    
- * - `autoRotate` (bool): Correct image orientation when EXIF data suggests it should be? (default=true).
- *    Note: autoRotate is not applied if it is determined that image needs no resize.
- *    
  * - `debug` (bool): Output verbose debugging messages to javascript console.
  *      
  *    
@@ -423,9 +420,6 @@ PWImageResizer.prototype.setConfig = function(customConfig) {
 	if((!this.config.scaleRatio) || (this.config.scaleRatio <= 0) || (this.config.scaleRatio >= 1)) {
 		this.config.scaleRatio = null;
 	}
-	this.config.autoRotate = true;
-	if(typeof customConfig.autoRotate === 'boolean')
-		this.config.autoRotate = customConfig.autoRotate;
 
 	// ensure both dimensions are provided (ryan)
 	if(this.config.maxWidth && !this.config.maxHeight) {
