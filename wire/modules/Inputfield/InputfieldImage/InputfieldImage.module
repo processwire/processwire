@@ -193,10 +193,11 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 
 		// client side image resize 
 		if(!$this->resizeServer && ($this->maxWidth || $this->maxHeight || $this->maxSize)) {
+			$moduleInfo = self::getModuleInfo();
 			$thisURL = $config->urls->InputfieldImage;
 			$jsExt = $config->debug ? "js" : "min.js";
 			$config->scripts->add($thisURL . "piexif.$jsExt");
-			$config->scripts->add($thisURL . "PWImageResizer.$jsExt");
+			$config->scripts->add($thisURL . "PWImageResizer.$jsExt?v=$moduleInfo[version]");
 			$maxSize = str_replace(',', '.', $this->maxSize); 
 			$quality = str_replace(',', '.', (float) ($this->clientQuality / 100));
 			$this->wrapAttr('data-resize', "$this->maxWidth;$this->maxHeight;$maxSize;$quality");
