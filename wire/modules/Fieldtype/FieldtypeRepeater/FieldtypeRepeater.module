@@ -33,7 +33,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Maintains a collection of fields that are repeated for any number of times.', __FILE__), // Module Summary
-			'version' => 111,
+			'version' => 112,
 			'autoload' => true,
 			'installs' => 'InputfieldRepeater'
 		);
@@ -54,7 +54,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	const loadingOff = 2;
 
 	/**
-	 * Field names used by repeaters in format [ PW_instanceNum => [ 'field_name', 'field_name2' ] ];
+	 * Field names used by repeaters in format [ PW_instanceID => [ 'field_name', 'field_name2' ] ];
 	 * 
 	 * @var array
 	 * 
@@ -62,7 +62,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	static protected $fieldsUsedInRepeaters = array();
 
 	/**
-	 * Template IDs used by repeaters in format [ PW_instanceNum => [ 123, 456, 789 ] ]
+	 * Template IDs used by repeaters in format [ PW_instanceID => [ 123, 456, 789 ] ]
 	 * 
 	 * @var array
 	 * 
@@ -70,12 +70,28 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	static protected $templatesUsedByRepeaters = array();
 	
 	/**
-	 * Has ready method been called? [ PW_instanceNum => true | false ]
+	 * Has ready method been called? [ PW_instanceID => true | false ]
 	 *
 	 * @var bool
 	 *
 	 */
 	static protected $isReady = array();
+	
+	/**
+	 * Fields that are initialized [ PW_instanceID => [ 'field_id' => true ] ]
+	 *
+	 * @var bool
+	 *
+	 */
+	static protected $initFields = array();
+
+	/**
+	 * ProcessWire instance ID
+	 *
+	 * @var int
+	 *
+	 */
+	protected $instanceID = 0;
 
 	/**
 	 * When non-zero, a deletePageField function call occurred and we shouldn't re-create any repeater parents
@@ -117,6 +133,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		require_once(dirname(__FILE__) . '/RepeaterPageArray.php'); 
 
 		$this->set('repeatersRootPageID', 0); 	
+		
+		parent::__construct();
 	}
 
 	/**	
@@ -124,6 +142,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function init() {
+		$this->instanceID = $this->wire()->getProcessWireInstanceID();
+		self::$initFields[$this->instanceID] = array();
 		$this->wire()->pages->addHookAfter('deleteReady', $this, 'hookPagesDelete');
 		$this->useLazy = $this->wire()->config->useLazyLoading;
 		parent::init();
@@ -136,34 +156,21 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function ready() {
 		parent::ready();
 	
-		$instanceNum = $this->wire()->getInstanceNum();
-		if(!empty(self::$isReady[$instanceNum])) return; // ensures everything below only runs only once (for extending types)
-		self::$isReady[$instanceNum] = true;
-		
-		if(!$this->useLazy) {
-			// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
-			// this was necessary when lazy loading option was disabled
-			$this->useLazy = true;
-			$repeaterFields = $this->wire()->fields->findByType('FieldtypeRepeater', array(
-				'inherit' => true,
-				'valueType' => 'field',
-				'indexType' => '',
-			));
-			foreach($repeaterFields as $field) {
-				$this->initField($field);
-			}
-			$this->useLazy = false;
-		}
- 
+		if(!empty(self::$isReady[$this->instanceID])) return; // ensures everything below only runs only once (for extending types)
+		self::$isReady[$this->instanceID] = true;
+
  		$page = $this->wire()->page;
  		$process = $page->process; /** @var Process|null $process */
 		$user = $this->wire()->user;
 		$config = $this->wire()->config;
 		$input = $this->wire()->input;
- 		
 		$inEditor = $process == 'ProcessPageEdit' || $process == 'ProcessProfile';
 		$isSuperuser = $user->isSuperuser();
 		
+		// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
+		// this was necessary when lazy loading option was disabled
+		if(!$this->useLazy) $this->initAllFields();
+
 		if($inEditor) {
 			// ProcessPageEdit or ProcessProfile
 			$this->addHookBefore('ProcessPageEdit::ajaxSave', $this, 'hookProcessPageEditAjaxSave');
@@ -174,11 +181,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$fieldName = (string) $input->get('field');
 			$pageID = (int) $input->get('id');
 			if($pageID && strpos($fieldName, '_repeater') && preg_match('/^(.+)_repeater\d+$/', $fieldName, $matches)) {
+				$this->initAllFields();
 				$editPage = $this->wire()->pages->get($pageID);
 				if($editPage->id && strpos($editPage->template->name, self::templateNamePrefix) === 0) {
 					// update field name to exclude the _repeater1234 part at the end, so that PageEdit recognizes it
-					$input->get->__set('field', $matches[1]);
+					$input->get->__set('field', $this->wire()->sanitizer->fieldName($matches[1]));
 				}
+			}
+			// handle scenario of file upload or other ajax saved field
+			if(isset($_SERVER['HTTP_X_FIELDNAME'])) {
+				// initialize all repeater fields so RepeaterPage class names are active for access control
+				if(strpos($_SERVER['HTTP_X_FIELDNAME'], '_repeater')) $this->initAllFields();
 			}
 		}
 		
@@ -207,8 +220,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function initField(Field $field) {
-		if(!$this->useLazy) return;
+		if(!empty(self::$initFields[$this->instanceID][$field->id])) return;
 		parent::initField($field);
+		if(!$this->useLazy) return;
+		self::$initFields[$this->instanceID][$field->id] = true;
 		/** @var FieldtypeRepeater $fieldtype */
 		$fieldtype = $field->type;
 		if(!$fieldtype instanceof FieldtypeRepeater) return;
@@ -220,6 +235,29 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if($class === $_class) return;
 		$template->set('pageClass', $class);
 		$template->save();
+	}
+
+
+	/**
+	 * Force initialize of all repeater fields, confirming their configuration settings are correct
+	 * 
+	 * @since 3.0.199
+	 * 
+	 */
+	public function initAllFields() {
+		if(!empty(self::$initFields['*'])) return;
+		self::$initFields['*'] = true;
+		$repeaterFields = $this->wire()->fields->findByType('FieldtypeRepeater', array(
+			'inherit' => true,
+			'valueType' => 'field',
+			'indexType' => '',
+		));
+		$useLazy = $this->useLazy;
+		$this->useLazy = true;
+		foreach($repeaterFields as $field) {
+			$this->initField($field);
+		}
+		$this->useLazy = $useLazy;
 	}
 
 	/**
@@ -342,10 +380,9 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		/** @var PageFinder $pageFinder */
 		$pageFinder = $event->object; 
 		$pageFinderOptions = $pageFinder->getOptions();
-		$instanceNum = $this->wire()->getInstanceNum();
 
 		// determine which fields are used in repeaters
-		if(!isset(self::$fieldsUsedInRepeaters[$instanceNum])) {
+		if(!isset(self::$fieldsUsedInRepeaters[$this->instanceID])) {
 			$fieldNames = array('title' => 'title'); // title used by admin template (repeater parents)
 			$templates = $this->wire()->templates;
 			$templateIds = array();
@@ -358,12 +395,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 					$fieldNames[$fieldName] = $fieldName;
 				}
 			}
-			self::$fieldsUsedInRepeaters[$instanceNum] = array_values($fieldNames);
-			self::$templatesUsedByRepeaters[$instanceNum] = array_values($templateIds);
+			self::$fieldsUsedInRepeaters[$this->instanceID] = array_values($fieldNames);
+			self::$templatesUsedByRepeaters[$this->instanceID] = array_values($templateIds);
 		}
 		
-		$fieldsUsedInRepeaters = self::$fieldsUsedInRepeaters[$instanceNum];
-		$templatesUsedByRepeaters = self::$templatesUsedByRepeaters[$instanceNum];
+		$fieldsUsedInRepeaters = self::$fieldsUsedInRepeaters[$this->instanceID];
+		$templatesUsedByRepeaters = self::$templatesUsedByRepeaters[$this->instanceID];
 
 		// did we find a field used by a repeater in the selector?
 		$found = false;
@@ -2228,6 +2265,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	protected function ___saveConfigInputfields(Field $field, Template $template, Page $parent) {
 		if($parent) {} // ignore
+		$this->initAllFields();
 		$helper = $this->getRepeaterConfigHelper($field);
 		$helper->saveConfigInputfields($template);
 	}
