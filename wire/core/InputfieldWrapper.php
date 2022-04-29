@@ -1401,7 +1401,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * #pw-group-retrieval-and-traversal
 	 * 
 	 * @param string $name Name of Inputfield
-	 * @return Inputfield|null
+	 * @return Inputfield|InputfieldWrapper|null
 	 * @see InputfieldWrapper::get(), InputfieldWrapper::children()
 	 *
 	 */
