@@ -1573,6 +1573,15 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$value = array();
 			foreach($this->statusLabels as $status => $label) if($p->hasStatus($status)) $value[] = $label;
 			$value = implode(', ', $value);
+			
+		} else if($name === 'template') {
+			// template label or name
+			$allowName = $this->useColumnLabels ? trim($this->get('sort'), '-') === 'template' : true;
+			$t = $p->template;
+			$value = $t->getLabel();
+			// include template name only if it differs from template label
+			if($allowName && strtolower($t->name) != strtolower($value)) $value .= " ($t->name)";
+			if(!$noEntities) $value = $sanitizer->entities1($value);
 
 		} else if($field && $field->type) {
 			if($subname == 'data') $subname = '';

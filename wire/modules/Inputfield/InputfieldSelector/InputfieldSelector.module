@@ -359,6 +359,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$notLabel = $this->_('Not: %s'); 
 		$findOperators = array();
 		$findNotOperators = array();
+		$showFieldLabels = $this->showFieldLabels;
 		
 		$operators = Selectors::getOperators(array(
 			'getIndexType' => 'operator',
@@ -407,16 +408,19 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->operatorTrimChars = '.@';
 	
 		$templates = array();
+		$templatesByLabel = array();
 		$initTemplates = $this->getTemplatesFromInitValue($this->initValue);
 		foreach($this->wire()->templates as $template) {
-			if(($template->flags & Template::flagSystem) && !$this->allowSystemTemplates) {
-				continue; 
-			}
+			if(($template->flags & Template::flagSystem) && !$this->allowSystemTemplates) continue; 
 			if(count($initTemplates) && !in_array($template->id, $initTemplates)) continue;
 			$label = $template->getLabel();
-			if($label != $template->name) $label .= " ($template->name)";
+			if(!$showFieldLabels || $showFieldLabels > 1 || isset($templatesByLabel[$label])) {
+				if(strtolower($template->name) != strtolower($label)) $label .= " ($template->name)";
+			}
+			$templatesByLabel[$label] = $template;
 			$templates[$template->id] = $label;
 		}
+		unset($templatesByLabel);
 
 		// make users selectable if there are under $maxUsers of them
 		// otherwise utilize the user ID property
