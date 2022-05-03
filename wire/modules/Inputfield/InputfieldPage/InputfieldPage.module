@@ -36,7 +36,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page',
-			'version' => 107,
+			'version' => 108,
 			'summary' => 'Select one or more pages',
 			'permanent' => true,
 		);
@@ -365,7 +365,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			
 		} else if($findPagesSelector) { 
 			// a find() selector
-			$instance = $this->processInputMode || strpos($findPagesSelector, '=page.') ? $this : null;
+			if($this->processInputMode) {
+				$instance = $this;
+			} else if(strpos($findPagesSelector, '=page.') || strpos($findPagesSelector, '=item.')) {
+				$instance = $this;
+			} else {
+				$instance = null;
+			}
 			$selector = self::populateFindPagesSelector($page, $findPagesSelector, $instance);
 			$children = $pages->find($selector); 
 
@@ -422,40 +428,42 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 */
 	protected static function populateFindPagesSelector(Page $page, $selector, $inputfield = null) {
 	
-		// if an $inputfield is passed in, then we want to retrieve dependent values directly
-		// from the form, rather than from the $page
-		$repeaterWrappers = array(); // 0, 1, or 2+ if nested repeaters
-		/** @var InputfieldWrapper $form */
-		if($inputfield) {
-			// locate the $form
-			$n = 0;
-			$form = $inputfield;
-			do {
-				if($form instanceof InputfieldWrapper && $form->hasClass('InputfieldRepeaterItem')) {
-					$repeaterWrappers[] = $form;
-				}
-				$f = $form->getParent();
-				if($f) $form = $f;
-				if(++$n > 10) break;
-			} while($f && $f->className() != 'InputfieldForm'); 
-		} else {
-			$form = null;
-		}
-
 		// find variables identified by: page.field or page.field.subfield
-		if(strpos($selector, '=page.') !== false) {
-			preg_match_all('/=page\.([_.a-zA-Z0-9]+)/', $selector, $matches); 
+		if(strpos($selector, '=page.') !== false || strpos($selector, '=item.') !== false) {
+			
+			// if an $inputfield is passed in, then we want to retrieve dependent values directly
+			// from the form, rather than from the $page
+			$repeaterWrappers = array(); // 0, 1, or 2+ if nested repeaters
+
+			/** @var InputfieldWrapper $form */
+			if($inputfield) {
+				// locate the $form
+				$n = 0;
+				$form = $inputfield;
+				do {
+					if($form instanceof InputfieldWrapper && $form->hasClass('InputfieldRepeaterItem')) {
+						$repeaterWrappers[] = $form;
+					}
+					$f = $form->getParent();
+					if($f) $form = $f;
+					if(++$n > 10) break;
+				} while($f && !wireInstanceOf($f, 'InputfieldForm'));
+			} else {
+				$form = null;
+			}
+
+			preg_match_all('/=(page|item)\.([_.a-zA-Z0-9]+)/', $selector, $matches); 
+			
 			foreach($matches[0] as $key => $tag) {
-				$field = $matches[1][$key];	
+				$type = $matches[1][$key]; // page or item
+				$field = $matches[2][$key];	
 				$subfield = '';
 				if(strpos($field, '.')) list($field, $subfield) = explode('.', $field); 
 				$value = null;
 				if($form && (!$subfield || $subfield == 'id')) {
 					// attempt to get value from the form, to account for ajax changes that would not yet be reflected on the page
-					$in = $form instanceof InputfieldWrapper ? $form->getChildByName($field) : null; 
-					if($in) {
-						$value = $in->attr('value');
-					} else if(count($repeaterWrappers)) {
+					$in = $form instanceof InputfieldWrapper ? $form->getChildByName($field) : null;
+					if($type === 'item' && count($repeaterWrappers)) {
 						// fields in repeaters use a namespaced name attribute so match by hasField instead
 						foreach($repeaterWrappers as $repeaterWrapper) {
 							/** @var InputfieldWrapper $repeaterWrapper */
@@ -467,9 +475,17 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 							}
 							if($value !== null) break;
 						}
+					} else if($in) {
+						$value = $in->attr('value');
 					}
 				}
-				if(is_null($value)) $value = $page->get($field); 
+				if(is_null($value)) {
+					if($type === 'page' && $page instanceof RepeaterPage) {
+						$value = $page->getForPageRoot()->get($field);
+					} else {
+						$value = $page->get($field);
+					}
+				}
 				if(is_object($value) && $subfield) $value = $value->$subfield;
 				if(is_array($value)) $value = implode('|', $value); 
 				if(!strlen("$value") && (!$subfield || $subfield == 'id')) $value = '-1'; // force fail
