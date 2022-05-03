@@ -175,6 +175,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$out =
 			"<input " . $this->inputfield->getAttributesString($attrs) . " " .
 			"value='$value' " .
+			"autocomplete='off' " . 
 			"data-dateformat='$dateFormatJS' " .
 			"data-timeformat='$timeFormatJS' " .
 			"data-timeselect='$timeInputSelect' " .
