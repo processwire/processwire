@@ -528,11 +528,12 @@ class Field extends WireData implements Saveable, Exportable {
 
 		// convert access roles from IDs to names
 		if($this->useRoles) {
+			$roles = $this->wire()->roles;
 			foreach(array('viewRoles', 'editRoles') as $roleType) {
 				if(!is_array($data[$roleType])) $data[$roleType] = array();
 				$roleNames = array();
 				foreach($data[$roleType] as $key => $roleID) {
-					$role = $this->wire('roles')->get($roleID);
+					$role = $roles->get($roleID);
 					if(!$role || !$role->id) continue;
 					$roleNames[] = $role->name;
 				}
@@ -586,12 +587,12 @@ class Field extends WireData implements Saveable, Exportable {
 
 		// prep data for actual import
 		if(!empty($data['type']) && ((string) $this->type) != $data['type']) {
-			$this->type = $this->wire('fieldtypes')->get($data['type']);
+			$this->type = $this->wire()->fieldtypes->get($data['type']);
 		}
 
 		if(!$this->type) {
 			if(!empty($data['type'])) $this->error("Unable to locate field type: $data[type]"); 
-			$this->type = $this->wire('fieldtypes')->get('FieldtypeText');
+			$this->type = $this->wire()->fieldtypes->get('FieldtypeText');
 		}
 
 		$data = $this->type->importConfigData($this, $data);
@@ -810,7 +811,7 @@ class Field extends WireData implements Saveable, Exportable {
 			} else if($role instanceof Role) {
 				$ids[] = (int) $role->id;
 			} else if(is_string($role) && strlen($role)) {
-				$rolePage = $this->wire('roles')->get($role); 
+				$rolePage = $this->wire()->roles->get($role); 
 				if($rolePage && $rolePage->id) {
 					$ids[] = $rolePage->id;
 				} else {
@@ -1139,7 +1140,7 @@ class Field extends WireData implements Saveable, Exportable {
 		}
 
 		$inputfields = $this->wire(new InputfieldWrapper());
-		$dummyPage = $this->wire('pages')->get("/"); // only using this to satisfy param requirement 
+		$dummyPage = $this->wire()->pages->get('/'); // only using this to satisfy param requirement 
 
 		$inputfield = $this->getInputfield($dummyPage);
 		if($inputfield) {
@@ -1232,6 +1233,13 @@ class Field extends WireData implements Saveable, Exportable {
 		return $this->settings['name']; 
 	}
 
+	/**
+	 * Isset
+	 * 
+	 * @param string $key
+	 * @return bool
+	 * 
+	 */
 	public function __isset($key) {
 		if(parent::__isset($key)) return true; 
 		return isset($this->settings[$key]); 
@@ -1268,8 +1276,9 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	protected function setText($property, $value, $language = null) {
-		if($this->wire('languages') && $language != null) {
-			if(is_string($language) || is_int($language)) $language = $this->wire('languages')->get($language);
+		$languages = $this->wire()->languages;
+		if($languages && $language != null) {
+			if(is_string($language) || is_int($language)) $language = $languages->get($language);
 			if($language && (!$language->id || $language->isDefault())) $language = null;
 		} else {
 			$language = null;

@@ -359,7 +359,7 @@ function wireLangTranslations(array $values = array()) {
  * 
  * This option enables you to replace text sent to translation calls 
  * like `__('text')` with your own replacement text. This is similar
- * to the `wireTranslateValues()` function except that it applies 
+ * to the `wireLangTranslations()` function except that it applies 
  * regardless of whether or not a translation is available for the 
  * phrase. It overrides rather than serves as a fallback.
  * 

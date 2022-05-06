@@ -7,7 +7,7 @@
  * #pw-body Template objects also maintain several properties which can affect the render behavior of pages using it. 
  * #pw-order-groups identification,manipulation,family,URLs,access,files,cache,page-editor,behaviors,other
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add multi-language option for redirectLogin setting
@@ -369,22 +369,22 @@ class Template extends WireData implements Saveable, Exportable {
 			if($name !== 'view') {
 				if(empty($name)) throw new WireException("Unknown roles type: $type");
 				$roleIDs = $this->$propertyName;
-				if(empty($roleIDs)) return $this->wire('pages')->newPageArray();
-				return $this->wire('pages')->getById($roleIDs);
+				if(empty($roleIDs)) return $this->wire()->pages->newPageArray();
+				return $this->wire()->pages->getById($roleIDs);
 			}
 		}
 
 		// type=view assumed from this point forward
 		
 		if(is_null($this->_roles)) {
-			return $this->wire('pages')->newPageArray();
+			return $this->wire()->pages->newPageArray();
 
 		} else if($this->_roles instanceof PageArray) {
 			return $this->_roles;
 		
 		} else if(is_array($this->_roles)) {
 			$errors = array();
-			$roles = $this->wire('pages')->newPageArray();
+			$roles = $this->wire()->pages->newPageArray();
 			if(count($this->_roles)) {
 				$test = implode('0', $this->_roles); // test to see if it's all digits (IDs)
 				if(ctype_digit("$test")) {
@@ -392,7 +392,7 @@ class Template extends WireData implements Saveable, Exportable {
 				} else {
 					// role names
 					foreach($this->_roles as $name) {
-						$role = $this->wire('roles')->get($name); 
+						$role = $this->wire()->roles->get($name); 
 						if($role->id) {
 							$roles->add($role); 
 						} else {
@@ -405,7 +405,7 @@ class Template extends WireData implements Saveable, Exportable {
 			$this->_roles = $roles;
 			return $this->_roles;
 		} else {
-			return $this->wire('pages')->newPageArray();
+			return $this->wire()->pages->newPageArray();
 		}
 	}
 
@@ -440,7 +440,7 @@ class Template extends WireData implements Saveable, Exportable {
 		}
 		if($type === 'view') return $has;
 		if(!$has) return false; // page-view is a pre-requisite
-		if(!$rolePage || !$rolePage->id) $rolePage = $this->wire('roles')->get($role);
+		if(!$rolePage || !$rolePage->id) $rolePage = $this->wire()->roles->get($role);
 		if(!$rolePage->id) return false;
 		$has = $property ? in_array($rolePage->id, $this->$property) : false; 
 		return $has;
@@ -490,7 +490,7 @@ class Template extends WireData implements Saveable, Exportable {
 				if(ctype_digit($v)) {
 					$id = (int) $v;
 				} else {
-					if($roles === null) $roles = $this->wire('roles');
+					if($roles === null) $roles = $this->wire()->roles;
 					$id = $roles ? (int) $roles->get($v)->id : 0;
 					if(!$id && $this->_importMode && $this->useRoles) {
 						$this->error("Unable to load role '$v' for '$this.$type'");
@@ -523,7 +523,7 @@ class Template extends WireData implements Saveable, Exportable {
 			
 			if(!ctype_digit("$roleID")) {
 				// convert role name to ID
-				$roleID = $this->wire('roles')->get("name=$roleID")->id;
+				$roleID = $this->wire()->roles->get("name=$roleID")->id;
 			}
 			
 			if(!$roleID) continue;
@@ -534,7 +534,7 @@ class Template extends WireData implements Saveable, Exportable {
 				if(!ctype_digit($test)) {
 					// convert permission name to ID
 					$revoke = strpos($permissionID, '-') === 0;
-					$permissionID = $this->wire('permissions')->get("name=$test")->id;
+					$permissionID = $this->wire()->permissions->get("name=$test")->id;
 					if(!$permissionID) continue;
 					if($revoke) $permissionID = "-$permissionID";
 				}
@@ -561,7 +561,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function addRole($role, $type = 'view') {
-		if(is_int($role) || is_string($role)) $role = $this->wire('roles')->get($role); 
+		if(is_int($role) || is_string($role)) $role = $this->wire()->roles->get($role); 
 		if(!$role instanceof Role) throw new WireException("addRole requires Role instance, name or id");
 		$roles = $this->getRoles($type);	
 		if(!$roles->has($role)) {
@@ -584,7 +584,7 @@ class Template extends WireData implements Saveable, Exportable {
 	public function removeRole($role, $type = 'view') {
 		
 		if(is_int($role) || is_string($role)) {
-			$role = $this->wire('roles')->get($role);
+			$role = $this->wire()->roles->get($role);
 		}
 		
 		if(!$role instanceof Role) {
@@ -625,7 +625,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function addPermissionByRole($permission, $role, $test = false) {
-		return $this->wire('templates')->setTemplatePermissionByRole($this, $permission, $role, false, $test); 
+		return $this->wire()->templates->setTemplatePermissionByRole($this, $permission, $role, false, $test); 
 	}
 
 	/**
@@ -640,7 +640,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function revokePermissionByRole($permission, $role, $test = false) {
-		return $this->wire('templates')->setTemplatePermissionByRole($this, $permission, $role, true, $test); 
+		return $this->wire()->templates->setTemplatePermissionByRole($this, $permission, $role, true, $test); 
 	}
 	
 	/**
@@ -693,7 +693,7 @@ class Template extends WireData implements Saveable, Exportable {
 			}
 
 		} else if($key == 'sortfield') {
-			$value = $this->wire('pages')->sortfields()->decode($value, '');
+			$value = $this->wire()->pages->sortfields()->decode($value, '');
 			parent::set($key, $value);
 
 		} else if($key === 'roles' || $key === 'addRoles' || $key === 'editRoles' || $key === 'createRoles') {
@@ -814,7 +814,7 @@ class Template extends WireData implements Saveable, Exportable {
 			if(is_object($v)) {
 				$v = $v->id;
 			} else if(!ctype_digit("$v")) {
-				$p = $this->wire('pages')->get($v);
+				$p = $this->wire()->pages->get($v);
 				if(!$p->id) $this->error("Unable to load page: $v");
 				$v = $p->id;
 			}
@@ -992,7 +992,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function getNumPages() {
-		return $this->wire('templates')->getNumPages($this); 	
+		return $this->wire()->templates->getNumPages($this); 	
 	}
 
 	/**
@@ -1007,7 +1007,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function save() {
 
-		$result = $this->wire('templates')->save($this); 	
+		$result = $this->wire()->templates->save($this); 	
 
 		return $result ? $this : false; 
 	}
@@ -1024,8 +1024,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function filename($filename = null) {
 
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$path = $config->paths->templates;
 		
 		if($filename !== null) {
@@ -1074,10 +1073,8 @@ class Template extends WireData implements Saveable, Exportable {
 				}
 				if($isModified || !$this->ns) {
 					// determine namespace
-					$files = $this->wire('files');
-					/** @var WireFileTools $files */
-					$templates = $this->wire('templates');
-					/** @var Templates $templates */
+					$files = $this->wire()->files;
+					$templates = $this->wire()->templates;
 					$this->ns = $files->getNamespace($filename);
 					$templates->fileModified($this);
 				}
@@ -1096,7 +1093,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function hookFinished(HookEvent $e) {
-		foreach($e->wire('templates') as $template) {
+		foreach($e->wire()->templates as $template) {
 			if($template->isChanged('modified') || $template->isChanged('ns')) $template->save();
 		}
 	}
@@ -1149,7 +1146,9 @@ class Template extends WireData implements Saveable, Exportable {
 		$tableData = $this->settings; 
 		$data = $this->getArray();
 		// ensure sortfield is a signed integer or native name, rather than a custom fieldname
-		if(!empty($data['sortfield'])) $data['sortfield'] = $this->wire('pages')->sortfields()->encode($data['sortfield'], ''); 
+		if(!empty($data['sortfield'])) {
+			$data['sortfield'] = $this->wire()->pages->sortfields()->encode($data['sortfield'], '');
+		}
 		$tableData['data'] = $data; 
 		
 		return $tableData; 
@@ -1162,7 +1161,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function getExportData() {
-		return $this->wire('templates')->getExportData($this); 	
+		return $this->wire()->templates->getExportData($this); 	
 	}
 
 	/**
@@ -1181,7 +1180,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function setImportData(array $data) {
-		return $this->wire('templates')->setImportData($this, $data); 
+		return $this->wire()->templates->setImportData($this, $data); 
 	}
 	
 	/**
@@ -1241,9 +1240,9 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	protected function familyTemplates($property, $setValue = null) {
 		
-		/** @var Templates $templates */
-		$templates = $this->wire('templates');
+		$templates = $this->wire()->templates;
 		$value = new TemplatesArray();
+		$this->wire($value);
 		
 		if($setValue !== null && WireArray::iterable($setValue)) {
 			// set
@@ -1279,7 +1278,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function allowNewPages() {
-		$pages = $this->wire('pages'); /** @var Pages $pages */
+		$pages = $this->wire()->pages;
 		$noParents = (int) $this->noParents;
 		if($noParents === 1) {
 			// no new pages may be created
@@ -1307,7 +1306,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function getParentPage($checkAccess = false) {
-		return $this->wire('templates')->getParentPage($this, $checkAccess); 
+		return $this->wire()->templates->getParentPage($this, $checkAccess); 
 	}
 
 	/**
@@ -1320,7 +1319,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function getParentPages($checkAccess = false) {
-		return $this->wire('templates')->getParentPages($this, $checkAccess);
+		return $this->wire()->templates->getParentPages($this, $checkAccess);
 	}
 
 	/**
@@ -1362,7 +1361,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function getTabLabel($tab, $language = null) {
 		$tab = ucfirst(strtolower($tab)); 
-		if(is_null($language)) $language = $this->wire('languages') ? $this->wire('user')->language : null;
+		if(is_null($language)) $language = $this->wire()->languages ? $this->wire()->user->language : null;
 		if(!$language || $language->isDefault()) $language = '';
 		$label = $this->get("tab$tab$language");
 		return $label;
@@ -1378,7 +1377,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function getNameLabel($language = null) {
-		if(is_null($language)) $language = $this->wire('languages') ? $this->wire('user')->language : null;
+		if(is_null($language)) $language = $this->wire()->languages ? $this->wire()->user->language : null;
 		if(!$language || $language->isDefault()) $language = '';
 		return $this->get("nameLabel$language");
 	}
@@ -1413,11 +1412,10 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function getLanguages() {
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		if(!$languages) return null;
 		if(!$this->noLang) return $languages;
-		$langs = $this->wire('pages')->newPageArray();
+		$langs = $this->wire()->pages->newPageArray();
 		// if noLang set, then only default language is included
 		$langs->add($languages->getDefault());
 		return $langs;
@@ -1437,7 +1435,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function getPageClass($withNamespace = true) {
-		return $this->wire('templates')->getPageClass($this, $withNamespace);
+		return $this->wire()->templates->getPageClass($this, $withNamespace);
 	}
 
 	/**
@@ -1537,7 +1535,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function setIcon($icon) {
 		// This manipulates the pageLabelField property, since there isn't actually an icon property. 
-		$icon = $this->wire('sanitizer')->pageName($icon); 
+		$icon = $this->wire()->sanitizer->pageName($icon); 
 		$current = $this->getIcon(false); 	
 		$label = $this->pageLabelField;
 		if(strpos($icon, "icon-") === 0) $icon = str_replace("icon-", "fa-", $icon); // convert icon-str to fa-str
@@ -1564,8 +1562,9 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function ___getConnectedField() {
+		$fields = $this->wire()->fields;
 		if($this->connectedFieldID) {
-			$field = $this->wire('fields')->get((int) $this->connectedFieldID); 
+			$field = $fields->get((int) $this->connectedFieldID); 
 		} else {
 			$field = null;
 		}
@@ -1579,7 +1578,7 @@ class Template extends WireData implements Saveable, Exportable {
 				break;
 			}
 			if($fieldName) {
-				$field = $this->wire('fields')->get($fieldName);
+				$field = $fields->get($fieldName);
 			}
 		}
 		return $field;

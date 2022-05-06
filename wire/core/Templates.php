@@ -92,7 +92,7 @@ class Templates extends WireSaveableItems {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return WireArray
+	 * @return WireArray|TemplatesArray
 	 * @since 3.0.194
 	 *
 	 */
@@ -110,7 +110,7 @@ class Templates extends WireSaveableItems {
 	 * #pw-internal
 	 *
 	 * @param array $a Associative array of data to populate
-	 * @return Saveable|Wire
+	 * @return Saveable|Wire|Template
 	 * @since 3.0.146
 	 *
 	 */
@@ -159,6 +159,8 @@ class Templates extends WireSaveableItems {
 
 	/**
 	 * Return a new blank item 
+	 * 
+	 * @return Template
 	 * 
 	 * #pw-internal
 	 *
@@ -322,8 +324,7 @@ class Templates extends WireSaveableItems {
 			$access->updateTemplate($item); 
 		}
 	
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache');
+		$cache = $this->wire()->cache;
 		$cache->maintenance($item);
 
 		return $result; 
@@ -338,14 +339,21 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function ___delete(Saveable $item) {
-		if($item->flags & Template::flagSystem) throw new WireException("Can't delete template '{$item->name}' because it is a system template."); 
+		
+		if($item->flags & Template::flagSystem) {
+			throw new WireException("Can't delete template '{$item->name}' because it is a system template.");
+		}
+		
 		$cnt = $item->getNumPages();
-		if($cnt > 0) throw new WireException("Can't delete template '{$item->name}' because it is used by $cnt pages.");  
+		
+		if($cnt > 0) {
+			throw new WireException("Can't delete template '{$item->name}' because it is used by $cnt pages.");
+		}
 
 		$return = parent::___delete($item);
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache');
+		$cache = $this->wire()->cache;
 		$cache->maintenance($item); 
+		
 		return $return;
 	}
 
@@ -458,7 +466,7 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function getNumPages(Template $tpl) {
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$query = $database->prepare("SELECT COUNT(*) AS total FROM pages WHERE templates_id=:template_id"); // QA
 		$query->bindValue(":template_id", $tpl->id, \PDO::PARAM_INT);
 		$query->execute();
@@ -499,7 +507,7 @@ class Templates extends WireSaveableItems {
 		unset($data['data'], $data['modified']);
 
 		// convert fieldgroup to guid
-		$fieldgroup = $this->wire('fieldgroups')->get((int) $data['fieldgroups_id']);
+		$fieldgroup = $this->wire()->fieldgroups->get((int) $data['fieldgroups_id']);
 		if($fieldgroup) $data['fieldgroups_id'] = $fieldgroup->name;
 
 		// convert family settings to guids
@@ -520,7 +528,7 @@ class Templates extends WireSaveableItems {
 				if(!isset($data[$key])) continue;
 				$values = array();
 				foreach($data[$key] as $id) {
-					$role = $id instanceof Role ? $id : $this->wire('roles')->get((int) $id);
+					$role = $id instanceof Role ? $id : $this->wire()->roles->get((int) $id);
 					$values[] = $role->name;
 				}
 				$data[$key] = $values;
@@ -530,9 +538,10 @@ class Templates extends WireSaveableItems {
 		// convert pages to guids
 		if(((int) $template->cache_time) != 0) {
 			if(!empty($data['cacheExpirePages'])) {
+				$pages = $this->wire()->pages;
 				$values = array();
 				foreach($data['cacheExpirePages'] as $id) {
-					$page = $this->wire('pages')->get((int) $id);
+					$page = $pages->get((int) $id);
 					if(!$page->id) continue;
 					$values[] = $page->path;
 				}
@@ -573,6 +582,8 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function ___setImportData(Template $template, array $data) {
+		
+		$fieldgroups = $this->wire()->fieldgroups;
 
 		$template->set('_importMode', true); 
 		$fieldgroupData = array();
@@ -585,7 +596,7 @@ class Templates extends WireSaveableItems {
 
 		foreach($data as $key => $value) {
 			if($key == 'fieldgroups_id' && !ctype_digit("$value")) {
-				$fieldgroup = $this->wire('fieldgroups')->get($value);
+				$fieldgroup = $fieldgroups->get($value);
 				if(!$fieldgroup) {
 					$fieldgroup = $this->wire(new Fieldgroup());
 					$fieldgroup->name = $value;
@@ -671,8 +682,11 @@ class Templates extends WireSaveableItems {
 	 */
 	public function getParentPage(Template $template, $checkAccess = false, $getAll = false) {
 		
+		$pages = $this->wire()->pages;
+		$user = $this->wire()->user;
+		
 		$foundParent = null;
-		$foundParents = $getAll ? $this->wire('pages')->newPageArray() : null;
+		$foundParents = $getAll ? $pages->newPageArray() : null;
 		$foundParentQty = 0;
 		$maxStatus = is_int($getAll) && $getAll ? ($getAll * 2) : 0;
 
@@ -686,7 +700,7 @@ class Templates extends WireSaveableItems {
 
 		foreach($template->parentTemplates as $parentTemplateID) {
 
-			$parentTemplate = $this->wire('templates')->get((int) $parentTemplateID);
+			$parentTemplate = $this->get((int) $parentTemplateID);
 			if(!$parentTemplate) continue;
 
 			// if the parent template doesn't have this as an allowed child template, exclude it 
@@ -701,7 +715,7 @@ class Templates extends WireSaveableItems {
 			} else if(!$getAll) {
 				$selector .= ", limit=2";
 			}
-			$parentPages = $this->wire('pages')->find($selector);
+			$parentPages = $pages->find($selector);
 			$numParentPages = count($parentPages);
 
 			// undetermined parent
@@ -723,11 +737,11 @@ class Templates extends WireSaveableItems {
 			if($checkAccess) {
 				if($parentPage->id) {
 					// single defined parent
-					$p = $this->wire('pages')->newPage($template);
+					$p = $pages->newPage($template);
 					if(!$parentPage->addable($p)) continue;
 				} else {
 					// multiple possible parents
-					if(!$this->wire('user')->hasPermission('page-create', $template)) continue;
+					if(!$user->hasPermission('page-create', $template)) continue;
 				}
 			}
 
@@ -737,14 +751,14 @@ class Templates extends WireSaveableItems {
 		}
 		
 		if($checkAccess && $getAll && $foundParents && $foundParents->count()) {
-			$p = $this->wire('pages')->newPage($template);
+			$p = $pages->newPage($template);
 			foreach($foundParents as $parentPage) {
 				if(!$parentPage->addable($p)) $foundParents->remove($parentPage);
 			}
 		}
 		
 		if($getAll) return $foundParents;
-		if($foundParentQty > 1) return $this->wire('pages')->newNullPage();
+		if($foundParentQty > 1) return $pages->newNullPage();
 		
 		return $foundParent;
 	}
@@ -785,6 +799,7 @@ class Templates extends WireSaveableItems {
 		}
 
 		$corePageClass = __NAMESPACE__ . "\\Page";
+		$cacheable = true;
 		
 		// first check for class defined with Template 'pageClass' setting
 		$pageClass = $template->pageClass;
@@ -802,10 +817,12 @@ class Templates extends WireSaveableItems {
 			} else {
 				// class is not available for instantiation
 				$pageClass = '';
+				// do not cache because maybe class will be available later
+				$cacheable = false; 
 			}
 		}
 	
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$usePageClasses = $config->usePageClasses;
 
 		if(empty($pageClass) || $pageClass === 'Page') {
@@ -836,7 +853,7 @@ class Templates extends WireSaveableItems {
 			}
 		}
 
-		if($template->id) $this->pageClassNames[$template->id] = $pageClass;
+		if($cacheable && $template->id) $this->pageClassNames[$template->id] = $pageClass;
 		
 		if(!$withNamespace) $pageClass = wireClassName($pageClass, false);
 
@@ -904,7 +921,7 @@ class Templates extends WireSaveableItems {
 		} else if($permission instanceof Permission) {
 			$permissionName = $permission->name;
 		} else {
-			$permission = $this->wire('permissions')->get($permission);
+			$permission = $this->wire()->permissions->get($permission);
 			$permissionName = $permission ? $permission->name : '';
 		}
 

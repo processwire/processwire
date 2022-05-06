@@ -105,9 +105,9 @@ class Fieldtypes extends WireArray {
 	 */
 	protected function preload() {
 		if($this->preloaded) return;
-		$debug = $this->isAPI && $this->wire('config')->debug; 
+		$debug = $this->isAPI && $this->wire()->config->debug; 
 		if($debug) Debug::timer('Fieldtypes.preload'); 
-		$modules = $this->wire('modules'); /** @var Modules $modules */
+		$modules = $this->wire()->modules;
 		foreach($this->data as $moduleName => $module) {
 			if($module instanceof ModulePlaceholder) {
 				$fieldtype = $modules->getModule($moduleName); 

@@ -38,6 +38,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			'installs' => 'InputfieldRepeater'
 		);
 	}
+	
+	const devMode = false; // display verbose TD messages
 
 	const templateNamePrefix = 'repeater_';
 	const fieldPageNamePrefix = 'for-field-';
@@ -166,6 +168,9 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$input = $this->wire()->input;
 		$inEditor = $process == 'ProcessPageEdit' || $process == 'ProcessProfile';
 		$isSuperuser = $user->isSuperuser();
+		
+		// @todo would the following line be needed in some contexts (like ListerPro?)
+		// if(!$inEditor && $process && wireInstanceOf($process, 'WirePageEditor')) $inEditor = true;
 		
 		// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
 		// this was necessary when lazy loading option was disabled
@@ -307,7 +312,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	
 		/** @var Page|RepeaterPage $page */
 		$page = $event->arguments(0);
-		if(!$page instanceof RepeaterPage) return;
+		if(!$page instanceof RepeaterPage) {
+			$t = $page->template;
+			if(strpos("$t", "repeater_") === 0) {
+				$this->bd("Page $page ($t) has wrong class ($page->className != $t->pageClass)", __FUNCTION__, true); 
+			}
+			return;
+		}
 		
 		$forField = $page->getForField();
 		$n = 0;
@@ -2129,12 +2140,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$fieldPageName = self::fieldPageNamePrefix . ($field ? $field->id : '');
 		
 		if(strpos($page->path, '/' . self::repeatersRootPageName . '/') === false) {
-			$this->bd("Cannot delete $page->path because not in repeaters path", __FUNCTION__);
+			$this->bd("Cannot delete $page->path because not in repeaters path", __FUNCTION__, true);
 			return 0;
 		}
 		
 		if($field && strpos($page->path, "/$fieldPageName/") === false) {
-			$this->bd("Cannot delete $page->path because not within /$fieldPageName/", __FUNCTION__);
+			$this->bd("Cannot delete $page->path because not within /$fieldPageName/", __FUNCTION__, true);
 			return 0;
 		}
 		
@@ -2154,14 +2165,14 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			
 		} else {
 			// some other page, not allowed to delete
-			$this->bd("Not allowed to delete $page->path", __FUNCTION__); 
+			$this->bd("Not allowed to delete $page->path", __FUNCTION__, true); 
 			return 0; 
 		}
 		
 		$numChildren = $page->numChildren;
 		
 		if($numChildren && !$recursive) {
-			$this->bd("Cannot delete $page->path because has children", __FUNCTION__); 
+			$this->bd("Cannot delete $page->path because has children", __FUNCTION__, true); 
 			return 0;
 		}
 		
@@ -2187,11 +2198,14 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	
 	/**
 	 * @param mixed $msg
-	 * @param string $func
+	 * @param string|bool $func
+	 * @param bool $error
 	 *
 	 */
-	protected function bd($msg, $func = '') {
+	protected function bd($msg, $func = '', $error = false) {
 		if(!$this->wire()->config->debug || !class_exists('\\TD')) return;
+		if(is_bool($func)) list($error, $func) = array($func, '');
+		if(!self::devMode && !$error) return;
 		call_user_func_array('\\TD::barDump', array($msg, $this->className() . "::$func"));
 	}
 

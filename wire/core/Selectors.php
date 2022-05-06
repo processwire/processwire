@@ -212,6 +212,7 @@ class Selectors extends WireArray {
 				$not = true;
 			} else {
 				if(is_array($value)) $value = implode('|', $value);
+				if(is_array($field)) $field = implode('|', $field);
 				$debug = $this->wire('config')->debug ? "field='$field', value='$value', selector: '$this->selectorStr'" : "";
 				if(empty($operator)) $operator = '[empty]';
 				throw new WireException("Unknown Selector operator: '$operator' -- was your selector value properly escaped? $debug");

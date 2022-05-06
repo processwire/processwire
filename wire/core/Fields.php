@@ -171,6 +171,8 @@ class Fields extends WireSaveableItems {
 	 * Per WireSaveableItems interface, return a blank instance of a Field
 	 * 
 	 * #pw-internal
+	 * 
+	 * @return Field
 	 *
 	 */
 	public function makeBlankItem() {
@@ -320,7 +322,7 @@ class Fields extends WireSaveableItems {
 		if($item->flags & Field::flagFieldgroupContext) throw new WireException("Field $item is not saveable because it is in a specific context"); 
 		if(!strlen($item->name)) throw new WireException("Field name is required"); 
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$isNew = $item->id < 1;
 		$prevTable = $database->escapeTable($item->prevTable);
 		$table = $database->escapeTable($item->getTable());
@@ -356,13 +358,13 @@ class Fields extends WireSaveableItems {
 
 		if($item->flags & Field::flagGlobal) {
 			// make sure that all template fieldgroups contain this field and add to any that don't. 
-			foreach($this->wire('templates') as $template) {
+			foreach($this->wire()->templates as $template) {
 				if($template->noGlobal) continue; 
 				$fieldgroup = $template->fieldgroup; 
 				if(!$fieldgroup->hasField($item)) {
 					$fieldgroup->add($item); 
 					$fieldgroup->save();
-					if($this->wire('config')->debug) $this->message("Added field '{$item->name}' to template/fieldgroup '{$fieldgroup->name}'"); 
+					$this->message("Added field '{$item->name}' to template/fieldgroup '$fieldgroup->name'", Notice::debug); 
 				}
 			}	
 		}
@@ -381,8 +383,7 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	protected function checkFieldTable(Field $field) {
-		// if(!$this->wire('config')->debug) return;
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$table = $database->escapeTable($field->getTable());
 		if(empty($table)) return;
 		$exists = $database->query("SHOW TABLES LIKE '$table'")->rowCount() > 0;
@@ -477,6 +478,7 @@ class Fields extends WireSaveableItems {
 		/** @var Field $item */
 		$item = parent::___clone($item, $name);
 		if($item) $item->prevTable = null;
+		
 		return $item;
 	}
 
@@ -499,8 +501,13 @@ class Fields extends WireSaveableItems {
 		$data = array();
 
 		// make sure given field and fieldgroup are valid
-		if(!($field->flags & Field::flagFieldgroupContext)) throw new WireException("Field must be in fieldgroup context before its context can be saved");
-		if(!$fieldgroup->has($fieldOriginal)) throw new WireException("Fieldgroup $fieldgroup does not contain field $field");
+		if(!($field->flags & Field::flagFieldgroupContext)) {
+			throw new WireException("Field must be in fieldgroup context before its context can be saved");
+		}
+		
+		if(!$fieldgroup->has($fieldOriginal)) {
+			throw new WireException("Fieldgroup $fieldgroup does not contain field $field");
+		}
 
 		$field_id = (int) $field->id;
 		$fieldgroup_id = (int) $fieldgroup->id; 
@@ -609,7 +616,9 @@ class Fields extends WireSaveableItems {
 	 */
 	protected function ___changeFieldtype(Field $field1, $keepSettings = false) {
 
-		if(!$field1->prevFieldtype) throw new WireException("changeFieldType requires that the given field has had a type change"); 
+		if(!$field1->prevFieldtype) {
+			throw new WireException("changeFieldType requires that the given field has had a type change");
+		}
 
 		if(	($field1->type instanceof FieldtypeMulti && !$field1->prevFieldtype instanceof FieldtypeMulti) || 
 			($field1->prevFieldtype instanceof FieldtypeMulti && !$field1->type instanceof FieldtypeMulti)) {
@@ -634,7 +643,7 @@ class Fields extends WireSaveableItems {
 		$schema1 = array();
 		$schema2 = array();
 
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$table1 = $database->escapeTable($field1->table); 
 		$table2 = $database->escapeTable($field2->table);
 
@@ -650,7 +659,7 @@ class Fields extends WireSaveableItems {
 			
 		foreach($schema1 as $key => $value) {
 			if(!in_array($value, $schema2)) {
-				if($this->wire('config')->debug) $this->message("changeFieldType loses table field '$value'"); 
+				$this->message("changeFieldType loses table field '$value'", Notice::debug); 
 				unset($schema1[$key]); 
 			}
 		}
@@ -851,7 +860,7 @@ class Fields extends WireSaveableItems {
 		if(!$field->type) return 0;
 
 		$options = array_merge($defaults, $options);
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$useRowCount = false;
 		$schema = $field->type->getDatabaseSchema($field);
@@ -868,7 +877,7 @@ class Fields extends WireSaveableItems {
 			if($options['template'] instanceof Template) {
 				$template = $options['template'];
 			} else {
-				$template = $this->wire('templates')->get($options['template']);
+				$template = $this->wire()->templates->get($options['template']);
 			}
 
 			if(!$template) throw new WireException("Unknown template: $options[template]");
@@ -895,7 +904,7 @@ class Fields extends WireSaveableItems {
 			if(is_int($options['page'])) {
 				$pageID = $options['page'];
 			} else {
-				$page = $this->wire('pages')->get($options['page']);
+				$page = $this->wire()->pages->get($options['page']);
 				$pageID = $page->id;
 			}
 
@@ -960,8 +969,7 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public static function isNativeName($name) {
-		/** @var Fields $fields */
-		$fields = wire('fields');
+		$fields = wire()->fields;
 		return $fields->isNative($name);
 	}
 
@@ -1217,8 +1225,10 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public function _hasPermission(Field $field, $permission, Page $page = null, User $user = null) {
-		if($permission != 'edit' && $permission != 'view') throw new WireException('Specify either "edit" or "view"');
-		if(is_null($user)) $user = $this->wire('user');
+		if($permission != 'edit' && $permission != 'view') {
+			throw new WireException('Specify either "edit" or "view"');
+		}
+		if(is_null($user)) $user = $this->wire()->user;
 		if($user->isSuperuser()) return true;
 		if($page && $page->template && $page->template->fieldgroup->hasField($field)) {
 			// make sure we have a copy of $field that is in the context of $page
@@ -1229,7 +1239,7 @@ class Fields extends WireSaveableItems {
 			// field is access controlled
 			$has = false;
 			$roles = $permission == 'edit' ? $field->editRoles : $field->viewRoles;
-			if($permission == 'view' && in_array($this->wire('config')->guestUserRolePageID, $roles)) {
+			if($permission == 'view' && in_array($this->wire()->config->guestUserRolePageID, $roles)) {
 				// if guest has view permission, then all have view permission
 				$has = true; 
 			} else {
