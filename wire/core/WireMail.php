@@ -636,7 +636,11 @@ class WireMail extends WireData implements WireMailInterface {
 		if(!strlen($from)) $from = $this->wire('config')->adminEmail;
 		if(!strlen($from)) $from = 'processwire@' . $this->wire('config')->httpHost;
 		
-		$header = "From: " . ($this->fromName ? $this->bundleEmailAndName($from, $this->fromName) : $from);
+		$fromName = $this->fromName;
+		
+		if(!strlen($fromName) && !empty($settings['fromName'])) $fromName = $settings['fromName'];
+		
+		$header = "From: " . ($fromName ? $this->bundleEmailAndName($from, $fromName) : $from);
 
 		foreach($this->header as $key => $value) {
 			$header .= "\r\n$key: $value";
