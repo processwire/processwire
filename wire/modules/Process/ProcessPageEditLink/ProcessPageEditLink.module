@@ -24,7 +24,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page Edit Link',          
 			'summary' => 'Provides a link capability as used by some Fieldtype modules (like rich text editors).', 
-			'version' => 109, 
+			'version' => 1010, 
 			'permanent' => true, 
 			'permission' => 'page-edit',
 			'icon' => 'link', 
@@ -86,6 +86,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'extLinkRel' => '',
 			'extLinkTarget' => '',
 			'extLinkClass' => '', 
+			'disableLinkTextEdit' => 0, 
 		);
 	}
 
@@ -130,6 +131,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'extLinkRel' => $this->wire('sanitizer')->names($this->extLinkRel), 
 			'extLinkTarget' => $this->extLinkTarget, 
 			'extLinkClass' => $this->wire('sanitizer')->names($this->extLinkClass), 
+			'disableLinkTextEdit' => $this->disableLinkTextEdit, 
 			));
 
 		parent::init();
@@ -168,7 +170,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$fieldset->addClass('WireTab');
 		$form->add($fieldset);
 
-		if($currentText) {
+		if($currentText && $this->disableLinkTextEdit !== 1) {
 			/** @var InputfieldText $field */
 			$field = $this->modules->get("InputfieldText");
 			$field->label = $this->_('Link text');
@@ -500,6 +502,16 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$f->columnWidth = 33; 
 		$fieldset->add($f);
 		$inputfields->add($fieldset); 
+
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', 'disableLinkTextEdit');
+		$f->label = $this->_('Disable link text edit'); 
+		$f->description = $this->_('Deactivate the function "Edit Link Text" in the modal window.'); 
+		$f->notes = $this->_('Enable this feature if you have, for example, link texts that contain markup. When editing and pasting, the markup is lost.'); 
+		$f->attr('checked', $data['disableLinkTextEdit'] !== 0) ? 'checked' : '';
+		$f->attr('value', isset($data['disableLinkTextEdit']) ? $data['disableLinkTextEdit'] : 0);
+		$f->required = false; 
+		$inputfields->add($f);
 		
 		$f = $this->wire('modules')->get('InputfieldRadios'); 
 		$f->attr('name', 'urlType'); 

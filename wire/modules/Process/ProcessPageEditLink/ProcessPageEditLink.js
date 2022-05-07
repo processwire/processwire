@@ -154,7 +154,7 @@ $(document).ready(function() {
 			$link.attr('title', val); 
 		}
 
-		if($linkText.length && $linkText.val().length) {
+		if($linkText.length && $linkText.val().length && ProcessWire.config.ProcessPageEditLink.disableLinkTextEdit !== 1) {
 			$link.text($linkText.val());
 		}
 
