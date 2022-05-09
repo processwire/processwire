@@ -378,7 +378,7 @@ class WireInput extends Wire {
 	 * 
 	 * The whitelist is a list of variables specifically set by the application as sanitized for use elsewhere in the application.
 	 * This whitelist is not specifically used by ProcessWire unless you populate it from your templates or the API. 
-	 * When populated, it is used by the MarkupPagerNav module (for instance) to ensure that sanitizedd query string (GET) variables 
+	 * When populated, it is used by the MarkupPagerNav module (for instance) to ensure that sanitized query string (GET) variables 
 	 * are maintained across paginations. 
 	 * 
 	 * ~~~~~

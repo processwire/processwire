@@ -651,7 +651,7 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 * - For most public API use, you might consider using the the shorter `Inputfield::attr()` method instead. 
 	 * 
-	 * - When setting the `class` attribute is is preferable to use the `Inputfield::addClass()` method. 
+	 * - When setting the `class` attribute it is preferable to use the `Inputfield::addClass()` method. 
 	 * 
 	 * - The `$key` argument may contain multiple keys by being specified as an array, or by being a string with multiple 
 	 *   keys separated by "+" or "|", for example: `$inputfield->setAttribute("id+name", "template")`.

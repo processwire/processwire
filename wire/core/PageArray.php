@@ -75,7 +75,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	protected $keyIndex = array();
 
 	/**
-	 * Template mehod that descendant classes may use to validate items added to this WireArray
+	 * Template method that descendant classes may use to validate items added to this WireArray
 	 * 
 	 * #pw-internal
 	 *

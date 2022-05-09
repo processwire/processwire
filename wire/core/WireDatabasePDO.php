@@ -1461,7 +1461,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
-	 * Escape a string value, same as $db->quote() but without surrounding quotes
+	 * Escape a string value, same as $database->quote() but without surrounding quotes
 	 * 
 	 * #pw-group-sanitization
 	 *
