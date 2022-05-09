@@ -98,7 +98,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		return array(
 			'title' => __('Page Add', __FILE__),          
 			'summary' => __('Add a new page', __FILE__), 
-			'version' => 108, 
+			'version' => 109, 
 			'permanent' => true, 
 			'permission' => 'page-edit',
 			'icon' => 'plus-circle',
@@ -919,10 +919,10 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			$template = $this->template ? $this->template : reset($allowedTemplates); 
 			/** @var InputfieldHidden $field */
 			$field = $modules->get('InputfieldHidden');
-			$field->attr('id+name', 'template'); 
 			$field->attr('value', $template->id); 
 			if(count($template->fieldgroup) == 1 && $template->fieldgroup->hasField('title')) $numPublishable++;
 			$field->attr('data-publish', $numPublishable);
+			if($template->noLang) $field->attr('data-nolang', 1);
 			
 		} else {
 			// multiple templates are possible so give them a select

@@ -74,7 +74,8 @@ $(document).ready(function() {
 	// in multi-lang environment when some templates have 'noLang' option set, 
 	// we hide language tabs/inputs when such a template is selected
 	if($(".langTabs").length) {
-		$("#template").change(function() {
+		var $template = $('#template');
+		$template.change(function() {
 			var $option = $(this).find("option[value='" + $(this).val() + "']");
 			if(parseInt($option.attr('data-nolang')) > 0) {
 				hideLanguageTabs();
@@ -82,6 +83,10 @@ $(document).ready(function() {
 				unhideLanguageTabs();
 			}
 		}).change();
+		var noLang = $template.attr('data-nolang');
+		if(typeof noLang !== 'undefined' && parseInt(noLang) > 0) {
+			hideLanguageTabs();
+		}
 	}
 
 	$(".InputfieldPageName .LanguageSupport input[type=text]").on('blur', function() {
