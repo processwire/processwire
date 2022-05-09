@@ -860,7 +860,7 @@ class PagePermissions extends WireData implements Module {
 		$_ADDABLE = false; // if we really mean it (as in, do not perform secondary checks)
 		$superuser = $user->isSuperuser();
 
-		if($page->template->noChildren) {
+		if($page->template && $page->template->noChildren) {
 			$addable = false; 
 
 		} else if($superuser) {

@@ -600,6 +600,7 @@ class ListerBookmarks extends Wire {
 			$bookmarkID = $bookmark['id'];
 		} else {
 			$type = self::typePublic;
+			$bookmarkID = (string) $bookmarkID;
 			$ownedPrefix = $this->typePrefix(self::typeOwned);
 			if(strpos($bookmarkID, $ownedPrefix) !== false) {
 				list($userID, $bookmarkID) = explode($ownedPrefix, $bookmarkID);
