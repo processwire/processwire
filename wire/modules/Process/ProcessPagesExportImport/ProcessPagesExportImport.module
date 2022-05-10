@@ -1049,6 +1049,8 @@ class ProcessPagesExportImport extends Process {
 		$exportFields = $tab->getChildByName('export_fields')->val();
 		$exportTo = $input->post('submit_export') === 'zip' ? 'zip' : 'json';
 		
+		$findOptions = array('allowCustom' => true);
+
 		// @todo security and access control
 		// @todo paginate large sets
 		
@@ -1070,7 +1072,8 @@ class ProcessPagesExportImport extends Process {
 					$includeMode = 'include=hidden';
 				}
 				if(in_array('recursive', $exportOptions)) {
-					$exportPages = $pages->find("has_parent=$parentID" . ($includeMode ? ", $includeMode" : "")); 
+					$exportSelector = "has_parent=$parentID" . ($includeMode ? ", $includeMode" : "");
+					$exportPages = $pages->find($exportSelector, $findOptions);
 				} else {
 					$exportPages = $exportParent->children($includeMode);
 				}
@@ -1080,7 +1083,7 @@ class ProcessPagesExportImport extends Process {
 				break;
 			case 'selector':
 				$exportSelector = $tab->getChildByName('pages_selector')->val();
-				$exportPages = $pages->find($exportSelector); 
+				$exportPages = $pages->find($exportSelector, $findOptions);
 				break;
 			default:
 				$exportPages = new PageArray();
