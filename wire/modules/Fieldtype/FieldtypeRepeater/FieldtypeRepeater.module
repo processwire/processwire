@@ -166,6 +166,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$user = $this->wire()->user;
 		$config = $this->wire()->config;
 		$input = $this->wire()->input;
+		$modules = $this->wire()->modules;
 		$inEditor = $process == 'ProcessPageEdit' || $process == 'ProcessProfile';
 		$isSuperuser = $user->isSuperuser();
 		
@@ -212,7 +213,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$this->addHookAfter('PagePermissions::pageEditable', $this, 'hookPagePermissionsPageEditableAjax');
 		}
 		
-		$this->addHookBefore('PageFinder::getQuery', $this, 'hookPageFinderGetQuery'); 
+		$this->addHookBefore('PageFinder::getQuery', $this, 'hookPageFinderGetQuery');
+	
+		$class = $this->className() . 'Matrix';
+		if($this->useLazy && $modules->isInstalled($class)) $modules->get($class);
+
 	}
 	
 	/**

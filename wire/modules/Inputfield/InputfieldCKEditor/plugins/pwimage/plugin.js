@@ -303,8 +303,7 @@
 							var $img = jQuery("#selected_image", $i); 
 
 							$iframe.dialog("disable");
-							$iframe.setTitle("<i class='fa fa-fw fa-spin fa-spinner'></i> " +
-								ProcessWire.config.InputfieldCKEditor.pwimage.savingNote); // Saving Image
+							$iframe.setTitle(ProcessWire.config.InputfieldCKEditor.pwimage.savingNote); // Saving Image
 							$img.removeClass("resized"); 
 
 							var width = $img.attr('width');
@@ -352,7 +351,7 @@
 				];
 				
 				$iframe.setButtons(buttons); 
-				$iframe.setTitle("<i class='fa fa-fw fa-picture-o'></i> " + $i.find('title').html());
+				$iframe.setTitle($i.find('title').html());
 
 			} else {
 				buttons = [];

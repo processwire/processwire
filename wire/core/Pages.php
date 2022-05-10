@@ -8,7 +8,7 @@
  *
  * This is the most used object in the ProcessWire API. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
@@ -211,7 +211,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function init() {
-		$this->loader->getById($this->wire('config')->preloadPageIDs);
+		$this->loader->getById($this->wire()->config->preloadPageIDs);
 	}
 
 	/****************************************************************************************************************
@@ -746,7 +746,7 @@ class Pages extends Wire {
 			if($template instanceof Template) {
 				// cool, cool
 			} else if(is_int($template) || is_string($template)) {
-				$template = $this->wire('templates')->get($template);
+				$template = $this->wire()->templates->get($template);
 			} else {
 				$template = null;
 			}
@@ -1775,7 +1775,7 @@ class Pages extends Wire {
 			'action' => (string) $action, 
 			'details' => (string) $details, 
 			'result' => (string) $result
-			);
+		);
 	}
 
 	/**
@@ -1790,7 +1790,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function getDebugLog($action = '') {
-		if(!$this->wire('config')->debug) return array();
+		if(!$this->wire()->config->debug) return array();
 		if(!$action) return $this->debugLog; 
 		$debugLog = array();
 		foreach($this->debugLog as $item) if($item['action'] == $action) $debugLog[] = $item; 
@@ -1798,7 +1798,7 @@ class Pages extends Wire {
 	}
 
 	/**
-	 * Return a PageFinder object, ready to use
+	 * Return a new PageFinder object, ready to use
 	 * 
 	 * #pw-internal
 	 *
@@ -1950,7 +1950,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function executeQuery(\PDOStatement $query, $throw = true, $maxTries = 3) {
-		return $this->wire('database')->execute($query, $throw, $maxTries);
+		return $this->wire()->database->execute($query, $throw, $maxTries);
 	}
 
 	/**
@@ -1965,11 +1965,26 @@ class Pages extends Wire {
 	 *
 	 */
 	public function __invoke($key) {
-		if(empty($key)) return $this; // no argument
-		if(is_int($key)) return $this->get($key); // page ID
-		if(is_array($key) && ctype_digit(implode('', $key))) return $this->getById($key); // array of page IDs
-		if(is_string($key) && strpos($key, '/') !== false && $this->sanitizer->pagePathName($key) === $key) return $this->get($key); // page path
-		return $this->find($key); // selector string or array
+		// no argument
+		if(empty($key)) return $this;
+		
+		// page ID
+		if(is_int($key)) return $this->get($key);
+		
+		// array of page IDs
+		if(is_array($key) && ctype_digit(implode('', $key))) {
+			return $this->getById($key);
+		}
+		
+		// page path
+		if(is_string($key) && strpos($key, '/') !== false) { 
+			if($this->wire()->sanitizer->pagePathName($key) === $key) {
+				return $this->get($key);
+			}
+		}
+		
+		// selector string or array
+		return $this->find($key);
 	}
 
 	/**
@@ -1983,8 +1998,8 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function log($str, Page $page) {
-		if(!in_array('pages', $this->wire('config')->logs)) return parent::___log();
-		if($this->wire('process') != 'ProcessPageEdit') $str .= " [From URL: " . $this->wire('input')->url() . "]";
+		if(!in_array('pages', $this->wire()->config->logs)) return parent::___log();
+		if($this->wire()->process != 'ProcessPageEdit') $str .= " [From URL: " . $this->wire()->input->url() . "]";
 		$options = array('name' => 'pages', 'url' => $page->path); 
 		return parent::___log($str, $options); 
 	}
@@ -2150,9 +2165,7 @@ class Pages extends Wire {
 		$str = "Saved page";
 		if(count($changes)) $str .= " (Changes: " . implode(', ', $changes) . ")";
 		$this->log($str, $page);
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache');
-		$cache->maintenance($page);
+		$this->wire()->cache->maintenance($page);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->saved($page, $changes, $values);
 		}
@@ -2301,9 +2314,7 @@ class Pages extends Wire {
 	public function ___deleted(Page $page, array $options = array()) { 
 		if($options) {}
 		if(empty($options['_deleteBranch'])) $this->log("Deleted page", $page); 
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache');
-		$cache->maintenance($page);
+		$this->wire()->cache->maintenance($page);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->deleted($page);
 		}

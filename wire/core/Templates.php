@@ -816,6 +816,10 @@ class Templates extends WireSaveableItems {
 				$pageClass = "\\$pageClass";
 			} else {
 				// class is not available for instantiation
+				$this->warning(
+					"Template '$template' page class '$pageClass' is not available", 
+					Notice::debug | Notice::superuser | Notice::admin
+				);
 				$pageClass = '';
 				// do not cache because maybe class will be available later
 				$cacheable = false; 

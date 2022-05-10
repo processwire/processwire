@@ -92,7 +92,7 @@ class PagesLoader extends Wire {
 	}
 	
 	/**
-	 * Set whether loaded pages have their outputFormatting turn on or off
+	 * Set whether loaded pages have their outputFormatting turned on or off
 	 *
 	 * By default, it is turned on.
 	 *
@@ -102,7 +102,13 @@ class PagesLoader extends Wire {
 	public function setOutputFormatting($outputFormatting = true) {
 		$this->outputFormatting = $outputFormatting ? true : false;
 	}
-	
+
+	/**
+	 * Get whether loaded pages have their outputFormatting turned on or off
+	 *
+	 * @return bool
+	 *
+	 */
 	public function getOutputFormatting() {
 		return $this->outputFormatting;
 	}
@@ -118,8 +124,14 @@ class PagesLoader extends Wire {
 	 */
 	public function setAutojoin($autojoin = true) {
 		$this->autojoin = $autojoin ? true : false;
-	}	
-	
+	}
+
+	/**
+	 * Get whether autojoin is enabled for page loading queries
+	 * 
+	 * @return bool
+	 * 
+	 */
 	public function getAutojoin() {
 		return $this->autojoin;
 	}
@@ -142,7 +154,7 @@ class PagesLoader extends Wire {
 
 		} else if($selector === '/' || $selector === 'path=/') {
 			// normalize selectors that indicate homepage to just be ID 1
-			$selector = (int) $this->wire('config')->rootPageID;
+			$selector = (int) $this->wire()->config->rootPageID;
 
 		} else if($selector[0] === '/') {
 			// if selector begins with a slash, it is referring to a path
@@ -166,7 +178,7 @@ class PagesLoader extends Wire {
 				}
 			} else if(!Selectors::stringHasOperator($selector)) {
 				// no operator indicates this is just referring to a page name
-				$sanitizer = $this->wire('sanitizer');
+				$sanitizer = $this->wire()->sanitizer;
 				if($sanitizer->pageNameUTF8($selector) === $selector) {
 					// sanitized value consistent with a page name
 					// optimize selector rather than determining value here
@@ -1503,7 +1515,7 @@ class PagesLoader extends Wire {
 		$path = trim($path, '/');
 
 		if($templatesID) {
-			$template = $this->wire('templates')->get($templatesID);
+			$template = $this->wire()->templates->get($templatesID);
 			if($template->slashUrls) $path .= '/';
 		}
 
@@ -1866,7 +1878,10 @@ class PagesLoader extends Wire {
 		if(empty($selector)) {
 			if(empty($options)) {
 				// optimize away a simple site-wide total count
-				return (int) $this->wire('database')->query("SELECT COUNT(*) FROM pages")->fetch(\PDO::FETCH_COLUMN);
+				$query = $this->wire()->database->query("SELECT COUNT(*) FROM pages");
+				$count = (int) $query->fetch(\PDO::FETCH_COLUMN);
+				$query->closeCursor();
+				return (int) $count;
 			} else {
 				// no selector string, but options specified
 				$selector = "id>0";
@@ -1923,8 +1938,8 @@ class PagesLoader extends Wire {
 	 */
 	public function getNativeColumns() {
 		if(empty($this->nativeColumns)) {
-			$query = $this->wire('database')->prepare("SELECT * FROM pages WHERE id=:id");
-			$query->bindValue(':id', $this->wire('config')->rootPageID, \PDO::PARAM_INT);
+			$query = $this->wire()->database->prepare("SELECT * FROM pages WHERE id=:id");
+			$query->bindValue(':id', $this->wire()->config->rootPageID, \PDO::PARAM_INT);
 			$query->execute();
 			$row = $query->fetch(\PDO::FETCH_ASSOC);
 			foreach(array_keys($row) as $colName) {
@@ -1948,13 +1963,14 @@ class PagesLoader extends Wire {
 	public function getNativeColumnValue($id, $column) {
 		$id = (is_object($id) ? (int) "$id" : (int) $id);
 		if($id < 1) return false;
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		if($database->escapeCol($column) !== $column) throw new WireException("Invalid column name: $column");
 		$query = $database->prepare("SELECT `$column` FROM pages WHERE id=:id");
 		$query->bindValue(':id', $id, \PDO::PARAM_INT);
 		$query->execute();
 		$value = $query->fetchColumn();
 		$query->closeCursor();
+		if(ctype_digit("$value") && strpos($column, 'name') !== 0) $value = (int) $value;
 		return $value;
 	}
 
