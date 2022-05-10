@@ -84,10 +84,10 @@ class Pageimages extends Pagefiles {
 		// populate $base with $name sans ImageSizer info and extension
 		$name = basename($name);
 		$pos = strpos($name, '.'); 
-		$base = substr($name, 0, $pos);
+		$base = ($pos ? substr($name, 0, $pos) : null);
 	
 		foreach($this as $pagefile) {
-			if(strpos($pagefile->basename, $base) !== 0) continue;
+			if($base !== null && strpos($pagefile->basename, $base) !== 0) continue;
 			// they start the same, is it a variation?
 			if(!$pagefile->isVariation($name)) continue;
 			// if we are here we found a variation
