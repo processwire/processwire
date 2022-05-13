@@ -43,7 +43,9 @@ class WireTextTools extends Wire {
 	 * In 3.0.197+ inner content of script, style and object tags is now removed, rather than just the tags. 
 	 * To revert this behavior or to remove content of additional tags, see the `clearTags` option. 
 	 * 
-	 * #pw-internal
+	 * Note that this method differs from the `Sanitizer::markupToText()` method in that this method is newer,
+	 * more powerful and has more options. But the two methods differ in how they perform markup-to-text 
+	 * conversion so you may want to review and try both to determine which one better suits your needs.
 	 * 
 	 * @param string $str String to convert to text
 	 * @param array $options 
@@ -59,6 +61,7 @@ class WireTextTools extends Wire {
 	 *  - `collapseSpaces` (bool): Collapse extra/redundant extra spaces to single space? (default=true) Since 3.0.132
 	 *  - `replacements` (array): Associative array of strings to manually replace. (default=['&nbsp;' => ' '])
 	 * @return string
+	 * @see Sanitizer::markupToText()
 	 *
 	 */
 	public function markupToText($str, array $options = array()) {

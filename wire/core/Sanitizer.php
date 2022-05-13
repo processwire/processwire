@@ -90,7 +90,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @link https://processwire.com/api/variables/sanitizer/ Offical $sanitizer API variable Documentation
@@ -544,6 +544,8 @@ class Sanitizer extends Wire {
 	/**
 	 * Sanitize to an ASCII-only HTML attribute name
 	 * 
+	 * #pw-group-strings
+	 * 
 	 * @param string $value
 	 * @param int $maxLength
 	 * @return string
@@ -632,6 +634,8 @@ class Sanitizer extends Wire {
 	 * echo $sanitizer->fieldSubfield('foo bar.baz'); // outputs: foo_bar.baz
 	 * echo $sanitizer->fieldSubfield('foo bar baz'); // outputs: foo_bar_baz
 	 * ~~~~~~
+	 * 
+	 * #pw-group-strings
 	 * 
 	 * @param string $value Value to sanitize
 	 * @param int $limit Max allowed quantity of subfields, or use -1 for any quantity (default=1). 
@@ -1258,6 +1262,7 @@ class Sanitizer extends Wire {
 	 * Sanitize string to contain only ASCII digits (0-9)
 	 * 
 	 * #pw-group-strings
+	 * #pw-group-numbers
 	 *
 	 * @param string $value Value to sanitize
 	 * @param int $maxLength Maximum length of returned value (default=1024)
@@ -1735,7 +1740,8 @@ class Sanitizer extends Wire {
 	 * Convert a string containing markup or entities to be plain text
 	 * 
 	 * This is one implementation but there is also a better one that you may prefer with the
-	 * `WireTextTools::markupToText()` method:
+	 * `WireTextTools::markupToText()` method. Try both to determine which suits your needs
+	 * best: 
 	 * 
 	 * ~~~~~
 	 * $markup = '<html>a bunch of HTML here</html>';
@@ -1753,7 +1759,7 @@ class Sanitizer extends Wire {
 	 *   - `entities` (bool): Entity encode returned value? (default=false). 
 	 *   - `trim` (string): Character(s) to trim from beginning and end of value (default=" -,:;|\n\t").
 	 * @return string Converted string of text
-	 * @see WireTextTools::markupToText() for different though likely better (for most cases) implementation. 
+	 * @see WireTextTools::markupToText(), Sanitizer::markupToLine()
 	 * 
 	 */	
 	public function markupToText($value, array $options = array()) {
@@ -2273,6 +2279,8 @@ class Sanitizer extends Wire {
 	 * 
 	 * *Note: If double quotes are used in your selector value, this method will convert them to matching 
 	 * parenthesis, i.e. `+"phrase"` gets converted to `+(phrase)`.*
+	 * 
+	 * #pw-group-strings
 	 * 
 	 * @param string|array $value
 	 * @param array $options See options for Sanitizer::selectorValue() method
@@ -3373,6 +3381,8 @@ class Sanitizer extends Wire {
 	 *   'more' => '…'
 	 * ]);
 	 * ~~~~~~~
+	 * 
+	 * #pw-group-strings
 	 *
 	 * @param string $str String to truncate
 	 * @param int|array $maxLength Maximum length of returned string, or specify $options array here.
@@ -3404,7 +3414,9 @@ class Sanitizer extends Wire {
 	 * Truncate string to given maximum length without breaking words and with no added visible extras
 	 *
 	 * This is a shortcut to the truncate() sanitizer, sanitizing to nearest word with the `more` option 
-	 * disabled and the `collapseLinesWith` set to 1 space (rather than ellipsis). 
+	 * disabled and the `collapseLinesWith` set to 1 space (rather than ellipsis).
+	 * 
+	 * #pw-group-strings
 	 * 
 	 * @param string $str String to truncate
 	 * @param int|array $maxLength Maximum allowed length in characters, or substitute $options argument here
@@ -4343,6 +4355,8 @@ class Sanitizer extends Wire {
 	 * delimited/csv strings to arrays. Meaning, a delimited string would simply become an array
 	 * with the first item being that delimited string. 
 	 * 
+	 * #pw-group-arrays
+	 * 
 	 * @param mixed $value
 	 * @param array $options
 	 * 	- `maxItems` (int): Maximum items allowed in each array (default=0, which means no limit)
@@ -5113,6 +5127,8 @@ class Sanitizer extends Wire {
 	/**
 	 * Get all sanitizer method names and optionally types they return
 	 * 
+	 * #pw-group-other
+	 * 
 	 * @param bool $getReturnTypes Get array where method names are keys and values are return types?
 	 * @return array
 	 * @since 3.0.165
@@ -5124,6 +5140,9 @@ class Sanitizer extends Wire {
 
 	/**
 	 * Get instance of WireTextTools
+	 * 
+	 * #pw-group-strings
+	 * #pw-group-other
 	 * 
 	 * @return WireTextTools
 	 * @since 3.0.101
@@ -5410,6 +5429,8 @@ class Sanitizer extends Wire {
 	 * // numbers appended to text sanitizers imply max length
 	 * $value = $sanitizer->sanitize($value, 'text128,entities'); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-other
 	 * 
 	 * @param mixed $value
 	 * @param string $method Method name "method", or combined method name(s) "method1,method2,method3"

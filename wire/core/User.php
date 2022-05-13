@@ -5,7 +5,7 @@
  *
  * A type of Page used for storing an individual User
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * #pw-summary The $user API variable is a type of page representing the current user, and the User class is Page type used for all users.
@@ -14,9 +14,9 @@
  *
  * @property string $email Get or set email address for this user.
  * @property string|Password $pass Set the user’s password. 
- * @property PageArray $roles Get the roles this user has. 
- * @property Language $language User language, applicable only if LanguageSupport installed.
- * @property string $admin_theme Admin theme class name
+ * @property PageArray $roles Get the roles this user has. #pw-group-common #pw-group-access
+ * @property Language $language User language, applicable only if LanguageSupport installed. #pw-group-languages
+ * @property string $admin_theme Admin theme class name (when applicable).
  * 
  * @method bool hasPagePermission($name, Page $page = null) #pw-internal
  * @method bool hasTemplatePermission($name, $template) #pw-internal
@@ -53,7 +53,7 @@ class User extends Page {
 	/**
 	 * Wired to API
 	 * 
-	 * @throws WireException
+	 * #pw-internal
 	 * 
 	 */
 	public function wired() {
@@ -65,6 +65,8 @@ class User extends Page {
 	
 	/**
 	 * Does this user have the given Role? 
+	 * 
+	 * #pw-group-access
 	 * 
 	 * ~~~~~
 	 * if($user->hasRole('editor')) {
@@ -119,6 +121,8 @@ class User extends Page {
 	 * $user->addRole('editor');
 	 * $user->save();
 	 * ~~~~~
+	 * 
+	 * #pw-group-access
 	 *
 	 * @param string|int|Role $role May be Role name, object, or ID. 
 	 * @return bool Returns false if role not recognized, true otherwise
@@ -143,6 +147,8 @@ class User extends Page {
 	 * $user->removeRole('editor');
 	 * $user->save();
 	 * ~~~~~
+	 * 
+	 * #pw-group-access
 	 *
 	 * @param string|int|Role $role May be Role name, object or ID. 
 	 * @return bool false if role not recognized, true otherwise
@@ -171,6 +177,8 @@ class User extends Page {
 	 *   // user has page-publish permission for $page
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-access
 	 * 
 	 * @param string|Permission $name Permission name, object or id. 
 	 * @param Page|Template|bool|string $context Page or Template... 
@@ -215,7 +223,7 @@ class User extends Page {
 	 * You use the PagePermissions module by calling the editable(), addable(), etc., functions on a page object. 
 	 * The PagePermissions does use this function for some of it's checking. 
 	 * 
-	 * #pw-hooker
+	 * #pw-group-access
 	 *
 	 * @param string|Permission
 	 * @param Page $page Optional page to check against
@@ -303,7 +311,7 @@ class User extends Page {
 	/**
 	 * Does this user have the given permission on the given template?
 	 * 
-	 * #pw-hooker
+	 * #pw-group-access
 	 *
 	 * @param string|Permission $name Permission name
 	 * @param Template|int|string $template Template object, name or ID
@@ -380,6 +388,8 @@ class User extends Page {
 	 * // Get all permissions the user has for $page
 	 * $permissions = $user->getPermissions($page); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-access
 	 *
 	 * @param Page $page Optional page to check against
 	 * @return PageArray of Permission objects
@@ -409,7 +419,9 @@ class User extends Page {
 	/**
 	 * Does this user have the superuser role?
 	 *
-	 * Same as calling `$user->roles->has('name=superuser');` but potentially faster. 
+	 * Same as calling `$user->roles->has('name=superuser');` but potentially faster.
+	 * 
+	 * #pw-group-access
 	 *
 	 * @return bool
 	 *
@@ -440,7 +452,9 @@ class User extends Page {
 	}
 
 	/**
-	 * Is this the non-logged in guest user? 
+	 * Is this the non-logged in guest user?
+	 * 
+	 * #pw-group-access
 	 *
 	 * @return bool
 	 *
@@ -453,7 +467,9 @@ class User extends Page {
 	 * Is the current $user logged in and the same as this user?
 	 * 
 	 * When this method returns true, it means the current $user (API variable) is 
-	 * this user and that they are logged in. 
+	 * this user and that they are logged in.
+	 * 
+	 * #pw-group-access
 	 *
 	 * @return bool
 	 *
@@ -470,6 +486,8 @@ class User extends Page {
 	 * 
 	 * - Sets the language without tracking it as a change to the user. 
 	 * - If language support is not installed this method silently does nothing.
+	 * 
+	 * #pw-group-languages
 	 * 
 	 * @param Language|string|int $language Language object, name, or ID
 	 * @return self
@@ -571,6 +589,8 @@ class User extends Page {
 	 * be initialized (hooks not added, etc.). To retrieve an initialized instance, you can get it 
 	 * from `$user->tfa_type` rather than calling this method. 
 	 * 
+	 * #pw-group-access
+	 * 
 	 * @param bool $getInstance Get Tfa module instance when available? (default=false) 
 	 * @return bool|string|Tfa
 	 * @since 3.0.162
@@ -582,6 +602,8 @@ class User extends Page {
 
 	/**
 	 * Hook called when field has changed
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param string $what
 	 * @param mixed $old

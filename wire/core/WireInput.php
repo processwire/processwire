@@ -131,6 +131,8 @@ class WireInput extends Wire {
 	 * 
 	 * Must be called before accessing any get/post/cookie input
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param bool $lazy
 	 * 
 	 */
@@ -1056,7 +1058,9 @@ class WireInput extends Wire {
 	/**
 	 * Same as httpUrl() method but always uses https scheme, rather than current request scheme
 	 * 
-	 * See httpUrl() method for argument and usage details. 
+	 * See httpUrl() method for argument and usage details.
+	 * 
+	 * #pw-group-URLs
 	 * 
 	 * @param array|bool $options Specify `withQueryString` (bool) option, or in 3.0.167+ you can also use an options array:
 	 *  - `withQueryString` (bool): Include the query string as well? (if present, default=false)
@@ -1110,7 +1114,9 @@ class WireInput extends Wire {
 	 * Generate canonical URL for current page and request
 	 * 
 	 * Canonical URL includes full scheme, hostname, path and optionally: 
-	 * URL segments, page numbers and query string. 
+	 * URL segments, page numbers and query string.
+	 * 
+	 * #pw-group-URLs
 	 * 
 	 * @param array $options
 	 *  - `scheme` (string|bool): Scheme "https", "http", or omit to auto-detect (default='').

@@ -15,6 +15,7 @@
  * @link http://processwire.com/api/selectors/ Official Selectors Documentation
  * 
  * #pw-summary Enables loading and manipulation of Page objects, to and from the database. 
+ * #pw-order-groups retrieval,creation,manipulation,advanced,cache,helpers,hooker
  * 
  * PROPERTIES
  * ==========
@@ -1224,7 +1225,7 @@ class Pages extends Wire {
 	 * echo "Path for page 1234 is: $path";
 	 * ~~~~~
 	 * 
-	 * #pw-advanced
+	 * #pw-group-advanced
 	 *
 	 * @param int|Page $id ID of the page you want the path to
 	 * @param null|array|Language|int|string $options Specify $options array or Language object, id or name. Allowed options include: 
@@ -1364,6 +1365,8 @@ class Pages extends Wire {
 	 *   'method' => 'pagesRow', // method(s) that were used to find the page
 	 * ]
 	 * ~~~~~
+	 * 
+	 * #pw-group-retrieval
 	 * 
 	 * @param string $path Page path optionally including URL segments, language prefix, pagination number
 	 * @param array $options
@@ -1570,7 +1573,7 @@ class Pages extends Wire {
 	 *
 	 * You may also pass in the string "id=123", where 123 is the page_id
 	 * 
-	 * #pw-internal
+	 * #pw-group-cache
 	 *
 	 * @param int|string|null $id 
 	 * @return Page|array|null
@@ -1596,10 +1599,10 @@ class Pages extends Wire {
 	/**
 	 * Remove the given page(s) from the cache, or uncache all by omitting $page argument
 	 *
-	 * When no $page argument is given, this method behaves the same as $pages->uncacheAll().
+	 * When no $page argument is given, this method behaves the same as `$pages->uncacheAll()`.
 	 * When any $page argument is given, this does not remove pages from selectorCache.
 	 * 
-	 * #pw-internal
+	 * #pw-group-cache
 	 *
 	 * @param Page|PageArray|int|null $page Page to uncache, PageArray of pages to uncache, ID of page to uncache (3.0.153+), or omit to uncache all.
 	 * @param array $options Additional options to modify behavior: 
@@ -1648,7 +1651,7 @@ class Pages extends Wire {
 	 * echo "Total value of all products: $" . number_format($total);
 	 * ~~~~~
 	 * 
-	 * #pw-advanced
+	 * #pw-group-cache
 	 * 
 	 * @param Page $page Optional Page that initiated the uncacheAll
 	 * @param array $options Options to modify default behavior: 
@@ -2030,7 +2033,7 @@ class Pages extends Wire {
 	 * 
 	 * @return PagesNames
 	 *
-	 * #pw-advanced
+	 * #pw-group-helpers
 	 *
 	 */
 	public function names() {
@@ -2071,10 +2074,12 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Get the PagesRaw instance
+	 * 
+	 * #pw-group-helpers
+	 * 
 	 * @return PagesRaw
 	 * @since 3.0.172
-	 *
-	 * #pw-internal
 	 *
 	 */
 	public function raw() {
@@ -2083,10 +2088,12 @@ class Pages extends Wire {
 	}
 	
 	/**
+	 * Get the PagesRequest instance
+	 * 
+	 * #pw-group-helpers
+	 * 
 	 * @return PagesRequest
 	 * @since 3.0.186
-	 *
-	 * #pw-internal
 	 *
 	 */
 	public function request() {
@@ -2095,10 +2102,12 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Get the PagesPathFinder instance
+	 * 
+	 * #pw-group-helpers
+	 * 
 	 * @return PagesPathFinder
 	 * @since 3.0.186
-	 *
-	 * #pw-internal
 	 *
 	 */
 	public function pathFinder() {
@@ -2226,6 +2235,8 @@ class Pages extends Wire {
 
 	/**
 	 * Hook called when a Page is about to be trashed
+	 * 
+	 * #pw-hooker
 	 * 
 	 * @param Page $page
 	 * @since 3.0.163
