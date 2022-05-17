@@ -2115,8 +2115,15 @@ class PageFinder extends Wire {
 			// non-presence of row is equal to value being blank
 			$bindKey = $query->bindValueGetKey($blankValue);
 			if($ft->isEmptyValue($field, $value)) {
+				// matching an empty value: null or literal empty value
 				$sql = "$tableAlias.$col IS NULL OR ($tableAlias.$col=$bindKey";
+				if($value === '' && !$ft->isEmptyValue($field, '0') && $field->get('zeroNotEmpty')) {
+					// MySQL blank string will also match zero (0) in some cases, so we prevent that here
+					// @todo remove the 'zeroNotEmpty' condition for test on dev as it limits to specific fieldtypes is likely unnecessary
+					$sql .= " AND $tableAlias.$col!='0'";
+				}
 			} else {
+				// matching a non-empty value
 				$sql = "($tableAlias.$col=$bindKey";
 			}
 			/*
