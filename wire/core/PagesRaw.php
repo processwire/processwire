@@ -84,8 +84,6 @@ class PagesRaw extends Wire {
 	 * This can only be used for native 'pages' table columns,
 	 * i.e. id, name, templates_id, status, parent_id, etc.
 	 *
-	 * #pw-internal
-	 *
 	 * @param int|array $pageId Page ID or array of page IDs
 	 * @param string|array $col Column name you want to get
 	 * @return int|string|array|null Returns column value or array of column values if $pageId was an array.
@@ -149,8 +147,6 @@ class PagesRaw extends Wire {
 	 *
 	 * This can only be used for native 'pages' table columns,
 	 * i.e. id, name, templates_id, status, parent_id, etc.
-	 *
-	 * #pw-internal
 	 *
 	 * @param int|array $pageId Page ID or array of page IDs
 	 * @param array|string $cols Names of columns to get or omit to get all columns

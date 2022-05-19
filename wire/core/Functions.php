@@ -811,6 +811,7 @@ function wireClassName($className, $withNamespace = false, $verbose = false) {
 		$object = null;
 	}
 
+	$className = (string) $className;
 	$pos = strrpos($className, $bs);
 
 	if($withNamespace === true) {

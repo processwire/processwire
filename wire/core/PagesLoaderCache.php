@@ -156,13 +156,13 @@ class PagesLoaderCache extends Wire {
 	public function uncacheAll(Page $page = null, array $options = array()) {
 
 		if($page) {} // to ignore unused parameter inspection
-		$user = $this->wire('user');
-		$language = $this->wire('languages') ? $user->language : null;
+		$user = $this->wire()->user;
+		$language = $this->wire()->languages ? $user->language : null;
 		$cnt = 0;
 
 		$this->pages->sortfields(true); // reset
 
-		if($this->wire('config')->debug) {
+		if($this->wire()->config->debug) {
 			$this->pages->debugLog('uncacheAll', 'pageIdCache=' . count($this->pageIdCache) . ', pageSelectorCache=' . 
 				count($this->pageSelectorCache));
 		}
@@ -306,8 +306,8 @@ class PagesLoaderCache extends Wire {
 		}
 
 		// cache non-default languages separately
-		if($this->wire('languages')) {
-			$language = $this->wire('user')->language;
+		if($this->wire()->languages) {
+			$language = $this->wire()->user->language;
 			if(!$language->isDefault()) {
 				$selector .= ", _lang=$language->id"; // for caching purposes only, not recognized by PageFinder
 			}

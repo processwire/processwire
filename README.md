@@ -129,9 +129,9 @@ replacing your `/wire/` directory with the one from the newer version.
 ### Pro module version upgrade notes (if applicable)
 
 - [FormBuilder](https://processwire.com/store/form-builder/)
-  version 0.4.0 or newer required, 0.5.0 or newer recommended.
+  version 0.4.0 or newer required, 0.5.2 or newer recommended.
 - [ListerPro](https://processwire.com/store/lister-pro/)
-  version 1.0.9 or newer required, 1.1.3 or newer recommended. 
+  version 1.0.9 or newer required, 1.1.4 or newer recommended. 
 - [ProFields](https://processwire.com/store/pro-fields/)
   the latest versions of all ProFields (10 modules) are recommended.
 - [LoginRegisterPro](https://processwire.com/store/login-register-pro/)
@@ -181,5 +181,5 @@ resolved any issues.
 
 ------
 
-Copyright 2021 by Ryan Cramer / Ryan Cramer Design, LLC
+Copyright 2022 by Ryan Cramer / Ryan Cramer Design, LLC
 

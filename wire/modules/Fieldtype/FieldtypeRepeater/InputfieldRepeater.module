@@ -716,7 +716,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				$addLabel = $this->field->get("repeaterAddLabel$language");
 			}
 		}
-		if(!strlen($addLabel)) $addLabel = $this->_('Add New');
+		if(!strlen("$addLabel")) $addLabel = $this->_('Add New');
 		return $addLabel;
 	}
 	

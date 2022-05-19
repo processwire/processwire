@@ -79,13 +79,13 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 199;
+	const versionRevision = 200;
 
 	/**
 	 * Version suffix string (when applicable)
 	 * 
 	 */
-	const versionSuffix = 'dev';
+	const versionSuffix = '';
 
 	/**
 	 * Minimum required index.php version, represented by the PROCESSWIRE define

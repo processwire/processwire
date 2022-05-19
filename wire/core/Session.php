@@ -6,13 +6,14 @@
  * Start a session with login/logout capability 
  * 
  * #pw-summary Maintains sessions in ProcessWire, authentication, persistent variables, notices and redirects.
+ * #pw-order-groups redirects,get,set,remove,info,notices,authentication,advanced,hooker
  *
  * This should be used instead of the $_SESSION superglobal, though the $_SESSION superglobal can still be 
  * used, but it's in a different namespace than this. A value set in $_SESSION won't appear in $session
  * and likewise a value set in $session won't appear in $_SESSION.  It's also good to use this class
  * over the $_SESSION superglobal just in case we ever need to replace PHP's session handling in the future.
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @see https://processwire.com/api/ref/session/ Session documentation
@@ -220,6 +221,8 @@ class Session extends Wire implements \IteratorAggregate {
 	/**
 	 * Are session cookie(s) present?
 	 * 
+	 * #pw-group-info
+	 * 
 	 * @param bool $checkLogin Specify true to check instead for challenge cookie (which indicates login may be active). 
 	 * @return bool Returns true if session cookie present, false if not. 
 	 * 
@@ -240,6 +243,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 * This only indicates the user was likely logged in at some point, and may not indicate an active login. 
 	 * This method is more self describing version of `$session->hasCookie(true);`
+	 * 
+	 * #pw-group-info
 	 * 
 	 * @return bool
 	 * @since 3.0.175
@@ -500,6 +505,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * $firstName = $session->firstName;
 	 * ~~~~~
 	 * 
+	 * #pw-group-get
+	 * 
 	 * @param string|object $key Name of session variable to retrieve (or object if using namespaces)
 	 * @param string $_key Name of session variable to get if first argument is namespace, omit otherwise.
 	 * @return mixed Returns value of seession variable, or NULL if not found. 
@@ -534,6 +541,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * This is the same as get() except that it lets you specify a fallback return value in the method call. 
 	 * For a namespace version use `Session::getValFor()` instead. 
 	 * 
+	 * #pw-group-get
+	 * 
 	 * @param string $key Name of session variable to retrieve.
 	 * @param mixed $val Fallback value to return if session does not have it.
 	 * @return mixed Returns value of seession variable, or NULL if not found. 
@@ -548,6 +557,8 @@ class Session extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Get all session variables in an associative array
+	 * 
+	 * #pw-group-get
  	 *
 	 * @param object|string $ns Optional namespace
 	 * @return array
@@ -564,6 +575,8 @@ class Session extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Get all session variables for given namespace and return associative array
+	 * 
+	 * #pw-group-get
 	 * 
 	 * @param string|Wire $ns
 	 * @return array
@@ -597,6 +610,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * $firstName = $session->firstName;
 	 * ~~~~~
 	 * 
+	 * #pw-group-set
+	 * 
 	 * @param string|object $key Name of session variable to set (or object for namespace)
 	 * @param string|mixed $value Value to set (or name of variable, if first argument is namespace)
 	 * @param mixed $_value Value to set if first argument is namespace. Omit otherwise.
@@ -622,6 +637,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * // Retrieve namespaced session value
 	 * $firstName = $session->getFor($this, 'firstName'); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-get
 	 *
 	 * @param string|object $ns Namespace string or object
 	 * @param string $key Specify variable name to retrieve, or blank string to return all variables in the namespace.
@@ -641,6 +658,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 * This is the same as get() except that it lets you specify a fallback return value in the method call.
 	 * For a namespace version use `Session::getValFor()` instead.
+	 * 
+	 * #pw-group-get
 	 *
 	 * @param string|object $ns Namespace string or object
 	 * @param string $key Specify variable name to retrieve
@@ -664,6 +683,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * // Set a session value for a namespace
 	 * $session->setFor($this, 'firstName', 'Bob'); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-set
 	 *
 	 * @param string|object $ns Namespace string or object.
 	 * @param string $key Name of session variable you want to set.
@@ -693,6 +714,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * // Unset all session vars in a namespace
 	 * $session->remove($this, true); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-remove
 	 *
  	 * @param string|object $key Name of session variable you want to remove (or namespace string/object)
 	 * @param string|bool|null $_key Omit this argument unless first argument is a namespace. Otherwise specify one of: 
@@ -725,6 +748,8 @@ class Session extends Wire implements \IteratorAggregate {
 	/**
 	 * Unset a session variable within a namespace
 	 * 
+	 * #pw-group-remove
+	 * 
 	 * @param string|object $ns Namespace
 	 * @param string $key Provide name of variable to remove, or boolean true to remove all in namespace. 
 	 * @return $this
@@ -737,6 +762,8 @@ class Session extends Wire implements \IteratorAggregate {
 	/**
 	 * Remove all session variables in given namespace
 	 * 
+	 * #pw-group-remove
+	 * 
 	 * @param string|object $ns
 	 * @return $this
 	 * 
@@ -748,6 +775,8 @@ class Session extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Given a namespace object or string, return the namespace string
+	 * 
+	 * #pw-group-retrieval
 	 * 
 	 * @param object|string $ns
 	 * @return string
@@ -798,6 +827,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * } 
 	 * ~~~~~
 	 * 
+	 * #pw-internal
+	 * 
 	 * @return \ArrayObject
 	 *
 	 */
@@ -814,6 +845,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * $ip = $session->getIP();
 	 * echo $ip; // outputs 111.222.333.444
 	 * ~~~~~
+	 * 
+	 * #pw-group-info
 	 *
 	 * @param bool $int Return as a long integer? (default=false)
 	 *  - IPv6 addresses cannot be represented as an integer, so please note that using this int option makes it return a CRC32
@@ -904,6 +937,7 @@ class Session extends Wire implements \IteratorAggregate {
 
 		return $ip;
 	}
+	
 	/**
 	 * Login a user with the given name and password
 	 *
@@ -1291,6 +1325,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * $session->redirect('/'); 
 	 * ~~~~~
 	 * 
+	 * #pw-group-redirects
+	 * 
 	 * @param string $url URL to redirect to
 	 * @param bool|int $status One of the following (or omit for 301):
 	 * - `true` (bool): Permanent redirect (same as 301).
@@ -1363,7 +1399,9 @@ class Session extends Wire implements \IteratorAggregate {
 	 * Perform a temporary redirect
 	 * 
 	 * This is an alias of `$session->redirect($url, false);` that sends only the
-	 * location header, which translates to a 302 redirect. 
+	 * location header, which translates to a 302 redirect.
+	 * 
+	 * #pw-group-redirects
 	 * 
 	 * @param string $url
 	 * @param int $status One of the following HTTP status codes, or omit for 302 (added 3.0.192): 
@@ -1589,6 +1627,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 * );
 	 * ~~~~~
 	 * 
+	 * #pw-group-advanced
+	 * 
 	 * @return array Array of arrays containing history entries. 
 	 * 
 	 */
@@ -1628,6 +1668,8 @@ class Session extends Wire implements \IteratorAggregate {
 	 *   throw new WireException('CSRF check failed!');
 	 * }
 	 * ~~~~
+	 * 
+	 * #pw-group-advanced
 	 * 
 	 * @return SessionCSRF
 	 * @see SessionCSRF::renderInput(), SessionCSRF::validate(), SessionCSRF::hasValidToken()

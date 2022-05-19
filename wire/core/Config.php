@@ -8,10 +8,11 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Holds ProcessWire configuration settings as defined in /wire/config.php and /site/config.php. 
+ * #pw-summary-js Javascript configuration
  * #pw-body =
  * For more detailed descriptions of these $config properties, including default values, see the
  * [/wire/config.php](https://github.com/processwire/processwire/blob/master/wire/config.php) file. 
@@ -32,7 +33,7 @@
  * @property FilenameArray $scripts Array used by ProcessWire admin to keep track of what javascript files its template should load. It will be blank otherwise. Feel free to use it for the same purpose in your own sites. #pw-group-runtime
  * 
  * @property Paths $urls Items from $config->urls reflect the http path one would use to load a given location in the web browser. URLs retrieved from $config->urls always end with a trailing slash. This is the same as the $urls API variable. #pw-group-runtime #pw-group-URLs
- * @property Paths $paths All of what can be accessed from $config->urls can also be accessed from $config->paths, with one important difference: the returned value is the full disk path on the server. There are also a few items in $config->paths that aren't in $config->urls. All entries in $config->paths always end with a trailing slash. #pw-group-runtime
+ * @property Paths $paths All of what can be accessed from $config->urls can also be accessed from $config->paths, with one important difference: the returned value is the full disk path on the server. There are also a few items in $config->paths that aren't in $config->urls. All entries in $config->paths always end with a trailing slash. #pw-group-paths #pw-group-runtime
  * 
  * @property string $templateExtension Default is 'php' #pw-group-template-files
  * 
@@ -204,6 +205,8 @@ class Config extends WireData {
 	/**
 	 * Get config property
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param string $key
 	 * @return string|array|int|bool|object|callable|null
 	 * 
@@ -236,6 +239,8 @@ class Config extends WireData {
 	 * $url = $config->urls->admin; 
 	 * ~~~~~
 	 * 
+	 * #pw-group-URLs
+	 * 
 	 * @param string|Wire $for Predefined ProcessWire URLs property or module name
 	 * @return string|null
 	 * 
@@ -247,7 +252,7 @@ class Config extends WireData {
 	/**
 	 * Get URL for requested resource or module or get all URLs if no argument
 	 * 
-	 * #pw-internal
+	 * #pw-group-URLs
 	 * 
 	 * @param string|Wire $for Predefined ProcessWire URLs property or module name
 	 * @return null|string|Paths
@@ -283,6 +288,9 @@ class Config extends WireData {
 	 *   $config->setLocation('templates', 'site/dev-templates/'); 
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-URLs
+	 * #pw-group-paths
 	 * 
 	 * @param string $for Named location from `$config->paths` or `$config->urls`, one of: `cache`, `logs`, `files`, `tmp`, `templates`, or your own. 
 	 * @param string $dir Directory or URL to the location. Should be either a path or URL relative to current installation root (recommended), 
@@ -346,6 +354,8 @@ class Config extends WireData {
 	 * - The `$for` argument can be: `cache`, `logs`, `files`, `tmp`, `templates`, or one of your own. Other named locations may
 	 *   also work, but since they can potentially be used before PW’s “ready” state, they may not be reliable.
 	 * 
+	 * #pw-group-paths
+	 * 
 	 * @param string $for Named location from `$config->paths`, one of: `cache`, `logs`, `files`, `tmp`, `templates`, or your own. 
 	 * @param string $path Path relative to PW installation root (no leading slash), or absolute path if not. 
 	 * @return self
@@ -389,6 +399,8 @@ class Config extends WireData {
 	 *   $config->setUrl('files', 'https://files.domain.com/'); 
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-URLs
 	 *
 	 * @param string $for Named location from `$config->urls`, one of: `cache`, `logs`, `files`, `tmp`, `templates`, or your own. 
 	 * @param string $url URL relative to PW installation root (no leading slash) or absolute URL if not (optionally including scheme and domain).
@@ -414,6 +426,8 @@ class Config extends WireData {
 	 * $path = $config->paths->root;
 	 * ~~~~~
 	 * 
+	 * #pw-group-paths
+	 * 
 	 * @param string $for Predefined ProcessWire paths property or module class name
 	 * @return null|string
 	 * 
@@ -425,7 +439,7 @@ class Config extends WireData {
 	/**
 	 * Get disk path for requested resource or module or get all paths if no argument
 	 *
-	 * #pw-internal
+	 * #pw-group-paths
 	 *
 	 * @param string $for Predefined ProcessWire paths property or module name
 	 * @return null|string|Paths
@@ -487,6 +501,8 @@ class Config extends WireData {
 	 * console.log(mySettings.foo);
 	 * console.log(mySettings.bar); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-js
 	 *
 	 * @param string|array $key Property or array of properties
 	 * @param mixed $value
@@ -576,6 +592,8 @@ class Config extends WireData {
 	 * console.log(mySettings.foo);
 	 * console.log(mySettings.bar);
 	 * ~~~~~
+	 * 
+	 * #pw-group-js
 	 *
 	 * @param string $key Name of property to get or set or omit to return all data
 	 * @param mixed|null $value Specify value to set or omit (null) to get
@@ -781,7 +799,8 @@ class Config extends WireData {
 	 * }
 	 * ~~~~~
 	 * 
-	 * #pw-group-tools
+	 * #pw-group-URLs
+	 * #pw-group-tools 
 	 * #pw-group-runtime
 	 *
 	 * @param string|array $match Optionally return URL only if some part matches given string(s) (default='')
@@ -837,6 +856,7 @@ class Config extends WireData {
 	 * }
 	 * ~~~~~
 	 * 
+	 * #pw-group-URLs
 	 * #pw-group-tools
 	 * #pw-group-runtime
 	 *

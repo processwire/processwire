@@ -4,6 +4,7 @@
  * ProcessWire File Tools ($files API variable)
  * 
  * #pw-summary Helpers for working with files and directories. 
+ * #pw-var-files
  *
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
@@ -47,6 +48,8 @@ class WireFileTools extends Wire {
 	 *   // directory created: /site/assets/cache/foo-bar/
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-manipulation
 	 * 
 	 * @param string $path Directory you want to create
 	 * @param bool|string $recursive If set to true, all directories will be created as needed to reach the end.
@@ -94,6 +97,8 @@ class WireFileTools extends Wire {
 	 * // Remove directory after ensuring $pathname is somewhere within /site/assets/
 	 * $files->rmdir($pathname, true, [ 'limitPath' => $config->paths->assets ]); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-manipulation
 	 * 
 	 * @param string $path Path/directory you want to remove
 	 * @param bool $recursive If set to true, all files and directories in $path will be recursively removed as well (default=false). 
@@ -156,6 +161,8 @@ class WireFileTools extends Wire {
 	 * // Update the mode of /site/assets/cache/foo-bar/ recursively
 	 * $files->chmod($config->paths->cache . 'foo-bar/', true); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-manipulation
 	 * 
 	 * @param string $path Path or file that you want to adjust mode for (may be a path/directory or a filename).
 	 * @param bool|string $recursive If set to true, all files and directories in $path will be recursively set as well (default=false). 
@@ -227,6 +234,8 @@ class WireFileTools extends Wire {
 	 * $copyTo = $config->paths->cache . "bar/";
 	 * $files->copy($copyFrom, $copyTo); 
 	 * ~~~~~
+	 * 
+	 * #pw-group-manipulation
 	 * 
 	 * @param string $src Path to copy files from, or filename to copy. 
 	 * @param string $dst Path (or filename) to copy file(s) to. Directory is created if it doesn't already exist.
@@ -322,6 +331,8 @@ class WireFileTools extends Wire {
 	 * - This method will be limited to unlink files only in /site/assets/ if you 
 	 *   specify `true` for the `$limitPath` option (recommended).
 	 * 
+	 * #pw-group-manipulation
+	 * 
 	 * @param string $filename
 	 * @param string|bool $limitPath Limit only to files within some starting path? (default=false) 
 	 *  - Boolean true to limit unlink operations to somewhere within /site/assets/ (only known always writable path).
@@ -356,7 +367,9 @@ class WireFileTools extends Wire {
 	/**
 	 * Rename a file or directory and update permissions
 	 * 
-	 * Note that this method will fail if pathname given by $newName argument already exists. 
+	 * Note that this method will fail if pathname given by $newName argument already exists.
+	 * 
+	 * #pw-group-manipulation
 	 * 
 	 * @param string $oldName Old pathname, must be full disk path. 
 	 * @param string $newName New pathname, must be full disk path OR can be basename to assume same path as $oldName. 
@@ -455,6 +468,8 @@ class WireFileTools extends Wire {
 	 * The operation is considered successful so long as the source files were able to be copied to the destination.
 	 * If source files cannot be deleted afterwards, the warning is logged, plus a warning notice is also shown when in debug mode.
 	 * 
+	 * #pw-group-manipulation
+	 * 
 	 * @param string $oldName Old pathname, must be full disk path.
 	 * @param string $newName New pathname, must be full disk path OR can be basename to assume same path as $oldName.
 	 * @param array $options See options for rename() method
@@ -501,6 +516,8 @@ class WireFileTools extends Wire {
 	 * // 5. check if exists and is readable and writable file
 	 * $exists = $files->exists('/path/file.ext', 'readable writable file');
 	 * ~~~~~
+	 * 
+	 * #pw-group-retrieval
 	 * 
 	 * @param string $filename
 	 * @param array|string $options Can be specified as array or string:
@@ -713,6 +730,8 @@ class WireFileTools extends Wire {
 
 	/**
 	 * Find all files in the given $path recursively, and return a flat array of all found filenames
+	 * 
+	 * #pw-group-retrieval
 	 * 
 	 * @param string $path Path to start from (required). 
 	 * @param array $options Options to affect what is returned (optional):
@@ -1022,6 +1041,8 @@ class WireFileTools extends Wire {
 	 *
 	 * This function throws a `WireException` if the file can’t be sent for some reason. Set the `throw` option to
 	 * false if you want it to instead return integer 0 when errors occur. 
+	 * 
+	 * #pw-group-http
 	 *
 	 * @param string|bool $filename Full path and filename to send or boolean false if provided in `$options[data]`.
 	 * @param array $options Optional options to modify default behavior: 
@@ -1068,6 +1089,8 @@ class WireFileTools extends Wire {
 	 * This is the same as PHP’s `file_put_contents()` except that it’s preferable to use this in 
 	 * ProcessWire because it adjusts the file permissions configured with `$config->chmodFile`.
 	 * 
+	 * #pw-group-manipulation
+	 * 
 	 * @param string $filename Filename to write to
 	 * @param string|mixed $contents Contents to write to file
 	 * @param int $flags Flags to modify behavior:
@@ -1095,6 +1118,8 @@ class WireFileTools extends Wire {
 	 * This is the same as PHP’s `file_get_contents()` except that the arguments are simpler and 
 	 * it may be preferable to use this in ProcessWire for future cases where the file system may be 
 	 * abstracted from the installation.
+	 * 
+	 * #pw-group-retrieval
 	 * 
 	 * @param string $filename Full path and filename to read
 	 * @param int $offset The offset where the reading starts on the original stream. Negative offsets count from the end of the stream.
@@ -1146,6 +1171,8 @@ class WireFileTools extends Wire {
 	 *   echo "Color: $row[Color] ";
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-CSV
 	 * 
 	 * @param string $filename CSV filename to read from
 	 * @param array $options
@@ -1288,6 +1315,8 @@ class WireFileTools extends Wire {
 	 *   echo "Color: $row[Color] ";
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-CSV
 	 *
 	 * @param string $filename CSV filename to read from
 	 * @param array $options
@@ -1761,7 +1790,7 @@ class WireFileTools extends Wire {
 	/**
 	 * Compile and include_once() the given file
 	 *
-	 * #pw-group-internal
+	 * #pw-internal
 	 *
 	 * @param string $file File to compile and include
 	 * @param array $options Optional associative array of the following:

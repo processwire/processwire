@@ -2208,6 +2208,59 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		parent::___renamedField($field, $prevName);
 	}
+	
+	/**
+	 * Delete the given Field from the given Page.
+	 *
+	 * Must delete entries from field's database table that belong to the Page.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 * @param Field $field Field object
+	 * @return bool True on success, false on DB delete failure.
+	 * @throws WireException
+	 *
+	 */
+	public function ___deletePageField(Page $page, Field $field) {
+		// @todo
+		return parent::___deletePageField($page, $field);
+	}
+
+	/**
+	 * Empty out the DB table data for page field, but leave everything else in tact.
+	 *
+	 * In most cases this may be nearly identical to `Fieldtype::deletePageField()`, but would be different
+	 * for things like page references where we wouldn't want relational data deleted.
+	 *
+	 * #pw-group-deleting
+	 *
+	 * @param Page $page
+	 * @param Field $field Field object
+	 * @return bool True on success, false on DB delete failure.
+	 * @throws WireException
+	 *
+	 */
+	public function ___emptyPageField(Page $page, Field $field) {
+		// @todo
+		return parent::___emptyPageField($page, $field);
+	}
+
+	/**
+	 * Move this field’s data from one page to another.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page $src Source Page
+	 * @param Page $dst Destination Page
+	 * @param Field $field
+	 * @return bool
+	 *
+	 */
+	public function ___replacePageField(Page $src, Page $dst, Field $field) {
+		// @todo
+		return parent::___replacePageField($src, $dst, $field);
+	}
 
 	/**
 	 * Export Comment to array

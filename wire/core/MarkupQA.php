@@ -766,7 +766,7 @@ class MarkupQA extends Wire {
 		$options = array_merge($defaults, $options);
 		$replaceAlt = ''; // exact text to replace for blank alt attribute, i.e. alt=""
 		$src = '';
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		$attrStrings = explode(' ', $img); // array of strings like "key=value"
 
 		if($this->verbose()) {
@@ -832,6 +832,35 @@ class MarkupQA extends Wire {
 				return;
 			}
 		}
+		
+		/*
+		 * @todo potential replacement for 'removeNoAccess' block above
+		 * Regarding: https://github.com/processwire/processwire-issues/issues/1548
+		 * 
+		// if(($pagefile->page->id != $this->page->id && !$user->hasPermission('page-view', $pagefile->page))
+		if($options['removeNoAccess']) {
+			// if the file resolves to another page that the user doesn't have access to view, 
+			// OR user doesn't have permission to view the field that $pagefile is in, remove image
+			$page = $pagefile->page;
+			$field = $pagefile->field;
+			$removeImage = false;
+			if(wireInstanceOf($page, 'RepeaterPage')) {
+				$page = $page->getForPageRoot();
+				$field = $page->getForFieldRoot();
+			}
+			if($page->id != $this->page->id && !$page->viewable(false)) {
+				$this->error("Image on page ($page->id) that user does not have view access to: $src");
+				$removeImage = true;
+			} else if($field && !$page->viewable($field)) {
+				$this->error("Image on page:field ($page->id:$field) that user does not have view access to: $src");
+				$removeImage = true;
+			}
+			if($removeImage) {
+				if($this->page->of()) $value = str_replace($img, '', $value);
+				return;
+			}
+		}
+		*/
 
 		if($options['replaceBlankAlt'] && $replaceAlt) {
 			// image has a blank alt tag, meaning, we will auto-populate it with current file description, 

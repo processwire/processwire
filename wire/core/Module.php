@@ -312,7 +312,7 @@
  * The method should prepare the environment with anything else needed by the module, such as newly created 
  * fields, pages, templates, etc. or installation of other modules. 
  * 
- * If the install() method determines that the module called be installed for some reason, it should 
+ * If the install() method determines that the module cannot be installed for some reason, it should 
  * throw a `WireException.` 
  * 
  * ### uninstall()

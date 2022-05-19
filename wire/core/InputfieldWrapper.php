@@ -24,7 +24,7 @@
  * @property InputfieldsArray|null $children Inputfield instances that are direct children of this InputfieldWrapper.  #pw-group-properties
  * 
  * @method string renderInputfield(Inputfield $inputfield, $renderValueMode = false) #pw-group-output
- * @method Inputfield new($typeName, $name = '', $label = '', array $settings = array()) #pw-group-manipulation
+ * @method Inputfield new($typeName, $name = '', $label = '', array $settings = []) #pw-group-manipulation
  * 
  * @property InputfieldAsmSelect $InputfieldAsmSelect
  * @property InputfieldButton $InputfieldButton

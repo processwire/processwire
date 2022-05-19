@@ -9,7 +9,7 @@
  * @method Permission|NullPage get($selector) Return permission by given name, numeric ID or a selector string.
  * @method array getOptionalPermissions($omitInstalled = true) #pw-internal
  * @method array saveReady(Page $page) Hook called just before a Permission is saved #pw-hooker
- * @method void saved(Page $page, array $changes = array(), $values = array()) #pw-hooker
+ * @method void saved(Page $page, array $changes = array(), $values = []) #pw-hooker
  * @method void added(Page $page) Hook called just after a Permission is added #pw-hooker
  * @method void deleteReady(Page $page) Hook called before a Permission is deleted #pw-hooker
  * @method void deleted(Page $page) Hook called after a permission is deleted #pw-hooker

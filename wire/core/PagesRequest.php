@@ -3,9 +3,15 @@
 /**
  * ProcessWire Pages Request
  *
- * Identifies page from current request URL and loads it
+ * #pw-summary Methods for identifying and loading page from current request URL.
+ * #pw-body =
+ * Methods in this class should be accessed from `$pages->request()`, i.e. 
+ * ~~~~~
+ * $page = $pages->request()->getPage();
+ * ~~~~~
+ * #pw-body
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method Page|NullPage getPage()

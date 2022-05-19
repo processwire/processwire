@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -27,22 +27,22 @@
  * @link http://processwire.com/api/ref/page/ Offical $page Documentation
  * @link http://processwire.com/api/selectors/ Official Selectors Documentation
  *
- * @property int $id The numbered ID of the current page #pw-group-system
+ * @property int $id The numbered ID of the current page #pw-group-system #pw-group-common
  * @property string $name The name assigned to the page, as it appears in the URL #pw-group-system #pw-group-common
- * @property string $namePrevious Previous name, if changed. Blank if not. #pw-group-previous
+ * @property string|null $namePrevious Previous name, if changed. Null or blank string if not. #pw-group-previous
  * @property string $title The page’s title (headline) text
  * @property string $path The page’s URL path from the homepage (i.e. /about/staff/ryan/) 
  * @property string $url The page’s URL path from the server's document root
  * @property array $urls All URLs the page is accessible from, whether current, former and multi-language. #pw-group-urls
  * @property string $httpUrl Same as $page->url, except includes scheme (http or https) and hostname.
  * @property Page|string|int $parent The parent Page object or a NullPage if there is no parent. For assignment, you may also use the parent path (string) or id (integer). #pw-group-traversal
- * @property Page|null $parentPrevious Previous parent, if parent was changed. #pw-group-previous
+ * @property Page|null $parentPrevious Previous parent, if parent was changed. Null if not. #pw-group-previous
  * @property int $parent_id The numbered ID of the parent page or 0 if homepage or not assigned. #pw-group-system
  * @property int $templates_id The numbered ID of the template usedby this page. #pw-group-system
  * @property PageArray $parents All the parent pages down to the root (homepage). Returns a PageArray. #pw-group-common #pw-group-traversal
  * @property Page $rootParent The parent page closest to the homepage (typically used for identifying a section) #pw-group-traversal
  * @property Template|string $template The Template object this page is using. The template name (string) may also be used for assignment.
- * @property Template|null $templatePrevious Previous template, if template was changed. #pw-group-previous
+ * @property Template|null $templatePrevious Previous template, if template was changed. Null if not. #pw-group-previous
  * @property Fieldgroup $fields All the Fields assigned to this page (via its template). Returns a Fieldgroup. #pw-advanced
  * @property int $numChildren The number of children (subpages) this page has, with no exclusions (fast). #pw-group-traversal
  * @property int $hasChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
@@ -54,20 +54,19 @@
  * @property PageArray $siblings All the sibling pages of this page. Returns a PageArray. See also $page->siblings($selector). #pw-group-traversal
  * @property Page $next This page's next sibling page, or NullPage if it is the last sibling. See also $page->next($pageArray). #pw-group-traversal
  * @property Page $prev This page's previous sibling page, or NullPage if it is the first sibling. See also $page->prev($pageArray). #pw-group-traversal
- * @property int $created Unix timestamp of when the page was created. #pw-group-common #pw-group-date-time #pw-group-system
+ * @property int $created Unix timestamp of when the page was created. #pw-group-date-time #pw-group-system
  * @property string $createdStr Date/time when the page was created (formatted date/time string). #pw-group-date-time
- * @property int $modified Unix timestamp of when the page was last modified. #pw-group-common #pw-group-date-time #pw-group-system
+ * @property int $modified Unix timestamp of when the page was last modified. #pw-group-date-time #pw-group-system
  * @property string $modifiedStr Date/time when the page was last modified (formatted date/time string). #pw-group-date-time
- * @property int $published Unix timestamp of when the page was published. #pw-group-common #pw-group-date-time #pw-group-system
+ * @property int $published Unix timestamp of when the page was published. #pw-group-date-time #pw-group-system
  * @property string $publishedStr Date/time when the page was published (formatted date/time string). #pw-group-date-time
- * @property int $created_users_id ID of created user. #pw-group-system
- * @property User|NullPage $createdUser The user that created this page. Returns a User or a NullPage.
- * @property int $modified_users_id ID of last modified user. #pw-group-system
- * @property User|NullPage $modifiedUser The user that last modified this page. Returns a User or a NullPage.
+ * @property int $created_users_id ID of created user. #pw-group-system #pw-group-users
+ * @property User|NullPage $createdUser The user that created this page. Returns a User or a NullPage. #pw-group-users
+ * @property int $modified_users_id ID of last modified user. #pw-group-system #pw-group-users
+ * @property User|NullPage $modifiedUser The user that last modified this page. Returns a User or a NullPage. #pw-group-users
  * @property PagefilesManager $filesManager The object instance that manages files for this page. #pw-group-files
  * @property string $filesPath Get the disk path to store files for this page, creating it if it does not exist. #pw-group-files
  * @property string $filesUrl Get the URL to store files for this page, creating it if it does not exist. #pw-group-files
- * @property bool $hasFilePath Does this page have a disk path for storing files? #pw-group-files
  * @property bool $hasFiles Does this page have one or more files in its files path? #pw-group-files
  * @property bool $outputFormatting Whether output formatting is enabled or not. #pw-advanced
  * @property int $sort Sort order of this page relative to siblings (applicable when manual sorting is used). #pw-group-system
@@ -75,7 +74,7 @@
  * @property string $sortfield Field that a page is sorted by relative to its siblings (default="sort", which means drag/drop manual) #pw-group-system
  * @property null|array _statusCorruptedFields Field names that caused the page to have Page::statusCorrupted status. #pw-internal
  * @property int $status Page status flags. #pw-group-system #pw-group-status
- * @property int|null $statusPrevious Previous status, if status was changed. #pw-group-status #pw-group-previous
+ * @property int|null $statusPrevious Previous status, if status was changed. Null if not. #pw-group-status #pw-group-previous
  * @property string statusStr Returns space-separated string of status names active on this page. #pw-group-status
  * @property Fieldgroup $fieldgroup Fieldgroup used by page template. Shorter alias for $page->template->fieldgroup (same as $page->fields) #pw-advanced
  * @property string $editUrl URL that this page can be edited at. #pw-group-urls
@@ -3525,7 +3524,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * $value = $page->edit('field_name'); 
 	 * ~~~~~
 	 * 
-	 * #pw-group-common
+	 * #pw-group-output-rendering
 	 * #pw-hooker
 	 *
 	 * @param string|bool|null $key Name of field, omit to get editor active status, or boolean true to enable editor. 

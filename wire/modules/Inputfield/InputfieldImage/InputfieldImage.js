@@ -2167,6 +2167,7 @@ function InputfieldImage($) {
 				
 				updateProgress();
 			
+				if(typeof file.name === 'undefined') file.name = getUploadFilename(file);
 				var ext = file.name.substring(file.name.lastIndexOf('.')+1).toLowerCase();
 				if(useClientResize && (ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'gif')) {
 					var resizer = new PWImageResizer(resizeSettings);
@@ -2199,6 +2200,8 @@ function InputfieldImage($) {
 				}
 				
 				for(var i = 0, l = files.length; i < l; i++) {
+					
+					if(typeof files[i].name === 'undefined') files[i].name = getUploadFilename(files[i]);
 				
 					var extension = files[i].name.split('.').pop().toLowerCase();
 					var message;
@@ -2234,6 +2237,19 @@ function InputfieldImage($) {
 					
 					if(maxFiles == 1) break;
 				}
+			}
+			
+			function getUploadFilename(file) {
+				if(typeof file.name !== 'undefined') return file.name;
+				var ext = '';
+				switch(file.type) {
+					case 'image/jpeg': ext = '.jpg'; break;
+					case 'image/png': ext = '.png'; break;
+					case 'image/gif': ext = '.gif'; break;
+					case 'image/svg+xml': ext = '.svg'; break;
+					case 'image/webp': ext = '.webp';
+				}
+				return $inputfield.attr('id').replace('wrap_Inputfield_', '') + ext;
 			}
 
 			filesUpload.addEventListener("change", function(evt) {

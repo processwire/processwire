@@ -246,7 +246,7 @@ class Password extends Wire {
 		} else {
 			// older style, non-blowfish support
 			// split the password in two
-			$splitPass = str_split($pass, (strlen($pass) / 2) + 1); 
+			$splitPass = str_split($pass, (int) (strlen($pass) / 2) + 1); 
 			// generate the hash
 			$hash = hash($hashType, $salt1 . $splitPass[0] . $salt2 . $splitPass[1], false); 
 		}

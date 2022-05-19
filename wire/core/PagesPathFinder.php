@@ -3,14 +3,19 @@
 /**
  * ProcessWire Pages Path Finder
  * 
- * Enables finding pages by path, optionally including URL segments, 
- * pagination/page numbers and language prefixes. Build for use by
- * the PagesRequest class and ProcessPageView module. 
+ * #pw-summary Enables finding pages by path, optionally with URL segments, pagination numbers, language prefixes, etc.
+ * #pw-body = 
+ * This is built for use by the PagesRequest class and ProcessPageView module, but can also be useful from the public API.
+ * The most useful method is the `get()` method which returns a verbose array of information about the given path. 
+ * Methods in this class should be acessed from `$pages->pathFinder()`, i.e. 
+ * ~~~~~
+ * $result = $pages->pathFinder()->get('/en/foo/bar/page3');
+ * ~~~~~
+ * Note that PagesPathFinder does not perform any access control checks, so if using this class then validate access 
+ * afterwards when appropriate.
+ * #pw-body
  * 
- * Note that this does not perform any access control checks, so 
- * if using this class then validate access afterwards when appropriate.
- *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo:
@@ -148,10 +153,15 @@ class PagesPathFinder extends Wire {
 	 *
 	 * If the `response` property in the return value is 301 or 302, then the
 	 * `redirect` property will be populated with a recommend redirect path.
+	 * 
+	 * Please access this method from `$pages->pathFinder()->get('…');`
 	 *
-	 * If given a `$path` argument of `/en/foo/bar/page3` on a site that has default
-	 * language homepage segment of `en`, a page living at `/foo/` that accepts
-	 * URL segment `bar` and has pagination enabled, it will return the following:
+	 * Below is an example when given a `$path` argument of `/en/foo/bar/page3` 
+	 * on a site that has default language homepage segment of `en`, a page living 
+	 * at `/foo/` that accepts URL segment `bar` and has pagination enabled;
+	 * ~~~~~
+	 * $array = $pages->pathFinder()->get('/en/foo/bar/page3'); 
+	 * ~~~~~
 	 * ~~~~~
 	 * [
 	 *   'request' => '/en/foo/bar/page3',
@@ -213,6 +223,7 @@ class PagesPathFinder extends Wire {
 	 *  - `verbose` (bool): Return verbose array of information? (default=true)
 	 *     If false, some optional information will be omitted in return value.
 	 * @return array
+	 * @see PagesPathFinder::getPage()
 	 *
 	 */
 	public function get($path, array $options = array()) {
@@ -242,12 +253,17 @@ class PagesPathFinder extends Wire {
 	/**
 	 * Given a path, get a Page object or NullPage if not found
 	 * 
-	 * Sets a `_pagePathFinder` property to the returned Page, which is an associative 
-	 * array containing the same result array returned by the get() method.
+	 * This method is like the `get()` method except that it returns a `Page`
+	 * object rather than an array. It sets a `_pagePathFinder` property to the 
+	 * returned Page, which is an associative array containing the same result 
+	 * array returned by the `get()` method.
+	 * 
+	 * Please access this method from `$pages->pathFinder()->getPage('…');`
 	 * 
 	 * @param string $path
 	 * @param array $options
 	 * @return NullPage|Page
+	 * @see PagesPathFinder::get()
 	 * 
 	 */
 	public function getPage($path, array $options = array()) {
@@ -1479,6 +1495,8 @@ class PagesPathFinder extends Wire {
 	/**
 	 * Get default options
 	 * 
+	 * #pw-internal
+	 * 
 	 * @return array
 	 * 
 	 */
@@ -1541,6 +1559,10 @@ class PagesPathFinder extends Wire {
 	}
 
 	/**
+	 * Get PagesPathFinderTests instance
+	 * 
+	 * #pw-internal
+	 * 
 	 * @return PagesPathFinderTests
 	 * 
 	 */
@@ -1698,6 +1720,8 @@ class PagesPathFinder extends Wire {
 
 	/**
 	 * Get homepage name segments used for each language, indexed by language id
+	 * 
+	 * #pw-internal
 	 *
 	 * @return array
 	 *
@@ -1756,6 +1780,8 @@ class PagesPathFinder extends Wire {
 
 	/**
 	 * Is given segment a language segment? Returns language ID if yes, false if no
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param string $segment
 	 * @return false|int

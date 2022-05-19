@@ -19,7 +19,7 @@
  * @property bool|int $useAsLogin
  * @method array getUserNavArray()
  * @method array getPrimaryNavArray()
- * @method string renderFile($basename, array $vars = array())
+ * @method string renderFile($basename, array $vars = [])
  *
  */
 abstract class AdminThemeFramework extends AdminTheme {

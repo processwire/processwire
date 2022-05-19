@@ -321,7 +321,13 @@ class Modules extends WireArray {
 		parent::__construct();
 		$this->addPath($path); 
 	}
-	
+
+	/**
+	 * Wired to API
+	 * 
+	 * #pw-internal
+	 * 
+	 */
 	public function wired() {
 		$this->coreModulesDir = '/' . $this->wire('config')->urls->data('modules');
 		parent::wired();

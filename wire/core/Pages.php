@@ -8,13 +8,14 @@
  *
  * This is the most used object in the ProcessWire API. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
  * @link http://processwire.com/api/selectors/ Official Selectors Documentation
  * 
  * #pw-summary Enables loading and manipulation of Page objects, to and from the database. 
+ * #pw-order-groups retrieval,creation,manipulation,advanced,cache,helpers,hooker
  * 
  * PROPERTIES
  * ==========
@@ -211,7 +212,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function init() {
-		$this->loader->getById($this->wire('config')->preloadPageIDs);
+		$this->loader->getById($this->wire()->config->preloadPageIDs);
 	}
 
 	/****************************************************************************************************************
@@ -746,7 +747,7 @@ class Pages extends Wire {
 			if($template instanceof Template) {
 				// cool, cool
 			} else if(is_int($template) || is_string($template)) {
-				$template = $this->wire('templates')->get($template);
+				$template = $this->wire()->templates->get($template);
 			} else {
 				$template = null;
 			}
@@ -1224,7 +1225,7 @@ class Pages extends Wire {
 	 * echo "Path for page 1234 is: $path";
 	 * ~~~~~
 	 * 
-	 * #pw-advanced
+	 * #pw-group-advanced
 	 *
 	 * @param int|Page $id ID of the page you want the path to
 	 * @param null|array|Language|int|string $options Specify $options array or Language object, id or name. Allowed options include: 
@@ -1364,6 +1365,8 @@ class Pages extends Wire {
 	 *   'method' => 'pagesRow', // method(s) that were used to find the page
 	 * ]
 	 * ~~~~~
+	 * 
+	 * #pw-group-retrieval
 	 * 
 	 * @param string $path Page path optionally including URL segments, language prefix, pagination number
 	 * @param array $options
@@ -1570,7 +1573,7 @@ class Pages extends Wire {
 	 *
 	 * You may also pass in the string "id=123", where 123 is the page_id
 	 * 
-	 * #pw-internal
+	 * #pw-group-cache
 	 *
 	 * @param int|string|null $id 
 	 * @return Page|array|null
@@ -1596,10 +1599,10 @@ class Pages extends Wire {
 	/**
 	 * Remove the given page(s) from the cache, or uncache all by omitting $page argument
 	 *
-	 * When no $page argument is given, this method behaves the same as $pages->uncacheAll().
+	 * When no $page argument is given, this method behaves the same as `$pages->uncacheAll()`.
 	 * When any $page argument is given, this does not remove pages from selectorCache.
 	 * 
-	 * #pw-internal
+	 * #pw-group-cache
 	 *
 	 * @param Page|PageArray|int|null $page Page to uncache, PageArray of pages to uncache, ID of page to uncache (3.0.153+), or omit to uncache all.
 	 * @param array $options Additional options to modify behavior: 
@@ -1648,7 +1651,7 @@ class Pages extends Wire {
 	 * echo "Total value of all products: $" . number_format($total);
 	 * ~~~~~
 	 * 
-	 * #pw-advanced
+	 * #pw-group-cache
 	 * 
 	 * @param Page $page Optional Page that initiated the uncacheAll
 	 * @param array $options Options to modify default behavior: 
@@ -1775,7 +1778,7 @@ class Pages extends Wire {
 			'action' => (string) $action, 
 			'details' => (string) $details, 
 			'result' => (string) $result
-			);
+		);
 	}
 
 	/**
@@ -1790,7 +1793,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function getDebugLog($action = '') {
-		if(!$this->wire('config')->debug) return array();
+		if(!$this->wire()->config->debug) return array();
 		if(!$action) return $this->debugLog; 
 		$debugLog = array();
 		foreach($this->debugLog as $item) if($item['action'] == $action) $debugLog[] = $item; 
@@ -1798,7 +1801,7 @@ class Pages extends Wire {
 	}
 
 	/**
-	 * Return a PageFinder object, ready to use
+	 * Return a new PageFinder object, ready to use
 	 * 
 	 * #pw-internal
 	 *
@@ -1950,7 +1953,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function executeQuery(\PDOStatement $query, $throw = true, $maxTries = 3) {
-		return $this->wire('database')->execute($query, $throw, $maxTries);
+		return $this->wire()->database->execute($query, $throw, $maxTries);
 	}
 
 	/**
@@ -1965,11 +1968,26 @@ class Pages extends Wire {
 	 *
 	 */
 	public function __invoke($key) {
-		if(empty($key)) return $this; // no argument
-		if(is_int($key)) return $this->get($key); // page ID
-		if(is_array($key) && ctype_digit(implode('', $key))) return $this->getById($key); // array of page IDs
-		if(is_string($key) && strpos($key, '/') !== false && $this->sanitizer->pagePathName($key) === $key) return $this->get($key); // page path
-		return $this->find($key); // selector string or array
+		// no argument
+		if(empty($key)) return $this;
+		
+		// page ID
+		if(is_int($key)) return $this->get($key);
+		
+		// array of page IDs
+		if(is_array($key) && ctype_digit(implode('', $key))) {
+			return $this->getById($key);
+		}
+		
+		// page path
+		if(is_string($key) && strpos($key, '/') !== false) { 
+			if($this->wire()->sanitizer->pagePathName($key) === $key) {
+				return $this->get($key);
+			}
+		}
+		
+		// selector string or array
+		return $this->find($key);
 	}
 
 	/**
@@ -1983,8 +2001,8 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function log($str, Page $page) {
-		if(!in_array('pages', $this->wire('config')->logs)) return parent::___log();
-		if($this->wire('process') != 'ProcessPageEdit') $str .= " [From URL: " . $this->wire('input')->url() . "]";
+		if(!in_array('pages', $this->wire()->config->logs)) return parent::___log();
+		if($this->wire()->process != 'ProcessPageEdit') $str .= " [From URL: " . $this->wire()->input->url() . "]";
 		$options = array('name' => 'pages', 'url' => $page->path); 
 		return parent::___log($str, $options); 
 	}
@@ -2015,7 +2033,7 @@ class Pages extends Wire {
 	 * 
 	 * @return PagesNames
 	 *
-	 * #pw-advanced
+	 * #pw-group-helpers
 	 *
 	 */
 	public function names() {
@@ -2056,10 +2074,12 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Get the PagesRaw instance
+	 * 
+	 * #pw-group-helpers
+	 * 
 	 * @return PagesRaw
 	 * @since 3.0.172
-	 *
-	 * #pw-internal
 	 *
 	 */
 	public function raw() {
@@ -2068,10 +2088,12 @@ class Pages extends Wire {
 	}
 	
 	/**
+	 * Get the PagesRequest instance
+	 * 
+	 * #pw-group-helpers
+	 * 
 	 * @return PagesRequest
 	 * @since 3.0.186
-	 *
-	 * #pw-internal
 	 *
 	 */
 	public function request() {
@@ -2080,10 +2102,12 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Get the PagesPathFinder instance
+	 * 
+	 * #pw-group-helpers
+	 * 
 	 * @return PagesPathFinder
 	 * @since 3.0.186
-	 *
-	 * #pw-internal
 	 *
 	 */
 	public function pathFinder() {
@@ -2150,9 +2174,7 @@ class Pages extends Wire {
 		$str = "Saved page";
 		if(count($changes)) $str .= " (Changes: " . implode(', ', $changes) . ")";
 		$this->log($str, $page);
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache');
-		$cache->maintenance($page);
+		$this->wire()->cache->maintenance($page);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->saved($page, $changes, $values);
 		}
@@ -2213,6 +2235,8 @@ class Pages extends Wire {
 
 	/**
 	 * Hook called when a Page is about to be trashed
+	 * 
+	 * #pw-hooker
 	 * 
 	 * @param Page $page
 	 * @since 3.0.163
@@ -2301,9 +2325,7 @@ class Pages extends Wire {
 	public function ___deleted(Page $page, array $options = array()) { 
 		if($options) {}
 		if(empty($options['_deleteBranch'])) $this->log("Deleted page", $page); 
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache');
-		$cache->maintenance($page);
+		$this->wire()->cache->maintenance($page);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->deleted($page);
 		}
