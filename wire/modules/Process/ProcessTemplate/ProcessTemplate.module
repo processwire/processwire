@@ -2821,9 +2821,9 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 				$value = $f->val();
 				if($sanitizerName === 'int') {
 					$value = (int) $value;
-				} else if($sanitizerName = 'text') {
+				} else if($sanitizerName === 'text') {
 					$value = $sanitizer->text($value);
-				} else if($sanitizerName = 'words') {
+				} else if($sanitizerName === 'words') {
 					$value = $sanitizer->words($value);
 				} else {
 					// use as-is
