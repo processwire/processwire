@@ -338,7 +338,8 @@ class ProcessPageView extends Process {
 	 * 
 	 * - Updates given request path to remove pagination segment.
 	 * - Returns found pagination segment or blank if none.
-	 * - Redirects to non-slash version if pagination segment found with trailing slash.
+	 * - Redirects to non-slash version if: pagination segment found with trailing slash,
+	 *   no $page API var was present, or $page present but does not allow slash.
 	 * 
 	 * @param string $requestPath
 	 * @param string|null $pageNumPrefix
@@ -360,12 +361,23 @@ class ProcessPageView extends Process {
 		if(substr($requestPath, -1 * strlen($pageNumSegment)) === $pageNumSegment) {
 			// remove pagination segment from request path
 			$requestPath = substr($requestPath, 0, -1 * strlen($pageNumSegment));
-			$setPageNum = $pageNum;
-			// disallow specific "/page1" in URL as it is implied by the lack of pagination segment
-			if($setPageNum === 1) $this->redirect($config->urls->root . ltrim($requestPath, '/'));
-			// enforce no trailing slashes for pagination numbers
-			if($slash) {
-				$this->redirect($config->urls->root . ltrim($requestPath, '/') . $pageNumSegment);
+			$setPageNum = (int) $pageNum;
+			if($setPageNum === 1) {
+				// disallow specific "/page1" in URL as it is implied by the lack of pagination segment
+				$this->redirect($config->urls->root . ltrim($requestPath, '/'));
+			} else if($slash) {
+				// a trailing slash is present after the pageNum i.e. /page9/
+				$page = $this->wire()->page;
+				// a $page API var will be present if a 404 was manually thrown from a template file
+				// but it likely won't be present if we are leading to a path hook
+				if(!$page || !$page->id || !$page->template || !$page->template->allowPageNum) $page = null;
+				if($page && ((int) $page->template->slashPageNum) > -1) {
+					// $page API var present and trailing slash is okay
+				} else {
+					// no $page API var present or trailing slash on pageNum disallowed
+					// enforce no trailing slashes for pagination numbers
+					$this->redirect($config->urls->root . ltrim($requestPath, '/') . $pageNumSegment);
+				}
 			}
 			$this->wire()->input->setPageNum($pageNum);
 			
