@@ -943,7 +943,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if($image->name != $original->name || $input->get('link')) {
 			if($image->name != $original->name) $formClasses[] = 'not-original';
 			$imgURL = str_replace($config->urls->root, '/', $original->url);
-			$imgLinkURL = trim($input->get('link'));
+			$imgLinkURL = trim((string) $input->get('link'));
 			if($imgLinkURL) {
 				if($imgLinkURL === "1") $imgLinkURL = $imgURL; // if in toggle mode, substitute URL
 				// determine if 'link to original' checkbox should be checked 
