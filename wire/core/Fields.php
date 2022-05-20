@@ -477,7 +477,10 @@ class Fields extends WireSaveableItems {
 	
 		/** @var Field $item */
 		$item = parent::___clone($item, $name);
-		if($item) $item->prevTable = null;
+		if($item) {
+			$item->prevTable = null;
+			$item->prevName = ''; // prevent renamed hook
+		}
 		
 		return $item;
 	}

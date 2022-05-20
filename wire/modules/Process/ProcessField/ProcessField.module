@@ -2116,7 +2116,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		if(!$field) return false;
 
 		$field->label = $field->label . ' ' . $this->_('(copy)');
-		$this->message($this->_('Cloned Field') . " - $field->name => $cloneField->name");
+		$this->message($this->_('Cloned Field') . " - $cloneField->name => $field->name");
 
 		if($field->type instanceof FieldtypeFieldsetOpen && strpos($cloneField->name, '_END') === false) {
 			// handle a cloned fieldset by also cloning its closer
