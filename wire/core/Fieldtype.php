@@ -1539,12 +1539,13 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function get($key) {
-		if($key == 'name') return $this->className();
-		if($key == 'shortName') {
+		if($key === 'name') return $this->className();
+		if($key === 'shortName') {
 			return str_replace('Fieldtype', '', $this->className());
-		} else if($key == 'longName' && method_exists($this, 'getModuleInfo')) {
-			$info = $this->getModuleInfo($this);
-			return $info['title'];
+		} else if($key === 'longName') {
+			$title = $this->wire()->modules->getModuleInfoProperty($this, 'title');
+			if(empty($title)) $title = $this->get('shortName');
+			return $title;
 		}
 		return parent::get($key); 
 	}
