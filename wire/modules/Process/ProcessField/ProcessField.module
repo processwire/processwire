@@ -1175,6 +1175,15 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field->attr('value', '');
 			$form->append($field); 
 		}
+	
+		// move the 'tabLabel' input right below the 'collapsed' input
+		$f1 = $form->getChildByName('tabLabel');
+		$fs = $form->getChildByName('visibility');
+		$f2 = $fs ? $fs->getChildByName('collapsed') : null;
+		if($f1 && $f2) {
+			$f1->getParent()->remove($f1);
+			$fs->insertAfter($f1, $f2);
+		}
 		
 		$focus = $input->get('focus');
 		if($focus) {
@@ -1647,6 +1656,19 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->description = $this->_("Usage notes or additional information that appears beneath the input."); // Description for 'field notes'
 		$field->notes = $this->_('Notes appear here and look like this.');
 		$field->collapsed = Inputfield::collapsedBlank;
+		$form->add($field);
+		$languageFields[] = $field;
+	
+		/** @var InputfieldText $field */
+		$field = $this->modules->get('InputfieldText');
+		$field->label = $this->_('Label for tab');
+		$field->attr('name', 'tabLabel');
+		$field->attr('value', (string) $this->field->get('tabLabel'));
+		$field->icon = 'tag';
+		$field->description = $this->_('If field is displayed in its own tab, optionally specify an alternate tab label if different from the field label.');
+		$field->notes = $this->_('The tab label should ideally be very short, like just one word.');
+		$field->collapsed = Inputfield::collapsedBlank;
+		$field->showIf = 'collapsed=' . Inputfield::collapsedTab . '|' . Inputfield::collapsedTabAjax . '|' . Inputfield::collapsedTabLocked;
 		$form->add($field);
 		$languageFields[] = $field;
 
@@ -2286,7 +2308,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			}
 			
 			if($name === 'tags') {
-				$value = $sanitizer->words($value);
+				$value = $sanitizer->getTextTools()->strtolower($sanitizer->words($value));
 			}
 
 			$this->field->set($name, $value); 

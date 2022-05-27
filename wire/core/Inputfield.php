@@ -59,6 +59,7 @@
  * @property string $icon Optional font-awesome icon name to accompany label (excluding the "fa-") part). #pw-group-labels
  * @property string $requiredLabel Optional custom label to display when missing required value. @since 3.0.98 #pw-group-labels 
  * @property string $head Optional text that appears below label but above description (only used by some Inputfields). #pw-internal
+ * @property string $tabLabel Label for tab if Inputfield rendered in its own tab via Inputfield::collapsedTab* setting. @since 3.0.201 #pw-group-labels
  * @property string|null $prependMarkup Optional markup to prepend to the Inputfield content container. #pw-group-other
  * @property string|null $appendMarkup Optional markup to append to the Inputfield content container. #pw-group-other
  * 
@@ -219,6 +220,30 @@ abstract class Inputfield extends WireData implements Module {
 	const collapsedBlankAjax = 11;
 
 	/**
+	 * Collapsed into a separate tab
+	 * #pw-group-collapsed-constants
+	 * @since 3.0.201
+	 *
+	 */
+	const collapsedTab = 20;
+	
+	/**
+	 * Collapsed into a separate tab and AJAX loaded
+	 * #pw-group-collapsed-constants
+	 * @since 3.0.201
+	 *
+	 */
+	const collapsedTabAjax = 21;
+
+	/**
+	 * Collapsed into a separate tab and locked (not editable)
+	 * #pw-group-collapsed-constants
+	 * @since 3.0.201
+	 *
+	 */
+	const collapsedTabLocked = 22;
+	
+	/**
 	 * Don't skip the label (default)
 	 * #pw-group-skipLabel-constants
 	 *
@@ -366,6 +391,7 @@ abstract class Inputfield extends WireData implements Module {
 		$this->set('notes', ''); // highlighted descriptive copy, below output of input field
 		$this->set('detail', ''); // text details that appear below notes
 		$this->set('head', ''); // below label, above description
+		$this->set('tabLabel', ''); // alternate label for tab when Inputfield::collapsedTab* in use
 		$this->set('required', 0); // set to 1 to make value required for this field
 		$this->set('requiredIf', ''); // optional conditions to make it required
 		$this->set('collapsed', ''); // see the collapsed* constants at top of class (use blank string for unset value)
@@ -1467,6 +1493,9 @@ abstract class Inputfield extends WireData implements Module {
 		if($this->hasFieldtype !== false) {
 			$field->addOption(self::collapsedYesAjax, $this->_('Closed + Load only when opened (AJAX)') . " †");
 			$field->notes = sprintf($this->_('Options indicated with %s may not work with all input types or placements, test to ensure compatibility.'), '†');
+			$field->addOption(self::collapsedTab, $this->_('Tab'));
+			$field->addOption(self::collapsedTabAjax, $this->_('Tab + Load only when clicked (AJAX)') . " †");
+			$field->addOption(self::collapsedTabLocked, $this->_('Tab + Locked (not editable)'));
 		}
 		$field->addOption(self::collapsedHidden, $this->_('Hidden (not shown in the editor)'));
 		$field->attr('value', (int) $this->collapsed); 

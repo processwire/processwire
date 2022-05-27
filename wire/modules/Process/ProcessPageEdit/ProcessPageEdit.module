@@ -914,6 +914,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 						Inputfield::collapsedNoLocked,
 						Inputfield::collapsedBlankLocked,
 						Inputfield::collapsedYesLocked,
+						Inputfield::collapsedTabLocked,
 					);
 					$collapsed = $inputfield->getSetting('collapsed');
 					if($collapsed > 0 && !in_array($collapsed, $skipCollapsed)) {
@@ -932,6 +933,42 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$tabWrap = null;
 			$tabOpen = null;
 			$tabViewable = null;
+			$fieldsetTab = null;
+			$collapsedTabTypes = array(
+				Inputfield::collapsedTab => 1, 
+				Inputfield::collapsedTabAjax => 1, 
+				Inputfield::collapsedTabLocked => 1, 
+			);
+			
+			// identify fields displayed as tabs and add fieldset open/close around them
+			foreach($contentTab as $inputfield) {
+				/** @var Inputfield $inputfield */
+				if(!isset($collapsedTabTypes[$inputfield->collapsed])) continue;
+				/** @var InputfieldFieldsetTabOpen $tab */
+				if(!$fieldsetTab) {
+					$fieldsetTab = $this->modules->get('FieldtypeFieldsetTabOpen');
+					$this->modules->get('FieldtypeFieldsetClose');
+				}
+				$tab = new InputfieldFieldsetTabOpen();
+				$this->wire($tab);
+				$tab->attr('name', '_tab_' . $inputfield->attr('name'));
+				$tab->attr('id', '_tab_' . $inputfield->attr('id'));
+				$tab->label = $inputfield->getSetting('tabLabel|label');
+				if($inputfield->collapsed === Inputfield::collapsedTabAjax) {
+					$tab->collapsed = Inputfield::collapsedYesAjax;
+					$inputfield->collapsed = Inputfield::collapsedNo;
+					if($this->isPost && !$contentTab->isProcessable($tab)) {
+						$contentTab->remove($inputfield);
+						continue;
+					}
+				}
+				$contentTab->insertBefore($tab, $inputfield);
+				/** @var InputfieldFieldsetClose $tabClose */
+				$tabClose = new InputfieldFieldsetClose();
+				$this->wire($tabClose);
+				$tabClose->attr('id+name', $tab->attr('name') . '_END');
+				$contentTab->insertAfter($tabClose, $inputfield);
+			}
 			
 			foreach($contentTab as $inputfield) {
 				if(!$tabOpen && $inputfield->className() === 'InputfieldFieldsetTabOpen') {
@@ -945,6 +982,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 						continue;
 					}
 					$tabOpen = $inputfield; 
+					/** @var InputfieldWrapper $tabWrap */
 					$tabWrap = $this->wire(new InputfieldWrapper());
 					$tabWrap->attr('title', $tabOpen->getSetting('label'));
 					$tabWrap->id = $tabOpen->attr('id');

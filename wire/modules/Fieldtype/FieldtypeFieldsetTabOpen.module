@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -25,12 +25,19 @@ class InputfieldFieldsetTabOpen extends InputfieldFieldsetOpen {
 	
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
-		$inputfields->remove($inputfields->getChildByName('columnWidth')); 
+		
+		$in = $inputfields->getChildByName('columnWidth');
+		if($in) $inputfields->remove($in);
+		
 		$in = $inputfields->getChildByName('collapsed'); 
 		//if($in->parent) $in->parent->set('collapsed', Inputfield::collapsedYes); 
-		foreach($in->getOptions() as $key => $value) {
-			// tabs may not be collapsed
-			if($key != Inputfield::collapsedNo && $key != Inputfield::collapsedYesAjax) $in->removeOption($key); 
+		if($in) {
+			foreach($in->getOptions() as $key => $value) {
+				// tabs may not be collapsed
+				if($key != Inputfield::collapsedNo && $key != Inputfield::collapsedYesAjax) {
+					$in->removeOption($key);
+				}
+			}
 		}
 		// tabs don't support showIf
 		$in = $inputfields->getChildByName('showIf'); 
@@ -49,15 +56,16 @@ class FieldtypeFieldsetTabOpen extends FieldtypeFieldsetOpen {
 			'version' => 100,
 			'summary' => 'Open a fieldset to group fields. Same as Fieldset (Open) except that it displays in a tab instead.',
 			'permanent' => true, 
-			);
+		);
 	}
 	
 	public function getInputfield(Page $page, Field $field) {
+		/** @var InputfieldFieldsetTabOpen $inputfield */
 		$inputfield = $this->wire(new InputfieldFieldsetTabOpen());
 		$inputfield->class = $this->className();
-		if($field->modal) {
-			$inputfield->modal = true;
-		} else if($field->collapsed == Inputfield::collapsedYesAjax) {
+		if($field->get('modal')) {
+			$inputfield->set('modal', true);
+		} else if($field->collapsed == Inputfield::collapsedYesAjax || $field->collapsed == Inputfield::collapsedTabAjax) {
 			$inputfield->collapsed = $field->collapsed;
 		}
 		return $inputfield; 
@@ -70,7 +78,7 @@ class FieldtypeFieldsetTabOpen extends FieldtypeFieldsetOpen {
 		$in->label = $this->_('Open in modal window?');
 		$in->description = $this->_('Check the box to make this tab open in its own modal window. This can improve performance with large forms.');
 		$in->notes = $this->_('To solve a similar need, you might instead consider the AJAX option, available at: Input (tab) > Visibility > Presentation.');
-		if($field->modal) $in->attr('checked', 'checked');
+		if($field->get('modal')) $in->attr('checked', 'checked');
 		$inputfields->add($in);
 		return $inputfields;
 	}

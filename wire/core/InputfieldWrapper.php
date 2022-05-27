@@ -697,7 +697,13 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$classes = array();
 		$useColumnWidth = $this->useColumnWidth;
 		$renderAjaxInputfield = $this->wire()->config->ajax ? $this->wire()->input->get('renderInputfieldAjax') : null;
-		$lockedStates = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked, Inputfield::collapsedBlankLocked);
+		
+		$lockedStates = array(
+			Inputfield::collapsedNoLocked, 
+			Inputfield::collapsedYesLocked, 
+			Inputfield::collapsedBlankLocked, 
+			Inputfield::collapsedTabLocked
+		);
 		
 		if($useColumnWidth === true && isset($_classes['form']) && strpos($_classes['form'], 'InputfieldFormNoWidths') !== false) {
 			$useColumnWidth = false;
@@ -988,8 +994,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	public function ___renderInputfield(Inputfield $inputfield, $renderValueMode = false) {
 
 		$inputfieldID = $inputfield->attr('id');
-		$collapsed = $inputfield->getSetting('collapsed');
-		$ajaxInputfield = $collapsed == Inputfield::collapsedYesAjax || ($collapsed == Inputfield::collapsedBlankAjax && $inputfield->isEmpty());
+		$collapsed = (int) $inputfield->getSetting('collapsed');
+		$ajaxInputfield = $collapsed == Inputfield::collapsedYesAjax || $collapsed === Inputfield::collapsedTabAjax 
+			|| ($collapsed == Inputfield::collapsedBlankAjax && $inputfield->isEmpty());
 		$ajaxHiddenInput = "<input type='hidden' name='processInputfieldAjax[]' value='$inputfieldID' />";
 		$ajaxID = $this->wire()->config->ajax ? $this->wire()->input->get('renderInputfieldAjax') : '';
 		$required = $inputfield->getSetting('required');
@@ -1000,6 +1007,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			$ajaxInputfield = false;
 			if($collapsed == Inputfield::collapsedYesAjax) $inputfield->collapsed = Inputfield::collapsedYes;
 			if($collapsed == Inputfield::collapsedBlankAjax) $inputfield->collapsed = Inputfield::collapsedBlank;
+			if($collapsed == Inputfield::collapsedTabAjax) $inputfield->collapsed = Inputfield::collapsedTab;
 			// indicate to next processInput that this field can be processed
 			$inputfield->appendMarkup .= $ajaxHiddenInput;
 		}
@@ -1172,12 +1180,20 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			Inputfield::collapsedLocked,
 			Inputfield::collapsedNoLocked,
 			Inputfield::collapsedBlankLocked,
-			Inputfield::collapsedYesLocked
+			Inputfield::collapsedYesLocked,
+			Inputfield::collapsedTabLocked,
 		);
+		
+		$ajaxTypes = array(
+			Inputfield::collapsedYesAjax, 
+			Inputfield::collapsedBlankAjax, 
+			Inputfield::collapsedTabAjax,
+		);
+		
 		$collapsed = (int) $inputfield->getSetting('collapsed');
 		if(in_array($collapsed, $skipTypes)) return false;
 
-		if(in_array($collapsed, array(Inputfield::collapsedYesAjax, Inputfield::collapsedBlankAjax))) {
+		if(in_array($collapsed, $ajaxTypes)) {
 			$processAjax = $this->wire()->input->post('processInputfieldAjax');
 			if(is_array($processAjax) && in_array($inputfield->attr('id'), $processAjax)) {
 				// field can be processed (convention used by InputfieldWrapper)
