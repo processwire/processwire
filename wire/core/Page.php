@@ -1105,16 +1105,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * ~~~~~
 	 * // returns regular array i.e. [ 'foo val', 'bar val' ]
-	 * $a = $page->get([ 'foo', 'bar' ]);
+	 * $a = $page->getMultiple([ 'foo', 'bar' ]);
 	 * list($foo, $bar) = $a;
 	 * 
 	 * // returns associative array i.e. [ 'foo' => 'foo val', 'bar' => 'bar val' ]
-	 * $a = $page->get([ 'foo', 'bar' ], true);
+	 * $a = $page->getMultiple([ 'foo', 'bar' ], true);
 	 * $foo = $a['foo'];
 	 * $bar = $a['bar'];
 	 * 
 	 * // CSV string can also be used instead of array
-	 * $a = $page->get('foo,bar');
+	 * $a = $page->getMultiple('foo,bar');
 	 * ~~~~~
 	 * 
 	 * @param array|string $keys Array or CSV string of properties to get. 
