@@ -1095,6 +1095,57 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
+	 * Get multiple Page property/field values in an array
+	 * 
+	 * This method works exactly the same as the `get()` method except that it accepts an
+	 * array (or CSV string) of properties/fields to get, and likewise returns an array 
+	 * of those property/field values. By default it returns a regular (non-indexed) PHP
+	 * array in the same order given. To instead get an associative array indexed by the
+	 * property/field names given, specify `true` for the `$assoc` argument.
+	 * 
+	 * ~~~~~
+	 * // returns regular array i.e. [ 'foo val', 'bar val' ]
+	 * $a = $page->get([ 'foo', 'bar' ]);
+	 * list($foo, $bar) = $a;
+	 * 
+	 * // returns associative array i.e. [ 'foo' => 'foo val', 'bar' => 'bar val' ]
+	 * $a = $page->get([ 'foo', 'bar' ], true);
+	 * $foo = $a['foo'];
+	 * $bar = $a['bar'];
+	 * 
+	 * // CSV string can also be used instead of array
+	 * $a = $page->get('foo,bar');
+	 * ~~~~~
+	 * 
+	 * @param array|string $keys Array or CSV string of properties to get. 
+	 * @param bool $assoc Get associative array indexed by given properties? (default=false)
+	 * @return array
+	 * @since 3.0.201
+	 * 
+	 */
+	public function getMultiple($keys, $assoc = false) {
+		if(!is_array($keys)) {
+			$keys = (string) $keys;
+			if(strpos($keys, ',') !== false) {
+				$keys = explode(',', $keys);
+			} else {
+				$keys = array($keys);
+			}
+		}
+		$values = array();
+		foreach($keys as $key) {
+			$key = trim("$key");
+			$value = strlen($key) ? $this->get($key) : null;
+			if($assoc) {
+				$values[$key] = $value;
+			} else {
+				$values[] = $value;
+			}
+		}
+		return $values;
+	}
+
+	/**
 	 * Get a Field object in context or NULL if not valid for this page
 	 * 
 	 * Field in context is only returned when output formatting is on.
