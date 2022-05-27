@@ -807,7 +807,7 @@ class ProcessPagesExportImport extends Process {
 		$changes = $page->get('_importChanges');
 		$importType = $page->get('_importType');
 		$languages = $this->wire('languages');
-		$numChanges = count($changes);
+		$numChanges = wireCount($changes);
 		$originalID = (int) $item['settings']['id'];
 		$out = '';
 		
