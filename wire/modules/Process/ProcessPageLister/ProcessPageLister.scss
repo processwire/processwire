@@ -12,6 +12,9 @@
 	
 	> form.InputfieldForm {
 		margin-bottom: 0;
+		.modal & {
+			margin-top: 0;
+		}
 	}
 	
 	#ProcessListerTable {
@@ -185,6 +188,9 @@
 #content .lister_headline {
 	float: left;
 	margin-top: 1em;
+	.modal & {
+		margin-top: 0;
+	}
 	@media only screen and (max-width: 767px) {
 		float: none;
 		clear: both;
