@@ -26,12 +26,15 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 	 */
 	public function wired() {
 		$config = $this->config;
-		$this->systemIDs = array(
+		$systemIDs = array(
 			$config->http404PageID,
 			$config->adminRootPageID,
 			$config->trashPageID,
 			$config->loginPageID,
 		);
+		foreach($systemIDs as $id) {
+			$this->systemIDs[$id] = $id;
+		}
 		parent::wired();
 	}
 
@@ -43,6 +46,8 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 	 * 
 	 */
 	public function renderChild(Page $page) {
+		
+		$config = $this->wire()->config;
 
 		$outputFormatting = $page->outputFormatting;
 		$page->setOutputFormatting(true);
@@ -51,14 +56,15 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		$note = '';
 		$label = '';
 		$icons = array();
+		$id = $page->id;
 
-		if(in_array($page->id, $this->systemIDs)) {
+		if(isset($this->systemIDs[$id])) {
 			$type = 'System';
-			if($page->id == $this->config->http404PageID) {
+			if($id == $config->http404PageID) {
 				$label = $this->_('404 Page Not Found'); // Label for '404 Page Not Found' page in PageList // Overrides page title if used
-			} else if($page->id == $this->config->adminRootPageID) {
+			} else if($id == $config->adminRootPageID) {
 				$label = $this->_('Admin'); // Label for 'Admin' page in PageList // Overrides page title if used
-			} else if($page->id == $this->config->trashPageID && isset($this->actionLabels['trash'])) {
+			} else if($id == $config->trashPageID && isset($this->actionLabels['trash'])) {
 				$label = $this->actionLabels['trash']; // Label for 'Trash' page in PageList // Overrides page title if used
 			}
 			// if label is not overridden by a language pack, make $label blank to use the page title instead
@@ -82,7 +88,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			}
 		}
 
-		if($page->id == $this->config->trashPageID) {
+		if($id == $config->trashPageID) {
 			$note = '';
 			if($this->superuser) {
 				$note = "&lt; " . $this->_("Trash open: drag pages below here to trash them"); // Message that appears next to the Trash page when open
@@ -97,7 +103,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 				}
 			}
 			if(strpos($this->qtyType, 'total') !== false) {
-				$numTotal = $this->wire('pages')->trasher()->getTrashTotal();
+				$numTotal = $this->wire()->pages->trasher()->getTrashTotal();
 			} else {
 				$numTotal = $numChildren;
 			}
@@ -116,12 +122,12 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		}
 
 		$a = array(
-			'id' => $page->id,
+			'id' => $id,
 			'label' => $label,
 			'status' => $page->status,
 			'numChildren' => $numChildren,
 			'numTotal' => $numTotal, 
-			'path' => $page->template->slashUrls || $page->id == 1 ? $page->path() : rtrim($page->path(), '/'),
+			'path' => $page->template->slashUrls || $id == 1 ? $page->path() : rtrim($page->path(), '/'),
 			'template' => $page->template->name,
 			//'rm' => $this->superuser && $page->trashable(),
 			'actions' => array_values($this->getPageActions($page)),
@@ -152,13 +158,26 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		$id404 = $config->http404PageID;
 
 		foreach($this->children as $page) {
+			
 			if(!$this->superuser && !$page->listable()) continue;
+			
+			$id = $page->id;
 
-			if($page->id == $id404 && !$this->superuser) {
+			if($id == $id404 && !$this->superuser) {
 				// allow showing 404 page, only if it's editable
 				if(!$page->editable()) continue;
-			} else if(in_array($page->id, $this->systemIDs)) {
-				if($this->superuser) $extraPages[$page->id] = $page;
+				
+			} else if(isset($this->hidePages[$id]) && $id != $idTrash && $id != 1) {
+				$states = array();
+				foreach($this->hidePagesNot as $state) {
+					if($state === 'debug' && $config->debug) $states[] = $state;
+					if($state === 'advanced' && $config->advanced) $states[] = $state;
+					if($state === 'superuser' && $this->superuser) $states[] = $state;
+				}
+				if(count($states) === count($this->hidePagesNot)) continue;
+				
+			} else if(isset($this->systemIDs[$id])) {
+				if($this->superuser) $extraPages[$id] = $page;
 				continue;
 			}
 
@@ -168,7 +187,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 	
 		// add in the trash page if not present and allowed
 		if($this->page->id === 1 && !$this->superuser && !isset($extraPages[$idTrash]) && $this->getUseTrash()) {
-			$pageTrash = $this->wire('pages')->get($idTrash);
+			$pageTrash = $this->wire()->pages->get($idTrash);
 			if($pageTrash->id && $pageTrash->listable()) {
 				$extraPages[$pageTrash->id] = $pageTrash;
 			}

@@ -21,6 +21,8 @@
  * @property bool|int $useBookmarks Allow use of PageList bookmarks?
  * @property bool|int $useTrash Allow non-superusers to use Trash?
  * @property string $qtyType What to show in children quantity label? 'children', 'total', 'children/total', 'total/children', or 'id'
+ * @property array $hidePages Page IDs to hide from root page list. (3.0.202+)
+ * @property array $hidePagesNot Values of 'debug', 'advanced', 'superuser' to not hide above pages when in that state. (3.0.202+)
  * 
  * @method string ajaxAction($action)
  * @method PageArray find($selectorString, Page $page)
@@ -120,7 +122,8 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$this->set('useTrash', false);
 		$this->set('bookmarks', array());
 		$this->set('qtyType', '');
-		
+		parent::set('hidePages', array(404));
+		parent::set('hidePagesNot', array());
 		parent::__construct();
 	}
 
@@ -373,6 +376,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$renderer->setLabel('trash', $this->trashLabel);
 		$renderer->setUseTrash($this->useTrash || $superuser);
 		$renderer->setQtyType($this->qtyType);
+		$renderer->setHidePages($this->hidePages, $this->hidePagesNot); 
 		
 		return $renderer;
 	}
@@ -477,7 +481,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function set($key, $value) {
-		if($key == 'id') { // allow setting by other modules, overrides $_GET value of ID
+		if($key === 'id') { // allow setting by other modules, overrides $_GET value of ID
 			$this->id = (int) $value; 
 			return $this; 
 		}
@@ -691,8 +695,30 @@ class ProcessPageList extends Process implements ConfigurableModule {
 
 		/** @var InputfieldWrapper $fields */
 		$fields = $this->wire(new InputfieldWrapper());
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
+	
+		/** @var InputfieldPageListSelectMultiple $field */
+		$field = $modules->get('InputfieldPageListSelectMultiple');
+		$field->attr('name', 'hidePages');
+		$field->label = $this->_('Hide these pages in page list(s)');
+		$field->description = $this->_('Select one or more pages that you do not want to appear in page list(s).'); 
+		$field->val($this->hidePages);
+		$field->columnWidth = 60;
+		$field->icon = 'eye-slash';
+		$fields->add($field);
+	
+		/** @var InputfieldCheckboxes $field */
+		$field = $modules->get('InputfieldCheckboxes');
+		$field->attr('name', 'hidePagesNot'); 
+		$field->label = $this->_('Except when (AND condition)'); 
+		$field->addOption('debug', $this->_('System in debug mode'));
+		$field->addOption('advanced', $this->_('System in advanced mode'));
+		$field->addOption('superuser', $this->_('Current user is superuser'));
+		$field->showIf = 'hidePages.count>0';
+		$field->val($this->hidePagesNot);
+		$field->icon = 'eye-slash';
+		$field->columnWidth = 40;
+		$fields->add($field);
 	
 		/** @var InputfieldCheckbox $field */
 		$field = $modules->get('InputfieldCheckbox'); 

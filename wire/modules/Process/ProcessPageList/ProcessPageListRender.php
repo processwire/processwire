@@ -80,6 +80,24 @@ abstract class ProcessPageListRender extends Wire {
 	protected $useTrash = false;
 
 	/**
+	 * Page IDs to hide in page list (both keys and values are page IDs)
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $hidePages = array();
+
+	/**
+	 * Do not hide above pages when current state matches value [ 'debug', 'advanced', 'superuser' ]
+	 * 
+	 * Both keys and values are the same. 
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $hidePagesNot = array();
+
+	/**
 	 * @var string Quantity type
 	 * 
 	 */
@@ -218,6 +236,24 @@ abstract class ProcessPageListRender extends Wire {
 	 */
 	public function setPageLabelField($pageLabelField) {
 		$this->pageLabelField = $pageLabelField;
+	}
+
+	/**
+	 * Set when pages should be hidden in page list
+	 * 
+	 * @param array $hidePages IDs of pages that should be hidden
+	 * @param array $hidePagesNot Do not hide pages when state matches one or more of 'debug', 'advanced', 'superuser'
+	 * 
+	 */
+	public function setHidePages($hidePages, $hidePagesNot) {
+		if(is_array($hidePages)) {
+			$this->hidePages = array();
+			foreach($hidePages as $id) $this->hidePages[(int) $id] = (int) $id;
+		}
+		if(is_array($hidePagesNot)) {
+			$this->hidePagesNot = array();
+			foreach($hidePagesNot as $state) $this->hidePagesNot[$state] = $state;
+		}
 	}
 
 	/**
