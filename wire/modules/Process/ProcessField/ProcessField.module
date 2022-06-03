@@ -29,8 +29,8 @@
  * @method buildEditFormCustom(InputfieldForm $form)
  * @method InputfieldWrapper buildEditFormDelete()
  * @method InputfieldWrapper buildEditFormBasics()
- * @method InputfieldWrapper buildEditFormInfo() Deprecated, hook buildEditFormActions() instead.
- * @method InputfieldWrapper buildEditFormActions()
+ * @method InputfieldWrapper buildEditFormInfo($form) Deprecated, hook buildEditFormActions() instead.
+ * @method InputfieldWrapper buildEditFormActions(InputfieldForm $form)
  * @method InputfieldWrapper buildEditFormAdvanced()
  * 
  * @method void fieldAdded(Field $field)
@@ -1107,9 +1107,9 @@ class ProcessField extends Process implements ConfigurableModule {
 			}
 			if(!$this->fieldgroup) {
 				if($this->hasHook('buildEditFormInfo()')) {
-					$actions = $this->buildEditFormInfo(); // for legacy hooks
+					$actions = $this->buildEditFormInfo($form); // for legacy hooks
 				} else {
-					$actions = $this->buildEditFormActions();
+					$actions = $this->buildEditFormActions($form);
 				}
 				if(count($actions)) $form->add($actions);
 				$this->buildEditFormContext($form);
@@ -1691,90 +1691,163 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->description = $this->_('If you want to associate an icon with the field, select an icon below. Click the "Show all icons" link for visual selection.'); // Description for field tags
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->add($field);
+	
+		/** @var InputfieldMarkup $field */
+		$field = $this->modules->get('InputfieldMarkup');
+		$field->attr('name', '_usage_table');
+		$field->label = $this->_('Usage');
+		$field->icon = 'search';
+		$field->collapsed = Inputfield::collapsedYes;
+		$field->value = 'value';
+		$form->add($field);
 
 		return $form;
 	}
 
-	protected function ___buildEditFormInfo() { // legacy name (left for hooks)
-		return $this->buildEditFormActions();
+	protected function ___buildEditFormInfo($form) { // legacy name (left for hooks)
+		return $this->buildEditFormActions($form);
 	}
 	
 	/**
 	 * Build the 'Info' field shown in the Field Edit form
 	 * 
+	 * @param InputfieldForm $form Argument added 3.0.202
 	 * @return InputfieldWrapper
 	 *
 	 */
-	protected function ___buildEditFormActions() {
-
-		/** @var InputfieldWrapper $form */
-		$form = $this->wire(new InputfieldWrapper());
-		$form->attr('class', 'WireTab');
-		$form->attr('id', 'info');
-		$form->attr('title', $this->_x('Actions', 'tab'));
-	
-		/** @var Templates $allTemplates */
-		$allTemplates = $this->wire('templates');
-		$inTemplates = array();
+	protected function ___buildEditFormActions(InputfieldForm $form) {
 		
+		$config = $this->wire()->config;
+		$modules = $this->wire()->modules;
+		$fields = $this->wire()->fields;
+		$sanitizer = $this->wire()->sanitizer;
+		
+		$allTemplates = $this->wire()->templates;
+		$inTemplates = array();
+		$multi = $this->field->type instanceof FieldtypeMulti; 
+
+		/** @var InputfieldWrapper $fieldset */
+		$fieldset = $this->wire(new InputfieldWrapper());
+		$fieldset->attr('class', 'WireTab');
+		$fieldset->attr('id', 'info');
+		$fieldset->attr('title', $this->_x('Actions', 'tab'));
+	
 		foreach($allTemplates as $template) {
-			if($template->fieldgroup->hasField($this->field)) $inTemplates[$template->id] = $template;
+			if($template->fieldgroup->hasField($this->field)) {
+				$inTemplates[$template->id] = $template;
+			}
 		}
 
+		/** @var MarkupAdminDataTable $table For display in Basics > Usage */
+		$table = $modules->get('MarkupAdminDataTable');
+		$table->setEncodeEntities(false);
+		
 		/** @var InputfieldCheckboxes $field */
-		$field = $this->modules->get('InputfieldCheckboxes');
+		$field = $modules->get('InputfieldCheckboxes');
 		$field->attr('name', 'send_templates'); 	
 		$field->label = $this->_('Add or remove field from templates'); 
 		$field->collapsed = Inputfield::collapsedYes;
+		
 		if(count($inTemplates)) {
 			$field->description = $this->_('This field is in use on the checked templates below.') . ' ';
 		} else {
 			$field->description = $this->_('This field is not currently in use on any templates.') . ' ';
 		}
-		$multi = $this->field->type instanceof FieldtypeMulti; 
+		
 		$field->description .= $this->_('You may quickly add or remove this field from templates by checking or unchecking the relevant boxes and clicking save.'); // Description for template usage
 		$field->notes .= $this->_('You will be asked to confirm additions and removals on the next screen after you save.'); 
 		$field->table = true;
 		$field->icon = 'check-square';
+		
+		$populatedPagesLabel = $this->_x('Populated pages', 'usage-table-th');
+		$rowsOfDataLabel = $this->_x('Rows of data', 'usage-table-th');
+		
 		$field->thead = 
 			$this->labels['name'] . '|' . 
 			$this->labels['label'] . '|' . 
-			$this->_x('Populated pages', 'usage-table-th') . 
-			($multi ? '|' . $this->_x('Rows of data', 'usage-table-th') : ''); 
+			$populatedPagesLabel . 
+			($multi ? '|' . $rowsOfDataLabel : ''); 
+		
 		$numOmitted = 0;
+		
 		foreach($allTemplates as $template) {
+			/** @var Template $template */
+			
 			$label = $template->name;
-			$longLabel = str_replace('|', ' ', $template->getLabel());
+			$templateLabel = $template->getLabel();
+			$longLabel = str_replace('|', ' ', $templateLabel);
 			$numRows = '';
 			$numPages = '';
+			
 			if(isset($inTemplates[$template->id])) {
-				$numPages = $this->wire('fields')->getNumPages($this->field, array('template' => $template));
-				$numRows = $multi ? $this->wire('fields')->getNumRows($this->field, array('template' => $template)) : null; 
-				$longLabel = "**[$longLabel](../template/edit?id=$template->id)**";
-				$label = "**$label**";
-			} else if($template->flags & Template::flagSystem) {
-				if(!$this->wire('config')->advanced) {
-					$numOmitted++;
-					continue;
+				// field uses this template
+				$numPages = $fields->getNumPages($this->field, array('template' => $template));
+				$numRows = $multi ? $fields->getNumRows($this->field, array('template' => $template)) : null;
+				$editUrl = "../template/edit?id=$template->id";
+			
+				$icon = $template->getIcon();
+				$tableRowName = $sanitizer->entities($label);
+				if($templateLabel != $label) {
+					$tableRowLabel = $sanitizer->entities($templateLabel);
+				} else {
+					$tableRowLabel = "<span class='barely-visible'>$label</span>";	
 				}
-			}
+				if($icon) $tableRowName = wireIconMarkup($icon, 'fw') . ' ' . $tableRowName;
+				$row = array("<a href='$editUrl' target='_blank'>$tableRowName</a>", $tableRowLabel, $numPages);
+				if($multi) $row[] = $numRows;
+				$table->row($row);
+				
+				$longLabel = "**[$longLabel]($editUrl)**";
+				$label = "**$label**";
+				
+			} else if($template->flags & Template::flagSystem && !$config->advanced) {
+				// field does not use template and it is a system template
+				$numOmitted++;
+				continue;
+				
+			} else {
+				// field does not use template
+				if($longLabel === $label) $longLabel = "[span.barely-visible] $longLabel [/span]";
+		 	}
+			
 			$label = "$label|$longLabel|$numPages" . ($multi ? "|$numRows" : "");
 			$field->addOption($template->id, $label); 
 		}
+		
 		$field->attr('value', array_keys($inTemplates)); 
 		$field->set('_valuePrevious', $field->attr('value')); 
 		if($numOmitted) $field->notes .= ' ' . sprintf($this->_('%d system templates are not shown because advanced mode is off.'), $numOmitted); 
-		$form->add($field);
-		
-		$field = $this->wire('modules')->get('InputfieldHidden');
+		$fieldset->add($field);
+	
+		// populate usage table from Basics tab
+		$tableHeaderRow = array(
+			$this->_('Template'),
+			$this->_('Label'),
+			$populatedPagesLabel
+		);
+		if($multi) $tableHeaderRow[] = $rowsOfDataLabel;
+		$table->headerRow($tableHeaderRow);
+
+		$usage = $form->getChildByName('_usage_table');
+		if($usage) {
+			if(count($inTemplates)) {
+				$usage->value = $table->render();
+				$usage->detail = $this->_('See the Actions tab to add/remove from templates.');
+			} else {
+				$usage->value = '<p>' . $this->_('This field is not currently in use.') . '</p>';
+			}
+		}
+	
+		/** @var InputfieldHidden $field */
+		$field = $modules->get('InputfieldHidden');
 		$field->attr('id+name', '_send_templates_changed'); 
 		$field->attr('value', ''); 
-		$form->add($field); 
+		$fieldset->add($field); 
 	
 		// --------------------------	
 	
 		/** @var InputfieldText $field */
-		$field = $this->modules->get("InputfieldText");
+		$field = $modules->get("InputfieldText");
 		$field->attr('id+name', '_clone_field');
 		$field->attr('value', '');
 		$field->label = $this->_('Duplicate/clone this field?');
@@ -1782,22 +1855,22 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->description = $this->_('To clone this field, enter the name of the new field you wish to create.'); // Description for clone field
 		$field->notes = $this->_('Note that you will be editing your cloned copy after submitting this form.'); 
 		$field->collapsed = Inputfield::collapsedYes;
-		$form->append($field);
+		$fieldset->append($field);
 		
 		// --------------------------	
 	
 		/** @var InputfieldCheckbox $field */
-		$field = $this->modules->get('InputfieldCheckbox');
+		$field = $modules->get('InputfieldCheckbox');
 		$field->attr('name', '_optimize');
 		$field->label = $this->_('Check field data');
 		$field->icon = 'medkit';
 		$field->description = $this->_('Check the field for unused data or other possible optimizations. If any issues are found, you will have the opportunity to correct them from the Alert tab after saving.');
 		$field->collapsed = Inputfield::collapsedBlank;
-		$form->add($field);
+		$fieldset->add($field);
 		
-		$form->add($this->buildEditFormDelete());
+		$fieldset->add($this->buildEditFormDelete());
 
-		return $form; 
+		return $fieldset; 
 	}
 
 	/**

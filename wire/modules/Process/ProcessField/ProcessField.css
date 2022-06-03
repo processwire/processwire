@@ -117,3 +117,7 @@ ins {
 del {
 	color: red
 }
+
+span.barely-visible {
+	opacity: 0.2;
+}
