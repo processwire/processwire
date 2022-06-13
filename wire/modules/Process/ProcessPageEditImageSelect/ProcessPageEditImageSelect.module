@@ -27,7 +27,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page Edit Image',
 			'summary' => 'Provides image manipulation functions for image fields and rich text editors.',
-			'version' => 120,
+			'version' => 121,
 			'permanent' => true,
 			'permission' => 'page-edit',
 		);
@@ -444,7 +444,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				if($repeaterValue) {
 					foreach($repeaterValue as $p) {
 						$images = $this->getImages($p, $p->fields, $level + 1);
-						if(!count($images)) continue;
+						if(!wireCount($images)) continue;
 						foreach($images as $image) {
 							$parentFields = $image->get('_parentFields');
 							if(!is_array($parentFields)) $parentFields = array();
@@ -452,7 +452,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 							$image->setQuietly('_parentFields', $parentFields); 
 						}
 						$allImages = array_merge($allImages, $images);
-						$numImages += count($images);
+						$numImages += wireCount($images);
 						$numImageFields++;
 					}
 				}
@@ -500,7 +500,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if(in_array($field->name, $skipFields)) continue;
 			if(!$page->editable($field->name)) continue; 
 			if($excludeFullFields && $field->maxFiles > 0) {
-				if(count($page->get($field->name)) >= $field->maxFiles) continue; 
+				if(wireCount($page->get($field->name)) >= $field->maxFiles) continue; 
 			}
 			$imageFields[$field->name] = $field;
 		}
@@ -532,7 +532,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		$out = '';
 
-		if(count($images)) {
+		if(wireCount($images)) {
 			$winwidth = (int) $this->wire()->input->get('winwidth');
 			$in = $modules->get('InputfieldImage'); /** @var InputfieldImage $in */
 			$in->set('adminThumbs', true);
@@ -587,13 +587,13 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$field->attr('id+name', 'page_id'); 
 		$field->value = $this->page->id; 
 		$field->parent_id = 0; 
-		$field->collapsed = count($images) ? Inputfield::collapsedYes : Inputfield::collapsedNo;
+		$field->collapsed = wireCount($images) ? Inputfield::collapsedYes : Inputfield::collapsedNo;
 		$field->required = true; 
 		$form->append($field);
 		
 		// locate any image fields
 		$imageFields = $this->getImageFields($this->page);
-		if(count($imageFields)) {
+		if(wireCount($imageFields)) {
 			$imageFieldNames = implode(',', array_keys($imageFields)); 
 			/** @var InputfieldButton $btn */
 			$btn = $modules->get('InputfieldButton');
@@ -689,7 +689,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				foreach(explode(' ', $class) as $c) {
 					if(in_array($c, $validClasses)) $classes[] = $c; 
 				}
-				if(count($classes)) $parts['class'] = urlencode(implode(' ' , $classes)); 
+				if(wireCount($classes)) $parts['class'] = urlencode(implode(' ' , $classes)); 
 			}
 		}
 		if(!$this->rte) $parts['rte'] = '0';
@@ -1238,7 +1238,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					$finalImage = $value->get($this->original);
 					$variationInfo = $finalImage->rebuildVariations(0, array('is', 'hidpi'));
 					foreach($variationInfo as $type => $files) {
-						if(!count($files)) continue;
+						if(!wireCount($files)) continue;
 						$body .= "<h3>" . ucfirst($type) . "</h3>";
 						$body .= "<p>" . implode('<br />', $files) . "</p>";
 						// $this->wire('log')->save('images', "$type: [ " . implode(' ], [ ', $files) . ' ]');
@@ -1447,7 +1447,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$adminThumbOptions = $config->adminThumbOptions;
 		$delete = $input->post('delete');
 		
-		if(is_array($delete) && count($delete) && $hasEditPermission) {
+		if(is_array($delete) && wireCount($delete) && $hasEditPermission) {
 			$deleteUrls = array();
 			$deleteErrors = array();
 			foreach($delete as $name) {
@@ -1519,10 +1519,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$notes = array();
 			if(in_array('is', $info['suffix'])) $notes[] = $this->_x('Created for placement in textarea', 'notes'); 
 			if(in_array('hidpi', $info['suffix'])) $notes[] = $this->_x('HiDPI/Retina', 'notes'); 
-			if(!count($notes) && $info['width'] == $adminThumbOptions['width'] && $info['height'] == $adminThumbOptions['height']) {
+			if(!wireCount($notes) && $info['width'] == $adminThumbOptions['width'] && $info['height'] == $adminThumbOptions['height']) {
 				$notes[] = $this->_x('Auto-generated admin thumbnail', 'notes'); 
 			}
-			if(!count($notes)) $notes[] = $this->_x('API-generated variation', 'notes');
+			if(!wireCount($notes)) $notes[] = $this->_x('API-generated variation', 'notes');
 			if($info['crop']) $notes[] = $this->_x('Cropped version', 'notes');
 		
 			// identify pid suffixes
@@ -1656,7 +1656,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$hidden = $modules->get('InputfieldHidden');
 		$hidden->attr('id+name', 'varcnt_id'); 
 		$hidden->attr('value', $varcnt); 
-		$hidden->attr('data-cnt', count($variations)); 
+		$hidden->attr('data-cnt', wireCount($variations)); 
 		$form->add($hidden); 
 		
 		$modules->get('JqueryMagnific'); 
