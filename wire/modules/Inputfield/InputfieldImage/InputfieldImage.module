@@ -664,7 +664,12 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$ext = $pagefile->ext();
 			$basename = $pagefile->basename(false);
 			$focus = $pagefile->focus();
-
+			            
+		    	// copy custom fields data from previous file
+			foreach ($metaPagefile->filedata() as $key => $value) {
+				$pagefile->filedata($key, $value);
+			}
+			
 			$inputfields = $this->getItemInputfields($pagefile);
 			if($inputfields) $additional .= $inputfields->render();
 				
