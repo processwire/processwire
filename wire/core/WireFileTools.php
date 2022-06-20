@@ -1556,7 +1556,10 @@ class WireFileTools extends Wire {
 			// absolute path, make sure it's part of PW's installation
 			$allowed = false;
 			foreach($options['allowedPaths'] as $path) {
-				if($this->fileInPath($filename, $path)) $allowed = true;
+				if($this->fileInPath($filename, $path)) {
+					$allowed = true;
+					break;
+				}
 			}
 			if(!$allowed) $this->filesException(__FUNCTION__, "File is not in an allowed path: $filename");
 		}
