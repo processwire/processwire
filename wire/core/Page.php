@@ -974,6 +974,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($this->lazyLoad && $key !== 'id' && is_int($this->lazyLoad)) $this->_lazy(true);
 
 		if(is_array($key)) $key = implode('|', $key);
+		if(empty($key)) return null;
 		if(isset(PageProperties::$basePropertiesAlternates[$key])) {
 			$key = PageProperties::$basePropertiesAlternates[$key];
 		}
