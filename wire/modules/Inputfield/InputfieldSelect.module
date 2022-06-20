@@ -144,9 +144,21 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * 
 	 */
 	public function optionLabel($key, $label = null) {
-		if(!isset($this->options[$key])) return false;
-		if($label !== null) $this->options[$key] = $label;
-		return isset($this->options[$key]) ? $this->options[$key] : null;
+		$returnLabel = false;
+		if(isset($this->options[$key])) {
+			if($label !== null) $this->options[$key] = $label;
+			$returnLabel = $this->options[$key];
+		} else {
+			foreach($this->options as $k => $v) {
+				if(is_array($v) && isset($v[$key])) {
+					// optgroup
+					if($label !== null) $this->options[$k][$key] = $label;
+					$returnLabel = $v[$key];
+					break;
+				}
+			}
+		}
+		return $returnLabel;
 	}
 
 	/**
