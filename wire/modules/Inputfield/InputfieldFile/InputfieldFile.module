@@ -1377,7 +1377,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					$f->set("value$language->id", $v);
 				}
 			} else if($f instanceof InputfieldCheckbox) {
-				if($value) $f->attr('checked', 'checked'); 
+				if($value) $f->attr('checked', 'checked');
+			} else if($f instanceof InputfieldText && is_array($value) && isset($value['data'])) {
+				// a previously multi-language value that's now a single-language value
+				$f->val($value['data']);
 			} else {
 				$f->val($value);
 			}
