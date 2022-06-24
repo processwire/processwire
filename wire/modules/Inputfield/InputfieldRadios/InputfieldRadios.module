@@ -33,7 +33,7 @@ class InputfieldRadios extends InputfieldSelect {
 		$sanitizer = $this->wire()->sanitizer;
 
 		$defaults = array(
-			'wbr' => true, 
+			'wbr' => false, 
 			'noSelectLabels' => true,
 		);
 		
@@ -46,6 +46,7 @@ class InputfieldRadios extends InputfieldSelect {
 		if($columns === 1) $inline = true; 
 		$options = $this->getOptions();
 		$optionWidth = $this->getOptionWidthCSS($this->optionWidth, $options);
+		$entityEncodeLabels = $this->getSetting('entityEncodeText') === false ? false : true;
 		$liAttr = '';
 
 		if($optionWidth) {
@@ -91,7 +92,7 @@ class InputfieldRadios extends InputfieldSelect {
 			if($attrs) $attrs = ' ' . $attrs;
 			
 			$label = $settings['wbr'] ? str_replace(' ', ' !wbr!', $value) : $value;
-			$label = $this->entityEncode($label, Inputfield::textFormatBasic);
+			if($entityEncodeLabels) $label = $this->entityEncode($label, Inputfield::textFormatBasic);
 			if($settings['wbr']) $label = str_replace('!wbr!', '<wbr>', $label);
 
 			$inputName = $sanitizer->entities($this->attr('name'));
