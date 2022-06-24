@@ -568,6 +568,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			if($ignoreRegex && preg_match($ignoreRegex, $filename)) continue;
 			$basename = basename($file->getFilename(), $ext); 
 			if($sanitizer->name($basename) !== $basename) continue;
+			if(ctype_digit($basename)) continue;
 			// if(count($templates->find("name=$basename"))) continue; 
 			if($templates->get($basename)) continue;
 			$templateFiles[] = $basename; 
@@ -612,6 +613,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			foreach($templateNames as $name) {
 				$name = $sanitizer->name(basename($name)); 
 				if(!strlen($name)) continue;
+				if(ctype_digit($name)) continue;
 				if($templates->get($name) || $fieldgroups->get($name)) {	
 					$this->error(sprintf($this->labels['nameAlreadyInUse'], $name)); 
 				} else {
@@ -691,6 +693,8 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			$field->attr('id+name', 'templates'); 
 			$field->icon = 'search-plus';
 			foreach($templateFiles as $file) {
+				$name = pathinfo($file, PATHINFO_FILENAME); 
+				if(ctype_digit($name)) continue;
 				$field->addOption($file);
 			}
 			$form->append($field); 
@@ -1992,6 +1996,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		/** @var InputfieldRadios $field */
 		$field = $modules->get("InputfieldRadios"); 
 		$field->attr('name', 'noShortcut'); 
+		$field->icon = 'question-circle';
 		$field->label = $this->_('Show in the add-page shortcut menu?');
 		$field->description = 
 			$this->_('When checked, this template is eligible to appear on the "add new page" shortcut button/menu that appears on the main Pages screen. This assumes all other conditions are met (see below).') . ' ' . 
