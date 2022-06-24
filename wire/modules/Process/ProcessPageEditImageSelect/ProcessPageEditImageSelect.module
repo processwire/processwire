@@ -500,7 +500,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if(in_array($field->name, $skipFields)) continue;
 			if(!$page->editable($field->name)) continue; 
 			if($excludeFullFields && $field->maxFiles > 0) {
-				if(count($page->get($field->name)) >= $field->maxFiles) continue; 
+				$value = $page->get($field->name);
+				if(wireCount($value) >= $field->maxFiles) continue; 
 			}
 			$imageFields[$field->name] = $field;
 		}
