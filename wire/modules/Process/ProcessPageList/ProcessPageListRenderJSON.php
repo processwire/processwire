@@ -156,6 +156,18 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		$config = $this->wire()->config;
 		$idTrash = $config->trashPageID;
 		$id404 = $config->http404PageID;
+		$states = array();
+		$showHidden = true;
+		
+		if(!empty($this->hidePages)) {
+			$showHidden = false;
+			foreach($this->hidePagesNot as $state) {
+				if($state === 'debug' && $config->debug) $states[$state] = $state;
+				if($state === 'advanced' && $config->advanced) $states[$state] = $state;
+				if($state === 'superuser' && $this->superuser) $states[$state] = $state;
+			}
+			if($states == $this->hidePagesNot) $showHidden = true;
+		}
 
 		foreach($this->children as $page) {
 			
@@ -167,14 +179,9 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 				// allow showing 404 page, only if it's editable
 				if(!$page->editable()) continue;
 				
-			} else if(isset($this->hidePages[$id]) && $id != $idTrash && $id != 1) {
-				$states = array();
-				foreach($this->hidePagesNot as $state) {
-					if($state === 'debug' && $config->debug) $states[] = $state;
-					if($state === 'advanced' && $config->advanced) $states[] = $state;
-					if($state === 'superuser' && $this->superuser) $states[] = $state;
-				}
-				if(count($states) === count($this->hidePagesNot)) continue;
+			} else if(isset($this->hidePages[$id]) && $id !== $idTrash && $id !== 1) {
+				// page hidden in page tree
+				if(!$showHidden) continue;
 				
 			} else if(isset($this->systemIDs[$id])) {
 				if($this->superuser) $extraPages[$id] = $page;
