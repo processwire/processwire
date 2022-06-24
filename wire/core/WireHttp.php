@@ -778,10 +778,10 @@ class WireHttp extends Wire {
 
 		if($result === false) {
 			$this->error[] = curl_error($curl);
-			$this->httpCode = 0;
+			$this->setHttpCode(0, '');
 		} else {
 			$this->setResponseHeaderValues($responseHeaders);
-			$this->httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+			$this->setHttpCode(curl_getinfo($curl, CURLINFO_HTTP_CODE)); 
 		}
 		
 		curl_close($curl);
@@ -1027,7 +1027,9 @@ class WireHttp extends Wire {
 		}
 		
 		$result = curl_exec($curl);
-		if($result) $this->httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		if($result) {
+			$this->setHttpCode(curl_getinfo($curl, CURLINFO_HTTP_CODE));
+		}
 
 		if($result === false) $this->error[] = curl_error($curl);
 		curl_close($curl);
@@ -1342,9 +1344,8 @@ class WireHttp extends Wire {
 			$httpCode = (int) $httpCode;
 			if(strlen($httpText)) $httpText = preg_replace('/[^-_.;() a-zA-Z0-9]/', ' ', $httpText); 
 		}
-		
-		$this->httpCode = (int) $httpCode;
-		$this->httpCodeText = $httpText; 
+	
+		$this->setHttpCode((int) $httpCode, $httpText);
 		
 		if($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode])) {
 			$this->error[] = $this->httpCodes[$this->httpCode];
@@ -1745,6 +1746,7 @@ class WireHttp extends Wire {
 		$this->responseHeader = array();
 		$this->responseHeaders = array();
 		$this->httpCode = 0;
+		$this->httpCodeText = '';
 		$this->error = array();
 	}
 
@@ -1790,6 +1792,19 @@ class WireHttp extends Wire {
 	public function getHttpCode($withText = false) {
 		if($withText) return "$this->httpCode $this->httpCodeText";
 		return $this->httpCode; 
+	}
+
+	/**
+	 * Set http response code and text
+	 * 
+	 * @param int $code
+	 * @param string $text
+	 * 
+	 */
+	protected function setHttpCode($code, $text = '') {
+		if(empty($text)) $text = isset($this->httpCodes[$code]) ? $this->httpCodes[$code] : '?';
+		$this->httpCode = $code;
+		$this->httpCodeText = $text;
 	}
 
 	/**
