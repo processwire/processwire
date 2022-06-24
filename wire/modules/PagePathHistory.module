@@ -22,7 +22,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		return array(
 			'title' => 'Page Path History', 
 			'version' => 8, 
-			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permament) to the new location whenever the past URL is accessed.",
+			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permanent) to the new location whenever the past URL is accessed.",
 			'singular' => true, 
 			'autoload' => true, 
 		);
