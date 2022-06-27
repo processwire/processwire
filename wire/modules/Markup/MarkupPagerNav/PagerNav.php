@@ -5,7 +5,7 @@
  *
  * Provides capability for determining pagination information
  *
- * 
+ *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  *
@@ -29,7 +29,7 @@ class PagerNavItem {
 		'label' => '',
 		'pageNum' => 0,
 		'type' => '', // first, previous, next, last, current, or separator
-		); 
+		);
 
 	public function __construct($label, $pageNum, $type = '') {
 		$this->data['label'] = $label;
@@ -42,17 +42,17 @@ class PagerNavItem {
 	}
 
 	public function __set($property, $value) {
-		$this->data[$property] = $value; 
+		$this->data[$property] = $value;
 	}
 }
 
 /**
  * Collection of Pager items that determines which pagination links should be used
- * 
+ *
  * USAGE EXAMPLE:
- * 
- * $pager = new PagerNav(100, 10, 0); 
- * 
+ *
+ * $pager = new PagerNav(100, 10, 0);
+ *
  * foreach($pager as $pageLabel => $pageNum) {
  * 	$class = "action";
  * 	if($pageNum == $pager->getCurrentPage()) $class .= " on";
@@ -68,190 +68,137 @@ class PagerNav implements \IteratorAggregate {
 	protected $numPageLinks = 10;
 	protected $totalItems = 0;
 	protected $firstItem = 0;
+	protected $lastItem;
 	protected $itemsPerPage = 0;
 
 	protected $labels = array(
-		'previous' => 'prev', 
+		'previous' => 'prev',
 		'next' => 'next'
-		); 
+		);
 
 	protected $separator = NULL;
 
 	/**
 	 * Construct the PagerNav
  	 *
-	 * @param int $totalItems Total number of items in the list to be paginated. 
-	 * @param int $itemsPerPage The number of items you want to appear per page. 
-	 * @param int $currentPage The current page number (NOTE: 0 based, not 1 based)
+	 * @param int $totalItems Total number of items in the list to be paginated.
+	 * @param int $itemsPerPage The number of items you want to appear per page.
+	 * @param int $currentPage The current page number (NOTE: 1-based NOW)
 	 * @throws WireException if given itemsPerPage of 0
 	 *
 	 */
 	public function __construct($totalItems, $itemsPerPage, $currentPage) {
 
-		// note that the page numbers are zero based.
-		// if you are one based, then subtract one from currentPage before passing in here
+		// note that the page numbers are NOW 1-based.
 
-		if(!$itemsPerPage) throw new WireException("itemsPerPage must be more than 0"); 
+		if(!$itemsPerPage) throw new WireException("itemsPerPage must be more than 0");
 
-		$this->totalItems = $totalItems; 
-		$this->currentPage = $currentPage-1;
-		$this->itemsPerPage = $itemsPerPage;
+		$this->totalItems   = max(0, (int)$totalItems);
+		$this->currentPage  = max(1, (int)$currentPage);
+		$this->itemsPerPage = max(1, (int)$itemsPerPage);
 
-		$this->firstItem = $this->currentPage * $this->itemsPerPage;
+		$this->initialize();
 
-		/*
-		// commented and kept for future reference
-		if($totalItems >= ($itemsPerPage * 2)) {
-			$this->totalPages = floor($this->totalItems / $this->itemsPerPage)-1; 
+		$this->separator = new PagerNavItem('', 0, PagerNavItem::typeSeparator);
+	}
+
+	/**
+	 * Initialize/recalculate pager params based on current numPageLinks value
+	 */
+	private function initialize()
+	{
+		$this->totalPages = $this->totalItems > 0 ? ceil($this->totalItems / $this->itemsPerPage) : 0;
+		$this->numPageLinks = min($this->totalPages, $this->numPageLinks);
+		$this->currentPage = min($this->totalPages, $this->currentPage);
+
+		$this->firstItem = ($this->currentPage - 1) * $this->itemsPerPage;
+		$this->lastItem = $this->firstItem + $this->itemsPerPage;
+
+		if($this->totalPages === $this->numPageLinks) {
+			$this->firstItem = 1;
+			$this->lastItem  = $this->totalPages;
 		} else {
-			//$this->totalPages = ceil($this->totalItems / $this->itemsPerPage)-1; 
-			$this->totalPages = ceil($this->totalItems / $this->itemsPerPage); 
+			$halfPageLinks = (int)floor($this->numPageLinks / 2);
+
+			$this->firstItem = max(1, $this->currentPage - $halfPageLinks);
+			$this->lastItem  = $this->firstItem  + ($this->numPageLinks - 1);
+
+			if($this->lastItem > $this->totalPages) {
+				$this->lastItem = $this->totalPages;
+				$this->firstItem = $this->lastItem - ($this->numPageLinks - 1);
+			}
 		}
-		*/
-
-		if($this->totalItems > 0) $this->totalPages = ceil($this->totalItems / $this->itemsPerPage)-1; 
-			else $this->totalPages = 0; 
-
-		/*
-		// uncomment this section for debugging
-		echo 	"totalItems: " . $this->totalItems . "<br />" . 
-			"totalPages: " . $this->totalPages . "<br />" . 	
-			"currentPage: " . $this->currentPage . "<br />" . 
-			"itemsPerPage: " . $this->itemsPerPage . "<br />";
-		*/
-
-		if($this->totalPages && (($this->totalPages * $this->itemsPerPage) >= $this->totalItems)) 
-			$this->totalPages--; // totalPages zero based
-
-		$this->separator = new PagerNavItem('', 0, PagerNavItem::typeSeparator); 
-	}	
+	}
 
 	/**
  	 * Returns an array contantaining $label => $pageNum
 	 *
-	 * Rather than access this function directly, it is prefereable to iterate the object. 
+	 * Rather than access this function directly, it is prefereable to iterate the object.
 	 *
-	 * @return array
+	 * @return array|PagerNavItem[]
  	 *
 	 */
 	public function getPager() {
 
 		// returns array($pageLabel => $pageNum, ...)
 
-		if($this->totalItems <= $this->itemsPerPage) return array();
-		if(!is_null($this->pager)) return $this->pager;
+		if (is_array($this->pager)) {
+			return $this->pager;
+		}
+
+		if ($this->totalPages < 2 || $this->totalItems <= $this->itemsPerPage) {
+			return $this->pager = array();
+		}
+
 		$this->pager = array();
 
-
-		if($this->numPageLinks) {
-			$numPageLinks = $this->numPageLinks-1;
-			//$numHalf = (int) round($numPageLinks / 2); 
-			$numHalf = (int) floor($numPageLinks / 2); 
-			$startPage = $this->currentPage - $numHalf; 
-
-			if($startPage <= 0) {
-				$startPage = 0;
-
-			} else if($startPage > 0) {
-				$numPageLinks--;
-			}
-
-			$endPage = $startPage + $numPageLinks;
-
-			if($endPage > $this->totalPages) {
-				$endPage = $this->totalPages; 
-				$startPage = $endPage - $numPageLinks;
-				if($startPage < 0) $startPage = 0;
-			}		
-
-		} else {
-			$startPage = 0; 
-			$endPage = $this->totalPages; 
+		// previous item
+		if($this->currentPage > 1) {
+			$this->pager[] = new PagerNavItem($this->getLabel('previous'), $this->currentPage - 1, PagerNavItem::typePrevious);
 		}
-
-		/*
-		// uncomment for debugging purposes
-		echo 	"numPageLinks=$numPageLinks<br />" . 
-			"numHalf=$numHalf<br />" . 
-			"startPage=$startPage<br />" . 
-			"endPage=$endPage<br />" . 
-			"totalPages={$this->totalPages}<br />" . 
-			"totalItems={$this->totalItems}<br />";
-		*/
-			
-
-		for($n = $startPage; $n <= ($endPage+1); $n++) {
-			$type = $n == ($this->currentPage+1) ? PagerNavItem::typeCurrent : '';
-			if($n) $this->pager[] = new PagerNavItem($n, $n - 1, $type);
+		// first item
+		if($this->firstItem > 1) {
+			$this->pager[] = new PagerNavItem(1, 1, PagerNavItem::typeFirst);
+			$this->pager[] = clone $this->separator;
 		}
-
+		// items in num-links range
+		for($pageNum = $this->firstItem; $pageNum <= $this->lastItem; $pageNum += 1) {
+			$this->pager[] = new PagerNavItem(
+				$pageNum,
+				$pageNum,
+				$pageNum == $this->currentPage ? PagerNavItem::typeCurrent : ''
+			);
+		}
+		// last item
+		if($this->lastItem < $this->totalPages) {
+			$this->pager[] = clone $this->separator;
+			$this->pager[] = new PagerNavItem($this->totalPages, $this->totalPages, PagerNavItem::typeLast);
+		}
+		// next item
 		if($this->currentPage < $this->totalPages) {
-			$useLast = true; 
-			$item = null;
-			$key = null;
-
-			foreach($this->pager as $key => $item) {
-				if($item->pageNum == $this->totalPages) $useLast = false;
-			}
-
-			/*
-			if($item && $item->pageNum == ($this->totalPages-1)) {
-				unset($this->pager[$key]); 
-				$this->pager[] = $this->separator; 
-				$this->pager[] = new PagerNavItem($this->totalPages+1, $this->totalPages); 
-				$useLast = false; 
-			}
-			*/
-
-			if($useLast) {
-				$this->pager[] = $this->separator; 
-				$this->pager[] = new PagerNavItem($this->totalPages+1, $this->totalPages, PagerNavItem::typeLast); 
-			}
-
-			if($this->getLabel('next')) $this->pager[] = new PagerNavItem($this->getLabel('next'), $this->currentPage+1, PagerNavItem::typeNext); 
+			$this->pager[] = new PagerNavItem($this->getLabel('next'), $this->currentPage + 1, PagerNavItem::typeNext);
 		}
 
-		if(count($this->pager) > 1) {
-
-			$firstPageLink = false;
-
-			foreach($this->pager as $key => $item) {
-				// convert from 0-based to 1-based
-				if($item->type != 'separator') $item->pageNum = $item->pageNum+1;
-				if($item->pageNum == 1) $firstPageLink = true; 
-			}
-
-
-			if(!$firstPageLink) {
-
-				// if the first page in pager is page 2, then get rid of it because we're already adding a page 1 (via typeFirst)
-				// and leaving it here would result in 1 ... 2
-				$item = reset($this->pager); 
-				if($item->pageNum == 2) array_shift($this->pager); 
-
-				array_unshift($this->pager, $this->separator); 
-				array_unshift($this->pager, new PagerNavItem(1, 1, PagerNavItem::typeFirst)); // add reference to page 1
-			}
-
-			if($this->currentPage > 0 && $this->getLabel('previous')) {
-				array_unshift($this->pager, new PagerNavItem($this->getLabel('previous'), $this->currentPage, PagerNavItem::typePrevious));
-			}
-
-		} else $this->pager = array(); 
-
-	
-		return $this->pager; 	
+		return $this->pager;
 	}
 
-	#[\ReturnTypeWillChange] 
+	#[\ReturnTypeWillChange]
 	public function getIterator() { return new \ArrayObject($this->getPager()); }
 	public function getFirstItem() { return $this->firstItem; }
+	public function getLastItem() { return $this->lastItem; }
 	public function getItemsPerPage() { return $this->itemsPerPage; }
 	public function getCurrentPage() { return $this->currentPage; }
-	public function getTotalPages() { return $this->totalPages+1; }
+	public function getTotalPages() { return $this->totalPages; }
 	public function getLabel($key) { return isset($this->labels[$key]) ? $this->labels[$key] : ''; }
-	
-	public function setNumPageLinks($numPageLinks) { $this->numPageLinks = $numPageLinks; }
+
+	public function setNumPageLinks($numPageLinks) {
+		$numPageLinks = (int)$numPageLinks;
+		if($this->numPageLinks !== $numPageLinks) {
+			$this->numPageLinks = $numPageLinks;
+			$this->pager = null; // reset cached pager items
+			$this->initialize(); // recalculate params
+		}
+	}
 
 	/**
 	 * Set the labels to use for the 'prev' and 'next' links
