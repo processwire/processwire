@@ -68,7 +68,7 @@ class PagerNav implements \IteratorAggregate {
 	protected $numPageLinks = 10;
 	protected $totalItems = 0;
 	protected $firstItem = 0;
-	protected $lastItem;
+	protected $lastItem = 0;
 	protected $itemsPerPage = 0;
 
 	protected $labels = array(
