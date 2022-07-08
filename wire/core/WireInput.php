@@ -713,6 +713,7 @@ class WireInput extends Wire {
 	 *
 	 */
 	public function setUrlSegments(array $urlSegments) {
+		$this->urlSegments = array();
 		$n = 1;
 		foreach($urlSegments as $urlSegment) {
 			$this->setUrlSegment($n, $urlSegment);
