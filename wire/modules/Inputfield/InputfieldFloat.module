@@ -130,7 +130,8 @@ class InputfieldFloat extends InputfieldInteger {
 	 * 
 	 */
 	public function getAttributesString(array $attributes = null) {
-		if($attributes && $attributes['type'] === 'number') { 
+		if(is_null($attributes)) $attributes = $this->getAttributes();
+		if($attributes['type'] === 'number') { 
 			$value = isset($attributes['value']) ? $attributes['value'] : null;
 			if(is_float($value) || (is_string($value) && strlen($value))) {
 				// the HTML5 number input type requires "." as the decimal
@@ -144,11 +145,13 @@ class InputfieldFloat extends InputfieldInteger {
 					$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
 				}
 			}
+		} else if($this->digits > 0 && empty($attributes['inputmode'])) {
+			$attributes['inputmode'] = 'decimal';
 		}
-		if($attributes && !empty($attributes['value']) && $this->noE && $this->hasE($attributes['value'])) {
+		if(!empty($attributes['value']) && $this->noE && $this->hasE($attributes['value'])) {
 			$attributes['value'] = $this->wire()->sanitizer->float($attributes['value'], array('getString' => true));
 		}
-		if($attributes && $this->precision > 0 && $this->digits > 0) {
+		if($this->precision > 0 && $this->digits > 0) {
 			if(isset($attributes['value']) && strlen("$attributes[value]")) {
 				$f = $attributes['type'] === 'number' ? 'F' : 'f'; // F=non-locale aware, f=locale aware
 				$attributes['value'] = sprintf("%.{$this->precision}$f", (float) $attributes['value']);
