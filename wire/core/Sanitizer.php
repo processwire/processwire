@@ -2098,7 +2098,8 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function httpUrl($value, $options = array()) {
-		$options['requireScheme'] = true; 
+		$options['requireScheme'] = true;
+		$options['allowRelative'] = false;
 		if(empty($options['allowSchemes'])) $options['allowSchemes'] = array('http', 'https'); 
 		return $this->url($value, $options);
 	}
