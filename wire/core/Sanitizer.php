@@ -1774,6 +1774,8 @@ class Sanitizer extends Wire {
 		$options = array_merge($defaults, $options);
 		$newline = $options['newline'];
 		$value = $this->string($value);
+		
+		if(!is_string($newline) || !strlen($newline)) $newline = ' ';
 
 		if(strpos($value, "\r") !== false) {
 			// normalize newlines
