@@ -976,7 +976,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 * #pw-group-custom
 	 * 
-	 * @param string $sql Query (string) to log, boolean true to reset/start query logging, boolean false to stop query logging
+	 * @param string|bool $sql Query (string) to log, boolean true to reset/start query logging, boolean false to stop query logging
 	 * @param string $note Any additional debugging notes about the query
 	 * @return array|bool|int Returns query log array, boolean true on success, boolean false if not
 	 * 

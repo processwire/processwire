@@ -666,7 +666,6 @@ class WireHttp extends Wire {
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
 		$postMethods = array('POST', 'PUT', 'DELETE', 'PATCH'); // methods for CURLOPT_POSTFIELDS
 		$isPost = in_array($method, $postMethods);
-		$contentType = isset($this->headers['content-type']) ? $this->headers['content-type'] : '';
 		$proxy = '';
 		
 		if(!empty($options['proxy'])) {
@@ -695,11 +694,20 @@ class WireHttp extends Wire {
 			// not reachable: version blocked before sendCURL call
 		}
 		
+		if($method === 'POST' && empty($this->headers['expect'])) {
+			// The 'expect' header that CURL uses waits for server to respond that the POST is okay,
+			// but many servers don't implement this, or ignore it, so we disable it here.
+			$this->headers['expect'] = '';
+		}
+		
 		if(count($this->headers)) {
-			if($isPost && !empty($this->data) && $contentType === self::defaultPostContentType) {
+			/* kept for temporary reference:
+			if($isPost && !empty($this->data) && $this->>headers['content-type'] === self::defaultPostContentType) {
 				// CURL does not work w/default POST content-type when sending POST variables array
+				// if setting array (rather than query string) for CURLOPT_POSTFIELDS
 				$this->headers['content-type'] = 'multipart/form-data; charset=utf-8';
 			}
+			*/
 			$headers = array();
 			foreach($this->headers as $name => $value) {
 				$headers[] = "$name: $value";
@@ -722,7 +730,9 @@ class WireHttp extends Wire {
 	
 		if(!empty($this->data)) {
 			if($isPost) {
-				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->data);
+				// setting data as associative array adds a boundary to the content-type header that we don’t
+				// want so we set value as query string from http_build_query rather than associative array
+				curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($this->data));
 			} else {
 				$content = http_build_query($this->data);
 				if(strlen($content)) $url .= (strpos($url, '?') === false ? '?' : '&') . $content;
@@ -773,6 +783,12 @@ class WireHttp extends Wire {
 				curl_setopt($curl, $opt, $optVal); 
 			}
 		}
+
+		// Enables it to work on URLs that set cookies then redirect
+		// such as: https://galesupport.com/novelGeo/novelGeoLink.php?loc=nysl_ca_sar&amp;db=AONE
+		// $tempDir = $this->wire()->files->tempDir();
+		// $this->cookiePath = $tempDir->get();
+		// curl_setopt($curl, CURLOPT_COOKIEJAR, $this->cookiePath);
 		
 		$result = curl_exec($curl);
 
