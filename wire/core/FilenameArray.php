@@ -41,6 +41,7 @@ class FilenameArray implements \IteratorAggregate, \Countable {
 	 * 
 	 */
 	protected function getKey($filename) {
+		$filename = (string) $filename;
 		$pos = strpos($filename, '?'); 
 		$key = $pos ? substr($filename, 0, $pos) : $filename;
 		return md5($key);

@@ -2788,7 +2788,7 @@ class PageFinder extends Wire {
 					
 				} else if(in_array($field, array('created', 'modified', 'published'))) {
 					// prepare value for created, modified or published date fields
-					if(!ctype_digit($value)) {
+					if(!ctype_digit("$value")) {
 						$value = $datetime->strtotime($value); 
 					}
 					if(empty($value)) {

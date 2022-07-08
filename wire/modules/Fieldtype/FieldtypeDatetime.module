@@ -367,7 +367,8 @@ class FieldtypeDatetime extends Fieldtype {
 	public function ___getConfigInputfields(Field $field) {
 
 		$inputfields = parent::___getConfigInputfields($field);
-		$wdt = $this->wire('datetime');
+		$wdt = $this->wire('datetime'); /** @var WireDateTime $wdt */
+		$dateOutputFormat = (string) $field->get('dateOutputFormat');
 
 		/** @var InputfieldSelect $f */
 		$f = $this->modules->get('InputfieldSelect'); 
@@ -384,7 +385,7 @@ class FieldtypeDatetime extends Fieldtype {
 			$dateFormatted = $wdt->formatDate($date, $format); 	
 			if($format == 'U') $dateFormatted .= " " . $this->_('(unix timestamp)');
 			$f->addOption($format, "$dateFormatted [$format]"); 
-			if(!$found && strpos($field->get('dateOutputFormat'), $format) !== false) {
+			if(!$found && strpos($dateOutputFormat, $format) !== false) {
 				$f->attr('value', $format); 
 				$found = true; 
 			}
@@ -400,7 +401,6 @@ class FieldtypeDatetime extends Fieldtype {
 		$f->addOption('', $this->_('None'));
 		$f->columnWidth = 50;
 		$date = strtotime('5:10:02 PM');
-		$dateOutputFormat = $field->get('dateOutputFormat');
 		foreach($wdt->getTimeFormats() as $format) {
 			$timeFormatted = $wdt->formatDate($date, $format); 	
 			$f->addOption($format, "$timeFormatted [$format]"); 

@@ -1565,7 +1565,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$extensions = array();
 		$badExtensions = array();
 		$whitelistExtensions = array();
-		$extensionsStr = $field->get('extensions'); 
+		$extensionsStr = (string) $field->get('extensions'); 
 		$okExtensions = $field->get('okExtensions');
 		$validators = array();
 		

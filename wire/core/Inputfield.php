@@ -1831,6 +1831,8 @@ abstract class Inputfield extends WireData implements Module {
 		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
 		
+		$str = (string) $str; 
+		
 		// if already encoded, then un-encode it
 		if(strpos($str, '&') !== false && preg_match('/&(#\d+|[a-zA-Z]+);/', $str)) {
 			$str = $sanitizer->unentities($str);
