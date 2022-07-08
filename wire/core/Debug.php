@@ -232,7 +232,7 @@ class Debug {
 	static public function getSavedTimer($key) {
 		$value = isset(self::$savedTimers[$key]) ? self::$savedTimers[$key] : null;	
 		if(!is_null($value) && isset(self::$savedTimerNotes[$key])) $value = "$value - " . self::$savedTimerNotes[$key];
-		return $value; 
+		return (string) $value; 
 	}
 
 	/**
@@ -248,6 +248,29 @@ class Debug {
 			$timers[$key] = self::getSavedTimer($key); // to include notes
 		}
 		return $timers; 
+	}
+
+	/**
+	 * Remove a previously saved timer
+	 * 
+	 * @param string $key
+	 * @since 3.0.202
+	 * 
+	 */
+	static public function removeSavedTimer($key) {
+		unset(self::$savedTimers[$key]); 
+		unset(self::$savedTimerNotes[$key]); 
+	}
+
+	/**
+	 * Remove all saved timers
+	 * 
+	 * @since 3.0.202
+	 * 
+	 */
+	static public function removeSavedTimers() {
+		self::$savedTimers = array();
+		self::$savedTimerNotes = array();
 	}
 
 	/**
@@ -295,6 +318,17 @@ class Debug {
 	 * Return a backtrace array that is simpler and more PW-specific relative to PHP’s debug_backtrace
 	 * 
 	 * @param array $options
+	 * - `limit` (int): The limit for the backtrace or 0 for no limit. (default=0)
+	 * - `flags` (int): Flags as used by PHP’s debug_backtrace() function. (default=DEBUG_BACKTRACE_PROVIDE_OBJECT)
+	 * - `showHooks` (bool): Show inernal methods for hook calls? (default=false)
+	 * - `getString` (bool): Get newline separated string rather than array? (default=false)
+	 * - `getCnt` (bool): Get index number count, used for getString option only. (default=true)
+	 * - `getFile` (bool|string): Get filename? Specify one of true, false or 'basename'. (default=true)
+	 * - `maxCount` (int): Max size for arrays (default=10)
+	 * - `maxStrlen` (int): Max length for strings (default=100)
+	 * - `maxDepth` (int): Max allowed recursion depth when converting variables to strings.  (default=5)
+	 * - `ellipsis` (string): Show this ellipsis when a long value is truncated (default='…')
+	 * - `skipCalls` (array): Method/function calls to skip. 
 	 * @return array|string
 	 * @since 3.0.136
 	 * 
@@ -303,7 +337,7 @@ class Debug {
 		
 		$defaults = array(
 			'limit' => 0, // the limit argument for the debug_backtrace call
-			'flags' => DEBUG_BACKTRACE_PROVIDE_OBJECT, // flags for PHP debug_backtrace method
+			'flags' => DEBUG_BACKTRACE_PROVIDE_OBJECT, // flags for PHP debug_backtrace function
 			'showHooks' => false, // show internal methods for hook calls?
 			'getString' => false, // get newline separated string rather than array?
 			'getCnt' => true, // get index number count (for getString only)
