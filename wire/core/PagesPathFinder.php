@@ -522,8 +522,8 @@ class PagesPathFinder extends Wire {
 		}
 
 		if(stripos($lastPart, 'index.') === 0 && preg_match('/^index\.(php\d?|s?html?)$/i', $lastPart)) {
-			array_pop($parts); // removing last part will force a 301
-			$this->addResultError('indexFile', 'Path had index file');
+			// index file will be allowed as URL segment, or 301 redirect if not allowed as URL segment
+			$this->addResultError('indexFile', 'Path had index file', true);
 		}
 	
 		if($result['response'] < 400 && count($badNames)) {
@@ -720,7 +720,14 @@ class PagesPathFinder extends Wire {
 
 		$_path = $path;
 		if(strlen($appendPath)) $path = rtrim($path, '/') . $appendPath;
-		if($fail || $_path !== $path) $result['redirect'] = '/' . ltrim($path, '/');
+		
+		if($fail || $_path !== $path) {
+			if($fail && isset($result['errors']['indexFile']) && count($result['urlSegments']) === 1) {
+				// allow for an /index.php or /index.html type urlSegmentStr to redirect rather than fail
+				$fail = false;
+			}
+			$result['redirect'] = '/' . ltrim($path, '/');
+		}
 		
 		$result['pathAdd'] = $appendPath;
 
@@ -1474,10 +1481,11 @@ class PagesPathFinder extends Wire {
 	 * 
 	 * @param string $name
 	 * @param string $message
+	 * @param bool $force Force add even if not in verbose mode? (default=false)
 	 * 
 	 */
-	protected function addResultError($name, $message) {
-		if(!$this->verbose) return;
+	protected function addResultError($name, $message, $force = false) {
+		if(!$this->verbose && !$force) return;
 		$this->result['errors'][$name] = $message;
 	}
 
