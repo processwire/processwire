@@ -789,8 +789,7 @@ class PageFinder extends Wire {
 	public function ___find($selectors, array $options = array()) {
 		
 		if(is_string($selectors) || is_array($selectors)) {
-			list($s, $selectors) = array($selectors, $this->wire(new Selectors())); 
-			$selectors->init($s);
+			$selectors = $this->wire(new Selectors($selectors));
 		} else if(!$selectors instanceof Selectors) {
 			throw new PageFinderException("find() requires Selectors object, string or array");
 		}
