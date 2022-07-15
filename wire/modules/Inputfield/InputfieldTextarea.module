@@ -30,7 +30,7 @@ class InputfieldTextarea extends InputfieldText {
 			'summary' => __('Multiple lines of text', __FILE__), // Module Summary
 			'version' => 103,
 			'permanent' => true, 
-			);
+		);
 	}
 
 	/**

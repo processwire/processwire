@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -22,10 +22,8 @@ class FieldtypePageTitle extends FieldtypeText implements FieldtypePageTitleComp
 			'version' => 100,
 			'summary' => 'Field that stores a page title',
 			'permanent' => true, 
-			);
+		);
 	}
-
-	public static $languageSupport = false; 
 
 	/**
 	 * This field is only used for new fields in advanced mode
@@ -49,9 +47,16 @@ class FieldtypePageTitle extends FieldtypeText implements FieldtypePageTitleComp
 		return $value;
 	}
 
+	/**
+	 * Get compatible Fieldtypes
+	 * 
+	 * @param Field $field
+	 * @return Fieldtypes
+	 * 
+	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = $this->wire(new Fieldtypes());
-		foreach($this->wire('fieldtypes') as $fieldtype) {
+		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if($fieldtype instanceof FieldtypePageTitleCompatible) {
 				$fieldtypes->add($fieldtype);
 			}
@@ -59,10 +64,30 @@ class FieldtypePageTitle extends FieldtypeText implements FieldtypePageTitleComp
 		return $fieldtypes;
 	}
 
+	/**
+	 * Get Inputfield
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield|InputfieldPageTitle
+	 * 
+	 */
 	public function getInputfield(Page $page, Field $field) {
+		/** @var InputfieldPageTitle $inputField */
 		$inputField = $this->modules->get('InputfieldPageTitle'); 
 		return $inputField; 
 	}
+
+	/**
+	 * True when language support is active, false if not
+	 *
+	 * Set by LanguageSupport.module to true during LanguageSupport::init()
+	 *
+	 * @var bool
+	 * @deprecated No longer in use
+	 *
+	 */
+	public static $languageSupport = false;
 
 }
 

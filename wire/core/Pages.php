@@ -52,6 +52,7 @@
  * @method string setupPageName(Page $page, array $options = array()) Determine and populate a name for the given page. #pw-internal
  * @method void insertBefore(Page $page, Page $beforePage) Insert one page as a sibling before another. #pw-advanced
  * @method void insertAfter(Page $page, Page $afterPage) Insert one page as a sibling after another. #pw-advanced
+ * @method bool touch($pages, $options = null, $type = 'modified') Update page modification time to now (or the given modification time). #pw-group-manipulation
  * 
  * METHODS PURELY FOR HOOKS
  * ========================

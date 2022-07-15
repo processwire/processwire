@@ -9,8 +9,11 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method string execute()
+ * @method string ajax()
  *
  *
  */
@@ -24,24 +27,28 @@ class ProcessHome extends Process {
 			'version' => 101, 
 			'permission' => 'page-view', 
 			'permanent' => true, 
-			);
+		);
 	}
 
 	public function ___execute() {
-		$input = $this->wire('input');
+		
+		if($this->wire()->config->ajax) return '';
+		
+		$input = $this->wire()->input;
+		$sanitizer = $this->wire()->sanitizer;
 		$vars = array();
-		if($input->get('login')) $vars['login'] = (int) $input->get('login');
-		if($input->get('layout')) $vars['layout'] = $this->wire('sanitizer')->name($input->get('layout'));
-		$url = "page/";	
-		if(count($vars)) {
-			$url .= '?';
-			foreach($vars as $key => $value) {
-				$url .= "$key=" . $this->wire('sanitizer')->entities($value) . "&";
-			}
-			$url = rtrim($url, '&');
-		}
-		$this->session->redirect($url); 
-	}	
+		
+		$login = $input->get('login');
+		$layout = $input->get('layout');
+		if($login) $vars['login'] = (int) $login;
+		if($layout) $vars['layout'] = $sanitizer->name($layout);
+		unset($login, $layout);
+		
+		$url = 'page/';	
+		if(count($vars)) $url .= '?' . http_build_query($vars); 
+		
+		$this->wire()->session->location($url); 
+	}
 
 }
 

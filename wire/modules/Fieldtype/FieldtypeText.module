@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -54,7 +54,7 @@ class FieldtypeText extends Fieldtype {
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = $this->wire(new Fieldtypes());
-		foreach($this->wire('fieldtypes') as $fieldtype) {
+		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if($fieldtype instanceof FieldtypeText) {
 				$fieldtypes->add($fieldtype);
 			} else {
@@ -117,7 +117,7 @@ class FieldtypeText extends Fieldtype {
 	 *
 	 */
 	public function isEmptyValue(Field $field, $value) {
-		return !strlen($value); 
+		return !strlen("$value"); 
 	}
 
 	/**
@@ -162,7 +162,7 @@ class FieldtypeText extends Fieldtype {
 	 */
 	public function getDatabaseSchema(Field $field) {
 		$schema = parent::getDatabaseSchema($field);
-		$len = $this->wire('database')->getMaxIndexLength();
+		$len = $this->wire()->database->getMaxIndexLength();
 		$schema['data'] = 'text NOT NULL';
 		$schema['keys']['data_exact'] = "KEY `data_exact` (`data`($len))"; 
 		$schema['keys']['data'] = 'FULLTEXT KEY `data` (`data`)'; 
@@ -193,7 +193,7 @@ class FieldtypeText extends Fieldtype {
 		$inputfields->add($fieldset);
 		
 		/** @var InputfieldAsmSelect $f */
-		$f = $this->modules->get('InputfieldAsmSelect'); 
+		$f = $modules->get('InputfieldAsmSelect'); 
 		$f->attr('name', 'textformatters'); 
 		$f->label = $this->_('Text formatters');
 
@@ -216,7 +216,7 @@ class FieldtypeText extends Fieldtype {
 		if($field->type->className() === 'FieldtypeText') {
 			/** @var InputfieldSelect $field */
 			$defaultLabel = $this->_('Default'); 
-			$f = $this->modules->get('InputfieldRadios');
+			$f = $modules->get('InputfieldRadios');
 			$f->attr('name', 'inputfieldClass');
 			$f->label = $this->_('Input module');
 			$f->description = $this->_('Save after changing this as it may affect what settings are available on the “Input” tab.'); 
@@ -231,7 +231,6 @@ class FieldtypeText extends Fieldtype {
 			$f->collapsed = Inputfield::collapsedBlank;
 			$fieldset->add($f);
 		}
-		
 
 		return $inputfields; 
 	}
@@ -249,7 +248,7 @@ class FieldtypeText extends Fieldtype {
 		if(isset($data['textformatters']) && is_array($data['textformatters'])) {
 			$errors = array();
 			foreach($data['textformatters'] as $className) {
-				if(!$this->wire('modules')->isInstalled($className)) {
+				if(!$this->wire()->modules->isInstalled($className)) {
 					$errors[] = "Requires module '$className' to be installed";
 				}
 			}
@@ -269,7 +268,7 @@ class FieldtypeText extends Fieldtype {
 	 *
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
-		if(is_array($value) && isset($value['default']) && !$this->wire('languages')) {
+		if(is_array($value) && isset($value['default']) && !$this->wire()->languages) {
 			// multi-language value to non-multi-language site, use only default language
 			$value = $value['default'];
 		}

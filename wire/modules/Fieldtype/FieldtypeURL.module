@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -22,7 +22,7 @@ class FieldtypeURL extends FieldtypeText {
 			'version' => 101,
 			'summary' => __('Field that stores a URL', __FILE__),
 			'permanent' => true, 
-			);
+		);
 	}
 
 	public function init() {
@@ -39,22 +39,38 @@ class FieldtypeURL extends FieldtypeText {
 	 *
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
-		return $this->sanitizer->url($value, array(
+		return $this->wire()->sanitizer->url($value, array(
 			'allowRelative' => $field->get('noRelative') ? false : true,
 			'allowIDN' => $field->get('allowIDN') ? true : false,
 			'stripQuotes' => $field->get('allowQuotes') ? false : true
 		));
 	}
 
-
+	/**
+	 * Get Inputfield
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield|InputfieldURL
+	 * 
+	 */
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldURL $inputfield */
-		$inputfield = $this->modules->get('InputfieldURL'); 
+		$inputfield = $this->wire()->modules->get('InputfieldURL'); 
 		$inputfield->set('noRelative', $field->get('noRelative')); 
 		$inputfield->set('addRoot', $field->get('addRoot')); 
 		return $inputfield; 
 	}
 
+	/**
+	 * Format value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return string
+	 * 
+	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
 		if($field->get('addRoot') && !$field->get('noRelative') && substr($value, 0, 1) == '/') {
 			$root = rtrim($this->config->urls->root, '/');
@@ -64,7 +80,16 @@ class FieldtypeURL extends FieldtypeText {
 		return $value; 
 	}
 
+	/**
+	 * Get field configuration Inputfields
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields(Field $field) {
+		$modules = $this->wire()->modules;
+		
 		$inputfields = parent::___getConfigInputfields($field);
 		$labelYes = $this->_('Yes');
 		$labelNo = $this->_('No');
@@ -79,7 +104,7 @@ class FieldtypeURL extends FieldtypeText {
 		}
 
 		/** @var InputfieldRadios $f */
-		$f = $this->modules->get('InputfieldRadios');
+		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'noRelative');
 		$f->label = $this->_('Allow relative/local URLs without "http://" at the beginning?');
 		$f->addOption(0, $labelYes);
@@ -90,7 +115,8 @@ class FieldtypeURL extends FieldtypeText {
 		$f->optionColumns = 1;
 		$inputfields->add($f);
 
-		$f = $this->modules->get('InputfieldRadios');
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'allowIDN');
 		$f->label = $this->_('Allow internationalized domain names (IDNs)?');
 		$f->addOption(1, $labelYes);
@@ -101,7 +127,8 @@ class FieldtypeURL extends FieldtypeText {
 		$f->optionColumns = 1;
 		$inputfields->add($f);
 
-		$f = $this->modules->get('InputfieldRadios');
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'allowQuotes');
 		$f->label = $this->_('Allow single/double quote characters in URLs?');
 		$f->addOption(1, $labelYes);
@@ -112,7 +139,8 @@ class FieldtypeURL extends FieldtypeText {
 		$f->optionColumns = 1;
 		$inputfields->add($f);
 
-		$f = $this->modules->get('InputfieldRadios');
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'addRoot');
 		$f->label = $this->_("Prepend site's root path to local/relative URLs?");
 		$f->addOption(1, $labelYes);

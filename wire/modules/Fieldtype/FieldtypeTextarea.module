@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * Properties set to $field that is using this type, acceessed by $field->get('property'):
@@ -190,7 +190,7 @@ class FieldtypeTextarea extends FieldtypeText {
 	 */
 	protected function htmlReplacements(Page $page, Field $field, &$value, $sleep = true) {
 		
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		
 		if(is_array($value)) {
 			// array of values, most likely multi-language data123 columns from loadPageField 
@@ -265,7 +265,7 @@ class FieldtypeTextarea extends FieldtypeText {
 		}
 
 		static $lsep = null;
-		if($lsep === null) $lsep = $this->wire('sanitizer')->unentities('&#8232;');
+		if($lsep === null) $lsep = $this->wire()->sanitizer->unentities('&#8232;');
 		if(strpos($value, $lsep) !== false) $value = str_replace($lsep, '', $value);
 	}
 
@@ -279,16 +279,17 @@ class FieldtypeTextarea extends FieldtypeText {
 	 */
 	public function getInputfield(Page $page, Field $field) {
 
+		$modules = $this->wire()->modules;
 		$inputfieldClass = $field->get('inputfieldClass');
 		
 		if($inputfieldClass) {
-			$inputfield = $this->modules->getModule($inputfieldClass, array('noSubstitute' => true)); 
+			$inputfield = $modules->getModule($inputfieldClass, array('noSubstitute' => true)); 
 		} else {
-			$inputfield = $this->modules->get(self::defaultInputfieldClass); 
+			$inputfield = $modules->get(self::defaultInputfieldClass); 
 		}
 		
 		if(!$inputfield) {
-			$inputfield = $this->modules->get(self::defaultInputfieldClass);
+			$inputfield = $modules->get(self::defaultInputfieldClass);
 			$this->configHelper()->getInputfieldError($field);
 		}
 		
@@ -319,7 +320,7 @@ class FieldtypeTextarea extends FieldtypeText {
 	 */
 	public function configHelper() {
 		if(is_null($this->configHelper)) {
-			require_once($this->wire('config')->paths->FieldtypeTextarea . 'FieldtypeTextareaHelper.php');
+			require_once($this->wire()->config->paths('FieldtypeTextarea') . 'FieldtypeTextareaHelper.php');
 			$this->configHelper = new FieldtypeTextareaHelper();
 		}
 		return $this->configHelper;
@@ -400,7 +401,7 @@ class FieldtypeTextarea extends FieldtypeText {
 	 */
 	protected function importValueHTML($value, array $options) {
 		// update changed root URLs in href or src attributes 
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$url = $config->urls->root;
 		$host = $config->httpHost;
 		$_url = isset($options['originalRootUrl']) ? $options['originalRootUrl'] : $url; // original URL
@@ -453,7 +454,7 @@ class FieldtypeTextarea extends FieldtypeText {
 		$searchFields = array();
 		if($selector === true) $selector = "include=all";
 		
-		foreach($this->wire('fields') as $f) {
+		foreach($this->wire()->fields as $f) {
 			if($field) {
 				if("$f" != "$field") continue;
 			} else {
@@ -467,7 +468,7 @@ class FieldtypeTextarea extends FieldtypeText {
 			$searchFields[$f->name] = $f->name;
 		}
 		
-		if(!count($searchFields)) return $this->wire('pages')->newPageArray();
+		if(!count($searchFields)) return $this->wire()->pages->newPageArray();
 		
 		return $this->markupQA()->findLinks($page, $searchFields, $selector, $options); 
 	}

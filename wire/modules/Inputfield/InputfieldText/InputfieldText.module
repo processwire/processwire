@@ -3,6 +3,9 @@
 /**
  * An Inputfield for handling single line "text" form inputs
  * 
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * https://processwire.com
+ * 
  * @property string $type Input type (typically "text")
  * @property int $size Size of input or 0 for full width
  * @property int $minlength Minimum allowed length of value (usually combined with 'required' option)
@@ -32,7 +35,7 @@ class InputfieldText extends Inputfield {
 			'summary' => __('Single line of text', __FILE__), // Module Summary
 			'version' => 106,
 			'permanent' => true, 
-			);
+		);
 	}
 
 	/**
@@ -53,14 +56,19 @@ class InputfieldText extends Inputfield {
 		$this->set('noTrim', false);
 		$this->set('showCount', self::showCountNone);
 	}
-	
+
+	/**
+	 * Wired to API
+	 * 
+	 */
 	public function wired() {
 		// if multi-language, support placeholders for each language
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
-		if($languages) foreach($languages as $language) {
-			// set to blank value so that Field::getInputfield() will recogize this setting is for InputfieldText 
-			if(!$language->isDefault()) $this->set("placeholder$language", '');
+		$languages = $this->wire()->languages;
+		if($languages) {
+			foreach($languages as $language) {
+				// set to blank value so that Field::getInputfield() will recogize this setting is for InputfieldText 
+				if(!$language->isDefault()) $this->set("placeholder$language", '');
+			}
 		}
 		parent::wired();
 	}
@@ -149,8 +157,8 @@ class InputfieldText extends Inputfield {
 		if(isset($attrs['maxlength']) && (int) $attrs['maxlength'] < 1) unset($attrs['maxlength']);
 
 		// placeholder attribute, languages support
-		if(!empty($attrs['placeholder']) && $this->wire('languages')) {
-			$language = $this->wire('user')->language;
+		if(!empty($attrs['placeholder']) && $this->wire()->languages) {
+			$language = $this->wire()->user->language;
 			if($language && $language->id && !$language->isDefault()) {
 				$placeholder = parent::get("placeholder$language->id"); 
 				if(strlen($placeholder)) $attrs['placeholder'] = $placeholder;
@@ -193,12 +201,12 @@ class InputfieldText extends Inputfield {
 	protected function setAttributeValue($value) {
 		
 		if($this->maxlength > 0) { 
-			$value = $this->wire('sanitizer')->text($value, array(
+			$value = $this->wire()->sanitizer->text($value, array(
 				'maxLength' => $this->maxlength, 
 				'maxBytes' => $this->maxlength*4, 
 				'stripTags' => false,
 				'trim' => $this->noTrim ? false : true,
-				)); 
+			)); 
 		}
 		
 		if($this->stripTags) $value = strip_tags($value);
@@ -243,7 +251,9 @@ class InputfieldText extends Inputfield {
 			
 			if($this->pattern) {
 				$regex = '#' . str_replace('#', '\#', $this->pattern) . '#'; // add delimeters
-				if(!preg_match($regex, $value)) $this->error($this->_('Does not match required pattern'));
+				if(!preg_match($regex, $value)) {
+					$this->error($this->_('Does not match required pattern'));
+				}
 			} 
 			
 			if($minlength > 0 && $length < $minlength) {
@@ -276,10 +286,13 @@ class InputfieldText extends Inputfield {
 	 */
 	public function ___getConfigInputfields() {
 		
+		$modules = $this->wire()->modules;
+		$languages = $this->wire()->languages;
+		
 		$inputfields = parent::___getConfigInputfields();
 
 		/** @var InputfieldInteger $field */
-		$field = $this->modules->get('InputfieldInteger');
+		$field = $modules->get('InputfieldInteger');
 		$field->setAttribute('name', 'minlength');
 		$field->label = $this->_('Minimum length');
 		$field->setAttribute('value', (int) $this->minlength);
@@ -290,7 +303,7 @@ class InputfieldText extends Inputfield {
 		$inputfields->append($field);
 
 		/** @var InputfieldInteger $field */
-		$field = $this->modules->get('InputfieldInteger');
+		$field = $modules->get('InputfieldInteger');
 		$field->setAttribute('name', 'maxlength'); 
 		$field->label = $this->_('Maximum length');
 		$field->setAttribute('value', $this->attr('maxlength')); 
@@ -301,7 +314,7 @@ class InputfieldText extends Inputfield {
 		$inputfields->append($field);
 	
 		/** @var InputfieldRadios $field */
-		$field = $this->modules->get('InputfieldRadios');
+		$field = $modules->get('InputfieldRadios');
 		$field->attr('name', 'showCount'); 
 		$field->label = $this->_('Counter'); 
 		$field->addOption(0, $this->_('No counter'));
@@ -314,7 +327,7 @@ class InputfieldText extends Inputfield {
 		$inputfields->add($field);
 	
 		/** @var InputfieldInteger $field */
-		$field = $this->modules->get('InputfieldInteger');
+		$field = $modules->get('InputfieldInteger');
 		$field->setAttribute('name', 'size');
 		$field->label = $this->_('Size');
 		$field->setAttribute('value', $this->attr('size') > 0 ? $this->attr('size') : 0);
@@ -324,7 +337,7 @@ class InputfieldText extends Inputfield {
 		$inputfields->append($field);
 
 		/** @var InputfieldCheckbox $field */
-		$field = $this->modules->get('InputfieldCheckbox'); 
+		$field = $modules->get('InputfieldCheckbox'); 
 		$field->attr('name', 'stripTags'); 
 		$field->label = $this->_('Strip Tags'); 
 		$field->description = $this->_('When checked, any HTML tags will be stripped from the input when the form is processed.'); 
@@ -338,15 +351,15 @@ class InputfieldText extends Inputfield {
 		$inputfields->append($field); 
 
 		/** @var InputfieldText $field */
-		$field = $this->modules->get('InputfieldText');
+		$field = $modules->get('InputfieldText');
 		$field->setAttribute('name', 'placeholder'); 
 		$field->label = $this->_('Placeholder Text');
 		$field->setAttribute('value', $this->attr('placeholder')); 
 		$field->description = $this->_('Optional placeholder phrase of text that appears in the field when blank.'); 
 		$field->collapsed = Inputfield::collapsedBlank;
-		if($this->wire('languages')) {
+		if($languages) {
 			$field->useLanguages = true;
-			foreach($this->wire('languages') as $language) {
+			foreach($languages as $language) {
 				if($language->isDefault()) continue;
 				$value = $this->getSetting("placeholder$language");
 				if(!is_null($value)) $field->set("value$language", $value);
@@ -355,7 +368,7 @@ class InputfieldText extends Inputfield {
 		$inputfields->append($field);
 
 		/** @var InputfieldText $field */
-		$field = $this->modules->get('InputfieldText');
+		$field = $modules->get('InputfieldText');
 		$field->setAttribute('name', 'pattern'); 
 		$field->label = $this->_('Pattern');
 		$field->setAttribute('value', $this->attr('pattern')); 
@@ -366,7 +379,7 @@ class InputfieldText extends Inputfield {
 
 		if($this->hasFieldtype === false) { 
 			/** @var InputfieldText $field */
-			$field = $this->modules->get('InputfieldText');
+			$field = $modules->get('InputfieldText');
 			$field->setAttribute('name', 'initValue'); 
 			$field->label = $this->_('Initial Value');
 			$field->description = $this->_('Optional initial/default value pre-populated for the user.'); 
@@ -389,8 +402,4 @@ class InputfieldText extends Inputfield {
 		$a = array('initValue', 'pattern', 'placeholder', 'maxlength', 'minlength', 'required', 'requiredAttr'); 
 		return array_merge(parent::___getConfigAllowContext($field), $a); 
 	}
-	
-
-
-	
 }

@@ -182,7 +182,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 * See configuration options at: http://htmlpurifier.org/live/configdoc/plain.html
 	 *
 	 * @param string $key
-	 * @param string $value
+	 * @param string|array|mixed $value
 	 * @return WireData|MarkupHTMLPurifier
 	 *
 	 */

@@ -49,7 +49,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 			'summary' => __('Selection of a single value from a select pulldown', __FILE__), // Module Summary
 			'version' => 102,
 			'permanent' => true, 
-			);
+		);
 	}
 
 	/**
