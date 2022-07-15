@@ -27,6 +27,7 @@
  * @property array $imageFields
  * @property int $assetPageID
  * @property string $configName
+ * @property string $inheritField Field to inherit above settings from
  * 
  * MODULE CONFIGURATION
  * ====================
@@ -40,7 +41,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 170, 
+			'version' => 171, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 		);
@@ -91,10 +92,12 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	 * Version number for CKEditor directory
 	 *
 	 */
-	const CKEDITOR_VERSION = '4.18.0';
+	const CKEDITOR_VERSION = '4.19.0';
 
 	/**
 	 * Instance of MarkupHTMLPurifier module
+	 * 
+	 * @var MarkupHTMLPurifier|null
 	 *
 	 */
 	static $purifier = null;
@@ -118,6 +121,30 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	static protected $isConfigured = false;
 
 	/**
+	 * Names of all field settings supported by this module (for import or inherit options)
+	 * 
+	 * @var array alphabetical
+	 * 
+	 */
+	protected $settingNames = array(
+		'assetPageID',
+		'contentsCss',
+		'contentsInlineCss',
+		'customOptions',
+		'extraAllowedContent',
+		'extraPlugins',
+		'formatTags',
+		'imageFields',
+		'inlineMode', 
+		'removePlugins',
+		'stylesSet',
+		'toggles',
+		'toolbar',
+		'useACF',
+		'usePurifier',
+	);
+
+	/**
 	 * Construct and set default configuration
 	 *
 	 */
@@ -138,7 +165,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 			"PWImage, Table, HorizontalRule, SpecialChar\n" . 
 			"PasteText, PasteFromWord\n" . 
 			"Scayt, -, Sourcedialog"
-			); 
+		); 
 
 		$this->set('contentsCss', ''); 
 		$this->set('contentsInlineCss', ''); 
@@ -151,10 +178,22 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$this->set('customOptions', ''); // custom user-defined config options
 		
 		foreach($this->findPlugins() as $name => $file) {
-			$this->set("plugin_$name", ""); // json string of each plugin config settings
+			$value = "plugin_$name";
+			$this->set($value, ""); // json string of each plugin config settings
+			$this->settingNames[] = $value;
 		}
+		
+		$this->set('inheritField', ''); // name:id
 	}
-	
+
+	/**
+	 * Set
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return Inputfield|InputfieldCKEditor
+	 * 
+	 */
 	public function set($key, $value) {
 	
 		// convert extraPlugins string to array
@@ -209,15 +248,16 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	 *
 	 */
 	protected function pathFromRoot($path, $cacheBust = false) {
+		$config = $this->wire()->config;
 		if(strpos($path, '//') !== false) return $path; // don't modify URLs with scheme 
 		$path = ltrim($path, '/');
 		if($cacheBust && strpos($path, '?') === false) {
-			$file = $this->wire('config')->paths->root . $path;
+			$file = $config->paths->root . $path;
 			if(file_exists($file)) {
 				$path .= "?nc=" . filemtime($file);
 			}
 		}
-		$path = $this->wire('config')->urls->root . $path;
+		$path = $config->urls->root . $path;
 		return $path;
 	}
 
@@ -241,14 +281,15 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 			}
 		}
 		if(!$result && !count($imageFields)) {
+			$session = $this->wire()->session;
 			// allow any available images field to be used, except those disallowed by ProcessPageEditImageSelect
-			$skipFields = $this->wire('session')->getFor($this, 'skipImageFields'); 
+			$skipFields = $session->getFor($this, 'skipImageFields'); 
 			
 			if(!is_array($skipFields)) {
 				$skipFields = array();
-				$skipData = $this->wire('modules')->getModuleConfigData('ProcessPageEditImageSelect');
+				$skipData = $this->wire()->modules->getModuleConfigData('ProcessPageEditImageSelect');
 				if(!empty($skipData['skipFields'])) $skipFields = explode(' ', $skipData['skipFields']); 
-				$this->wire('session')->setFor($this, 'skipImageFields', $skipFields);
+				$session->setFor($this, 'skipImageFields', $skipFields);
 			}
 			
 			foreach($page->template->fieldgroup as $field) {
@@ -262,20 +303,32 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		return $result;
 	}
 
+	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield|null $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 * 
+	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 
 		static $loaded = false;
 		
 		$class = $this->className();
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$baseURL = $config->urls->$class; 
 		$basePath = $baseURL . "ckeditor-" . self::CKEDITOR_VERSION . '/';
 		
 		if(!$loaded) {
 			$config->scripts->add($basePath . "ckeditor.js");
-			$this->wire('modules')->get('JqueryUI')->use('modal');
+			/** @var JqueryUI $jQueryUI */
+			$jQueryUI = $this->wire()->modules->get('JqueryUI');
+			$jQueryUI->use('modal');
 			$loaded = true;
 		}
+		
+		if($this->inheritField) $this->inheritSettings();
 		
 		$this->globalConfig();
 
@@ -327,7 +380,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	
 		if($assetPage !== $this->hasPage && $assetPage->id) {
 			// external asset page (FUTURE USE)
-			$imagesInputfield = $this->wire('modules')->get('InputfieldImage'); 
+			/** @var InputfieldImage $imagesInputfield */
+			$imagesInputfield = $this->wire()->modules->get('InputfieldImage'); 
 			$imagesInputfield->set('hasPage', $assetPage); 
 			$imagesInputfield->renderReady($parent, $renderValueMode);
 			$assetPageEditURL = $assetPage->editUrl() . "&InputfieldFileAjax=noTemp"; 
@@ -399,6 +453,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 
 	/**
 	 * Render the output code for CKEditor
+	 * 
+	 * @return string
 	 *
 	 */
 	public function ___render() {
@@ -418,7 +474,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$cancelButtonLabel = $this->_('Cancel'); // Cancel button label
 		
 		$linkClassOptions = array();
-		$linkConfig = $this->wire('modules')->getModuleConfigData('ProcessPageEditLink'); 
+		$linkConfig = $this->wire()->modules->getModuleConfigData('ProcessPageEditLink'); 
 		if(!empty($linkConfig) && !empty($linkConfig['classOptions'])) {
 			foreach(explode("\n", $linkConfig['classOptions']) as $option) {
 				$linkClassOptions[] = trim($option, '+ ');	
@@ -455,7 +511,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 			unset($settings['plugins']['pwlink'], $settings['plugins']['pwimage']);
 		}
 		
-		$this->wire('config')->js($this->className(), $settings); 
+		$this->wire()->config->js($this->className(), $settings); 
 
 		self::$isConfigured = true; 
 	}
@@ -544,7 +600,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	 */
 	protected function renderInline() {
 
-		if(!$this->wire('modules')->get('MarkupHTMLPurifier')) {
+		if(!$this->wire()->modules->get('MarkupHTMLPurifier')) {
 			$this->error($this->_('CKEditor inline mode requires the MarkupHTMLPurifier module. Using normal mode instead.')); 
 			return $this->renderNormal();
 		}
@@ -576,10 +632,18 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 
 		return $out; 
 	}
-	
+
+	/**
+	 * Render non-editable version of Inputfield
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___renderValue() {
-		$out = "<div class='InputfieldTextareaContentTypeHTML InputfieldCKEditorInline'>" . 
-			$this->wire('sanitizer')->purify($this->attr('value')) . "</div>";
+		$out = 
+			"<div class='InputfieldTextareaContentTypeHTML InputfieldCKEditorInline'>" . 
+			$this->wire()->sanitizer->purify($this->attr('value')) . 
+			"</div>";
 		return $out; 
 	}
 	
@@ -593,16 +657,19 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	 *
 	 */
 	protected function purifyValue($value) {
+		
+		$modules = $this->wire()->modules;
+		$sanitizer = $this->wire()->sanitizer;
 
 		$value = (string) $value; 
 		if(strpos($value, "\r") !== false) $value = str_replace(array("\r\n", "\r"), "\n", $value);
 		$length = strlen($value);
 		if(!$length) return ''; 
 
-		if($this->usePurifier && $this->wire('modules')->isInstalled('MarkupHTMLPurifier')) {
+		if($this->usePurifier && $modules->isInstalled('MarkupHTMLPurifier')) {
 			$enableID = stripos($this->toolbar, 'anchor') !== false || $this->isExtraAllowedContentAttribute('id');
-			if(is_null(self::$purifier)) self::$purifier = $this->wire('modules')->get('MarkupHTMLPurifier');
-			$configData = $this->wire('modules')->getModuleConfigData('ProcessPageEditLink');
+			if(is_null(self::$purifier)) self::$purifier = $modules->get('MarkupHTMLPurifier');
+			$configData = $modules->getModuleConfigData('ProcessPageEditLink');
 			$targets = isset($configData['targetOptions']) ? $configData['targetOptions'] : '_blank';
 			$targets = explode("\n", $targets);
 			foreach($targets as $k => $v) $targets[$k] = trim(trim($v), '+');
@@ -639,7 +706,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		}
 	
 		// remove UTF-8 line separator characters
-		$value = str_replace($this->wire('sanitizer')->unentities('&#8232;'), '', $value);
+		$value = str_replace($sanitizer->unentities('&#8232;'), '', $value);
 
 		return $value; 
 	}
@@ -828,14 +895,133 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$this->wire()->modules->saveConfig($this, 'extraPluginsDirs', $dirs);
 	}
 
+	/**
+	 * Get the field that settings should be inherited from or null if not in use
+	 * 
+	 * @param string|null $inheritField Used in recursive mode only, otherwise omit
+	 * @return Field|null
+	 * @throws WireException
+	 * 
+	 */
+	protected function getInheritField($inheritField = '') {
+		
+		static $level = 0;
+		
+		$fields = $this->wire()->fields;
+		
+		if(empty($inheritField)) $inheritField = $this->inheritField;
+		if(empty($inheritField)) return null;
+	
+		if(strpos($inheritField, ':')) {
+			list($name, $id) = explode(':', $inheritField, 2);
+			$field = $fields->get($name);
+		} else {
+			$field = $fields->get($inheritField);
+			$id = 0;
+		}
+		
+		if((!$field || $field->get('inputfieldClass') != $this->className()) && $id) {
+			$field = $fields->get((int) $id);
+			if(!$field || $field->get('inputfieldClass') != $this->className()) {
+				return null;
+			}
+		}
+	
+		// see if inherit field is also inherting from another field
+		$inheritField = $field->get('inheritField');
+		if($inheritField && $level < 10) {
+			$level++;
+			$f = $this->getInheritField($inheritField);
+			if($f) $field = $f;
+		}
+	
+		return $field;
+	}
+
+	/**
+	 * Propagate inherit field settings, when inheritField option is used
+	 * 
+	 * @return bool True if settings were inherited, false if not
+	 * 
+	 */
+	protected function inheritSettings() {
+		$field = $this->getInheritField(); 
+		if(!$field) return false;
+		
+		foreach($this->settingNames as $key) {
+			$value = $field->get($key);
+			$this->set($key, $value);
+		}
+	
+		return true;
+	}
+
+	/**
+	 * Import settings from given field
+	 * 
+	 * @param Field $field
+	 * 
+	 */
+	protected function importSettings(Field $field) {
+		$changes = array();
+		foreach($this->settingNames as $name) {
+			$oldValue = $this->get($name);
+			$newValue = $field->get($name);
+			$this->set($name, $newValue); // in case setting changes value (like extraAllowedContent)
+			$newValue = $this->get($name);
+			if($oldValue != $newValue) {
+				$changes[] = $name;
+			}
+		}
+		if(count($changes)) {
+			$this->warning(
+				sprintf($this->_('Settings have been imported from field "%s".'), $field->name) . ' ' .
+				$this->_('Review the settings on the “Input” tab “CKEditor Settings” fieldset and then Save to commit them.') . ' ' .
+				$this->_('YOU MUST SAVE AGAIN TO COMMIT THESE SETTINGS.') . ' ' .
+				sprintf($this->_('Changes: %s'), implode(', ', $changes))
+			);
+		} else {
+			$this->warning($this->_('No changes detected from settings import.'));
+		}
+	}
+
+	/**
+	 * Get other CKEditor field names that can be used for inherit or import
+	 * 
+	 * @return array
+	 * 
+	 */
+	protected function getImportableFieldNames() {
+
+		$ckeFields = array();
+		$ckeClass = $this->className();
+		$thisName = $this->hasField ? $this->hasField->name : $this->name;
+		
+		// find all CKEditor fields
+		foreach($this->wire()->fields as $field) {
+			if(!$field->type instanceof FieldtypeTextarea) continue;
+			if($field->get('inputfieldClass') != $ckeClass) continue;
+			if($field->name === $thisName) continue;
+			if($field->get('inheritField')) continue;
+			$ckeFields["$field->name:$field->id"] = $field->name;
+		}
+		
+		return $ckeFields;
+	}
+
 	/*
 	 * Inputfield configuration screen
 	 *
 	 */
 	public function ___getConfigInputfields() {
+		
+		$modules = $this->wire()->modules;
+		$input = $this->wire()->input;
+		$session = $this->wire()->session;
 
 		$inputfields = parent::___getConfigInputfields();
-	
+		$ckeFields = $this->getImportableFieldNames();
+		
 		$yes = $this->_('Yes');
 		$no = $this->_('No');
 		$example = '**' . $this->_('Example:') . '** ';
@@ -854,11 +1040,66 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		}
 
 		/** @var InputfieldFieldset $wrapper */
-		$wrapper = $this->wire('modules')->get('InputfieldFieldset'); 
-		$wrapper->label = $this->_('CKEditor Settings'); 
+		$wrapper = $modules->get('InputfieldFieldset'); 
+		$wrapper->label = $this->_('CKEditor Settings');
+		$inputfields->add($wrapper); 
+		
+		if(count($ckeFields)) {
+			/** @var InputfieldSelect $f */
+			$f = $modules->get('InputfieldSelect');
+			$f->attr('name', 'inheritField'); 
+			$f->label = $this->_('Inherit settings from another CKE field');
+			$f->description = $this->_('When a field is selected CKEditor settings will be inherited from that field rather than those configured here.');
+			if(!$this->inheritField) $f->notes = $this->_('After making a selection and saving this field, all of the settings below will no longer appear.');
+			$f->addOptions($ckeFields);
+			$f->val($this->inheritField);
+			$f->collapsed = Inputfield::collapsedBlank;
+			$wrapper->add($f);
+			
+			if($this->inheritField) return $inputfields;
 
+			if($this->hasField && wireInstanceOf($this->hasField, 'InputfieldTextarea')) {
+				$importName = '_importField_' . $this->attr('name');
+				$importValue = $input->post($importName);
+
+				if(!$importValue) {
+					/** @var InputfieldSelect $f */
+					$f = $modules->get('InputfieldSelect');
+					$f->attr('name', $importName);
+					$f->label = $this->_('Import settings from another CKE field');
+					$f->description = $this->_('Settings will be imported from selected field when you save, replacing the current CKEditor settings below.');
+					$f->addOptions($ckeFields);
+					$f->val('');
+					$f->collapsed = Inputfield::collapsedYes;
+					$wrapper->add($f);
+				}
+
+				if($importValue) {
+					list($importFieldName, /*$importFieldId*/) = explode(':', $importValue, 2);
+					$field = $this->wire()->fields->get($importFieldName);
+					if($field) {
+						$session->setFor($this, $importName, $field->name);
+					}
+				} else if($input->requestMethod('GET')) {
+					$importValue = $session->getFor($this, $importName);
+					if($importValue) {
+						$session->removeFor($this, $importName);
+						$field = $this->wire()->fields->get($importValue);
+						if($field) $this->importSettings($field);
+					}
+				}
+			}
+			
+		} else {
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
+			$f->attr('name', 'inheritField'); 
+			$f->val('');
+			$wrapper->add($f);
+		}
+		
 		/** @var InputfieldTextarea $f */
-		$f = $this->wire('modules')->get('InputfieldTextarea'); 
+		$f = $modules->get('InputfieldTextarea'); 
 		$f->attr('name', 'toolbar'); 
 		$f->attr('value', $this->toolbar);
 		$f->label = $this->_('CKEditor Toolbar'); 
@@ -873,12 +1114,12 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 			'Table, Templates, Underline, Undo, Unlink';
 		$wrapper->add($f); 
 
-		$purifierInstalled = $this->wire('modules')->isInstalled('MarkupHTMLPurifier'); 
+		$purifierInstalled = $modules->isInstalled('MarkupHTMLPurifier'); 
 		$inlineLabel = $this->_('Inline editor');
 		$regularLabel = $this->_('Regular editor');
 
 		/** @var InputfieldRadios $f */
-		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f = $modules->get('InputfieldRadios'); 
 		$f->attr('name', 'inlineMode'); 
 		$f->label = $this->_('Editor Mode');
 		$f->addOption(0, $regularLabel . ' [span.detail] ' . $this->_('(flexible height, user adjustable)') . ' [/span]');
@@ -895,7 +1136,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f = $inputfields->getChildByName('showCount');
 		if($f) $f->notes = $this->_('Counter is supported for regular CKEditor fields, but not inline CKEditor fields.');
 
-		$f = $this->modules->get("InputfieldRadios"); 
+		/** @var InputfieldRadios $f */
+		$f = $modules->get("InputfieldRadios"); 
 		$f->label = $this->_('Use ACF?'); 
 		$f->description = $this->_('When yes, the CKEditor Advanced Content Filter (ACF) will be active. This filter automatically strips any unrecognized markup or attributes from your HTML. Recommended.'); 
 		$f->attr('name', 'useACF'); 
@@ -904,9 +1146,10 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->attr('value', $this->useACF); 
 		$f->columnWidth = 50; 
 		$f->optionColumns = 1;
-		$wrapper->add($f); 
+		$wrapper->add($f);
 
-		$f = $this->modules->get("InputfieldRadios"); 
+		/** @var InputfieldRadios $f */
+		$f = $modules->get("InputfieldRadios"); 
 		$f->label = $this->_('Use HTML Purifier?'); 
 		$f->description = $this->_('When yes, submitted content is run through [HTML Purifier](http://htmlpurifier.org/) for sanitization. This is a must have when using CKEditor for either inline mode or non-trusted users. Recommended either way.'); 
 		$f->attr('name', 'usePurifier'); 
@@ -919,7 +1162,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$wrapper->add($f); 
 	
 		/** @var InputfieldAsmSelect $f */
-		$f = $this->modules->get('InputfieldAsmSelect'); 
+		$f = $modules->get('InputfieldAsmSelect'); 
 		$f->attr('name', 'imageFields');
 		$f->label = $this->_('Images fields that may be used for dragged-in or pasted-in images'); 
 		$f->description = $this->_('If no fields are selected then an available images field will be automatically chosen at runtime. If the option labeled “None” is selected, then the feature will be disabled.'); 
@@ -947,7 +1190,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$wrapper->add($f); 
 		*/
 
-		$f = $this->modules->get("InputfieldCheckboxes"); 
+		/** @var InputfieldCheckboxes $f */
+		$f = $modules->get("InputfieldCheckboxes"); 
 		$f->label = $this->_('Beautify Markup Toggles'); 
 		$f->attr('name', 'toggles'); 
 		$f->addOption(self::toggleCleanDIV, $this->_('Convert div tags to paragraph tags')); 
@@ -957,7 +1201,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->attr('value', $this->toggles); 
 		$wrapper->add($f); 
 
-		$f = $this->modules->get("InputfieldText");
+		/** @var InputfieldText $f */
+		$f = $modules->get("InputfieldText");
 		$f->label = $this->_('Format Tags');
 		$f->description = $this->_('Semicolon-separated list of selectable tags shown in the "format" dropdown.'); 
 		$f->notes = $this->_('Default format tags are:') . ' ' . self::FORMAT_TAGS; 
@@ -967,7 +1212,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->attr('value', $value);
 		$wrapper->add($f);
 
-		$f = $this->modules->get("InputfieldTextarea");
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get("InputfieldTextarea");
 		$f->label = $this->_('Extra Allowed Content');
 		$f->description = $this->_('Allowed content rules per CKEditor [extraAllowedContent](http://docs.ckeditor.com/#!/api/CKEDITOR.config-cfg-extraAllowedContent) option. Applies only if the "Use ACF" checkbox above is checked.'); 
 		$f->description .= ' ' . $this->_('You may enter multiple rules by putting each on its own line.'); 
@@ -983,7 +1229,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$descriptionCustomCss = $this->_('This option enables you to modify the way that text and other elements appear in your editor. This covers how they look in the administrative environment only, and has nothing to do with the front-end of your site.'); // contents.css description
 		$instructionsCustomCss = sprintf($this->_('Please see our [instructions](%s) on how to use this.'), 'https://github.com/processwire/processwire/blob/master/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-css-file'); // custom editor css instructions
 
-		$f = $this->modules->get("InputfieldText");
+		/** @var InputfieldText $f */
+		$f = $modules->get("InputfieldText");
 		$f->label = $this->_('Custom Editor CSS File (regular mode)');
 		$f->description = $descriptionCustomCss; 
 		$f->notes = $example . "/site/modules/InputfieldCKEditor/contents.css\n$instructionsCustomCss  $pathNote";
@@ -994,7 +1241,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->showIf = "inlineMode<1";
 		$wrapper->add($f);
 
-		$f = $this->modules->get("InputfieldText");
+		/** @var InputfieldText $f */
+		$f = $modules->get("InputfieldText");
 		$f->label = $this->_('Custom Editor CSS File (inline mode)');
 		$f->description = $descriptionCustomCss; 
 		$f->notes .= $example . "/site/modules/InputfieldCKEditor/contents-inline.css\n$instructionsCustomCss $pathNote"; 
@@ -1005,7 +1253,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->showIf = 'inlineMode>0';
 		$wrapper->add($f);
 
-		$f = $this->modules->get("InputfieldText");
+		/** @var InputfieldText $f */
+		$f = $modules->get("InputfieldText");
 		$f->label = $this->_('Custom Editor JS Styles Set');
 		$f->description = $this->_('This option enables you to specify custom styles for selection in your editor. It requires that you have a "Styles" item in your toolbar settings above.'); // styles set description
 		$f->notes = $example . "mystyles:/site/modules/InputfieldCKEditor/mystyles.js"; 
@@ -1020,9 +1269,10 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->attr('value', $value);
 		$wrapper->add($f);
 		
-		$descriptionJSON = $this->_('If used, enter one per line of **property: value**, or use a JSON string.'); 
-		
-		$f = $this->modules->get('InputfieldTextarea');
+		$descriptionJSON = $this->_('If used, enter one per line of **property: value**, or use a JSON string.');
+
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get('InputfieldTextarea');
 		$f->attr('name', "customOptions");
 		$f->label = $this->_('Custom Config Options');
 		$f->description = $this->_('Use this when you want to specify CKEditor config settings beyond those available on this screen.') . " $descriptionJSON";
@@ -1044,13 +1294,13 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$wrapper->add($f);
 
 		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $this->modules->get('InputfieldFieldset');
+		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->attr('name', '_plugins_fieldset'); 
 		$fieldset->label = $this->_('Plugins'); 
 		$wrapper->add($fieldset); 
 	
 		/** @var InputfieldCheckboxes $f */
-		$f = $this->modules->get('InputfieldCheckboxes'); 
+		$f = $modules->get('InputfieldCheckboxes'); 
 		$f->attr('name', 'extraPlugins');
 		$f->label = $this->_('Extra Plugins');
 		$f->description = $this->_('The following plugins were found. Check the box next to each plugin you would like to load.'); 
@@ -1068,7 +1318,8 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		
 		foreach($plugins as $name => $file) {
 			if($name == 'pwimage' || $name == 'pwlink') continue;
-			$f = $this->modules->get('InputfieldTextarea');
+			/** @var InputfieldTextarea $f */
+			$f = $modules->get('InputfieldTextarea');
 			$f->attr('name', "plugin_$name"); 
 			$f->label = sprintf($this->_('%s settings'), ucfirst($name));
 			$f->description = $descriptionJSON;
@@ -1095,8 +1346,9 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->attr('value', $value);
 		$fieldset->add($f);
 		*/
-		
-		$f = $this->modules->get("InputfieldText");
+	
+		/** @var InputfieldText $f */
+		$f = $modules->get("InputfieldText");
 		$f->label = $this->_('Remove Plugins');
 		$f->description = $this->_('Comma separated list of removed plugins that CKEditor should not load.'); 
 		$f->notes = $example . 'link,image';
@@ -1106,7 +1358,6 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->attr('value', $value);
 		$fieldset->add($f);
 		
-		$inputfields->add($wrapper); 
 		
 		return $inputfields; 
 	}
