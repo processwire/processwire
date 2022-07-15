@@ -5,7 +5,7 @@
  *
  * Class that contains an individual comment.
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $id
@@ -195,12 +195,23 @@ class Comment extends WireData {
 		$this->set('website', ''); 
 		$this->set('ip', ''); 
 		$this->set('user_agent', ''); 
-		$this->set('created_users_id', $this->config->guestUserPageID); 
+		$this->set('created_users_id', 40);
 		$this->set('code', ''); // approval code
 		$this->set('subcode', ''); // subscriber code (for later user modifications to comment)
 		$this->set('upvotes', 0); 
 		$this->set('downvotes', 0);
 		$this->set('stars', 0);
+		$this->set('meta', array()); 
+		parent::__construct();
+	}
+
+	/**
+	 * Wired to API
+	 * 
+	 */
+	public function wired() {
+		$this->set('created_users_id', $this->wire()->config->guestUserPageID); 
+		parent::wired();
 	}
 
 	/**
@@ -213,8 +224,7 @@ class Comment extends WireData {
 	public function get($key) {
 		
 		if($key === 'user' || $key === 'createdUser') {
-			if(!$this->created_users_id) return $this->users->get($this->config->guestUserPageID); 
-			return $this->users->get($this->created_users_id); 
+			return $this->wire()->users->get($this->created_users_id); 
 
 		} else if($key === 'gravatar') {
 			return $this->gravatar();
@@ -243,7 +253,7 @@ class Comment extends WireData {
 		} else if($key === 'editUrl' || $key == 'editURL') {
 			return $this->editUrl();
 			
-		} else if($key === 'prevStatus') {
+		} else if($key === 'prevStatus' || $key === 'statusPrevious') {
 			return $this->prevStatus;
 			
 		} else if($key === 'textFormatted') {
@@ -329,9 +339,11 @@ class Comment extends WireData {
 		if(is_array($textformatters) && count($textformatters)) {
 			// output formatting with specified textformatters (@todo)
 			// NOT CURRENTLY ACTIVE
+			$modules = $this->wire()->modules;
 			$value = strip_tags($value);
 			foreach($textformatters as $name) {
-				if(!$textformatter = $this->wire('modules')->get($name)) continue;
+				/** @var Textformatter $textformatter */
+				if(!$textformatter = $modules->get($name)) continue;
 				$textformatter->formatValue($this->page, $this->field, $value);
 			}
 		} else {
@@ -389,21 +401,23 @@ class Comment extends WireData {
 		} else if($key === 'numChildren') {
 			$this->numChildren = (int) $value; 
 			return $this;
+		} else if($key === 'meta') {
+			if(!is_array($value)) return $this; // array required for meta
 		}
 			
 		// save the state so that modules can identify when a comment that was identified as spam 
 		// is then set to not-spam, or when a misidentified 'approved' comment is actually spam
-		if($key == 'status' && $this->loaded) {
+		if($key === 'status' && $this->loaded) {
 			$this->prevStatus = $this->status;
 		}
 
-		if($key == 'stars') {
+		if($key === 'stars') {
 			$value = (int) $value;
 			if($value < 1) $value = 0;
 			if($value > 5) $value = 5; 
 		}
 		
-		if($key == 'parent_id' && parent::get('parent_id') != $value) {
+		if($key === 'parent_id' && parent::get('parent_id') != $value) {
 			// reset a cached parent value, if present
 			$this->_parent = null; 
 		}
@@ -431,7 +445,7 @@ class Comment extends WireData {
 	 *
 	 */
 	public function __toString() {
-		return "{$this->id}"; 
+		return "$this->id"; 
 	}
 
 	/**
@@ -456,7 +470,7 @@ class Comment extends WireData {
 		if(!in_array($rating, array('g', 'pg', 'r', 'x'), true)) $rating = 'g';
 		if(empty($imageset)) $imageset = 'mm';
 		$size = (int) $size; 
-		$http = wire('config')->https ? 'https' : 'http';
+		$http = wire()->config->https ? 'https' : 'http';
 		$url = 	"$http://www.gravatar.com/avatar/" . 
 			md5(strtolower(trim($email))) . 
 			"?s=$size" . 
@@ -763,7 +777,8 @@ class Comment extends WireData {
 		if($this->page && $this->page->id) {
 			$url = $http ? $this->page->httpUrl() : $this->page->url;
 		} else {
-			$url = $http ? $this->wire('config')->urls->httpRoot : $this->wire('config')->urls->root;
+			$config = $this->wire()->config;
+			$url = $http ? $config->urls->httpRoot : $config->urls->root;
 		}
 		return $url . "#Comment$this->id";
 	}
@@ -789,6 +804,105 @@ class Comment extends WireData {
 		if(!$this->field) return '';
 		return $this->page->editUrl() . "?field={$this->field->name}#CommentsAdminItem$this->id";
 	}
+	
+	/**
+	 * Set meta data (custom fields for comments)
+	 *
+	 * To set multiple properties at once specify an associative array for $key and omit $value.
+	 *
+	 * @param string|array $key Property name to set or assoc array of them
+	 * @param null|string|array|int|float|mixed $value Value to set for $key or omit of you used an array.
+	 * @return self
+	 * @since 3.0.203
+	 *
+	 */
+	public function setMeta($key, $value = null) {
+		$meta = parent::get('meta');
+		$changed = false;
+
+		if(is_array($key)) {
+			// set multiple properties
+			$changed = $meta != $key;
+			if($changed) $meta = count($meta) ? array_merge($meta, $key) : $key;
+
+		} else if($value === null) {
+			if($key === '*') {
+				// remove all
+				$changed = count($meta) > 0;
+				$meta = array();
+			} else if(isset($meta[$key])) {
+				// remove property
+				unset($meta[$key]);
+				$changed = true;
+			}
+
+		} else {
+			// set property
+			$changed = !isset($meta[$key]) || $meta[$key] !== $value;
+			$meta[$key] = $value;
+		}
+
+		parent::set('meta', $meta);
+		if($changed) $this->trackChange('meta');
+
+		return $this;
+	}
+
+	/**
+	 * Get meta data property value (custom fields for comments)
+	 * 
+	 * Note: values returned are exactly as they were set and do not go through any runtime
+	 * formatting for HTML entities or anything like that. Be sure to provide your own formatting
+	 * where necessary. 
+	 *
+	 * @param null|string $key Name of property to get
+	 * @return string|array|int|float|mixed|null Returns value or null if not found
+	 * @since 3.0.203
+	 *
+	 */
+	public function getMeta($key = null) {
+		$meta = parent::get('meta');
+		if(empty($key)) return $meta;
+		if(isset($meta[$key])) return $meta[$key];
+		return null;
+	}
+
+	/**
+	 * Remove given meta data property or '*' to remove all
+	 *
+	 * @param string $key
+	 * @return self
+	 * @since 3.0.203
+	 *
+	 */
+	public function removeMeta($key) {
+		return $this->setMeta($key);
+	}
+
+	/**
+	 * Get or set meta data property
+	 * 
+	 * @param string|array $key Property to get/set or omit to get all.
+	 * @param mixed|null $value Value to set for given property ($key) or omit if getting.
+	 * @return array|string|int|mixed Returns value for $key or null if it does not exist. Returns array when getting all.
+	 * @since 3.0.203
+	 * 
+	 */
+	public function meta($key = null, $value = null) {
+		if($key === null) {
+			// get all
+			$value = $this->getMeta();
+		} else if($value === null) {
+			// get one property
+			if(!is_string($key)) throw new WireException('Expected string for $key to Comment::meta()');
+			$value = $this->getMeta($key);
+		} else {
+			// set one property
+			$this->setMeta($key, $value);
+		}
+		return $value;
+	}
+
 }
 
 

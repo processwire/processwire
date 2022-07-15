@@ -7,8 +7,10 @@ $(document).ready(function() {
 		return false;
 	});
 
-	$('.WireTabs').css('opacity', 1.0); 
-	$('.WireTabs a.on').parent('li').click();
+	var $tabs = $('.WireTabs');
+	$tabs.css('opacity', 1.0); 
+	$tabs.find('.uk-active').removeClass('uk-active');
+	$tabs.find('a.on').parent('li').click().addClass('uk-active');
 
 	$("a.CommentTextEdit").click(function() {
 		var $textarea = $("<textarea></textarea>");

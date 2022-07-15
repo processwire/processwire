@@ -5,9 +5,10 @@
  *
  * An Inputfield for handling administration of Comments.
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
- * 
+ *
+ * @property bool|int $useManager
  * @method InputfieldMarkup renderItem(Comment $comment, $n)
  *
  */
@@ -25,11 +26,29 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 	}
 	
 	protected $commentIDsToNumbers = array();
+	
+	protected $commentsManagerUrl = '';
 
+	protected $statuses = array();
+	
+	public function __construct() {
+		$this->set('useManager', false); 
+		parent::__construct();
+	}
+	
 	public function init() {
 		parent::init();
+		if($this->wire()->modules->isInstalled('ProcessCommentsManager')) {
+			$this->commentsManagerUrl = $this->wire()->config->urls->admin . 'setup/comments/';
+		}
+		$this->statuses = array(
+			Comment::statusFeatured => array($this->_x('Featured', 'comment-status'), 'trophy', 'featured'),
+			Comment::statusApproved => array($this->_x('Approved', 'comment-status'), 'check-circle', 'approved'),
+			Comment::statusPending => array($this->_x('Pending', 'comment-status'), 'commenting-o', 'pending'),
+			Comment::statusSpam => array($this->_x('Spam', 'comment-status'), 'warning', 'spam'),
+		);
 	}
-
+	
 	/**
 	 * @param Comment $comment
 	 * @param int $n
@@ -37,14 +56,7 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 	 * 
 	 */
 	protected function ___renderItem(Comment $comment, $n) {
-
-		$statuses = array(
-			Comment::statusFeatured => array($this->_x('Featured', 'comment-status'), 'trophy'),
-			Comment::statusApproved => array($this->_x('Approved', 'comment-status'), 'check-circle'),
-			Comment::statusPending => array($this->_x('Pending', 'comment-status'), 'question-circle'), 
-			Comment::statusSpam => array($this->_x('Spam', 'comment-status'), 'warning'), 
-		);
-
+		
 		$name = $this->name;
 		$names = array(
 			'status' => "{$this->name}_status_{$comment->id}",
@@ -57,13 +69,13 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 		);
 
 
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		$statusName = '';
 		$statusIcon = '';
 		$statusOut = "<select id='$names[status]' name='$names[status]'>";
 		
-		foreach($statuses as $status => $statusInfo) {
-			list($label, $icon) = $statusInfo;
+		foreach($this->statuses as $status => $statusInfo) {
+			list($label, $icon, /*$name*/) = $statusInfo;
 			if($comment->status == $status) {
 				$selected = " selected='selected'";
 				$statusName = $label;
@@ -145,6 +157,21 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 		} else {
 			$starsInput = '';
 		}
+		
+		$notes = array();
+		if($notifyOut) {
+			$notes[] = $this->_('Email notifications:') . " $notifyOut";
+		}
+		if($this->commentsManagerUrl) {
+			$metaQty = count($comment->getMeta());
+			$page = $comment->getPage();
+			$field = $comment->getField();
+			$metaUrl = $this->commentsManagerUrl . "meta/?comment_id=$comment->id&page_id=$page->id&field_id=$field->id";
+			// $editUrl = $this->commentsManagerUrl . "list/$field->name/all/?id=$comment->id";
+			$notes[] = 
+				"<a href='$metaUrl' class='pw-modal' data-buttons='button'>" . 
+				sprintf($this->_n('%d meta value', '%d meta values', $metaQty), $metaQty) . "</a>";
+		}
 	
 		$f->value =
 			"<div class='ui-helper-clearfix'>" . 
@@ -175,7 +202,7 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 				"<label for='$names[text]'><span class='detail'>" . $this->_('Text') . "</span></label>" . 
 				"<textarea id='$names[text]' name='$names[text]' rows='5'>$text</textarea>" . 
 			"</p>" .
-			($notifyOut ? "<p class='CommentsAdminItemNotify notes'>" . $this->_('Email notifications:') . " $notifyOut</p>" : "") .
+			(count($notes) ? "<p class='CommentsAdminItemNotify detail'>" . implode(' &nbsp; • &nbsp; ', $notes) . "</p>" : "") .
 			"<input class='CommentsAdminItemSort' type='hidden' name='sort_{$this->name}_{$comment->id}' value='$n' />" . 
 			"";
 
@@ -184,30 +211,79 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 
 	public function ___render() {
 
-		if(!count($this->value)) return "<p>" . $this->_('There are currently no items to display.') . "</p>";
+		$value = $this->value; 
+		
+		if($this->useManager || !count($value)) {
+			$out = $this->renderValue();
+			
+		} else {
+			$n = 0;
+			foreach($value as $comment) {
+				$this->commentIDsToNumbers[$comment->id] = ++$n;
+			}
 
-		$n = 0; 
-		foreach($this->value as $comment) {
-			$this->commentIDsToNumbers[$comment->id] = ++$n;
+			$fieldset = new InputfieldWrapper(); // wired
+			$this->wire($fieldset);
+
+			$n = 0;
+			foreach($value as $comment) {
+				$f = $this->renderItem($comment, $n++);
+				$f->addClass($this->wrapClass);
+				$fieldset->add($f);
+			}
+
+			$out = $fieldset->render();
 		}
-		
-		$fieldset = new InputfieldWrapper(); // wired
-		$this->wire($fieldset);
-		
-		$n = 0;
-		foreach($this->value as $comment) {
-			$f = $this->renderItem($comment, $n++);
-			$f->addClass($this->wrapClass);
-			$fieldset->add($f);
-		}
-		
-		$out = $fieldset->render();
-		//$this->addClass('InputfieldFieldset', 'wrapClass');
 
 		return $out; 
 	}
+	
+	public function ___renderValue() {
+
+		$value = $this->attr('value');
+		
+		if(!count($value)) {
+			return "<p>" . $this->_('There are currently no items to display.') . "</p>";
+		}
+
+		$items = array();
+		$qtys = array();
+		$total = 0;
+		$field = null;
+		$page = null;
+		
+		foreach($value as $comment) {
+			/** @var Comment $comment */
+			$total++;
+			if(!$field) $field = $comment->getField();
+			if(!$page) $page = $comment->getPage();
+			$status = $comment->status;
+			if(!isset($this->statuses[$status])) continue;
+			if(!isset($qtys[$status])) $qtys[$status] = 0;
+			$qtys[$status]++;
+		}
+		
+		$url = $this->commentsManagerUrl . "list/$field->name/all/?pages_id=$page->id";
+		$icon = wireIconMarkup('comments');
+		$item = $icon . ' ' . sprintf($this->_n('%d comment', '%d comments', $total), $total);
+	
+		if($page->editable($field)) $item = "<a href='$url' target='_blank'>$item</a>";
+		$items[] = $item;
+		
+		foreach($this->statuses as $status => $statusInfo) {
+			if(empty($qtys[$status])) continue;
+			$qty = $qtys[$status];
+			list($label, $icon, /*$name*/) = $statusInfo;
+			$icon = wireIconMarkup($icon);
+			$items[] = "<span class='ui-priority-secondary'>$icon $qty $label</span>";
+		}
+		
+		return "<p>" . implode(' &nbsp; &nbsp; ', $items) . "</p>";
+	}
 
 	public function ___processInput(WireInputData $input) {
+		
+		if($this->useManager) return $this;
 
 		$n = 1; 	
 		$names = array(
@@ -252,6 +328,28 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 		}
 
 		return $this; 
+	}
+	
+	public function ___getConfigInputfields() {
+		$modules = $this->wire()->modules;
+		$inputfields = parent::___getConfigInputfields();
+		
+		/** @var InputfieldToggle $f */
+		$f = $modules->get('InputfieldToggle'); 
+		$f->attr('name', 'useManager'); 
+		$f->label = $this->_('Use comments manager rather than in-page editor?'); 
+		$f->description = 
+			$this->_('When enabled user will be directed to the dedicated comments manager for editing comments.') . ' ' . 
+			$this->_('This may be preferable because the comments manager has more features and uses pagination.'); 
+		$value = (int) $this->get('useManager'); 
+		$f->val($value);
+		$f->themeOffset = 1;
+		$inputfields->prepend($f);
+		if($value && !$this->commentsManagerUrl) {
+			$modules->getInstall('ProcessCommentsManager'); 
+		}
+		
+		return $inputfields;
 	}
 
 }

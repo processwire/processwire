@@ -6,7 +6,7 @@
  * Manage all comments field data in chronological order. 
  *
  * ProcessWire 3.x 
- * Copyright (C) 2019 by Ryan Cramer 
+ * Copyright (C) 2022 by Ryan Cramer 
  * This file licensed under Mozilla Public License v2.0 http://mozilla.org/MPL/2.0/
  * 
  * https://processwire.com
@@ -23,7 +23,7 @@ class ProcessCommentsManager extends Process {
 		return array(
 			'title' => __('Comments', __FILE__), 
 			'summary' => __('Manage comments in your site outside of the page editor.', __FILE__),
-			'version' => 10, 
+			'version' => 11, 
 			'author' => 'Ryan Cramer', 
 			'icon' => 'comments', 
 			'requires' => 'FieldtypeComments',
@@ -104,7 +104,7 @@ class ProcessCommentsManager extends Process {
 	 *
 	 */
 	public function init() {
-		$this->wire('modules')->get('FieldtypeComments');
+		$this->wire()->modules->get('FieldtypeComments');
 		parent::init();
 		$this->statuses = array(
 			Comment::statusFeatured => 'featured',
@@ -152,19 +152,19 @@ class ProcessCommentsManager extends Process {
 			return "<p>$error</p>";
 		}
 		
-		$go = $this->wire('sanitizer')->pageName($this->wire('input')->get('go')); 
+		$go = $this->wire()->sanitizer->pageName($this->wire('input')->get('go')); 
 
 		if($count == 1 || $go) {
 			$field = reset($fields);
 			$to = 'all';
 			if($go && in_array($go, $this->statuses)) $to = $go;
-			$this->wire('session')->redirect("./list/$field->name/$to/"); 
+			$this->wire()->session->redirect("./list/$field->name/$to/"); 
 			return '';
 		}
 
 		$out = "<h2>" . $this->_('Please select a comments field') . "</h2><ul>";
 		foreach($fields as $field) {
-			$out .= "<li><a href='./list/{$field->name}/pending/'>{$field->name}</a></li>";
+			$out .= "<li><a href='./list/$field->name/pending/'>$field->name</a></li>";
 		}
 		$out .= "</ul>";
 
@@ -299,6 +299,107 @@ class ProcessCommentsManager extends Process {
 		$this->headline = $headline; 
 		
 		return $this->renderComments($comments); 
+	}
+
+	/**
+	 * Execute the comment meta viewer/editor
+	 * 
+	 * @return string
+	 * @since 3.0.203
+	 * 
+	 */
+	public function ___executeMeta() {
+		$input = $this->wire()->input; 
+		$commentId = (int) $input->get('comment_id'); 
+		$fieldId = (int) $input->get('field_id');
+		$pageId = (int) $input->get('page_id'); 
+		$modal = (int) $input->get('modal');
+		
+		if($commentId < 1 || $fieldId < 1 || $pageId < 1) {
+			throw new WireException("Missing one of: comment_id, field_id, page_id");
+		}
+		
+		$field = $this->wire()->fields->get($fieldId);
+		$fieldtype = $field->type; /** @var FieldtypeComments $fieldtype */
+		if(!$field || (!$fieldtype instanceof FieldtypeComments)) {
+			throw new WireException("Invalid field specified");
+		}	
+		
+		$page = $this->wire()->pages->get($pageId); 
+		if(!$page->id || !$page->hasField($field) || !$page->editable($field)) {
+			throw new WireException("Invalid or non-editable page specified");
+		}
+		
+		$comment = $fieldtype->getCommentByID($page, $field, $commentId); 
+		if(!$comment) throw new WireException("Cannot find comment $commentId"); 
+	
+		$meta = $comment->getMeta();
+		$flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES; 
+		if(defined('JSON_UNESCAPED_LINE_TERMINATORS')) $flags = $flags | JSON_UNESCAPED_LINE_TERMINATORS;
+		$metaJSON = empty($meta) ? '{ }' : json_encode($meta, $flags); 
+		$numRows = substr_count($metaJSON, "\n")+1; 
+		if($numRows < 10) $numRows = 10;
+	
+		$this->headline(sprintf($this->_('Meta data for comment #%d'), $commentId)); 
+		if(empty($meta)) $this->message($this->_('Comment currently has no meta data')); 
+		// $out = "<pre id='meta-preview'>$metaEncodedJSON</pre>";
+	
+		$modules = $this->wire()->modules;
+		
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm'); 
+		$form->attr('method', 'post');
+		$form->attr('action', "./?comment_id=$commentId&page_id=$pageId&field_id=$fieldId&modal=$modal");
+		
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get('InputfieldTextarea'); 
+		$f->attr('name', 'meta');
+		$f->label = $this->_('Meta JSON editor'); 
+		$f->val($metaJSON); 
+		$f->attr('rows', $numRows); 
+		$f->attr('style', "font-family:monospace;"); 
+		$form->add($f);
+	
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
+		$f->attr('name', 'submit_save'); 
+		$f->val($this->_('Save changes')); 
+		$form->add($f);
+		
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldButton');
+		$f->attr('name', 'submit_cancel'); 
+		$f->setSecondary(true);
+		$f->val($this->_('Cancel'));
+		$form->add($f);
+		
+		if($input->post('submit_save')) {
+			$session = $this->wire()->session;
+			$form->processInput($input->post); 
+			$metaInput = $form->getChildByName('meta');
+			$metaSaveJSON = $metaInput->val();
+			if($metaSaveJSON === $metaJSON) {
+				$this->message($this->_('No changes detected'));
+				$session->redirect($form->attr('action'));
+			} else {
+				$meta = json_decode($metaSaveJSON, true);
+				if(is_array($meta)) {
+					$result = $fieldtype->updateComment($page, $field, $comment, array('meta' => $meta));
+					if($result) {
+						$this->message(sprintf($this->_('Updated meta for comment #%d'), $commentId));
+						$session->redirect($form->attr('action'));
+					} else {
+						$this->error(sprintf($this->_('Error updating meata for comment #%d'), $commentId));
+					}
+				} else {
+					$this->error($this->_('Cannot save because invalid JSON'));
+				}
+			}
+		}
+
+		$out = $form->render();
+		
+		return $out;
 	}
 
 	/**
@@ -485,7 +586,7 @@ class ProcessCommentsManager extends Process {
 		$page = $comment->getPage();
 		$pageTitle = $sanitizer->entities1($page->get('title|name'));
 		$field = $comment->getField();
-		$adminTheme = $this->wire('adminTheme');
+		$adminTheme = $this->wire()->adminTheme;
 		$isSuperuser = $this->user->isSuperuser();
 		$allowDepth = $field->depth > 0;
 		$allowDepthChange = $isSuperuser && $allowDepth;
@@ -494,6 +595,10 @@ class ProcessCommentsManager extends Process {
 		$numChildren = 0;
 		$text = $this->renderCommentText($comment);
 		$id = $comment->id;
+	
+		/** @var JqueryUI $jQueryUI */
+		$jQueryUI = $this->wire()->modules->get('JqueryUI');
+		$jQueryUI->use('modal');
 		
 		$icons = array(
 			'edit' => 'edit',
@@ -528,6 +633,7 @@ class ProcessCommentsManager extends Process {
 		$labels = array(
 			'edit' => $this->_('edit'),
 			'view' => $this->_('view'),
+			'meta' => $this->_('meta'),
 			'page' => $this->_('Page'),
 			'date' => $this->_('When'),
 			'status' => $this->_('Status'),
@@ -566,6 +672,7 @@ class ProcessCommentsManager extends Process {
 			'siblings' => "../all/?pages_id=$page->id",
 			'pageView' => "$page->url#Comment$id",
 			'pageEdit' => $page->editUrl(),
+			'metaEdit' => "../../../meta/?comment_id=$comment->id&amp;page_id=$page->id&amp;field_id=$field->id&amp;modal=1",
 			'email' => "./?email=" . urlencode($values['email']), 
 			'cite' => "../all/?cite=" . urlencode($values['cite']),
 			'ip' => "../all/?ip=" . urlencode($values['ip']),
@@ -707,6 +814,10 @@ class ProcessCommentsManager extends Process {
 		foreach($outs as $out) if(!empty($out)) $numRows++;
 		$contentClass = 'CommentContent';
 		if($numRows >= 7) $contentClass .= ' CommentContentLarge';
+		
+		$meta = $comment->getMeta();
+		$metaCnt = count($meta); 
+		$metaTip = sprintf($this->_n('%d value', '%d values', $metaCnt), $metaCnt); 
 
 		$out =
 			"<div class='CommentItem ui-helper-clearfix CommentItemStatus$comment->status'>" . 
@@ -722,7 +833,9 @@ class ProcessCommentsManager extends Process {
 							"<a href='$urls[siblings]' class='pw-tooltip' title='$tooltips[pageFilter]'><strong>$pageTitle</strong></a> " .
 							"<span class='detail'>&nbsp;" . 
 								"<a class='detail' href='$urls[pageView]'>$labels[view]</a>&nbsp;/&nbsp;" . 
-								"<a class='detail' href='$urls[pageEdit]'>$labels[edit]</a>" . 
+								"<a class='detail' href='$urls[pageEdit]'>$labels[edit]</a>&nbsp;/&nbsp;" . 
+								"<a class='detail pw-tooltip pw-modal' title='$metaTip' href='$urls[metaEdit]' " . 
+									"data-buttons='button' data-close='button[name=submit_cancel]'>$labels[meta]</a>" . 
 							"</span>" . 
 							"<span class='CommentChangedIcon'>$icons[changed]</span>" . 
 						"</td>" . 
@@ -883,18 +996,23 @@ class ProcessCommentsManager extends Process {
 	 *
 	 */
 	protected function renderComments(CommentArray $comments) {
+		
+		$input = $this->wire()->input;
 
 		$commentsBody = '';
 		$cnt = 0;
-		$status = $this->input->urlSegment3;
+		$status = $input->urlSegment3;
 		$start = $comments->getStart();
 		$limit = $comments->getLimit();
 		$total = $comments->getTotal();
 		$pageNumPrefix = $this->config->pageNumUrlPrefix; 
-		$pageNum = $this->wire('input')->pageNum; 
+		$pageNum = $input->pageNum(); 
 		$queryString = $this->getQueryString();
 		$unsavedChangesLabel = $this->_('You have unsaved changes!');
 		$field = $comments->getField();
+		$pagesId = (int) $input->get('pages_id');
+		
+		if($pagesId) $this->breadcrumb("./$queryString", "Page $pagesId"); 
 
 		foreach($comments as $comment) {
 			/** @var Comment $comment */
@@ -905,7 +1023,7 @@ class ProcessCommentsManager extends Process {
 		}
 
 		/** @var MarkupPagerNav $pager */
-		$pager = $this->wire('modules')->get('MarkupPagerNav'); 
+		$pager = $this->wire()->modules->get('MarkupPagerNav'); 
 		$pagerOut = $pager->render($comments, array(
 			'queryString' => $queryString,
 			'baseUrl' => "./"
@@ -913,15 +1031,15 @@ class ProcessCommentsManager extends Process {
 		/** @var JqueryWireTabs $wireTabs */
 		$wireTabs = $this->modules->get('JqueryWireTabs'); 
 		$tabs = array();
-		$class = $this->input->urlSegment3 === 'all' ? 'on' : '';
-		$tabs["tabStatusAll"] = "<a class='$class' href='../all/'>" . $this->labelAll . "</a>";
+		$class = $input->urlSegment3 === 'all' ? 'on' : '';
+		$tabs["tabStatusAll"] = "<a class='$class' href='../all/$queryString'>" . $this->labelAll . "</a>";
 
 		foreach($this->statuses as $status => $name) {
 			if($status == Comment::statusDelete) continue;
-			$class = $this->input->urlSegment3 === $name ? 'on' : '';
+			$class = $input->urlSegment3 === $name ? 'on' : '';
 			$label = $this->statusTranslations[$status];
 			if($label === $name) $label = ucfirst($label);
-    		$tabs["tabStatus$status"] = "<a class='$class' href='../$name/'>$label</a>";
+    		$tabs["tabStatus$status"] = "<a class='$class' href='../$name/$queryString'>$label</a>";
 		}
 
 		$tabsOut = $wireTabs->renderTabList($tabs);
@@ -936,7 +1054,7 @@ class ProcessCommentsManager extends Process {
 			$button = $button->render();
 		} else $button = '';
 
-		if($this->input->pageNum > 1) {
+		if($input->pageNum > 1) {
 			$queryString = "./$pageNumPrefix$pageNum$queryString";
 		}
 
