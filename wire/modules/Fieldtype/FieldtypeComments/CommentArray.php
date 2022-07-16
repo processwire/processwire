@@ -260,7 +260,9 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 		$count = 0;
 		$stars = false;
 		foreach($this as $comment) {
+			/** @var Comment $comment */
 			if(!$comment->stars) continue;
+			if($comment->status < Comment::statusApproved) continue;
 			$total += $comment->stars;
 			$count++;
 		}
