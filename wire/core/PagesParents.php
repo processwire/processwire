@@ -444,7 +444,7 @@ class PagesParents extends Wire {
 			$sql = "
 				SELECT parents.id, parents.parent_id 
 				FROM pages 
-				JOIN pages AS parents on pages.parent_id=parents.id AND parents.parent_id>=:id
+				JOIN pages AS parents ON pages.parent_id=parents.id AND parents.parent_id>=:id
 				GROUP BY pages.parent_id 
 			";
 			$query = $this->database->prepare(trim($sql));
