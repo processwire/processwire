@@ -85,6 +85,8 @@ function CommentFormStars() {
 		var value = parseInt(jQuery(this).attr('data-value'));
 		var $parent = jQuery(this).parent();
 		var $input = $parent.prev('input');
+		var valuePrev = parseInt($input.val());
+		if(value === valuePrev) value = 0; // click on current value to unset
 		$input.val(value).attr('value', value); // redundancy intended, val() not working on webkit mobile for some reason
 		setStars($parent, value);
 		$input.change();
