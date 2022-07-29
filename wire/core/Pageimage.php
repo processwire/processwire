@@ -327,7 +327,7 @@ class Pageimage extends Pagefile {
 			// UNSET
 			$this->filedata(false, 'focus');
 			
-		} else if($top !== null && $left !== null) {
+		} else if($left !== null) {
 			// SET
 			if(is_array($top)) {
 				if(isset($top['left'])) {
@@ -507,6 +507,14 @@ class Pageimage extends Pagefile {
 			} else if($info) {
 				$imageInfo['width'] = $info[0];
 				$imageInfo['height'] = $info[1];
+				if(function_exists('exif_read_data')) {
+					$exif = $filename ? @exif_read_data($filename) : @exif_read_data($this->filename);
+					if(!empty($exif['Orientation']) && (int) $exif['Orientation'] > 4) {
+						// Image has portrait orientation so reverse width and height info
+						$imageInfo['width'] = $info[1];
+						$imageInfo['height'] = $info[0];
+					}
+				}
 			}
 		}
 		
@@ -920,7 +928,7 @@ class Pageimage extends Pagefile {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
 					
-					if($debug && empty($options['webpOnly'])) $this->wire('log')->save('image-sizer',
+					if($debug && empty($options['webpOnly'])) $this->wire()->log->save('image-sizer',
 						str_replace('ImageSizerEngine', '', $sizer->getEngine()) . ' ' . 
 						($this->error ? "FAILED Resize: " : "Resized: ") . "$originalName => " . basename($filenameFinal) . " " . 
 						"({$width}x{$height}) " . Debug::timer($timer) . " secs $originalSize => " . filesize($filenameFinal) . " bytes " . 
@@ -961,8 +969,8 @@ class Pageimage extends Pagefile {
 
 			// we also tell PW about it for logging and/or admin purposes
 			$this->error($this->error);
-			$logError = str_replace($config->paths->root, $config->urls->root, $filenameFinal)  . " - $this->error";
-			$this->wire('log')->save('image-sizer', $logError);
+			$logError = str_replace($config->paths('root'), $config->urls('root'), $filenameFinal)  . " - $this->error";
+			$this->wire()->log->save('image-sizer', $logError);
 		}
 
 		$pageimage->setFilename($filenameFinal); 	
@@ -1167,7 +1175,7 @@ class Pageimage extends Pagefile {
 			// return hidpi width intended: scale omitted or provided in $width argument
 			$scale = $width;
 			if(!$scale || $scale < 0 || $scale > 1) $scale = 0.5;
-			if(is_string($options) && $options === "100%") return $options;
+			if($options === "100%") return $options;
 			$width = is_array($options) ? 0 : (int) $options;
 			if($width < 1) $width = $this->width();
 			if($width === "100%") return $width;
@@ -1444,7 +1452,7 @@ class Pageimage extends Pagefile {
 	 * @param array $options See options for getVariations() method to limit what variations are removed, plus these:
 	 *  - `dryRun` (bool): Do not remove now and instead only return the filenames of variations that would be deleted (default=false).
 	 *  - `getFiles` (bool): Return deleted filenames? Also assumed if the test option is used (default=false). 
-	 * @return $this|array Returns $this by default, or array of deleted filenames if the `getFiles` option is specified
+	 * @return PageImageVariations|array Returns $this by default, or array of deleted filenames if the `getFiles` option is specified
 	 *
 	 */
 	public function removeVariations(array $options = array()) {
@@ -1513,10 +1521,12 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function copyToPath($path) {
+		$files = $this->wire()->files;
 		if(parent::copyToPath($path)) {
 			foreach($this->getVariations() as $variation) {
+				/** @var Pageimage $variation */
 				if(!is_file($variation->filename)) continue;
-				$this->wire('files')->copy($variation->filename, $path); 
+				$files->copy($variation->filename, $path); 
 			}
 			return true; 
 		}
