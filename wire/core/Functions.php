@@ -986,14 +986,17 @@ function wireClassExists($className, $autoload = true) {
  * 
  * #pw-group-class-helpers
  *
- * @param string $className
- * @param string $method
+ * @param string $className Class name or object 
+ * @param string $method Method name
+ * @param bool $hookable Also return true if "method" exists in a hookable format "___method"? (default=false) 3.0.204+
  * @return bool
  *
  */
-function wireMethodExists($className, $method) {
+function wireMethodExists($className, $method, $hookable = false) {
 	if(!is_object($className)) $className = wireClassName($className, true);
-	return method_exists($className, $method);
+	$exists = method_exists($className, $method);
+	if(!$exists && $hookable) $exists = method_exists($className, "___$method"); 
+	return $exists;
 }
 
 /**
