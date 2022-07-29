@@ -349,7 +349,7 @@ $(document).ready(function() {
 		return false;
 	});
 
-	$(document).on('image-edit', '.InputfieldCKEditor', function() {
+	$(document).on('image-edit sort-stop', '.InputfieldCKEditor', function() {
 		// re-initialize CKE when image-edit event triggers (from InputfieldImage.js) via rpsallis
 		var $editor = $(this).find('.InputfieldCKEditorNormal');
 		$editor.each(function() {

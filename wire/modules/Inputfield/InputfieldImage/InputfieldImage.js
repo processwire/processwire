@@ -127,6 +127,7 @@ function InputfieldImage($) {
 					if($sort.val() != n) $sort.val(n).change();
 				});
 				$el.removeClass('InputfieldImageSorting');
+				ui.item.find('.Inputfield').trigger('sort-stop');
 			},
 			update: function(e, ui) {
 				$el.trigger('sorted', [ ui.item ]); 
