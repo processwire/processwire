@@ -1,1 +1,279 @@
-#CommentListHeader{padding-top:.5em;padding-bottom:.5em}#CommentListHeader>p{line-height:2.25em;padding-right:1em;margin-top:.25em;margin-bottom:.25em}#CommentListHeader .MarkupPagerNav{margin-top:0;margin-bottom:.5em}#CommentListHeader .CommentLimitSelect{float:left}#CommentListHeader .CommentCheckAll{display:block;float:left;padding-left:.75em}#CommentListHeader .CommentActions{float:left}#CommentListHeader .CommentSorts{float:left}.CommentItems{clear:both;border-bottom:1px solid #777}.CommentItems+button.ui-button{margin-top:1em}.CommentItem{clear:both;border-top:1px solid #777;padding:.75em 0;margin:0;width:100%}.CommentItem.CommentChecked{background-color:#eee}.CommentItem.CommentChecked th{color:#999}.CommentItem table{width:45%;float:left}.CommentItem table th,.CommentItem table td{padding:4px 10px 4px 0;border-bottom:1px solid #ddd;vertical-align:top;line-height:1.8}.CommentItem table th{font-weight:bold;white-space:nowrap;text-align:left;padding-left:.75em !important}.CommentItem table th:first-child{width:80px}.CommentItem table tr:last-child td,.CommentItem table tr:last-child th{border-bottom:none}.CommentItem .CommentTitle th,.CommentItem .CommentTitle td{padding-top:0}.CommentItem .CommentInput{max-width:80%}.CommentItem .CommentChangedIcon{display:none}.CommentItem.CommentItemChanged .CommentChangedIcon{display:inline;float:right;opacity:.3}.CommentItem input[type=number]{width:4em}.CommentItem .CommentVotes label{margin-right:5px}.CommentItem .CommentVotes .CommentUpvotes span{font-weight:bold;color:green;margin-right:2px}.CommentItem .CommentVotes .CommentDownvotes span{font-weight:bold;color:red;margin-right:2px}.CommentItem .CommentID{font-weight:normal;color:#333}.CommentItem .CommentWhere small{margin-right:2px}.CommentItem .CommentWhere input{width:80px}.CommentItem .CommentStars>span{display:inline;cursor:pointer;padding-right:3px}.CommentItem .CommentStars>span i.fa{font-size:18px !important}.CommentItem .CommentContent{float:left;width:55%;padding-left:1em;border:none}.CommentItem .CommentContent .CommentChildrenInfo{margin-top:.5em}.CommentItem .CommentContent .CommentReplyInfo{margin-bottom:0}.CommentItem .CommentContent .CommentText{cursor:pointer;padding-right:1em}.CommentItem .CommentContent .CommentText textarea{font-size:1em;width:100%;min-height:18em;margin-top:1em;margin-bottom:1em}.CommentItem .CommentContent .CommentText .CommentTextEdit{white-space:nowrap}.CommentItem .CommentContent .CommentTextOverflow{overflow-y:scroll;max-height:18em}.CommentItem .CommentContent.CommentContentLarge .CommentTextOverflow{max-height:24em}.CommentItem label.CommentStatus{white-space:nowrap;display:inline-block}.CommentItem.CommentItemStatus999{display:none}.CommentCheckAll label .detail,.CommentItem .CommentTitle th label .detail{font-weight:bold;color:#444}.pw-content .MarkupPagerNav{padding-top:.5em;float:right}.pw-content .MarkupPagerNav+button{margin-top:1em}.AdminThemeReno .pw-content .MarkupPagerNav li a,.AdminThemeReno .pw-content .MarkupPagerNav li:first-child a,.AdminThemeReno .pw-content .MarkupPagerNav li.MarkupPagerNavOn a{border-color:#fff !important;border:none !important;border-left:1px solid #fff !important}.AdminThemeReno .pw-content .MarkupPagerNav li{margin-bottom:1px}.AdminThemeReno .pw-content #CommentListHeader{border-top:1px solid #eee}.AdminThemeReno .pw-content #CommentListHeader .MarkupPagerNav{margin-top:.5em}@media only screen and (max-width: 960px){.pw-content .MarkupPagerNav{float:none}#CommentListHeader{padding-bottom:1em;padding-top:1em}#CommentListHeader .MarkupPagerNav{float:none}#CommentListHeader p{margin-top:0;margin-bottom:0;padding-right:1em;padding-left:0 !important}#CommentListHeader .CommentCheckAll{width:auto}}@media only screen and (max-width: 768px){.CommentItem table{width:100%;float:none}.CommentItem table th{padding-left:0 !important}.CommentItem .CommentContent{width:100%;float:none;padding-left:0}.CommentItem .CommentContent .CommentText{padding-right:0}.CommentItem .CommentContent .CommentTextOverflow{overflow-y:auto;max-height:inherit}}.WireTabs{opacity:0}
+#CommentListHeader {
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+}
+#CommentListHeader > p {
+  line-height: 2.25em;
+  padding-right: 1em;
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+#CommentListHeader .MarkupPagerNav {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+}
+#CommentListHeader .CommentLimitSelect {
+  float: left;
+}
+#CommentListHeader .CommentCheckAll {
+  display: block;
+  float: left;
+  padding-left: 0.75em;
+}
+#CommentListHeader .CommentActions {
+  float: left;
+}
+#CommentListHeader .CommentSorts {
+  float: left;
+}
+
+.CommentItems {
+  clear: both;
+  border-bottom: 1px solid #777;
+}
+.CommentItems + button.ui-button {
+  margin-top: 1em;
+}
+
+.CommentItem {
+  clear: both;
+  border-top: 1px solid #777;
+  padding: 0.75em 0;
+  margin: 0;
+  width: 100%;
+  /*
+  &.CommentItemStatus-2 .CommentText {
+  	background: #ffffcc;
+  }
+
+  &.CommentItemStatus0 .CommentText {
+  	background: #ffffdd;
+  }
+  */
+}
+.CommentItem.CommentChecked {
+  background-color: #eee;
+}
+.CommentItem.CommentChecked th {
+  color: #999;
+}
+.CommentItem table {
+  /*
+  margin-top: 0.7em;
+  margin-bottom: 0.7em;
+  */
+  width: 45%;
+  float: left;
+}
+.CommentItem table th,
+.CommentItem table td {
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid #ddd;
+  vertical-align: top;
+  line-height: 1.8;
+}
+.CommentItem table th {
+  font-weight: bold;
+  white-space: nowrap;
+  text-align: left;
+  padding-left: 0.75em !important;
+}
+.CommentItem table th:first-child {
+  width: 80px;
+}
+.CommentItem table tr:last-child td, .CommentItem table tr:last-child th {
+  border-bottom: none;
+}
+.CommentItem .CommentTitle th,
+.CommentItem .CommentTitle td {
+  padding-top: 0;
+}
+.CommentItem .CommentInput {
+  max-width: 80%;
+}
+.CommentItem .CommentChangedIcon {
+  display: none;
+}
+.CommentItem.CommentItemChanged .CommentChangedIcon {
+  display: inline;
+  float: right;
+  opacity: 0.3;
+}
+.CommentItem input[type=number] {
+  width: 4em;
+}
+.CommentItem .CommentVotes label {
+  margin-right: 5px;
+}
+.CommentItem .CommentVotes .CommentUpvotes span {
+  font-weight: bold;
+  color: green;
+  margin-right: 2px;
+}
+.CommentItem .CommentVotes .CommentDownvotes span {
+  font-weight: bold;
+  color: red;
+  margin-right: 2px;
+}
+.CommentItem .CommentID {
+  font-weight: normal;
+  color: #333;
+}
+.CommentItem .CommentWhere small {
+  margin-right: 2px;
+}
+.CommentItem .CommentWhere input {
+  width: 80px;
+}
+.CommentItem .CommentContent {
+  float: left;
+  width: 55%;
+  padding-left: 1em;
+  border: none;
+}
+.CommentItem .CommentContent .CommentChildrenInfo {
+  margin-top: 0.5em;
+}
+.CommentItem .CommentContent .CommentReplyInfo {
+  margin-bottom: 0;
+}
+.CommentItem .CommentContent .CommentText {
+  cursor: pointer;
+  padding-right: 1em;
+}
+.CommentItem .CommentContent .CommentText textarea {
+  font-size: 1em;
+  width: 100%;
+  min-height: 18em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+.CommentItem .CommentContent .CommentText .CommentTextEdit {
+  white-space: nowrap;
+}
+.CommentItem .CommentContent .CommentText .CommentTextEditable {
+  /*
+  p {
+  	margin: 1em 0;
+  }
+  & > p:first-child {
+  	margin-top: 0;
+  }
+  */
+}
+.CommentItem .CommentContent .CommentTextOverflow {
+  overflow-y: scroll;
+  max-height: 18em;
+}
+.CommentItem .CommentContent.CommentContentLarge .CommentTextOverflow {
+  max-height: 24em;
+}
+.CommentItem label.CommentStatus {
+  white-space: nowrap;
+  display: inline-block;
+}
+.CommentItem select.CommentStatus {
+  width: auto;
+}
+.CommentItem select.CommentStatus.uk-select {
+  padding-right: 30px;
+}
+.CommentItem.CommentItemStatus999 {
+  display: none;
+}
+
+.CommentCheckAll label .detail,
+.CommentItem .CommentTitle th label .detail {
+  font-weight: bold;
+  color: #444;
+}
+
+.pw-content .MarkupPagerNav {
+  padding-top: 0.5em;
+  float: right;
+}
+.pw-content .MarkupPagerNav + button {
+  margin-top: 1em;
+}
+
+.AdminThemeReno .pw-content .MarkupPagerNav li a,
+.AdminThemeReno .pw-content .MarkupPagerNav li:first-child a,
+.AdminThemeReno .pw-content .MarkupPagerNav li.MarkupPagerNavOn a {
+  border-color: #fff !important;
+  border: none !important;
+  border-left: 1px solid #fff !important;
+}
+.AdminThemeReno .pw-content .MarkupPagerNav li {
+  margin-bottom: 1px;
+}
+.AdminThemeReno .pw-content #CommentListHeader {
+  border-top: 1px solid #eee;
+}
+.AdminThemeReno .pw-content #CommentListHeader .MarkupPagerNav {
+  margin-top: 0.5em;
+}
+
+@media only screen and (max-width: 960px) {
+  .pw-content .MarkupPagerNav {
+    float: none;
+  }
+
+  #CommentListHeader {
+    padding-bottom: 1em;
+    padding-top: 1em;
+  }
+  #CommentListHeader .MarkupPagerNav {
+    float: none;
+  }
+  #CommentListHeader p {
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-right: 1em;
+    padding-left: 0 !important;
+  }
+  #CommentListHeader .CommentCheckAll {
+    width: auto;
+  }
+}
+@media only screen and (max-width: 768px) {
+  .CommentItem table {
+    width: 100%;
+    float: none;
+  }
+  .CommentItem table th {
+    padding-left: 0 !important;
+  }
+  .CommentItem .CommentContent {
+    width: 100%;
+    float: none;
+    padding-left: 0;
+  }
+  .CommentItem .CommentContent .CommentText {
+    padding-right: 0;
+  }
+  .CommentItem .CommentContent .CommentTextOverflow {
+    overflow-y: auto;
+    max-height: inherit;
+  }
+}
+.CommentItem .CommentStars > span,
+.InputfieldForm .CommentStars > span {
+  display: inline;
+  cursor: pointer;
+  padding-right: 3px;
+}
+.CommentItem .CommentStars > span i.fa,
+.InputfieldForm .CommentStars > span i.fa {
+  font-size: 18px !important;
+}
+
+.WireTabs {
+  opacity: 0;
+}
+
+blockquote {
+  padding-left: 30px;
+  border-left: 3px solid #ccc;
+  color: #777;
+}
+

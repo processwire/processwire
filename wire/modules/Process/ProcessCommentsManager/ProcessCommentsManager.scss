@@ -143,17 +143,6 @@
 			width: 80px;
 		}
 	}
-	
-	.CommentStars {
-		& > span {
-			display: inline;
-			cursor: pointer;
-			padding-right: 3px;
-			i.fa {
-				font-size: 18px !important;
-			}
-		}
-	}
 
 	.CommentContent {
 		float: left;
@@ -207,6 +196,13 @@
 	label.CommentStatus {
 		white-space: nowrap;
 		display: inline-block;
+	}
+
+	select.CommentStatus {
+		width: auto;
+		&.uk-select {
+			padding-right: 30px;
+		}
 	}
 
 	&.CommentItemStatus999 {
@@ -317,6 +313,29 @@
 
 }
 
+.CommentItem,
+.InputfieldForm {
+	.CommentStars {
+		& > span {
+			display: inline;
+			cursor: pointer;
+			padding-right: 3px;
+
+			i.fa {
+				font-size: 18px !important;
+			}
+		}
+	}
+}
+
+
 .WireTabs {
 	opacity: 0;
 }
+
+blockquote {
+	padding-left: 30px;
+	border-left: 3px solid #ccc;
+	color: #777;
+}
+

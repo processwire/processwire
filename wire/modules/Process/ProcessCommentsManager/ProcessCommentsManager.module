@@ -10,6 +10,8 @@
  * This file licensed under Mozilla Public License v2.0 http://mozilla.org/MPL/2.0/
  * 
  * https://processwire.com
+ * 
+ * @method string renderComment(Comment $comment, array $options = array())
  *
  */
 
@@ -23,7 +25,7 @@ class ProcessCommentsManager extends Process {
 		return array(
 			'title' => __('Comments', __FILE__), 
 			'summary' => __('Manage comments in your site outside of the page editor.', __FILE__),
-			'version' => 11, 
+			'version' => 12, 
 			'author' => 'Ryan Cramer', 
 			'icon' => 'comments', 
 			'requires' => 'FieldtypeComments',
@@ -120,12 +122,20 @@ class ProcessCommentsManager extends Process {
 			Comment::statusSpam => $this->_('Spam'),
 			Comment::statusDelete => $this->_('Delete')
 		);
+		$this->labelAll = $this->_('All');
 		$this->notifyFlagsTranslations = array(
 			0 => $this->_('No'), 
-			Comment::flagNotifyAll => $this->_('All'),
+			Comment::flagNotifyAll => $this->labelAll,
 			Comment::flagNotifyReply => $this->_('Replies'), 
 		);
-		$this->labelAll = $this->_('All'); 
+		if(wireClassExists("CommentStars")) {
+			$config = $this->config;
+			$cssFile = $config->urls('FieldtypeComments') . 'comments.css';
+			$jsFile = $config->urls('FieldtypeComments') . 'comments.js';
+			$config->styles->add($cssFile);
+			$config->scripts->add($jsFile);
+			CommentStars::setDefault('star', wireIconMarkup('star'));
+		}
 	}
 
 	/**
@@ -141,6 +151,7 @@ class ProcessCommentsManager extends Process {
 		// locate all the FieldtypeComments fields
 		$fields = array();
 		foreach($this->fields as $field) {
+			/** @var Field $field */
 			if($field->type instanceof FieldtypeComments) $fields[] = $field;
 		}
 
@@ -179,15 +190,6 @@ class ProcessCommentsManager extends Process {
 	 */
 	public function ___executeList() {
 
-		if(wireClassExists("CommentStars")) {
-			$config = $this->config;
-			$cssFile = $config->urls('FieldtypeComments') . 'comments.css';
-			$jsFile = $config->urls('FieldtypeComments') . 'comments.js';
-			$config->styles->add($cssFile);
-			$config->scripts->add($jsFile);
-			CommentStars::setDefault('star', wireIconMarkup('star')); 
-		}
-	
 		$session = $this->wire('session'); /** @var Session $session */
 		$input = $this->wire('input'); /** @var WireInput $input */
 		$sanitizer = $this->wire('sanitizer'); /** @var Sanitizer $sanitizer */
@@ -369,7 +371,7 @@ class ProcessCommentsManager extends Process {
 		/** @var InputfieldSubmit $f */
 		$f = $modules->get('InputfieldButton');
 		$f->attr('name', 'submit_cancel'); 
-		$f->setSecondary(true);
+		$f->setSecondary();
 		$f->val($this->_('Cancel'));
 		$form->add($f);
 		
@@ -403,13 +405,363 @@ class ProcessCommentsManager extends Process {
 	}
 
 	/**
+	 * Edit or add comment
+	 * 
+	 * @return string
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 * 
+	 */
+	protected function ___executeEdit() {
+		
+		$input = $this->wire()->input;
+		$user = $this->wire()->user;
+		$submit = false;
+		$out = '';
+	
+		if($input->post('submit_save_comment')) {
+			$submit = true;
+			$pageId = (int) $input->post('page_id');
+			$fieldId = (int) $input->post('field_id');
+			$parentId = (int) $input->post('parent_id');
+			$commentId = (int) $input->post('comment_id');
+		} else {
+			$pageId = (int) $input->get('page_id');
+			$fieldId = (int) $input->get('field_id');
+			$parentId = (int) $input->get('parent_id');
+			$commentId = (int) $input->get('comment_id');
+		}
+		
+		$page = $this->wire()->pages->get($pageId);
+		$field = $this->wire()->fields->get($fieldId); /** @var CommentField $field */
+
+		if(!$page->id) throw new WireException("Cannot find page $pageId"); 
+		if(!$field) throw new WireException("Cannot find field $fieldId"); 
+		if(!$page->hasField($field)) throw new WireException("Page $pageId does not have field $field->name"); 
+	
+		if($commentId) {
+			// editing existing comment
+			$comment = $field->getCommentByID($page, $commentId); 
+			if(!$comment) throw new WireException('Comment not found');
+			if($comment->getField()->id != $field->id) throw new WireException('Invalid field');
+			if($comment->getPage()->id != $page->id) throw new WireException('Invalid page');
+			$this->headline(sprintf($this->_('Edit comment #%d'), $comment->id)); 
+			
+		} else {
+			// adding new comment
+			$comment = new Comment();
+			$this->wire($comment);
+			$comment->setPage($page);
+			$comment->setField($field);
+			$comment->cite = $user->get('title|name');
+			$comment->email = $user->get('email'); 
+			$comment->created = time();
+			if($parentId) {
+				// new comment that is reply to existing comment
+				$parentComment = $field->getCommentByID($page, $parentId); 
+				if(!$parentComment) throw new WireException("Cannot find parent comment $parentId");
+				$comment->parent_id = $parentId;
+				$this->headline(sprintf($this->_('Comment #%d by %s'), $parentId, $comment->getFormatted('cite'))); 
+				// show comment being replied to
+				$out .= '<blockquote><p>' . $parentComment->getFormattedCommentText() . '</p></blockquote>';
+				$out .= "<h2>" . $this->_('Your reply') . "</h2>";
+			}
+		}
+
+		$form = $this->buildEditForm($page, $field, $comment);
+		
+		if($submit) {
+			$this->processEditForm($form, $page, $field, $comment);
+		}
+	
+		return $out . $form->render();
+	}
+
+	/**
+	 * Process comment edit form 
+	 * 
+	 * @param InputfieldForm $form
+	 * @param Page $page
+	 * @param CommentField $field
+	 * @param Comment $comment
+	 * @return bool
+	 * 
+	 */
+	protected function processEditForm(InputfieldForm $form, Page $page, CommentField $field, Comment $comment) {
+		
+		$input = $this->wire()->input;
+
+		$form->processInput($input->post); 
+		if(count($form->getErrors())) return false;
+
+		$values = array();
+		$properties = array(
+			'cite', 
+			'email', 
+			'website', 
+			'text', 
+			'created', 
+			'status'
+		);
+		
+		if($field->useVotes) {
+			$properties[] = 'upvotes';
+			$properties[] = 'downvotes';
+		}
+		
+		foreach($properties as $name) {
+			$f = $form->getChildByName($name);
+			if(!$f) continue;
+			$value = $f->val();
+			if($value != $comment->get($name)) {
+				$comment->set($name, $value);
+				$values[$name] = $value;
+			}
+		}
+		
+		if($field->useStars) {
+			$stars = (int) $input->post('stars');
+			if($stars != $comment->stars && $stars > 0 && $stars <= 5) {
+				$comment->stars = $stars;
+				$values['stars'] = $stars;
+			}
+		}
+
+		$f = $field->useNotify ? $form->getChildByName('notify_author') : null; 
+		if($f) {
+			$notify = (int) $f->val();
+			if($this->applyCommentNotifyFlag($comment, $notify)) {
+				$values['flags'] = $comment->flags;
+			}
+		}
+
+		/** @var Inputfield $f */
+		$f = $form->getChildByName('page_id');
+		$pageId = $f->val();
+		if($pageId != $page->id) {
+			$f->error('Changing page is not currently supported with this form');
+			return false;
+			/*
+			$newPage = $this->wire()->pages->get($pageId); 
+			if(!$newPage->editable()) {
+				$f->error($this->_('Selected page is not editable')); 
+				return false;
+			}
+			if(!$newPage->hasField($field)) {
+				$f->error(sprintf($this->_('Selected page does not have field: %s'), $field->name)); 
+				return false;
+			}
+			*/
+		}
+		
+
+		if($comment->id) {
+			// existing comment
+			if($comment->status === Comment::statusDelete) {
+				$success = $field->deleteComment($page, $comment);
+				if($success) {
+					$this->message(sprintf($this->_('Deleted comment #%d'), $comment->id));
+					$this->wire()->session->location("../list/$field->name/all/");
+				}
+			} else {
+				$success = $field->updateComment($page, $comment, $values);
+				if($success) $this->message(sprintf($this->_('Updated comment #%d'), $comment->id));
+			}
+		} else {
+			// new comment
+			/** @var Inputfield $f */
+			$f = $form->getChildByName('notify');
+			$notify = $f && $f->val();
+			$comment->status = Comment::statusApproved;
+			$success = $field->addComment($page, $comment, $notify);
+			if($success) $this->message(sprintf($this->_('Added comment #%d'), $comment->id));
+		}
+
+		if($success) {
+			$this->wire()->session->location("../list/$field->name/all/?id=$comment->id");
+		} else {
+			$this->error($this->_('Error saving comment'));
+		}
+		
+		return $success;
+	}
+
+	/**
+	 * Build comment edit/add form
+	 * 
+	 * @param Page $page
+	 * @param CommentField $field
+	 * @param Comment $comment
+	 * @return InputfieldForm
+	 * 
+	 */
+	protected function buildEditForm(Page $page, CommentField $field, Comment $comment) {
+		
+		$modules = $this->wire()->modules;
+		
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->attr('name', 'cite');
+		$f->label = $this->_('Cite');
+		$f->val($comment->cite);
+		$f->required = true;
+		$f->columnWidth = 50;
+		$form->add($f);
+
+		/** @var InputfieldEmail $f */
+		$f = $modules->get('InputfieldEmail');
+		$f->attr('name', 'email');
+		$f->label = $this->_('Email');
+		$f->val($comment->email);
+		$f->columnWidth = 50;
+		$f->required = true;
+		$form->add($f);
+		
+		/** @var InputfieldSelect $f */
+		$f = $modules->get('InputfieldSelect');
+		$f->attr('name', 'status');
+		$f->label = $this->_('Status');
+		$f->required = true;
+		foreach($this->statusTranslations as $status => $statusText) {
+			$f->addOption($status, $statusText);
+		}
+		$f->val($comment->status);
+		$f->columnWidth = 50;
+		$form->add($f);
+
+		/** @var InputfieldDatetime $f */
+		$f = $modules->get('InputfieldDatetime');
+		$f->attr('name', 'created');
+		$f->label = $this->_('Created');
+		$f->inputType = 'html';
+		$f->htmlType = 'datetime';
+		$f->val($comment->created);
+		$f->required = true;
+		$f->columnWidth = 50;
+		$form->add($f);
+
+		if($field->useWebsite) {
+			/** @var InputfieldText $f */
+			$f = $modules->get('InputfieldUrl');
+			$f->attr('name', 'website');
+			$f->label = $this->_('Website/URL');
+			$f->val($comment->website);
+			$form->add($f);
+		}
+
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get('InputfieldTextarea');
+		$f->attr('name', 'text');
+		$f->label = $this->_('Text');
+		$f->val($comment->text);
+		$f->attr('rows', 10);
+		$f->required = true;
+		$form->add($f);
+		
+		if($field->useStars && $comment->id) {
+			/** @var InputfieldMarkup $f */
+			$f = $modules->get('InputfieldMarkup'); 
+			$f->attr('name', 'stars'); 
+			$f->label = $this->_('Stars');
+			$f->value = 
+				"<input type='hidden' name='stars' value='$comment->stars' />" . 
+				$comment->renderStars(array('input' => true));
+			$form->add($f);
+		}
+		
+		if($field->useVotes) {
+			/** @var InputfieldInteger $f */
+			$f = $modules->get('InputfieldInteger'); 
+			$f->attr('name', 'upvotes'); 
+			$f->label = $this->_('Upvotes'); 
+			$f->val($comment->upvotes); 
+			$f->columnWidth = 50;
+			$form->add($f);
+			
+			/** @var InputfieldInteger $f */
+			$f = $modules->get('InputfieldInteger');
+			$f->attr('name', 'downvotes');
+			$f->label = $this->_('Downvotes');
+			$f->val($comment->upvotes);
+			$f->columnWidth = 50;
+			$form->add($f);
+		}
+	
+		/** @var InputfieldSelect $f */
+		$f = $modules->get('InputfieldSelect');
+		$f->attr('name', 'notify_author');
+		$f->label = $this->_('Notify comment author');
+		$f->addOption(0, $this->_('Do not send author notifications'));
+		if($field->depth) $f->addOption(Comment::flagNotifyReply, $this->_('Notify author of replies to this comment'));
+		$f->addOption(Comment::flagNotifyAll, $this->_('Notify author of all new comments on page'));
+		$form->add($f);
+
+		/** @var InputfieldToggle $f */
+		if(!$comment->id) {
+			$f = $modules->get('InputfieldToggle');
+			$f->attr('name', 'notify');
+			$f->label = $this->_('Allow notifications to be sent for this comment?');
+			$f->description = $this->_('When “Yes”, emails about this new comment will be sent to users that have opted in to receive notifications.'); 
+			$f->val(true);
+			$form->add($f);
+		}
+		
+		/** @var InputfieldPageListSelect $f */
+		/*
+		$f = $modules->get('InputfieldPageListSelect'); 
+		$f->attr('name', 'page_id'); 
+		$f->label = $this->_('Page'); 
+		$f->val($page->id);
+		$form->add($f);
+		*/
+
+		/** @var InputfieldHidden $f */
+		$f = $modules->get('InputfieldHidden');
+		$f->attr('name', 'page_id');
+		$f->val($page->id);
+		$form->add($f);
+
+		/** @var InputfieldHidden $f */
+		$f = $modules->get('InputfieldHidden');
+		$f->attr('name', 'field_id');
+		$f->val($field->id);
+		$form->add($f);
+		
+		/** @var InputfieldHidden $f */
+		$f = $modules->get('InputfieldHidden');
+		$f->attr('name', 'comment_id');
+		$f->val($comment->id);
+		$form->add($f);
+
+		/** @var InputfieldHidden $f */
+		$f = $modules->get('InputfieldHidden');
+		$f->attr('name', 'parent_id');
+		$f->val($comment->parent_id);
+		$form->add($f);
+
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
+		$f->attr('name', 'submit_save_comment');
+		$f->showInHeader();
+		$form->add($f);
+		
+		return $form;
+	}
+
+
+	/**
 	 * Process changes to posted comments
 	 * 
 	 * @param CommentArray $comments
-	 * @param Field $field
+	 * @param CommentField $field
 	 *
 	 */
 	protected function processComments(CommentArray $comments, Field $field) {
+		
+		$input = $this->wire()->input;
 
 		$numDeleted = 0;
 		$numChanged = 0;
@@ -420,16 +772,13 @@ class ProcessCommentsManager extends Process {
 		
 		/** @var FieldtypeComments $fieldtype */
 		$fieldtype = $field->type;
-		
-		/** @var WireInput $input */
-		$input = $this->wire('input');
 
 		foreach($comments as $comment) {
 			/** @var Comment $comment */
 
 			$properties = array();
 
-			$text = $input->post("CommentText{$comment->id}"); 
+			$text = $input->post("CommentText$comment->id"); 
 			if(!is_null($text) && $text != $comment->text) {
 				$comment->text = $text; // cleans it
 				$properties['text'] = $comment->text;
@@ -456,7 +805,7 @@ class ProcessCommentsManager extends Process {
 				}
 			}
 
-			$_status = $input->post("CommentStatus{$comment->id}"); 
+			$_status = $input->post("CommentStatus$comment->id"); 
 			$status = (int) $_status;
 			if($status === Comment::statusDelete && (!$commentField || $commentField->allowDeleteComment($comment))) {
 				if($fieldtype->deleteComment($comment->getPage(), $field, $comment)) {
@@ -472,29 +821,20 @@ class ProcessCommentsManager extends Process {
 				$properties['status'] = $comment->status;
 			}
 		
-			$notify = $input->post("CommentNotify{$comment->id}"); 
+			$notify = $input->post("CommentNotify$comment->id"); 
 			if($field->useNotify && ctype_digit($notify)) {
 				$notify = (int) $notify;
-				if($notify === 0 && $comment->flags) {
-					if($comment->flags & Comment::flagNotifyAll) $comment->flags = $comment->flags & ~Comment::flagNotifyAll;
-					if($comment->flags & Comment::flagNotifyReply) $comment->flags = $comment->flags & ~Comment::flagNotifyReply;
-					if($comment->flags & Comment::flagNotifyConfirmed) $comment->flags = $comment->flags & ~Comment::flagNotifyConfirmed;
+				if($this->applyCommentNotifyFlag($comment, $notify)) {
 					$properties['flags'] = $comment->flags;
-				} else if($notify === Comment::flagNotifyAll && !($comment->flags & Comment::flagNotifyAll)) {
-					$comment->flags = $comment->flags | Comment::flagNotifyAll;
-					$properties['flags'] = $comment['flags'];
-				} else if($notify === Comment::flagNotifyReply) {
-					$comment->flags = $comment->flags | Comment::flagNotifyReply;
-					$properties['flags'] = $comment['flags'];
 				}
 			}
 			
 			$changePage = null;
 			if($allowChangePage) {
 				// check for change of Page ID
-				$pageID = (int) $input->post("CommentPage{$comment->id}"); 
+				$pageID = (int) $input->post("CommentPage$comment->id"); 
 				if($pageID > 0 && "$pageID" !== "$comment->page") {
-					$page = $this->wire('pages')->get($pageID); 
+					$page = $this->wire()->pages->get($pageID); 
 					$parentID = $comment->parent_id;
 					if($parentID) $comment->parent_id = 0; // temporarily set to 0 for page change
 					if(!$page->id) {
@@ -576,12 +916,23 @@ class ProcessCommentsManager extends Process {
 	/**
 	 * Render the markup for a single comment
 	 * 
+	 * Hookable since 3.0.204
+	 * 
 	 * @param Comment $comment
+	 * @param array $options Options (since 3.0.204)
 	 * @return string
 	 *
 	 */
-	protected function renderComment(Comment $comment) {
-
+	protected function ___renderComment(Comment $comment, array $options = array()) {
+		
+		$defaults = array(
+			'prependMarkup' => '', 
+			'appendMarkup' => '', 
+			'prependContentMarkup' => '', 
+			'appendContentMarkup' => '', 
+		);
+		
+		$options = array_merge($defaults, $options);
 		$sanitizer = $this->sanitizer;
 		$page = $comment->getPage();
 		$pageTitle = $sanitizer->entities1($page->get('title|name'));
@@ -607,6 +958,11 @@ class ProcessCommentsManager extends Process {
 			'changed' => 'dot-circle-o',
 			'reply' => 'angle-double-down',
 			'replies' => 'angle-double-right',
+			'pageEdit' => 'pencil', 
+			'pageView' => 'external-link-square', 
+			'commentEdit' => 'pencil',
+			'commentReply' => 'reply',
+			'meta' => 'sliders',
 		);
 		
 		$outs = array(
@@ -637,17 +993,20 @@ class ProcessCommentsManager extends Process {
 			'page' => $this->_('Page'),
 			'date' => $this->_('When'),
 			'status' => $this->_('Status'),
+			'action' => $this->_('Action'),
 			'cite' => $this->_('Cite'),
 			'website' => $this->_('Web'),
 			'email' => $this->_('Mail'),
 			'none' => $this->_('None'),
 			'parent' => $this->_('Parent'),
 			'where' => $this->_('Where'),
+			'reply' => $this->_('reply'),
 			'replyTo' => $this->_('Reply to %s'),
 			'stars' => $this->_('Stars'),
 			'votes' => $this->_('Votes'),
 			'notify' => $this->_('Notify'), 
 			'commentId' => $this->_('Comment ID'), 
+			'commentEdit' => $this->_('editor'),
 		);
 
 		$values = array(
@@ -673,6 +1032,8 @@ class ProcessCommentsManager extends Process {
 			'pageView' => "$page->url#Comment$id",
 			'pageEdit' => $page->editUrl(),
 			'metaEdit' => "../../../meta/?comment_id=$comment->id&amp;page_id=$page->id&amp;field_id=$field->id&amp;modal=1",
+			'commentReply' => "../../../edit/?parent_id=$comment->id&amp;page_id=$page->id&amp;field_id=$field->id",
+			'commentEdit' => "../../../edit/?comment_id=$comment->id&amp;page_id=$page->id&amp;field_id=$field->id",
 			'email' => "./?email=" . urlencode($values['email']), 
 			'cite' => "../all/?cite=" . urlencode($values['cite']),
 			'ip' => "../all/?ip=" . urlencode($values['ip']),
@@ -682,8 +1043,15 @@ class ProcessCommentsManager extends Process {
 			'parent' => $this->_('ID of the Comment that this one is replying to.'), 
 			'page' => $this->_('ID of the Page that this comment lives on.'), 
 			'viewAll' => $this->_('View all having value'), 
+			'viewPage' => $this->_('View page'), 
 			'edit' => $this->_('Edit value'), 
+			'editPage' => $this->_('Edit page'), 
 			'pageFilter' => $this->_('Show only comments from page'), 
+			'pageEdit' => $this->_('Edit page'),
+			'pageView' => $this->_('View page'),
+			'commentEdit' => $this->_('Comment editor'),
+			'commentReply' => $this->_('Reply to this comment'), 
+			'meta' => $this->_('View/edit metadata'), 
 		);
 		
 		foreach($values as $key => $value) {
@@ -691,7 +1059,7 @@ class ProcessCommentsManager extends Process {
 		}
 		
 		foreach($icons as $key => $value) {
-			$icons[$key] = wireIconMarkup($value);
+			$icons[$key] = wireIconMarkup($value, 'fw');
 		}
 		
 		if($allowDepth) { 
@@ -699,24 +1067,31 @@ class ProcessCommentsManager extends Process {
 			$numChildren = count($children);
 		}
 		
-		if($adminTheme && $adminTheme instanceof AdminThemeFramework) {
+		if($adminTheme instanceof AdminThemeFramework) {
 			$classes['input'] = trim("$classes[input] " . $adminTheme->getClass('input-small'));
 			$classes['textarea'] = $adminTheme->getClass('textarea');
 			$classes['radio'] = $adminTheme->getClass('input-radio');
 			$classes['checkbox'] = $adminTheme->getClass('input-checkbox');
 			$classes['table'] = $adminTheme->getClass('table');
+			$classes['select'] = $adminTheme->getClass('select-small');
 			// if(strpos($classes['input'], 'uk-input') !== false) $classes['input'] .= " uk-form-blank";
 		}
-		
+	
+		$outs['status'] = "<select name='CommentStatus$id' class='CommentStatus $classes[select]'>";
 		foreach($this->statusTranslations as $status => $label) {
 			if($status == Comment::statusDelete && $numChildren) continue; 
-			$checked = $comment->status == $status ? "checked='checked' " : '';
+			$selected = $comment->status == $status ? " selected='selected' " : '';
+			$outs['status'] .= "<option value='$status'$selected>$label</option>";
+			/*
+			// $checked = $comment->status == $status ? "checked='checked' " : '';
 			$outs['status'] .= 
 				"<label class='CommentStatus'>" . 
 					"<input class='$classes[radio]' type='radio' name='CommentStatus$id' value='$status' $checked/>&nbsp;" . 
 					"<small>$label</small>" . 
 				"</label>&nbsp; ";
+			*/
 		}
+		$outs['status'] .= "</select>";
 
 		if($page->editable()) {
 			$text =
@@ -817,10 +1192,19 @@ class ProcessCommentsManager extends Process {
 		
 		$meta = $comment->getMeta();
 		$metaCnt = count($meta); 
-		$metaTip = sprintf($this->_n('%d value', '%d values', $metaCnt), $metaCnt); 
+		$metaTip = $tooltips['meta'] . ' (' . sprintf($this->_n('%d value', '%d values', $metaCnt), $metaCnt) . ')';
+
+		$statusLinks = array(
+			"<a class='pw-tooltip' title='$tooltips[commentEdit]' href='$urls[commentEdit]'>$icons[commentEdit] $labels[commentEdit]</a>",
+			"<a class='pw-tooltip pw-modal' title='$metaTip' href='$urls[metaEdit]' data-buttons='button' data-close='button[name=submit_cancel]'>$icons[meta] $labels[meta]</a>",
+		);
+		if($comment->allowChildren()) {
+			$statusLinks[] = "<a class='pw-tooltip' title='$tooltips[commentReply]' href='$urls[commentReply]'>$icons[commentReply] $labels[reply]</a>";
+		}
 
 		$out =
 			"<div class='CommentItem ui-helper-clearfix CommentItemStatus$comment->status'>" . 
+				$options['prependMarkup'] . 
 				"<table class='CommentItemInfo $classes[table]' cellspacing='0'>" .
 					"<tr class='CommentTitle'>" . 
 						"<th>" .
@@ -832,17 +1216,18 @@ class ProcessCommentsManager extends Process {
 						"<td>" . 
 							"<a href='$urls[siblings]' class='pw-tooltip' title='$tooltips[pageFilter]'><strong>$pageTitle</strong></a> " .
 							"<span class='detail'>&nbsp;" . 
-								"<a class='detail' href='$urls[pageView]'>$labels[view]</a>&nbsp;/&nbsp;" . 
-								"<a class='detail' href='$urls[pageEdit]'>$labels[edit]</a>&nbsp;/&nbsp;" . 
-								"<a class='detail pw-tooltip pw-modal' title='$metaTip' href='$urls[metaEdit]' " . 
-									"data-buttons='button' data-close='button[name=submit_cancel]'>$labels[meta]</a>" . 
+								"<a class='detail pw-tooltip' title='$tooltips[pageView]' href='$urls[pageView]'>$labels[view]</a>&nbsp;/&nbsp;" . 
+								"<a class='detail pw-tooltip' title='$tooltips[pageEdit]' href='$urls[pageEdit]'>$labels[edit]</a>" . 
 							"</span>" . 
 							"<span class='CommentChangedIcon'>$icons[changed]</span>" . 
 						"</td>" . 
 					"</tr>" .
 					"<tr class='CommentItemStatus'>" .
-						"<th>$labels[status]</th>" .
-						"<td class='CommentStatus'>$outs[status]</td>" .
+						"<th>$labels[action]</th>" .
+						"<td class='CommentStatus'>" . 
+							$outs['status'] . " &nbsp;&nbsp;" . 
+							implode('&nbsp;&nbsp;', $statusLinks) . 
+						"</td>" .
 					"</tr>" .
 					$outs['notify'] . 
 					"<tr>" . 
@@ -872,10 +1257,13 @@ class ProcessCommentsManager extends Process {
 					$outs['where'] . 
 				"</table>" .
 				"<div class='$contentClass'>" .
+					$options['prependContentMarkup'] . 
 					"$outs[reply]" .
 					"<div class='CommentText'>$text</div>" .
 					"$outs[children]" .
+					$options['appendContentMarkup'] . 
 				"</div>" . 
+				$options['appendMarkup'] . 
 			"</div>";
 	
 		/*
@@ -925,8 +1313,8 @@ class ProcessCommentsManager extends Process {
 		$setStatusLabel = $this->_('Set status:');
 		$perPageLabel = $this->_('per page');
 		$adminTheme = $this->wire('adminTheme');
-		$selectClass = $adminTheme && $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('select') : '';
-		$checkboxClass = $adminTheme && $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('input-checkbox') : '';
+		$selectClass = $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('select') : '';
+		$checkboxClass = $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('input-checkbox') : '';
 		
 		$pagerLimitOut = "
 			<select class='$selectClass' id='CommentLimitSelect'>
@@ -1017,7 +1405,7 @@ class ProcessCommentsManager extends Process {
 		foreach($comments as $comment) {
 			/** @var Comment $comment */
 			if($status && $status != 'all' && $this->statuses[$comment->status] != $status) continue; 
-			$commentsBody .= $this->renderComment($comment); 
+			$commentsBody .= $this->renderComment($comment, array()); 
 			$cnt++;
 			if($cnt >= $limit) break;
 		}
@@ -1093,6 +1481,43 @@ class ProcessCommentsManager extends Process {
 		return $queryString;
 	}
 
+	/**
+	 * Apply the "notify" flag value to comment
+	 * 
+	 * @param Comment $comment
+	 * @param int $notify
+	 * @return bool Returns true if flags were changed, false if not
+	 * 
+	 */
+	protected function applyCommentNotifyFlag(Comment $comment, $notify) {
+		
+		$notify = (int) $notify;
+		$flags = $comment->flags;
+		$flagsPrev = $flags;
+		
+		if($notify === 0 && $comment->flags) {
+			// remove flag
+			if($comment->flags & Comment::flagNotifyAll) $flags = $flags & ~Comment::flagNotifyAll; // remove
+			if($comment->flags & Comment::flagNotifyReply) $flags = $flags & ~Comment::flagNotifyReply; // remove
+			if($comment->flags & Comment::flagNotifyConfirmed) $flags = $flags & ~Comment::flagNotifyConfirmed; // remove
+			
+		} else if($notify === Comment::flagNotifyAll && !($flags & Comment::flagNotifyAll)) {
+			if($flags & Comment::flagNotifyReply) $flags = $flags & ~Comment::flagNotifyReply; // remove
+			$flags = $flags | Comment::flagNotifyAll; // add
+			
+		} else if($notify === Comment::flagNotifyReply) {
+			if($flags & Comment::flagNotifyAll) $flags = $flags & ~Comment::flagNotifyAll; // remove
+			$flags = $flags | Comment::flagNotifyReply; // add
+		}
+		
+		if($flags != $flagsPrev) {
+			$comment->flags = $flags;
+			return true;
+		}
+	
+		return false;
+	}
+
 	protected function checkInstall() {
 		if($this->wire('modules')->isInstalled('ProcessLatestComments')) {
 			$this->warning('Please uninstall the ProcessLatestComments module (this module replaces it).');
@@ -1101,7 +1526,7 @@ class ProcessCommentsManager extends Process {
 
 	public function ___install() {
 		$this->checkInstall();
-		return parent::___install();
+		parent::___install();
 	}
 	
 	/**
@@ -1119,12 +1544,14 @@ class ProcessCommentsManager extends Process {
 	 *
 	 */
 	public function search($text, array $options = array()) {
-
-		/** @var Languages $languages */
+		
+		$sanitizer = $this->wire()->sanitizer;
 		$page = $this->getProcessPage();
-		$fields = array();
-		foreach($this->wire('fields') as $field) {
-			if($field->type instanceof FieldtypeComments) $fields[$field->name] = $field;
+		$commentFields = array();
+		
+		foreach($this->wire()->fields as $field) {
+			/** @var Field $field */
+			if($field->type instanceof FieldtypeComments) $commentFields[$field->name] = $field;
 		}
 
 		$result = array(
@@ -1150,7 +1577,7 @@ class ProcessCommentsManager extends Process {
 		if($options['help']) return $result;
 		
 		$operator = empty($options['operator']) ? '%=' : $options['operator'];
-		$value = $this->wire('sanitizer')->selectorValue($text); 	
+		$value = $sanitizer->selectorValue($text); 	
 		$summaryLength = $options['verbose'] ? 1024 : 200;
 		
 		if(!empty($options['property'])) {
@@ -1158,19 +1585,22 @@ class ProcessCommentsManager extends Process {
 			$q = "$options[property]$operator$text"; 
 		} else {
 			$selector = "text$operator$value";
-			$q = "text{$operator}$text"; 
+			$q = "text$operator$text"; 
 		}
 		
 		if(!empty($options['limit'])) $selector .= ", limit=$options[limit]";
 		if(!empty($options['start'])) $selector .= ", start=$options[start]";
 	
-		foreach($fields as $fieldName => $field) {
+		foreach($commentFields as $field) {
+			/** @var CommentField $field */
 			/** @var CommentArray $comments */
 			$comments = $field->type->find($selector); 
 			if(!count($comments)) continue;
 			$result['total'] += $comments->getTotal();
 			$url = $page->url() . "list/$field->name/all/";
-			if(count($fields) == 1) $result['url'] = $url . "?q=" . urlencode($q); 
+			if(count($commentFields) === 1) {
+				$result['url'] = $url . "?q=" . urlencode($q);
+			}
 			foreach($comments as $comment) {
 				/** @var Comment $comment */
 				$commentPage = $comment->getPage();
@@ -1180,7 +1610,7 @@ class ProcessCommentsManager extends Process {
 					'name' => $comment->cite,
 					'title' => $comment->cite, 
 					'subtitle' => $commentPage && $commentPage->id ? (string) $commentPage->get('title|name') : '', 
-					'summary' => $this->wire('sanitizer')->truncate($comment->text, $summaryLength), 
+					'summary' => $sanitizer->truncate($comment->text, $summaryLength), 
 					'url' => empty($options['edit']) ? $comment->url() : $editUrl
 				);
 				$result['items'][] = $item;
