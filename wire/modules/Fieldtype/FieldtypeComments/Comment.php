@@ -280,10 +280,11 @@ class Comment extends WireData {
 	 *
 	 * @param string $key One of: text, cite, email, user_agent, website
 	 * @param array $options
-	 * @return mixed|null|Page|string
+	 * @return string
 	 * 
 	 */
 	public function getFormatted($key, array $options = array()) {
+		
 		$value = trim($this->get($key)); 
 		$sanitizer = $this->wire()->sanitizer;
 		
@@ -291,7 +292,7 @@ class Comment extends WireData {
 			$value = $this->getFormattedCommentText($options);
 		} else if(in_array($key, array('cite', 'email', 'user_agent', 'website'))) {
 			$value = $sanitizer->entities($value);
-		} else if(is_string($value)) {
+		} else {
 			$value = $sanitizer->entities1($value);
 		}
 		
@@ -543,7 +544,7 @@ class Comment extends WireData {
 	 * 
 	 */
 	public function setIsLoaded($loaded) {
-		$this->loaded = $loaded ? true : false;
+		$this->loaded = (bool) $loaded;
 	}
 	
 	/**
@@ -612,10 +613,11 @@ class Comment extends WireData {
 		$field = $this->getField();
 		$comments = $page->get($field->name);
 		$children = $comments->makeNew();
-		if($page) $children->setPage($this->getPage());
+		$children->setPage($this->getPage());
 		if($field) $children->setField($this->getField()); 
 		$id = $this->id; 
 		foreach($comments as $comment) {
+			/** @var Comment $comment */
 			if(!$comment->parent_id) continue;
 			if($comment->parent_id == $id) $children->add($comment);
 		}
@@ -656,6 +658,21 @@ class Comment extends WireData {
 	}
 
 	/**
+	 * Are child comments (replies) allowed?
+	 * 
+	 * @return bool
+	 * @since 3.0.204
+	 * 
+	 */
+	public function allowChildren() {
+		$field = $this->getField();
+		if(!$field) return false;
+		$maxDepth = $field->depth;
+		if(!$maxDepth) return false;
+		return $this->depth() < $maxDepth;
+	}
+
+	/**
 	 * Does this comment have the given child comment?
 	 * 
 	 * @param int|Comment $comment Comment or Comment ID
@@ -672,6 +689,7 @@ class Comment extends WireData {
 	
 		// direct children
 		foreach($children as $child) {
+			/** @var Comment $child */
 			if($child->id == $id) $has = true;
 			if($has) break;
 		}	
@@ -746,6 +764,7 @@ class Comment extends WireData {
 	 */
 	public function renderStars(array $options = array()) {
 		$field = $this->getField();
+		/** @var CommentArray $comments */
 		$comments = $this->getPage()->get($field->name);
 		if(!isset($options['stars'])) $options['stars'] = $this->stars;
 		if(!isset($options['blank'])) $options['blank'] = false;
@@ -800,9 +819,13 @@ class Comment extends WireData {
 	 * 
 	 */
 	public function editUrl() {
-		if(!$this->page || !$this->page->id) return '';
+		if(!$this->page || !$this->page->id || !$this->id) return '';
 		if(!$this->field) return '';
-		return $this->page->editUrl() . "?field={$this->field->name}#CommentsAdminItem$this->id";
+		if($this->wire()->modules->isInstalled('ProcessCommentsManager')) {
+			return $this->wire()->config->urls->admin . "setup/comments/list/{$this->field->name}/?id=$this->id";  
+		} else {
+			return $this->page->editUrl() . "?field={$this->field->name}#CommentsAdminItem$this->id";
+		}
 	}
 	
 	/**
