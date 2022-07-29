@@ -18,11 +18,11 @@ insert_final_newline = true
 
 [*.js]
 indent_style = tab
-trim_trailing_whitespace = true
+trim_trailing_whitespace = false
 insert_final_newline = true
 
 
 [*.{css,less,scss}]
 indent_style = tab
-trim_trailing_whitespace = true
+trim_trailing_whitespace = false
 insert_final_newline = true

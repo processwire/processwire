@@ -368,7 +368,7 @@ abstract class Inputfield extends WireData implements Module {
 	protected $defaultID = '';
 
 	/**
-	 * Whether or not this Inputfield is editable
+	 * Whether this Inputfield is editable
 	 * 
 	 * When false, its processInput method won't be called by InputfieldWrapper's processInput
 	 * 
@@ -415,6 +415,8 @@ abstract class Inputfield extends WireData implements Module {
 
 		$value = $this instanceof InputfieldHasArrayValue ? array() : null;
 		$this->setAttribute('value', $value); 
+		
+		parent::__construct();
 	}
 
 	/**
@@ -496,7 +498,7 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 * - This can also be accessed directly, i.e. `$value = $inputfield->property;`. 
 	 * 
-	 * - For getting attribute values, this will work but it is preferable to use the `Inputfield::attr()` method. 
+	 * - For getting attribute values, this will work, but it is preferable to use the `Inputfield::attr()` method. 
 	 * 
 	 * - For getting non-attribute values that have potential name conflicts with attributes (or just as a 
 	 *   reliable alternative), use the `Inputfield::getSetting()` method instead, which excludes the possibility
@@ -675,7 +677,7 @@ abstract class Inputfield extends WireData implements Module {
 	/**
 	 * Set an attribute 
 	 *
-	 * - For most public API use, you might consider using the the shorter `Inputfield::attr()` method instead. 
+	 * - For most public API use, you might consider using the shorter `Inputfield::attr()` method instead. 
 	 * 
 	 * - When setting the `class` attribute it is preferable to use the `Inputfield::addClass()` method. 
 	 * 
@@ -1464,16 +1466,16 @@ abstract class Inputfield extends WireData implements Module {
 	public function ___getConfigInputfields() {
 
 		$conditionsText = $this->_('Conditions are expressed with a "field=value" selector containing fields and values to match. Multiple conditions should be separated by a comma.');
-		$conditionsNote = $this->_('Read more about [how to use this](http://processwire.com/api/selectors/inputfield-dependencies/).'); 
+		$conditionsNote = $this->_('Read more about [how to use this](https://processwire.com/api/selectors/inputfield-dependencies/).'); 
 
-		/** @var InputfieldWrapper $fields */
+		/** @var InputfieldWrapper $inputfields */
 		$inputfields = $this->wire(new InputfieldWrapper());
 
 		$fieldset = $inputfields->InputfieldFieldset;
 		$fieldset->label = $this->_('Visibility'); 
 		$fieldset->attr('name', 'visibility'); 
 		$fieldset->icon = 'eye';
-		
+	
 		$field = $inputfields->InputfieldSelect;
 		$field->attr('name', 'collapsed'); 
 		$field->label = $this->_('Presentation'); 
@@ -1657,6 +1659,7 @@ abstract class Inputfield extends WireData implements Module {
 		$inputfields = $this->getConfigInputfields(); 
 		if(!$inputfields || !count($inputfields)) return $data;
 		foreach($inputfields->getAll() as $inputfield) {
+			/** @var Inputfield $inputfield */
 			$value = $inputfield->isEmpty() ? '' : $inputfield->value;
 			if(is_object($value)) $value = (string) $value;
 			$data[$inputfield->name] = $value;
@@ -1703,7 +1706,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * @param string $text Text of error message
 	 * @param int $flags Optional flags
-	 * @return mixed
+	 * @return $this
 	 *
 	 */
 	public function error($text, $flags = 0) {
@@ -1876,7 +1879,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 */
 	public function editable($setEditable = null) {
-		if(!is_null($setEditable)) $this->editable = $setEditable ? true : false;
+		if(!is_null($setEditable)) $this->editable = (bool) $setEditable;
 		return $this->editable;
 	}
 

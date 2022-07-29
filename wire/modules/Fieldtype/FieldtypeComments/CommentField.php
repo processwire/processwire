@@ -146,7 +146,7 @@ class CommentField extends Field {
 	 * @param Page $page
 	 * @param Comment $comment
 	 * @param array $properties Associative array of properties to update
-	 * @return mixed
+	 * @return bool
 	 *
 	 */
 	public function updateComment(Page $page, Comment $comment, array $properties) {

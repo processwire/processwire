@@ -160,14 +160,13 @@ class FieldtypeComments extends FieldtypeMulti {
 		$editable = $page->editable();
 		if(!is_array($value)) $value = array($value); 
 		
-		foreach($value as $sort => $item) {
+		foreach($value as $item) {
 		
 			if(!is_array($item)) continue; 
 		
 			// don't load non-approved comments if the user can't edit them
 			if(!$editable && $item['status'] < Comment::statusApproved) continue; 
 	
-			/** @var Comment $comment */
 			$comment = $this->makeComment($page, $field, $item); 
 			$commentArray->add($comment);
 			$comment->setIsLoaded(true); 
@@ -184,7 +183,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *              
 	 * @param Page $page
 	 * @param Field $field
-	 * @param string|int|array|object $value
+	 * @param string|int|array|object|CommentArray $value
 	 * @return array
 	 *
 	 */
@@ -192,11 +191,13 @@ class FieldtypeComments extends FieldtypeMulti {
 
 		$sleepValue = array();
 		if(!$value instanceof CommentArray) return $sleepValue; 
+		
 		$schemaVersion = $field->get('schemaVersion');
-		$sanitizer = $this->wire('sanitizer'); /** @var Sanitizer $sanitizer */
-		$maxIdxLen = $this->wire('database')->getMaxIndexLength();
+		$sanitizer = $this->wire()->sanitizer;
+		$maxIdxLen = $this->wire()->database->getMaxIndexLength();
 
 		foreach($value as $comment) {
+			/** @var Comment $comment */
 
 			if($comment->id) {
 				$this->checkExistingComment($page, $field, $comment);
@@ -626,6 +627,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$itemsRemoved = $allItems->getItemsRemoved();
 		if(count($itemsRemoved)) {
 			foreach($itemsRemoved as $item) {
+				/** @var Comment $item */
 				if(!$item->id) continue; 
 				$this->deleteComment($page, $field, $item, 'deleted from savePageField()'); 
 			}
@@ -634,6 +636,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$maxSort = 0; 
 		$items = $allItems->makeNew();
 		foreach($allItems as $item) {
+			/** @var Comment $item */
 			if($item->isChanged() || !$item->id) $items->add($item); 
 			if($item->sort > $maxSort) $maxSort = $item->sort; 
 		}
@@ -645,7 +648,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$keys = is_array($value) ? array_keys($value) : array('data'); 
 		
 		// cycle through the values, executing an update query for each
-		foreach($values as $commentKey => $value) {
+		foreach($values as $value) {
 			
 			$binds = array();
 			$sql = $value['id'] ? "UPDATE " : "INSERT INTO ";
@@ -688,6 +691,7 @@ class FieldtypeComments extends FieldtypeMulti {
 					// populate newly added comment ID to Comment object
 					$value['id'] = $database->lastInsertId();
 					foreach($allItems as $item) {
+						/** @var Comment $item */
 						if(!$item->id && $item->code === $value['code']) {
 							$item->id = $value['id'];
 							$this->commentAdded($page, $field, $item); 
@@ -1569,7 +1573,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * @param Field $field
 	 * @param Comment $comment
 	 * @param array $properties Associative array of properties to update
-	 * @return mixed
+	 * @return bool
 	 * @throws WireException
 	 * 
 	 */
@@ -1734,7 +1738,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			// the $page->data() call used so load not triggered, only returns comments if already loaded
 			$comments = $page->data($field->name);
 			// add to loaded CommentArray for page, but only if it is already loaded in memory
-			if($comments && $comments instanceof CommentArray) $comments->add($comment); 
+			if($comments instanceof CommentArray) $comments->add($comment); 
 			$this->commentAdded($page, $field, $comment);
 			if($approved) $this->triggerPageFieldSaved($page, $field); 
 		} else {

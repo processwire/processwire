@@ -25,7 +25,7 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	/**
 	 * Field object associated with this CommentArray
 	 * 
-	 * @var Field|null
+	 * @var Field|CommentField|null
 	 *
 	 */
 	protected $field = null;
@@ -240,7 +240,6 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	public function isIdentical(WireArray $items, $strict = true) {
 		$isIdentical = parent::isIdentical($items, $strict);
 		if($isIdentical && $strict && $items instanceof CommentArray) {
-			/** @var CommentArray $items */
 			if(((string) $this->getPage()) != ((string) $items->getPage())) return false;
 			if(((string) $this->getField()) != ((string) $items->getField())) return false;
 		}
@@ -333,6 +332,7 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 		$commentID = $comment instanceof Comment ? $comment->id : (int) $comment;
 		$has = false;
 		foreach($this as $item) {
+			/** @var Comment $item */
 			if($item->id !== $commentID) continue;
 			$has = true;
 			break;
