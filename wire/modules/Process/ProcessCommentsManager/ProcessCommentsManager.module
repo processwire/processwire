@@ -413,7 +413,8 @@ class ProcessCommentsManager extends Process {
 	 * 
 	 */
 	protected function ___executeEdit() {
-		
+	
+		$sanitizer = $this->wire()->sanitizer; 
 		$input = $this->wire()->input;
 		$user = $this->wire()->user;
 		$submit = false;
@@ -456,14 +457,18 @@ class ProcessCommentsManager extends Process {
 			$comment->cite = $user->get('title|name');
 			$comment->email = $user->get('email'); 
 			$comment->created = time();
+			$comment->status = Comment::statusApproved; 
 			if($parentId) {
 				// new comment that is reply to existing comment
 				$parentComment = $field->getCommentByID($page, $parentId); 
 				if(!$parentComment) throw new WireException("Cannot find parent comment $parentId");
 				$comment->parent_id = $parentId;
-				$this->headline(sprintf($this->_('Comment #%d by %s'), $parentId, $comment->getFormatted('cite'))); 
+				$this->headline(sprintf($this->_('Comment #%d by %s'), $parentId, $parentComment->getFormatted('cite'))); 
 				// show comment being replied to
-				$out .= '<blockquote><p>' . $parentComment->getFormattedCommentText() . '</p></blockquote>';
+				$text = $sanitizer->entities1($parentComment->getFormattedCommentText());
+				$when = date('Y/m/d H:i', $parentComment->created) . ' • ' . wireRelativeTimeStr($parentComment->created);
+				$out .= "<p class='detail'>$when</p>";
+				$out .= "<blockquote><p>$text</p></blockquote>";
 				$out .= "<h2>" . $this->_('Your reply') . "</h2>";
 			}
 		}
@@ -605,7 +610,7 @@ class ProcessCommentsManager extends Process {
 		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'cite');
-		$f->label = $this->_('Cite');
+		$f->label = $this->_('Cite / author');
 		$f->val($comment->cite);
 		$f->required = true;
 		$f->columnWidth = 50;
@@ -661,24 +666,14 @@ class ProcessCommentsManager extends Process {
 		$f->required = true;
 		$form->add($f);
 		
-		if($field->useStars && $comment->id) {
-			/** @var InputfieldMarkup $f */
-			$f = $modules->get('InputfieldMarkup'); 
-			$f->attr('name', 'stars'); 
-			$f->label = $this->_('Stars');
-			$f->value = 
-				"<input type='hidden' name='stars' value='$comment->stars' />" . 
-				$comment->renderStars(array('input' => true));
-			$form->add($f);
-		}
-		
 		if($field->useVotes) {
 			/** @var InputfieldInteger $f */
 			$f = $modules->get('InputfieldInteger'); 
 			$f->attr('name', 'upvotes'); 
 			$f->label = $this->_('Upvotes'); 
 			$f->val($comment->upvotes); 
-			$f->columnWidth = 50;
+			$f->columnWidth = $field->useStars ? 25 : 50;
+			$f->inputType = 'number';
 			$form->add($f);
 			
 			/** @var InputfieldInteger $f */
@@ -686,26 +681,49 @@ class ProcessCommentsManager extends Process {
 			$f->attr('name', 'downvotes');
 			$f->label = $this->_('Downvotes');
 			$f->val($comment->upvotes);
-			$f->columnWidth = 50;
+			$f->columnWidth = $field->useStars ? 25 : 50;
+			$f->inputType = 'number';
 			$form->add($f);
 		}
-	
-		/** @var InputfieldSelect $f */
-		$f = $modules->get('InputfieldSelect');
+		
+		if($field->useStars) {
+			/** @var InputfieldMarkup $f */
+			$f = $modules->get('InputfieldMarkup');
+			$f->attr('name', 'stars');
+			$f->label = $this->_('Stars');
+			$f->value =
+				"<input type='hidden' name='stars' value='$comment->stars' />" .
+				$comment->renderStars(array('input' => true));
+			if($field->useVotes) $f->columnWidth = 50; 
+			$form->add($f);
+		}
+
+
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'notify_author');
-		$f->label = $this->_('Notify comment author');
-		$f->addOption(0, $this->_('Do not send author notifications'));
-		if($field->depth) $f->addOption(Comment::flagNotifyReply, $this->_('Notify author of replies to this comment'));
-		$f->addOption(Comment::flagNotifyAll, $this->_('Notify author of all new comments on page'));
+		$f->label = $this->_('Notify the email listed above when');
+		$f->addOption(0, $this->_('Never'));
+		if($field->depth) $f->addOption(Comment::flagNotifyReply, $this->_('There is a reply to this comment'));
+		$f->addOption(Comment::flagNotifyAll, $this->_('Anytime a new comment is posted on this page'));
+		if($comment->flags & Comment::flagNotifyAll) {
+			$f->val(Comment::flagNotifyAll);
+		} else if($comment->flags & Comment::flagNotifyReply) {
+			$f->val(Comment::flagNotifyReply);
+		} else {
+			$f->val(0);
+		}
 		$form->add($f);
 
 		/** @var InputfieldToggle $f */
 		if(!$comment->id) {
+			$f->columnWidth = 50;
 			$f = $modules->get('InputfieldToggle');
 			$f->attr('name', 'notify');
-			$f->label = $this->_('Allow notifications to be sent for this comment?');
-			$f->description = $this->_('When “Yes”, emails about this new comment will be sent to users that have opted in to receive notifications.'); 
+			$f->label = $this->_('Allow notifications to others?');
+			$f->detail = $this->_('When “Yes”, emails about this new comment will be sent to users that have opted in to receive notifications.'); 
 			$f->val(true);
+			$f->columnWidth = 50;
 			$form->add($f);
 		}
 		
@@ -787,21 +805,27 @@ class ProcessCommentsManager extends Process {
 
 			if($field->get('useVotes')) { 
 				foreach(array("upvotes", "downvotes") as $name) {
-					$votes = (int) $input->post("Comment" . ucfirst($name) . $comment->id); 
-					if($votes != $comment->$name) {
-						$comment->set($name, $votes); 
-						$properties[$name] = $comment->$name;
-						$numChanged++;
+					$votes = $input->post("Comment" . ucfirst($name) . $comment->id);
+					if($votes !== null) {
+						$votes = (int) $votes;
+						if($votes != $comment->$name) {
+							$comment->set($name, $votes);
+							$properties[$name] = $comment->$name;
+							$numChanged++;
+						}
 					}
 				}
 			}
 			
 			if($field->get('useStars')) {
-				$stars = (int) $input->post("CommentStars$comment->id");
-				if($stars != $comment->stars) {
-					$comment->set('stars', $stars);
-					$properties['stars'] = $comment->stars;
-					$numChanged++;
+				$stars = $input->post("CommentStars$comment->id");
+				if($stars !== null) {
+					$stars = (int) $stars;
+					if($stars != $comment->stars) {
+						$comment->set('stars', $stars);
+						$properties['stars'] = $comment->stars;
+						$numChanged++;
+					}
 				}
 			}
 
@@ -822,7 +846,7 @@ class ProcessCommentsManager extends Process {
 			}
 		
 			$notify = $input->post("CommentNotify$comment->id"); 
-			if($field->useNotify && ctype_digit($notify)) {
+			if($notify !== null && $field->useNotify && ctype_digit($notify)) {
 				$notify = (int) $notify;
 				if($this->applyCommentNotifyFlag($comment, $notify)) {
 					$properties['flags'] = $comment->flags;
@@ -1508,6 +1532,11 @@ class ProcessCommentsManager extends Process {
 		} else if($notify === Comment::flagNotifyReply) {
 			if($flags & Comment::flagNotifyAll) $flags = $flags & ~Comment::flagNotifyAll; // remove
 			$flags = $flags | Comment::flagNotifyReply; // add
+		}
+	
+		if($notify && !$comment->id) {
+			// comments added in admin do not need email confirmation
+			$flags = $flags | Comment::flagNotifyConfirmed;
 		}
 		
 		if($flags != $flagsPrev) {
