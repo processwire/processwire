@@ -1596,11 +1596,15 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		/** @var InputfieldSelect $f */
 		$f = $inputfields->getChildByName('collapsed');
 		if($f) {
-			// remove all options for 'collapsed' except collapsedYes and collapsedNo
+			// remove all options for 'collapsed' except for a few
+			$allow = array(
+				Inputfield::collapsedNo, 
+				Inputfield::collapsedYes, 
+				Inputfield::collapsedYesAjax,
+				Inputfield::collapsedNever,
+			);
 			foreach($f->getOptions() as $value => $label) {
-				if(!in_array($value, array(Inputfield::collapsedNo, Inputfield::collapsedYes))) {
-					$f->removeOption($value);
-				}
+				if(!in_array($value, $allow)) $f->removeOption($value);
 			}
 		}
 
