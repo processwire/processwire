@@ -2,6 +2,9 @@
 
 /**
  * An Inputfield for handling file uploads
+ * 
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * https://processwire.com
  *
  * @property string $extensions Allowed file extensions, space separated
  * @property array $okExtensions File extensions that are whitelisted if any in $extensions are problematic. (3.0.167+)
@@ -40,9 +43,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return array(
 			'title' => __('Files', __FILE__), // Module Title
 			'summary' => __('One or more file uploads (sortable)', __FILE__), // Module Summary
-			'version' => 126,
+			'version' => 127,
 			'permanent' => true, 
-			);
+		);
 	}
 	
 	/**
@@ -166,19 +169,21 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			'choose-files' => $this->_('Choose Files'),
 		);
 		
-		$this->isAjax = $this->wire('input')->get('InputfieldFileAjax') 
-			|| $this->wire('input')->get('reloadInputfieldAjax')
-			|| $this->wire('input')->get('renderInputfieldAjax');
+		$input = $this->wire()->input;
+		
+		$this->isAjax = $input->get('InputfieldFileAjax') 
+			|| $input->get('reloadInputfieldAjax')
+			|| $input->get('renderInputfieldAjax');
 
 		$this->setMaxFilesize(trim(ini_get('post_max_size'))); 
-		$this->uploadOnlyMode = (int) $this->wire('input')->get('uploadOnlyMode');
+		$this->uploadOnlyMode = (int) $input->get('uploadOnlyMode');
 		$this->addClass('InputfieldItemList', 'wrapClass');
 		$this->addClass('InputfieldHasFileList', 'wrapClass');
 
 		$themeDefaults = array(
 			'error' => "<span class='ui-state-error-text'>{out}</span>",
 		);
-		$themeSettings = $this->wire('config')->InputfieldFile;
+		$themeSettings = $this->wire()->config->InputfieldFile;
 		$this->themeSettings = is_array($themeSettings) ? array_merge($themeDefaults, $themeSettings) : $themeDefaults;
 	}
 	
@@ -322,40 +327,47 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function renderItemDescriptionField(Pagefile $pagefile, $id, $n) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$languages = $this->noLang ? null : $this->wire()->languages;
+		$user = $this->wire()->user;
 	
 		if($n) {}
 		$out = '';
 		$tabs = '';
+		
 		static $hasLangTabs = null;
 		static $langTabSettings = array();
 
 		if($this->renderValueMode) {
-			if($this->wire('languages')) {
-				$description = $pagefile->description($this->wire('user')->language);
+			if($languages) {
+				$description = $pagefile->description($user->language);
 			} else {
 				$description = $pagefile->description;
 			}
 			if(strlen($description)) $description = 
-				"<div class='InputfieldFileDescription detail'>" . $this->wire('sanitizer')->entities1($description) . "</div>";
+				"<div class='InputfieldFileDescription detail'>" . 
+					$sanitizer->entities1($description) . 
+				"</div>";
 			return $description;
 		}
 		
 		if($this->descriptionRows > 0) {
 
-			$userLanguage = $this->wire('user')->language;
-			$languages = $this->noLang ? null : $this->wire('languages');
-			$defaultDescriptionFieldLabel = $this->wire('sanitizer')->entities1($this->labels['description']);
-
-			if(!$userLanguage || !$languages || $languages->count() < 2) {
+			$userLanguage = $languages ? $user->language : null;
+			$defaultDescriptionFieldLabel = $sanitizer->entities1($this->labels['description']);
+			
+			if(!$userLanguage || $languages->count() < 2) {
 				$numLanguages = 0;
 				$languages = array(null);
 			} else {
 				$numLanguages = $languages->count();
 				if(is_null($hasLangTabs)) {
-					$hasLangTabs = $this->wire('modules')->isInstalled('LanguageTabs');
+					$modules = $this->wire()->modules;
+					$hasLangTabs = $modules->isInstalled('LanguageTabs');
 					if($hasLangTabs) {
 						/** @var LanguageTabs $languageTabs */
-						$languageTabs = $this->wire('modules')->getModule('LanguageTabs');
+						$languageTabs = $modules->getModule('LanguageTabs');
 						$langTabSettings = $languageTabs->getSettings();
 					}
 				}
@@ -369,10 +381,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				$attrStr = '';
 
 				if($language) {
+					/** @var Language $language */
 					$tabField = empty($langTabSettings['tabField']) ? 'title' : $langTabSettings['tabField'];
 					$descriptionFieldLabel = (string) $language->getUnformatted($tabField);
 					if(empty($descriptionFieldLabel)) $descriptionFieldLabel = $language->get('name');
-					$descriptionFieldLabel = $this->wire('sanitizer')->entities($descriptionFieldLabel);
+					$descriptionFieldLabel = $sanitizer->entities($descriptionFieldLabel);
 					if(!$language->isDefault()) $descriptionFieldName = "description{$language->id}_$id";
 					$labelClass .= ' LanguageSupportLabel';
 					if(!$languages->editable($language)) {
@@ -394,7 +407,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				
 				$out .= "<label for='$descriptionFieldName' class='$labelClass'>$descriptionFieldLabel</label>";
 
-				$description = $this->wire('sanitizer')->entities($pagefile->description($language));
+				$description = $sanitizer->entities($pagefile->description($language));
 
 				if($this->descriptionRows > 1) {
 					$out .= "<textarea $attrStr rows='$this->descriptionRows'>$description</textarea>";
@@ -408,8 +421,19 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			if($numLanguages && $hasLangTabs) {
 				$ulClass = empty($langTabSettings['ulClass']) ? '' : " class='$langTabSettings[ulClass]'";
 				$ulAttr = empty($langTabSettings['ulAttrs']) ? '' : " $langTabSettings[ulAttrs]";
-				$out = "<div class='hasLangTabs langTabsContainer'><div class='langTabs'><ul $ulAttr$ulClass>$tabs</ul>$out</div></div>";
-				if($this->isAjax) $out .= "<script>setupLanguageTabs($('#wrap_" . $this->attr('id') . "'));</script>";
+				
+				$out = 
+					"<div class='hasLangTabs langTabsContainer'>" . 
+						"<div class='langTabs'>" . 
+							"<ul $ulAttr$ulClass>$tabs</ul>" . 
+							$out . 
+						"</div>" . 
+					"</div>";
+				
+				if($this->isAjax) {
+					$js = 'script';
+					$out .= "<$js>setupLanguageTabs($('#wrap_" . $this->attr('id') . "'));</$js>";
+				}
 			}
 
 		}
@@ -429,10 +453,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function renderItemTagsField(Pagefile $pagefile, $id, $n) {
+		
+		$sanitizer = $this->wire()->sanitizer;
 
 		if($n) {}
-		$tagsLabel = $this->wire('sanitizer')->entities($this->labels['tags']) . '&hellip;';
-		$tagsStr = $this->wire('sanitizer')->entities($pagefile->tags);
+		$tagsLabel = $sanitizer->entities($this->labels['tags']) . '&hellip;';
+		$tagsStr = $sanitizer->entities($pagefile->tags);
 		$tagsAttr = '';
 
 		if($this->useTags >= FieldtypeFile::useTagsPredefined) {
@@ -547,8 +573,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		if(!$this->renderValueMode) {
 			// if just rendering the files list (as opposed to saving it), delete any temp files that may have accumulated
 			if(!$this->overwrite && !count($_POST) && !$this->isAjax && !$this->uploadOnlyMode) {
+				$input = $this->wire()->input;
 				// don't delete files when in render single field or fields mode
-				if(!$this->wire('input')->get('field') && !$this->wire('input')->get('fields')) {
+				if(!$input->get('field') && !$input->get('fields')) {
 					if($value instanceof Pagefiles) $value->deleteAllTemp();
 				}
 			}
@@ -571,7 +598,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$this->renderListReady($value);
 
 		if(!$this->uploadOnlyMode && WireArray::iterable($value)) {
-			foreach($value as $k => $pagefile) {
+			foreach($value as $pagefile) {
 				$id = $this->pagefileId($pagefile);
 				$this->currentItem = $pagefile;
 				$out .= $this->renderItemWrap($this->renderItem($pagefile, $id, $n++));
@@ -659,14 +686,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 		
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		
 		$this->addClass('InputfieldNoFocus', 'wrapClass');
 		if(!$renderValueMode) $this->addClass('InputfieldHasUpload', 'wrapClass');
 		
 		if($this->useTags) {
-			$this->wire('modules')->get('JqueryUI')->use('selectize');
+			$jQueryUI = $this->wire()->modules->get('JqueryUI'); /** @var JqueryUI $jQueryUI */
+			$jQueryUI->use('selectize');
 			$this->addClass('InputfieldFileHasTags', 'wrapClass');
 			if($this->useTags >= FieldtypeFile::useTagsPredefined && $this->hasField) {
 				// predefined tags
@@ -720,16 +747,25 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	public function ___render() {
-		if(!$this->extensions) $this->error($this->_('No file extensions are defined for this field.')); 
-		$numItems = wireCount($this->value);
-		if($this->allowCollapsedItems()) $this->addClass('InputfieldItemListCollapse', 'wrapClass');
-		if($numItems == 0) {
+		
+		if(!$this->extensions) {
+			$this->error($this->_('No file extensions are defined for this field.'));
+		}
+		
+		if($this->allowCollapsedItems()) {
+			$this->addClass('InputfieldItemListCollapse', 'wrapClass');
+		}
+		
+		$numItems = (int) wireCount($this->value);
+		
+		if($numItems === 0) {
 			$this->addClass('InputfieldFileEmpty', 'wrapClass');
-		} else if($numItems == 1) {
+		} else if($numItems === 1) {
 			$this->addClass('InputfieldFileSingle', 'wrapClass');
 		} else {
 			$this->addClass('InputfieldFileMultiple', 'wrapClass');
 		}
+		
 		return $this->renderList($this->value) . $this->renderUpload($this->value);
 	}
 
@@ -754,7 +790,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function ___fileAdded(Pagefile $pagefile) {
+		
 		if($this->noUpload) return;
+		
 		$sanitizer = $this->wire()->sanitizer;
 		
 		$isValid = $sanitizer->validateFile($pagefile->filename(), array(
@@ -782,9 +820,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		} else {
 			$this->message($message); 
 		}
-		
-		$pagefile->createdUser = $this->wire('user');
-		$pagefile->modifiedUser = $this->wire('user');
+	
+		$user = $this->wire()->user;
+		$pagefile->createdUser = $user;
+		$pagefile->modifiedUser = $user;
 	}
 
 	/**
@@ -811,10 +850,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		
 		$metadata['description'] = $pagefile->description;
 		
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
-		if($languages && !$this->noLang) {
+		$languages = $this->noLang ? null : $this->wire()->languages;
+		
+		if($languages) {
 			foreach($languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$metadata["description$language->id"] = $pagefile->description($language);
 			}
@@ -822,7 +862,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		
 		$metadata['tags'] = $pagefile->tags;
 		$filedata = $pagefile->filedata();
-		if(count($filedata)) $metadata['filedata'] = $filedata;
+		
+		if(count($filedata)) {
+			$metadata['filedata'] = $filedata;
+		}
 		
 		return $metadata;
 	}
@@ -838,12 +881,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 		$total = count($this->value); 
 		$metadata = array();
-		$rm = null;
 
 		if($this->maxFiles > 1 && $total >= $this->maxFiles) return; 
 		
 		// allow replacement of file if maxFiles is 1
 		if($this->maxFiles == 1 && $total) {
+			/** @var Pagefile $pagefile */
 			$pagefile = $this->value->first();
 			$metadata = $this->extractMetadata($pagefile, $metadata);
 			$rm = true; 
@@ -871,10 +914,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				// see if any files were overwritten that weren't part of our field
 				// if so, we need to restore them and issue an error
 				$err = false;
+				$files = $this->wire()->files;
 				foreach($ul->getOverwrittenFiles() as $bakFile => $newFile) {
 					if(basename($newFile) != $filename) continue; 
-					$this->wire('files')->unlink($newFile); 	
-					$this->wire('files')->rename($bakFile, $newFile); // restore
+					$files->unlink($newFile); 	
+					$files->rename($bakFile, $newFile); // restore
 					$ul->error(sprintf($this->_('Refused file %s because it is already on the file system and owned by a different field.'), $filename)); 
 					$err = true; 
 				}
@@ -883,6 +927,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 
 		$this->value->add($filename); 
+		
 		/** @var Pagefile $item */
 		$item = $this->value->last();
 		
@@ -892,7 +937,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			}
 			// items saved in ajax or uploadOnly mode are temporary till saved in non-ajax/non-uploadOnly
 			if($this->isAjax && !$this->overwrite) {
-				if($this->wire('input')->get('InputfieldFileAjax') !== 'noTemp') {
+				if($this->wire()->input->get('InputfieldFileAjax') !== 'noTemp') {
 					$item->isTemp(true);
 				}
 			}
@@ -911,7 +956,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function ___processInputDeleteFile(Pagefile $pagefile) {
-		$fileLabel = $this->wire('config')->debug ? $pagefile->url() : $pagefile->name;
+		$fileLabel = $this->wire()->config->debug ? $pagefile->url() : $pagefile->name;
 		$this->message($this->_("Deleted file:") . " $fileLabel"); // Label that precedes a deleted filename
 		$this->value->delete($pagefile); 
 		$this->trackChange('value');
@@ -947,7 +992,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				if($unused) {}
 			}
 			$replaceFile = $this->value->getFile($replace);
-			if($replaceFile && $replaceFile instanceof Pagefile) {
+			if($replaceFile instanceof Pagefile) {
 				$this->processInputDeleteFile($replaceFile);
 				if(strtolower($pagefile->ext()) == strtolower($replaceFile->ext())) {
 					$this->value->rename($pagefile, $replaceFile->name);
@@ -976,7 +1021,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 	
 		// description and tags
-		$languages = $this->noLang ? null : $this->wire('languages');
+		$languages = $this->noLang ? null : $this->wire()->languages;
 		$keys = $languages ? array('tags') : array('description', 'tags'); 
 
 		foreach($keys as $key) { 
@@ -992,14 +1037,17 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 
 		// multi-language descriptions
-		if($languages) foreach($languages as $language) {
-			if(!$languages->editable($language)) continue; 
-			$key = $language->isDefault() ? "description_$id" : "description{$language->id}_$id";
-			if(!isset($input[$key])) continue; 
-			$value = trim($input[$key]); 
-			if($value != $pagefile->description($language)) {
-				$pagefile->description($language, $value); 
-				$changed = true; 
+		if($languages) {
+			foreach($languages as $language) {
+				/** @var Language $language */
+				if(!$languages->editable($language)) continue;
+				$key = $language->isDefault() ? "description_$id" : "description{$language->id}_$id";
+				if(!isset($input[$key])) continue;
+				$value = trim($input[$key]);
+				if($value != $pagefile->description($language)) {
+					$pagefile->description($language, $value);
+					$changed = true;
+				}
 			}
 		}
 	
@@ -1037,9 +1085,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$pagefile->isTemp(false);
 			// @todo should the next statement instead be this below?
 			// if($this->maxFiles > 0) while(count($this->value) > $this->>maxFiles) { ... } ?
-			if($this->maxFiles == 1) while(count($this->value) > 1) {
-				$item = $this->value->first();
-				$this->value->remove($item);
+			if(((int) $this->maxFiles) === 1) {
+				while(count($this->value) > 1) {
+					$item = $this->value->first();
+					$this->value->remove($item);
+				}
 			}
 			$changed = true;
 		}
@@ -1097,8 +1147,13 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 */
 	public function ___processInput(WireInputData $input) {
 		
-		if(is_null($this->value)) $this->value = $this->wire(new Pagefiles($this->wire('page')));
-		if(!$this->destinationPath) $this->destinationPath = $this->value->path();
+		if(is_null($this->value)) {
+			$this->value = $this->wire(new Pagefiles($this->wire()->page));
+		}
+		
+		if(!$this->destinationPath) {
+			$this->destinationPath = $this->value->path();
+		}
 		
 		if(!$this->destinationPath || !is_dir($this->destinationPath)) {
 			return $this->error($this->_("destinationPath is empty or does not exist"));
@@ -1175,7 +1230,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function renderAjaxResponse() {
-		if($this->wire('input')->get('ckeupload')) {
+		if($this->wire()->input->get('ckeupload')) {
 			// https://docs.ckeditor.com/ckeditor4/docs/#!/guide/dev_file_upload
 			$a = $this->ajaxResponses[0];
 			$response = array(
@@ -1214,7 +1269,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			'markup' => $markup, 
 			'replace' => $this->singleFileReplacement,
 			'overwrite' => $this->overwrite
-			);
+		);
 
 		$this->ajaxResponses[] = $response; 
 	}
@@ -1226,7 +1281,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 *
 	 */
 	public function getWireUpload() {
-		if(is_null($this->wireUpload)) $this->wireUpload = $this->wire(new WireUpload($this->attr('name'))); 
+		if(is_null($this->wireUpload)) {
+			$this->wireUpload = $this->wire(new WireUpload($this->attr('name')));
+		}
 		return $this->wireUpload; 
 	}
 
@@ -1354,11 +1411,23 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$inputfields = $this->itemFieldgroup->getPageInputfields($page, $id, '', false); 
 		if(!$inputfields) return false;
 		
-		/** @var Languages|null $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 
 		foreach($inputfields->getAll() as $f) {
+			/** @var Inputfield $f  */
 			
+			if(wireInstanceOf($f, 'InputfieldCKEditor')) {
+				/** @var InputfieldCKEditor $f */
+				$ckeField = $f->hasField;
+				if($ckeField) {
+					$f->configName = $f->className() . "_$ckeField->name";
+					$imagesField = $this->hasField;
+					if($imagesField && $this->itemFieldgroup && $this->itemFieldgroup->hasFieldContext($ckeField)) {
+						$f->configName .= "_$imagesField->name";
+					}
+				}
+			}
+
 			if(!$item) {
 				// prepare inputfields for render rather than populating them
 				$f->renderReady();
@@ -1367,11 +1436,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			
 			/** @var Inputfield $f */
 			$name = str_replace($id, '', $f->name);
-			$value = $item ? $item->getFieldValue($name) : null; 
+			$value = $item->getFieldValue($name);
 			if($value === null) continue;
 			
 			if($languages && $f->getSetting('useLanguages') && $value instanceof LanguagesValueInterface) {
 				foreach($languages as $language) {
+					/** @var Language $language  */
 					$v = $value->getLanguageValue($language->id);
 					if($language->isDefault()) $f->val($v);
 					$f->set("value$language->id", $v);
@@ -1384,7 +1454,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			} else {
 				$f->val($value);
 			}
-			
+		
+			/*
 			if($f->className() === 'InputfieldCKEditor') {
 				// CKE does not like being placed in file/image fields.
 				// I'm sure it's possible, but needs more work and debugging, so it's disabled for now.
@@ -1401,6 +1472,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					'</p>';
 				$f->getParent()->remove($f);
 			}
+			*/
 		}
 		
 		return $inputfields;
