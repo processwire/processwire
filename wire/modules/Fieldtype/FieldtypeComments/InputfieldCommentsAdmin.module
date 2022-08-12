@@ -38,6 +38,7 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 	
 	public function init() {
 		parent::init();
+		require_once(__DIR__ . '/FieldtypeComments.module');
 		if($this->wire()->modules->isInstalled('ProcessCommentsManager')) {
 			$this->commentsManagerUrl = $this->wire()->config->urls->admin . 'setup/comments/';
 		}

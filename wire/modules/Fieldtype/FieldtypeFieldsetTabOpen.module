@@ -28,7 +28,8 @@ class InputfieldFieldsetTabOpen extends InputfieldFieldsetOpen {
 		
 		$in = $inputfields->getChildByName('columnWidth');
 		if($in) $inputfields->remove($in);
-		
+	
+		/** @var InputfieldSelect $in */
 		$in = $inputfields->getChildByName('collapsed'); 
 		//if($in->parent) $in->parent->set('collapsed', Inputfield::collapsedYes); 
 		if($in) {
@@ -73,7 +74,8 @@ class FieldtypeFieldsetTabOpen extends FieldtypeFieldsetOpen {
 	
 	public function ___getConfigInputfields(Field $field) {
 		$inputfields = parent::___getConfigInputfields($field); 
-		$in = $this->wire('modules')->get('InputfieldCheckbox');
+		/** @var InputfieldCheckbox $in */
+		$in = $this->wire()->modules->get('InputfieldCheckbox');
 		$in->attr('name', 'modal');
 		$in->label = $this->_('Open in modal window?');
 		$in->description = $this->_('Check the box to make this tab open in its own modal window. This can improve performance with large forms.');

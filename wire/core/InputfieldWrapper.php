@@ -184,7 +184,6 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$columnWidthSpacing = is_null($columnWidthSpacing) ? 1 : (int) $columnWidthSpacing;
 		if($columnWidthSpacing > 0) $this->set('columnWidthSpacing', $columnWidthSpacing);
 	
-		$columnWidthSpacing = null;
 		$settings = $config->InputfieldWrapper;
 		
 		if(is_array($settings)) {
@@ -245,7 +244,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		if(strpos($key, 'Inputfield') === 0 && strlen($key) > 10) {
 			if($key === 'InputfieldWrapper') return $this->wire(new InputfieldWrapper()); 
 			$value = $this->wire()->modules->get($key);
-			if($value && $value instanceof Inputfield) return $value;
+			if($value instanceof Inputfield) return $value;
 			if(wireClassExists($key)) return $this->wire(new $key()); 
 			$value = null;
 		}
@@ -318,7 +317,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			$inputfield = $this->wire(new $typeName());
 		}
 		
-		if(!$inputfield || !$inputfield instanceof Inputfield) {
+		if(!$inputfield instanceof Inputfield) {
 			throw new WireException("Unknown Inputfield type: $typeName");
 		}
 		
@@ -535,11 +534,12 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * 
 	 * #pw-group-manipulation
 	 * 
-	 * @param Inputfield|string $item Inputfield object or name
+	 * @param Inputfield|string $key Inputfield object or name
 	 * @return $this
 	 *
 	 */
-	public function remove($item) {
+	public function remove($key) {
+		$item = $key;
 		if(!$item) return $this;
 		if(!$item instanceof Inputfield) {
 			if(!is_string($item)) return $this;
@@ -716,6 +716,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		}
 		
 		foreach($children as $inputfield) {
+			/** @var Inputfield $inputfield */
 			
 			if($renderAjaxInputfield && $inputfield->attr('id') !== $renderAjaxInputfield 
 				&& !$inputfield instanceof InputfieldWrapper) {
@@ -1105,6 +1106,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		if($inputfield instanceof InputfieldWrapper) {
 			// load assets they will need
 			foreach($inputfield->getAll() as $in) {
+				/** @var Inputfield $in */
 				$in->renderReady($inputfield, $renderValueMode);
 			}
 		}
@@ -1130,7 +1132,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	
 		if(!$this->children) return $this; 
 
-		foreach($this->children() as $key => $child) {
+		foreach($this->children() as $child) {
 			/** @var Inputfield $child */
 
 			// skip over the field if it is not processable
@@ -1238,6 +1240,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	public function isEmpty() {
 		$empty = true; 
 		foreach($this->children() as $child) {
+			/** @var Inputfield $child */
 			if(!$child->isEmpty()) {
 				$empty = false;
 				break;
@@ -1261,6 +1264,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$a = array();
 		static $n = 0;
 		foreach($this->children() as $child) {
+			/** @var Inputfield $child */
 			if($child instanceof InputfieldWrapper) {
 				$a = array_merge($a, $child->getEmpty($required));
 			} else {
@@ -1288,7 +1292,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 */
 	public function getErrors($clear = false) {
 		$errors = parent::getErrors($clear); 
-		foreach($this->children() as $key => $child) {
+		foreach($this->children() as $child) {
+			/** @var Inputfield $child */
 			foreach($child->getErrors($clear) as $e) {
 				$label = $child->getSetting('label');
 				$msg = $label ? $label : $child->attr('name'); 
@@ -1349,6 +1354,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			// child by name
 			$wrappers = array();
 			foreach($children as $f) {
+				/** @var Inputfield $f */
 				if($f->getAttribute('name') === $name) {
 					$child = $f;
 					break;
@@ -1444,7 +1450,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * #pw-group-retrieval-and-traversal
 	 * 
 	 * @param string $name
-	 * @return Inputfield|null
+	 * @return Inputfield|InputfieldWrapper|null
 	 * @since 3.0.172
 	 * 
 	 */
@@ -1461,13 +1467,14 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * 
 	 * @param string $attrName Attribute to match, such as 'id', 'name', 'value', etc.
 	 * @param string $attrValue Attribute value to match
-	 * @return Inputfield|null
+	 * @return Inputfield|InputfieldWrapper|null
 	 * @since 3.0.196
 	 * 
 	 */
 	public function getByAttr($attrName, $attrValue) {
 		$inputfield = null;
 		foreach($this->children() as $child) {
+			/** @var Inputfield $child */
 			if($child->getAttribute($attrName) === $attrValue) {
 				$inputfield = $child;
 			} else if($child instanceof InputfieldWrapper) {
@@ -1486,7 +1493,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * Inputfield cannot be found. 
 	 * 
 	 * @param string $name
-	 * @return string|int|float|bool|array|object|null
+	 * @return array|float|int|object|Wire|WireArray|WireData|string|null
 	 * @since 3.0.172
 	 * 
 	 */
@@ -1532,7 +1539,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
  	 *  
 	 * @param array $options Options to modify behavior (3.0.169+)
 	 *  - `withWrappers` (bool): Also include InputfieldWrapper objects? (default=false) 3.0.169+
-	 * @return InputfieldWrapper|InputfieldsArray
+	 * @return InputfieldsArray
 	 *
 	 */
 	public function getAll(array $options = array()) {
@@ -1803,6 +1810,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	public function populateValues($data) {
 		$populated = array();
 		foreach($this->getAll() as $inputfield) {
+			/** @var Inputfield $inputfield */
 			if($inputfield instanceof InputfieldWrapper) continue; 
 			$name = $inputfield->attr('name');
 			if(!$name) continue;
@@ -1836,6 +1844,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	public function debugMap() {
 		$a = array();
 		foreach($this as $in) {
+			/** @var Inputfield $in */
 			$info = array(
 				'id' => $in->id, 
 				'name' => $in->name, 

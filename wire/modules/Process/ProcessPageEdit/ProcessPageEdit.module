@@ -549,7 +549,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$this->page->name = '';
 		}
 		
-		$adminTheme = $this->wire('adminTheme');
+		$adminTheme = $this->wire()->adminTheme;
 		if($adminTheme) {
 			$className = $this->className();
 			$adminTheme->addBodyClass("$className-id-{$this->page->id}");
@@ -848,7 +848,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		);
 		if($this->field) {
 			$numFields = count($this->fields);
-			if($numFields == 1 && $this->field) {
+			if($numFields === 1) {
 				$defaults['field'] = $this->field->name;
 			} else if($numFields > 1) {
 				$defaults['fields'] = implode(',', array_keys($this->fields));
@@ -908,6 +908,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					'flat' => true,
 				);
 				foreach($this->page->getInputfields($options) as $inputfield) {
+					/** @var Inputfield $inputfield */
 					if(!$this->page->editable($field->name, false)) continue;
 					$skipCollapsed = array(
 						Inputfield::collapsedHidden,
@@ -963,7 +964,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					}
 				}
 				$contentTab->insertBefore($tab, $inputfield);
-				/** @var InputfieldFieldsetClose $tabClose */
 				$tabClose = new InputfieldFieldsetClose();
 				$this->wire($tabClose);
 				$tabClose->attr('id+name', $tab->attr('name') . '_END');
@@ -971,6 +971,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 			
 			foreach($contentTab as $inputfield) {
+				/** @var Inputfield $inputfield */
 				if(!$tabOpen && $inputfield->className() === 'InputfieldFieldsetTabOpen') {
 					// open new tab
 					$showable = $this->isTrash ? 'editable' : 'viewable';
@@ -993,7 +994,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$contentTab->remove($inputfield); 
 					if(!$tabViewable) continue;
 					
-					if($inputfield->modal) {
+					if($inputfield->getSetting('modal')) {
 						$href = $this->getEditUrl(array('field' => $inputfield->name, 'modal' => 1)); 
 						$this->addTab($tabOpen->id, "<a class='pw-modal' " .
 							"title='" . $this->sanitizer->entities($tabOpen->label) . "' " . 
@@ -1126,7 +1127,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function ___buildFormChildren() {
 
 		$page = $this->masterPage ? $this->masterPage : $this->page; 
-		$wrapper = $this->wire(new InputfieldWrapper());
+		$wrapper = $this->wire(new InputfieldWrapper()); /** @var InputfieldWrapper $wrapper */
 		$id = $this->className() . 'Children';
 		$wrapper->attr('id+name', $id);
 		if(!empty($this->configSettings['ajaxChildren'])) $wrapper->collapsed = Inputfield::collapsedYesAjax;
@@ -1202,10 +1203,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public static function buildFormSortfield($sortfield, Process $caller) {
 
-		$fieldset = $caller->wire('modules')->get("InputfieldFieldset"); 
+		$modules = $caller->wire()->modules;
+		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get("InputfieldFieldset"); 
 		if(!$sortfield) $fieldset->collapsed = Inputfield::collapsedYes; 
 
-		$field = $caller->wire('modules')->get('InputfieldSelect');
+		/** @var InputfieldSelect $field */
+		$field = $modules->get('InputfieldSelect');
 		$field->name = 'sortfield'; 
 		$field->value = ltrim($sortfield, '-'); 
 		$field->columnWidth = 60; 
@@ -1222,7 +1227,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			'modified' => 'modified', 
 			'created' => 'created',
 			'published' => 'published', 
-			); 
+		); 
 
 		$field->addOption(__('Native Fields', __FILE__), $options); // Optgroup label for sorting by fields native to ProcessWire
 
@@ -1241,7 +1246,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field->addOption(__('Custom Fields', __FILE__), $customOptions); // Optgroup label for sorting by custom fields
 		$fieldset->append($field); 
 
-		$f = $caller->wire('modules')->get('InputfieldCheckbox');
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox');
 		$f->value = 1; 
 		$f->attr('id+name', 'sortfield_reverse'); 
 		$f->label = __('Reverse sort direction?', __FILE__); // Checkbox labe to reverse the sort direction
@@ -1251,6 +1257,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$f->columnWidth = 40; 
 
 		$fieldset->append($f); 
+		
 		return $fieldset; 
 	}
 
@@ -1444,6 +1451,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$f->parent_id = $this->config->usersPageID;
 			$f->showPath = false;
 		} else {
+			/** @var InputfieldInteger $f */
 			$f = $modules->get('InputfieldInteger');
 			$f->description = $this->_('Enter the created user’s ID.'); 
 			$f->notes = "{$this->page->created_users_id} = {$this->page->createdUser->name}";
@@ -1527,6 +1535,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$modules = $this->modules;
 		$sanitizer = $this->sanitizer;
 		$languages = $this->wire()->languages;
+		$pages = $this->wire()->pages;
 		
 		if($this->isPost && $input->post('_prevpath_add') === null) return null;
 		if(!$modules->isInstalled('PagePathHistory')) return null;
@@ -1601,7 +1610,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$table->headerRow($header);
 		
-		foreach($data as $n => $item) {
+		foreach($data as /*$n =>*/ $item) {
 			
 			$id = md5($item['path'] . $item['date']); 
 			$path = $item['path'];
@@ -1638,7 +1647,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$row[] = "<div class='InputfieldCheckbox'>" . $delete->render() . "</div>";
 			} else {
 				$parentLabel = $this->_x('Parent', 'prev-path-parent');
-				$parent = $this->wire('pages')->get((int) $item['virtual']);
+				$parent = $pages->get((int) $item['virtual']);
 				if($parent->id) $parentLabel = "<a target='_blank' title='$parent->path' href='$parent->editUrl'>$parentLabel</a>";
 				$row[] = $parentLabel;
 			}
@@ -1789,9 +1798,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function ___buildFormDelete() {
 
+		/** @var InputfieldWrapper $wrapper */
 		$wrapper = $this->wire(new InputfieldWrapper());
 		$deleteable = $this->page->deleteable();
 		$trashable = $deleteable || $this->page->trashable();
+		
 		if(!$trashable) return $wrapper;
 		
 		$id = $this->className() . 'Delete';
@@ -1800,26 +1811,24 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$wrapper->attr('title', $deleteLabel); 
 		$this->addTab($id, $deleteLabel, $wrapper);
 
-		if($trashable) {
+		/** @var InputfieldCheckbox $field */
+		$field = $this->modules->get('InputfieldCheckbox');
+		$field->attr('id+name', 'delete_page'); 
+		$field->attr('value', $this->page->id); 
 
-			/** @var InputfieldCheckbox $field */
-			$field = $this->modules->get('InputfieldCheckbox');
-			$field->attr('id+name', 'delete_page'); 
-			$field->attr('value', $this->page->id); 
-
-			if($deleteable && ($this->isTrash || $this->page->template->noTrash)) {
-				$deleteLabel = $this->_('Delete Permanently'); // Delete permanently checkbox label
-			} else {
-				$deleteLabel = $this->_('Move to Trash'); // Move to trash checkbox label
-			}
-			$field->icon = 'trash-o';
-			$field->label = $deleteLabel;
-			$field->description = $this->_('Check the box to confirm that you want to do this.'); // Delete page confirmation instruction
-			$field->label2 = $this->_('Confirm'); 
-			$wrapper->append($field); 
+		if($deleteable && ($this->isTrash || $this->page->template->noTrash)) {
+			$deleteLabel = $this->_('Delete Permanently'); // Delete permanently checkbox label
+		} else {
+			$deleteLabel = $this->_('Move to Trash'); // Move to trash checkbox label
 		}
+		$field->icon = 'trash-o';
+		$field->label = $deleteLabel;
+		$field->description = $this->_('Check the box to confirm that you want to do this.'); // Delete page confirmation instruction
+		$field->label2 = $this->_('Confirm'); 
+		$wrapper->append($field); 
 
 		if(count($wrapper->children())) {
+			/** @var InputfieldButton $field */
 			$field = $this->modules->get('InputfieldButton');
 			$field->attr('id+name', 'submit_delete'); 
 			$field->value = $deleteLabel;
@@ -1942,9 +1951,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 			if(count($roles)) {
 
-				$hasPublishPermission = $this->wire('permissions')->has('page-publish');
+				$hasPublishPermission = $this->wire()->permissions->has('page-publish');
 
 				foreach($roles as $role) {
+					/** @var Role $role */
 					
 					$permissions = array();
 					$roleName = $role->name;
@@ -2588,6 +2598,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$changes = array();
 
 		foreach($form->children() as $inputfield) {
+			/** @var Inputfield $inputfield */
 			$name = $inputfield->attr('name');
 			if($languages && $inputfield->getSetting('useLanguages')) {
 				$v = $page->get($name);
@@ -2719,6 +2730,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$f->label = $labelConfirm;
 		$list = array();
 		foreach($this->page->template->fieldgroup as $field) {
+			/** @var Field $field */
 			if(!$template->fieldgroup->has($field)) {
 				$list[] = $this->sanitizer->entities($field->getLabel()) . " ($field->name)";
 			}
@@ -2879,7 +2891,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function isAllowedTemplate($id) {
 
 		// if $id is a template, then convert it to it's numeric ID
-		if(is_object($id) && $id instanceof Template) $id = $id->id; 
+		if($id instanceof Template) $id = $id->id; 
 
 		$id = (int) $id; 
 
@@ -3273,7 +3285,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * URL to redirect to after non-authenticated user is logged-in, or false if module does not support
 	 *
 	 * @param Page $page
-	 * @return bool|string
+	 * @return string
 	 * @sine 3.0.167
 	 *
 	 */
@@ -3334,7 +3346,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$f->addOption($name, $label);
 		}
 
-		/** @var array $configData */
 		$configData = $config->pageEdit;
 		if(isset($data['viewAction'])) {
 			$f->attr('value', $data['viewAction']);
