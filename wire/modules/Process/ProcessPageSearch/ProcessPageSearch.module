@@ -925,6 +925,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			'num_children', 
 			'count', 
 			'path', 
+			'owner',
 		);
 		
 		$notSelectable = array(
@@ -958,17 +959,21 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		if(strpos($name, '.')) {
 			// field.subfield
 			list($name, $subname) = explode('.', $name, 2);
-			if(strpos($subname, '.') !== false) return false;
+			if(strpos($subname, '.') !== false && !$this->isSelectableFieldName($subname, $level + 1)) return false;
 			if(in_array(strtolower($subname), $noSubnames)) return false;
 			if(in_array(strtolower($subname), $notSelectable)) return false;
 			if(!$this->isSelectableFieldName($name, $level + 1)) return false;
 			$field = isset($this->fieldOptions[$name]) ? $this->wire()->fields->get($name) : null;
 			if($field && $field->type) {
 				if(!$field->viewable()) return false;
+				if(strpos($subname, 'owner.') === 0 && wireInstanceOf($field->type, array('FieldtypePage', 'FieldtypeRepeater'))) {
+					list(, $tername) = explode('.', $subname, 2); 
+					if($this->isSelectableFieldName($tername, $level + 1)) return true;
+				}
 				$info = $field->type->getSelectorInfo($field);
 				if(isset($info['subfields'][$subname])) return true;
 				if($field->type instanceof FieldtypePage) return $this->isSelectableFieldName($subname, $level + 1);
-			} else if($name === 'parent' || $name === 'children') {
+			} else if($name === 'parent' || $name === 'children' || $name === 'owner') {
 				if(in_array($subname, $selectable)) return true;
 				if(isset($this->nativeSorts[$subname])) return true;
 				return $this->isSelectableFieldName($subname, $level + 1);
