@@ -54,6 +54,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 
 		selector = selector.replace(part, '=' + v);
 		selector = selector.replace(/,\s*/g, '&');
+		selector = selector.replace(/\./g, '-');
 
 		if(selector.indexOf('_LPID')) selector = selector.replace(/_LPID[0-9]+/g, '');
 
@@ -85,7 +86,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 				if(!label.length) label = page.name;
 
 				// create <option>
-				$option = $("<option value='" + page.id + "'>" + label + "</option>");
+				$option = $("<option />").attr('value', page.id).text(label);
 				if(selected) $option.attr('selected', 'selected');
 
 				// add the <option> to the <select>
@@ -137,7 +138,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 
 		if($select2.length < 1) return;
 
-		var parts = selector.match(/(=page.[_a-zA-Z0-9]+)/g);
+		var parts = selector.match(/(=page\.[_a-zA-Z0-9]+)/g);
 
 		for(var n = 0; n < parts.length; n++) {
 
