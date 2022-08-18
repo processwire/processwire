@@ -203,7 +203,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 * Given a language, returns the value in that language
 	 *
 	 * @param Language|int|string Language object, id, or name
-	 * @return int
+	 * @return mixed
 	 *
 	 */
 	public function getLanguageValue($languageID) {
@@ -216,7 +216,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	/**
 	 * Returns the value in the default language
 	 * 
-	 * @return string
+	 * @return mixed
 	 *
 	 */
 	public function getDefaultValue() {
