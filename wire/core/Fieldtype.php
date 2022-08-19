@@ -15,7 +15,7 @@
  * of most other methods provided in this Fieldtype class accounts for most situations already. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * 
@@ -85,12 +85,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	protected $lastAccessField = null;
-
-	/**
-	 * Construct
-	 * 
-	 */
-	public function __construct() { }
 
 	/**
 	 * Per Module interface, this template method is called when all system classes are loaded and ready for API usage
@@ -175,9 +169,9 @@ abstract class Fieldtype extends WireData implements Module {
 		// in Inputfield modules. 
 		// 
 		// (!) See `FieldtypeFile` for an example that uses both Page and Field params. 
-	
-		if($page && $field) {}
-		$inputfield = $this->wire('modules')->get('InputfieldText'); 
+
+		/** @var Inputfield $inputfield */		
+		$inputfield = $this->wire()->modules->get('InputfieldText'); 
 		$inputfield->class = $this->className();
 		return $inputfield; 
 	}
@@ -200,7 +194,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___getConfigInputfields(Field $field) {
-		if($field) {}
 		$inputfields = $this->wire(new InputfieldWrapper());	
 		
 		/* 
@@ -231,7 +224,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function ___getConfigArray(Field $field) {
-		if($field) {}
 		return array();
 	}
 
@@ -251,7 +243,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___getConfigAllowContext(Field $field) {
-		if($field) {}
 		return array(); 
 	}
 
@@ -276,10 +267,12 @@ abstract class Fieldtype extends WireData implements Module {
 		// @TODO should this be moved back into modules/Process/ProcessField.module? (that's where it is saved)
 		// advanced settings
 		$inputfields = $this->wire(new InputfieldWrapper());	
-
-		if($this->getLoadQueryAutojoin($field, $this->wire(new DatabaseQuerySelect()))) {
+		$modules = $this->wire()->modules;
+		$dqs = $this->wire(new DatabaseQuerySelect()); /** @var DatabaseQuerySelect $dqs */
+		
+		if($this->getLoadQueryAutojoin($field, $dqs)) {
 			/** @var InputfieldCheckbox $f */
-			$f = $this->modules->get('InputfieldCheckbox');
+			$f = $modules->get('InputfieldCheckbox');
 			$f->label = $this->_('Autojoin');
 			$f->icon = 'sign-in';
 			$f->attr('name', 'autojoin');
@@ -289,7 +282,8 @@ abstract class Fieldtype extends WireData implements Module {
 			$inputfields->append($f);
 		}
 
-		$f = $this->modules->get('InputfieldCheckbox');
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'global');
 		$f->label = $this->_('Global');
 		$f->icon = 'globe';
@@ -302,23 +296,31 @@ abstract class Fieldtype extends WireData implements Module {
 		}
 		$inputfields->append($f);
 
-		if($this->config->advanced) {
-			$f = $this->modules->get('InputfieldCheckbox');
+		if($this->wire()->config->advanced) {
+			/** @var InputfieldCheckbox $f */
+			$f = $modules->get('InputfieldCheckbox');
 			$f->attr('name', 'system');
 			$f->label = 'System';
 			$f->description = "If checked, this field is considered a system field and is not renameable or deleteable. System fields may not be undone using ProcessWire's API.";
 			$f->attr('value', 1);
-			if($field->flags & Field::flagSystem) $f->attr('checked', 'checked');
-				else $f->collapsed = true; 
+			if($field->flags & Field::flagSystem) {
+				$f->attr('checked', 'checked');
+			} else {
+				$f->collapsed = true;
+			}
 			$inputfields->append($f);
 
-			$f = $this->modules->get('InputfieldCheckbox');
+			/** @var InputfieldCheckbox $f */
+			$f = $modules->get('InputfieldCheckbox');
 			$f->attr('name', 'permanent');
 			$f->label = 'Permanent';
 			$f->description = "If checked, this field is considered a permanent field and it can't be removed from any of the system templates/fieldgroups to which it is attached. This flag may not be undone using ProcessWire's API.";
 			$f->attr('value', 1);
-			if($field->flags & Field::flagPermanent) $f->attr('checked', 'checked');
-				else $f->collapsed = true; 
+			if($field->flags & Field::flagPermanent) {
+				$f->attr('checked', 'checked');
+			} else {
+				$f->collapsed = true;
+			}
 			$inputfields->append($f);
 		}
 
@@ -399,9 +401,8 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
-		if($field) {}
 		$fieldtypes = $this->wire(new Fieldtypes());
-		foreach($this->wire('fieldtypes') as $fieldtype) {
+		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if(!$fieldtype instanceof FieldtypeMulti) $fieldtypes->add($fieldtype); 
 		}
 		return $fieldtypes; 
@@ -441,7 +442,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
-		if($page && $field) {}
 		return $value; 
 	}
 
@@ -474,6 +474,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		/** @var MarkupFieldtype $m */
 		$m = $this->wire(new MarkupFieldtype($page, $field, $value)); 	
 		if(strlen($property)) return $m->render($property); 
 		return $m;
@@ -492,7 +493,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
  	 */
 	public function getBlankValue(Page $page, Field $field) {
-		if($page && $field) {}
 		return '';
 	}
 
@@ -541,7 +541,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function isEmptyValue(Field $field, $value) {
-		if($field) {}
 		return empty($value); 
 	}
 
@@ -564,7 +563,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
-		if($page && $field) {}
 		return $value; 	
 	}
 
@@ -587,7 +585,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
-		if($page && $field) {}
 		return $value; 
 	}
 
@@ -608,7 +605,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
-		if($options) {}
 		$value = $this->wakeupValue($page, $field, $value); 
 		return $value; 
 	}
@@ -673,7 +669,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
-		if($options) {}
 		$value = $this->sleepValue($page, $field, $value); 
 		return $value; 
 	}
@@ -687,7 +682,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 * @param Page $page
 	 * @param Field $field 
-	 * @return mixed 
+	 * @return mixed
 	 *
  	 */
 	public function getDefaultValue(Page $page, Field $field) {
@@ -695,7 +690,9 @@ abstract class Fieldtype extends WireData implements Module {
 		$value = $field->getDefaultValue(); 
 		if(!is_null($value)) return $value; 
 		*/
-		return $this->getBlankValue($page, $field);
+		/** @var mixed $value */
+		$value = $this->getBlankValue($page, $field);
+		return $value;
 	}
 
 	/**
@@ -733,7 +730,7 @@ abstract class Fieldtype extends WireData implements Module {
 		$database = $this->wire()->database;
 
 		if(!$database->isOperator($operator)) {
-			throw new WireException("Operator '{$operator}' is not implemented in {$this->className}");
+			throw new WireException("Operator '$operator' is not implemented in $this->className");
 		}
 
 		$table = $database->escapeTable($table); 
@@ -772,8 +769,9 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function getMatchQuerySort(Field $field, $query, $table, $subfield, $desc) {
-		if($query && $table && $field && $subfield && $desc) {}
-		return false;
+		/** @var bool|string $value */
+		$value = false;
+		return $value;
 	}
 	
 	/**
@@ -804,7 +802,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___createField(Field $field) {
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$schema = $this->getDatabaseSchema($field); 
 
 		if(!isset($schema['pages_id'])) throw new WireException("Field '$field' database schema must have a 'pages_id' field."); 
@@ -878,9 +876,9 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function getDatabaseSchema(Field $field) {
-		if($field) {}
-		$engine = $this->wire('config')->dbEngine; 
-		$charset = $this->wire('config')->dbCharset;
+		$config = $this->wire()->config;
+		$engine = $config->dbEngine; 
+		$charset = $config->dbCharset;
 		$schema = array(
 			'pages_id' => 'int UNSIGNED NOT NULL', 
 			'data' => "int NOT NULL", // each Fieldtype should override this in particular
@@ -912,7 +910,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function getFieldClass(array $a = array()) {
-		if($a) {} // ignore
 		return '';
 	}
 
@@ -1088,7 +1085,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___getSelectorInfo(Field $field, array $data = array()) {
 		if($data) {}
-		$selectorInfo = $this->wire(new FieldSelectorInfo()); 
+		$selectorInfo = $this->wire(new FieldSelectorInfo()); /** @var FieldSelectorInfo $selectorInfo */
 		return $selectorInfo->getSelectorInfo($field); 
 	}
 
@@ -1112,11 +1109,9 @@ abstract class Fieldtype extends WireData implements Module {
 
 		if(!$page->id || !$field->id) return null;
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$schema = $this->getDatabaseSchema($field);
 		$table = $database->escapeTable($field->table);
-		$value = null;
 		$stmt = null;
 	
 		/** @var DatabaseQuerySelect $query */
@@ -1134,16 +1129,17 @@ abstract class Fieldtype extends WireData implements Module {
 			$this->trackException($e, false, true);
 		}
 		
-		if(!$result) return $value;
+		if(!$result) return null;
 		
 		$fieldName = $database->escapeCol($field->name); 
 		$schema = $this->trimDatabaseSchema($schema);
 		$row = $stmt->fetch(\PDO::FETCH_ASSOC);
 		$stmt->closeCursor();
 		
-		if(!$row) return $value;
+		if(!$row) return null;
 		
 		$value = array();
+		
 		foreach($schema as $k => $unused) {
 			// properties from DB are always as "fieldName__column", example "title__data" (see getLoadQuery)
 			$key = $fieldName . '__' . $k;
@@ -1170,11 +1166,9 @@ abstract class Fieldtype extends WireData implements Module {
 	 * @param Field $field Field to retrieve from the page.
 	 * @param Selectors|string|array $selector
 	 * @return mixed|null
-	 * @throws WireException
 	 *
 	 */
 	public function ___loadPageFieldFilter(Page $page, Field $field, $selector) {
-		if(false) throw new WireException(); // a gift for the ide
 		$this->setLoadPageFieldFilters($field, $selector);
 		$value = $this->loadPageField($page, $field);
 		$this->setLoadPageFieldFilters($field, null);
@@ -1192,7 +1186,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function setLoadPageFieldFilters(Field $field, $selectors) {
-		if($field) {}
 		if(empty($selectors)) {
 			$this->loadPageFieldFilters = null;	
 		} else if($selectors instanceof Selectors) {
@@ -1213,7 +1206,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function getLoadPageFieldFilters(Field $field) {
-		if($field) {}
 		return $this->loadPageFieldFilters;
 	}
 
@@ -1229,7 +1221,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 */ 
 	public function getLoadQuery(Field $field, DatabaseQuerySelect $query) {
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->table);
 		$schema = $this->trimDatabaseSchema($this->getDatabaseSchema($field)); 
 		$fieldName = $database->escapeCol($field->name);
@@ -1271,13 +1263,16 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___savePageField(Page $page, Field $field) {
 
-		if(!$page->id) throw new WireException("Unable to save to '{$field->table}' for page that doesn't exist in pages table"); 
-		if(!$field->id) throw new WireException("Unable to save to '{$field->table}' for field that doesn't exist in fields table"); 
+		if(!$page->id || !$field->id) {
+			$t = $field->id ? 'pages' : 'fields';
+			$message = "Unable to save to '$field->table' for page that doesn't exist in $t table";
+			throw new WireException($message);
+		}
 
 		// if this field hasn't changed since it was loaded, don't bother executing the save
 		if(!$page->isChanged($field->name)) return true; 
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$value = $page->get($field->name);
 
 		// if the value is one that should be deleted, then remove the field from the database because it's redundant
@@ -1347,7 +1342,10 @@ abstract class Fieldtype extends WireData implements Module {
 			
 		} catch(\PDOException $e) {
 			if($e->getCode() == 23000) {
-				$message = sprintf($this->_('Value not allowed for field “%s” because it is already in use'), $field->name);
+				$message = sprintf(
+					$this->_('Value not allowed for field “%s” because it is already in use'), 
+					$field->name
+				);
 				throw new WireDatabaseException($message, $e->getCode(), $e);
 			} else {
 				throw $e;
@@ -1372,7 +1370,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___deleteField(Field $field) {
 		try {
-			$database = $this->wire('database');
+			$database = $this->wire()->database;
 			$table = $database->escapeTable($field->table); 
 			$query = $database->prepare("DROP TABLE `$table`"); // QA
 			$result = $query->execute();
@@ -1513,7 +1511,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function ___renamedField(Field $field, $prevName) {
-		if($field && $prevName) {}
 	}
 
 	/**
@@ -1563,7 +1560,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___install() {
-		if(false) throw new WireException(); // an offering for phpstorm
 		return true; 
 	}
 
@@ -1583,13 +1579,19 @@ abstract class Fieldtype extends WireData implements Module {
 	public function ___uninstall() {
 
 		$names = array();
-		$fields = $this->wire('fields'); 
+		$fields = $this->wire()->fields; 
 
 		foreach($fields as $field) {
+			/** @var Field $field */
 			if($field->type === $this->name) $names[] = $field->name; 
 		}
 
-		if(count($names)) throw new WireException("Unable to uninstall Fieldtype '{$this->name}' because it is used by Fields: " . implode(", ", $names)); 
+		if(count($names)) {
+			throw new WireException(
+				"Unable to uninstall Fieldtype '$this->name' because it is used by Fields: " . 
+				implode(", ", $names)
+			);
+		}
 
 		return true; 
 	}
@@ -1606,7 +1608,6 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___upgrade($fromVersion, $toVersion) {
 		// any code needed to upgrade between versions
-		if($fromVersion && $toVersion && false) throw new WireException(); // to make the ide stop complaining
 	}
 
 	/**

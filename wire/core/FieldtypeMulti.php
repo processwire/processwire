@@ -5,7 +5,7 @@
  *
  * Interface and some functionality for Fieldtypes that can contain multiple values.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool savePageFieldRows(Page $page, Field $field, $value)
@@ -79,7 +79,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			'label' => $this->_('count'), 
 			'operators' => array('=', '!=', '<', '>', '<=', '>='), 
 			'input' => 'number'
-			);
+		);
 		return $info; 
 	}
 
@@ -92,7 +92,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = $this->wire(new Fieldtypes());
-		foreach($this->wire('fieldtypes') as $fieldtype) {
+		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if($fieldtype instanceof FieldtypeMulti) $fieldtypes->add($fieldtype); 
 		}
 		return $fieldtypes; 
@@ -217,8 +217,9 @@ abstract class FieldtypeMulti extends Fieldtype {
 
 		if(!$page->id || !$field->id) return false;
 
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
-		$config = $this->wire('config'); /** @var Config $config */
+		$database = $this->wire()->database;
+		$config = $this->wire()->config;
+		
 		$useTransaction = $database->allowTransaction();
 		$values = $page->get($field->name);
 
@@ -376,8 +377,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 
 		if(!$page->id || !$field->id) return null;
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$schema = $this->getDatabaseSchema($field);
 		$table = $database->escapeTable($field->table);
 		$stmt = null;
@@ -551,7 +551,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		if($limit > 0) {
 			// paginate the rows that will be loaded
 			if(is_null($start)) {
-				$pageNum = $this->wire('input')->pageNum() - 1;
+				$pageNum = $this->wire()->input->pageNum() - 1;
 				$start = $pageNum * $limit;
 			}
 			$start = (int) $start;
@@ -579,8 +579,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 * 
 	 */
 	protected function getLoadQueryWhere(Field $field, DatabaseQuerySelect $query, $col, $operator, $value) {
-		if($field) {}
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $query->data('_table');
 		if(empty($table)) $table = $field->getTable();
 		$table = $database->escapeTable($table);
@@ -697,7 +696,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$sqls = array('pages_id=:pages_id');
 			$id = isset($item[$primaryKey]) ? $item[$primaryKey] : 0;
 			
-			foreach($keys as $n => $key) {
+			foreach($keys as $key) {
 				$key = $database->escapeCol($key);
 				if($key === $primaryKey) continue;
 				$sqls[] = "`$key`=:$key";
@@ -805,8 +804,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 * 
 	 */
 	protected function getMaxColumnValue(Page $page, Field $field, $column, $noValue = false) {
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$table = $database->escapeTable($field->getTable());
 		$column = $database->escapeCol($column);
 		$sql = "SELECT MAX($column) FROM `$table` WHERE pages_id=:pages_id";
@@ -833,12 +831,16 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 * 
 	 */
 	public function ___deletePageFieldRows(Page $page, Field $field, $value) {
-		
+
+		$database = $this->wire()->database;
 		$info = $this->getDatabaseSchemaVerbose($field);
 		$primaryKeys = $info['primaryKeys'];
-		if(count($primaryKeys) !== 1) throw new WireException("deletePageFieldRows() can only be used on fields with 1 primary key");
+		
+		if(count($primaryKeys) !== 1) {
+			throw new WireException("deletePageFieldRows() can only be used on fields with 1 primary key");
+		}
+		
 		$value = $this->setupPageFieldRows($page, $field, $value);
-		$database = $this->wire('database');
 		$table = $database->escapeTable($info['table']);
 		$primaryKey = $database->escapeCol(reset($primaryKeys));
 		$ids = array();
@@ -898,7 +900,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$n = self::$getMatchQueryCount;
 
 		$field = $query->field;
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$table = $database->escapeTable($table);
 
 		if($subfield === 'count' 
@@ -916,7 +918,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 				"SELECT $c.pages_id, COUNT($c.pages_id) AS num_$t " .
 				"FROM " . $database->escapeTable($field->table) . " AS $c " .
 				"GROUP BY $c.pages_id " .
-				") $t ON $t.pages_id=pages.id");
+				") $t ON $t.pages_id=pages.id"
+			);
 
 			if( (in_array($operator, array('<', '<=', '!=')) && $value) || 
 				(in_array($operator, array('>', '>=')) && $value < 0) ||
@@ -935,6 +938,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			if(count($templates)) {
 				$ids = array();
 				foreach($templates as $template) {
+					/** @var Template $template */
 					$ids[] = (int) $template->id;
 				}
 				$sql = 'pages.templates_id IN(' . implode(',', $ids) . ')'; // QA
@@ -983,8 +987,10 @@ abstract class FieldtypeMulti extends Fieldtype {
 			}
 			
 			if(!empty($schema)) {
-				
-				$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+				$modules = $this->wire()->modules;
+			
+				/** @var InputfieldFieldset $fieldset */
+				$fieldset = $modules->get('InputfieldFieldset');
 				$fieldset->attr('name', '_FieldtypeMultiExtras');
 				$fieldset->label = $this->_('Sorting and Pagination');
 				$fieldset->description = $this->_('These settings apply to both front-end (site) and back-end (editor).');
@@ -1000,7 +1006,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 				}
 				$sorts = array_merge($sorts, $sortsReverse);
 
-				$f = $this->wire('modules')->get('InputfieldAsmSelect');
+				/** @var InputfieldAsmSelect $f */
+				$f = $modules->get('InputfieldAsmSelect');
 				$f->attr('name', 'orderByCols');
 				$f->label = $this->_('Automatic sorting');
 				$f->description = $this->_('Select one or more fields to sort by below. For manual sort, leave this setting blank.');
@@ -1012,7 +1019,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 				
 				// pagination support
 				if($this->get('usePagination') && count($primaryKeys) === 1) {
-					$f = $this->wire('modules')->get('InputfieldInteger');
+					/** @var InputfieldInteger $f */
+					$f = $modules->get('InputfieldInteger');
 					$f->attr('name', 'paginationLimit');
 					$f->label = $this->_('Pagination limit / items per page');
 					$f->description = $this->_('This limits the number of items loaded/edited per pagination. The value “0” indicates no limit (default).');
