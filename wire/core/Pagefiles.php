@@ -193,11 +193,12 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return Pagefiles|WireArray
+	 * @return Pagefiles|Pageimages|WireArray
 	 * 
 	 */
 	public function makeNew() {
 		$class = get_class($this); 
+		/** @var Pagefiles|Pageimages $newArray */
 		$newArray = $this->wire(new $class($this->page)); 
 		$newArray->setField($this->field); 
 		return $newArray; 
@@ -220,7 +221,10 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		foreach($this->data as $key => $value) $newArray[$key] = $value; 
 		foreach($this->extraData as $key => $value) $newArray->data($key, $value); 
 		$newArray->resetTrackChanges($this->trackChanges());
-		foreach($newArray as $item) $item->setPagefilesParent($newArray); 
+		foreach($newArray as $item) {
+			/** @var Pagefile $item */
+			$item->setPagefilesParent($newArray);
+		}
 		return $newArray; 
 	}
 
@@ -232,6 +236,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 */
 	public function __clone() {
 		foreach($this as $key => $pagefile) {
+			/** @var Pagefile $pagefile */
 			$pagefile = clone $pagefile;
 			$pagefile->setPagefilesParent($this);
 			$this->set($key, $pagefile); 
@@ -299,13 +304,13 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	/**
 	 * Get for direct access to properties
 	 * 
-	 * @param int|string $key
+	 * @param int|string $property
 	 * @return bool|mixed|Page|Wire|WireData
 	 * 
 	 */
-	public function __get($key) {
-		if(in_array($key, array('page', 'field', 'url', 'path'))) return $this->get($key); 
-		return parent::__get($key); 
+	public function __get($property) {
+		if(in_array($property, array('page', 'field', 'url', 'path'))) return $this->get($property); 
+		return parent::__get($property); 
 	}
 
 	/**
@@ -358,7 +363,6 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			}
 		}
 
-		/** @var Pagefiles $result */
 		$result = parent::add($item); 
 		return $result;
 	}
@@ -427,12 +431,13 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 * 
 	 * #pw-internal Please use the hookable delete() method for public API
 	 *
-	 * @param Pagefile $item Item to delete/remove. 
+	 * @param Pagefile $key Item to delete/remove. 
 	 * @return $this
 	 * @throws WireException
 	 *
 	 */
-	public function remove($item) {
+	public function remove($key) {
+		$item = $key;
 		if(is_string($item)) $item = $this->get($item); 
 		if(!$this->isValidItem($item)) throw new WireException("Invalid type to {$this->className}::remove(item)"); 
 		$this->addSaveHook();
@@ -519,8 +524,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			$pathname = $n ? ($path . $parts[0] . "-$n." . $parts[1]) : ($path . $item->basename);
 		} while(file_exists($pathname) && $n++);
 		
-		if(copy($item->filename(), $pathname)) {
-			$this->wire('files')->chmod($pathname);
+		if($this->wire()->files->copy($item->filename(), $pathname)) {
 			
 			$itemCopy = clone $item;
 			$itemCopy->setPagefilesParent($pagefiles);
@@ -630,6 +634,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	public function findTag($tag) {
 		$items = $this->makeNew();		
 		foreach($this as $pagefile) {
+			/** @var Pagefile $pagefile */
 			if($pagefile->hasTag($tag)) $items->add($pagefile);
 		}
 		return $items; 
@@ -656,6 +661,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	public function getTag($tag) {
 		$item = null;
 		foreach($this as $pagefile) {
+			/** @var Pagefile $pagefile */
 			if(!$pagefile->hasTag($tag)) continue; 
 			$item = $pagefile;
 			break;
@@ -706,6 +712,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			// return array of tags
 			$tags = array();
 			foreach($this as $pagefile) {
+				/** @var Pagefile $pagefile */
 				$tags = array_merge($tags, $pagefile->tags($value));
 			}
 			if($returnString) $tags = implode(' ', $tags);
@@ -729,7 +736,6 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 */
 	public function trackChange($what, $old = null, $new = null) {
 		if($this->field && $this->page) $this->page->trackChange($this->field->name); 
-		/** @var Pagefiles $result */
 		$result = parent::trackChange($what, $old, $new); 
 		return $result;
 	}
@@ -745,6 +751,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		$hasFile = null;
 		$name = basename($name);
 		foreach($this as $pagefile) {
+			/**  @var Pagefile $pagefile */
 			if($pagefile->basename == $name) {
 				$hasFile = $pagefile;
 				break;
@@ -853,6 +860,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	public function deleteAllTemp() {
 		$removed = array();
 		foreach($this as $pagefile) {
+			/** @var Pagefile $pagefile */
 			if(!$this->isTemp($pagefile, 'deletable')) continue; 
 			$removed[] = $pagefile->basename();
 			$this->remove($pagefile); 
@@ -950,7 +958,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 				$this->fieldsTemplate = false;
 				/** @var FieldtypeFile $fieldtype */
 				$fieldtype = $field->type;
-				$template = $fieldtype && $fieldtype instanceof FieldtypeFile ? $fieldtype->getFieldsTemplate($field) : null;
+				$template = $fieldtype instanceof FieldtypeFile ? $fieldtype->getFieldsTemplate($field) : null;
 				if($template) $this->fieldsTemplate = $template;
 			}
 		}

@@ -12,7 +12,7 @@
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read string $url URL to the file on the server.
@@ -44,6 +44,7 @@
  * @property int $modified_users_id ID of user that last modified the file or 0 if not known (3.0.154+). #pw-group-other
  * @property User|NullPage $createdUser User that added/uploaded the file or NullPage if not known (3.0.154)+. #pw-group-other
  * @property User|NullPage $modifiedUser User that last modified the file or NullPage if not known (3.0.154)+. #pw-group-other
+ * @property bool $formatted True when value has had Textformatters applied. #pw-internal
  * 
  * @method void install($filename)
  * @method string httpUrl()
@@ -132,6 +133,7 @@ class Pagefile extends WireData {
 
 		$this->pagefiles = $pagefiles; 
 		if(strlen($filename)) $this->setFilename($filename); 
+		
 		$this->set('description', ''); 
 		$this->set('tags', ''); 
 		$this->set('formatted', false); // has an output formatter been run on this Pagefile?
@@ -140,6 +142,8 @@ class Pagefile extends WireData {
 		$this->set('filesize', 0); 
 		$this->set('created_users_id', 0);
 		$this->set('modified_users_id', 0);
+		
+		parent::__construct();
 	}
 	
 	/**
@@ -230,13 +234,14 @@ class Pagefile extends WireData {
 			if(!is_readable($filename)) throw new WireException("Unable to read: $filename");
 			if(!copy($filename, $destination)) throw new WireException("Unable to copy: $filename => $destination");
 		} else {
+			/** @var WireHttp $http */
 			$http = $this->wire(new WireHttp());
 			// note: download() method throws excepton on failure
 			$http->download($filename, $destination);
 			// download was successful
 		}
 		
-		$this->wire('files')->chmod($destination);
+		$this->wire()->files->chmod($destination);
 		$this->changed('file');
 		$this->isNew(true);
 		parent::set('basename', $basename);
@@ -286,7 +291,7 @@ class Pagefile extends WireData {
 		
 		if(strpos($key, 'description') === 0 && preg_match('/^description(\d+)$/', $value, $matches)) {
 			// check if a language description is being set manually by description123 where 123 is language ID
-			$languages = $this->wire('languages'); 
+			$languages = $this->wire()->languages; 
 			if($languages) {
 				$language = $languages->get((int) $matches[1]); 
 				if($language && $language->id) return $this->setDescription($value, $language); 
@@ -310,10 +315,10 @@ class Pagefile extends WireData {
 	 */
 	protected function setUser($user, $type) {
 		$id = 0;
-		if($user === true) $user = $this->wire('user');
+		if($user === true) $user = $this->wire()->user;
 		if(is_object($user)) {
 			if($user instanceof NullPage) {
-				$id = 0;
+				// $id = 0;
 			} else if($user instanceof User) {
 				$id = $user->isGuest() ? 0 : $user->id;
 			}
@@ -322,8 +327,8 @@ class Pagefile extends WireData {
 		} else if(ctype_digit($user)) {
 			$id = (int) $user;
 		} else if(is_string($user)) {
-			$name = $this->wire('sanitizer')->pageName($user);
-			$user = $name ? $this->wire('users')->get("name=$name") : null; 
+			$name = $this->wire()->sanitizer->pageName($user);
+			$user = $name ? $this->wire()->users->get("name=$name") : null; 
 			$id = $user && $user->id ? $user->id : 0;
 		}
 		if($id < 0) $id = 0;
@@ -421,8 +426,7 @@ class Pagefile extends WireData {
 	 */
 	protected function setDescription($value, Page $language = null) {
 		
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		
 		/** @var Language|null $language */
 		
@@ -467,7 +471,7 @@ class Pagefile extends WireData {
 					if(!$id) $id = '';
 					$name = $n > 0 ? "description$id" : "description";
 				} else if($id === 'default') {
-					$name = 'description';
+					// $name = 'description';
 				} else if($languages) {
 					$language = $languages->get($id); // i.e. "default" or "es"
 					if(!$language->id) continue;
@@ -478,8 +482,8 @@ class Pagefile extends WireData {
 			}
 		} else {
 			// no JSON values so assume regular language description
-			$languages = $this->wire('languages');
-			$language = $languages ? $this->wire('user')->language : null; 
+			$languages = $this->wire()->languages;
+			$language = $languages ? $this->wire()->user->language : null; 
 
 			if($languages && $language && !$noLang && !$language->isDefault()) {
 				$name = "description$language->id";
@@ -533,13 +537,14 @@ class Pagefile extends WireData {
 	 */
 	public function description($language = null, $value = null) {
 		
+		$languages = $this->wire()->languages;
+
 		if($language === true && $value === true) {
 			// return all in array indexed by language name
-			/** @var Languages $languages */
-			$languages = $this->wire('languages');
 			if(!$languages) return array('default' => parent::get('description'));
 			$value = array();
 			foreach($languages as $language) {
+				/** @var Language $language */
 				$value[$language->name] = (string) parent::get("description" . ($language->isDefault() ? '' : $language->id));
 			}
 			return $value;	
@@ -564,16 +569,18 @@ class Pagefile extends WireData {
 			$value = null;
 		}
 
-		if((is_string($language) || is_int($language)) && $this->wire('languages')) {
+		if((is_string($language) || is_int($language)) && $languages) {
 			// convert named or ID'd languages to Language object
-			$language = $this->wire('languages')->get($language); 
+			$language = $languages->get($language); 
 		}
 
 		if(is_null($language)) {	
 			// return description for current user language, or inherit from default if not available
 			$user = $this->wire('user'); 
 			$value = null;
-			if($user->language && $user->language->id) $value = parent::get("description{$user->language}"); 
+			if($user->language && $user->language->id) {
+				$value = parent::get("description{$user->language}");
+			}
 			if(empty($value)) {
 				// inherit default language value
 				$value = parent::get("description"); 
@@ -581,10 +588,10 @@ class Pagefile extends WireData {
 
 		} else if($language === true) {
 			// return JSON string of all languages if applicable
-			$languages = $this->wire('languages'); 
 			if($languages && $languages->count() > 1) {
 				$values = array(0 => parent::get("description"));
 				foreach($languages as $lang) {
+					/** @var Language $lang */
 					if($lang->isDefault()) continue; 
 					$v = parent::get("description$lang"); 
 					if(empty($v)) continue; 
@@ -600,8 +607,11 @@ class Pagefile extends WireData {
 			
 		} else if(is_object($language) && $language->id) {
 			// return description for specific language or blank if not available
-			if($language->isDefault()) $value = parent::get("description"); 
-				else $value = parent::get("description$language"); 
+			if($language->isDefault()) {
+				$value = parent::get("description");
+			} else {
+				$value = parent::get("description$language");
+			}
 		}
 
 		// we only return strings, so return blank rather than null
@@ -620,10 +630,9 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function get($key) {
-		$value = null; 
 
-		if($key == 'name') $key = 'basename';
-		if($key == 'pathname') $key = 'filename';
+		if($key === 'name') $key = 'basename';
+		if($key === 'pathname') $key = 'filename';
 
 		switch($key) {
 			case 'url':
@@ -668,7 +677,7 @@ class Pagefile extends WireData {
 			case 'modifiedStr':
 			case 'createdStr':
 				$value = parent::get(str_replace('Str', '', $key));
-				$value = wireDate($this->wire('config')->dateFormat, $value);
+				$value = wireDate($this->wire()->config->dateFormat, $value);
 				break;
 			case 'created_users_id':	
 			case 'modified_users_id':	
@@ -688,16 +697,17 @@ class Pagefile extends WireData {
 				break;
 			case 'mtimeStr':
 			case 'filemtimeStr':
-				$value = wireDate($this->wire('config')->dateFormat, $this->filemtime());
+				$value = wireDate($this->wire()->config->dateFormat, $this->filemtime());
 				break;
 			case 'fieldValues':	
-				return $this->fieldValues;
+				$value = $this->fieldValues;
 				break;
 			default:
 				$value = $this->getFieldValue($key);
-				
 		}
+		
 		if(is_null($value)) return parent::get($key); 
+		
 		return $value; 
 	}
 
@@ -714,7 +724,7 @@ class Pagefile extends WireData {
 	 */
 	public function getFieldValue($name, $formatted = null) {
 		
-		$field = $this->wire('fields')->get($name);
+		$field = $this->wire()->fields->get($name);
 		if(!$field) return null;
 		
 		$template = $this->pagefiles->getFieldsTemplate();
@@ -787,7 +797,7 @@ class Pagefile extends WireData {
 		if($changed === null && $this->page->trackChanges()) {
 			// detect if a change has taken place
 			$oldValue = $this->getFieldValue($field->name, false);
-			if(is_object($oldValue) && $oldValue instanceof Wire && $oldValue === $value) {
+			if($oldValue instanceof Wire && $oldValue === $value) {
 				// $oldValue and new $value are the same object instance, so ask it if anything has changed
 				$changed = $oldValue->isChanged(); 
 				if($changed) $this->trackChange($field->name);
@@ -822,11 +832,13 @@ class Pagefile extends WireData {
 	 * 
 	 * #pw-group-traversal
 	 *
-	 * @return Pagefile|Wire|null
+	 * @return Pagefile|null
 	 *	
 	 */
 	public function getNext() {
-		return $this->pagefiles->getNext($this); 
+		/** @var Pagefile|null $item */
+		$item = $this->pagefiles->getNext($this); 
+		return $item;
 	}
 
 	/**
@@ -834,11 +846,13 @@ class Pagefile extends WireData {
 	 * 
 	 * #pw-group-traversal
 	 *
-	 * @return Pagefile|Wire|null
+	 * @return Pagefile|null
 	 *	
 	 */
 	public function getPrev() {
-		return $this->pagefiles->getPrev($this); 
+		/** @var Pagefile|null $item */
+		$item = $this->pagefiles->getPrev($this); 
+		return $item;
 	}
 
 	/**
@@ -859,7 +873,7 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function url() {
-		return $this->wire('hooks')->isHooked('Pagefile::url()') ? $this->__call('url', array()) : $this->___url();
+		return $this->wire()->hooks->isHooked('Pagefile::url()') ? $this->__call('url', array()) : $this->___url();
 	}
 	
 	/**
@@ -895,7 +909,7 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function filename() {
-		return $this->wire('hooks')->isHooked('Pagefile::filename()') ? $this->__call('filename', array()) : $this->___filename();
+		return $this->wire()->hooks->isHooked('Pagefile::filename()') ? $this->__call('filename', array()) : $this->___filename();
 	}
 
 	/**
@@ -950,7 +964,7 @@ class Pagefile extends WireData {
 			$tags = str_replace(array(',', '|'), ' ', $tags);
 			$_tags = explode(' ', $tags);
 			$tags = array();
-			foreach($_tags as $key => $tag) {
+			foreach($_tags as /* $key => */ $tag) {
 				$tag = trim($tag);
 				if($value === false) $tag = strtolower($tag); // force lowercase
 				if(!strlen($tag)) continue;
@@ -959,7 +973,7 @@ class Pagefile extends WireData {
 		} else if($value !== null) {
 			// set tags
 			if(is_array($value)) $value = implode(' ', $value); // convert to string
-			$value = $this->wire('sanitizer')->text($value);
+			$value = $this->wire()->sanitizer->text($value);
 			if(strpos($value, "\t") !== false) $value = str_replace("\t", " ", $value);
 			// collapse extra whitespace
 			while(strpos($value, "  ") !== false) $value = str_replace("  ", " ", $value);
@@ -1074,6 +1088,7 @@ class Pagefile extends WireData {
 	 * 
 	 */
 	public function addTag($tag) {
+		$sanitizer = $this->wire()->sanitizer;
 		if(is_array($tag)) {
 			$addTags = $tag;
 		} else if(strpos($tag, ',') !== false) {
@@ -1085,7 +1100,7 @@ class Pagefile extends WireData {
 		$numAdded = 0;
 		foreach($addTags as $tag) {
 			if($this->hasTag($tag)) continue; 
-			$tag = $this->wire('sanitizer')->text(trim($tag));
+			$tag = $sanitizer->text(trim($tag));
 			$tag = str_replace(' ', '_', $tag);
 			$tags[strtolower($tag)] = $tag;
 			$numAdded++;
@@ -1227,11 +1242,10 @@ class Pagefile extends WireData {
 	public function unlink() {
 		/** @var WireFileTools $files */
 		if(!strlen($this->basename) || !is_file($this->filename)) return true;
-		$files = $this->wire('files');
 		foreach($this->extras() as $extra) {
 			$extra->unlink();
 		}
-		return $files->unlink($this->filename, true);
+		return $this->wire()->files->unlink($this->filename, true);
 	}
 
 	/**
@@ -1250,7 +1264,7 @@ class Pagefile extends WireData {
 			$extra->filename(); // init
 		}
 		$basename = $this->pagefiles->cleanBasename($basename, true); 
-		if($this->wire('files')->rename($this->filename, $this->pagefiles->path . $basename, true)) {
+		if($this->wire()->files->rename($this->filename, $this->pagefiles->path . $basename, true)) {
 			$this->set('basename', $basename); 
 			$basename = $this->basename();
 			foreach($this->extras() as $extra) {
@@ -1271,8 +1285,7 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function copyToPath($path) {
-		/** @var WireFileTools $files */
-		$files = $this->wire('files');
+		$files = $this->wire()->files;
 		$result = $files->copy($this->filename(), $path);
 		foreach($this->extras() as $extra) {
 			if(!$extra->exists()) continue;
@@ -1358,7 +1371,7 @@ class Pagefile extends WireData {
 	 */
 	public function extras($name = null, PagefileExtra $value = null) {
 		if($name === null) return $this->extras;
-		if($value !== null && $value instanceof PagefileExtra) {
+		if($value instanceof PagefileExtra) {
 			$this->extras[$name] = $value;
 		}
 		return isset($this->extras[$name]) ? $this->extras[$name] : null;
@@ -1394,8 +1407,8 @@ class Pagefile extends WireData {
 	 */
 	public function replaceFile($filename, $move = true) {
 		
-		/** @var WireFileTools $files */
-		$files = $this->wire('files');
+		$files = $this->wire()->files;
+		
 		if(!is_file($filename) || !is_readable($filename)) return false;
 		if($move && !is_writable($filename)) $move = false;
 		

@@ -63,6 +63,8 @@ class Pageimages extends Pagefiles {
 	 * Per the WireArray interface, return a blank Pageimage
 	 * 
 	 * #pw-internal
+	 * 
+	 * @return Pageimage
 	 *
 	 */
 	public function makeBlankItem() {
@@ -87,6 +89,7 @@ class Pageimages extends Pagefiles {
 		$base = ($pos ? substr($name, 0, $pos) : null);
 	
 		foreach($this as $pagefile) {
+			/** @var Pageimage $pagefile */
 			if($base !== null && strpos($pagefile->basename, $base) !== 0) continue;
 			// they start the same, is it a variation?
 			if(!$pagefile->isVariation($name)) continue;
@@ -129,6 +132,7 @@ class Pageimages extends Pagefiles {
 		$basenames = array();
 		
 		foreach($this as $pageimage) {
+			/** @var Pageimage $pageimage */
 			$name = $pageimage->basename;
 			$ext = $pageimage->ext;
 			$extensions[$name] = $ext;
@@ -234,6 +238,7 @@ class Pageimages extends Pagefiles {
 			unset($options['limit']);
 		}
 		foreach($this as $image) {
+			/** @var Pageimage $image */
 			$out .= $image->render($markup, $options);
 			if($limit > 0 && ++$n >= $limit) break;
 		}

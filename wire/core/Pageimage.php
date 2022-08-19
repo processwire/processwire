@@ -190,7 +190,8 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function url() {
-		if($this->wire('hooks')->isHooked('Pagefile::url()') || $this->wire('hooks')->isHooked('Pageimage::url()')) { 
+		$hooks = $this->wire()->hooks;
+		if($hooks->isHooked('Pagefile::url()') || $hooks->isHooked('Pageimage::url()')) { 
 			return $this->__call('url', array()); 
 		} else { 
 			return $this->___url();
@@ -206,7 +207,8 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function filename() {
-		if($this->wire('hooks')->isHooked('Pagefile::filename()') || $this->wire('hooks')->isHooked('Pageimage::filename()')) { 
+		$hooks = $this->wire()->hooks;
+		if($hooks->isHooked('Pagefile::filename()') || $hooks->isHooked('Pageimage::filename()')) { 
 			return $this->__call('filename', array()); 
 		} else { 
 			return $this->___filename();
@@ -687,7 +689,7 @@ class Pageimage extends Pagefile {
 			return $this->sizeName($width, $options);
 		}
 
-		if($this->wire('hooks')->isHooked('Pageimage::size()')) {
+		if($this->wire()->hooks->isHooked('Pageimage::size()')) {
 			$result = $this->__call('size', array($width, $height, $options)); 
 		} else {  
 			$result = $this->___size($width, $height, $options);
@@ -718,7 +720,7 @@ class Pageimage extends Pagefile {
 	protected function ___size($width, $height, $options) {
 
 		$this->error = '';
-		if($this->ext == 'svg') return $this; 
+		if($this->ext === 'svg') return $this; 
 		if(!is_array($options)) $options = $this->sizeOptionsToArray($options);
 		
 		// originally requested options
@@ -747,16 +749,16 @@ class Pageimage extends Pagefile {
 			'focus' => true, // allow single dimension resizes to use focus area?
 			'zoom' => null, // zoom override, used only if focus is applicable, int when populated
 			'allowOriginal' => false, // Return original image if already at requested dimensions? (must be only specified option)
-			);
+		);
 
-		/** @var WireFileTools $files */
-		/** @var Config $config */
-		$files = $this->wire('files');
-		$config = $this->wire('config');
+		$files = $this->wire()->files;
+		$config = $this->wire()->config;
+		
 		$debug = $config->debug;
 		$configOptions = $config->imageSizerOptions; 
 		$webpOptions = $config->webpOptions;
 		$createdVariationHookData = null; // populated as array only when new variation created (for createdVariation hook)
+		
 		if(!empty($webpOptions['quality'])) $defaultOptions['webpQuality'] = $webpOptions['quality'];
 		
 		if(!is_array($configOptions)) $configOptions = array();
@@ -773,7 +775,10 @@ class Pageimage extends Pagefile {
 			}
 		}
 	
-		if($options['cropping'] === true && empty($options['cropExtra']) && $options['focus'] && $this->hasFocus && $width && $height) {
+		if($options['cropping'] === true 
+			&& empty($options['cropExtra']) 
+			&& $options['focus'] && $this->hasFocus 
+			&& $width && $height) {
 			// crop to focus area
 			$focus = $this->focus();
 			if(is_int($options['zoom'])) $focus['zoom'] = $options['zoom']; // override
@@ -811,9 +816,12 @@ class Pageimage extends Pagefile {
 			$suffix = $options['suffix'];
 			sort($suffix); 
 			foreach($suffix as $key => $s) {
-				$s = strtolower($this->wire('sanitizer')->fieldName($s)); 
-				if(empty($s)) unset($suffix[$key]); 
-					else $suffix[$key] = $s; 
+				$s = strtolower($this->wire()->sanitizer->fieldName($s)); 
+				if(empty($s)) {
+					unset($suffix[$key]);
+				} else {
+					$suffix[$key] = $s;
+				}
 			}
 			if(count($suffix)) $suffixStr = '-' . implode('-', $suffix); 
 		}
@@ -875,7 +883,7 @@ class Pageimage extends Pagefile {
 			if(file_exists($filenameUnvalidated)) $files->unlink($filenameUnvalidated, true);
 			if(file_exists($filenameUnvalidatedWebp)) $files->unlink($filenameUnvalidatedWebp, true);
 
-			if(@copy($this->filename(), $filenameUnvalidated)) {
+			if($files->copy($this->filename(), $filenameUnvalidated)) {
 				try { 
 					
 					$timer = $debug ? Debug::timer() : null;
@@ -1035,7 +1043,7 @@ class Pageimage extends Pagefile {
 	 * 
 	 */
 	public function sizeName($name, array $options = array()) {
-		$sizes = $this->wire('config')->imageSizes; 
+		$sizes = $this->wire()->config->imageSizes; 
 		if(!isset($sizes[$name])) throw new WireException("Unknown image size '$name' (not in \$config->imageSizes)"); 
 		$size = $sizes[$name];
 		$options = array_merge($size, $options);
@@ -1180,7 +1188,7 @@ class Pageimage extends Pagefile {
 			if($width < 1) $width = $this->width();
 			if($width === "100%") return $width;
 			return ceil($width * $scale); 
-		} else if($width && is_int($width) && $width > 0) {
+		} else if($width && is_int($width)) {
 			// resize intended
 			if(!is_array($options)) $options = array();
 			return $this->hidpiSize((int) $width, 0, $options);
@@ -1298,7 +1306,7 @@ class Pageimage extends Pagefile {
 			$options['nameHeight'] = $height;
 		}
 		
-		if($this->wire('config')->installed > 1513336849) { 
+		if($this->wire()->config->installed > 1513336849) { 
 			// New installations from 2017-12-15 forward use an "ms" suffix for images from maxSize() method
 			$suffix = isset($options['suffix']) ? $options['suffix'] : array();
 			if(!is_array($suffix)) $suffix = array();

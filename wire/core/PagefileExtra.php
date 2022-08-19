@@ -224,7 +224,7 @@ class PagefileExtra extends WireData {
 	 */
 	public function unlink() {
 		if(!$this->exists()) return false;
-		return $this->wire('files')->unlink($this->filename());
+		return $this->wire()->files->unlink($this->filename());
 	}
 
 	/**
@@ -235,7 +235,7 @@ class PagefileExtra extends WireData {
 	 */
 	public function rename() {
 		if(!$this->filenamePrevious || !is_readable($this->filenamePrevious)) return false;
-		return $this->wire('files')->rename($this->filenamePrevious, $this->filename());
+		return $this->wire()->files->rename($this->filenamePrevious, $this->filename());
 	}
 
 	/**

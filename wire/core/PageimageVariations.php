@@ -247,13 +247,13 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 			if(is_readable($this->pagefiles->path . $f)) {
 				$info["{$name}Url"] = $this->pagefiles->url . $f;
 				$info["{$name}Path"] = $this->pagefiles->path . $f;
-				continue;
+				// continue;
 			}
 		}
 
 		if(empty($info['crop'])) {
 			// attempt to extract crop info from suffix
-			foreach($info['suffix'] as $key => $suffix) {
+			foreach($info['suffix'] as /* $key => */ $suffix) {
 				if(strpos($suffix, 'cropx') === 0) {
 					$info['crop'] = ltrim($suffix, 'crop'); // i.e. x123y456
 				}
@@ -337,6 +337,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 		$count = 0;
 		
 		if(!$options['info'] && !$options['count']) {
+			/** @var Pageimages $variations */
 			$variations = $this->wire(new Pageimages($this->pagefiles->page));
 		}
 
@@ -493,7 +494,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 					} else if(strpos($s, 'cropx') === 0) {
 						// skip cropx suffix (already known from $info[crop])
 						unset($info['suffix'][$k]);
-						continue;
+						// continue;
 					} else if(strpos($s, 'pid') === 0 && preg_match('/^pid\d+$/', $s)) {
 						// allow pid123 to pass through 
 					} else if(in_array($s, $suffix)) {
@@ -602,6 +603,8 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 	 *
 	 */
 	public function remove(array $options = array()) {
+		
+		$files = $this->wire()->files;
 
 		$defaults = array(
 			'dryRun' => false,
@@ -612,8 +615,6 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 		if(!empty($options['dryrun'])) $defaults['dryRun'] = $options['dryrun']; // case insurance
 		$options = array_merge($defaults, $options); // placement after getVariations() intended
 
-		/** @var WireFileTools $files */
-		$files = $this->wire('files');
 		$deletedFiles = array();
 		
 		$this->removeExtras($this->pageimage, $deletedFiles, $options);
