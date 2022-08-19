@@ -5,7 +5,7 @@
  *
  * Provides the image selecting and editing capability for rich text editors (TinyMCE/CKEditor)
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $hidpiDefault HiDPI/Retina checkbox default checked?
@@ -214,16 +214,15 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 */
 	public function init() {
 	
-		/** @var Config $config */
-		$config = $this->wire('config');
-		/** @var WireInput $input */
-		$input = $this->wire('input');
-		/** @var Session $session */
-		$session = $this->wire('session');
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		$session = $this->wire()->session;
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$user = $this->wire()->user;
 		
-
 		// throw new WireException($this->labels['demoMode']);
 		if($config->demo) {
 			if($input->urlSegmentStr != 'variations') {
@@ -231,7 +230,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			}
 		}
 		
-		$this->modules->get("ProcessPageList");
+		$modules->get("ProcessPageList");
 	
 		$this->rte = $input->get('rte') !== null && $input->get('rte') == "0" ? false : true;
 		$id = (int) $input->get('id'); 
@@ -244,7 +243,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 		
 		if($editID) {
-			$this->editorPage = $this->wire('pages')->get($editID); 
+			$this->editorPage = $pages->get($editID); 
 			if(!$this->editorPage->editable()) {
 				$this->editorPage = null;
 				$session->remove($this, 'edit_page_id'); 
@@ -260,9 +259,13 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				list($fieldName, $lpid) = explode('_LPID', $fieldName);
 				if($lpid) {} // ignore
 			}
-			$this->field = $this->wire('fields')->get($fieldName); 
+			$this->field = $fields->get($fieldName); 
 			if(!$this->field) throw new WireException("Unknown field $fieldName"); 
-			if(!$this->field->type instanceof FieldtypeImage) throw new WireException("Field $fieldName is not an instance of FieldtypeImage"); 
+			if(!$this->field->type instanceof FieldtypeImage) {
+				if(!method_exists($this->field->type, 'getPageimages')) {
+					throw new WireException("Field $fieldName is not an instance of FieldtypeImage or FieldtypeHasPageimages");
+				}
+			}
 		}
 		
 		// if no ID was specified, then retrieive ID from filename path, if it's there
@@ -284,7 +287,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				// .............................../....................path/to/page.........................-?....................filename..........ext
 				// legacy pagefileSecure URL format: /path/to/page/filename.jpg
 				// @todo: does this still need to be here or can it be dropped?
-				$this->page = $this->wire('pages')->get('/' . $matches[1]);
+				$this->page = $pages->get('/' . $matches[1]);
 				$id = $this->page->id;
 			}
 		}
@@ -308,10 +311,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		// note we use hasPermission('page-view') rather than viewable() here because
 		// we want to allow pages without template files
-		$user = $this->wire('user');
 		if(!$user->hasPermission('page-view', $this->page)) {
-			if($this->page->id === $user->id && $fieldName
-				&& $this->wire('modules')->get('PagePermissions')->userFieldEditable($fieldName)) {
+			/** @var PagePermissions $pagePermissions */
+			$pagePermissions = $modules->get('PagePermissions');
+			if($this->page->id === $user->id && $fieldName && $pagePermissions->userFieldEditable($fieldName)) {
 				// user editing allowed images field in their profile
 			} else if(wireInstanceOf($this->page, 'RepeaterPage')) {
 				if(!$this->masterPage->editable()) {
@@ -368,7 +371,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if($pageID) {} // ignore
 		}
 		
-		$originalFilename = $this->wire('sanitizer')->filename($originalFilename, false, 1024);
+		$originalFilename = $this->wire()->sanitizer->filename($originalFilename, false, 1024);
 		
 		// if requested file does not match one of our allowed extensions, abort
 		if(!preg_match('/\.(' . $this->extensions . ')$/iD', $file, $matches)) throw new WireException("Unknown image file"); 
@@ -422,7 +425,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		$numImages = 0;
 		$numImageFields = 0;
-		$skipFields = $this->wire('input')->urlSegment1 ? array() : explode(' ', $this->skipFields);
+		$skipFields = $this->wire()->input->urlSegment1 ? array() : explode(' ', $this->skipFields);
 	
 		if(empty($fields)) {
 			if($this->field) {
@@ -435,9 +438,11 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		foreach($fields as $field) {
 
+			$fieldtype = $field->type;
+			
 			if(in_array($field->name, $skipFields)) continue; 
 
-			if(wireInstanceOf($field->type, 'FieldtypeRepeater')) {
+			if(wireInstanceOf($fieldtype, 'FieldtypeRepeater')) {
 				// get images that are possibly in a repeater
 				$repeaterValue = $page->get($field->name); 
 				if($repeaterValue instanceof Page) $repeaterValue = array($repeaterValue); 
@@ -458,11 +463,19 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				}
 				continue; 
 			}
-
-			if(!$field->type instanceof FieldtypeImage) continue; 
-			$numImageFields++;
-			$images = $page->getUnformatted($field->name); 
-			if(!wireCount($images)) continue; 
+			
+			if($fieldtype instanceof FieldtypeImage) {
+				$numImageFields++;
+				$images = $page->getUnformatted($field->name);
+			} else if(method_exists($fieldtype, 'getPageimages')) {
+				/** @var FieldtypeHasPageimages $images */
+				$numImageFields++;
+				$images = $fieldtype->getPageimages($page, $field); 
+			} else {
+				continue;
+			}
+			
+			if(!wireCount($images)) continue;
 
 			foreach($images as $image) {
 				$numImages++;
@@ -496,12 +509,13 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$imageFields = array();
 
 		foreach($page->fields as $field) {
+			/** @var Field $field */
 			if(!$field->type instanceof FieldtypeImage) continue;
 			if(in_array($field->name, $skipFields)) continue;
 			if(!$page->editable($field->name)) continue; 
-			if($excludeFullFields && $field->maxFiles > 0) {
+			if($excludeFullFields && $field->get('maxFiles') > 0) {
 				$value = $page->get($field->name);
-				if(wireCount($value) >= $field->maxFiles) continue; 
+				if(wireCount($value) >= $field->get('maxFiles')) continue; 
 			}
 			$imageFields[$field->name] = $field;
 		}
@@ -853,9 +867,21 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(!is_file($image->filename)) throw new WireException("Image file does not exist"); 
 		
 		if($this->field) {
-			$pageimages = $this->page->get($this->field->name);
-			if(!$pageimages || !$pageimages->get($original->name)) {
-				throw new WireException("Please save the page before editing newly uploaded images."); 
+			$found = false;
+			if($this->field->type instanceof FieldtypeImage) {
+				$pageimages = $this->page->get($this->field->name);
+				if($pageimages && $pageimages->get($original->name)) $found = true;
+			} else if(method_exists($this->field->type, 'getPageimages')) {
+				/** @var FieldtypeHasPageimages $fieldtype */
+				$fieldtype = $this->field->type;
+				$pageimages = $fieldtype->getPageimages($this->page, $this->field);
+				foreach($pageimages as $pageimage) {
+					if($pageimage->name === $original->name) $found = true;
+					if($found) break;
+				}
+			}
+			if(!$found) {
+				throw new WireException("Please save the page before editing newly uploaded images.");
 			}
 		}
 		
@@ -1166,15 +1192,20 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		if(!$this->field) throw new WireException("Field is not defined"); 
 		if(!$this->original) throw new WireException("Original is not set");
-		if($this->page->hasStatus(Page::statusLocked)) throw new WireException("Page is locked for edits"); 
-		
+		if($this->page->hasStatus(Page::statusLocked)) throw new WireException("Page is locked for edits");
+
+		$pages = $this->wire()->pages;
+		$input = $this->wire()->input;
+		$fieldtype = $this->field->type;
 		$image = $this->getPageimage(false);
-		if($this->input->get('file') != "$this->page,$image->name") $image = $this->getPageimage(true); 
-		$width = (int) $this->wire('input')->post('width');
+		
+		if($input->get('file') != "$this->page,$image->name") $image = $this->getPageimage(true); 
+		
+		$width = (int) $input->post('width');
 		if(!$width) throw new WireException("Width not specified"); 
 
 		$rebuildVariations = preg_match('/-cropx\d+y\d+/', $image->name); 
-		$useResize = ((int) $this->wire('input')->post('use_resize')) == 1;
+		$useResize = ((int) $input->post('use_resize')) == 1;
 		
 		// image2 = resized version
 		if($useResize) {
@@ -1185,7 +1216,12 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 	
 		/** @var Pageimages $pageimages */
-		$pageimages = $this->page->getUnformatted($this->field->name);
+		if($fieldtype instanceof FieldtypeImage) {
+			$pageimages = $this->page->getUnformatted($this->field->name);
+		} else {
+			$pageimages = $image->pagefiles;
+		}
+		
 		$path = $pageimages->path();
 		$fileID = '';
 		$isNew = 0;
@@ -1208,7 +1244,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 						$thumb = $thumb['thumb'];
 						if($thumb->url != $original->url) {
 							// there is a thumbnail, distinct from the original image
-							$this->wire('files')->unlink($thumb->filename);
+							$this->wire()->files->unlink($thumb->filename);
 						}
 					}
 				}
@@ -1219,23 +1255,29 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					$original->modified = time();
 					$original->modifiedUser = $this->wire('user');
 					/** @var FieldtypeFile $fieldtype */
-					$fieldtype = $this->field->type;
-					$fieldtype->saveFileCols($this->page, $this->field, $original, array(
-						'filesize' => $original->filesize(),
-						'modified' => $original->modified,
-						'modified_users_id' => $original->modified_users_id,
-						'width' => $original->width(),
-						'height' => $original->height(),
-						'ratio' => $original->ratio(),
-					));
+					if($fieldtype instanceof FieldtypeFile) {
+						$fieldtype->saveFileCols($this->page, $this->field, $original, array(
+							'filesize' => $original->filesize(),
+							'modified' => $original->modified,
+							'modified_users_id' => $original->modified_users_id,
+							'width' => $original->width(),
+							'height' => $original->height(),
+							'ratio' => $original->ratio(),
+						));
+					} else {
+						$this->page->trackChange($this->field->name);
+					}
 				}
 			
-				$this->wire('pages')->uncacheAll();	
-				$page = $this->wire('pages')->get($this->page->id); 
+				$pages->uncacheAll();	
+				$page = $pages->get($this->page->id); 
+				
 				/** @var Pageimages $value */
 				$value = $page->getUnformatted($this->field->name); 
+				if(!$value instanceof Pageimages) $value = $pageimages;
 				
 				if($rebuildVariations) {
+					/** @var Pageimage $finalImage */
 					$finalImage = $value->get($this->original);
 					$variationInfo = $finalImage->rebuildVariations(0, array('is', 'hidpi'));
 					foreach($variationInfo as $type => $files) {
@@ -1271,25 +1313,24 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			} while(is_file($pathname));
 			
 			if(!$useResize && !$rebuildVariations) {
-				$this->wire('files')->copy($image2->filename(), $pathname);
+				$this->wire()->files->copy($image2->filename(), $pathname);
 			} else {
-				rename($image2->filename(), $pathname);
+				$this->wire()->files->rename($image2->filename(), $pathname);
 			}
 			$pageimages->add($pathname);
-			$pageimage = $pageimages->last();
+			$pageimage = $pageimages->last(); /** @var Pageimage $pageimage */
 			if(!$this->field->get('overwrite')) $pageimage->isTemp(true);
 			$this->page->save($this->field->name);
 			$fileID = "file_$pageimage->hash";
 			$isNew = 1; 
 			$headline = $this->labels['updating'];
 		}
-	
+
+		$js = 'script';
 		$out = "
 			<h2><i class='fa fa-spin fa-spinner fa-2x fa-fw ui-priority-secondary'></i> $headline</h2>
 			$body
-			<script>
-			$(document).ready(function() { setupProcessSave('$this->fieldName', '$fileID', $isNew); });	
-			</script>
+			<$js>$(document).ready(function() { setupProcessSave('$this->fieldName', '$fileID', $isNew); });</$js>
 			";
 		
 		return $out; 
@@ -1395,12 +1436,12 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				"<span id='selected_image_width'>$width</span>x" .
 				"<span id='selected_image_height'>$height</span> " .
 				"<label><input type='checkbox' id='selected_image_hidpi' $hidpiChecked />hidpi</label><br />" .
-				"<img " . 
+				"<img alt='' " . 
 					"id='selected_image' " . 
 					"class='$class' " . 
 					"data-idname='{$image->page->id},{$image->basename}' " . 
 					"data-nosize='$nosize' " . 
-					"src='{$resized->url}' " . 
+					"src='$resized->url' " . 
 					"width='$width' " . 
 					"height='$height' " .
 				"/>" . 
@@ -1684,31 +1725,36 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	public function getModuleConfigInputfields(array $data) {
 		$inputfields = $this->wire(new InputfieldWrapper());
 		$data = array_merge(self::$defaultConfig, $data); 
-		
-		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$modules = $this->wire()->modules;
+
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox'); 
 		$f->attr('name', 'hidpiDefault'); 
 		$f->label = $this->_('HiDPI/Retina checkbox default checked?'); 
 		$f->description = $this->_('Check this box to have the HiDPI/Retina checkbox checked by default for newly inserted images.'); 
 		if(!empty($data['hidpiDefault'])) $f->attr('checked', 'checked'); 
 		$f->columnWidth = 50;
-		$inputfields->add($f); 
-		
-		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$inputfields->add($f);
+
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox'); 
 		$f->attr('name', 'noThumbs'); 
 		$f->label = $this->_('Do not generate thumbnail images'); 
 		$f->description = $this->_('When checked, image selection will use full-size images rather than thumbnail images.'); 
 		if(!empty($data['noThumbs'])) $f->attr('checked', 'checked');
 		$f->columnWidth = 50;
-		$inputfields->add($f); 
+		$inputfields->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldText'); 
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText'); 
 		$f->attr('name', 'skipFields'); 
 		$f->attr('value', isset($data['skipFields']) ? $data['skipFields'] : ''); 
 		$f->label = $this->_('Field names to skip for selection'); 
 		$f->description = $this->_('Enter the names of any image fields (separated by a space) that you do not want to allow for selection with this module.'); 
-		$inputfields->add($f); 
+		$inputfields->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'noSizeAttrs'); 
 		$f->attr('value', 1);
 		if(!empty($data['noSizeAttrs'])) $f->attr('checked', 'checked');
@@ -1718,23 +1764,26 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$inputfields->add($f);
 
 		$notes = $this->_('Recommended value:') . ' ';
-		$f = $this->wire('modules')->get('InputfieldText'); 
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText'); 
 		$f->attr('name', 'alignLeftClass');
 		$f->attr('value', $data['alignLeftClass']); 
 		$f->label = $this->_('Align Image Left Class'); 
 		$f->notes = $notes . '**align_left**';
 		$f->columnWidth = 33; 
 		$inputfields->add($f);
-		
-		$f = $this->wire('modules')->get('InputfieldText'); 
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText'); 
 		$f->attr('name', 'alignCenterClass');
 		$f->attr('value', $data['alignCenterClass']); 
 		$f->label = $this->_('Align Image Center Class');
 		$f->notes = $notes . '**align_center**';
 		$f->columnWidth = 34; 
 		$inputfields->add($f);
-		
-		$f = $this->wire('modules')->get('InputfieldText');
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'alignRightClass');
 		$f->attr('value', $data['alignRightClass']);
 		$f->label = $this->_('Align Image Right Class');

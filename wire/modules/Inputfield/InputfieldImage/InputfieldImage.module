@@ -22,6 +22,7 @@
  * @property int $adminThumbScale for backwards compatibility only
  * @property int|bool $resizeServer Resize to max width/height at server? 1=Server-only, 0=Use client-side resize when possible (default=0). 
  * @property int $clientQuality Quality setting to use for client-side resize. 60=60%, 90=90%, etc. (default=90). 
+ * @property string $editFieldName Field name to use for linking to image editor (default=current Inputfield name)
  *
  * The following properties default values are pulled from $config->adminThumbOptions and can be overridden
  * by setting directly to an instance of this Inputfield:
@@ -102,6 +103,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$this->set('clientQuality', 90);
 		$this->set('dimensionsByAspectRatio', 0);
 		$this->set('itemClass', 'gridImage ui-widget');
+		$this->set('editFieldName', ''); // field name to use for image editor (default=name of this inputfield)
 
 		$options = $this->wire('config')->adminThumbOptions;
 		if(!is_array($options)) $options = array();
@@ -386,7 +388,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 
 		if(!$pagefile->width) {
 			$pagefile->unlink();
-			throw new WireException($this->_('Invalid image'));
+			throw new WireException($this->_('Invalid image') . ' (width=0)');
 		}
 
 		$minWidth = $this->minWidth;
@@ -1016,7 +1018,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * 
 	 */
 	protected function getVariationUrl($pagefile, $id) {
-		return $this->wire('config')->urls->admin . "page/image/variations/" . 
+		return $this->wire()->config->urls->admin . "page/image/variations/" . 
 			"?id={$pagefile->page->id}" . 
 			"&file=$pagefile->name" . 
 			"&modal=1" . 
@@ -1043,11 +1045,12 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * 
 	 */
 	protected function getEditUrl(Pagefile $pagefile, $pageID) {
-		return $this->wire('config')->urls->admin . "page/image/edit/" . 
+		$name = $this->editFieldName ? $this->editFieldName : $this->name;
+		return $this->wire()->config->urls->admin . "page/image/edit/" . 
 			"?id=$pageID" . 
 			"&file=$pageID,$pagefile->name" . 
 			"&rte=0" . 
-			"&field=$this->name";
+			"&field=$name";
 	}
 
 	/**
