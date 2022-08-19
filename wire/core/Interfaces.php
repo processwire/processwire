@@ -202,6 +202,39 @@ interface FieldtypeHasFiles {
 	public function getFilesPath(Page $page, Field $field); 
 }
 
+/**
+ * Indicates Fieldtype manages Pagefile/Pageimage objects
+ * 
+ */
+interface FieldtypeHasPagefiles {
+	
+	/**
+	 * Get Pagefiles
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Pagefiles|Pagefile[]
+	 * 
+	 */
+	public function getPagefiles(Page $page, Field $field); 
+}
+
+/**
+ * Indicates Fieldtype manages Pageimage objects
+ *
+ */
+interface FieldtypeHasPageimages {
+
+	/**
+	 * Get Pageimages
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Pageimages|Pageimage[]
+	 *
+	 */
+	public function getPageimages(Page $page, Field $field);
+}
 
 /**
  * Indicates that an Inputfield provides tree selection capabilities

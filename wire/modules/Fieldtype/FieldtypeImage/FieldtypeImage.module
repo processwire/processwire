@@ -15,7 +15,7 @@
  *
  */
 
-class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles {
+class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, FieldtypeHasPageimages {
 	
 	/**
 	 * File schema is configured to store dimensions for image files 'width', 'height', 'ratio' (flag)
@@ -47,6 +47,7 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles {
 	 * 
 	 */
 	public function getBlankValue(Page $page, Field $field) {
+		/** @var Pageimages $pageimages */
 		$pageimages = $this->wire(new Pageimages($page));
 		$pageimages->setField($field);
 		$pageimages->setTrackChanges(true); 
@@ -251,6 +252,7 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles {
 		}
 		
 		foreach($value as $pageimage) {
+			/** @var Pageimage $pageimage */
 			$file = $pageimage->filename();
 			$path = dirname($file) . '/';
 			$files[] = $file;
@@ -261,6 +263,23 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles {
 		}
 		
 		return $files;
+	}
+
+	/**
+	 * Get Pageimages
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Pageimages
+	 *
+	 */
+	public function getPageimages(Page $page, Field $field) {
+		/** @var Pageimages|Pageimage|null $value */
+		$value = $page->get($field->name);
+		if($value instanceof Pageimages) return $value;
+		$pageimages = $this->getBlankValue($page, $field);
+		if($value instanceof Pageimage) $pageimages->add($value);
+		return $pageimages;
 	}
 	
 	/**

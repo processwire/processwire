@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property array $allowFieldtypes Allowed Fieldtype types for custom fields
@@ -18,7 +18,7 @@
  *
  */
 
-class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, FieldtypeHasFiles {
+class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, FieldtypeHasFiles, FieldtypeHasPagefiles {
 	
 	public static function getModuleInfo() {
 		return array(
@@ -164,8 +164,8 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 
 		$inputfield = null;
 		$inputfieldClass = $field->get('inputfieldClass');
-		if($inputfieldClass) $inputfield = $this->modules->get($inputfieldClass); 
-		if(!$inputfield) $inputfield = $this->modules->get($this->defaultInputfieldClass); 
+		if($inputfieldClass) $inputfield = $this->wire()->modules->get($inputfieldClass); 
+		if(!$inputfield) $inputfield = $this->wire()->modules->get($this->defaultInputfieldClass); 
 		/** @var Inputfield $inputfield */
 		$inputfield->class = $this->className();
 
@@ -223,7 +223,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$options = array(
 			'page' => $page, 
 			'field' => $field, 
-			);
+		);
 
 		$inputfield->addHookBefore('processInput', $this, 'hookProcessInput', $options); 
 	}
@@ -239,10 +239,8 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	public function hookProcessInput($event) {
 		/** @var InputfieldFile $inputfield */
 		$inputfield = $event->object; 	
-		/** @var Page $page */
-		$page = $event->options['page']; 
-		/** @var Field $field */
-		$field = $event->options['field']; 
+		$page = $event->options['page']; /** @var Page $page */
+		$field = $event->options['field']; /** @var Field $field */
 		$pagefiles = $page->get($field->name); 
 		$inputfield->destinationPath = $pagefiles->path();
 	}
@@ -282,16 +280,19 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|array $value
-	 * @return string|int|array|object $value
+	 * @return Pagefiles|null $value
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 
 		if($value instanceof Pagefiles) return $value; 
+		
 		$pagefiles = $this->getBlankValue($page, $field); 
 		if(empty($value)) return $pagefiles; 
 	
-		if(!is_array($value) || array_key_exists('data', $value)) $value = array($value); 
+		if(!is_array($value) || array_key_exists('data', $value)) {
+			$value = array($value);
+		}
 		
 		foreach($value as $a) {
 			if(empty($a['data'])) continue;
@@ -379,8 +380,6 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * 
 	 */
 	protected function sleepFile(Page $page, Field $field, Pagefile $pagefile) {
-		
-		if($page) {} // ignore
 		
 		$isNew = $pagefile->isNew();
 		$isChanged = $pagefile->isChanged();
@@ -596,8 +595,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	protected function exportDescription($value) {
 		
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		
 		if(is_string($value)) {
 			if(strpos($value, '[') !== 0 && strpos($value, '{') !== 0) return $value;
@@ -701,12 +699,15 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
-
+		
 		if(!$value instanceof Pagefiles) return $value; 
 		
 		/** @var Pagefiles $value */
+		
+		$modules = $this->wire()->modules;
 
 		foreach($value as $pagefile) {
+			/** @var Pagefile $pagefile */
 			if($pagefile->isTemp()) $value->removeQuietly($pagefile); 
 		}
 		
@@ -716,9 +717,11 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$useTags = (int) $field->get('useTags'); 
 	
 		foreach($textformatters as $name) {
-			$textformatter = $this->wire('modules')->get($name); 
+			/** @var Textformatter $textformatter */
+			$textformatter = $modules->get($name); 
 			if(!$textformatter) continue;
 			foreach($value as $v) {
+				/** @var Pagefile $v */
 				if($v->formatted()) continue; 
 				$description = $v->description;
 				$textformatter->formatValue($page, $field, $description);	
@@ -732,6 +735,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		}
 		
 		foreach($value as $v) {
+			/** @var Pagefile $v */
 			$v->formatted = true;
 		}
 
@@ -772,7 +776,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		}
 		
 		if($isEmpty && $field->get('defaultValuePage')) {
-			$defaultPage = $this->wire('pages')->get((int) $field->get('defaultValuePage')); 
+			$defaultPage = $this->wire()->pages->get((int) $field->get('defaultValuePage')); 
 			if($defaultPage->id && $defaultPage->id != $page->id) {
 				$value = $defaultPage->get($field->name);	
 			}
@@ -791,7 +795,6 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * 
 	 */
 	protected function ___formatValueString(Page $page, Field $field, $value) {
-		if($page) {} // ignore
 		$out = '';
 		$outputString = $field->get('outputString');
 		if(empty($outputString)) $outputString = '{url}';
@@ -951,7 +954,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		if(($operator === '=' || $operator === '!=') && ctype_alnum("$value") && strlen("$value") <= 128) {
 			// we can match our index value in filedata[ix]
 			$operator = $operator === '=' ? '~=' : '!~=';
-			$value = $property ? "{$field->id}_{$property}_$value" : "{$field->id}_$value";;
+			$value = $property ? "{$field->id}_{$property}_$value" : "{$field->id}_$value";
 
 		} else if($operator === '=') {
 			$operator = ctype_alnum("$value") ? '~=' : '*='; // ok
@@ -1222,6 +1225,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				// $pagefiles->removeAll() not used here because it queues delete to $page->save(),
 				// which does not occur when a field is removed from a template
 				foreach($pagefiles as $pagefile) {
+					/** @var Pagefile $pagefile */
 					$pagefile->unlink();
 				}
 
@@ -1330,7 +1334,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * 
 	 * @param Field $field
 	 * @param DatabaseQuerySelect $query
-	 * @return DatabaseQuerySelect
+	 * @return DatabaseQuerySelect|null
 	 *
 	 */
 	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
@@ -1348,17 +1352,18 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * 
 	 */
 	public function getFieldsTemplate(Field $field) {
-		$template = $this->wire('templates')->get('field-' . $field->name);
+		$template = $this->wire()->templates->get('field-' . $field->name);
 		if(!$template) return null;
 		// prepare fieldgroup used by template
 		$fieldgroup = $template->fieldgroup;
 		if($this->className() === 'FieldtypeFile') {
 			$allowFieldtypes = $this->allowFieldtypes;
 		} else {
-			$allowFieldtypes = $this->wire('fieldtypes')->get('FieldtypeFile')->get('allowFieldtypes');
+			$allowFieldtypes = $this->wire()->fieldtypes->get('FieldtypeFile')->get('allowFieldtypes');
 		}
 		$allowFieldtypes = array_flip($allowFieldtypes);
 		foreach($fieldgroup as $f) {
+			/** @var Field $f */
 			$name = str_replace('Fieldtype', '', $f->type->className());
 			if(!isset($allowFieldtypes[$name])) $fieldgroup->softRemove($f);
 		}
@@ -1376,7 +1381,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * 
 	 */
 	public function getFieldsPage(Field $field) {
-		$page = $this->wire('pages')->newPage($this->getFieldsTemplate($field));
+		$page = $this->wire()->pages->newPage($this->getFieldsTemplate($field));
 		$page->status = Page::statusOn | Page::statusCorrupted; // corrupted status prevents saving
 		return $page;
 	}
@@ -1394,12 +1399,14 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	public function getPagefile(Page $page, $basename) {
 		$pagefile = null;
 		foreach($page->template->fieldgroup as $field) {
+			/** @var Field $field */
 			if(!($field->type instanceof FieldtypeFile)) continue;
 			$pagefiles = $page->get($field->name);
 			if($pagefiles instanceof Pagefile) {
 				if($pagefiles->basename() === $basename) $pagefile = $pagefiles;
 			} else if($pagefiles instanceof Pagefiles) {
 				foreach($pagefiles as $f) {
+					/** @var Pagefile $f */
 					if($f->basename() === $basename) $pagefile = $f;
 					if($pagefile) break;
 				}
@@ -1497,7 +1504,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	public function saveFileCols(Page $page, Field $field, Pagefile $pagefile, array $a) {
 		
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$schema = $this->getDatabaseSchema($field);
 		$binds = array(':pid' => $page->id, ':name' => $pagefile->name);
@@ -1644,11 +1651,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	public function getFiles(Page $page, Field $field) {
 		$value = $page->get($field->name); 
 		if($value instanceof Pagefile) {
-			/** @var Pagefile $value */
 			return array($value->filename());
 		}
 		if($value instanceof Pagefiles && $value->count()) {
-			/** @var Pagefiles $value */
 			return $value->explode('filename');
 		}
 		return array();
@@ -1664,6 +1669,23 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	public function getFilesPath(Page $page, Field $field) {
 		return PagefilesManager::_path($page);
+	}
+
+	/**
+	 * Get Pagefiles 
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Pagefiles
+	 * 
+	 */
+	public function getPagefiles(Page $page, Field $field) {
+		/** @var Pagefiles|Pagefile|null $value */
+		$value = $page->get($field->name);
+		if($value instanceof Pagefiles) return $value;
+		$pagefiles = $this->getBlankValue($page, $field);
+		if($value instanceof Pagefile) $pagefiles->add($value);
+		return $pagefiles;
 	}
 
 	/**
