@@ -35,6 +35,7 @@ class PagesEditor extends Wire {
 	 *
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 
 		$config = $pages->wire()->config;
@@ -200,7 +201,7 @@ class PagesEditor extends Wire {
 			if($saveable) foreach($page->getArray() as $key => $value) {
 				if($fieldName && $key != $fieldName) continue;
 				if(!$page->template->fieldgroup->getField($key)) continue;
-				if(is_object($value) && $value instanceof Wire && $value->isChanged()) {
+				if($value instanceof Wire && $value->isChanged()) {
 					$reason = $outputFormattingReason . " [$key]";
 					$saveable = false;
 					break;
@@ -367,6 +368,7 @@ class PagesEditor extends Wire {
 
 		// assign any default values for fields
 		foreach($page->template->fieldgroup as $field) {
+			/** @var Field $field */
 			if($page->isLoaded($field->name)) continue; // value already set
 			if(!$page->hasField($field)) continue; // field not valid for page
 			if(!strlen("$field->defaultValue")) continue; // no defaultValue property defined with Fieldtype config inputfields
@@ -559,7 +561,7 @@ class PagesEditor extends Wire {
 			}
 		}
 
-		if(isset($data['modified_users_id'])) $page->modified_users_id = $data['modified_users_id'];
+		$page->modified_users_id = $data['modified_users_id'];
 		if(isset($data['created_users_id'])) $page->created_users_id = $data['created_users_id'];
 
 		if(!$page->isUnpublished() && ($isNew || ($page->statusPrevious && ($page->statusPrevious & Page::statusUnpublished)))) {
@@ -715,6 +717,7 @@ class PagesEditor extends Wire {
 
 		// save each individual Fieldtype data in the fields_* tables
 		foreach($page->fieldgroup as $field) {
+			/** @var Field $field */
 			$fieldtype = $field->type;
 			$name = $field->name;
 			if($options['noFields'] || isset($corruptedFields[$name]) || !$fieldtype || !$page->hasField($field)) {
@@ -883,6 +886,8 @@ class PagesEditor extends Wire {
 		}
 		
 		if($field->type->savePageField($page, $field)) {
+			// if page has a files path (or might have previously), trigger filesManager's save
+			if(PagefilesManager::hasPath($page)) $page->filesManager->save();
 			$page->untrackChange($field->name);
 			if(empty($options['quiet'])) {
 				$user = $this->wire()->user;
@@ -1184,6 +1189,7 @@ class PagesEditor extends Wire {
 
 		// Ensure all data is loaded for the page
 		foreach($page->fieldgroup as $field) {
+			/** @var Field $field */
 			if($page->hasField($field->name)) $page->get($field->name);
 		}
 	
@@ -1380,7 +1386,7 @@ class PagesEditor extends Wire {
 			$sql .= ':time ';
 		}
 
-		if($user && $user instanceof User && ($col === 'modified' || $col === 'created')) {
+		if($user instanceof User && ($col === 'modified' || $col === 'created')) {
 			$sql .= ", {$col}_users_id=:user ";
 		} 
 		
@@ -1404,7 +1410,7 @@ class PagesEditor extends Wire {
 	 * @param Page $child Page that you want to move.
 	 * @param Page|int|string $parent Parent to move it under (may be Page object, path string, or ID integer).
 	 * @param array $options Options to modify behavior (see PagesEditor::save for options). 
-	 * @return bool|array True on success or false if not necessary.
+	 * @return bool True on success or false if not necessary.
 	 * @throws WireException if given parent does not exist, or move is not allowed
 	 *
 	 */
@@ -1673,10 +1679,12 @@ class PagesEditor extends Wire {
 		if($options['clearFields']) {
 			foreach($page->fieldgroup as $field) {
 				/** @var Field $field  */
+				/** @var Fieldtype $fieldtype */
+				$fieldtype = $field->type;
 				if($options['clearMethod'] === 'delete') {
-						$result = $field->type->deletePageField($page, $field);
+						$result = $fieldtype->deletePageField($page, $field);
 					} else {
-						$result = $field->type->emptyPageField($page, $field);
+						$result = $fieldtype->emptyPageField($page, $field);
 					}
 				if(!$result) {	
 					$errors[] = "Unable to clear field '$field' from page $page";
