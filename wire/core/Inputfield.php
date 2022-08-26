@@ -97,7 +97,7 @@
  * ===================
  * @property int|bool $required Set to true (or 1) to make input required, or false (or 0) to make not required (default=0). #pw-group-behavior
  * @property string $requiredIf Optional conditions under which input is required (selector string). #pw-group-behavior
- * @property int|bool|null $requiredAttr Use HTML5 “required” attribute when used by Inputfield and $required is true? Default=null. #pw-group-behavior
+ * @property int|bool|null $requiredAttr Use HTML5 “required” attribute when used by Inputfield and $required is true? Default=null. #pw-group-behavior
  * @property InputfieldWrapper|null $parent The parent InputfieldWrapper for this Inputfield or null if not set. #pw-internal
  * @property null|bool|Fieldtype $hasFieldtype The Fieldtype using this Inputfield, or boolean false when known not to have a Fieldtype, or null when not known. #pw-group-other
  * @property null|Field $hasField The Field object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
@@ -106,10 +106,12 @@
  * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior
  * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label (default=true). #pw-group-output
  * @property null|bool $entityEncodeText Set to boolean false to specifically disable entity encoding for other text: description, notes, etc. (default=true). #pw-group-output
+ * @property int $renderFlags Options that can be applied to render, see "render*" constants (default=0). #pw-group-output 3.0.204+
  * @property int $renderValueFlags Options that can be applied to renderValue mode, see "renderValue" constants (default=0). #pw-group-output
  * @property string $wrapClass Optional class name (CSS) to apply to the HTML element wrapping the Inputfield. #pw-group-other
  * @property string $headerClass Optional class name (CSS) to apply to the InputfieldHeader element #pw-group-other
  * @property string $contentClass Optional class name (CSS) to apply to the InputfieldContent element #pw-group-other
+ * @property string $addClass Formatted class string letting you add class to any of the above (see addClass method). #pw-group-other 3.0.204+
  * @property int|null $textFormat Text format to use for description/notes text in Inputfield (see textFormat constants) #pw-group-output
  * 
  * @method string|Inputfield required($required = null) Get or set required state. @since 3.0.110 #pw-group-behavior
@@ -299,6 +301,20 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */
 	const textFormatMarkdown = 8;
+	
+	/**
+	 * Render flags: place first in render
+	 * #pw-group-render-constants
+	 *
+	 */
+	const renderFirst = 1;
+
+	/**
+	 * Render flags: place last in render
+	 * #pw-group-render-constants
+	 *
+	 */
+	const renderLast = 2;
 
 	/**
 	 * Render only the minimum output when in "renderValue" mode.
@@ -401,7 +417,9 @@ abstract class Inputfield extends WireData implements Module {
 		$this->set('wrapClass', ''); // optional class to apply to the Inputfield wrapper (contains InputfieldHeader + InputfieldContent)
 		$this->set('headerClass', ''); // optional class to apply to InputfieldHeader wrapper
 		$this->set('contentClass', ''); // optional class to apply to InputfieldContent wrapper
+		$this->set('addClass', ''); // space-separated classes to add, optionally specifying element (see addClassString method)
 		$this->set('textFormat', self::textFormatBasic); // format applied to description and notes
+		$this->set('renderFlags', 0);  // See render* constants
 		$this->set('renderValueFlags', 0); // see renderValue* constants, applicable to renderValue mode only
 		$this->set('prependMarkup', ''); // markup to prepend to Inputfield output
 		$this->set('appendMarkup', ''); // markup to append to Inputfield output
@@ -479,17 +497,32 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */
 	public function set($key, $value) {
-		if($key == 'parent' && ($value instanceof InputfieldWrapper)) return $this->setParent($value); 
-		if($key == 'collapsed') {
+		
+		if($key === 'parent') { 
+			if($value instanceof InputfieldWrapper) return $this->setParent($value);
+
+		} else if($key === 'collapsed') {
 			if($value === true) $value = self::collapsedYes; 
 			$value = (int) $value;
-		}
-		if(array_key_exists($key, $this->attributes)) return $this->setAttribute($key, $value); 
-		if($key == 'required' && $value && !is_object($value)) $this->addClass('required'); 
-		if($key == 'columnWidth') {
+			
+		} else if(array_key_exists($key, $this->attributes)) {
+			return $this->setAttribute($key, $value);
+			
+		} else if($key === 'required' && $value && !is_object($value)) {
+			$this->addClass('required');
+			
+		} else if($key === 'columnWidth') {
 			$value = (int) $value; 
 			if($value < 10 || $value > 99) $value = '';
+			
+		} else if($key === 'addClass') {
+			if(is_string($value) && !ctype_alnum($value)) {
+				$test = str_replace(array(' ', ':', ',', '-', '_', '.', '@', "\n"), '', $value);
+				if(!ctype_alnum($test)) $value = preg_replace('![^-_:@,. a-zA-Z0-9\n]!', '', $value);
+			}
+			$this->addClass($value);
 		}
+		
 		return parent::set($key, $value); 
 	}
 
@@ -989,7 +1022,7 @@ abstract class Inputfield extends WireData implements Module {
 	/**
 	 * Add a class or classes to this Inputfield (or a wrapping element)
 	 * 
-	 * If given a class name that's already present, it won't be added again. 
+	 * If given a class name that’s already present, it won’t be added again. 
 	 * 
 	 * ~~~~~
 	 * // Add class "foobar" to input element
@@ -1000,14 +1033,39 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * // Add class "foobar" to .Inputfield wrapping element
 	 * $inputfield->addClass('foobar', 'wrapClass'); 
+	 * 
+	 * // Add classes while specifying Inputfield element (3.0.204+)
+	 * $inputfield->addClass('wrap:card, header:card-header, content:card-body'); 
 	 * ~~~~~
 	 * 
+	 * **Formatted string option (3.0.204+):**  
+	 * Classes can be added by formatted string that dictates what Inputfield element they 
+	 * should be added to, in the format `element:classNames` like in this example below: 
+	 * ~~~~~
+	 * wrap:card card-default
+	 * header:card-header
+	 * content:card-body
+	 * input:form-input input-checkbox
+	 * ~~~~~
+	 * Each line represents a group containing an element name and one or more space-separated
+	 * classes. Groups may be separated by newline (like above) or with a comma. The element
+	 * name may be any one of the following:
+	 *
+	 *  - `wrap`: The .Inputfield element that wraps the header and content
+	 *  - `header`: The .InputfieldHeader element, typically a `<label>`.
+	 *  - `content`: The .InputfieldContent element that wraps the input(s), typically a `<div>`.
+	 *  - `input`: The primary `<input>` element(s) that accept input for the Inputfield.
+	 *  - `class`: This is the same as the 'input' type, just an alias.
+	 *
+	 * Class names prefixed with a minus sign i.e. `-class` will be removed rather than added.
+	 *
 	 * #pw-group-attribute-methods
 	 * 
 	 * @param string|array $class Specify one of the following:
 	 *   - Class name you want to add.
 	 *   - Multiple space-separated class names you want to add.
 	 *   - Array of class names you want to add (since 3.0.16).
+	 *   - Formatted string of classes as described in method description (since 3.0.204+).
 	 * @param string $property Optionally specify the type of class you want to add: 
 	 *   - Omit for the default (which is "class"). 
 	 *   - `class` (string): Add class to the input element (or whatever the Inputfield default is). 
@@ -1015,54 +1073,102 @@ abstract class Inputfield extends WireData implements Module {
 	 *   - `headerClass` (string): Add class to ".InputfieldHeader" label element. 
 	 *   - `contentClass` (string): Add class to ".InputfieldContent" wrapping element. 
 	 *   - Or some other named class attribute designated by a descending Inputfield.
+	 *   - You can optionally omit the `Class` suffix in 3.0.204+, i.e. `wrap` rather than `wrapClass`. 
 	 * @return $this
-	 * @throws WireException when given invalid arguments
 	 * @see Inputfield::hasClass(), Inputfield::removeClass()
 	 * 
 	 */
 	public function addClass($class, $property = 'class') {
-	
-		// determine which type of class we are adding, and get existing value
-		if($property == 'class' || empty($property)) {
-			$value = $this->getAttribute('class');
-		} else if($property == 'contentClass' || $property == 'content') {
-			$value = $this->contentClass;
-		} else if($property == 'wrapClass' || $property == 'wrap') {
-			$value = $this->wrapClass;
-		} else if($property == 'headerClass' || $property == 'header') {
-			$value = $this->headerClass;
-		} else if(!is_string($property)) { 
-			throw new WireException("addClass() property name must be a string");
-		} else {
-			// some other class property unknown by this base class
-			$value = $this->getSetting($property); 
-			if(!is_string($value) && !is_null($value)) throw new WireException("Invalid class property for addClass()"); 
-			if(is_null($value)) $value = '';
+		
+		if(is_string($class) && !ctype_alnum($class)) {
+			if(strpos($class, ':') || strpos($class, "\n") || strpos($class, ",")) {
+				return $this->addClassString($class, $property);
+			}
 		}
-	
-		// classes is array of current classes
-		$classes = explode(' ', $value); 
 
+		$property = $this->getClassProperty($property);
+		$classes = $this->getClassArray($property, true);
+		
 		// addClasses is array of classes being added
 		$addClasses = is_array($class) ? $class : explode(' ', $class); 
 	
 		// add to $classes array
 		foreach($addClasses as $addClass) {
 			$addClass = trim($addClass); 
-			if(!strlen($addClass)) continue;
-			$classes[] = $addClass;
+			if(strlen($addClass)) $classes[$addClass] = $addClass;
 		}
 		
-		$classes = array_unique($classes);
-	
 		// convert back to string
 		$value = trim(implode(' ', $classes)); 
 	
 		// set back to Inputfield
-		if($property == 'class') {
+		if($property === 'class') {
 			$this->attributes['class'] = $value;
 		} else {
 			$this->set($property, $value); 
+		}
+		
+		return $this;
+	}
+
+	/**
+	 * Add class(es) by formatted string that lets you specify where class should be added
+	 * 
+	 * To use this in the public API use `addClass()` method or set the `addClass` property
+	 * with a formatted string value as indicated here. 
+	 * 
+	 * Allows for setting via formatted string like:
+	 * ~~~~~
+	 * wrap:card card-default
+	 * header:card-header
+	 * content:card-body
+	 * input:form-input input-checkbox
+	 * ~~~~~
+	 * Each line represents a group containing a element name and one or more space-separated 
+	 * classes. Groups may be separated by newline (like above) or with a comma. The element
+	 * name may be any one of the following: 
+	 * 
+	 *  - `wrap`: The .Inputfield element that wraps the header and content
+	 *  - `header`: The .InputfieldHeader element, typically a `<label>`. 
+	 *  - `content`: The .InputfieldContent element that wraps the input(s), typically a `<div>`.
+	 *  - `input`: The primary `<input>` element(s) that accept input for the Inputfield.
+	 *  - `class`: This is the same as the 'input' type, just an alias. 
+	 * 
+	 * Class names prefixed with a minus sign i.e. `-class` will be removed rather than added.
+	 * 
+	 * @param string $class Formatted class string to parse class types and names from
+	 * @param string $property Default/fallback property if not indicated in string
+	 * @return self
+	 * @since 3.0.204
+	 *
+	 * 
+	 */
+	protected function addClassString($class, $property = 'class') {
+		
+		if(ctype_alnum($class)) return $this->addClass($class, $property);
+		
+		$class = trim($class);
+		if(strpos($class, "\n")) $class = str_replace("\n", ",", $class);
+		$groups = strpos($class, ',') ? explode(',', $class) : array($class);
+		
+		foreach($groups as $group) {
+			
+			$type = $property;
+			$group = trim($group);
+			$classes = explode(' ', $group);
+			
+			foreach($classes as $class) {
+				if(empty($class)) continue;
+				if(strpos($class, ':')) {
+					// setting new type
+					list($type, $class) = explode(':', $class, 2);
+				}
+				if(strpos($class, '-') === 0) {
+					$this->removeClass(ltrim($class, '-'), $type);
+				} else {
+					$this->addClass($class, $type);
+				}
+			}
 		}
 		
 		return $this;
@@ -1120,13 +1226,50 @@ abstract class Inputfield extends WireData implements Module {
 		}
 	
 		// checking single class
-		if($property == 'class') {
-			$value = explode(' ', $this->getAttribute('class'));
-		} else {
-			$value = explode(' ', $this->$property);
+		$classes = $this->getClassArray($property, true);
+	
+		return isset($classes[$class]); 
+	}
+
+	/**
+	 * Get classes in array for given class property
+	 * 
+	 * @param string $property One of 'wrap', 'header', 'content' or 'input' (or alias 'class')
+	 * @param bool $assoc Return as associative array where both keys and values are class names? (default=false)
+	 * @return array
+	 * @since 3.0.204
+	 * 
+	 */
+	public function getClassArray($property = 'class', $assoc = false) {
+		$property = $this->getClassProperty($property);
+		$value = trim($property === 'class' ? $this->attr('class') : $this->getSetting($property));
+		while(strpos($value, '  ') !== false) $value = str_replace('  ', ' ', $value);
+		$classes = strlen($value) ? explode(' ', $value) : array();
+		if($assoc) {
+			$a = array();
+			foreach($classes as $class) $a[$class] = $class;
+			$classes = $a;
 		}
-		
-		return in_array($class, $value); 
+		return $classes;
+	}
+
+	/**
+	 * Get the internal property name for given class property
+	 * 
+	 * This converts things like 'wrap' to 'wrapClass', 'header' to 'headerClass', etc. 
+	 * 
+	 * @param string $property
+	 * @return string
+	 * @since 3.0.204
+	 * 
+	 */
+	protected function getClassProperty($property) {
+		if($property === 'class' || $property === 'input' || empty($property)) {
+			$property = 'class';
+		} else if(strpos($property, 'Class') === false) {
+			if(in_array($property, array('wrap', 'header', 'content'))) $property .= 'Class';
+		}
+		return $property;
 	}
 
 	/**
@@ -1160,22 +1303,16 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */
 	public function removeClass($class, $property = 'class') {
-		
-		if($property == 'class') {
-			$classes = explode(' ', $this->getAttribute('class'));
-		} else {
-			$classes = explode(' ', $this->$property); 
-		}
-
+	
+		$property = $this->getClassProperty($property);
+		$classes = $this->getClassArray($property, true);
 		$removeClasses = is_array($class) ? $class : explode(' ', $class); 
 		
 		foreach($removeClasses as $removeClass) {
-			if(!strlen($removeClass)) continue;
-			$key = array_search($removeClass, $classes);
-			if($key !== false) unset($classes[$key]);
+			if(strlen($removeClass)) unset($classes[$removeClass]);
 		}
 		
-		if($property == 'class') {
+		if($property === 'class') {
 			$this->attributes['class'] = implode(' ', $classes);
 		} else {
 			$this->set($property, implode(' ', $classes));
@@ -1226,6 +1363,11 @@ abstract class Inputfield extends WireData implements Module {
 				// if an attribute has multiple values (like class), then bundle them into a string separated by spaces
 				$value = implode(' ', $value);
 				
+			} else if(is_bool($value)) {
+				// boolean attribute uses only attribute name when true, or omit when false
+				if($value === true) $str .= "$attr ";
+				continue;
+				
 			} else if(!strlen("$value") && strpos($attr, 'data-') !== 0) {
 				// skip over empty non-data attributes that are not arrays
 				// if(!$value = $this->attr($attr))) continue; // was in 3.0.132 and earlier
@@ -1265,10 +1407,10 @@ abstract class Inputfield extends WireData implements Module {
 		if(is_array($value)) {
 			if(!count($value)) return '';
 			$out = "<ul>";
-			foreach($value as $v) $out .= "<li>" . $this->wire('sanitizer')->entities($v) . "</li>";
+			foreach($value as $v) $out .= "<li>" . $this->wire()->sanitizer->entities($v) . "</li>";
 			$out .= "</ul>";
 		} else {
-			$out = $this->wire('sanitizer')->entities($value); 
+			$out = $this->wire()->sanitizer->entities($value); 
 		}
 		return $out; 
 	}
@@ -1295,10 +1437,8 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
-		if($parent) {}
-		if($renderValueMode) {}
-		$result = $this->wire('modules')->loadModuleFileAssets($this) > 0;
-		if($this->wire('hooks')->isMethodHooked($this, 'renderReadyHook')) {
+		$result = $this->wire()->modules->loadModuleFileAssets($this) > 0;
+		if($this->wire()->hooks->isMethodHooked($this, 'renderReadyHook')) {
 			$this->renderReadyHook($parent, $renderValueMode);
 		}
 		return $result;
@@ -1475,81 +1615,82 @@ abstract class Inputfield extends WireData implements Module {
 		$fieldset->label = $this->_('Visibility'); 
 		$fieldset->attr('name', 'visibility'); 
 		$fieldset->icon = 'eye';
-	
-		$field = $inputfields->InputfieldSelect;
-		$field->attr('name', 'collapsed'); 
-		$field->label = $this->_('Presentation'); 
-		$field->icon = 'eye-slash';
-		$field->description = $this->_("How should this field be displayed in the editor?");
-		$field->addOption(self::collapsedNo, $this->_('Open'));
-		$field->addOption(self::collapsedNever, $this->_('Open + Cannot be closed'));
-		$field->addOption(self::collapsedNoLocked, $this->_('Open + Locked (not editable)'));
-		$field->addOption(self::collapsedBlank, $this->_('Open when populated + Closed when blank'));
-		if($this->hasFieldtype !== false) {
-			$field->addOption(self::collapsedBlankAjax, $this->_('Open when populated + Closed when blank + Load only when opened (AJAX)') . " †");
+		if($this->collapsed == Inputfield::collapsedNo && !$this->getSetting('showIf')) {
+			$fieldset->collapsed = Inputfield::collapsedYes;
 		}
-		$field->addOption(self::collapsedBlankLocked, $this->_('Open when populated + Closed when blank + Locked (not editable)'));
-		$field->addOption(self::collapsedPopulated, $this->_('Open when blank + Closed when populated'));
-		$field->addOption(self::collapsedYes, $this->_('Closed')); 
-		$field->addOption(self::collapsedYesLocked, $this->_('Closed + Locked (not editable)'));
+		$inputfields->append($fieldset);
+
+		$f = $inputfields->InputfieldSelect;
+		$f->attr('name', 'collapsed'); 
+		$f->label = $this->_('Presentation'); 
+		$f->icon = 'eye-slash';
+		$f->description = $this->_("How should this field be displayed in the editor?");
+		$f->addOption(self::collapsedNo, $this->_('Open'));
+		$f->addOption(self::collapsedNever, $this->_('Open + Cannot be closed'));
+		$f->addOption(self::collapsedNoLocked, $this->_('Open + Locked (not editable)'));
+		$f->addOption(self::collapsedBlank, $this->_('Open when populated + Closed when blank'));
 		if($this->hasFieldtype !== false) {
-			$field->addOption(self::collapsedYesAjax, $this->_('Closed + Load only when opened (AJAX)') . " †");
-			$field->notes = sprintf($this->_('Options indicated with %s may not work with all input types or placements, test to ensure compatibility.'), '†');
-			$field->addOption(self::collapsedTab, $this->_('Tab'));
-			$field->addOption(self::collapsedTabAjax, $this->_('Tab + Load only when clicked (AJAX)') . " †");
-			$field->addOption(self::collapsedTabLocked, $this->_('Tab + Locked (not editable)'));
+			$f->addOption(self::collapsedBlankAjax, $this->_('Open when populated + Closed when blank + Load only when opened (AJAX)') . " †");
 		}
-		$field->addOption(self::collapsedHidden, $this->_('Hidden (not shown in the editor)'));
-		$field->attr('value', (int) $this->collapsed); 
-		$fieldset->append($field); 
+		$f->addOption(self::collapsedBlankLocked, $this->_('Open when populated + Closed when blank + Locked (not editable)'));
+		$f->addOption(self::collapsedPopulated, $this->_('Open when blank + Closed when populated'));
+		$f->addOption(self::collapsedYes, $this->_('Closed')); 
+		$f->addOption(self::collapsedYesLocked, $this->_('Closed + Locked (not editable)'));
+		if($this->hasFieldtype !== false) {
+			$f->addOption(self::collapsedYesAjax, $this->_('Closed + Load only when opened (AJAX)') . " †");
+			$f->notes = sprintf($this->_('Options indicated with %s may not work with all input types or placements, test to ensure compatibility.'), '†');
+			$f->addOption(self::collapsedTab, $this->_('Tab'));
+			$f->addOption(self::collapsedTabAjax, $this->_('Tab + Load only when clicked (AJAX)') . " †");
+			$f->addOption(self::collapsedTabLocked, $this->_('Tab + Locked (not editable)'));
+		}
+		$f->addOption(self::collapsedHidden, $this->_('Hidden (not shown in the editor)'));
+		$f->attr('value', (int) $this->collapsed); 
+		$fieldset->append($f); 
 
-		$field = $inputfields->InputfieldText;
-		$field->label = $this->_('Show this field only if');
-		$field->description = $this->_('Enter the conditions under which the field will be shown.') . ' ' . $conditionsText; 
-		$field->notes = $conditionsNote; 
-		$field->icon = 'question-circle';
-		$field->attr('name', 'showIf'); 
-		$field->attr('value', $this->getSetting('showIf')); 
-		$field->collapsed = Inputfield::collapsedBlank;
-		$field->showIf = "collapsed!=" . self::collapsedHidden;
-		$fieldset->append($field);
-		
-		$fieldset->collapsed = $this->collapsed == Inputfield::collapsedNo && !$this->getSetting('showIf') ? Inputfield::collapsedYes : Inputfield::collapsedNo;
-		$inputfields->append($fieldset); 
+		$f = $inputfields->InputfieldText;
+		$f->label = $this->_('Show this field only if');
+		$f->description = $this->_('Enter the conditions under which the field will be shown.') . ' ' . $conditionsText; 
+		$f->notes = $conditionsNote; 
+		$f->icon = 'question-circle';
+		$f->attr('name', 'showIf'); 
+		$f->attr('value', $this->getSetting('showIf')); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->showIf = "collapsed!=" . self::collapsedHidden;
+		$fieldset->append($f);
 
-		$field = $inputfields->InputfieldInteger;
-		$value = (int) $this->getSetting('columnWidth'); 
+		$value = (int) $this->getSetting('columnWidth');
 		if($value < 10 || $value >= 100) $value = 100;
-		$field->label = sprintf($this->_('Column width (%d%%)'), $value);
-		$field->icon = 'arrows-h';
-		$field->attr('id+name', 'columnWidth'); 
-		$field->addClass('columnWidthInput');
-		$field->attr('type', 'text');
-		$field->attr('maxlength', 4); 
-		$field->attr('size', 4); 
-		$field->attr('max', 100); 
-		$field->attr('value', $value . '%'); 
-		$field->description = $this->_("The percentage width of this field's container (10%-100%). If placed next to other fields with reduced widths, it will create floated columns."); // Description of colWidth option
-		$field->notes = $this->_("Note that not all fields will work at reduced widths, so you should test the result after changing this."); // Notes for colWidth option
-		if(!$this->wire('input')->get('process_template')) if($value == 100) $field->collapsed = Inputfield::collapsedYes; 
-		$inputfields->append($field); 
+		
+		$f = $inputfields->InputfieldInteger;
+		$f->label = sprintf($this->_('Column width (%d%%)'), $value);
+		$f->icon = 'arrows-h';
+		$f->attr('id+name', 'columnWidth'); 
+		$f->addClass('columnWidthInput');
+		$f->attr('type', 'text');
+		$f->attr('maxlength', 4); 
+		$f->attr('size', 4); 
+		$f->attr('max', 100); 
+		$f->attr('value', $value . '%'); 
+		$f->description = $this->_("The percentage width of this field's container (10%-100%). If placed next to other fields with reduced widths, it will create floated columns."); // Description of colWidth option
+		$f->notes = $this->_("Note that not all fields will work at reduced widths, so you should test the result after changing this."); // Notes for colWidth option
+		if(!$this->wire()->input->get('process_template') && $value == 100) $f->collapsed = Inputfield::collapsedYes; 
+		$inputfields->append($f); 
 
 		if(!$this instanceof InputfieldWrapper) {
-		
-			$field = $inputfields->InputfieldCheckbox;
-			$field->label = $this->_('Required?');
-			$field->icon = 'asterisk';
-			$field->attr('name', 'required'); 
-			$field->attr('value', 1); 
-			$field->attr('checked', $this->getSetting('required') ? 'checked' : ''); 
-			$field->description = $this->_("If checked, a value will be required for this field.");
-			$field->collapsed = $this->getSetting('required') ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
-			$inputfields->add($field);
+			$f = $inputfields->InputfieldCheckbox;
+			$f->label = $this->_('Required?');
+			$f->icon = 'asterisk';
+			$f->attr('name', 'required'); 
+			$f->attr('value', 1); 
+			$f->attr('checked', $this->getSetting('required') ? 'checked' : ''); 
+			$f->description = $this->_("If checked, a value will be required for this field.");
+			$f->collapsed = $this->getSetting('required') ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
+			$inputfields->add($f);
 	
 			$requiredAttr = $this->getSetting('requiredAttr'); 
 			if($requiredAttr !== null) {
 				// Inputfield must have set requiredAttr to some non-null value before this will appear as option in config
-				$field->columnWidth = 50; // required checkbox
+				$f->columnWidth = 50; // required checkbox
 				$f = $inputfields->InputfieldCheckbox;
 				$f->attr('name', 'requiredAttr');
 				$f->label = $this->_('Also use HTML5 “required” attribute?');
@@ -1561,16 +1702,35 @@ abstract class Inputfield extends WireData implements Module {
 				$inputfields->add($f);
 			}
 		
-			$field = $inputfields->InputfieldText;
-			$field->label = $this->_('Required only if');
-			$field->icon = 'asterisk';
-			$field->description = $this->_('Enter the conditions under which a value will be required for this field.') . ' ' . $conditionsText; 
-			$field->notes = $conditionsNote; 
-			$field->attr('name', 'requiredIf'); 
-			$field->attr('value', $this->getSetting('requiredIf')); 
-			$field->collapsed = $field->attr('value') ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
-			$field->showIf = "required>0"; 
-			$inputfields->add($field); 
+			$f = $inputfields->InputfieldText;
+			$f->label = $this->_('Required only if');
+			$f->icon = 'asterisk';
+			$f->description = $this->_('Enter the conditions under which a value will be required for this field.') . ' ' . $conditionsText; 
+			$f->notes = $conditionsNote; 
+			$f->attr('name', 'requiredIf'); 
+			$f->attr('value', $this->getSetting('requiredIf')); 
+			$f->collapsed = $f->attr('value') ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
+			$f->showIf = "required>0"; 
+			$inputfields->add($f); 
+		}
+		
+		if($this->hasFieldtype === false || $this->wire()->config->advanced) {
+			$f = $inputfields->InputfieldTextarea;
+			$f->attr('name', 'addClass');
+			$f->label = $this->_('Custom class attributes');
+			$f->description =
+				$this->_('Optionally add to the class attribute for specific elements in this Inputfield.') . ' ' .
+				$this->_('Format is one per line of `element:class` where `element` is one of: “wrap”, “header”, “content” or “input” and `class` is one or more class names.') . ' ' .
+				$this->_('If no element is specified then the “input” element is assumed.');
+			$f->notes = $this->_('Example:') . "`" .
+				"\nwrap:card card-default" .
+				"\nheader:card-header" .
+				"\ncontent:card-body" .
+				"\ninput:form-input input-checkbox" .
+				"`";
+			$f->collapsed = Inputfield::collapsedBlank;
+			$f->renderFlags = self::renderLast;
+			$inputfields->add($f);
 		}
 	
 		return $inputfields; 
@@ -1711,15 +1871,16 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 	public function error($text, $flags = 0) {
 		// Override Wire's error method and place errors in the context of their inputfield
+		$session = $this->wire()->session;
 		$key = $this->getErrorSessionKey();
-		$errors = $this->wire('session')->$key;			
+		$errors = $session->$key;			
 		if(!is_array($errors)) $errors = array();
 		if(!in_array($text, $errors)) {
 			$errors[] = $text; 
-			$this->wire('session')->set($key, $errors); 
+			$session->set($key, $errors); 
 		}
 		$label = $this->getSetting('label');
-		if(empty($label)) $label= $this->attr('name');
+		if(empty($label)) $label = $this->attr('name');
 		if(strlen($label)) $text .= " - $label"; 
 		return parent::error($text, $flags); 
 	}
@@ -1737,11 +1898,12 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */
 	public function getErrors($clear = false) {
+		$session = $this->wire()->session;
 		$key = $this->getErrorSessionKey();
-		$errors = $this->wire('session')->get($key);
+		$errors = $session->get($key);
 		if(!is_array($errors)) $errors = array();
 		if($clear) {
-			$this->wire('session')->remove($key); 
+			$session->remove($key); 
 			parent::errors("clear"); 
 		}
 		return $errors; 
@@ -1831,8 +1993,7 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 	public function entityEncode($str, $markdown = false) {
 		
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$str = (string) $str; 
 		

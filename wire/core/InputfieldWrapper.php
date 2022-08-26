@@ -98,7 +98,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		'item_icon' => "<i class='fa fa-fw fa-{name}'></i> ",
 		'item_toggle' => "<i class='toggle-icon fa fa-fw fa-angle-down' data-to='fa-angle-down fa-angle-right'></i>", 
 		// ALSO: 
-		// InputfieldAnything => array( any of the properties above to override on a per-Inputifeld basis)
+		// InputfieldAnything => array(any of the properties above to override on a per-Inputfield basis)
 	);
 
 	static protected $markup = array();
@@ -122,7 +122,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		'item_show_if' => 'InputfieldStateShowIf',
 		'item_required_if' => 'InputfieldStateRequiredIf'
 		// ALSO: 
-		// InputfieldAnything => array( any of the properties above to override on a per-Inputifeld basis)
+		// InputfieldAnything => array(any of the properties above to override on a per-Inputfield basis)
 	);
 
 	static protected $classes = array();
@@ -430,10 +430,11 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				$f = $this->getByName($item['name']); 
 				if($f) return $this->insert($f, $existingItem, $before);
 			}
-			$n = $children->count();
+			$nBefore = $children->count();
 			$this->add($item);
-			if($children->count() > $n) {
-				// new item was added
+			$nAfter = $children->count();
+			if($nAfter > $nBefore) {
+				// new item was added by the above $this->add() call
 				$item = $children->last();
 				$children->remove($item);
 			} else {
@@ -460,12 +461,11 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			if($f && $f->parent) {
 				// existing item was found
 				$existingItem = $f;
-				$existingItem->parent->insert($item, $existingItem, $before);
 			} else {
 				// existing item not found, add it as direct child
 				$this->add($existingItem);
-				$existingItem->parent->insert($item, $existingItem, $before);
 			}
+			$existingItem->parent->insert($item, $existingItem, $before);
 		}
 		
 		return $this; 
@@ -564,6 +564,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 
 		$children = $this->wire(new InputfieldWrapper()); 
 		$wrappers = array($children);
+		$prepend = array();
+		$append = array();
+		$numMove = 0;
 
 		foreach($this->children() as $inputfield) {
 
@@ -575,11 +578,31 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 
 			} else if($inputfield instanceof InputfieldFieldsetOpen) {
 				$inputfield->set('InputfieldWrapper_isPreRendered', true); 
-				array_push($wrappers, $inputfield); 
+				$wrappers[] = $inputfield; 
 			} 
 
 			$inputfield->unsetParent();
-			$wrapper->add($inputfield); 
+			$wrapper->add($inputfield);
+			
+			$flags = $inputfield->renderFlags;
+			if($flags & Inputfield::renderFirst) {
+				$prepend[] = $inputfield;
+				$numMove++;
+			} else if($flags & Inputfield::renderLast) {
+				$append[] = $inputfield;
+				$numMove++;
+			}
+		}
+		
+		if($numMove) {
+			foreach($prepend as $f) {
+				/** @var Inputfield $f */
+				$f->getParent()->prepend($f);
+			}
+			foreach($append as $f) {
+				/** @var Inputfield $f */
+				$f->getParent()->append($f);
+			}
 		}
 
 		return $children;
