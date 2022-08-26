@@ -5,7 +5,7 @@
  *
  * Maintains a collection of fields that are repeated for any number of times.
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $repeaterMaxItems
@@ -210,7 +210,6 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 * 
 	 */
 	protected function getRepeaterItemType(Page $page) {
-		if($page) {}
 		return 1;
 	}
 	
@@ -256,9 +255,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			if(!$field) continue;
 			
 			$fieldContext = $fieldgroup && $fieldgroup->hasFieldContext($field) ? $fieldgroup->getFieldContext($field) : $field;
-			$fieldtype = $field ? $field->type : null; /** @var Fieldtype $fieldtype */
+			$fieldtype = $field->type;
 			
-			if(!$item && $fieldtype && $fieldtype instanceof FieldtypeFile) {
+			if(!$item && $fieldtype instanceof FieldtypeFile) {
 				// repeater has no items yet and this is a file or image field
 				if($fieldtype->getFieldsTemplate($field)) {
 					// if it has custom fields, it needs a real example rather than $this->page substitute
@@ -268,7 +267,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				}
 			}
 			
-			if($field) try {
+			try {
 				// the following forces assets to be loaded
 				$inputfield = $fieldContext->getInputfield($item ? $item : $this->page);
 				if($inputfield) $this->renderReadyInputfield($inputfield);
@@ -391,7 +390,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$isSingle = $this->singleMode;
 		
 		// create field for each repeater iteration	
-		foreach($value as $key => $page) {
+		foreach($value as /* $key => */ $page) {
 			if($itemID && $page->id != $itemID) continue;
 			
 			/** @var RepeaterPage $page */
@@ -582,6 +581,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($itemID) {
 			// only rendering a single item, ajax mode
 			foreach($form->getAll() as $inputfield) {
+				/** @var Inputfield $inputfield */
 				$idAttr = $inputfield->attr('id');
 				$this->renderReadyInputfield($inputfield, $form, $this->renderValueMode);
 				$jsValue = $this->wire()->config->js($idAttr);
@@ -933,7 +933,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$loadedIDs = array();
 	
 		// determine which repeater pages have data posted in this request
-		foreach($value as $key => $page) {
+		foreach($value as $page) {
 			$loadedName = "loaded_repeater$page->id";
 			if($isSingle || ((int) $input->$loadedName) > 0) $loadedIDs[$page->id] = $page->id;
 		}
@@ -1040,7 +1040,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 
 		// if the sort changed, then tell the PageArray to sort by _repeater_sort
 		if($sortChanged) { 
-			$this->value->sort('sort'); 
+			$value->sort('sort'); 
 			$numChanges++;
 		}
 
@@ -1085,6 +1085,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$languages = $this->wire()->languages; 
 
 		foreach($wrapper as $inputfield) {
+			/** @var Inputfield $inputfield */
 
 			$name = $inputfield->attr('name');
 			$name = preg_replace('/_repeater\d+$/', '', $name); 
@@ -1093,6 +1094,8 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				if($languages && $inputfield->getSetting('useLanguages')) {
 					$value = $page->get($name); 
 					if(is_object($value)) {
+						/** @var LanguagesPageFieldValue $value */
+						$value->setTrackChanges(true);
 						$value->setFromInputfield($inputfield); 
 						$page->set($name, $value); 
 					}

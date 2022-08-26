@@ -3,7 +3,7 @@
 /**
  * Serves as a multi-language value placeholder for field values that contain a value in more than one language. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -65,6 +65,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 *
 	 */
 	public function __construct($page = null, $field = null, $values = null) { // #98
+		parent::__construct();
 	
 		if($page) $this->setPage($page);
 		if($field) $this->setField($field);
@@ -152,8 +153,10 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 *
 	 */
 	public function setLanguageValue($languageID, $value) {
-		if(is_object($languageID) && $languageID instanceof Language) $languageID = $languageID->id;
-		if(is_string($languageID) && !ctype_digit("$languageID")) $languageID = $this->wire()->languages->get($languageID)->id;
+		if($languageID instanceof Language) $languageID = $languageID->id;
+		if(is_string($languageID) && !ctype_digit("$languageID")) {
+			$languageID = $this->wire()->languages->get($languageID)->id;
+		}
 		$existingValue = isset($this->data[$languageID]) ? $this->data[$languageID] : '';
 		if($value instanceof LanguagesPageFieldValue) {
 			// to avoid potential recursion 
@@ -176,7 +179,8 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	public function setFromInputfield(Inputfield $inputfield) {
 
 		foreach($this->wire()->languages as $language) {
-			if($language->isDefault) {
+			/** @var Language $language */
+			if($language->isDefault()) {
 				$key = 'value';
 			} else {
 				$key = 'value' . $language->id; 
@@ -194,7 +198,8 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 */
 	public function setToInputfield(Inputfield $inputfield) {
 		foreach($this->wire()->languages as $language) {
-			$key = $language->isDefault ? "value" : "value$language->id";
+			/** @var Language $language */
+			$key = $language->isDefault() ? "value" : "value$language->id";
 			$inputfield->set($key, $this->getLanguageValue($language->id));
 		}
 	}
@@ -207,7 +212,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 *
 	 */
 	public function getLanguageValue($languageID) {
-		if(is_object($languageID) && $languageID instanceof Language) $languageID = $languageID->id; 
+		if($languageID instanceof Language) $languageID = $languageID->id; 
 		if(is_string($languageID) && !ctype_digit("$languageID")) $languageID = $this->wire()->languages->get($languageID)->id;
 		$languageID = (int) $languageID; 
 		return isset($this->data[$languageID]) ? $this->data[$languageID] : '';
@@ -240,7 +245,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		$value = (string) $this->getDefaultValue();
 		if(strlen($value)) return $value;
 		
-		foreach($this->wire('languages') as $language) {
+		foreach($this->wire()->languages as $language) {
 			$value = $this->getLanguageValue($language->id);
 			if(strlen($value)) break;
 		}
