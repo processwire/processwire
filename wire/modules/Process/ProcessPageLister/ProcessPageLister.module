@@ -383,7 +383,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 * Check for a bookmark specified in GET variable $n
 	 * 
 	 * @param string $bookmarkID 
-	 * @return null|int|bool Returns NULL if not applicable, boolean false if bookmark not found, or integer of bookmark ID if applied
+	 * @return null|string|false Returns NULL if not applicable, boolean false if bookmark not found, or integer of bookmark ID if applied
 	 * 
 	 */
 	public function checkBookmark($bookmarkID = '') {
@@ -399,7 +399,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$this->set('defaultSort', $bookmark['sort']);
 		$this->sessionSet('sort', $bookmark['sort']);
 		$this->set('columns', $bookmark['columns']);
-		$this->headline($this->wire('page')->title . ' - ' . $bookmark['title']);
+		$this->headline($this->wire()->page->title . ' - ' . $bookmark['title']);
 		return $bookmarkID;
 	}
 	
@@ -724,6 +724,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	
 		// custom fields (sort)
 		foreach($fields as $field) {
+			/** @var Field $field */
 			if(!$this->allowColumnField($field)) continue;
 			if($useLabels) {
 				if($template) {
@@ -916,13 +917,13 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$selectors2 = new Selectors();
 		}
 		
-		foreach($selectors1 as $key1 => $selector1) {
+		foreach($selectors1 as /* $key1 => */ $selector1) {
 			//$value = $selector1->value; 
 			//if(is_array($value) || strlen($value)) continue;
 			$fieldName1 = $selector1->field; 
 			if(is_array($fieldName1)) $fieldName1 = implode('|', $fieldName1);
 			// see if we have the same field in selectors2
-			foreach($selectors2 as $key2 => $selector2) {
+			foreach($selectors2 as /* $key2 => */ $selector2) {
 				$fieldName2 = $selector2->field; 
 				if(is_array($fieldName2)) $fieldName2 = implode('|', $fieldName2); 
 				if($fieldName1 == $fieldName2) {
@@ -1209,7 +1210,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$templatesAPI = $this->wire()->templates;
 		foreach($template as $t) {
 			$t = $templatesAPI->get($t); 
-			if($t && $t instanceof Template) $templates[] = $t; 
+			if($t instanceof Template) $templates[] = $t; 
 		}
 		return $templates; 
 	}
@@ -1394,7 +1395,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$p->of(false);
 		$values = array();
 
-		foreach($columns as $cnt => $name) {
+		foreach($columns as /* $cnt => */ $name) {
 			$value = $this->buildListerTableCol($p, $fields, $name); 
 			$values[] = $value; 
 		}
@@ -1529,12 +1530,11 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			//if($value instanceof Pageimages && $this->imageFirst) $value = array($value->first());
 			$values = array();
 			$isImage = false;
-			foreach($value as $k => $v) {
+			foreach($value as /* $k => */ $v) {
 				if(empty($v)) continue; 
 				if($subname == 'data') $v = (string) $v; 
 				if($subname && is_object($v)) $v = $v->$subname; 
 				if($v instanceof Pageimage) {
-					/** @var Pageimage $v */
 					$vfull = $v;
 					if($this->imageWidth || $this->imageHeight) $v = $v->size($this->imageWidth, $this->imageHeight);
 					$alt = $vfull->basename . ($vfull->description ? ' - ' . $sanitizer->entities1($vfull->description) : "");
@@ -1625,8 +1625,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		
 		$languages = $this->wire()->languages;
 		if(!$languages) return null;
-		
-		$language = null;
 		
 		if(strpos($name, '-') && preg_match('/-([-_a-z0-9]+)$/', $name, $matches)) {
 			// i.e. title-de or categories.title-de
@@ -1759,31 +1757,25 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				$target = $editMode == self::windowModeBlank ? "_blank" : "";
 				if($editMode == self::windowModeDirect) $directURL = $actions['edit']['url'];
 				$actionsOut .= $this->renderListerTableColAction($actions['edit'], $class, $target);
-				unset($actions['edit']);
-			} else {
-				unset($actions['edit']);
 			}
-			
+			unset($actions['edit']);
+
 			if($viewable) { 
 				$class = $viewMode == self::windowModeModal ? "modal" : "";
 				$target = $viewMode == self::windowModeBlank ? "_blank" : "";
 				if($viewMode == self::windowModeDirect) $directURL = $p->url;
 				$actionsOut .= $this->renderListerTableColAction($actions['view'], $class, $target);
-				unset($actions['view']);
-			} else {
-				unset($actions['view']);
 			}
-			
+			unset($actions['view']);
+
 			if($addable) {
 				$actions['new']['url'] = $this->addURL . "?parent_id=$p->id";
 				$class = $editMode == self::windowModeModal ? "modal" : "";
 				$target = $editMode == self::windowModeBlank ? "_blank" : "";
 				$actionsOut .= $this->renderListerTableColAction($actions['new'], "$class PageAdd PageEdit", $target);
-				unset($actions['new']);
-			} else {
-				unset($actions['new']);
 			}
-			
+			unset($actions['new']);
+
 			if($directURL) {
 				// click goes directly to edit or view
 				$value = "<a id='page$p->id' href='$directURL'>$icon$value$statusIcon</a>";
@@ -1858,12 +1850,13 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		static $pageListRender = null;
 		
 		if(is_null($pageListRender)) {
-			require_once($this->wire()->config->paths->ProcessPageList . 'ProcessPageListRenderJSON.php');
+			require_once($this->wire()->config->paths('ProcessPageList') . 'ProcessPageListRenderJSON.php');
 			$pageListRender = new ProcessPageListRenderJSON($this->wire()->page, $this->wire()->pages->newPageArray());
-			$pageListRender = $this->wire($pageListRender);
+			$this->wire($pageListRender);
 			$pageListRender->setUseTrash($this->wire()->user->isSuperuser()); 
 		}
-		
+	
+		/** @var ProcessPageListRenderJSON $pageListRender */
 		$actions = $pageListRender->getPageActions($p);
 
 		if(isset($actions['edit']) && $this->editURL && strpos($actions['edit']['url'], '/page/edit/') !== false) {
@@ -1988,8 +1981,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				$pagerOut = $pager->render($results);
 				$pageURL = $this->wire()->page->url; 
 				$pagerOut = str_replace($pageURL . "'", $pageURL . "?pageNum=1'", $pagerOut); // specifically identify page1
-			} else {
-				$pagerOut = '';
 			}
 			
 		} else {
@@ -1998,6 +1989,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		}
 		
 		foreach($this->wire()->notices as $notice) {
+			/** @var Notice $notice */
 			if($notice instanceof NoticeError) {
 				$out .= "<p class='ui-state-error-text'>$notice->text</p>";
 			} else {
@@ -2144,7 +2136,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$out = '';
 		if($minimal) {
 			/** @var InputfieldHidden $f */
-			$sort = htmlspecialchars($this->sessionGet('sort'));
+			$sort = (string) $this->sessionGet('sort');
+			$sort = htmlspecialchars($sort);
 			$out .= "<input type='hidden' name='sort' id='lister_sort' value='$sort' />";
 			$out .= "<input type='hidden' name='columns' id='lister_columns' value='ignore' />";
 			$out .= "<input type='hidden' name='filters' id='ProcessListerFilters' value='ignore' />";

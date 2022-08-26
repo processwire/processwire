@@ -430,11 +430,12 @@ abstract class DatabaseQuery extends WireData {
 	 * Implied parameters (using "?") was added in 3.0.157. 
 	 * 
 	 * @param string $method
-	 * @param array $args
+	 * @param array $arguments
 	 * @return $this
 	 *
 	 */
-	public function __call($method, $args) {
+	public function __call($method, $arguments) {
+		$args = &$arguments;
 		
 		// if(!$this->has($method)) return parent::__call($method, $args);
 		if(!isset($this->queryMethods[$method])) return parent::__call($method, $args);
@@ -443,11 +444,10 @@ abstract class DatabaseQuery extends WireData {
 		if(!is_array($curValue)) $curValue = array();
 		$value = $args[0];
 		
-		if(is_object($value) && $value instanceof DatabaseQuery) {
+		if($value instanceof DatabaseQuery) {
 			// if we've been given another DatabaseQuery, load from its $method
 			// note that if using bindValues you should also copy them separately
 			// behavior deprecated in 3.l0.157+, please use the copyTo() method instead
-			/** @var DatabaseQuery $query */
 			$query = $value;
 			$value = $query->$method; // array
 			if(!is_array($value) || !count($value)) return $this; // nothing to import

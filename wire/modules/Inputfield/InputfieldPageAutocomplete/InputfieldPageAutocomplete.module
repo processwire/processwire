@@ -5,7 +5,7 @@
  *
  * This Inputfield connects the jQuery UI Autocomplete widget with the ProcessWire ProcessPageSearch AJAX API.
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $parent_id Limit results to this parent, or if combined with findPagesSelector, the search is performed as $pages->get($parent_id)->find() rather than $pages->find().
@@ -34,7 +34,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			'title' => __('Page Auto Complete', __FILE__), // Module Title
 			'summary' => __('Multiple Page selection using auto completion and sorting capability. Intended for use as an input field for Page reference fields.', __FILE__), // Module Summary
 			'version' => 112,
-			);
+		);
 	}
 
 	/**
@@ -104,8 +104,8 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 */
 	protected function ___renderListItem($label, $value, $class = '') {
 		if($class) $class = " $class";
-		if(strpos($label, '&') !== false) $label = $this->wire('sanitizer')->unentities($label);
-		$label = $this->wire('sanitizer')->entities($label);
+		if(strpos($label, '&') !== false) $label = $this->wire()->sanitizer->unentities($label);
+		$label = $this->wire()->sanitizer->entities($label);
 		$out = 	
 			"<li class='ui-state-default$class'>" . 
 			"<i class='itemSort fa fa-arrows fa-fw'></i> " . 
@@ -146,8 +146,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 *
 	 */
 	public function ___render() {
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 
 		if($this->maxSelectedItems == 1) $this->useList = false;
 		$out = $this->useList ? $this->renderList() : '';
@@ -157,7 +156,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		// convert our list of search fields to a CSV string for use in the ProcessPageSearch query
 		$searchField = '';
 		$searchFields = str_replace(array(',', '|'), ' ', $this->searchFields);
-		foreach(explode(' ', $searchFields) as $key => $name) {
+		foreach(explode(' ', $searchFields) as /* $key => */ $name) {
 			$name = trim($name); 
 			// @esrch pr#994 --
 			if(strpos($name, '.')) {
@@ -206,7 +205,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$remove = '';
 		if(!$this->useList) { 
 			if(count($this->value)) {
-				$item = $this->wire('pages')->getById($this->value)->first();
+				$item = $this->wire()->pages->getById($this->value)->first();
 				if($item && $item->id) {
 					$textValue = $this->labelFieldFormat ? $item->getText($this->labelFieldFormat, true, false) : $item->get($labelField);
 					if(!strlen($textValue)) $textValue = $item->get('title|name');
@@ -285,7 +284,7 @@ _OUT;
 	protected function getAjaxUrl() {
 
 		$pipe = '%7C'; // encoded pipe "|"
-		$selector = $this->findPagesSelector; 	
+		$selector = (string) $this->findPagesSelector; 	
 
 		if($this->parent_id) {
 			if($selector) {
@@ -329,7 +328,9 @@ _OUT;
 		// specify what label field we want to retrieve
 		if($this->labelFieldFormat) {
 			$name = "autocomplete_" . $this->attr('name');
-			$this->wire('modules')->get('ProcessPageSearch')->setDisplayFormat($name, $this->labelFieldFormat, true);
+			/** @var ProcessPageSearch $pps */
+			$pps = $this->wire()->modules->get('ProcessPageSearch'); 
+			$pps->setDisplayFormat($name, $this->labelFieldFormat, true);
 			$selector .= "&format_name=$name";
 		}
 		$selector .= "&get=" . $this->labelFieldName;
@@ -371,10 +372,11 @@ _OUT;
 	 *
 	 */
 	public function ___getConfigInputfields() {
+		$modules = $this->wire()->modules;
 		$inputfields = parent::___getConfigInputfields();
 
 		/** @var InputfieldRadios $field */
-		$field = $this->modules->get('InputfieldRadios');
+		$field = $modules->get('InputfieldRadios');
 		$field->setAttribute('name', 'operator');
 		$field->label = $this->_('Autocomplete search operator');
 		$field->description = $this->_("The search operator that is used in the API when performing autocomplete matches.");
@@ -396,7 +398,7 @@ _OUT;
 		$inputfields->add($field);
 
 		/** @var InputfieldText $field */
-		$field = $this->modules->get('InputfieldText'); 
+		$field = $modules->get('InputfieldText'); 
 		$field->attr('name', 'searchFields'); 
 		$field->label = $this->_('Fields to query for autocomplete');
 		$field->description = $this->_('Enter the names of the fields that should have their text queried for autocomplete matches.');
@@ -405,7 +407,8 @@ _OUT;
 		$field->collapsed = Inputfield::collapsedNo; 
 		$field->attr('value', $this->searchFields);
 		$notes = $this->_('Indexed text fields include:');
-		foreach($this->wire('fields') as $f) {
+		foreach($this->wire()->fields as $f) {
+			/** @var Field $f */
 			if(!$f->type instanceof FieldtypeText) continue; 
 			$notes .= ' ' . $f->name . ','; 
 		}

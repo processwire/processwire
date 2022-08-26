@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -184,8 +184,7 @@ class FieldtypeDatetime extends Fieldtype {
 	 * @param Field $field
 	 * @param int $value
 	 * @param array $options
-	 *
-	 * @return array|false|float|int|string
+	 * @return string
 	 * 
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
@@ -203,7 +202,7 @@ class FieldtypeDatetime extends Fieldtype {
 	 */
 	public function isEmptyValue(Field $field, $value) {
 		
-		if(is_object($value) && $value instanceof Selector) {
+		if($value instanceof Selector) {
 			// PageFinder is asking if it should let this Fieldtype handle the operator/value
 			// combination with potential empty value present in a Selector
 			$selector = $value;
@@ -366,12 +365,13 @@ class FieldtypeDatetime extends Fieldtype {
 	 */
 	public function ___getConfigInputfields(Field $field) {
 
+		$modules = $this->wire()->modules;
 		$inputfields = parent::___getConfigInputfields($field);
 		$wdt = $this->wire('datetime'); /** @var WireDateTime $wdt */
 		$dateOutputFormat = (string) $field->get('dateOutputFormat');
 
 		/** @var InputfieldSelect $f */
-		$f = $this->modules->get('InputfieldSelect'); 
+		$f = $modules->get('InputfieldSelect'); 
 		$f->attr('name', '_dateOutputFormat'); 
 		$f->label = $this->_('Date Output Format'); 
 		$f->description = $this->_('Select the format to be used when outputting dates with this field.') . ' ';
@@ -382,7 +382,7 @@ class FieldtypeDatetime extends Fieldtype {
 		$date = strlen(date('jn')) < 4 ? time() : strtotime('2016-04-08 5:10:02 PM');
 		$found = false;
 		foreach($wdt->getDateFormats() as $format) {
-			$dateFormatted = $wdt->formatDate($date, $format); 	
+			$dateFormatted = (string) $wdt->formatDate($date, $format); 	
 			if($format == 'U') $dateFormatted .= " " . $this->_('(unix timestamp)');
 			$f->addOption($format, "$dateFormatted [$format]"); 
 			if(!$found && strpos($dateOutputFormat, $format) !== false) {
@@ -393,7 +393,8 @@ class FieldtypeDatetime extends Fieldtype {
 		$f->attr('onchange', "$('#Inputfield_dateOutputFormat').val($(this).val() + ' ' + $('#Inputfield__timeOutputFormat').val());"); 
 		$inputfields->add($f); 
 
-		$f = $this->modules->get('InputfieldSelect'); 
+		/** @var InputfieldSelect $f */
+		$f = $modules->get('InputfieldSelect'); 
 		$f->attr('name', '_timeOutputFormat'); 
 		$f->label = $this->_('Time Output Format'); 
 		$f->description = $this->_('If you want to output time in addition to the date, select the format to be used when outputting time with this field. This will be combined with the date format.'); 
@@ -414,18 +415,19 @@ class FieldtypeDatetime extends Fieldtype {
 		$inputfields->add($f);
 
 		/** @var InputfieldText $f */
-		$f = $this->modules->get("InputfieldText"); 
+		$f = $modules->get("InputfieldText"); 
 		$f->attr('name', 'dateOutputFormat'); 
 		$f->attr('value', $field->get('dateOutputFormat')); 
 		$f->attr('size', 20); 
 		$f->label = $this->_('Date/Time Output Format Code');
 		$f->description = $this->_('The date/time will be output according to the format below. This is automatically built from the date/time selections above, but you may change it as needed to suit your needs.') . ' ';
-		$f->description .= $this->_('See the [PHP date](http://www.php.net/manual/en/function.date.php) function reference for more information on how to customize this format. Alternatively, you may use a [PHP strftime](http://www.php.net/manual/en/function.strftime.php) format if desired for localization.'); 
+		$f->description .= $this->_('See the [PHP date](https://www.php.net/manual/en/function.date.php) function reference for more information on how to customize this format. Alternatively, you may use a [PHP strftime](https://www.php.net/manual/en/function.strftime.php) format if desired for localization.'); 
 		$f->icon = 'code';
 		$f->collapsed = Inputfield::collapsedYes; 
 		if($this->languages) {
 			$f->useLanguages = true; 
 			foreach($this->languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue; 
 				$f->set("value$language", (string) $field->get('dateOutputFormat' . $language)); 
 			}

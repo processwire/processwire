@@ -3,7 +3,7 @@
 /**
  * Multi-language support page names module
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $moduleVersion
@@ -253,8 +253,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$testPath = trim($path, '/') . '/';
 		$segments = $this->wire()->pages->pathFinder()->languageSegments();
 		
-		foreach($segments as $languageId => $segment) {
-			if(!strlen($segment)) continue;
+		foreach($segments as /* $languageId => */ $segment) {
+			if(!strlen("$segment")) continue;
 			$name = "$segment/";
 			if(strpos($testPath, $name) !== 0) continue;
 			$path = substr($testPath, strlen($name));
@@ -456,12 +456,11 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * 
 	 * @param Page $page
 	 * @param Language $language
-	 * @return bool|string|array
+	 * @return bool|array
 	 * @since 3.0.186
 	 * 
 	 */
 	public function ___pageNotAvailableInLanguage(Page $page, Language $language) {
-		if($language) {} // ignore
 		if($page->editable()) return true;
 		if($page->id == $this->wire()->config->http404PageID) return true;
 		$redirect404 = (int) $this->redirect404;
@@ -627,7 +626,6 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 */
 	public function hookPageRender(HookEvent $event) {
-		if($event) {}
 		if($this->force404) {
 			$this->force404 = false; // prevent another 404 on the 404 page
 			throw new Wire404Exception('Not available in requested language', Wire404Exception::codeLanguage);
@@ -728,6 +726,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 		// add labels and inputs for other languages
 		foreach($languages as $language) {
+			/** @var Language $language */
 			if($language->isDefault()) continue; 
 			$user->setLanguage($language); 
 			$value = $page->get("name$language"); 
@@ -784,6 +783,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$sanitizer = $this->wire()->sanitizer;
 
 		foreach($languages as $language) {
+			/** @var Language $language */
 
 			if($language->isDefault()) continue; 
 			if(!$languages->editable($language)) continue;
@@ -1016,7 +1016,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			$language = $languages->get($language); 
 		}
 
-		if(!$language || !$language->id || !$language instanceof Language) {
+		if(!$language instanceof Language || !$language->id) {
 			$language = $languages->getDefault();
 		}
 
@@ -1134,6 +1134,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		if(!is_array($extraData)) $extraData = array();
 		
 		foreach($this->wire()->languages as $language) {
+			/** @var Language $language */
 			
 			if($language->isDefault()) continue; 
 			$language_id = (int) $language->id; 
@@ -1206,6 +1207,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		if($userTrackChanges) $user->setTrackChanges(false); 
 		
 		foreach($this->wire()->languages as $language) {
+			/** @var Language $language */
 			if($language->isDefault()) continue; 
 			$user->setLanguage($language); 
 			$name = $page->get("name$language"); 
@@ -1244,6 +1246,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			// go into this only if we know the renamed hook hasn't already been called
 			$renamed = false;
 			foreach($this->wire()->languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$namePrevious = $page->get("-name$language");
 				if(!$namePrevious) continue;
@@ -1318,6 +1321,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			if(!$p->id) continue;
 			$duplicates = 0; // count duplicate names, which would invalidate any $foundLanguage
 			foreach($languages as $language) {
+				/** @var Language $language */
 				$key = 'name' . ($language->isDefault() ? '' : $language->id);
 				$name = $p->get($key);
 				if($name === $part) {
@@ -1361,6 +1365,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		
 		if($query->rowCount() < 2) {
 			foreach($this->wire()->languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$status = "status" . (int) $language->id;
 				$database->exec("ALTER TABLE pages ADD $status INT UNSIGNED NOT NULL DEFAULT " . Page::statusOn);
@@ -1394,6 +1399,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$defaultUrlPrefix = $config->get('_pageNumUrlPrefix|pageNumUrlPrefix');
 		
 		foreach($this->wire()->languages as $language) {
+			/** @var Language $language */
 			/** @var InputfieldName $f */
 			$f = $modules->get('InputfieldName'); 
 			$name = "pageNumUrlPrefix$language";
@@ -1469,6 +1475,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$database = $this->wire()->database;
 		$sqls = array();
 		foreach($languages as $language) {
+			/** @var Language $language */
 			if($language->isDefault()) continue;
 			$name = 'name' . $language->id;
 			if(!$database->columnExists("pages", $name)) continue;

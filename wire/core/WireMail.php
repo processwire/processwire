@@ -3,7 +3,7 @@
 /**
  * ProcessWire WireMail
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary A module type that handles sending of email in ProcessWire
@@ -92,7 +92,7 @@ class WireMail extends WireData implements WireMailInterface {
 		'header' => array(),
 		'param' => array(), 
 		'attachments' => array(), 
-		);
+	);
 
 	/**
 	 * Construct
@@ -148,6 +148,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * 
 	 */
 	protected function sanitizeEmail($email) {
+		$email = (string) $email;
 		if(!strlen($email)) return '';
 		$email = strtolower(trim($email)); 
 		if(strpos($email, ':') && preg_match('/^(.+):\d+$/', $email, $matches)) {
@@ -155,14 +156,15 @@ class WireMail extends WireData implements WireMailInterface {
 			// so remove trailing port, i.e. ':8888', if present since it will not validate
 			$email = $matches[1]; 
 		}
-		$clean = $this->wire('sanitizer')->email($email); 
+		$sanitizer = $this->wire()->sanitizer;
+		$clean = $sanitizer->email($email); 
 		if($email !== $clean) {
-			throw new WireException("Invalid email address: " . $this->wire('sanitizer')->entities($email));
+			throw new WireException("Invalid email address: " . $sanitizer->entities($email));
 		}
 		/** @var WireMailTools $mail */
 		$mail = $this->wire('mail');
 		if($mail && $mail->isBlacklistEmail($email)) {
-			throw new WireException("Email address not allowed: " . $this->wire('sanitizer')->entities($email));
+			throw new WireException("Email address not allowed: " . $sanitizer->entities($email));
 		}
 		return $clean;
 	}
@@ -176,8 +178,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 *
 	 */
 	protected function ___sanitizeHeaderName($name) {
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		$name = $sanitizer->emailHeader($name, true);
 		// ensure consistent capitalization for header names
 		$name = ucwords(str_replace('-', ' ', $name));
@@ -194,7 +195,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 *
 	 */
 	protected function ___sanitizeHeaderValue($value) {
-		return $this->wire('sanitizer')->emailHeader($value); 
+		return $this->wire()->sanitizer->emailHeader($value); 
 	}
 
 	/**
@@ -219,6 +220,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 */
 	protected function extractEmailAndName($email) {
 		$name = '';
+		$email = (string) $email;
 		if(strpos($email, '<') !== false && strpos($email, '>') !== false) {
 			// email has separate from name and email
 			if(preg_match('/^(.*?)<([^>]+)>.*$/', $email, $matches)) {
@@ -598,7 +600,7 @@ class WireMail extends WireData implements WireMailInterface {
 		}
 		
 		// prep any additional PHP mail params
-		$param = $this->wire('config')->phpMailAdditionalParameters;
+		$param = $this->wire()->config->phpMailAdditionalParameters;
 		if(is_null($param)) $param = '';
 		foreach($this->param as $value) {
 			$param .= " $value";
@@ -629,12 +631,13 @@ class WireMail extends WireData implements WireMailInterface {
 	 */
 	protected function renderMailHeader() {
 		
-		$settings = $this->wire()->config->wireMail;
+		$config = $this->wire()->config;
+		$settings = $config->wireMail;
 		$from = $this->from;
 		
 		if(!strlen($from) && !empty($settings['from'])) $from = $settings['from'];
-		if(!strlen($from)) $from = $this->wire('config')->adminEmail;
-		if(!strlen($from)) $from = 'processwire@' . $this->wire('config')->httpHost;
+		if(!strlen($from)) $from = $config->adminEmail;
+		if(!strlen($from)) $from = 'processwire@' . $config->httpHost;
 		
 		$header = "From: " . ($this->fromName ? $this->bundleEmailAndName($from, $this->fromName) : $from);
 
@@ -741,10 +744,11 @@ class WireMail extends WireData implements WireMailInterface {
 	protected function renderMailAttachments() {
 		$body = '';
 		$boundary = $this->multipartBoundary();
+		$sanitizer = $this->wire()->sanitizer;
 		
 		foreach($this->attachments as $filename => $file) {
 			
-			$filename = $this->wire('sanitizer')->text($filename, array(
+			$filename = $sanitizer->text($filename, array(
 				'maxLength' => 512,
 				'truncateTail' => false, 
 				'stripSpace' => '-',
@@ -802,7 +806,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * 
 	 */
 	protected function ___htmlToText($html) {
-		$text = $this->wire('sanitizer')->getTextTools()->markupToText($html);
+		$text = $this->wire()->sanitizer->getTextTools()->markupToText($html);
 		$text = str_replace("\n", "\r\n", $text); 
 		$text = $this->strReplace($text, $this->multipartBoundary()); 
 		return $text;

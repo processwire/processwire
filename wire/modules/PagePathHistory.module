@@ -6,7 +6,7 @@
  * Keeps track of past URLs where pages have lived and automatically 301 redirects
  * to the new location whenever the past URL is accessed. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method upgrade($fromVersion, $toVersion)
@@ -87,7 +87,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 */
 	protected function getVersion() {
 		if($this->version) return $this->version;
-		$this->version = $this->wire('modules')->getModuleInfoProperty($this, 'version');
+		$this->version = $this->wire()->modules->getModuleInfoProperty($this, 'version');
 		if(!$this->version) $this->version = 1;
 		return $this->version;
 	}
@@ -118,10 +118,10 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			// ok
 		} else if($language === 0) {
 			$language = $languages->getDefault();
-		} else if(is_int($language) || ctype_digit($language)) {
+		} else if(is_int($language) || ctype_digit("$language")) {
 			$language = $languages->get((int) $language);
 		} else if(is_string($language) && $language) {
-			$language = $languages->get($this->wire('sanitizer')->pageNameUTF8($language));
+			$language = $languages->get($this->wire()->sanitizer->pageNameUTF8($language));
 		}
 		if($language && !$language->id) $language = null;
 		return $language;
@@ -138,7 +138,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 */
 	public function setPathHistory(Page $page, $path, $language = null) {
 		
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = self::dbTableName;
 		$result = $this->addPathHistory($page, $path, $language);
 		
@@ -655,7 +655,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		if($matchRow) {
 			// ok found
 			$result['matchType'] = 'exact';
-		} else if($rowCount) {
+		} else {
 			// select from multiple matched rows (urlSegments mode only)
 			// order by quantity of slashes (most to least)
 			arsort($pathCounts);
@@ -668,8 +668,6 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				$result['matchType'] = 'partial';
 				break;
 			}
-		} else {
-			// no match
 		}
 		
 		if($matchRow) {

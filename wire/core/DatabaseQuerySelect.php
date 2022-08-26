@@ -25,11 +25,11 @@
  * @property array $limit
  * @property string $comment Comments for query
  * 
- * @method $this select($sql, array $params = array())
+ * @method $this select($sql, $params = array())
  * @method $this from($sql)
- * @method $this join($sql, array $params = array())
- * @method $this leftjoin($sql, array $params = array())
- * @method $this where($sql, array $params = array())
+ * @method $this join($sql, $params = array())
+ * @method $this leftjoin($sql, $params = array())
+ * @method $this where($sql, $params = array())
  * @method $this groupby($sql)
  * @method $this limit($sql)
  *
