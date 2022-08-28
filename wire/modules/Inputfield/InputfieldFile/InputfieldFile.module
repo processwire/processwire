@@ -43,7 +43,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return array(
 			'title' => __('Files', __FILE__), // Module Title
 			'summary' => __('One or more file uploads (sortable)', __FILE__), // Module Summary
-			'version' => 127,
+			'version' => 128,
 			'permanent' => true, 
 		);
 	}

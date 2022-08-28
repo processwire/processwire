@@ -514,9 +514,18 @@ $(document).ready(function() {
 				var configName = $inputfield.attr('data-configName');
 				var settings = ProcessWire.config[configName];
 				var options = [];
-				for(var n = 0; n < settings['tags'].length; n++) {
-					var tag = settings['tags'][n];
-					options[n] = {value: tag};
+				if(typeof settings === 'undefined') {
+					if(configName.indexOf('_repeater') > -1) {
+						configName = configName.replace(/_repeater\d+(_?)/, '$1');
+						settings = ProcessWire.config[configName];
+						if(typeof settings === 'undefined') settings = null;
+					}
+				}
+				if(settings) {
+					for(var n = 0; n < settings['tags'].length; n++) {
+						var tag = settings['tags'][n];
+						options[n] = {value: tag};
+					}
 				}
 				$selects.selectize({
 					plugins: ['remove_button', 'drag_drop'],

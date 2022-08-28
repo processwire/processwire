@@ -179,14 +179,14 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		if($inEditor) {
 			// ProcessPageEdit or ProcessProfile
-			$this->addHookBefore('ProcessPageEdit::ajaxSave', $this, 'hookProcessPageEditAjaxSave');
+			$this->addHookBefore('ProcessPageEdit::ajaxSave', $this, 'hookProcessPageEditAjaxSave', array('priority' => 99));
 		}
 		
 		if($inEditor && $config->ajax) {
 			// handle scenario of repeater within repeater field
 			$fieldName = (string) $input->get('field');
 			$pageID = (int) $input->get('id');
-			if($pageID && strpos($fieldName, '_repeater') && preg_match('/^(.+)_repeater\d+$/', $fieldName, $matches)) {
+			if($pageID && strpos($fieldName, '_repeater') && preg_match('/^(.+)_repeater\d+($|\.)/', $fieldName, $matches)) {
 				$this->initAllFields();
 				$editPage = $this->wire()->pages->get($pageID);
 				if($editPage->id && strpos($editPage->template->name, self::templateNamePrefix) === 0) {
@@ -348,7 +348,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$fieldName = $input->get('field');
 		
 		if($fieldName) {
-			$field = null;
 			$_fieldName = $fieldName;
 			$fieldName = $this->wire()->sanitizer->fieldName($fieldName);
 			if($fieldName === $_fieldName) {
@@ -407,7 +406,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			foreach($allTemplateNames as $templateId => $templateName) {
 				if(strpos($templateName, self::templateNamePrefix) !== 0) continue;
 				$templateIds[$templateName] = $templateId;
-				foreach($fieldgroups->getFieldNames($templateName) as $fieldId => $fieldName) {
+				foreach($fieldgroups->getFieldNames($templateName) as /* $fieldId => */ $fieldName) {
 					$fieldNames[$fieldName] = $fieldName;
 				}
 			}
@@ -487,9 +486,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		// if this isn't a repeater field we're dealing with, then abort
 		if(!isset($_SERVER['HTTP_X_FIELDNAME'])) return; 
-		if(!preg_match('/^(.+)(_repeater(\d+))$/', $_SERVER['HTTP_X_FIELDNAME'], $matches)) return;
+		if(strpos($_SERVER['HTTP_X_FIELDNAME'], '_repeater') === false) return;
+		if(!preg_match('/^(.+)(_repeater(\d+))(?:$|\.)/', $_SERVER['HTTP_X_FIELDNAME'], $matches)) return;
 		
-		$fieldName = $this->wire()->sanitizer->fieldName($matches[1]); 
+		$sanitizer = $this->wire()->sanitizer;
+		$fieldName = $sanitizer->fieldName($matches[1]); 
 		$repeaterPageID = (int) $matches[3]; 
 		if($repeaterPageID < 1) return;
 
@@ -513,9 +514,20 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$args[0] = $repeaterPage; 
 		$event->arguments = $args; 
 
-		// repopulate the server header to be the fieldName (sans _repeater\d+)
-		$this->ajaxFieldName = $this->wire()->sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
-		$_SERVER['HTTP_X_FIELDNAME'] = $fieldName;
+		$ajaxFieldName = $_SERVER['HTTP_X_FIELDNAME'];
+		if(strpos($ajaxFieldName, '.')) {
+			// field.subfield combination, i.e. FieldtypeCombo ajax subfield
+			list($ajaxFieldName, $ajaxSubfieldName) = explode('.', $ajaxFieldName, 2);
+			$ajaxFieldName = $sanitizer->fieldName($ajaxFieldName);
+			$ajaxSubfieldName = $sanitizer->name($ajaxSubfieldName);
+			$this->ajaxFieldName = $ajaxFieldName;
+			// repopulate the server header to be the fieldName (sans _repeater\d+)
+			$_SERVER['HTTP_X_FIELDNAME'] = "$fieldName.$ajaxSubfieldName";
+		} else {
+			$this->ajaxFieldName = $sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
+			// repopulate the server header to be the fieldName (sans _repeater\d+)
+			$_SERVER['HTTP_X_FIELDNAME'] = $fieldName;
+		}
 
 		// save a copy for comparison in our hookPageEditable function 
 		$this->ajaxPage = $repeaterPage;
@@ -543,6 +555,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$repeaters = array();
 		
 		foreach($ownerPage->fieldgroup as $f) {
+			/** @var Field $f */
 			if(!$f->type instanceof FieldtypeRepeater) continue;
 			$repeaters[$f->name] = $f->name;
 			$grandparent = $this->getRepeaterParent($f);
@@ -573,7 +586,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				// for single item value (i.e. FieldtypeFieldsetPage)
 				$hasField = $this->isRepeaterItemValidOnPage($repeaterItem, $repeaterItems);
 			} else {
-				continue;
+				// continue;
 			}
 		}
 		
@@ -832,13 +845,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 
-		$parent_id = null; 
 		$field_parent_id = $field->get('parent_id'); 
 		$template_id = $field->get('template_id'); 
 		// $outputFormatting = $page->outputFormatting();
 
 		// if it's already in the target format, leave it
-		if($value instanceof PageArray) return $value; 
+		if(!is_array($value) && $value instanceof PageArray) return $value; 
 
 		// if this field has no parent set, just return a blank pageArray
 		if(!$field_parent_id) return $this->getBlankValue($page, $field); 
@@ -983,13 +995,15 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if(!empty($options['minimal']) || !empty($options['FieldtypeRepeater']['minimal'])) {
 			// minimal export option includes only fields data
 			
-			foreach($value as $k => $p) {
+			foreach($value as $p) {
 				/** @var Page $p */
 				if($p->isUnpublished()) continue;
 				$v = array(); 
 				foreach($p->template->fieldgroup as $f) {
+					/** @var Field $f */
 					if(!$p->hasField($f)) continue;
-					$v[$f->name] = $f->type->exportValue($p, $f, $p->getUnformatted($f->name), $options);
+					$fieldtype = $f->type; /** @var Fieldtype $fieldtype */
+					$v[$f->name] = $fieldtype->exportValue($p, $f, $p->getUnformatted($f->name), $options);
 				}
 				$a[$p->name] = $v;
 			}
@@ -1067,7 +1081,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			
 			if($commit) {
 				// create new repeater item, ready to be populated
-				/** @var RepeaterPage $readyPage */
+				/** @var RepeaterPage $p */
 				$p = $this->wire(new $repeaterPageClass());
 				if($repeaterParent->id) $p->parent = $repeaterParent;
 				$p->template = $repeaterTemplate;
@@ -1296,7 +1310,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if($template->name != $name && !$this->wire()->templates->get($name)) {
 			$this->bd("Renamed repeater template from '$template->name' to '$name'", __FUNCTION__);
 			$flags = $template->flags;
-			$template->flags = Template::flagSystemOverride;
+			$template->flags = Template::flagSystemOverride; // required before flags=0
 			$template->flags = 0;
 			$template->save();
 			$template->name = $name;
@@ -1441,7 +1455,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function sanitizeValueString(Page $page, Field $field, $value) {
 		
 		$pages = $this->wire()->pages;
-		if($page) {} // ignore
 		$result = false;
 
 		if(ctype_digit("$value")) {
@@ -1452,7 +1465,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			// csv string of page IDs
 			$value = explode(',', $value); 	
 			$result = array();
-			foreach($value as $k => $v) {
+			foreach($value as $v) {
 				$v = (int) $v; 
 				if($v) $result[] = $v; 
 			}
@@ -1536,7 +1549,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				($operator == '!=' && $value)) {
 
 				$templateIDs = array();
-				foreach($field->getTemplates() as $template) $templateIDs[] = (int) $template->id; 
+				foreach($field->getTemplates() as $template) {
+					/** @var Template $template */
+					$templateIDs[] = (int) $template->id;
+				}
 				if(count($templateIDs)) {
 					$templateIDs = implode(',', $templateIDs); 
 					$sql = 	
@@ -1689,7 +1705,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		// iterate through each page in the pageArray value
 		// and determine which need to be saved 
-		foreach($value as $key => $p) {
+		foreach($value as $p) {
 			/** @var Page|RepeaterPage $p */
 			if($p->template->id != $template_id) {
 				$value->remove($p);
@@ -1832,7 +1848,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$templateName = $template->name; 
 
 			// remove system flag from the template
-			$template->flags = Template::flagSystemOverride; 
+			$template->flags = Template::flagSystemOverride; // required before flags=0
 			$template->flags = 0;
 
 			// delete the template
@@ -2264,7 +2280,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$template = $this->getRepeaterTemplate($field); 
 		$parent = $this->getRepeaterParent($field); 
 
-		if($this->wire()->input->post->repeaterFields) {
+		if($this->wire()->input->post('repeaterFields')) {
 			$this->saveConfigInputfields($field, $template, $parent);
 		}
 		
@@ -2283,7 +2299,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___saveConfigInputfields(Field $field, Template $template, Page $parent) {
-		if($parent) {} // ignore
 		$this->initAllFields();
 		$helper = $this->getRepeaterConfigHelper($field);
 		$helper->saveConfigInputfields($template);
