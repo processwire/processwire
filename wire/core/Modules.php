@@ -1423,8 +1423,11 @@ class Modules extends WireArray {
 		
 		if(empty($options['noPermissionCheck'])) {
 			// check that user has permission required to use module
-			if(!$this->hasPermission($module, $this->wire('user'), $this->wire('page'))) {
-				$error = $this->_('You do not have permission to execute this module') . ' - ' . wireClassName($module);
+			$page = $this->wire()->page;
+			$user = $this->wire()->user;
+			if(!$this->hasPermission($module, $user, $page)) {
+				$error = $this->_('You do not have permission to execute this module') . ' - ' . 
+					wireClassName($module) . " (page=$page)";
 				if(empty($options['noThrow'])) throw new WirePermissionException($error);
 				return empty($options['returnError']) ? null : $error;
 			}

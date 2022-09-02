@@ -132,6 +132,7 @@ class ProcessModule extends Process {
 	 *
 	 */
 	public function __construct() {
+		parent::__construct();
 		$this->labels['download'] = $this->_('Download'); 
 		$this->labels['download_install'] = $this->_('Download and Install');
 		$this->labels['get_module_info'] = $this->_('Get Module Info'); 
@@ -155,7 +156,7 @@ class ProcessModule extends Process {
 		$this->labels['install'] = $this->_('Install'); // Label for Install tab
 		$this->labels['cancel'] = $this->_('Cancel'); // Label for Cancel button
 	
-		require(dirname(__FILE__) . '/ProcessModuleInstall.php'); 
+		require_once(dirname(__FILE__) . '/ProcessModuleInstall.php'); 
 	}
 
 	/**
@@ -292,6 +293,7 @@ class ProcessModule extends Process {
 		$session = $this->wire()->session;
 		$sanitizer = $this->wire()->sanitizer;
 		$input = $this->wire()->input;
+		$config = $this->wire()->config;
 
 		foreach($modules as $module) {
 			$this->modulesArray[$module->className()] = 1; 
@@ -353,7 +355,7 @@ class ProcessModule extends Process {
 		if($input->post('clear_file_compiler')) {
 			$session->CSRF->validate();
 			/** @var FileCompiler $compiler */
-			$compiler = $this->wire(new FileCompiler($this->wire('config')->paths->siteModules)); 
+			$compiler = $this->wire(new FileCompiler($config->paths->siteModules)); 
 			$compiler->clearCache(true);
 			$session->message($this->_('Cleared file compiler cache'));
 			$session->redirect('./');
@@ -430,7 +432,7 @@ class ProcessModule extends Process {
 		
 			$info = $modules->getModuleInfoVerbose($name); 
 			
-			$isNew = !$info['core'] || ($info['core'] && in_array($name, $this->newCoreModules));
+			$isNew = !$info['core'] || in_array($name, $this->newCoreModules);
 			if($isNew) $isNew = $info['created'] > 0 && $info['created'] > (time()-$newSeconds);
 			if($isNew) $newModulesArray[$name] = $installed; 
 			
@@ -509,7 +511,8 @@ class ProcessModule extends Process {
 		$form->add($tab);
 		
 		// configurable
-	
+
+		/** @var InputfieldWrapper $tab */		
 		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('id', 'tab_configurable_modules');
 		$tab->attr('title', $this->labels['configure']);
@@ -528,6 +531,7 @@ class ProcessModule extends Process {
 
 		// installable
 
+		/** @var InputfieldWrapper $tab */
 		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('id', 'tab_install_modules');
 		$tabLabel = $this->labels['install']; 
@@ -558,6 +562,7 @@ class ProcessModule extends Process {
 					dirname(str_replace($rootPath, '/', $item['file'])) . '/'
 				);
 			}
+			/** @var InputfieldWrapper $tab */
 			$tab = $this->wire(new InputfieldWrapper());
 			$tab->attr('id', 'tab_missing_modules');
 			$tabLabel = $this->_('Missing');
@@ -675,7 +680,7 @@ class ProcessModule extends Process {
 			$f->label = $this->_('Module ZIP file URL');
 			$f->description = $this->_('Download a ZIP file containing a module. If you download a module that is already installed, the installed version will be overwritten with the newly downloaded version.');
 			$f->notes = $trustNote;
-			$f->attr('placeholder', $this->_('http://domain.com/ModuleName.zip')); // placeholder
+			$f->attr('placeholder', $this->_('https://domain.com/ModuleName.zip')); // placeholder
 			$f->required = false;
 			$fieldset->add($f);
 			
@@ -837,6 +842,7 @@ class ProcessModule extends Process {
 					$section = $matches[1];
 					$sections[] = $section;
 					if($table) $out .= $table->render() . "</div>";
+					/** @var MarkupAdminDataTable $table */
 					$table = $modules->get("MarkupAdminDataTable");
 					$table->setEncodeEntities(false);
 					$table->headerRow($tableHeader);
@@ -847,7 +853,7 @@ class ProcessModule extends Process {
 			$info = $modules->getModuleInfoVerbose($name); 
 			$configurable = $info['configurable'];
 			$title = !empty($info['title']) ? $sanitizer->entities1($info['title']) : substr($name, strlen($section));
-			$title = "<span title='$name' uk-tooltip='delay:1000'>$title</span>";
+			$title = "<span title='$name' data-uk-tooltip='delay:1000'>$title</span>";
 			if($options['allowClasses']) $title .= "<br /><small class='ModuleClass ui-priority-secondary'>$name</small>";
 			if($info['icon']) $title = wireIconMarkup($info['icon'], 'fw') . " $title";
 			$class = $configurable ? 'ConfigurableModule' : '';
@@ -1030,7 +1036,7 @@ class ProcessModule extends Process {
 		$info = self::getModuleInfo();
 		$this->headline($this->labels['download_install']); 
 		$this->breadcrumb('./', $info['title']);
-		if($update) $this->breadcrumb("./?edit=$name", $name); 
+		if($update) $this->breadcrumb("./?edit=$name", $name);
 		
 		$redirectURL = $update ? "./edit?name=$name" : "./";
 		$className = $name; 
@@ -1057,7 +1063,7 @@ class ProcessModule extends Process {
 		$installable = true; 
 		foreach($data['categories'] as $category) {
 			if(!in_array($category['name'], $this->uninstallableCategories)) continue;
-			$this->error(sprintf($this->_('Sorry modules of type "%s" are not installable from the admin.'), $category['title']));
+			$this->error(sprintf($this->_('Sorry, modules of type "%s" are not installable from the admin.'), $category['title']));
 			$installable = false;
 		}
 		if(!$installable) $session->redirect($redirectURL); 
@@ -1424,7 +1430,6 @@ class ProcessModule extends Process {
 		foreach($moduleInfo as $key => $value) {
 			if(isset($moduleInfoVerbose[$key]) && $moduleInfoVerbose[$key] !== $value) {
 				unset($moduleInfo[$key]);
-				continue;
 			} else if(empty($value)) {
 				if($value === "0" || $value === 0 || $value === false) continue;
 				unset($moduleInfo[$key]);
@@ -1752,6 +1757,7 @@ class ProcessModule extends Process {
 			foreach($fields->getAll() as $field) {
 				if(!$field->getSetting('useLanguages')) continue;
 				foreach($languages as $language) {
+					/** @var Language $language */
 					if($language->isDefault()) continue;
 					$name = $field->name . '__' . $language->id;
 					if(!isset($data[$name])) continue;
@@ -1781,6 +1787,7 @@ class ProcessModule extends Process {
 					if($languages && $field->getSetting('useLanguages')) {
 						$_name = $name;
 						foreach($languages as $language) {
+							/** @var Language $language */
 							if($language->isDefault()) continue;
 							$name = $_name . "__" . $language->id;
 							$value = $field->get("value$language->id");
@@ -2046,6 +2053,7 @@ class ProcessModule extends Process {
 		$form->description = sprintf($this->_('Import translations for module %s'), $moduleName);
 
 		foreach($languages as $language) {
+			/** @var Language $language */
 			/** @var InputfieldSelect $lang */
 			$langLabel = $language->get('title');
 			$langLabel .= $langLabel ? " ($language->name)" : $language->name;
@@ -2096,7 +2104,7 @@ class ProcessModule extends Process {
 	 * method can return false.
 	 *
 	 * @param Page $page
-	 * @return bool|string
+	 * @return string
 	 * @sine 3.0.167
 	 *
 	 */

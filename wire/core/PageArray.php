@@ -84,7 +84,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function isValidItem($item) {
-		return is_object($item) && $item instanceof Page; 
+		return $item instanceof Page; 
 	}
 
 	/**
@@ -123,7 +123,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 			// given item exists in this PageArray (or at least has)
 			$key = $this->keyIndex[$id];
 			if(isset($this->data[$key])) {
-				$page = $this->data[$key]; /** @var Page $page */
+				$page = $this->data[$key];
 				if($page->id === $id) {
 					// found it
 					return $key; 
@@ -188,17 +188,17 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param array|PageArray|Page $pages Pages to import. 
+	 * @param array|PageArray|Page $items Pages to import. 
 	 * @return PageArray reference to current instance. 
 	 *
 	 */
-	public function import($pages) {
-		if(is_object($pages) && $pages instanceof Page) $pages = array($pages); 
-		if(!self::iterable($pages)) return $this; 
-		foreach($pages as $page) $this->add($page); 
-		if($pages instanceof PageArray) {
-			if(count($pages) < $pages->getTotal()) {
-				$this->setTotal($this->getTotal() + ($pages->getTotal() - count($pages)));
+	public function import($items) {
+		if($items instanceof Page) $items = array($items); 
+		if(!self::iterable($items)) return $this; 
+		foreach($items as $page) $this->add($page); 
+		if($items instanceof PageArray) {
+			if(count($items) < $items->getTotal()) {
+				$this->setTotal($this->getTotal() + ($items->getTotal() - count($items)));
 			}
 		}
 		return $this;
@@ -213,7 +213,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * @return bool True if the index or Page exists here, false if not. 
 	 */  
 	public function has($key) {
-		if(is_object($key) && $key instanceof Page) {
+		if($key instanceof Page) {
 			return $this->getItemKey($key) !== null;
 		}
 		return parent::has($key); 
@@ -236,24 +236,25 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * $pageArray->add(1005); 
 	 * ~~~~~
 	 *
-	 * @param Page|PageArray|int $page Page object, PageArray object, or Page ID. 
+	 * @param Page|PageArray|int $item Page object, PageArray object, or Page ID. 
 	 *  - If given a `Page`, the Page will be added. 
 	 *  - If given a `PageArray`, it will do the same thing as the `WireArray::import()` method and append all the pages. 
 	 *  - If Page `ID`, the Page identified by that ID will be loaded and added to the PageArray. 
 	 * @return $this
 	 */
-	public function add($page) {
+	public function add($item) {
 
-		if($this->isValidItem($page)) {
-			parent::add($page); 
+		if($this->isValidItem($item)) {
+			parent::add($item); 
 
-		} else if($page instanceof PageArray || is_array($page)) {
-			return $this->import($page);
+		} else if($item instanceof PageArray || is_array($item)) {
+			return $this->import($item);
 
-		} else if(ctype_digit("$page")) {
-			$page = $this->wire()->pages->get("id=$page");
-			if($page->id) parent::add($page); 
+		} else if(ctype_digit("$item")) {
+			$item = $this->wire()->pages->get("id=$item");
+			if($item->id) parent::add($item); 
 		}
+		
 		return $this;
 	}
 
@@ -285,7 +286,9 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function findRandom($num) {
-		return parent::findRandom($num);
+		/** @var PageArray $value */
+		$value = parent::findRandom($num);
+		return $value;
 	}
 
 	/**
@@ -302,7 +305,9 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function slice($start, $limit = 0) {
-		return parent::slice($start, $limit);
+		/** @var PageArray $value */
+		$value = parent::slice($start, $limit);
+		return $value;
 	}
 
 	/**
@@ -317,7 +322,9 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function eq($num) {
-		return parent::eq($num);
+		/** @var Page $value */
+		$value = parent::eq($num);
+		return $value;
 	}
 
 	/**
@@ -453,7 +460,9 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function find($selector) {
-		return parent::find($selector);
+		/** @var PageArray $value */
+		$value = parent::find($selector);
+		return $value;
 	}
 
 	/**
@@ -467,7 +476,9 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function findOne($selector) {
-		return parent::findOne($selector);
+		/** @var Page|bool $value */
+		$value = parent::findOne($selector);
+		return $value;
 	}
 
 	/**
@@ -611,7 +622,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 */
 	public function __toString() {
 		$s = '';
-		foreach($this as $key => $page) $s .= "$page|";
+		foreach($this as $page) $s .= "$page|";
 		$s = rtrim($s, "|"); 
 		return $s; 
 	}
@@ -698,7 +709,6 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	protected function trackAdd($item, $key) {
 		parent::trackAdd($item, $key);
 		if(!$item instanceof Page) return;
-		/** @var Page $item */
 		if(!isset($this->keyIndex[$item->id])) $this->numTotal++;
 		$this->keyIndex[$item->id] = $key;
 	}
@@ -713,7 +723,6 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	protected function trackRemove($item, $key) {
 		parent::trackRemove($item, $key);
 		if(!$item instanceof Page) return;
-		/** @var Page $item */
 		if(isset($this->keyIndex[$item->id])) {
 			if($this->numTotal) $this->numTotal--;
 			unset($this->keyIndex[$item->id]);

@@ -87,7 +87,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 */
 	public function setQuietly($key, $value) {
 		$track = $this->trackChanges(); 
-		$this->setTrackChanges(false);
+		if($track) $this->setTrackChanges(false);
 		$this->set($key, $value);
 		if($track) $this->setTrackChanges(true);
 		return $this;

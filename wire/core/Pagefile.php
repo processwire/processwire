@@ -52,7 +52,7 @@
  * 
  */
 
-class Pagefile extends WireData {
+class Pagefile extends WireData implements WireArrayItem {
 
 	/**
 	 * Timestamp 'created' used by pagefiles that are temporary, not yet published
@@ -1448,6 +1448,19 @@ class Pagefile extends WireData {
 	public function __isset($key) {
 		if(parent::__isset($key)) return true;
 		return $this->get($key) !== null;
+	}
+
+	/**
+	 * For WireArrayItem interface
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return Pagefiles
+	 * @since 3.0.205
+	 * 
+	 */
+	public function getWireArray() {
+		return $this->pagefiles;
 	}
 
 	/**

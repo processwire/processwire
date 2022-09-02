@@ -1242,7 +1242,8 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 	public function getClassArray($property = 'class', $assoc = false) {
 		$property = $this->getClassProperty($property);
-		$value = trim($property === 'class' ? $this->attr('class') : $this->getSetting($property));
+		$value = ($property === 'class' ? $this->attr('class') : $this->getSetting($property));
+		$value = trim("$value"); 
 		while(strpos($value, '  ') !== false) $value = str_replace('  ', ' ', $value);
 		$classes = strlen($value) ? explode(' ', $value) : array();
 		if($assoc) {
