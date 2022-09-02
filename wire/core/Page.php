@@ -93,6 +93,7 @@
  * @property bool $quietMode #pw-internal
  * @property WireData|null $_meta #pw-internal
  * @property WireData $meta #pw-internal
+ * @property array $wakeupNameQueue #pw-internal
  * 
  * 
  * @property Page|null $_cloning Internal runtime use, contains Page being cloned (source), when this Page is the new copy (target). #pw-internal
@@ -453,7 +454,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - false: Page is not lazy loading.
 	 * - true: Page was lazy loading and has already loaded. 
 	 * 
-	 * @var bool
+	 * @var bool|int
 	 * 
 	 */
 	protected $lazyLoad = false;
@@ -532,7 +533,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	protected $pageNum = 1; 
 
 	/**
-	 * When true, exceptions won't be thrown when values are set before templates
+	 * When true, exceptions not thrown when values set before templates, and changes not tracked
 	 * 
 	 * @var bool
 	 *
@@ -590,7 +591,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function __construct(Template $tpl = null) {
-
+		parent::__construct();
 		if($tpl !== null) {
 			$tpl->wire($this);
 			$this->template = $tpl;
@@ -627,6 +628,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$template = $this->template();
 		if($template) {
 			foreach($template->fieldgroup as $field) {
+				/** @var Field $field */
 				$name = $field->name;
 				if(!$field->type) continue;
 				if(!$field->type->isAutoload() && !isset($this->data[$name])) continue; // important for draft loading
@@ -686,7 +688,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 				if(!$this->isLoaded) Page::$loadingStack[(int) $value] = $this;
 				// no break is intentional
 			case 'sort': 
-			case 'numChildren': 
+			case 'numChildren':
+			case 'created_users_id':
+			case 'modified_users_id':
 				$value = (int) $value; 
 				if($this->isLoaded && $this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value);
 				$this->settings[$key] = $value; 
@@ -702,7 +706,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 				break;
 			case 'parent': 
 			case 'parent_id':
-				if(is_object($value) && $value instanceof Page) {
+				if($value instanceof Page) {
 					// ok
 					$this->setParent($value);
 				} else if($value && !$this->_parent && (!$this->_parent_id || !$this->isLoaded) && 	
@@ -732,12 +736,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$value = (int) $value; 
 				if($this->isLoaded && $this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
 				$this->settings[$key] = $value;
-				break;
-			case 'created_users_id':
-			case 'modified_users_id':
-				$value = (int) $value;
-				if($this->isLoaded && $this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
-				$this->settings[$key] = $value; 
 				break;
 			case 'createdUser':
 			case 'modifiedUser':
@@ -775,7 +773,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 					}
 				} else {
 					if($this->quietMode && !$this->template) return parent::set($key, $value);
-					$this->setFieldValue($key, $value, $this->isLoaded);
+					$this->values()->setFieldValue($this, $key, $value, $this->isLoaded);
 				}
 		}
 		return $this; 
@@ -800,9 +798,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 			// allow integer-only values in $this->settings to be set directly in quiet mode
 			$this->settings[$key] = $value;
 		} else {
-			$this->quietMode = true; 
+			$quietMode = $this->quietMode;
+			if(!$quietMode) $this->quietMode = true; 
 			parent::setQuietly($key, $value);
-			$this->quietMode = false;
+			if(!$quietMode) $this->quietMode = false;
 		}
 		return $this; 
 	}
@@ -845,94 +844,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function setFieldValue($key, $value, $load = true) {
-
-		if(!$this->template()) {
-			throw new WireException("You must assign a template to the page before setting custom field values ($key)");
-		}
-
-		// if the page is not yet loaded and a '__' field was set, then we queue it so that the loaded() method can 
-		// instantiate all those fields knowing that all parts of them are present for wakeup. 
-		if(!$this->isLoaded && strpos($key, '__')) {
-			list($key, $subKey) = explode('__', $key, 2); 
-			if(!isset($this->fieldDataQueue[$key])) $this->fieldDataQueue[$key] = array();
-			$this->fieldDataQueue[$key][$subKey] = $value; 
-			return $this;
-		}
-
-		// check if the given key resolves to a Field or not
-		$field = $this->getField($key);
-		if(!$field) {
-			// not a known/saveable field, let them use it for runtime storage
-			$valPrevious = parent::get($key);	
-			if($valPrevious !== null && is_null(parent::get("-$key")) && $valPrevious !== $value) {
-				// store previous value (if set) in a "-$key" version
-				parent::setQuietly("-$key", $valPrevious);
-			}
-			return parent::set($key, $value); 
-		}
-
-		// if a null value is set, then ensure the proper blank type is set to the field
-		if($value === null) {
-			return parent::set($key, $field->type->getBlankValue($this, $field)); 
-		}
-
-		// if the page is currently loading from the database, we assume that any set values are 'raw' and need to be woken up
-		if(!$this->isLoaded) {
-			// queue for wakeup and sanitize on first field access
-			$this->wakeupNameQueue[$key] = $key;
-			// page is currently loading, so we don't need to continue any further
-			return parent::set($key, $value); 
-		}
-
-		// check if the field hasn't been already loaded
-		if(is_null(parent::get($key))) {
-			// this field is not currently loaded. if the $load param is true, then ...
-			// retrieve old value first in case it's not autojoined so that change comparisons and save's work 
-			if($load) $this->get($key);
-			
-		} else if(isset($this->wakeupNameQueue[$key])) {
-			// autoload value: we don't yet have a "woke" value suitable for change detection, so let it wakeup
-			if($this->trackChanges() && $load) {
-				// if changes are being tracked, load existing value for comparison
-				$this->getFieldValue($key);
-			} else {
-				// if changes aren't being tracked, the existing value can be discarded
-				unset($this->wakeupNameQueue[$key]); 
-			}
-
-		} else {
-			// check if the field is corrupted
-			$isCorrupted = false;
-			if(is_object($value) && $value instanceof PageFieldValueInterface) {
-				// value indicates it is already formatted, so would corrupt the page for saving
-				if($value->formatted()) $isCorrupted = true;
-			} else if($this->outputFormatting) {
-				// check if value is modified by being formatted
-				$result = $field->type->_callHookMethod('formatValue', array($this, $field, $value));
-				if($result != $value) $isCorrupted = true; 
-			}
-			if($isCorrupted) {
-				// The field has been loaded or dereferenced from the API, and this field changes when formatters are applied to it. 
-				// There is a good chance they are trying to set a formatted value, and we don't allow this situation because the 
-				// possibility of data corruption is high. We set the Page::statusCorrupted status so that Pages::save() can abort.
-				$this->set('status', $this->status | self::statusCorrupted);
-				$corruptedFields = $this->get('_statusCorruptedFields');
-				if(!is_array($corruptedFields)) $corruptedFields = array();
-				$corruptedFields[$field->name] = $field->name;
-				$this->set('_statusCorruptedFields', $corruptedFields);
-			}
-		}
-
-		// isLoaded so sanitizeValue can determine if it can perform a typecast rather than a full sanitization (when helpful)
-		// we don't use setIsLoaded() so as to avoid triggering any other functions
-		$isLoaded = $this->isLoaded;
-		if(!$load) $this->isLoaded = false;
-		// ensure that the value is in a safe format and set it 
-		$value = $field->type->sanitizeValue($this, $field, $value); 
-		// Silently restore isLoaded state
-		if(!$load) $this->isLoaded = $isLoaded;
-
-		return parent::set($key, $value); 
+		return $this->values()->setFieldValue($this, $key, $value, $load);
 	}
 
 	/**
@@ -945,6 +857,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - Get multiple properties in a string by specifying a string `{property}` tags, i.e. `{title}: {summary}`. 
 	 * - Specify a selector string to get the first matching child page, i.e. `created>=today`.
 	 * - This method can also retrieve sub-properties of object properties, i.e. `parent.title`.
+	 * - To get a guaranteed iterable value, append `[]` to the key, i.e. `$page->get('name[]')`. 3.0.205+
 	 * 
 	 * ~~~~~
 	 * // retrieve the title using get…
@@ -961,6 +874,29 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * // example of getting a sub-property: title of parent page
 	 * $title = $page->get('parent.title'); 
+	 * 
+	 * // all following features are supported in 3.0.205+
+	 * 
+	 * // get value guaranteed to be iterable (array, WireArray, or derived)
+	 * $images = $page->get('image[]');
+	 * $categories = $page->get('category[]');
+	 * 
+	 * // get item by position/index, returns 1 item whether field is single or multi value
+	 * $file = $page->get('files[0]'); // get first file  (or null if files is empty)
+	 * $file = $page->get('files.first); // same as above
+	 * $file = $page->get('files.last'); // get last file
+	 * $file = $page->get('files[1]'); // get 2nd file (or null if there isn't one)
+	 * 
+	 * // get titles from Page reference field categories in an array
+	 * $titles = $page->get('categories.title');  // array of titles
+	 * $title = $page->get('categories[0].title'); // string of just first title
+	 * 
+	 * // you can also use a selector in [brackets] for a filtered value
+	 * // example: get categories with titles matching text 'design'
+	 * $categories = $page->get('categories[title%=design]'); // PageArray
+	 * $category = $page->get('categories[title%=design][0]'); // Page or null
+	 * $titles = $page->get('categories[title%=design].title'); // array of strings
+	 * $title = $page->get('categories[title%=design].title[0]'); // string or null
 	 * ~~~~~
 	 *
 	 * @param string $key Name of property, format string or selector, per the details above. 
@@ -1045,44 +981,65 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case '_meta':		
 				$value = $this->_meta; // null or WireDataDB
 				break;
+			case 'wakeupNameQueue': 	
+				$value = &$this->wakeupNameQueue;
+				break;
+			case 'fieldDataQueue':	
+				$value = &$this->fieldDataQueue;
+				break;
 			
 			default:
 				if($key && isset($this->settings[(string)$key])) return $this->settings[$key];
 				if($key === 'meta' && !$this->wire()->fields->get('meta')) return $this->meta(); // always WireDataDB
 			
-				if(!ctype_alnum("$key")) {
-					// populate a formatted string with {tag} vars
-					if(strpos($key, '{') !== false && strpos($key, '}')) return $this->getMarkup($key);
-
-					// populate a markup requested field like '_fieldName_'
-					$ulpos = strpos($key, '_'); 
-					if($ulpos === 0 && substr($key, -1) === '_' && !$this->wire()->fields->get($key)) {
-						if($this->wire()->sanitizer->fieldName($key) == $key) return $this->renderField(substr($key, 1, -1));
+				$ulpos = strpos($key, '_');
+				
+				if($ulpos === 0 && substr($key, -1) === '_' && !$this->wire()->fields->get($key)) {
+					if($this->wire()->sanitizer->fieldName($key) === $key) {
+						return $this->renderField(substr($key, 1, -1));
+					}
+				}
+				
+				$k = $ulpos ? str_replace('_', '', $key) : $key;
+			
+				if(!ctype_alnum("$k")) {
+					// key has formatting beyond just a field/property name
+					
+					if(strpos($key, '{') !== false && strpos($key, '}')) {
+						// populate a formatted string with {tag} vars
+						return $this->getMarkup($key);
 					}
 
 					if(strpos($key, '|') !== false) {
-						$value = $this->getFieldFirstValue($key);
+						$value = $this->values()->getFieldFirstValue($this, $key);
 						if($value !== null) return $value; 
 					}
-					
-					$value = $this->getFieldValue($key); 
+
+					if(strpos($key, '[')) { 
+						return $this->values()->getBracketValue($this, $key);
+					}
+
+					$value = $this->values()->getFieldValue($this, $key); 
 					if($value !== null) return $value;
 
-					// if there is a selector, we'll assume they are using the get() method to get a child
-					if(Selectors::stringHasOperator($key)) return $this->child($key);
+					if(Selectors::stringHasOperator($key)) {
+						// if there is a selector, assume they are using the get() method to get a child
+						return $this->child($key);
+					}
 
 					// check if it's a field.subfield property
 					if(strpos($key, '.')) {
-						$value = $this->getFieldSubfieldValue($key);
-						if($value !== null) return $value;
+						return $this->values()->getDotValue($this, $key);
 					}
+					
 					if($ulpos !== false && strpos($key, '_OR_')) {
 						// convert '_OR_' to '|'
-						$value = $this->getFieldFirstValue(str_replace('_OR_', '|', $key));
+						$value = $this->values()->getFieldFirstValue($this, str_replace('_OR_', '|', $key));
 						if($value !== null) return $value;
 					}
+					
 				} else {
-					$value = $this->getFieldValue($key);
+					$value = $this->values()->getFieldValue($this, $key);
 					if($value !== null) return $value;
 				}
 
@@ -1125,25 +1082,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function getMultiple($keys, $assoc = false) {
-		if(!is_array($keys)) {
-			$keys = (string) $keys;
-			if(strpos($keys, ',') !== false) {
-				$keys = explode(',', $keys);
-			} else {
-				$keys = array($keys);
-			}
-		}
-		$values = array();
-		foreach($keys as $key) {
-			$key = trim("$key");
-			$value = strlen($key) ? $this->get($key) : null;
-			if($assoc) {
-				$values[$key] = $value;
-			} else {
-				$values[] = $value;
-			}
-		}
-		return $values;
+		return $this->values()->getMultiple($this, $keys, $assoc); 
 	}
 
 	/**
@@ -1159,15 +1098,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function getField($field) {
-		$template = $this->template();
-		$fieldgroup = $template ? $template->fieldgroup : null;
-		if(!$fieldgroup) return null;
-		if($this->outputFormatting && $fieldgroup->hasFieldContext($field)) {
-			$value = $fieldgroup->getFieldContext($field);
-		} else {
-			$value = $fieldgroup->getField($field);
-		}
-		return $value;
+		return $this->values()->getField($this, $field);
 	}
 
 	/**
@@ -1184,18 +1115,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function getFields() {
-		$template = $this->template();
-		if(!$template) return new FieldsArray();
-		$fields = new FieldsArray();
-		/** @var Fieldgroup $fieldgroup */
-		$fieldgroup = $template->fieldgroup;
-		foreach($fieldgroup as $field) {
-			if($fieldgroup->hasFieldContext($field)) {
-				$field = $fieldgroup->getFieldContext($field);
-			}
-			if($field) $fields->add($field);
-		}
-		return $fields;
+		return $this->values()->getFields($this);
 	}
 
 	/**
@@ -1212,22 +1132,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function hasField($field) {
-		$template = $this->template();
-		if(!$template) return false;
-		if(is_string($field) && strpos($field, '|') !== false) {
-			$field = explode('|', $field);
-		}
-		if(is_array($field)) {
-			$result = false;
-			foreach($field as $f) {
-				$f = trim($f);
-				if(!empty($f) && $this->hasField($f)) $result = $f;
-				if($result) break;
-			}
-		} else {
-			$result = $template->fieldgroup->hasField($field);
-		}
-		return $result;
+		return $this->values()->hasField($this, $field);
 	}
 
 	/**
@@ -1237,49 +1142,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param $key
 	 * @return mixed|null
+	 * @deprecated Method no longer needed
 	 * 
 	 */
 	protected function getFieldSubfieldValue($key) {
-		
-		if(!strpos($key, '.')) return null;
-
-		// we allow any field.subfield properties when output formatting is off
-		if(!$this->outputFormatting()) return $this->getDot($key);
-		
-		// allow limited access to field.subfield properties when output formatting is on
-		// we only allow known custom fields, and only 1 level of subfield
-		list($key1, $key2) = explode('.', $key, 2);
-		
-		// test if any parts of key can potentially refer to API variables
-		$api = false;
-		foreach(explode('.', $key2) as $k) {
-			if($this->wire($k)) $api = true;
-			if($api) break;
-		}
-		
-		if($api) return null; // do not allow dereference of API variables
-		
-		if(isset(PageProperties::$traversalReturnTypes[$key1])) { 
-			if(PageProperties::$traversalReturnTypes[$key1] === PageProperties::typePage) {
-				return $this->$key1()->get($key2);
-			}
-		}
-
-		$field = $this->getField($key1);
-		if(!$field || ($field->flags & Field::flagSystem)) return null;
-		
-		// get first part of value
-		$value = $this->get($key1);
-		if($value === null) return null;
-		
-		// then get second part of value
-		if($value instanceof WireData) {
-			$value = $value->get($key2);
-		} else if($value instanceof Wire) {
-			$value = $this->getDot($key);
-		}
-		
-		return $value;
+		return $this->values()->getDotValue($this, $key);
 	}
 
 	/**
@@ -1294,22 +1161,19 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function ___getUnknown($key) {
-		// $key unused is intentional, for access by hooks
-		if($key) {}
 		return null;
 	}
 
 	/**
-	 * Handles get() method requests for properties that include a period like "field.subfield"
+	 * For WireData::getDot() behavior 
 	 *
 	 * Typically these resolve to objects, and the subfield is pulled from the object.
-	 * Currently we only allow this dot syntax when output formatting is off. This limitation may be removed
-	 * but we have to consider potential security implications before doing so.
 	 * 
 	 * #pw-internal
 	 *
 	 * @param string $key Property name in field.subfield format
 	 * @return null|mixed Returns null if not found or invalid. Returns property value on success.
+	 * @deprecated Use the get() method with your dotted key instead. 
 	 *
 	 */
 	public function getDot($key) {
@@ -1331,49 +1195,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param string $multiKey
 	 * @param bool $getKey Specify true to get the first matching key (name) rather than value
 	 * @return null|mixed Returns null if no values match, or if there aren't multiple keys split by "|" chars
+	 * @deprecated Use $page->values()->getFieldFirstValue() instead
 	 *
 	 */
 	protected function getFieldFirstValue($multiKey, $getKey = false) {
-
-		// looking multiple keys split by "|" chars, and not an '=' selector
-		if(strpos($multiKey, '|') === false || strpos($multiKey, '=') !== false) return null;
-
-		$value = null;
-		$keys = explode('|', $multiKey); 
-
-		foreach($keys as $key) {
-			$v = $this->getUnformatted($key);
-		
-			if(is_array($v) || $v instanceof WireArray) {
-				// array or WireArray
-				if(!count($v)) continue;
-				
-			} else if(is_object($v)) {
-				// like LanguagesPageFieldValue 
-				$str = trim((string) $v); 
-				if(!strlen($str)) continue; 
-				
-			} else if(is_string($v)) {
-				$v = trim($v); 
-			}
-			
-			if($v) {
-				if($this->outputFormatting) {
-					$v = $this->get($key);
-				}
-				if($v) {
-					$value = $getKey ? $key : $v;
-					break;
-				}
-			}
-		}
-
-		return $value;
+		return $this->values()->getFieldFirstValue($this, $multiKey, $getKey); 
 	}
 
 	/**
 	 * Get the value for a non-native page field, and call upon Fieldtype to join it if not autojoined
-	 *
+	 * 
 	 * @param string $key Name of field to get
 	 * @param string $selector Optional selector to filter load by...
 	 *   ...or, if not in selector format, it becomes an __invoke() argument for object values .
@@ -1381,96 +1212,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	protected function getFieldValue($key, $selector = '') {
-		
-		$template = $this->template();
-		if(!$template) return parent::get($key); 
-		
-		$field = $this->getField($key);
-		$value = parent::get($key); 
-		
-		if(!$field) return $value;  // likely a runtime field, not part of our data
-
-		/** @var Fieldtype $fieldtype */		
-		$fieldtype = $field->type;	
-		$invokeArgument = '';
-
-		if($value !== null && isset($this->wakeupNameQueue[$key])) {
-			$value = $fieldtype->_callHookMethod('wakeupValue', array($this, $field, $value));
-			$value = $fieldtype->sanitizeValue($this, $field, $value);
-			$trackChanges = $this->trackChanges(true);
-			$this->setTrackChanges(false);
-			parent::set($key, $value); 
-			$this->setTrackChanges($trackChanges);
-			unset($this->wakeupNameQueue[$key]); 
-		}
-
-		if($field->useRoles && $this->outputFormatting) {
-			// API access may be limited when output formatting is ON
-			if($field->flags & Field::flagAccessAPI) {
-				// API access always allowed because of flag
-			} else if($this->viewable($field)) {
-				// User has view permission for this field
-			} else {
-				// API access is denied when output formatting is ON
-				// so just return a blank value as defined by the Fieldtype
-				// note: we do not store this blank value in the Page, so that
-				// the real value can potentially be loaded later without output formatting
-				$value = $fieldtype->getBlankValue($this, $field); 
-				return $this->formatFieldValue($field, $value);
-			}
-		}
-
-		if($value !== null && empty($selector)) {
-			// if the non-filtered value is already loaded, return it 
-			return $this->formatFieldValue($field, $value);
-		}
-		
-		$track = $this->trackChanges();
-		$this->setTrackChanges(false); 
-		
-		if(!$fieldtype) return null;
-		
-		if($selector && !Selectors::stringHasSelector($selector)) {
-			// if selector argument provided, but isn't valid, we assume it 
-			// to instead be an argument for the value's __invoke() method
-			$invokeArgument = $selector;
-			$selector = '';
-		}
-	
-		if($selector) {
-			$value = $fieldtype->loadPageFieldFilter($this, $field, $selector);	
-		} else {
-			// $value = $field->type->loadPageField($this, $field);
-			$value = $fieldtype->_callHookMethod('loadPageField', array($this, $field));
-		}
-		
-		if($value === null) {
-			$value = $fieldtype->getDefaultValue($this, $field);
-		} else {
-			$value = $fieldtype->_callHookMethod('wakeupValue', array($this, $field, $value)); 
-			//$value = $field->type->wakeupValue($this, $field, $value);
-		}
-
-		// turn off output formatting and set the field value, which may apply additional changes
-		$outputFormatting = $this->outputFormatting;
-		if($outputFormatting) $this->setOutputFormatting(false);
-		$this->setFieldValue($key, $value, false);
-		if($outputFormatting) $this->setOutputFormatting(true);
-		$value = parent::get($key);
-		
-		// prevent storage of value if it was filtered when loaded
-		if(!empty($selector)) $this->__unset($key);
-		
-		if(is_object($value) && $value instanceof Wire && !$value instanceof Page) $value->resetTrackChanges(true);
-		if($track) $this->setTrackChanges(true); 
-	
-		$value = $this->formatFieldValue($field, $value);
-		
-		if($invokeArgument && is_object($value) && method_exists($value, '__invoke')) {
-			$value = $value->__invoke($invokeArgument);
-		}
-		
-		return $value;
+		return $this->values()->getFieldValue($this, $key, $selector); 
 	}
 
 	/**
@@ -1484,28 +1226,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	protected function formatFieldValue(Field $field, $value) {
-	
-		$hasInterface = is_object($value) && $value instanceof PageFieldValueInterface;
-		
-		if($hasInterface) {
-			$value->setPage($this);
-			$value->setField($field);
-		}
-
-		if($this->outputFormatting) {
-			// output formatting is enabled so return a formatted value
-			//$value = $field->type->formatValue($this, $field, $value);
-			$value = $field->type->_callHookMethod('formatValue', array($this, $field, $value));
-			// check again for interface since value may now be different
-			if($hasInterface) $hasInterface = is_object($value) && $value instanceof PageFieldValueInterface;
-			if($hasInterface) $value->formatted(true);
-		} else if($hasInterface && $value->formatted()) {
-			// unformatted requested, and value is already formatted so load a fresh copy
-			$this->__unset($field->name);
-			$value = $this->getFieldValue($field->name);
-		}
-		
-		return $value;
+		return $this->values()->formatFieldValue($this, $field, $value);
 	}
 
 	/**
@@ -1612,64 +1333,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function ___getMarkup($key) {
-		
-		if(strpos($key, '{') !== false && strpos($key, '}')) {
-			// populate a string with {tags}
-			// note that the wirePopulateStringTags() function calls back on this method
-			// to retrieve the markup values for each of the found field names
-			return wirePopulateStringTags($key, $this);
-		}
-
-		if(strpos($key, '|') !== false) {
-			$key = $this->getFieldFirstValue($key, true);
-			if(!$key) return '';
-		}
-		
-		if($this->wire()->sanitizer->name($key) != $key) {
-			// not a possible field name
-			return '';
-		}
-
-		$parts = strpos($key, '.') ? explode('.', $key) : array($key);
-		$value = $this;
-		
-		do {
-			
-			$name = array_shift($parts);
-			$field = $this->getField($name);
-			
-			if(!$field && $this->wire($name)) {
-				// disallow API vars
-				$value = '';
-				break;
-			}
-			
-			if($value instanceof Page) {
-				$value = $value->getFormatted($name);
-			} else if($value instanceof WireData) {
-				$value = $value->get($name);
-			} else {
-				$value = $value->$name;
-			}
-			
-			if($field && count($parts) < 2) {
-				// this is a field that will provide its own formatted value
-				$subname = count($parts) == 1 ? array_shift($parts) : '';
-				if(!$subname || !$this->wire($subname)) {
-					$value = $field->type->markupValue($this, $field, $value, $subname);
-				}
-			}
-			
-		} while(is_object($value) && count($parts));
-		
-		if(is_object($value)) {
-			if($value instanceof Page) $value = $value->getFormatted('title|name');
-			if($value instanceof PageArray) $value = $value->getMarkup();
-		}
-		
-		if(!is_string($value)) $value = (string) $value;
-		
-		return $value;
+		return $this->values()->getMarkup($this, $key);
 	}
 	
 	/**
@@ -1688,20 +1352,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function getText($key, $oneLine = false, $entities = null) {
-		$value = $this->getMarkup($key);
-		$length = strlen($value);
-		if(!$length) return '';
-		$options = array(
-			'entities' => ($entities === null ? $this->outputFormatting() : (bool) $entities)
-		);
-		if($oneLine) {
-			$value = $this->wire()->sanitizer->markupToLine($value, $options);
-		} else {
-			$value = $this->wire()->sanitizer->markupToText($value, $options);
-		}
-		// if stripping tags from non-empty value made it empty, just indicate that it was markup and length
-		if(!strlen(trim($value))) $value = "markup($length)";
-		return $value; 	
+		return $this->values()->getText($this, $key, $oneLine, $entities); 
 	}
 
 	/**
@@ -1734,13 +1385,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function setUnformatted($key, $value) {
-		if(is_object($value) && $value instanceof PageFieldValueInterface && $value->formatted()) {
+		if($value instanceof PageFieldValueInterface && $value->formatted()) {
 			throw new WireException("Cannot use formatted-value with Page::setUnformatted($key, formatted-value);");
 		}
-		$outputFormatting = $this->outputFormatting;
-		if($outputFormatting) $this->setOutputFormatting(false);
+		$of = $this->outputFormatting;
+		if($of) $this->of(false);
 		$this->set($key, $value);
-		if($outputFormatting) $this->setOutputFormatting(true);
+		if($of) $this->of(true);
 		return $this;
 	}
 
@@ -1763,10 +1414,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function getUnformatted($key) {
-		$outputFormatting = $this->outputFormatting; 
-		if($outputFormatting) $this->setOutputFormatting(false); 
+		$of = $this->outputFormatting; 
+		if($of) $this->of(false); 
 		$value = $this->get($key); 
-		if($outputFormatting) $this->setOutputFormatting(true); 
+		if($of) $this->of(true); 
 		return $value; 
 	}
 
@@ -1789,10 +1440,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function getFormatted($key) {
-		$outputFormatting = $this->outputFormatting;
-		if(!$outputFormatting) $this->setOutputFormatting(true);
+		$of = $this->outputFormatting;
+		if(!$of) $this->of(true);
 		$value = $this->get($key);
-		if(!$outputFormatting) $this->setOutputFormatting(false);
+		if(!$of) $this->of(false);
 		return $value;
 	}
 
@@ -1850,7 +1501,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	protected function ___callUnknown($method, $arguments) {
 		if($this->hasField($method)) {
 			if(count($arguments)) {
-				return $this->getFieldValue($method, $arguments[0]);
+				return $this->values()->getFieldValue($this, $method, $arguments[0]);
 			} else {
 				return $this->get($method);
 			}
@@ -1860,76 +1511,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			return parent::___callUnknown($method, $arguments);
 		}
 	}
-
-	/**
-	 * Set the status setting, with some built-in protections
-	 * 
-	 * This method is also used when you set status directly, i.e. `$page->status = $value;`.
-	 * 
-	 * ~~~~~
-	 * // set status to unpublished
-	 * $page->setStatus('unpublished');
-	 * 
-	 * // set status to hidden and unpublished
-	 * $page->setStatus('hidden, unpublished');
-	 * 
-	 * // set status to hidden + unpublished using Page constant bitmask
-	 * $page->setStatus(Page::statusHidden | Page::statusUnpublished); 
-	 * ~~~~~
-	 * 
-	 * #pw-advanced
-	 * #pw-group-manipulation
-	 * 
-	 * @param int|array|string Status value, array of status names or values, or status name string.
-	 * @return self
-	 * @see Page::addStatus(), Page::removeStatus()
-	 *
-	 */
-	protected function setStatus($value) {
-		
-		if(!is_int($value)) {
-			// status provided as something other than integer
-			if(is_string($value) && !ctype_digit($value)) {
-				// string of one or more status names
-				if(strpos($value, ',') !== false) $value = str_replace(array(', ', ','), ' ', $value);
-				$value = explode(' ', strtolower($value));
-			} 
-			if(is_array($value)) {
-				// array of status names or numbers
-				$status = 0;
-				foreach($value as $v) {
-					if(is_int($v) || ctype_digit("$v")) { // integer
-						$status = $status | ((int) $v);
-					} else if(is_string($v) && isset(PageProperties::$statuses[$v])) { // string (status name)
-						$status = $status | PageProperties::$statuses[$v];
-					}
-				}
-				if($status) $value = $status; 
-			}
-			// note if $value started as an integer string, i.e. "123", it gets passed through to below
-		}
-		
-		$value = (int) $value; 
-		$override = $this->settings['status'] & Page::statusSystemOverride; 
-		if(!$override) { 
-			if($this->settings['status'] & Page::statusSystemID) $value = $value | Page::statusSystemID;
-			if($this->settings['status'] & Page::statusSystem) $value = $value | Page::statusSystem; 
-		}
-		if($this->settings['status'] != $value && $this->isLoaded) {
-			$this->trackChange('status', $this->settings['status'], $value);
-			if($this->statusPrevious === null) {
-				$this->statusPrevious = $this->settings['status'];
-			}
-		}
-		$this->settings['status'] = $value;
-		if($value & Page::statusDeleted) {
-			// disable any instantiated filesManagers after page has been marked deleted
-			// example: uncache method polls filesManager
-			$this->filesManager = null; 
-		}
-		return $this;
-	}
-
+	
 	/**
 	 * Set the page name, optionally for specific language
 	 * 
@@ -1953,77 +1535,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function setName($value, $language = null) {
 		
-		$key = 'name';
-		$charset = $this->wire()->config->pageNameCharset;
-		$sanitizer = $this->wire()->sanitizer;
-	
-		if($this->isLoaded) {
-			if(is_int($language)) {
-				$key .= $language;
-				$existingValue = $this->get($key);
-			} else if($language && $language !== 'name') {
-				// update $key to contain language ID when applicable
-				$languages = $this->wire()->languages;
-				if($languages) {
-					if(!is_object($language)) {
-						if(strpos($language, 'name') === 0) $language = (int) substr($language, 4);
-						$language = $languages->getLanguage($language);
-						if(!$language || !$language->id || $language->isDefault()) $language = '';
-					}
-					if(!$language) return $this;
-					$key .= $language->id;
-				}
-				$existingValue = $this->get($key);
-			} else {
-				$existingValue = isset($this->settings[$key]) ? $this->settings[$key] : '';
-			}
-	
-			// name is being set after page has already been loaded
-			if($charset === 'UTF8') {
-				// UTF8 page names allowed but decoding not allowed
-				$value = $sanitizer->pageNameUTF8($value);
-				
-			} else if(empty($existingValue)) {
-				// ascii, and beautify if there is no existing value
-				$value = $sanitizer->pageName($value, true);
-				
-			} else {
-				// ascii page name and do not beautify
-				$value = $sanitizer->pageName($value, false);
-			}
-			if($existingValue !== $value && !$this->quietMode) {
-				// set the namePrevious property when the main 'name' has changed
-				if($key === 'name' && $existingValue && empty($this->namePrevious)) {
-					$this->namePrevious = $existingValue;
-				}
-				// track the change 
-				$this->trackChange($key, $existingValue, $value);
-			}
+		if(!$this->isLoaded && empty($language) && is_string($value)) {
+			$this->settings['name'] = $value;
 		} else {
-			// name being set while page is loading
-			if($charset === 'UTF8' && strpos($value, 'xn-') === 0) {
-				// allow decode of UTF8 name while page is loading
-				$value = $sanitizer->pageName($value, Sanitizer::toUTF8);
-			} else {
-				// regular ascii page name while page is loading, do nothing to it
-			}
-			if($language) {
-				if(ctype_digit("$language")) {
-					$key = "name$language";
-				} else if(is_string($language)) {
-					$key = $language; // i.e. name1234
-				}
-			}	
+			$this->values()->setName($this, $value, $language);
 		}
-		
-		if($key === 'name') {
-			$this->settings[$key] = $value;
-		} else if($this->quietMode || !$this->isLoaded) {
-			parent::set($key, $value);
-		} else {
-			$this->setFieldValue($key, $value, $this->isLoaded); // i.e. name1234
-		}
-		
+
 		return $this;
 	}
 
@@ -2102,7 +1619,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 		return $this; 
 	}
 
-
 	/**
 	 * Set either the createdUser or the modifiedUser 
 	 * 
@@ -2123,23 +1639,23 @@ class Page extends WireData implements \Countable, WireMatchable {
 		}
 
 		// if they are setting an invalid user or unknown user, then the Page defaults to the super user
-		if(!$user || !$user->id || !$user instanceof User) {
+		if(!$user instanceof User || !$user->id) {
 			$user = $this->wire()->users->get($this->wire()->config->superUserPageID);
 		}
 
 		if(strpos($userType, 'created') === 0) {
-			$field = 'created_users_id';
+			$key = 'created_users_id';
 			$this->_createdUser = $user; 
 		} else if(strpos($userType, 'modified') === 0) {
-			$field = 'modified_users_id';
+			$key = 'modified_users_id';
 			$this->_modifiedUser = $user;
 		} else {
 			throw new WireException("Unknown user type in Page::setUser(user, type)"); 
 		}
 
-		$existingUserID = $this->settings[$field]; 
-		if($existingUserID != $user->id) $this->trackChange($field, $existingUserID, $user->id); 
-		$this->settings[$field] = $user->id; 
+		$existingUserID = $this->settings[$key]; 
+		if($existingUserID != $user->id) $this->trackChange($key, $existingUserID, $user->id); 
+		$this->settings[$key] = $user->id; 
 		
 		return $this; 	
 	}
@@ -2153,9 +1669,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	protected function getUser($userType) {
 		
-		if($userType === 'created' || strpos($userType, 'created') === 0) {
+		if(strpos($userType, 'created') === 0) {
 			$userType = 'created';
-		} else if($userType === 'modified' || strpos($userType, 'modified') === 0) {
+		} else if(strpos($userType, 'modified') === 0) {
 			$userType = 'modified';
 		} else {
 			return $this->wire(new NullPage());
@@ -2606,7 +2122,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function next($selector = '', PageArray $siblings = null) {
-		if(is_object($selector) && $selector instanceof PageArray) {
+		if($selector instanceof PageArray) {
 			$siblings = $selector;
 			$selector = '';
 		}
@@ -2630,11 +2146,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function nextAll($selector = '', $getQty = false, $getPrev = false) {
 		$siblings = null;
-		if(is_object($selector) && $selector instanceof PageArray) {
+		if($selector instanceof PageArray) {
 			$siblings = $selector;
 			$selector = '';
 		}
-		if(is_object($getQty) && $getQty instanceof PageArray) {
+		if($getQty instanceof PageArray) {
 			$siblings = $getQty;
 			$getQty = false;
 		}
@@ -2687,7 +2203,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function prev($selector = '', PageArray $siblings = null) {
-		if(is_object($selector) && $selector instanceof PageArray) {
+		if($selector instanceof PageArray) {
 			$siblings = $selector;
 			$selector = '';
 		}
@@ -2709,7 +2225,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function prevAll($selector = '', $getQty = false) {
-		return $this->nextAll($selector, $getQty, true);
+		/** @var Page|NullPage|int $value */
+		$value = $this->nextAll($selector, $getQty, true);
+		return $value;
 	}
 
 	/**
@@ -2776,11 +2294,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function getLanguages() {
-		$languages = $this->wire()->pages->newPageArray();
 		$template = $this->template();
 		if(!$template) return null;
 		$templateLanguages = $template->getLanguages();
 		if(!$templateLanguages) return null;
+		$languages = $this->wire()->pages->newPageArray();
 		foreach($templateLanguages as $language) {
 			if($this->viewable($language, false)) $languages->add($language);
 		}
@@ -2924,7 +2442,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function delete($recursive = false) {
-		return $this->wire()->pages->delete($this, $recursive); 
+		/** @var bool|int $value */
+		$value = $this->wire()->pages->delete($this, $recursive); 
+		return $value;
 	}
 
 	/**
@@ -3003,6 +2523,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$template = $this->template();
 		if($template && $template->fieldgroup) {
 			foreach($template->fieldgroup as $field) {
+				/** @var Field $field */
 				$a[$field->name] = $this->get($field->name); 
 			}
 		}
@@ -3055,10 +2576,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		} else {
 			$data = &$this->data;
 		}
-		foreach($data as $key => $value) {
-			if(is_object($value) && $value instanceof Wire) {
-				$changed = $value->isChanged();
-			}
+		foreach($data as $value) {
+			if($value instanceof Wire) $changed = $value->isChanged();
 			if($changed) break;
 		}
 		return $changed; 	
@@ -3081,22 +2600,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function resetTrackChanges($trackChanges = true) {
 		parent::resetTrackChanges($trackChanges);
-		foreach($this->data as $key => $value) {
-			if(is_object($value) && $value instanceof Wire && !$value instanceof Page) {
+		foreach($this->data as $value) {
+			if($value instanceof Wire && !$value instanceof Page) {
 				$value->resetTrackChanges($trackChanges);
 			}
 		}
 		return $this; 
-	}
-
-	/**
-	 * Returns the Page's ID in a string
-	 * 
-	 * @return string
-	 *
-	 */
-	public function __toString() {
-		return "{$this->id}"; 
 	}
 
 	/**
@@ -3406,15 +2915,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function output($forceNew = false) {
 		if($this->output && !$forceNew) return $this->output; 
-		$template = $this->template();
-		if(!$template) return null;
-		$this->output = $this->wire(new TemplateFile());
-		$this->output->setThrowExceptions(false); 
-		$this->output->setFilename($template->filename); 
-		$fuel = $this->wire()->fuel->getArray();
-		$this->output->set('wire', $this->wire()); 
-		foreach($fuel as $key => $value) $this->output->set($key, $value); 
-		$this->output->set('page', $this); 
+		$this->output = $this->values()->output($this, $forceNew);
 		return $this->output; 
 	}
 
@@ -3498,27 +2999,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function getInputfields($fieldName = '') {
-		
-		$of = $this->of();
-		if($of) $this->of(false);
-		
-		$template = $this->template();
-		$fieldgroup = $template ? $template->fieldgroup : null;
-		
-		if($fieldgroup) {
-			if(is_array($fieldName) && !ctype_digit(implode('', array_keys($fieldName)))) {
-				// fieldName is an associative array of options for Fieldgroup::getPageInputfields
-				$wrapper = $fieldgroup->getPageInputfields($this, $fieldName);
-			} else {
-				$wrapper = $fieldgroup->getPageInputfields($this, '', $fieldName);
-			}
-		} else {
-			$wrapper = null;
-		}
-		
-		if($of) $this->of(true);
-		
-		return $wrapper;
+		return $this->values()->getInputfields($this, $fieldName);
 	}
 
 	/**
@@ -3537,20 +3018,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function getInputfield($fieldName) {
-		$inputfields = $this->getInputfields($fieldName);
-		if($inputfields) {
-			$field = $this->wire()->fields->get($fieldName);
-			if($field && $field->type instanceof FieldtypeFieldsetOpen) {
-				// requested field name is a fieldset, returns InputfieldWrapper
-				return $inputfields;
-			} else {
-				// requested field name is a single field, return Inputfield
-				return $inputfields->children()->first();
-			}
-		} else {
-			// requested field name is not applicable to this page
-			return null;
-		}
+		return $this->values()->getInputfield($this, $fieldName);
 	}
 	
 	/**
@@ -3593,6 +3061,39 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(is_string($markup)) return $markup;
 		if($markup === false) return $this->getFormatted($key);
 		return $this->get($key);
+	}
+	
+	/**
+	 * Set the status setting, with some built-in protections
+	 *
+	 * This method is also used when you set status directly, i.e. `$page->status = $value;`.
+	 *
+	 * ~~~~~
+	 * // set status to unpublished
+	 * $page->setStatus('unpublished');
+	 *
+	 * // set status to hidden and unpublished
+	 * $page->setStatus('hidden, unpublished');
+	 *
+	 * // set status to hidden + unpublished using Page constant bitmask
+	 * $page->setStatus(Page::statusHidden | Page::statusUnpublished);
+	 * ~~~~~
+	 *
+	 * #pw-advanced
+	 * #pw-group-manipulation
+	 *
+	 * @param int|array|string Status value, array of status names or values, or status name string.
+	 * @return self
+	 * @see Page::addStatus(), Page::removeStatus()
+	 *
+	 */
+	protected function setStatus($value) {
+		if(!$this->isLoaded && ctype_digit("$value")) {
+			$this->settings['status'] = (int) $value;
+		} else {
+			$this->values()->setStatus($this, $value);
+		}
+		return $this;
 	}
 
 	/**
@@ -3682,16 +3183,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function removeStatus($statusFlag) {
-		if(is_string($statusFlag) && isset(PageProperties::$statuses[$statusFlag])) {
-			$statusFlag = PageProperties::$statuses[$statusFlag];
-		}
-		$statusFlag = (int) $statusFlag; 
-		$override = $this->settings['status'] & Page::statusSystemOverride; 
-		if($statusFlag == Page::statusSystem || $statusFlag == Page::statusSystemID) {
-			if(!$override) throw new WireException('Cannot remove statusSystem from page without statusSystemOverride');
-		}
-		$this->status = $this->status & ~$statusFlag; 
-		return $this;
+		return $this->values()->removeStatus($this, $statusFlag);
 	}
 	
 	/**
@@ -3703,13 +3195,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * }
 	 * ~~~~~
 	 * 
-	 * @param string|Selectors|array $selector Selector to compare against (string, Selectors object, or array).
+	 * @param string|Selectors|array $s Selector to compare against (string, Selectors object, or array).
 	 * @return bool Returns true if this page matches, or false if it doesn't. 
 	 *
 	 */
-	public function matches($selector) {
+	public function matches($s) {
 		// This method implements the WireMatchable interface
-		return $this->comparison()->matches($this, $selector);
+		return $this->comparison()->matches($this, $s);
 	}
 
 	/**
@@ -3909,10 +3401,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-internal
 	 *
 	 * @param bool $isLoaded
+	 * @param bool $quiet Set without triggering anything else? (default=false)
 	 * @return $this
 	 *
 	 */
-	public function setIsLoaded($isLoaded) {
+	public function setIsLoaded($isLoaded, $quiet = false) {
+		if($quiet) {
+			$this->isLoaded = (bool) $isLoaded;
+			return $this;
+		}
 		$isLoaded = !$isLoaded || $isLoaded === 'false' ? false : true; 
 		if($isLoaded) {
 			$this->processFieldDataQueue();
@@ -3933,37 +3430,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	protected function processFieldDataQueue() {
-		
-		$template = $this->template();
-		if(!$template) return;
-		
-		$fieldgroup = $template->fieldgroup;
-		if(!$fieldgroup) return;
-
-		foreach($this->fieldDataQueue as $key => $value) {
-
-			$field = $fieldgroup->get($key); 
-			if(!$field) continue;
-
-			// check for autojoin multi fields, which may have multiple values bundled into one string
-			// as a result of an sql group_concat() function
-			if($field->type instanceof FieldtypeMulti && ($field->flags & Field::flagAutojoin)) {
-				foreach($value as $k => $v) {	
-					if(is_string($v) && strpos($v, FieldtypeMulti::multiValueSeparator) !== false) {
-						$value[$k] = explode(FieldtypeMulti::multiValueSeparator, $v); 	
-					}
-				}
-			}
-
-			// if all there is in the array is 'data', then we make that the value rather than keeping an array
-			// this is so that Fieldtypes that only need to interact with a single value don't have to receive an array of data
-			if(count($value) == 1 && array_key_exists('data', $value)) $value = $value['data']; 
-
-			$this->setFieldValue($key, $value, false);
+		if($this->values()->processFieldDataQueue($this, $this->fieldDataQueue)) {
+			$this->fieldDataQueue = array();
 		}
-		$this->fieldDataQueue = array(); // empty it out, no longer needed
 	}
-
 
 	/**
 	 * For hooks to listen to, triggered when page is loaded and ready
@@ -4169,7 +3639,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 	
 	/**
-	 * Prepare the page and it's fields for removal from runtime memory, called primarily by Pages::uncache()
+	 * Prepare the page and its fields for removal from runtime memory, called primarily by Pages::uncache()
 	 * 
 	 * #pw-internal
 	 *
@@ -4178,36 +3648,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$trackChanges = $this->trackChanges();
 		if($trackChanges) $this->setTrackChanges(false); 
 		$template = $this->template();
-		if($template) {
-			foreach($template->fieldgroup as $field) {
-				$value = parent::get($field->name);
-				if($value != null && is_object($value)) {
-					parent::set($field->name, null); 
-					if(isset($this->wakeupNameQueue[$field->name])) unset($this->wakeupNameQueue[$field->name]); 
-				}
-			}
+		$fieldgroup = $template ? $template->fieldgroup : array();
+		foreach($fieldgroup as $field) { /** @var Field $field */
+			$value = parent::get($field->name);
+			if(!is_object($value)) continue;
+			parent::set($field->name, null); 
+			unset($this->wakeupNameQueue[$field->name]);
 		}
 		if($this->filesManager) $this->filesManager->uncache(); 
 		$this->filesManager = null;
 		if($trackChanges) $this->setTrackChanges(true); 
-	}
-
-	/**
-	 * Ensures that isset() and empty() work for this classes properties. 
-	 *
-	 * @param string $key
-	 * @return bool
-	 *
-	 */
-	public function __isset($key) {
-		if($this->isLoaded) {
-			return $this->get($key) !== null;
-		} else {
-			if(isset(PageProperties::$baseProperties[$key])) return true;
-			if(isset(PageProperties::$basePropertiesAlternates[$key])) return true;
-			if($this->hasField($key)) return true;
-			return false;
-		}
 	}
 
 	/**
@@ -4269,29 +3719,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Export the page's data to an array
-	 * 
-	 * @return array
-	 * 
-	public function ___export() {
-		$exporter = new PageExport();
-		return $exporter->export($this);
-	}
-	 */
-
-	/**
-	 * Export the page's data from an array
-	 *
-	 * @param array $data Data to import, in the format from the export() function
-	 * @return $this
-	 *
-	public function ___import(array $data) {
-		$importer = new PageExport();
-		return $importer->import($this, $data); 
-	}
-	 */
-
-	/**
 	 * Is $value1 equal to $value2?
 	 * 
 	 * @param string $key Name of the key that triggered the check (see WireData::set)
@@ -4301,28 +3728,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	protected function isEqual($key, $value1, $value2) {
-		
-		$isEqual = $value1 === $value2;
-		
-		if(!$isEqual && $value1 instanceof WireArray && $value2 instanceof WireArray) {
-			// ask WireArray to compare itself to another
-			$isEqual = $value1->isIdentical($value2, true);
-		}
-		
-		if($isEqual) {
-			if(is_object($value1) && $value1 instanceof Wire && ($value1->isChanged() || $value2->isChanged())) {
-				$this->trackChange($key, $value1, $value2);
-			}
-		}
-		
-		return $isEqual;
+		return $this->comparison()->isEqual($this, $key, $value1, $value2); 
 	}
 
 	/**
 	 * Return a Page helper class instance that’s common among all Page (and derived) objects in this ProcessWire instance
 	 * 
 	 * @param string $className
-	 * @return object|PageComparison|PageAccess|PageTraversal
+	 * @return object|PageComparison|PageAccess|PageTraversal|PageValues
 	 * 
 	 */
 	protected function getHelperInstance($className) {
@@ -4367,17 +3780,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	protected function traversal() {
 		return $this->getHelperInstance('PageTraversal');
 	}
-	
-	/**
-	 * return PageFamily
-	 * 
-	 * Coming soon
-	 *
-	protected function family() {
-		return $this->getHelperInstance('PageFamily');
-	}
-	 */
 
+	/**
+	 * @return PageValues
+	 * 
+	 */
+	protected function values() {
+		return $this->getHelperInstance('PageValues');
+	}
+	
 	/**
 	 * Return a translation array of all: status name => status number
 	 *
@@ -4433,22 +3844,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @todo add recognized page icon field to core
-	 * 
 	 * @return string
 	 * 
 	 */
 	public function ___getIcon() {
-		$template = $this->template();
-		if(!$template) return '';
-		if($this->hasField('process')) {
-			$process = $this->getUnformatted('process'); 
-			if($process) {
-				$info = $this->wire()->modules->getModuleInfoVerbose($process);
-				if(!empty($info['icon'])) return $info['icon'];
-			}
-		}
-		return $template->getIcon();
+		return $this->values()->getIcon($this);
 	}
 
 	/**
@@ -4484,19 +3884,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function _lazy($lazy = null) {
-		
-		if(is_null($lazy)) {
-			// return current state
-			return $this->lazyLoad;
-			
-		} else if(is_int($lazy)) {
+		if($lazy === null) return $this->lazyLoad; // return current state
+		if(is_int($lazy)) {
 			// set state (page ID)
 			if($lazy > 0 && !$this->lazyLoad) {
 				$this->lazyLoad = $lazy;
 				$this->set('id', $lazy);
 			}
 			return true;
-			
 		} else if($lazy === true) {
 			// load page
 			if(!is_int($this->lazyLoad) || $this->lazyLoad < 1) return false;
@@ -4506,9 +3901,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 				'getOne' => true,
 				'page' => $this // This. Just This.
 			));
-			if(!$page->id) return false;
-			return true;
-			
+			return $page->id > 0;
 		} else {
 			throw new WireException("Invalid arguments to Page::lazy()");
 		}
@@ -4533,23 +3926,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$result = $this->wire()->pages->$method($selector, $options);
 		return $result;
 	}
-
-	/*
-	public function remove($key) {
-		parent::remove($key);
-		if(isset($this->data[$key])) {
-			$a = parent::get('_statusCorruptedFields');
-			if(!is_array($a)) $a = array();
-			$k = array_search($key, $a);
-			if($k !== false) {
-				unset($a[$k]); 
-				if(empty($a)) $this->removeStatus(self::statusCorrupted);
-				parent::set('_statusCorruptedFields', $a);
-			}
-		}
-		return $this;
-	}
-	*/
 
 	/**
 	 * Get or set page’s persistent meta data 
@@ -4603,5 +3979,185 @@ class Page extends WireData implements \Countable, WireMatchable {
 		return $this->_meta->set($key, $value); // set value
 	}
 	
+	/**
+	 * Track a change to a property in this Page
+	 *
+	 * The change will only be recorded if change tracking is enabled for this object instance.
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $what Name of property that changed
+	 * @param mixed $old Previous value before change
+	 * @param mixed $new New value
+	 * @return $this
+	 *
+	 */
+	public function trackChange($what, $old = null, $new = null) {
+		if($this->isLoaded && $old !== $new) {
+			if($what === 'name' && strlen("$old") && !strlen("$this->namePrevious")) {
+				$this->namePrevious = $old;
+			} else if($what === 'status' && $old !== null) {
+				$this->statusPrevious = (int) $old;
+			}
+		}
+		return parent::trackChange($what, $old, $new);
+	}
+
+	/**
+	 * Set directly to settings (for internal use)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $key
+	 * @param int|string|bool $value
+	 * @since 3.0.205
+	 * 
+	 */
+	public function _setSetting($key, $value) {
+		if($this->isLoaded && $this->trackChanges && !$this->quietMode) {
+			$valuePrevious = isset($this->settings[$key]) ? $this->settings[$key] : null;
+			if($valuePrevious != $value) $this->trackChange($key, $valuePrevious, $value);
+		}
+		$this->settings[$key] = $value;
+	}
+
+	/**
+	 * Get directly from settings (for internal use)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $key
+	 * @return string|int|bool|null
+	 * @since 3.0.205
+	 * 
+	 */
+	public function _getSetting($key) {
+		if($key === 'quietMode') return $this->quietMode;
+		return isset($this->settings[$key]) ? $this->settings[$key] : null;
+	}
+
+	/**
+	 * Get or set from wakeupNameQueue
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string|null|array $key String to set one, array to set all, null to get all
+	 * @param mixed $value Value to set if key is string
+	 * @param bool $unset Specify true to unset $key while also specifying null for $value
+	 * @return array|mixed|null
+	 * @since 3.0.205
+	 * 
+	 */
+	public function wakeupNameQueue($key = null, $value = null, $unset = false) {
+		if($key === null) return $this->wakeupNameQueue;
+		if($unset) {
+			unset($this->wakeupNameQueue[$key]);
+		} else if($value !== null) {
+			$this->wakeupNameQueue[$key] = $value;
+		} else if(is_array($key)) {
+			$this->wakeupNameQueue = $key;
+		} else if(isset($this->wakeupNameQueue[$key])) {
+			return $this->wakeupNameQueue[$key];
+		}
+		return null;
+	}
+	
+	/**
+	 * Get or set from fieldDataQueue
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string|null|array $key String to set one, array to set all, null to get all
+	 * @param mixed $value Value to set if key is string
+	 * @param bool $unset Specify true to unset $key while also specifying null for $value
+	 * @return array|mixed|null
+	 * @since 3.0.205
+	 *
+	 */
+	public function fieldDataQueue($key = null, $value = null, $unset = false) {
+		if($key === null) return $this->fieldDataQueue;
+		if($unset) {
+			unset($this->fieldDataQueue[$key]);
+		} else if($value !== null) {
+			$this->fieldDataQueue[$key] = $value;
+		} else if(is_array($key)) {
+			$this->fieldDataQueue = $key;
+		} else if(isset($this->fieldDataQueue[$key])) {
+			return $this->fieldDataQueue[$key];
+		}
+		return null;
+	}
+
+	/**
+	 * Get directly from parent class (for internal use)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $key
+	 * @return mixed|null
+	 * @since 3.0.205
+	 * 
+	 */
+	public function _parentGet($key) {
+		return parent::get($key);
+	}
+
+	/**
+	 * Set directly to parent class (for internal use)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param $key
+	 * @param $value
+	 * @since 3.0.205
+	 * 
+	 */
+	public function _parentSet($key, $value) {
+		parent::set($key, $value);
+	}
+	/**
+	 * Ensures that isset() and empty() work for this classes properties.
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string $key
+	 * @return bool
+	 *
+	 */
+	public function __isset($key) {
+		if($this->isLoaded) {
+			return $this->get($key) !== null;
+		} else {
+			if(isset(PageProperties::$baseProperties[$key])) return true;
+			if(isset(PageProperties::$basePropertiesAlternates[$key])) return true;
+			if($this->hasField($key)) return true;
+			return false;
+		}
+	}
+
+	/**
+	 * #pw-internal
+	 *
+	 * @param string $key
+	 *
+	 */
+	public function __unset($key) {
+		if($key === 'filesManager') {
+			$this->filesManager = null;
+		} else {
+			parent::__unset($key);
+		}
+	}
+	
+	/**
+	 * Returns the Page ID in a string
+	 *
+	 * @return string
+	 *
+	 */
+	public function __toString() {
+		return "$this->id";
+	}
+
 }
 

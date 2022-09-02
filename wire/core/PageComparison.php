@@ -367,6 +367,34 @@ class PageComparison {
 		
 		return $value;
 	}
+	
+	/**
+	 * Is $value1 equal to $value2?
+	 *
+	 * @param string $key Name of the key that triggered the check (see WireData::set)
+	 * @param mixed $value1
+	 * @param mixed $value2
+	 * @return bool
+	 *
+	 */
+	public function isEqual(Page $page, $key, $value1, $value2) {
+
+		$isEqual = $value1 === $value2;
+
+		if(!$isEqual && $value1 instanceof WireArray && $value2 instanceof WireArray) {
+			// ask WireArray to compare itself to another
+			$isEqual = $value1->isIdentical($value2, true);
+		}
+
+		if($isEqual) {
+			if($value1 instanceof Wire && ($value1->isChanged() || $value2->isChanged())) {
+				$page->trackChange($key, $value1, $value2);
+			}
+		}
+
+		return $isEqual;
+	}
+
 
 }
 

@@ -6,12 +6,13 @@
  * Provides implementation for Page traversal functions.
  * Based upon the jQuery traversal functions. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 class PageTraversal {
+	
 
 	/**
 	 * Return number of children, optionally with conditions
@@ -110,7 +111,7 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param string|array $selector Selector to use, or blank to return all children
 	 * @param array $options
-	 * @return PageArray|array
+	 * @return PageArray
 	 *
 	 */
 	public function children(Page $page, $selector = '', $options = array()) {
@@ -214,6 +215,7 @@ class PageTraversal {
 		$stop = false;
 
 		foreach($parents->reverse() as $parent) {
+			/** @var Page $parent */
 
 			if(is_string($selector) && strlen($selector)) {
 				if(ctype_digit("$selector") && $parent->id == $selector) {
@@ -431,7 +433,7 @@ class PageTraversal {
 				'parent_id' => $parent->id,
 				'cache' => $page->loaderCache
 			));
-			if($options['all'] && $options['prev']) $result = $result->reverse();
+			if($options['prev']) $result = $result->reverse();
 			
 		} else {
 			$row = reset($rows);
@@ -717,7 +719,7 @@ class PageTraversal {
 		if($options['scheme']) {
 			$scheme = strtolower($options['scheme']);
 			if(strpos($scheme, '://') === false) $scheme .= '://';
-			if($scheme === 'https://' && $config->noHTTPS) $scheme = 'http://';
+			if($scheme === 'https://' && $config->noHTTPS) $scheme = 'http' . '://';
 			$host = $options['host'] ? $options['host'] : $config->httpHost;
 			$url = "$scheme$host$url";
 			
@@ -768,7 +770,6 @@ class PageTraversal {
 			'language' => null, 
 		);
 
-		/** @var Modules $modules */
 		$modules = $page->wire()->modules;
 		$options = array_merge($defaults, $options);
 		$languages = $options['languages'] ? $page->wire()->languages : null;
@@ -788,6 +789,7 @@ class PageTraversal {
 		// include other language URLs
 		if($languages && $languages->hasPageNames()) {
 			foreach($languages as $language) {
+				/** @var Language $language */
 				if(!$language->isDefault() && !$page->get("status$language")) continue;
 				$urls[$language->name] = $page->localUrl($language);
 			}
@@ -862,7 +864,7 @@ class PageTraversal {
 
 		if($options === true || (is_array($options) && !empty($options['http']))) {
 			if(strpos($url, '://') === false) {
-				$url = ($https || $config->https ? 'https://' : 'http://') . $config->httpHost . $url;
+				$url = ($https || $config->https ? 'https' : 'http' ) . '://' . $config->httpHost . $url;
 			}
 		}
 
@@ -1001,7 +1003,7 @@ class PageTraversal {
 	 * Return pages that this page is referencing by way of Page reference fields
 	 * 
 	 * @param Page $page
-	 * @param bool $field Limit results to requested field, or specify boolean true to return array indexed by field names.
+	 * @param bool|Field|string|int $field Limit results to requested field, or specify boolean true to return array indexed by field names.
 	 * @param bool $getCount Specify true to return count(s) rather than pages. 
 	 * @return PageArray|int|array
 	 * 
@@ -1027,6 +1029,7 @@ class PageTraversal {
 		$itemsByField = array();
 		
 		foreach($page->template->fieldgroup as $f) {
+			/** @var Field $f */
 			if($fieldName && $field->name != $fieldName) continue;
 			if(!$f->type instanceof FieldtypePage) continue;
 			if($byField) $itemsByField[$f->name] = $pages->newPageArray();
@@ -1139,7 +1142,7 @@ class PageTraversal {
 	 *
 	 */
 	public function nextSibling(Page $page, $selector = '', PageArray $siblings = null) {
-		if(is_object($selector) && $selector instanceof PageArray) {
+		if($selector instanceof PageArray) {
 			// backwards compatible to when $siblings was first argument
 			$siblings = $selector;
 			$selector = '';
@@ -1155,7 +1158,7 @@ class PageTraversal {
 			/** @var Page $next */
 			$next = $siblings->getNext($next, false);
 			if(empty($selector) || !$next || $next->matches($selector)) break;
-		} while($next && $next->id);
+		} while($next->id);
 		if(is_null($next)) $next = $page->wire()->pages->newNullPage();
 		return $next;
 	}
@@ -1183,7 +1186,7 @@ class PageTraversal {
 	 *
 	 */
 	public function prevSibling(Page $page, $selector = '', PageArray $siblings = null) {
-		if(is_object($selector) && $selector instanceof PageArray) {
+		if($selector instanceof PageArray) {
 			// backwards compatible to when $siblings was first argument
 			$siblings = $selector;
 			$selector = '';
@@ -1199,7 +1202,7 @@ class PageTraversal {
 			/** @var Page $prev */
 			$prev = $siblings->getPrev($prev, false); 
 			if(empty($selector) || !$prev || $prev->matches($selector)) break;
-		} while($prev && $prev->id); 
+		} while($prev->id); 
 		if(is_null($prev)) $prev = $page->wire()->pages->newNullPage();
 		return $prev;
 	}
@@ -1291,6 +1294,7 @@ class PageTraversal {
 		$stop = false;
 
 		foreach($siblings as $sibling) {
+			/** @var Page $sibling */
 
 			if(is_string($selector) && strlen($selector)) {
 				if(ctype_digit("$selector") && $sibling->id == $selector) {
@@ -1342,6 +1346,7 @@ class PageTraversal {
 		$stop = false;
 
 		foreach($siblings->reverse() as $sibling) {
+			/** @var Page $sibling */
 
 			if(is_string($selector) && strlen($selector)) {
 				if(ctype_digit("$selector") && $sibling->id == $selector) {
