@@ -45,6 +45,7 @@ class PagesLoaderCache extends Wire {
 	 * 
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 	}
 
@@ -308,7 +309,7 @@ class PagesLoaderCache extends Wire {
 		// cache non-default languages separately
 		if($this->wire()->languages) {
 			$language = $this->wire()->user->language;
-			if(!$language->isDefault()) {
+			if($language && !$language->isDefault()) {
 				$selector .= ", _lang=$language->id"; // for caching purposes only, not recognized by PageFinder
 			}
 		}
