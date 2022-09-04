@@ -409,7 +409,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Field data that queues while the page is loading. 
 	 *
-	 * Once setIsLoaded(true) is called, this data is processed and instantiated into the Page and the fieldDataQueue is emptied (and no longer relevant)	
+	 * Once setIsLoaded(true) is called, this data is processed and instantiated into the Page and 
+	 * the fieldDataQueue is emptied (and no longer relevant)	
 	 * 
 	 * @var array
 	 *
@@ -421,7 +422,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * These are most likely field names designated as autoload for this page. 
 	 * 
-	 * @var array of (field name => raw field value)
+	 * @var array of (field name => true)
 	 * 
 	 */
 	protected $wakeupNameQueue = array();
@@ -3406,11 +3407,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function setIsLoaded($isLoaded, $quiet = false) {
+		$isLoaded = !$isLoaded || $isLoaded === 'false' ? false : true;
 		if($quiet) {
-			$this->isLoaded = (bool) $isLoaded;
+			$this->isLoaded = $isLoaded;
 			return $this;
 		}
-		$isLoaded = !$isLoaded || $isLoaded === 'false' ? false : true; 
 		if($isLoaded) {
 			$this->processFieldDataQueue();
 			unset(Page::$loadingStack[$this->settings['id']]); 
@@ -4041,24 +4042,22 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param string|null|array $key String to set one, array to set all, null to get all
-	 * @param mixed $value Value to set if key is string
-	 * @param bool $unset Specify true to unset $key while also specifying null for $value
-	 * @return array|mixed|null
+	 * @param string|null $key String to get or set, omit to get all
+	 * @param bool|null $set Specify true to toggle on, false to toggle off, or omit to get set state
+	 * @return bool|null|array 
 	 * @since 3.0.205
 	 * 
 	 */
-	public function wakeupNameQueue($key = null, $value = null, $unset = false) {
-		if($key === null) return $this->wakeupNameQueue;
-		if($unset) {
+	public function wakeupNameQueue($key = null, $set = null) {
+		if($key === null) {
+			return $this->wakeupNameQueue;
+		} else if($set === null) {
+			return isset($this->wakeupNameQueue[$key]); 
+		} else if($set === false) {
 			unset($this->wakeupNameQueue[$key]);
-		} else if($value !== null) {
-			$this->wakeupNameQueue[$key] = $value;
-		} else if(is_array($key)) {
-			$this->wakeupNameQueue = $key;
-		} else if(isset($this->wakeupNameQueue[$key])) {
-			return $this->wakeupNameQueue[$key];
-		}
+		} else if($set) {
+			$this->wakeupNameQueue[$key] = true;
+		} 
 		return null;
 	}
 	

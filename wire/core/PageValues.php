@@ -738,6 +738,8 @@ class PageValues extends Wire {
 
 			$this->setFieldValue($page, $key, $value, false);
 		}
+		
+		$page->fieldDataQueue(array());
 
 		return true;
 	}
@@ -877,14 +879,14 @@ class PageValues extends Wire {
 		$fieldtype = $field->type;
 		$invokeArgument = '';
 
-		if($value !== null && $page->wakeupNameQueue($key) !== null) {
+		if($value !== null && $page->wakeupNameQueue($key)) {
 			$value = $fieldtype->_callHookMethod('wakeupValue', array($page, $field, $value));
 			$value = $fieldtype->sanitizeValue($page, $field, $value);
-			$trackChanges = $this->trackChanges(true);
-			$this->setTrackChanges(false);
+			$trackChanges = $page->trackChanges(true);
+			$page->setTrackChanges(false);
 			$page->_parentSet($key, $value);
 			$page->setTrackChanges($trackChanges);
-			$page->wakeupNameQueue($key, null, true);
+			$page->wakeupNameQueue($key, false);
 		}
 
 		if($field->useRoles && $page->of()) {
@@ -908,8 +910,8 @@ class PageValues extends Wire {
 			return $this->formatFieldValue($page, $field, $value);
 		}
 
-		$track = $this->trackChanges();
-		$this->setTrackChanges(false);
+		$track = $page->trackChanges();
+		$page->setTrackChanges(false);
 
 		if(!$fieldtype) return null;
 
@@ -943,7 +945,7 @@ class PageValues extends Wire {
 		if(!empty($selector)) $page->__unset($key);
 
 		if($value instanceof Wire && !$value instanceof Page) $value->resetTrackChanges(true);
-		if($track) $this->setTrackChanges(true);
+		if($track) $page->setTrackChanges(true);
 
 		$value = $this->formatFieldValue($page, $field, $value);
 
@@ -1051,7 +1053,7 @@ class PageValues extends Wire {
 		// if the page is currently loading from the database, we assume that any set values are 'raw' and need to be woken up
 		if(!$page->isLoaded()) {
 			// queue for wakeup and sanitize on first field access
-			$page->wakeupNameQueue($key, $key);
+			$page->wakeupNameQueue($key, true);
 			// page is currently loading, so we don't need to continue any further
 			$page->_parentSet($key, $value);
 			return $page;
@@ -1062,14 +1064,14 @@ class PageValues extends Wire {
 			// this field is not currently loaded. if the $load param is true, then ...
 			// retrieve old value first in case it's not autojoined so that change comparisons and save's work 
 			if($load) $page->get($key);
-		} else if($page->wakeupNameQueue($key) !== null) {
+		} else if($page->wakeupNameQueue($key)) {
 			// autoload value: we don't yet have a "woke" value suitable for change detection, so let it wakeup
 			if($page->trackChanges() && $load) {
 				// if changes are being tracked, load existing value for comparison
-				$this->getFieldValue($page, $this, $key);
+				$this->getFieldValue($page, $key);
 			} else {
 				// if changes aren't being tracked, the existing value can be discarded
-				$page->wakeupNameQueue($key, null, true);
+				$page->wakeupNameQueue($key, false);
 			}
 
 		} else {
