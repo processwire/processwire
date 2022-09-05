@@ -352,7 +352,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$label = $this->field->getLabel();
 		if(!$label) $label = ucfirst($this->field->name); 
 		
-		if((int) $this->repeaterDepth > 1 && (int) $this->familyFriendly) {
+		if((int) $this->repeaterDepth > 0 && (int) $this->familyFriendly) {
 			$this->addClass('InputfieldRepeaterFamilyFriendly', 'wrapClass'); 
 		}
 		
