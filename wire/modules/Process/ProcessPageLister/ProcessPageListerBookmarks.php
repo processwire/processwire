@@ -41,8 +41,8 @@ class ProcessPageListerBookmarks extends Wire {
 	public function __construct(ProcessPageLister $lister) {
 		require_once(__DIR__ . '/ListerBookmarks.php');
 		$this->lister = $lister;
-		$this->page = $lister->wire('page');
-		$this->user = $lister->wire('user');
+		$this->page = $lister->wire()->page;
+		$this->user = $lister->wire()->user;
 		$this->bookmarks = new ListerBookmarks($this->page, $this->user);
 		parent::__construct();
 	}
@@ -85,11 +85,14 @@ class ProcessPageListerBookmarks extends Wire {
 	 */
 	public function buildBookmarkListForm() {
 
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
+		$pages = $this->wire()->pages;
+		$modules = $this->wire()->modules;
+		$languages = $this->wire()->languages;
+		$user = $this->wire()->user;
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 		$form->attr('id', 'tab_bookmarks');
 		$form->method = 'post';
 		$form->action = './edit-bookmark/#tab_bookmarks';
@@ -100,9 +103,7 @@ class ProcessPageListerBookmarks extends Wire {
 		$ownedBookmarks = $this->bookmarks->getOwnedBookmarks();
 		$numBookmarks = count($publicBookmarks) + count($ownedBookmarks);
 
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
-		$languageID = $languages && !$this->user->language->isDefault() ? $this->user->language->id : '';
+		$languageID = $languages && !$user->language->isDefault() ? $user->language->id : '';
 
 		$addBookmarkFieldset = $this->buildBookmarkEditForm(0);
 		$addBookmarkFieldset->collapsed = $numBookmarks ? Inputfield::collapsedYes : Inputfield::collapsedNo;
@@ -128,7 +129,7 @@ class ProcessPageListerBookmarks extends Wire {
 			if(empty($bookmarks)) continue;
 
 			/** @var InputfieldMarkup $f */
-			$f = $this->wire('modules')->get('InputfieldMarkup');
+			$f = $modules->get('InputfieldMarkup');
 			$f->label = $typeLabels[$bookmarkType];
 			$f->icon = $iconsByType[$bookmarkType];
 
@@ -140,7 +141,7 @@ class ProcessPageListerBookmarks extends Wire {
 			);
 
 			/** @var MarkupAdminDataTable $table */
-			$table = $this->wire('modules')->get('MarkupAdminDataTable');
+			$table = $modules->get('MarkupAdminDataTable');
 			$table->setID('table_bookmarks_' . $bookmarkType);
 			$table->setSortable(false);
 			$table->setEncodeEntities(false);
@@ -173,7 +174,7 @@ class ProcessPageListerBookmarks extends Wire {
 					if(count($bookmark['roles']) < 2 && ((int) reset($bookmark['roles'])) === 0) {
 						$row[] = $this->_x('all', 'bookmark-roles');
 					} else if(count($bookmark['roles'])) {
-						$row[] = $this->wire('pages')->getById($bookmark['roles'])->implode(', ', 'name');
+						$row[] = $pages->getById($bookmark['roles'])->implode(', ', 'name');
 					}
 				} else {
 					$row[] = $this->_('you');
@@ -215,17 +216,19 @@ class ProcessPageListerBookmarks extends Wire {
 	 *
 	 */
 	protected function buildBookmarkDeleteForm($bookmarkID) {
+		
+		$modules = $this->wire()->modules;
 
 		$bookmark = $this->bookmarks->getBookmark($bookmarkID);
 		if(!$bookmark) throw new WireException('Unknown bookmark');
 
 		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->icon = 'trash-o';
 		$fieldset->label = $this->_('Please check the box to confirm you want to delete this bookmark');
 
 		/** @var InputfieldCheckbox $f */
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'delete_bookmark');
 		$f->label = $this->_('Delete this bookmark?');
 		$f->icon = 'trash-o';
@@ -233,13 +236,13 @@ class ProcessPageListerBookmarks extends Wire {
 		$fieldset->add($f);
 
 		/** @var InputfieldSubmit $submit */
-		$submit = $this->wire('modules')->get('InputfieldSubmit');
+		$submit = $modules->get('InputfieldSubmit');
 		$submit->attr('name', 'submit_delete_bookmark');
 		$submit->icon = 'trash-o';
 		$fieldset->add($submit);
 
 		/** @var InputfieldButton $cancel */
-		$cancel = $this->wire('modules')->get('InputfieldButton');
+		$cancel = $modules->get('InputfieldButton');
 		$cancel->href = '../#tab_bookmarks';
 		$cancel->setSecondary(true);
 		$cancel->attr('value', $this->_('Cancel'));
@@ -258,11 +261,12 @@ class ProcessPageListerBookmarks extends Wire {
 	 */
 	protected function buildBookmarkEditForm($bookmarkID = 0) {
 
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$modules = $this->wire()->modules;
+		$languages = $this->wire()->languages;
+		$user = $this->wire()->user;
 
 		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset = $modules->get('InputfieldFieldset');
 
 		if($bookmarkID) {
 			$bookmark = $this->bookmarks->getBookmark($bookmarkID);
@@ -278,7 +282,7 @@ class ProcessPageListerBookmarks extends Wire {
 		$fieldset->icon = $bookmarkID ? 'bookmark-o' : 'plus-circle';
 
 		/** @var InputfieldText $titleField */
-		$titleField = $this->wire('modules')->get('InputfieldText');
+		$titleField = $modules->get('InputfieldText');
 		$titleField->attr('name', 'bookmark_title');
 		$titleField->label = $this->_x('Title', 'bookmark-editor'); // Bookmark title
 		$titleField->required = true;
@@ -286,7 +290,7 @@ class ProcessPageListerBookmarks extends Wire {
 		$fieldset->add($titleField);
 
 		/** @var InputfieldText $descField */
-		$descField = $this->wire('modules')->get('InputfieldText');
+		$descField = $modules->get('InputfieldText');
 		$descField->attr('name', 'bookmark_desc');
 		$descField->label = $this->_x('Description', 'bookmark-editor'); // Bookmark title
 		if($languages) $descField->useLanguages = true;
@@ -299,15 +303,16 @@ class ProcessPageListerBookmarks extends Wire {
 
 			if($languages) {
 				foreach($languages as $language) {
+					/** @var Language $language */
 					if($language->isDefault()) continue;
 					$titleField->attr("value$language", isset($bookmark["title$language"]) ? $bookmark["title$language"] : "");
 					$descField->attr("value$language", isset($bookmark["desc$language"]) ? $bookmark["desc$language"] : "");
 				}
 			}
 
-			if($this->user->isSuperuser()) {
+			if($user->isSuperuser()) {
 				/** @var InputfieldSelector $f */
-				$f = $this->wire('modules')->get('InputfieldSelector');
+				$f = $modules->get('InputfieldSelector');
 				$f->attr('name', 'bookmark_selector');
 				$f->label = $this->_x('What pages should this bookmark show?', 'bookmark-editor');
 				$selector = $bookmark['selector'];
@@ -340,15 +345,17 @@ class ProcessPageListerBookmarks extends Wire {
 				$fieldset->add($f);
 			}
 
-			$f = $this->wire('modules')->get('InputfieldHidden');
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
 			$f->attr('name', 'bookmark_type');
 			$f->attr('value', (int) $bookmark['type']);
 			$fieldset->add($f);
 
 		} else {
 			// add new bookmark
-			if($this->user->isSuperuser()) {
-				$f = $this->wire('modules')->get('InputfieldRadios');
+			if($user->isSuperuser()) {
+				/** @var InputfieldRadios $f */
+				$f = $modules->get('InputfieldRadios');
 				$f->attr('name', 'bookmark_type');
 				$f->label = $this->_('Bookmark type');
 				$f->addOption(ListerBookmarks::typeOwned, $this->_('Private'));
@@ -359,14 +366,14 @@ class ProcessPageListerBookmarks extends Wire {
 			}
 		}
 
-		if($this->user->isSuperuser()) {
+		if($user->isSuperuser()) {
 			/** @var InputfieldAsmSelect $f */
-			$f = $this->wire('modules')->get('InputfieldAsmSelect');
+			$f = $modules->get('InputfieldAsmSelect');
 			$f->attr('name', 'bookmark_roles');
 			$f->label = $this->_x('Access', 'bookmark-editor');
 			$f->icon = 'key';
 			$f->description = $this->_('What user roles will see this bookmark? If no user roles are selected, then all roles with permission to use this Lister can view the bookmark.');
-			foreach($this->wire('roles') as $role) {
+			foreach($this->wire()->roles as $role) {
 				if($role->name != 'guest') $f->addOption($role->id, $role->name);
 			}
 			if($bookmarkID) $f->attr('value', $bookmark['roles']);
@@ -376,7 +383,7 @@ class ProcessPageListerBookmarks extends Wire {
 		}
 
 		/** @var InputfieldCheckbox $f */
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'bookmark_share');
 		$f->label = $this->_('Allow other users to access this bookmark URL?');
 		$f->description = $this->_('If you send the bookmark URL to someone else that is already logged in to the admin, they can view the bookmark if you check this box.');
@@ -399,7 +406,7 @@ class ProcessPageListerBookmarks extends Wire {
 			// option for changing the order of bookmarks
 			if(count($bookmarks) > 1) {
 				/** @var InputfieldAsmSelect $f */
-				$f = $this->wire('modules')->get('InputfieldAsmSelect');
+				$f = $modules->get('InputfieldAsmSelect');
 				$f->attr('name', 'bookmarks_sort');
 				$f->label = $this->_('Order');
 				$f->icon = 'sort';
@@ -415,7 +422,7 @@ class ProcessPageListerBookmarks extends Wire {
 		}
 
 		/** @var InputfieldSubmit $submit */
-		$submit = $this->wire('modules')->get('InputfieldSubmit');
+		$submit = $modules->get('InputfieldSubmit');
 		$submit->attr('name', 'submit_save_bookmark');
 		$submit->icon = 'bookmark-o';
 		$fieldset->add($submit);
@@ -432,8 +439,9 @@ class ProcessPageListerBookmarks extends Wire {
 	 */
 	public function executeEditBookmark() {
 
-		/** @var WireInput $input */
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
 
 		$deleteBookmarkID = $this->bookmarks->_bookmarkID($input->post('delete_bookmark'));
 		if($deleteBookmarkID) {
@@ -457,7 +465,7 @@ class ProcessPageListerBookmarks extends Wire {
 		if(!$this->bookmarks->isBookmarkEditable($bookmark)) throw new WirePermissionException("Bookmark not editable");
 
 		/** @var InputfieldForm $form */
-		$form = $this->wire('modules')->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 		$form->attr('action', './');
 
 		if($input->get('delete')) {
@@ -470,7 +478,7 @@ class ProcessPageListerBookmarks extends Wire {
 		$form->add($fieldset);
 
 		/** @var InputfieldHidden $f */
-		$f = $this->wire('modules')->get('InputfieldHidden');
+		$f = $modules->get('InputfieldHidden');
 		$f->attr('name', 'bookmark_id');
 		$f->attr('value', $bookmarkID);
 		$form->add($f);
@@ -571,6 +579,7 @@ class ProcessPageListerBookmarks extends Wire {
 
 		if($languages) {
 			foreach($languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$bookmark["title$language"] = $input->post->text("bookmark_title__$language");
 				$bookmark["desc$language"] = $input->post->text("bookmark_desc__$language");
@@ -610,10 +619,11 @@ class ProcessPageListerBookmarks extends Wire {
 
 	protected function redirectToBookmarks($bookmarkID = '') {
 		$url = $this->page->url;
+		$session = $this->wire()->session;
 		if($bookmarkID) {
-			$this->wire('session')->redirect($url . "?bookmark=$bookmarkID#tab_bookmarks");
+			$session->location($url . "?bookmark=$bookmarkID#tab_bookmarks");
 		} else {
-			$this->wire('session')->redirect($url . '#tab_bookmarks');
+			$session->location($url . '#tab_bookmarks');
 		}
 	}
 
