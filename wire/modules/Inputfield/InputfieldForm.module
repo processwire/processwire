@@ -15,6 +15,7 @@
  * @property string $method Form method attribute (default="post")
  * @property string $action Form action attribute (default="./")
  * 
+ * @method bool process() Process the form and return true on success, false on error (3.0.205+). 
  * @method void renderOrProcessReady($type) Hook called before form render or process (3.0.171+)
  * 
  * Optional classes: 
@@ -29,21 +30,38 @@
  * ~~~~~
  * $form = $modules->get('InputfieldForm');
  *
- * $field = $modules->get('InputfieldText');
- * $field->attr('name', 'your_name');
- * $field->label = 'Your Name';
- * $form->add($field);
+ * $f = $form->InputfieldText;
+ * $f->attr('name', 'your_name');
+ * $f->label = 'Your Name';
+ * $form->add($f);
  *
- * $field = $modules->get('InputfieldEmail');
- * $field->attr('name', 'your_email');
- * $field->label = 'Your Email Address';
- * $field->required = true;
- * $form->add($field);
+ * $f = $form->InputfieldEmail;
+ * $f->attr('name', 'your_email');
+ * $f->label = 'Your Email Address';
+ * $f->required = true;
+ * $form->add($f);
  *
- * $submit = $modules->get('InputfieldSubmit');
- * $submit->attr('name', 'submit_subscribe');
- * $form->add($submit);
- *
+ * $f = $form->InputfieldSubmit;
+ * $f->attr('name', 'submit_subscribe');
+ * $f->val('Subscribe');
+ * $form->add($f);
+ * 
+ * // ProcessWire versions 3.0.205+
+ * if($form->isSubmitted('submit_subscribe')) {
+ *   if($form->process()) {
+ *     $name = $form->getValueByName('your_name');
+ *     $email = $form->getValueByName('your_email');
+ *     echo "<h3>Thank you, you have been subscribed!</h3>";
+ *   } else {
+ *     echo "<h3>There were errors, please fix</h3>";
+ *     echo $form->render();
+ *   }
+ * } else {
+ *   // form not submitted, just display it
+ *   echo $form->render();
+ * }
+ * 
+ * // same as above but works in any ProcessWire version
  * if($input->post('submit_subscribe')) {
  *   // form submitted
  *   $form->processInput($input->post);
@@ -54,8 +72,8 @@
  *     echo $form->render();
  *   } else {
  *     // successful submit (save $name and $email somewhere)
- *     $name = $form->get('your_name')->attr('value');
- *     $email = $form->get('your_email')->attr('value');
+ *     $name = $form->getChildByName('your_name')->attr('value');
+ *     $email = $form->getChildByName('your_email')->attr('value');
  *     echo "<h3>Thank you, you have been subscribed!</h3>";
  *   }
  * } else {
@@ -89,6 +107,11 @@ class InputfieldForm extends InputfieldWrapper {
 	protected $_processInputData = null;
 
 	/**
+	 * @var array|null 
+	 */
+	protected $errorCache = null;
+
+	/**
 	 * Construct
 	 * 
 	 */
@@ -112,7 +135,8 @@ class InputfieldForm extends InputfieldWrapper {
 	public function ___render() {
 
 		if($this->hasHook('renderOrProcessReady()')) $this->renderOrProcessReady('render');
-		
+	
+		$method = strtolower($this->attr('method')); 
 		$markup = self::getMarkup();
 		$classes = self::getClasses();
 		if(!empty($classes['form'])) $this->addClass($classes['form']); 
@@ -121,7 +145,7 @@ class InputfieldForm extends InputfieldWrapper {
 		$this->addClass('InputfieldForm');
 		
 		if($this->hasClass('InputfieldFormConfirm')) {
-			if($this->wire('modules')->isInstalled('FormSaveReminder')) {
+			if($this->wire()->modules->isInstalled('FormSaveReminder')) {
 				// let FormSaveReminder module have control, if it's installed
 				$this->removeClass('InputfieldFormConfirm');
 			} else {
@@ -132,7 +156,7 @@ class InputfieldForm extends InputfieldWrapper {
 		$attrs = $this->getAttributes();
 		unset($attrs['value']); 
 
-		if($this->wire('input')->get('modal') && strpos($attrs['action'], 'modal=1') === false) {
+		if($this->wire()->input->get('modal') && strpos($attrs['action'], 'modal=1') === false) {
 			// retain a modal=1 state in the form action
 			$attrs['action'] .= (strpos($attrs['action'], '?') === false ? '?' : '&') . 'modal=1';
 		}
@@ -142,30 +166,57 @@ class InputfieldForm extends InputfieldWrapper {
 		
 		$attrStr = $this->getAttributesString($attrs); 
 
-		if($this->getSetting('protectCSRF') && strtolower($this->attr('method')) == 'post') {
+		if($this->getSetting('protectCSRF') && $method === 'post') {
 			$tokenField = $this->wire('session')->CSRF->renderInput(); 
 		} else {
 			$tokenField = '';
 		}
 	
-		/* @todo 3.0.125
-		$name = $this->getAttribute('name');
-		if(!empty($name)) {
-			$name = $this->wire('sanitizer')->entities($name);
-			$class = $this->className();
-			$tokenField .= "<input type='hidden' name='_$class' value='$name' />";
+		if($method === 'post') {
+			$className = $this->className();
+			$formName = $this->wire()->sanitizer->entities($this->getFormName());
+			$landmark = "<input type='hidden' name='_$className' value='$formName' />";
+		} else {
+			$landmark = '';
 		}
-		*/
-		
-		$out = 	
+	
+		return
 			"<form $attrStr>" . 
-			$description . $this->getSetting('prependMarkup') . 
-			parent::___render() .
-			$tokenField . 
-			$this->getSetting('appendMarkup') . 
+				$description . 
+				$this->getSetting('prependMarkup') . 
+				parent::___render() .
+				$tokenField . 
+				$this->getSetting('appendMarkup') . 
+				$landmark . 
 			"</form>";
+	}
 
-		return $out; 
+	/**
+	 * Process the form 
+	 * 
+	 * - Optionally use this rather than processInput() for processing forms. 
+	 * - Returns true on processing success or false if processed with errors.
+	 * - Use the getErrors() method to retrieve errors. 
+	 * 
+	 * ~~~~~
+	 * if($form->process()) {
+	 *   // form processed successfully without errors
+	 * } else {
+	 *   $errors = $form->getErrors(); // array of error messages…
+	 *   $inputs = $form->getErrorInputfields(); // …or array of Inputfields with errors
+	 * }
+	 * ~~~~~
+	 * 
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.205
+	 * 
+	 */
+	public function ___process() {
+		$input = $this->wire()->input;
+		$method = strtolower($this->attr('method'));
+		$this->processInput(($method === 'get' ? $input->get : $input->post));
+		return count($this->getErrors()) === 0; 
 	}
 
 	/**
@@ -176,7 +227,8 @@ class InputfieldForm extends InputfieldWrapper {
 	 * 
 	 */
 	public function ___processInput(WireInputData $input) {
-		
+	
+		$this->errorCache = null;
 		$this->_processInputData = $input;
 		if($this->hasHook('renderOrProcessReady()')) $this->renderOrProcessReady('process');
 	
@@ -483,7 +535,7 @@ class InputfieldForm extends InputfieldWrapper {
 			if($allowCheckLabels) {
 				if($inputfield instanceof InputfieldHasArrayValue) {
 					$value2 = array(); // matching of labels rather than values
-					foreach($value as $k => $v) {
+					foreach($value as $v) {
 						if(isset($options[$v])) $value2[] = $options[$v];
 					}
 					if(empty($value2)) $value2 = null;
@@ -510,82 +562,94 @@ class InputfieldForm extends InputfieldWrapper {
 	}
 
 	/**
-	 * Is this form submitted?
+	 * Is form submitted and ready to process?
 	 * 
-	 * This should only be called after the form has been completely built and submit buttons added to it.
-	 * When using this option it is preferable (though not required) that your form has been given a name attribute.
-	 * Optionally provide the name (or instance) of the submit button you want to check.
+	 * - Optionally use this method to test if form is submitted before calling processInput(). 
+	 * - Specify the submit button name to confirm that was the button used to submit. 
+	 * - Returns the name of the submit button used when form is submitted, false otherwise.
+	 * - If no arguments specified, requires that the form has one or more InputfieldSubmit fields. 
+	 * - Like with processInput(), make sure form is fully built before calling this. 
+	 * - If given $submitName argument that corresponds to InputfieldSubmit field then 
+	 *   it will also be confirmed that the input value matches the field value prior to submit.
+	 * - If given a $submitName argument that corresponds to some other Inputfield type then 
+	 *   only its presence in the input will be confirmed. 
+	 * 
+	 * ~~~~~
+	 * if($form->isSubmitted()) {
+	 *   // form was submitted
+	 * }
+	 * 
+	 * // specify the button name to confirm it was used to submit the form
+	 * if($form->isSubmitted('submit_save')) {
+	 *   // form is submitted with button named 'submit_save'
+	 * }
+	 * 
+	 * // omit button name to have it return button name used to submit
+	 * $submit = $form->isSubmitted(true); 
+	 * if($submit === 'add') {
+	 *   // form was submitted with button named 'add'
+	 * } else if($submit === 'save') {
+	 *   // form submitted with button named 'save'
+	 * } else if($submit === false) {
+	 *   // form not submitted
+	 * } else {
+	 *   // submitted using some other button (name in $submit)
+	 * }
+	 * ~~~~~
 	 *
-	 * - Returns boolean false if not submitted.
-	 * - Returns boolean true if submitted, but submit button not known or not used.
-	 * - Returns clicked/submitted InputfieldSubmit object instance when known and available.
-	 * 
-	 * @param string|InputfieldSubmit $submitName Name of submit button or instance of InputfieldSubmit
-	 * @return bool|InputfieldSubmit
-	 * @todo 3.0.125
-	 * 
-	public function isSubmitted($submitName = '') {
-	
-		$method = strtoupper($this->attr('method'));
-		$input = $this->wire('input');
-		$submit = false;
-		$formName = $this->getAttribute('name');
-		$submitNames = array();
-
-		// if the current request method is not the same as the forms, exit early
-		if(!$input->requestMethod($method)) return false;
-	
-		if(!empty($submitName)) {
-			// given a specific submit button to check
-			if($submitName instanceof InputfieldSubmit) {
-				$submitName = $submitName->attr('name');
-			}
-			if(is_string($submitName)) {
-				$submitNames[] = $submitName;
-			}
-		}
-		
-		if(empty($submitNames)) {
-			// no specific submit button, so check all known submit button names
-			$submitNames = InputfieldSubmit::getSubmitNames();
-		}
-		
-		if(!empty($formName)) {
-			// this form has a name attribute, so we can add that to our checks
-			$key = '_' . $this->className();
-			$value = $method === 'GET' ? $input->get($key) : $input->post($key);
-			if($value !== $formName) {
-				// submitted form name does not match this form
-				return false;
-			}
-			// at this point we know this form as submitted
-			$submit = true;
-		}
-	
-		// find out which submit button was clicked if possible
-		foreach($submitNames as $name) {
-			$value = $method === 'GET' ? $input->get($name) : $input->post($name);
-			// if value not present in input for this submit button then skip it
-			if($value === null) continue; 
-			// value was submitted for button name
-			$f = $this->getChildByName($name);
-			// if value submitted is not the same as value on the button, skip it
-			if(!$f || $f->val() !== $value) continue;
-			// we found our submit button
-			$submit = $f;
-			break;
-		}
-	
-		// if submitted and CSRF protection in place, check that token is valid
-		if($submit && $this->getSetting('protectCSRF') && $method === 'POST') {
-			$csrf = $this->wire('session')->CSRF();
-			if(!$csrf->hasValidToken()) $submit = false;
-		}
-		
-		return $submit ? $submit : false;
-	}
+	 * @param string|Inputfield|bool $submitName Any one of the following: 
+	 *  - Name (string) or Inputfield (object) of submit button or other input to check.
+	 *  - Boolean true to find and return the clicked submit button name.
+	 *  - Boolean false or omit to only return true or false if form submitted (default). 
+	 * @return bool|string Returns one of the following:
+	 *  - Boolean false if form not submitted.
+	 *  - Boolean true if form submitted and submit button name not requested.
+	 *  - Submit/input name (string) if form submitted and `$submitName` argument is true or string. 
+	 * @throws WireException
+	 * @since 3.0.205
+	 *
 	 */
+	public function isSubmitted($submitName = '') {
+		
+		$session = $this->wire()->session;
+		$input = $this->wire()->input;
+
+		$className = $this->className();
+		$formName = $this->getFormName();
+		$method = $this->attr('method') ? strtolower($this->attr('method')) : 'post';
+		$checkToken = $this->getSetting('protectCSRF') && $method != 'get';
 	
+		if(!$input->requestMethod($method)) return false;
+		if($method === 'post' && $input->$method("_$className") !== $formName) return false;
+		if($checkToken && !$session->CSRF()->hasValidToken()) return false;
+	
+		if(empty($submitName)) {
+			// no submit button name requested
+			$submitted = true;
+			
+		} else if($submitName === true) {
+			// find which submit button was slicked to return its name
+			$submitted = false;
+			foreach($this->getAll() as $f) {
+				if(!$f instanceof InputfieldSubmit) continue;
+				$name = $f->attr('name');
+				$submitted = $input->$method($name) === $f->val() ? $name : false;
+				if($submitted) break;
+			}
+			
+		} else {
+			// confirm that requested submit button was clicked and has same value
+			if($submitName instanceof Inputfield) $submitName = $submitName->attr('name');
+			$value = $input->$method($submitName);
+			if($value === null) return false;
+			$f = $this->getChildByName($submitName);
+			if($f instanceof InputfieldSubmit && $f->val() != $value) return false;
+			$submitted = $submitName;
+		}
+		
+		return $submitted;
+	}
+
 	/**
 	 * For internal debugging purposes
 	 *
@@ -607,7 +671,39 @@ class InputfieldForm extends InputfieldWrapper {
 	public function getInput() {
 		return $this->_processInputData;
 	}
+	
+	/**
+	 * Return an array of errors that occurred on any of the children during input processing.
+	 *
+	 * Should only be called after `process()` or `processInput()`.
+	 *
+	 * #pw-group-errors
+	 *
+	 * @param bool $clear Specify true to clear out the errors (default=false).
+	 * @return array Array of error strings
+	 *
+	 */
+	public function getErrors($clear = false) {
+		if($this->errorCache !== null) return $this->errorCache;
+		$errors = parent::getErrors($clear);
+		$this->errorCache = $clear ? null : $errors;
+		return $errors;
+	}
 
+	/**
+	 * Get name for this form
+	 * 
+	 * @return string
+	 * @since 3.0.205
+	 * 
+	 */
+	public function getFormName() {
+		$formName = $this->attr('name');
+		if(empty($formName)) $formName = $this->attr('id');
+		if(empty($formName)) $formName = $this->className();
+		return (string) $formName;
+	}
+	
 	/**
 	 * Hook called right before form is rendered or processed
 	 * 
