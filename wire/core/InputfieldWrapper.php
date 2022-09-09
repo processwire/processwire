@@ -937,9 +937,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			if(!isset($ffAttrs['id'])) $ffAttrs['id'] = 'wrap_' . $inputfield->attr('id'); 
 			$ffAttrs['class'] = str_replace('Inputfield_ ', '', $ffAttrs['class']); 
 			$wrapClass = $inputfield->getSetting('wrapClass');
-			if($wrapClass) $ffAttrs['class'] .= " " . $wrapClass; 
+			if($wrapClass) $ffAttrs['class'] = trim("$ffAttrs[class] $wrapClass"); 
 			foreach($inputfield->wrapAttr() as $k => $v) {
-				if(!empty($ffAttrs[$k])) {
+				if($k === 'class' && !empty($ffAttrs[$k])) {
 					$ffAttrs[$k] .= " $v";
 				} else {
 					$ffAttrs[$k] = $v;
@@ -1306,8 +1306,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 *
 	 * Should only be called after `InputfieldWrapper::processInput()`.
 	 * 
-	 * #pw-group-input
-	 * #pw-group-retrieval-and-traversal
+	 * #pw-group-errors
 	 *
 	 * @param bool $clear Specify true to clear out the errors (default=false).
 	 * @return array Array of error strings
@@ -1324,6 +1323,33 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			}
 		}
 		return $errors;
+	}
+
+	/**
+	 * Get Inputfield objects that have errors
+	 * 
+	 * #pw-group-errors
+	 * 
+	 * @return Inputfield[]
+	 * @since 3.0.205
+	 * 
+	 */
+	public function getErrorInputfields() {
+		$a = array();
+		if(count(parent::getErrors())) {
+			$name = $this->attr('name');
+			$a[$name] = $this;
+		}
+		foreach($this->children() as $child) {
+			/** @var Inputfield $child */
+			if($child instanceof InputfieldWrapper) {
+				$a = array_merge($a, $child->getErrorInputfields());
+			} else if(count($child->getErrors())) {
+				$name = $child->attr('name');
+				$a[$name] = $child;
+			}
+		}
+		return $a;
 	}
 
 	/**

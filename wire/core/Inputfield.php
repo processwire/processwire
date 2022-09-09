@@ -1911,6 +1911,20 @@ abstract class Inputfield extends WireData implements Module {
 	}
 	
 	/**
+	 * Clear errors from this Inputfield
+	 * 
+	 * This is the same as `$inputfield->getErrors(true);` but has no return value. 
+	 * 
+	 * #pw-group-states
+	 *
+	 * @since 3.0.205 
+	 *
+	 */
+	public function clearErrors() {
+		$this->getErrors(true);
+	}
+
+	/**
 	 * Does this Inputfield have the requested property or attribute?
 	 * 
 	 * #pw-group-attribute-methods
