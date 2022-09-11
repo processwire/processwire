@@ -135,6 +135,13 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		if(count($pageNumUrlPrefixes)) {
 			if(empty($pageNumUrlPrefixes['default'])) {
 				$pageNumUrlPrefixes['default'] = $config->pageNumUrlPrefix; // original/fallback prefix
+			} else if(!in_array($config->pageNumUrlPrefix, $pageNumUrlPrefixes)) {
+				// if default prefix is also overridden then add it as an extra one allowed in admin
+				$url = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+				if($url && strpos($url, $config->urls->admin) === 0) {
+					$key = 0; // PagesPathFinder maps non-string language names to default language
+					$pageNumUrlPrefixes[$key] = $config->pageNumUrlPrefix; // original prefix
+				}
 			}
 			$config->set('pageNumUrlPrefixes', $pageNumUrlPrefixes);
 		}
