@@ -6,7 +6,7 @@
  * This file is designed for inclusion by /site/templates/admin.php template and all the variables 
  * it references are from your template namespace. 
  *
- * Copyright 2021 by Ryan Cramer
+ * Copyright 2022 by Ryan Cramer
  * 
  * @var Config $config
  * @var User $user
@@ -217,7 +217,10 @@ if($ajax) {
 $config->js(array('httpHost', 'httpHosts', 'https'), true); 
 
 if($controller && $controller->isAjax()) {
-	if(empty($content) && count($notices)) $content = $controller->jsonMessage($notices->last()->text); 
+	if(empty($content) && count($notices)) {
+		$notice = $notices->last(); /** @var Notice $notice */
+		$content = $controller->jsonMessage($notice->text, false, $notice->flags & Notice::allowMarkup);
+	}
 	echo $content; 
 } else {
 	if(!strlen($content)) $content = '<p>' . __('The process returned no content.') . '</p>';
