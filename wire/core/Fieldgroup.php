@@ -65,7 +65,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *
 	 */
 	public function isValidItem($item) {
-		return is_object($item) && $item instanceof Field; 
+		return $item instanceof Field; 
 	}
 
 	/**
@@ -87,10 +87,11 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * #pw-internal
 	 * 
 	 * @param $item
-	 * @return int|string
+	 * @return int
 	 *
 	 */
 	public function getItemKey($item) {
+		/** @var Field $item */
 		return $item->id; 
 	}
 
@@ -116,15 +117,16 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * 
 	 * #pw-group-manipulation
 	 *
-	 * @param Field|string $field Field object, field name or id. 
+	 * @param Field|string $item Field object, field name or id. 
 	 * @return $this
 	 * @throws WireException
 	 *
 	 */
-	public function add($field) {
+	public function add($item) {
+		$field = $item;
 		if(!is_object($field)) $field = $this->wire()->fields->get($field); 
 
-		if($field && $field instanceof Field) {
+		if($field instanceof Field) {
 			if(!$field->id) {
 				throw new WireException("You must save field '$field' before adding to Fieldgroup '$this->name'");
 			}
@@ -149,13 +151,14 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * 
 	 * #pw-group-manipulation
 	 * 
-	 * @param Field|string $field Field object or field name, or id. 
+	 * @param Field|string $key Field object or field name, or id. 
 	 * @return bool True on success, false on failure.
 	 *
 	 */
-	public function remove($field) {
-
-		if(!is_object($field)) $field = $this->wire('fields')->get($field); 
+	public function remove($key) {
+		
+		$field = $key;
+		if(!is_object($field)) $field = $this->wire()->fields->get($field); 
 		if(!$this->getField($field->id)) return false; 
 		if(!$field) return true; 
 
@@ -205,7 +208,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 */
 	public function softRemove($field) {
 
-		if(!is_object($field)) $field = $this->wire('fields')->get($field); 
+		if(!is_object($field)) $field = $this->wire()->fields->get($field); 
 		if(!$this->getField($field->id)) return false; 
 		if(!$field) return true; 
 
@@ -238,7 +241,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *
 	 */
 	public function getField($key, $useFieldgroupContext = false) {
-		if(is_object($key) && $key instanceof Field) $key = $key->id;
+		if($key instanceof Field) $key = $key->id;
 		if(is_string($key) && ctype_digit("$key")) $key = (int) $key;
 
 		if($this->isValidKey($key)) {
@@ -248,6 +251,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 
 			$value = null;
 			foreach($this as $field) {
+				/** @var Field $field */
 				if($field->name == $key) {
 					$value = $field;
 					break;
@@ -291,9 +295,9 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * 
 	 */
 	public function hasFieldContext($field, $namespace = '') {
-		if(is_object($field) && $field instanceof Field) $field = $field->id;
+		if($field instanceof Field) $field = $field->id;
 		if(is_string($field) && !ctype_digit($field)) {
-			$field = $this->wire('fields')->get($field);
+			$field = $this->wire()->fields->get($field);
 			$field = $field && $field->id ? $field->id : 0;
 		}
 		if(isset($this->fieldContexts[(int) $field])) {
@@ -349,7 +353,10 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		if($key == 'fields') return $this;
 		if($key == 'fields_id') {
 			$values = array();
-			foreach($this as $field) $values[] = $field->id; 
+			foreach($this as $field) {
+				/** @var Field $field */
+				$values[] = $field->id;
+			}
 			return $values; 
 		}
 		if($key == 'removedFields') return $this->removedFields; 
@@ -429,7 +436,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *
 	 */
 	public function save() {
-		$this->wire('fieldgroups')->save($this); 
+		$this->wire()->fieldgroups->save($this); 
 		return $this;
 	}
 
@@ -460,8 +467,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *
 	 */
 	public function getExportData() {
-		/** @var Fieldgroups $fieldgroups */
-		$fieldgroups = $this->wire('fieldgroups');
+		$fieldgroups = $this->wire()->fieldgroups;
 		return $fieldgroups->getExportData($this); 
 	}
 
@@ -562,6 +568,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		}
 
 		foreach($this as $field) {
+			/** @var Field $field */
 		
 			// for named multi-field retrieval
 			if($multiMode && !isset($fieldInputfields[$field->id])) continue;
@@ -612,7 +619,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 					continue; 
 				}
 				
-			} else if($field->modal && $field->type instanceof FieldtypeFieldsetOpen) {
+			} else if($field->get('modal') && $field->type instanceof FieldtypeFieldsetOpen) {
 				// field requires modal
 				$inModalGroup = $field->name;
 
@@ -629,6 +636,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 					// start a new container
 					$inputfield = $field->getInputfield($page, $contextStr);
 					if(!$inputfield) $inputfield = $this->wire(new InputfieldWrapper());
+					/** @var Inputfield|InputfieldWrapper $inputfield */
 					if($inputfield->collapsed == Inputfield::collapsedHidden) continue;
 					$container->add($inputfield);
 					$containers[] = $container;
@@ -655,7 +663,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		
 		if($multiMode) {
 			// add to container in requested order
-			foreach($fieldInputfields as $fieldID => $inputfield) {
+			foreach($fieldInputfields as /* $fieldID => */ $inputfield) {
 				if($inputfield) $container->add($inputfield);
 			}
 		}
@@ -686,7 +694,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *
 	 */
 	public function getNumTemplates() {
-		return $this->wire('fieldgroups')->getNumTemplates($this); 
+		return $this->wire()->fieldgroups->getNumTemplates($this); 
 	}
 
 	/**
@@ -756,7 +764,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * 
 	 */
 	public function saveContext() {
-		return $this->wire('fieldgroups')->saveContext($this); 
+		return $this->wire()->fieldgroups->saveContext($this); 
 	}
 
 }

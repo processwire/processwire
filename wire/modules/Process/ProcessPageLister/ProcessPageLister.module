@@ -176,7 +176,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	public function __construct() {
 		parent::__construct();
-		if(!$this->wire('page')) return;
+		if(!$this->wire()->page) return;
 
 		$this->defaultColumns = array('title', 'template', 'parent', 'modified', 'modified_users_id'); 
 	
@@ -343,7 +343,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function init() {
-		if(!$this->wire('page')) return;
+		if(!$this->wire()->page) return;
 		
 		$input = $this->wire()->input;
 		$config = $this->wire()->config;
@@ -614,12 +614,16 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$filters = $input->post('filters');
 		if($filters !== null && $filters !== 'ignore') {
 			$is = $this->getInputfieldSelector();
-			$is->processInput($input->post); 
-			$selector = $this->sessionGet("selector"); 
-			if($selector != $is->value) {
-				$this->sessionSet("selector", $is->value); 
-				$this->sessionSet("pageNum", 1); 
-				$input->setPageNum(1);
+			try {
+				$is->processInput($input->post);
+				$selector = $this->sessionGet("selector");
+				if($selector != $is->value) {
+					$this->sessionSet("selector", $is->value);
+					$this->sessionSet("pageNum", 1);
+					$input->setPageNum(1);
+				}
+			} catch(\Exception $e) {
+				$this->error($e->getMessage());
 			}
 		} 
 
@@ -1209,6 +1213,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$template = explode('|', $matches[1]); 
 		$templatesAPI = $this->wire()->templates;
 		foreach($template as $t) {
+			/** @var Template $t */
 			$t = $templatesAPI->get($t); 
 			if($t instanceof Template) $templates[] = $t; 
 		}
@@ -1429,7 +1434,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$noEntities = false;
 		$language = $languages ? $this->identifyLanguage($name, true) : null;
 	
-		if($language && $language->id == $this->wire('user')->language->id) $language = null;
+		if($language && $language->id == $this->wire()->user->language->id) $language = null;
 		if($language) $languages->setLanguage($language);
 		
 		if(strpos($name, '.')) list($name, $subname) = explode('.', $name, 2); 
@@ -1538,7 +1543,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					$vfull = $v;
 					if($this->imageWidth || $this->imageHeight) $v = $v->size($this->imageWidth, $this->imageHeight);
 					$alt = $vfull->basename . ($vfull->description ? ' - ' . $sanitizer->entities1($vfull->description) : "");
-					$v = "<a href='$vfull->URL' title='$alt' class='lister-lightbox'><img alt='$alt' src='$v->URL' style='margin: 4px 4px 4px 0' /></a>";
+					$v = 
+						"<a href='$vfull->URL' title='$alt' class='lister-lightbox'>" . 
+						"<img alt='$alt' src='$v->URL' style='margin: 4px 4px 4px 0' /></a>";
 					$isImage = true;
 					
 				} else if($v instanceof Pagefile) {
@@ -1990,10 +1997,15 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		
 		foreach($this->wire()->notices as $notice) {
 			/** @var Notice $notice */
+			$noticeText = $notice->text; 
+			if(!($notice->flags & Notice::allowMarkup)) {
+				$noticeText = $sanitizer->entities1($notice->text);
+			}
 			if($notice instanceof NoticeError) {
-				$out .= "<p class='ui-state-error-text'>$notice->text</p>";
+				$out .= "<p class='ui-state-error-text'>$noticeText</p>";
 			} else {
-				if(self::debug) $out .= "<p class='ui-state-highlight'>$notice->text</p>";
+				// report non-error notifications only when debug constant active
+				if(self::debug) $out .= "<p class='ui-state-highlight'>$noticeText</p>";
 			}
 		}
 
@@ -2045,9 +2057,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$this->resetLister();
 		$this->message($this->_('All settings have been reset.'));
 		if(strpos($this->wire()->input->urlSegmentStr, '/reset/')) {
-			$this->wire()->session->redirect('../');
+			$this->wire()->session->location('../');
 		} else {
-			$this->wire()->session->redirect('./');
+			$this->wire()->session->location('./');
 		}
 	}
 
@@ -2094,7 +2106,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
  	 *
 	 */
 	public function ___execute() {
-		if(!$this->wire('page')) return '';
+		if(!$this->wire()->page) return '';
 		
 		$modules = $this->wire()->modules;
 		$input = $this->wire()->input;
@@ -2106,7 +2118,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if($this->renderResults) {
 			$out = $this->renderResults();
 			if(self::debug) {
-				foreach($this->wire('database')->queryLog() as $n => $item) {
+				foreach($this->wire()->database->queryLog() as $n => $item) {
 					$out .= "<p>$n. $item</p>";
 				}
 			}
@@ -2182,7 +2194,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		} else if($this->template && ($parent = $this->template->getParentPage(true))) {
 			if($parent->id) {
-				$action = "?parent_id={$parent->id}"; // defined parent
+				$action = "?parent_id=$parent->id"; // defined parent
 			} else {
 				$action = "?template_id={$this->template->id}"; // multiple possible parents
 			}

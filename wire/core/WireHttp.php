@@ -1811,13 +1811,19 @@ class WireHttp extends Wire {
 	}
 
 	/**
-	 * Set http response code and text
+	 * Set http response code and text (internal use)
+	 * 
+	 * This is public only in case a hook wants to modify an http response value, 
+	 * for instance translating one http code to another for some purpose. If used
+	 * by a hook, it should be called after the WireHttp::send() method.
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param int $code
 	 * @param string $text
 	 * 
 	 */
-	protected function setHttpCode($code, $text = '') {
+	public function setHttpCode($code, $text = '') {
 		if(empty($text)) $text = isset($this->httpCodes[$code]) ? $this->httpCodes[$code] : '?';
 		$this->httpCode = $code;
 		$this->httpCodeText = $text;

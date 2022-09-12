@@ -9,7 +9,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -30,7 +30,7 @@ class ProcessPageSort extends Process {
 			'version' => 100, 
 			'permanent' => true, 
 			'permission' => 'page-edit',
-			); 
+		); 
 	}
 
 	/**
@@ -49,23 +49,32 @@ class ProcessPageSort extends Process {
 	 *
 	 */
 	public function ___execute() {
+		
+		$input = $this->wire()->input;
+		$pages = $this->wire()->pages;
+		$sort = $input->post('sort');
 
-		if($this->config->demo) throw new WireException($this->_("Your change was not saved because this site is in demo mode")); 
-		if(!isset($_POST['sort'])) throw new WireException($this->_("This Process is only accessible via POST")); 
+		if($this->config->demo) {
+			throw new WireException($this->_("Your change was not saved because this site is in demo mode"));
+		}
+		
+		if($sort === null) {
+			throw new WireException($this->_("This Process is only accessible via POST"));
+		}
+		
 		$this->session->CSRF->validate(); // throws exception if invalid
-		$input = $this->wire('input');
-		$this->user = $this->wire('user'); 
+		$this->user = $this->wire()->user; 
 		$this->ids = array();
-		$ids = explode(',', $input->post->sort); 
+		$ids = explode(',', $sort); 
 		foreach($ids as $sort => $id) $this->ids[(int) $sort] = (int) $id; 
 		if(!count($this->ids)) return; 
 		unset($ids);
 
-		$this->parent_id = (int) $input->post->parent_id; 
-		$this->move_id = (int) $input->post->id;
+		$this->parent_id = (int) $input->post('parent_id'); 
+		$this->move_id = (int) $input->post('id');
 			
-		$parentPage = $this->wire('pages')->get($this->parent_id);
-		$movePage = $this->wire('pages')->get($this->move_id); 
+		$parentPage = $pages->get($this->parent_id);
+		$movePage = $pages->get($this->move_id); 
 		if($movePage->id < 2 || !$parentPage->id) return;
 
 		$this->movePage($movePage, $parentPage); 
@@ -131,7 +140,7 @@ class ProcessPageSort extends Process {
 		}
 		
 		$changes = 0; 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 
 		// locate the 'sort' value of the current first sorted item, to use as our starting point
 		// (in case sorting in a pagination other than 1)
@@ -166,10 +175,9 @@ class ProcessPageSort extends Process {
 		$page->save();
 		$parent->trackChange('children');
 		$parent->save();
-		$this->wire('pages')->sorted($page, false, $changes);
+		$this->wire()->pages->sorted($page, false, $changes);
 
 		if($changes) $this->message("Updated sort for $changes pages", Notice::log); 
-		
 	}
 	
 }

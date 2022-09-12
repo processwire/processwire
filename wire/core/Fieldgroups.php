@@ -136,7 +136,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		$templates = $this->wire()->templates;
 		$num = 0;
 		
-		foreach($templates->getAllValues('fieldgroups_id', 'id') as $templateId => $fieldgroupId) {
+		foreach($templates->getAllValues('fieldgroups_id', 'id') as /* $templateId => */ $fieldgroupId) {
 			if($fieldgroupId == $fieldgroup->id) $num++;
 		}
 		
@@ -180,6 +180,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		if(!$useLazy && !is_object($fieldgroup)) $fieldgroup = $this->get($fieldgroup);
 		if($fieldgroup instanceof Fieldgroup) {
 			foreach($fieldgroup as $field) {
+				/** @var Field $field */
 				$fieldNames[$field->id] = $field->name;
 			}
 			return $fieldNames;
@@ -231,10 +232,13 @@ class Fieldgroups extends WireSaveableItemsLookup {
 			foreach($this->wire()->templates as $template) {
 				if($template->fieldgroup->id !== $fieldgroup->id) continue; 
 				foreach($fieldgroup->removedFields as $field) {
+					/** @var Field $field */
 					// make sure the field is valid to delete from this template
 					$error = $this->isFieldNotRemoveable($field, $fieldgroup, $template);
 					if($error !== false) throw new WireException("$error Save of fieldgroup changes aborted.");
-					if($field->type) $field->type->deleteTemplateField($template, $field); 
+					/** @var Fieldtype $fieldtype */
+					$fieldtype = $field->type;
+					if($fieldtype) $fieldtype->deleteTemplateField($template, $field); 
 					$fieldgroup->finishRemove($field); 
 					$fieldsRemoved[] = $field;
 				}
@@ -308,7 +312,8 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	public function ___delete(Saveable $item) {
 
 		$templates = array();
-		foreach($this->wire('templates') as $template) {
+		foreach($this->wire()->templates as $template) {
+			/** @var Template $template */
 			if($template->fieldgroup->id == $item->id) $templates[] = $template->name; 
 		}
 
@@ -330,7 +335,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 *
 	 */
 	public function deleteField(Field $field) {
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$query = $database->prepare("DELETE FROM fieldgroups_fields WHERE fields_id=:fields_id"); // QA
 		$query->bindValue(":fields_id", $field->id, \PDO::PARAM_INT);
 		$result = $query->execute();
@@ -389,6 +394,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		$fields = array();
 		$contexts = array();
 		foreach($fieldgroup as $field) {
+			/** @var Field $field */
 			$fields[] = $field->name;
 			$fieldContexts = $fieldgroup->getFieldContextArray();
 			if(isset($fieldContexts[$field->id])) {
@@ -450,18 +456,19 @@ class Fieldgroups extends WireSaveableItemsLookup {
 
 				// figure out which fields should be removed
 				foreach($fieldgroup as $field) {
+					/** @var Field $field */
 					$fieldNames[$field->name] = $field->name;
 					if(!in_array($field->name, $data['fields'])) {
 						$fieldgroup->remove($field);
 						$label = "-$field->name";
-						$return['fields']['new'] .= $label . "\n";;
+						$return['fields']['new'] .= $label . "\n";
 						$rmFields[] = $field->name;
 					}
 				}
 
 				// figure out which fields should be added
 				foreach($data['fields'] as $name) {
-					$field = $this->wire('fields')->get($name);
+					$field = $this->wire()->fields->get($name);
 					if(in_array($name, $rmFields)) continue;
 					if(!$field) {
 						$error = sprintf($this->_('Unable to find field: %s'), $name);
@@ -566,7 +573,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 */
 	public function isFieldNotRemoveable(Field $field, Fieldgroup $fieldgroup, Template $template = null) {
 		
-		if(is_null($template)) $template = $this->wire('templates')->get($fieldgroup->name);
+		if(is_null($template)) $template = $this->wire()->templates->get($fieldgroup->name);
 
 		if(($field->flags & Field::flagGlobal) && (!$template || !$template->noGlobal)) {
 			if($template && $template->getConnectedField()) {

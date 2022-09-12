@@ -125,7 +125,7 @@ class Selectors extends WireArray {
 	public function init($selector) {
 		if(is_array($selector)) {
 			$this->setSelectorArray($selector);
-		} else if(is_object($selector) && $selector instanceof Selector) {
+		} else if($selector instanceof Selector) {
 			$this->add($selector);
 		} else {
 			$this->setSelectorString($selector);
@@ -174,13 +174,15 @@ class Selectors extends WireArray {
 	 *
 	 */
 	public function isValidItem($item) {
-		return is_object($item) && $item instanceof Selector; 
+		return $item instanceof Selector; 
 	}
 
 	/**
 	 * Per WireArray interface, return a blank Selector
 	 * 
 	 * #pw-internal
+	 * 
+	 * @return Selector
 	 *
 	 */
 	public function makeBlankItem() {
@@ -213,12 +215,13 @@ class Selectors extends WireArray {
 			} else {
 				if(is_array($value)) $value = implode('|', $value);
 				if(is_array($field)) $field = implode('|', $field);
-				$debug = $this->wire('config')->debug ? "field='$field', value='$value', selector: '$this->selectorStr'" : "";
+				$debug = $this->wire()->config->debug ? "field='$field', value='$value', selector: '$this->selectorStr'" : "";
 				if(empty($operator)) $operator = '[empty]';
 				throw new WireException("Unknown Selector operator: '$operator' -- was your selector value properly escaped? $debug");
 			}
 		}
 		$class = wireClassName(self::$selectorTypes[$operator], true); 
+		/** @var Selector $selector */
 		$selector = $this->wire(new $class($field, $value)); 
 		if($not) $selector->not = true;
 		return $selector; 		
@@ -279,7 +282,7 @@ class Selectors extends WireArray {
 	protected function extractGroup(&$str) {
 		$group = null;
 		$pos = strpos($str, '@'); 
-		if($pos === false) return $group; 
+		if($pos === false) return null; 
 		if($pos === 0) {
 			$group = '';
 			$str = substr($str, 1); 
@@ -421,7 +424,7 @@ class Selectors extends WireArray {
 	 * @param string $str String to extract value from, $str will be modified if extraction successful
 	 * @param string $openingQuote Opening quote character, if string has them, blank string otherwise
 	 * @param string $closingQuote Closing quote character, if string has them, blank string otherwise
-	 * @return mixed Returns found value if successful, boolean false if not
+	 * @return false|string|string[] Returns found value if successful, boolean false if not
 	 *
 	 */
 	protected function extractValueQuick(&$str, $openingQuote, $closingQuote) {
@@ -507,6 +510,8 @@ class Selectors extends WireArray {
 	 *
 	 */
 	protected function extractValue(&$str, &$quote) {
+		
+		$sanitizer = $this->wire()->sanitizer;
 
 		$str = trim($str); 
 		if(!strlen($str)) return '';
@@ -577,7 +582,7 @@ class Selectors extends WireArray {
 							$op = self::$operatorChars[$str[$on]] . $op;
 						}
 						// if something valid does prefix the operator, cancel the operator
-						if(!$on || !$this->wire('sanitizer')->fieldName($str[$on])) $op = '';
+						if(!$on || !$sanitizer->fieldName($str[$on])) $op = '';
 						// if an operator came before the quote, and it closes somewhere,
 						// we will allow the embedded double quote
 						if(strlen($op) && self::isOperator($op) && strrpos($str, '"') > $n) {
@@ -713,7 +718,7 @@ class Selectors extends WireArray {
 			$subname = '';
 		}
 		if(!in_array($name, $this->allowedParseVars)) return false;
-		if(strlen($subname) && $this->wire('sanitizer')->fieldName($subname) !== $subname) return false;
+		if(strlen($subname) && $this->wire()->sanitizer->fieldName($subname) !== $subname) return false;
 		return true; 
 	}
 
@@ -924,7 +929,7 @@ class Selectors extends WireArray {
 	 */
 	protected function makeSelectorArrayItem($key, $data, $dataType = '') {
 		
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		$sanitize = 'selectorValue';
 		$fields = array();
 		$values = array();
@@ -982,9 +987,9 @@ class Selectors extends WireArray {
 				$data['value'] = array();
 			}
 
-			if(isset($data['whitelist']) && $data['whitelist'] !== null) {
+			if(isset($data['whitelist'])) {
 				$whitelist = $data['whitelist'];
-				if(is_object($whitelist) && $whitelist instanceof WireArray) $whitelist = explode('|', (string) $whitelist);
+				if($whitelist instanceof WireArray) $whitelist = explode('|', (string) $whitelist);
 				if(!is_array($whitelist)) $whitelist = array($whitelist);
 			}
 
@@ -1071,7 +1076,7 @@ class Selectors extends WireArray {
 		// convert WireArray types to an array of $_values
 		if(count($_values) === 1) {
 			$value = reset($_values);
-			if(is_object($value) && $value instanceof WireArray) {
+			if($value instanceof WireArray) {
 				$_values = explode('|', (string) $value);
 			}
 		}

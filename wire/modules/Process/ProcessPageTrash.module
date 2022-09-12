@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -25,7 +25,7 @@ class ProcessPageTrash extends Process {
 			'summary' => __('Handles emptying of Page trash', __FILE__), // getModuleInfo summary 
 			'version' => 103, 
 			'permanent' => true, 
-			); 
+		); 
 	}
 
 	/**
@@ -34,8 +34,8 @@ class ProcessPageTrash extends Process {
 	 */
 	public function ___execute() {
 
-		if(!$this->wire('user')->isSuperuser()) throw new WirePermissionException();
-		$input = $this->wire('input');
+		if(!$this->wire()->user->isSuperuser()) throw new WirePermissionException();
+		$input = $this->wire()->input;
 		
 		$timeLimit = abs((int) $input->post('time_limit'));
 		if($timeLimit > 0) $this->session->setFor($this, 'timeLimit', $timeLimit);
@@ -53,7 +53,7 @@ class ProcessPageTrash extends Process {
 			'timeLimit' => $timeLimit > 0 ? $timeLimit : self::defaultTimeLimit,
 		);
 		
-		$result = $this->wire('pages')->emptyTrash($options);
+		$result = $this->wire()->pages->emptyTrash($options);
 		if(self::debug) $this->warning($result);
 		$error = false;
 		
@@ -73,13 +73,15 @@ class ProcessPageTrash extends Process {
 			$error = true;
 		}
 		
+		$session = $this->wire()->session;
+		
 		if($error) {
-			$this->session->warning($message);
-			$this->session->redirect('./');
+			$session->warning($message);
+			$session->redirect('./');
 		} else {
 			// redirect to admin root after emptying trash
-			$this->session->message($message);
-			$this->session->redirect($this->wire('config')->urls('admin'));
+			$session->message($message);
+			$session->redirect($this->wire()->config->urls('admin'));
 		}
 		
 		return ''; // unreachable due to redirects above
@@ -90,19 +92,19 @@ class ProcessPageTrash extends Process {
 	 *
 	 */
 	protected function render() {
-
-		// $trashPages = $this->pages->get($this->config->trashPageID)->children("limit=2, status<" . Page::statusMax);
+		
+		$modules = $this->wire()->modules;
 		$trashTotal = $this->pages->trasher()->getTrashTotal();
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get("InputfieldForm"); 
+		$form = $modules->get("InputfieldForm"); 
 		$form->attr('action', './'); 
 		$form->attr('method', 'post'); 
 
 		if(!$trashTotal) return "<h2>" . $this->_("The trash is empty") . "</h2>";
 
 		/** @var InputfieldCheckbox $field */
-		$field = $this->modules->get("InputfieldCheckbox"); 
+		$field = $modules->get("InputfieldCheckbox"); 
 		$field->attr('name', 'confirm_empty'); 
 		$field->attr('value', 1); 
 		$field->label2 = $this->_('Empty the trash (confirm)');
@@ -116,7 +118,7 @@ class ProcessPageTrash extends Process {
 		$form->add($field);
 		
 		/** @var InputfieldMarkup $field */
-		$field = $this->modules->get("InputfieldMarkup");
+		$field = $modules->get("InputfieldMarkup");
 		$field->label = $this->_('Pages in the trash');
 		$field->icon = 'list';
 		$field->collapsed = Inputfield::collapsedYes;
@@ -128,7 +130,7 @@ class ProcessPageTrash extends Process {
 		$form->add($field);
 		
 		/** @var InputfieldInteger $f */
-		$f = $this->modules->get('InputfieldInteger');
+		$f = $modules->get('InputfieldInteger');
 		$f->attr('name', 'time_limit');
 		$f->label = $this->_('Time limit (in seconds)');
 		$timeLimit = (int) $this->session->getFor($this, 'timeLimit');
@@ -138,18 +140,18 @@ class ProcessPageTrash extends Process {
 		$form->add($f);
 
 		/** @var InputfieldSubmit $field */
-		$field = $this->modules->get("InputfieldSubmit"); 
+		$field = $modules->get("InputfieldSubmit"); 
 		$field->attr('name', 'submit_empty'); 
 		$field->showInHeader(true);	
 		$field->icon = 'trash';
 		$form->add($field);
 		
-		/** @var InputfieldSubmit $field */
-		$field = $this->modules->get("InputfieldButton");
+		/** @var InputfieldButton $field */
+		$field = $modules->get("InputfieldButton");
 		$field->attr('name', 'submit_cancel');
 		$field->setSecondary(true);
 		$field->value = $this->_('Cancel');
-		$field->href = $this->wire('config')->urls->admin;
+		$field->href = $this->wire()->config->urls->admin;
 		$field->icon = 'times';
 		$form->add($field); 
 

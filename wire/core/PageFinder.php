@@ -402,10 +402,10 @@ class PageFinder extends Wire {
 	// protected $extraJoins = array();
 	// protected $nativeWheres = array(); // where statements for native fields, to be reused in subselects where appropriate.
 	
-	public function __get($key) {
-		if($key === 'includeMode') return $this->includeMode;
-		if($key === 'checkAccess') return $this->checkAccess; 
-		return parent::__get($key);
+	public function __get($name) {
+		if($name === 'includeMode') return $this->includeMode;
+		if($name === 'checkAccess') return $this->checkAccess; 
+		return parent::__get($name);
 	}
 
 	/**
@@ -455,7 +455,6 @@ class PageFinder extends Wire {
 	 */
 	protected function initSelectors(Selectors $selectors, array $options) {
 
-		$maxStatus = null; 
 		$limit = 0; // for getTotal auto detection
 		$start = 0;
 		$limitSelector = null;
@@ -485,7 +484,6 @@ class PageFinder extends Wire {
 		);
 
 		foreach($selectors as $key => $selector) {
-			/** @var Selector $selector */
 			
 			$fieldName = $selector->field;
 			$operator = $selector->operator;
@@ -690,6 +688,7 @@ class PageFinder extends Wire {
 
 			if(($operator === '!=' && !$selector->not) || ($selector->not && $operator === '=')) {
 				// NOT MATCH condition: replace with bitwise AND NOT selector
+				/** @var Selector $s */
 				$s = $this->wire(new SelectorBitwiseAnd('status', $qty > 1 ? $values : reset($values)));
 				$s->not = true;
 				$not = true;
@@ -790,6 +789,7 @@ class PageFinder extends Wire {
 		
 		if(is_string($selectors) || is_array($selectors)) {
 			list($s, $selectors) = array($selectors, $this->wire(new Selectors())); 
+			/** @var Selectors $selectors */
 			$selectors->init($s);
 		} else if(!$selectors instanceof Selectors) {
 			throw new PageFinderException("find() requires Selectors object, string or array");
@@ -1162,7 +1162,6 @@ class PageFinder extends Wire {
 				$o['getTotal'] = true;
 				$o['loadPages'] = false;
 				$o['returnVerbose'] = false;
-				/** @var Selectors $sel */
 				$sel = clone $selectors;
 				foreach($sel as $s) {
 					if($s->field == 'limit' || $s->field == 'start') $sel->remove($s);
@@ -1242,7 +1241,7 @@ class PageFinder extends Wire {
 			$fieldtypeLang = $languages ? $fieldtypes->get("{$fieldName}Language") : null;
 			
 			foreach($this->fields as $f) {
-				
+				/** @var Field $f */
 				if($findExtends) {
 					// allow any Fieldtype that is an instance of given one, or extends it
 					if(!wireInstanceOf($f->type, $fieldtype) 
@@ -1431,6 +1430,7 @@ class PageFinder extends Wire {
 				} else {
 					$s = '';
 				}
+				/** @var Selectors $_selectors */
 				$_selectors = $this->wire(new Selectors($s));
 				$_selector = $_selectors->create(implode('.', $parts), $selector->operator, $selector->values);
 				$_selectors->add($_selector);
@@ -1679,7 +1679,7 @@ class PageFinder extends Wire {
 				$this->pageArrayData['joinFields'] = array(); // identify whether each field supported autojoin
 				foreach($opts['joinFields'] as $joinField) {
 					$joinField = $this->fields->get($joinField);
-					if(!$joinField || !$joinField instanceof Field) continue;
+					if(!$joinField instanceof Field) continue;
 					$joinTable = $database->escapeTable($joinField->getTable());
 					if(!$joinTable || !$joinField->type) continue;
 					if($joinField->type->getLoadQueryAutojoin($joinField, $query)) {
@@ -1829,7 +1829,7 @@ class PageFinder extends Wire {
 					// without this section the query would still work, but a blank value must actually be present in the field
 					$isEmptyValue = $fieldtype->isEmptyValue($field, $value);
 					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $value < 0 && $operator[0] === '>');	
-					if($useEmpty && $fieldtype && strpos($subfield, 'data') === 0) { // && !$fieldtype instanceof FieldtypeMulti) {
+					if($useEmpty && strpos($subfield, 'data') === 0) { // && !$fieldtype instanceof FieldtypeMulti) {
 						if($isEmptyValue) $numEmptyValues++;
 						if(in_array($operator, array('=', '!=', '<', '<=', '>', '>='))) {
 							// we only accommodate this optimization for single-value selectors...
@@ -1990,7 +1990,7 @@ class PageFinder extends Wire {
 			// what groups should be OR'd together
 
 			$sqls = array();
-			foreach($this->extraOrSelectors as $groupName => $selectorGroup) {
+			foreach($this->extraOrSelectors as /* $groupName => */ $selectorGroup) {
 				$n = 0;
 				$sql = "\tpages.id IN (\n";
 				foreach($selectorGroup as $selectors) {
@@ -2243,6 +2243,7 @@ class PageFinder extends Wire {
 		if($user->isGuest()) {
 			// guest 
 			foreach($this->templates as $template) {
+				/** @var Template $template */
 				if($template->guestSearchable || !$template->useRoles) {
 					$yesTemplates[$template->id] = $template;
 					continue; 
@@ -2262,6 +2263,7 @@ class PageFinder extends Wire {
 			}
 
 			foreach($this->templates as $template) {
+				/** @var Template $template */
 				if($template->guestSearchable || !$template->useRoles) {
 					$yesTemplates[$template->id] = $template;
 					continue; 
@@ -2276,6 +2278,7 @@ class PageFinder extends Wire {
 
 		// determine which templates the user is not allowed to access
 		foreach($this->templates as $template) {
+			/** @var Template $template */
 			if(!isset($yesTemplates[$template->id])) $noTemplates[$template->id] = $template;
 		}
 
@@ -2338,7 +2341,6 @@ class PageFinder extends Wire {
 	 * @return string
 	 */
 	protected function ___getQueryAllowedTemplatesWhere(DatabaseQuerySelect $query, $where) {
-		if($query) {}
 		return $where;
 	}
 
@@ -2460,7 +2462,7 @@ class PageFinder extends Wire {
 						$value = "COUNT($tableAlias.data)";
 					}
 
-				} else if(is_object($blankValue) && ($blankValue instanceof PageArray || $blankValue instanceof Page)) {
+				} else if($blankValue instanceof PageArray || $blankValue instanceof Page) {
 					// If it's a FieldtypePage, then data isn't worth sorting on because it just contains an ID to the page
 					// so we also join the page and sort on it's name instead of the field's "data" field.
 					if(!$subValue) $subValue = 'name';
@@ -2498,7 +2500,7 @@ class PageFinder extends Wire {
 					
 				} else {
 					// regular field, just sort by data column
-					$value = "$tableAlias." . ($subValue ? $subValue : "data"); ; 
+					$value = "$tableAlias." . ($subValue ? $subValue : "data");
 				}
 			}
 	
@@ -2560,6 +2562,7 @@ class PageFinder extends Wire {
 		if($this->supportsLanguagePageNames()) {
 			$langNames = array();
 			foreach($this->languages as $language) {
+				/** @var Language $language */
 				if(!$language->isDefault()) $langNames[$language->id] = "name" . (int) $language->id;
 			}
 			if(!count($langNames)) $langNames = null;
@@ -2622,7 +2625,7 @@ class PageFinder extends Wire {
 				//$query->join("pages AS $alias ON ($lastAlias.parent_id=$alias.id AND $alias.name='$part')");
 				$bindKey = $query->bindValueGetKey($part);
 				$sql = "pages AS $alias ON ($lastAlias.parent_id=$alias.id AND ($alias.name=$bindKey";
-				if($langNames) foreach($langNames as $id => $name) {
+				if($langNames) foreach($langNames as /* $id => */ $name) {
 					// $status = "status" . (int) $id;
 					// $sql .= " OR ($alias.$name='$part' AND $alias.$status>0) ";
 					$bindKey = $query->bindValueGetKey($part);
@@ -2848,16 +2851,16 @@ class PageFinder extends Wire {
 					}
 					
 				} else if(!$database->isOperator($operator)) {
-					$this->syntaxError("Operator '$operator' is not supported for '$field'.");
 					$s = '';
+					$this->syntaxError("Operator '$operator' is not supported for '$field'.");
 
 				} else if($this->isModifierField($field)) {
-					$this->syntaxError("Modifier '$field' is not allowed here");
 					$s = '';
+					$this->syntaxError("Modifier '$field' is not allowed here");
 
 				} else if(!$this->pagesColumnExists($field)) {
-					$this->syntaxError("Field '$field' is not a known field, column or selector modifier"); 
 					$s = '';
+					$this->syntaxError("Field '$field' is not a known field, column or selector modifier"); 
 					
 				} else {
 					$not = false;
@@ -3181,7 +3184,7 @@ class PageFinder extends Wire {
 	/**
 	 * Returns the templates ID, if it was part of the selector
 	 * 
-	 * @return int
+	 * @return int|null
 	 *
 	 */
 	public function getTemplatesID() {
@@ -3223,12 +3226,11 @@ class PageFinder extends Wire {
 	protected function isPageField($fieldName, $literal = false) {
 		
 		$is = false;
-		$field = null;
 		
 		if($fieldName === 'parent' || $fieldName === 'children') {
 			return $fieldName; // early exit
 			
-		} else if(is_object($fieldName) && $fieldName instanceof Field) {
+		} else if($fieldName instanceof Field) {
 			$field = $fieldName;
 			
 		} else if(is_string($fieldName) && strpos($fieldName, '.')) {
@@ -3261,7 +3263,7 @@ class PageFinder extends Wire {
 				$is = $literal ? false : true;
 			} else {
 				$test = $field->type->getBlankValue(new NullPage(), $field); 
-				if(is_object($test) && ($test instanceof Page || $test instanceof PageArray)) {
+				if($test instanceof Page || $test instanceof PageArray) {
 					$is = $literal ? false : true;
 				}
 			}
@@ -3333,6 +3335,7 @@ class PageFinder extends Wire {
 			self::$pagesColumns[$instanceID] = array();
 			if($this->supportsLanguagePageNames()) {
 				foreach($this->languages as $language) {
+					/** @var Language $language */
 					if($language->isDefault()) continue;
 					self::$pagesColumns[$instanceID]["name$language->id"] = true;
 					self::$pagesColumns[$instanceID]["status$language->id"] = true;
@@ -3420,16 +3423,11 @@ class PageFinder extends Wire {
 		);
 		
 		$data = array_merge($_data, $data); 
-		/** @var array $fields */
-		$fields = $data['fields'];
-		/** @var string $subfields */
-		$subfields = $data['subfields'];
-		/** @var Selector $selector */
-		$selector = $data['selector'];
-		/** @var DatabaseQuerySelect $query */
-		$query = $data['query'];
-		/** @var Wire|null $value */
-		$value = $this->wire($fieldName);
+		$fields = $data['fields']; /** @var array $fields */
+		$subfields = $data['subfields']; /** @var string $subfields */
+		$selector = $data['selector']; /** @var Selector $selector */
+		$query = $data['query']; /** @var DatabaseQuerySelect $query */
+		$value = $this->wire($fieldName); /** @var Wire|null $value */
 		
 		if($value) {
 			// found an API var
@@ -3450,7 +3448,10 @@ class PageFinder extends Wire {
 		
 		if($this->getQueryOwnerField($fieldName, $data)) return true;
 	
-		return false;
+		/** @var bool|int|Field $value Hooks can modify return value to be Field */
+		$value = false;
+	
+		return $value;
 	}
 
 	/**
@@ -3466,16 +3467,11 @@ class PageFinder extends Wire {
 		
 		if(substr($fieldName, -7) !== '__owner') return false;
 		
-		/** @var array $fields */
-		$fields = $data['fields'];
-		/** @var string $subfields */
-		$subfields = $data['subfields'];
-		/** @var Selectors $selectors */
-		$selectors = $data['selectors'];
-		/** @var Selector $selector */
-		$selector = $data['selector'];
-		/** @var DatabaseQuerySelect $query */
-		$query = $data['query'];
+		$fields = $data['fields']; /** @var array $fields */
+		$subfields = $data['subfields']; /** @var string $subfields */
+		$selectors = $data['selectors']; /** @var Selectors $selectors */
+		$selector = $data['selector']; /** @var Selector $selector */
+		$query = $data['query']; /** @var DatabaseQuerySelect $query */
 		
 		if(empty($subfields)) $this->syntaxError("When using owner a subfield is required");
 
@@ -3493,6 +3489,7 @@ class PageFinder extends Wire {
 		// determine which templates are using $ownerFieldName
 		$templateIDs = array();
 		foreach($this->templates as $template) {
+			/** @var Template $template */
 			if($template->hasField($ownerFieldName)) {
 				$templateIDs[$template->id] = $template->id;
 			}

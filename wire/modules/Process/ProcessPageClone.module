@@ -6,7 +6,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * Optional GET variables: 
@@ -36,8 +36,8 @@ class ProcessPageClone extends Process {
 				'title' => 'Clone',
 				'parent' => 'page',
 				'status' => Page::statusHidden, 
-				)
-			); 
+			)
+		); 
 	}
 
 	/**
@@ -70,7 +70,7 @@ class ProcessPageClone extends Process {
 	 *	
 	 */
 	public function ready() {
-		$this->adminUrl = $this->wire('config')->urls->admin;
+		$this->adminUrl = $this->wire()->config->urls->admin;
 		$this->pageListActionLabel = $this->_('Copy'); // Action label that appears in PageList
 		$this->addHookAfter("ProcessPageListActions::getExtraActions", $this, 'hookPageListActions');
 		$this->addHookAfter("ProcessPageListActions::processAction", $this, 'hookProcessExtraAction'); 
@@ -119,14 +119,15 @@ class ProcessPageClone extends Process {
 	 *
 	 */
 	public function ___execute() {
+		$input = $this->wire()->input;
 		$this->headline($this->_('Copy Page')); // Headline
 		$error = $this->_("Unable to load page");
-		$id = (int) $this->wire('input')->get('id');
-		if(!$id) throw new WireException($error); 
-		$this->page = $this->wire('pages')->get($id); 
+		$id = (int) $input->get('id');
+		if($id < 2) throw new WireException($error); 
+		$this->page = $this->wire()->pages->get($id); 
 		if($this->page->id < 2) throw new WireException($error); 
 		if(!$this->hasPermission($this->page)) throw new WirePermissionException($error); 
-		if($this->wire('input')->post('submit_clone')) $this->process();
+		if($input->post('submit_clone')) $this->process();
 		return $this->render();	
 	}	
 
@@ -165,8 +166,7 @@ class ProcessPageClone extends Process {
 	 */
 	protected function getSuggestedNameAndTitle(Page $page) {
 	
-		/** @var Pages $pages */
-		$pages = $this->wire('pages');
+		$pages = $this->wire()->pages;
 		
 		$name = $pages->names()->uniquePageName(array(
 			'name' => $page->name, 
@@ -194,6 +194,7 @@ class ProcessPageClone extends Process {
 		$languages = $this->wire()->languages;
 		if($languages && $languages->hasPageNames()) {
 			foreach($languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$value = $page->get("name$language");
 				if(!strlen($value)) continue;
@@ -212,11 +213,11 @@ class ProcessPageClone extends Process {
 	 */
 	protected function ___buildForm() {
 	
-		/** @var Page $page */
 		$page = $this->page;
+		$modules = $this->wire()->modules;
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get("InputfieldForm"); 
+		$form = $modules->get("InputfieldForm"); 
 		$form->attr('action', './?id=' . $page->id); 
 		$form->attr('method', 'post'); 
 		$form->description = sprintf($this->_("This will make a copy of %s"), $page->path); // Form description/headline
@@ -225,23 +226,22 @@ class ProcessPageClone extends Process {
 		$suggested = $this->getSuggestedNameAndTitle($page);
 
 		/** @var InputfieldPageTitle $titleField */
-		$titleField = $this->modules->get("InputfieldPageTitle"); 
+		$titleField = $modules->get("InputfieldPageTitle"); 
 		$titleField->attr('name', 'clone_page_title'); 
 		$titleField->attr('value', $suggested['title']);
 		$titleField->label = $this->_("Title of new page"); // Label for title field
 
 		/** @var InputfieldPageName $nameField */
-		$nameField = $this->modules->get("InputfieldPageName"); 
+		$nameField = $modules->get("InputfieldPageName"); 
 		$nameField->attr('name', 'clone_page_name'); 
 		$nameField->attr('value', $suggested['name']);
 		$nameField->parentPage = $page->parent;
 
-		/** @var Languages $languages */
-		$languages = $this->wire('languages'); 
+		$languages = $this->wire()->languages; 
 		$useLanguages = $languages;
 		if($useLanguages) {
 			/** @var Field $title */
-			$title = $this->wire('fields')->get('title');
+			$title = $this->wire()->fields->get('title');
 			$titleUseLanguages = $title 
 				&& $page->template->fieldgroup->hasField($title) 
 				&& $title->getInputfield($page)->getSetting('useLanguages');
@@ -249,6 +249,7 @@ class ProcessPageClone extends Process {
 			if($titleUseLanguages) $titleField->useLanguages = true;
 			if($nameUseLanguages) $nameField->useLanguages = true; 
 			foreach($languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				if($titleUseLanguages) {
 					/** @var LanguagesPageFieldValue $pageTitle */
@@ -274,7 +275,7 @@ class ProcessPageClone extends Process {
 		$form->add($nameField); 
 
 		/** @var InputfieldCheckbox $field */
-		$field = $this->modules->get("InputfieldCheckbox"); 
+		$field = $modules->get("InputfieldCheckbox"); 
 		$field->attr('name', 'clone_page_unpublished'); 
 		$field->attr('value', 1); 
 		$field->label = $this->_("Make the new page unpublished?");
@@ -284,7 +285,7 @@ class ProcessPageClone extends Process {
 
 		if($page->numChildren && $this->user->hasPermission('page-clone-tree', $page)) { 
 			/** @var InputfieldCheckbox $field */
-			$field = $this->modules->get("InputfieldCheckbox"); 
+			$field = $modules->get("InputfieldCheckbox"); 
 			$field->attr('name', 'clone_page_tree'); 
 			$field->attr('value', 1); 
 			$field->label = $this->_("Copy children too?");
@@ -295,14 +296,14 @@ class ProcessPageClone extends Process {
 		}
 
 		/** @var InputfieldSubmit $field */
-		$field = $this->modules->get("InputfieldSubmit"); 
+		$field = $modules->get("InputfieldSubmit"); 
 		$field->attr('name', 'submit_clone'); 
 		$form->add($field); 
 	
-		$redirectPageID = (int) $this->wire('input')->get('redirect_page');
+		$redirectPageID = (int) $this->wire()->input->get('redirect_page');
 		if($redirectPageID) {
 			/** @var InputfieldHidden $field */
-			$field = $this->wire('modules')->get('InputfieldHidden');
+			$field = $modules->get('InputfieldHidden');
 			$field->attr('name', 'redirect_page');
 			$field->attr('value', $redirectPageID);
 			$form->add($field);
@@ -330,6 +331,7 @@ class ProcessPageClone extends Process {
 
 		$page = clone $this->page; 
 		$input = $this->input; 
+		$languages = $this->wire()->languages;
 		$originalName = $page->name; 
 
 		$this->session->CSRF->validate();
@@ -344,8 +346,9 @@ class ProcessPageClone extends Process {
 			$page->addStatus(Page::statusUnpublished);
 		}
 		
-		if($nameField->useLanguages) {
-			foreach($this->wire('languages') as $language) {
+		if($nameField->useLanguages && $languages) {
+			foreach($languages as $language) {
+				/** @var Language $language */
 				$valueAttr = $language->isDefault() ? "value" : "value$language->id";
 				$nameAttr = $language->isDefault() ? "name" : "name$language->id";
 				$value = $nameField->get($valueAttr); 				
@@ -363,8 +366,9 @@ class ProcessPageClone extends Process {
 			throw new WireException(sprintf($this->_("Unable to clone page %s"), $page->path));
 		}
 
-		if($titleField->getSetting('useLanguages') && is_object($clone->title)) {
-			foreach($this->wire('languages') as $language) {
+		if($titleField->getSetting('useLanguages') && is_object($clone->title) && $languages) {
+			foreach($languages as $language) {
+				/** @var Language $language */
 				$valueAttr = $language->isDefault() ? "value" : "value$language->id";
 				$value = $titleField->get($valueAttr);
 				/** @var LanguagesPageFieldValue $cloneTitle */
@@ -375,7 +379,7 @@ class ProcessPageClone extends Process {
 			$clone->title = $titleField->value; 
 		}
 	
-		$this->wire('pages')->save($clone, array('adjustName' => true)); 
+		$this->wire()->pages->save($clone, array('adjustName' => true)); 
 		
 		$this->message(sprintf($this->_('Cloned page "%1$s" to "%2$s"'), $originalName, $clone->name)); 
 		
@@ -383,7 +387,7 @@ class ProcessPageClone extends Process {
 		$redirectID = (int) $input->post('redirect_page');
 		
 		if($redirectID) {
-			$redirectPage = $this->wire('pages')->get($redirectID);
+			$redirectPage = $this->wire()->pages->get($redirectID);
 			if($redirectPage->viewable()) {
 				$redirectURL = $redirectPage->url();
 			}
@@ -427,7 +431,7 @@ class ProcessPageClone extends Process {
 		);
 
 		if($clone->id) {
-			$result['message'] = $this->wire('sanitizer')->unentities(
+			$result['message'] = $this->wire()->sanitizer->unentities(
 				sprintf($this->_('Cloned to: %s'), $clone->path)
 			);
 		} else {
@@ -468,8 +472,10 @@ class ProcessPageClone extends Process {
 			)
 		);
 
-		if($this->wire('languages')) {
-			foreach($this->wire('languages') as $language) {
+		$languages = $this->wire()->languages;
+		if($languages) {
+			foreach($languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				if(!empty($suggested["name$language"])) {
 					$cloneOptions['set']["name$language"] = $suggested["name$language"];
@@ -480,7 +486,7 @@ class ProcessPageClone extends Process {
 		$cloneTree = false; // clone tree mode not allowed in ajax mode
 
 		try {
-			$clone = $this->wire('pages')->clone($page, $page->parent, $cloneTree, $cloneOptions);
+			$clone = $this->wire()->pages->clone($page, $page->parent, $cloneTree, $cloneOptions);
 		} catch(\Exception $e) {
 			$error = $e->getMessage();
 			$clone = new NullPage();

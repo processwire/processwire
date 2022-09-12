@@ -22,10 +22,11 @@ class PageBookmarks extends Wire {
 	protected $labels = array();
 
 	/**
-	 * @param Process $process
+	 * @param Process|ProcessPageEdit $process
 	 * 
 	 */
 	public function __construct(Process $process) {
+		parent::__construct();
 		$this->process = $process; 
 		$this->labels = array(
 			'bookmarks' => $this->_('Bookmarks'),
@@ -42,19 +43,23 @@ class PageBookmarks extends Wire {
 	 *
 	 */
 	public function initNavJSON(array $options = array()) {
+		
+		$pages = $this->wire()->pages;
+		$user = $this->wire()->user;
+		$modules = $this->wire()->modules;
 
 		$bookmarkFields = array();
 		$bookmarksArray = array();
 		$rolesArray = array();
-		$data = $this->wire('modules')->getModuleConfigData($this->process);
+		$data = $modules->getModuleConfigData($this->process);
 		$iconKey = isset($options['iconKey']) ? $options['iconKey'] : '_icon';
 		$classKey = isset($options['classKey']) ? $options['classKey'] : '_class';
 		$options['classKey'] = $classKey;
 		$options['iconKey'] = $iconKey;
 		if(!isset($options['defaultIcon'])) $options['defaultIcon'] = 'arrow-circle-right';
 
-		foreach($this->wire('user')->roles as $role) {
-			if($role->name == 'guest') continue;
+		foreach($this->wire()->user->roles as $role) {
+			if($role->name === 'guest') continue;
 			$value = isset($data["bookmarks"]["_$role->id"]) ? $data["bookmarks"]["_$role->id"] : array();
 			if(empty($value)) continue;
 			$bookmarkFields[$role->name] = $value;
@@ -64,7 +69,7 @@ class PageBookmarks extends Wire {
 
 		$n = 0;
 		foreach($bookmarkFields as $name => $bookmarkIDs) {
-			$bookmarks = count($bookmarkIDs) ? $this->wire('pages')->getById($bookmarkIDs) : array();
+			$bookmarks = count($bookmarkIDs) ? $pages->getById($bookmarkIDs) : array();
 			$role = isset($rolesArray[$name]) ? $rolesArray[$name] : null;
 			foreach($bookmarks as $page) {
 				if($this->process == 'ProcessPageEdit' && !$page->editable()) continue;
@@ -81,14 +86,14 @@ class PageBookmarks extends Wire {
 		}
 		
 		if(empty($options['add'])) {
-			if($this->wire('user')->isSuperuser()) {
+			if($user->isSuperuser()) {
 				$options['add'] = 'bookmarks/?role=0';
 				$options['addLabel'] = $this->labels['bookmarks'];
 				$options['addIcon'] = 'bookmark-o';
 			} else {
 				$options['add'] = null;
 			}
-		} else if($this->wire('user')->isSuperuser()) {
+		} else if($user->isSuperuser()) {
 			$add = $this->wire(new WireData());
 			$add->set('_icon', 'bookmark-o');
 			$add->set('title', $this->labels['bookmarks']);
@@ -108,7 +113,7 @@ class PageBookmarks extends Wire {
 		if(!isset($options['iconKey'])) $options['iconKey'] = '_icon';
 	
 		if(empty($options['edit'])) {
-			$options['edit'] = $this->wire('config')->urls->admin . 'page/edit/?id={id}';
+			$options['edit'] = $this->wire()->config->urls->admin . 'page/edit/?id={id}';
 		}
 
 		return $options; 
@@ -121,10 +126,11 @@ class PageBookmarks extends Wire {
 	 * 
 	 */
 	public function listBookmarks() {
-		
-		$config = $this->wire('config');
-		$config->styles->add($config->urls->ProcessPageEdit . 'PageBookmarks.css'); 
-		$superuser = $this->wire('user')->isSuperuser();
+	
+		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
+		$config->styles->add($config->urls('ProcessPageEdit') . 'PageBookmarks.css'); 
+		$superuser = $this->wire()->user->isSuperuser();
 		$out = '';
 		$options = $this->initNavJSON();
 		$noneHeadline = $this->_('There are currently no bookmarks defined'); 
@@ -136,7 +142,7 @@ class PageBookmarks extends Wire {
 			$icon = $item->_icon ? "<i class='fa fa-fw fa-$item->_icon'></i> " : "";
 			$out .= 
 				"<li class='$item->_class'>" . 
-				"<a href='$url'>$icon" . $this->wire('sanitizer')->entities1($item->get('title|name')) . "</a>" . 
+				"<a href='$url'>$icon" . $sanitizer->entities1($item->get('title|name')) . "</a>" . 
 				"</li>";
 		}
 	
@@ -148,7 +154,8 @@ class PageBookmarks extends Wire {
 		}
 		
 		if($superuser) {
-			$button = $this->wire('modules')->get('InputfieldButton');
+			/** @var InputfieldButton $button */
+			$button = $this->wire()->modules->get('InputfieldButton');
 			$button->href = "./?role=0";
 			$button->value = $this->labels['edit-bookmarks'];
 			$button->icon = 'edit';
@@ -168,17 +175,20 @@ class PageBookmarks extends Wire {
 	 */
 	public function editBookmarksForm() {
 		
-		$modules = $this->wire('modules');
-		$roleID = $this->wire('input')->get('role');
-		if(is_null($roleID) && $this->wire('input')->get('id') == 'bookmarks') $roleID = 0;
+		$modules = $this->wire()->modules;
+		$input = $this->wire()->input;
+		$roles = $this->wire()->roles;
+		
+		$roleID = $input->get('role');
+		if(is_null($roleID) && $input->get('id') === 'bookmarks') $roleID = 0;
 		$roleID = (int) $roleID; 
 
-		if(!$this->wire('user')->isSuperuser()) throw new WirePermissionException("Superuser required to define bookmarks");
+		if(!$this->wire()->user->isSuperuser()) throw new WirePermissionException("Superuser required to define bookmarks");
 		$moduleInfo = $modules->getModuleInfo($this->process);
 		$this->process->breadcrumb('../', $this->_($moduleInfo['title']));
 		$this->process->breadcrumb('./', $this->labels['bookmarks']);
 		
-		$role = $roleID ? $this->wire('roles')->get($roleID) : $this->wire('pages')->newNullPage();
+		$role = $roleID ? $roles->get($roleID) : $this->wire()->pages->newNullPage();
 		if($roleID && !$role->id) throw new WireException("Unknown role");
 		$allLabel = $this->_('everyone'); // All roles
 		$data = $modules->getModuleConfigData($this->process);
@@ -188,6 +198,7 @@ class PageBookmarks extends Wire {
 		$this->process->headline($headline);
 		$this->process->browserTitle($title);
 
+		/** @var InputfieldForm $form */
 		$form = $modules->get('InputfieldForm');
 		$form->action = "./?role=$role->id";
 		$form->addClass('InputfieldFormConfirm');
@@ -195,6 +206,7 @@ class PageBookmarks extends Wire {
 		$form->appendMarkup = "<p style='clear:both' class='detail'><br /><i class='fa fa-info-circle ui-priority-secondary'></i> " . 
 			$this->_('Note that only superusers are able to see this editor.') . "</p>";
 
+		/** @var InputfieldPageListSelectMultiple $field */
 		$field = $modules->get('InputfieldPageListSelectMultiple');
 		$field->attr('name', 'bookmarks');
 		$field->label = $title;
@@ -205,8 +217,8 @@ class PageBookmarks extends Wire {
 		$class = $role->id ? '' : 'ui-state-disabled';
 		$out = "<ul class='PageListActions actions'><li><a class='$class' href='./?role=0'>$allLabel</a></li>";
 
-		foreach($this->wire('roles') as $r) {
-			if($r->name == 'guest') continue;
+		foreach($roles as $r) {
+			if($r->name === 'guest') continue;
 			$class = $r->id == $role->id ? 'ui-state-disabled' : '';
 			$o = "<a class='$class' href='./?role=$r->id'>$r->name</a>";
 			$out .= "<li>$o</li>";
@@ -221,20 +233,21 @@ class PageBookmarks extends Wire {
 		$field->attr('value', $value);
 		$form->add($field);
 
+		/** @var InputfieldSubmit $submit */
 		$submit = $modules->get('InputfieldSubmit');
 		$submit->attr('name', 'submit_save_bookmarks');
 		$submit->showInHeader();
 		$form->add($submit);
 
-		if($this->wire('input')->post('submit_save_bookmarks')) {
+		if($form->isSubmitted('submit_save_bookmarks')) {
 			// save bookmarks
-			$form->processInput($this->wire('input')->post);
+			$form->process();
 			$bookmarks = $field->attr('value');
 			// clear out bookmarks for roles that no longer exist
-			foreach($data["bookmarks"] as $_roleID => $_bookmarks) {
+			foreach($data['bookmarks'] as $_roleID => $_bookmarks) {
 				if($_roleID == "_0") continue;
-				$r = $this->wire('roles')->get((int) ltrim($_roleID, '_'));
-				if(!$r->id) unset($data["bookmarks"][$_roleID]);
+				$r = $roles->get((int) ltrim($_roleID, '_'));
+				if(!$r->id) unset($data['bookmarks'][$_roleID]);
 			}
 			// update bookmarks for role
 			$data["bookmarks"]["_$role->id"] = $bookmarks;
@@ -242,7 +255,7 @@ class PageBookmarks extends Wire {
 			$modules->saveModuleConfigData($this->process, $data);
 			
 			$this->message($this->_('Saved bookmarks'));
-			$this->wire('session')->redirect("./?role=$role->id");
+			$this->wire()->session->location("./?role=$role->id");
 		}
 
 		return $form;
@@ -256,9 +269,10 @@ class PageBookmarks extends Wire {
 	 *
 	 */
 	public function editBookmarks() {
-		$roleID = $this->wire('input')->get('role');
+		$input = $this->wire()->input;
+		$roleID = $input->get('role');
 		if(is_null($roleID)) {
-			if($this->wire('input')->get('id') == 'bookmarks') {
+			if($input->get('id') === 'bookmarks') {
 				// ok
 			} else {
 				return $this->listBookmarks();
@@ -293,7 +307,8 @@ class PageBookmarks extends Wire {
 	 * 
 	 */
 	public function addConfigInputfields(InputfieldWrapper $inputfields) {
-		$field = $this->wire('modules')->get('InputfieldCheckbox');
+		/** @var InputfieldCheckbox $field */
+		$field = $this->wire()->modules->get('InputfieldCheckbox');
 		$field->attr('name', 'useBookmarks');
 		$field->label = $this->_('Allow use of bookmarks?');
 		$field->description = $this->_('Bookmarks enable you to create shortcuts to pages from this module, configurable by user role. Useful for large applications.');

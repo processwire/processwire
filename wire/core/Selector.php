@@ -187,6 +187,7 @@ abstract class Selector extends WireData {
 	 *
 	 */
 	public function __construct($field, $value) {
+		parent::__construct();
 		$this->set('not', false);
 		$this->set('group', null); // group name identified with 'group_name@' before a field name
 		$this->set('quote', ''); // if $value in quotes, this contains either: ', ", [, {, or (, indicating quote type (set by Selectors class)
@@ -268,7 +269,7 @@ abstract class Selector extends WireData {
 			if($forceString === 1) {
 				$value = reset($value);
 			} else {
-				$value = $this->wire('sanitizer')->selectorValue($value); 
+				$value = $this->wire()->sanitizer->selectorValue($value); 
 			}
 		}
 		return $value;
@@ -373,7 +374,7 @@ abstract class Selector extends WireData {
 	public function getValue($type = '') {
 		$value = $this->value; 
 		if($type == 'string') {
-			if(is_array($value)) $value = $this->wire('sanitizer')->selectorValue($value);
+			if(is_array($value)) $value = $this->wire()->sanitizer->selectorValue($value);
 		} else if($type == 'array') {
 			if(!is_array($value)) $value = array($value);
 		} else if($this->quote == '[') {
@@ -533,10 +534,15 @@ abstract class Selector extends WireData {
 
 		// prepare the value we are comparing
 		if(is_object($value)) {
-			if($this->wire('languages') && $value instanceof LanguagesValueInterface) $value = (string) $value; 
-				else if($value instanceof WireData) $value = $value->get($field);
-				else if($value instanceof WireArray && is_string($field) && !strpos($field, '.')) $value = (string) $value; // 123|456|789, etc.
-				else if($value instanceof Wire) $value = $value->$field; 
+			if($this->wire()->languages && $value instanceof LanguagesValueInterface) {
+				$value = (string) $value;
+			} else if($value instanceof WireData) {
+				$value = $value->get($field);
+			} else if($value instanceof WireArray && is_string($field) && !strpos($field, '.')) {
+				$value = (string) $value; // 123|456|789, etc.
+			} else if($value instanceof Wire) {
+				$value = $value->$field;
+			}
 			$value = (string) $value; 
 		}
 
@@ -928,7 +934,7 @@ class SelectorContainsWords extends Selector {
 	protected function match($value1, $value2) { 
 		$hasAll = true; 
 		$words = $this->wire()->sanitizer->wordsArray($value2); 
-		foreach($words as $key => $word) if(!preg_match('/\b' . preg_quote($word) . '\b/i', $value1)) {
+		foreach($words as $word) if(!preg_match('/\b' . preg_quote($word) . '\b/i', $value1)) {
 			$hasAll = false;
 			break;
 		}
@@ -955,7 +961,7 @@ class SelectorContainsWordsPartial extends Selector {
 	protected function match($value1, $value2) {
 		$hasAll = true;
 		$words = $this->wire()->sanitizer->wordsArray($value2); 
-		foreach($words as $key => $word) {
+		foreach($words as $word) {
 			if(!preg_match('/\b' . preg_quote($word) . '/i', $value1)) {
 				$hasAll = false;
 				break;
@@ -984,7 +990,7 @@ class SelectorContainsWordsLike extends Selector {
 	protected function match($value1, $value2) {
 		$hasAll = true;
 		$words = $this->wire()->sanitizer->wordsArray($value2);
-		foreach($words as $key => $word) {
+		foreach($words as $word) {
 			if(stripos($value1, $word) === false) {
 				$hasAll = false;
 				break;
@@ -1016,7 +1022,7 @@ class SelectorContainsWordsLive extends Selector {
 		$hasAll = true;
 		$words = $this->wire()->sanitizer->wordsArray($value2); 
 		$lastWord = array_pop($words);
-		foreach($words as $key => $word) {
+		foreach($words as $word) {
 			if(!preg_match('/\b' . preg_quote($word) . '\b/i', $value1)) {
 				// full-word match
 				$hasAll = false;
@@ -1065,7 +1071,7 @@ class SelectorContainsAnyWords extends Selector {
 	protected function match($value1, $value2) {
 		$hasAny = false;
 		$words = $this->wire()->sanitizer->wordsArray($value2);
-		foreach($words as $key => $word) {
+		foreach($words as $word) {
 			if(stripos($value1, $word) !== false) {
 				if(preg_match('!\b' . preg_quote($word) . '\b!i', $value1)) {
 					$hasAny = true;
@@ -1096,7 +1102,7 @@ class SelectorContainsAnyWordsPartial extends Selector {
 	protected function match($value1, $value2) {
 		$hasAny = false;
 		$words = $this->wire()->sanitizer->wordsArray($value2);
-		foreach($words as $key => $word) {
+		foreach($words as $word) {
 			if(stripos($value1, $word) !== false) {
 				if(preg_match('!\b' . preg_quote($word) . '!i', $value1)) {
 					$hasAny = true;
@@ -1127,7 +1133,7 @@ class SelectorContainsAnyWordsLike extends Selector {
 	protected function match($value1, $value2) {
 		$hasAny = false;
 		$words = $this->wire()->sanitizer->wordsArray($value2);
-		foreach($words as $key => $word) {
+		foreach($words as $word) {
 			if(stripos($value1, $word) !== false) {
 				$hasAny = true;
 				break;
@@ -1285,7 +1291,7 @@ class SelectorContainsAdvanced extends SelectorContains {
 		$words = $this->wire()->sanitizer->wordsArray($value, array(
 			'keepChars' => array('+', '-', '*')
 		));
-		foreach($words as $key => $word) {
+		foreach($words as $word) {
 			$type = substr($word, 0, 1);
 			$partial = substr($word, -1) === '*';
 			if($type !== '+' && $type !== '-') $type = '';
