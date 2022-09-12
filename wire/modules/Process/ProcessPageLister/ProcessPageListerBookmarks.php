@@ -445,6 +445,7 @@ class ProcessPageListerBookmarks extends Wire {
 
 		$deleteBookmarkID = $this->bookmarks->_bookmarkID($input->post('delete_bookmark'));
 		if($deleteBookmarkID) {
+			$session->CSRF()->validate();
 			if($this->bookmarks->deleteBookmarkByID($deleteBookmarkID)) {
 				$this->message($this->_('Deleted bookmark'));
 			} else {
@@ -455,7 +456,9 @@ class ProcessPageListerBookmarks extends Wire {
 		}
 
 		if($input->post('bookmark_title')) {
-			return $this->executeSaveBookmark();
+			$session->CSRF()->validate();
+			$this->executeSaveBookmark();
+			return '';
 		}
 
 		$bookmarkID = $this->bookmarks->_bookmarkID($input->get('bookmark'));

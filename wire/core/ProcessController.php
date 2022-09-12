@@ -81,6 +81,7 @@ class ProcessController extends Wire {
 	 *
 	 */
 	public function __construct() {
+		parent::__construct();
 		$this->prefix = 'Process';
 		$this->processMethodName = ''; // blank indicates default/index method
 	}
@@ -463,13 +464,15 @@ class ProcessController extends Wire {
 	 * 
 	 * @param string $msg
 	 * @param bool $error
+	 * @param bool $allowMarkup
 	 * @return string JSON encoded string
 	 *
 	 */
-	public function jsonMessage($msg, $error = false) {
+	public function jsonMessage($msg, $error = false, $allowMarkup = false) {
+		if(!$allowMarkup) $msg = $this->wire()->sanitizer->entities($msg);
 		return json_encode(array(
-			'error' => $error, 
-			'message' => $msg
+			'error' => (bool) $error, 
+			'message' => (string) $msg
 		)); 
 	}
 
