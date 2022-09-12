@@ -56,7 +56,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		return array(
 			'title' => 'Page Edit',
 			'summary' => 'Edit a Page',
-			'version' => 111,
+			'version' => 112,
 			'permanent' => true,
 			'permission' => 'page-edit',
 			'icon' => 'edit',
@@ -355,7 +355,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function wired() {
 		parent::wired();
-		if($this->wire('process') instanceof WirePageEditor) {
+		if($this->wire()->process instanceof WirePageEditor) {
 			// keep existing process, which may be building on top of this one
 		} else {
 			$this->wire('process', $this);
@@ -370,12 +370,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function init() {
 		
-		$this->modules = $this->wire('modules');
-		$this->input = $this->wire('input');
-		$this->config = $this->wire('config');
-		$this->user = $this->wire('user');
-		$this->sanitizer = $this->wire('sanitizer');
-		$this->session = $this->wire('session');
+		$this->modules = $this->wire()->modules;
+		$this->input = $this->wire()->input;
+		$this->config = $this->wire()->config;
+		$this->user = $this->wire()->user;
+		$this->sanitizer = $this->wire()->sanitizer;
+		$this->session = $this->wire()->session;
 		
 		// predefined messages that maybe used in multiple places
 		$this->set('noticeUnknown', $this->_("Unknown page")); // Init error: Unknown page
@@ -398,7 +398,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$id = abs($postID ? $postID : $getID); 
 
 		if(!$id) {
-			$this->session->redirect('./bookmarks/');
+			$this->session->location('./bookmarks/');
 			throw new Wire404Exception($this->noticeUnknown, Wire404Exception::codeSecondary); // Init error: no page provided
 		}
 
@@ -433,7 +433,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		// determine if we're going to be dealing with a save/post request
 		$this->isPost = ($postID > 0 && ($postID === $this->page->id)) 
-			|| ($this->config->ajax && (count($_POST) || isset($_SERVER['HTTP_X_FIELDNAME']))); 
+			|| ($this->config->ajax && ($this->input->requestMethod('POST') || isset($_SERVER['HTTP_X_FIELDNAME']))); 
 
 		if(!$this->isPost) { 
 			$this->setupHeadline();
@@ -532,14 +532,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function ___execute() {
 		
-		if(!$this->page) throw new WireException("No page found");
+		if(!$this->page) throw new WireException($this->_('No page found'));
 		
 		if($this->setEditor) {
 			// note that setting the editor can force a redirect to a ProcessPageType editor
 			$this->page->setEditor($this->editor ? $this->editor : $this);
 		}
 		
-		if($this->config->ajax && (isset($_SERVER['HTTP_X_FIELDNAME']) || count($_POST))) {
+		if($this->config->ajax && (isset($_SERVER['HTTP_X_FIELDNAME']) || $this->input->requestMethod('POST'))) {
 			$this->ajaxSave($this->page);
 			return '';
 		}
@@ -560,7 +560,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->form = $this->buildForm($this->form);
 		$this->form->setTrackChanges();
 
-		if($this->isPost && count($_POST)) $this->processSave();
+		if($this->isPost && $this->form->isSubmitted()) $this->processSave();
 
 		if($this->page->hasStatus(Page::statusLocked)) {
 			if($this->user->hasPermission('page-lock', $this->page)) {
@@ -592,7 +592,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$config = $this->config;
 		$class = '';
 		$numFields = count($this->fields);
-		// $out = "<p id='PageIDIndicator' class='$class'>" . ($this->page->id ? $this->page->id : "New") . "</p>";
 		$out = "<p id='PageIDIndicator' class='$class'>{$this->page->id}</p>";
 	
 		$description = $this->form->getSetting('description');
@@ -719,8 +718,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$url = '';
 		if(!$this->page) throw new WireException('No page yet');
 		if($this->hasLanguagePageNames) {
-			/** @var Languages $languages */
-			$languages = $this->wire('languages');
+			$languages = $this->wire()->languages;
 			if($language) {
 				if(is_string($language) || is_int($language)) $language = $languages->get($language);
 				$userLanguage = $language;
@@ -811,7 +809,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$ul .= "<li>$_action</li>";
 				}
 				$ul .= "</ul>";
-				$actions[$name] = str_replace('</a>', ' &nbsp;</a>', $actions[$name]) . $ul;
+				$actions[$name] = str_replace('</a>', ' &nbsp;</a>', $action) . $ul;
 			} else {
 				$actions[$name] = str_replace(' pw-has-items', '', $action);
 			}
@@ -947,6 +945,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if(!isset($collapsedTabTypes[$inputfield->collapsed])) continue;
 				/** @var InputfieldFieldsetTabOpen $tab */
 				if(!$fieldsetTab) {
+					/** @var FieldtypeFieldsetTabOpen $fieldsetTab */
 					$fieldsetTab = $this->modules->get('FieldtypeFieldsetTabOpen');
 					$this->modules->get('FieldtypeFieldsetClose');
 				}
@@ -1566,7 +1565,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$multilang = $languages && $languages->hasPageNames();
 		$slashUrls = $this->page->template->slashUrls;
 		$deleteIDs = array();
-		$rootUrl = $this->wire('config')->urls->root;
+		$rootUrl = $this->config->urls->root;
 		
 		/** @var InputfieldCheckbox $delete */
 		$delete = $modules->get('InputfieldCheckbox');
@@ -1576,7 +1575,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$delete->attr('title', $this->_x('Delete', 'prev-path-delete'));
 		$delete->renderReady();
 		
-		if($this->isPost) {
+		if($this->isPost && $this->form->isSubmitted('_prevpath_delete')) {
 			$deleteIDs = array_flip($input->post->array('_prevpath_delete'));
 		}
 
@@ -1679,7 +1678,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 		}
 
-		if($this->isPost) {
+		if($this->isPost && $this->form->isSubmitted('_prevpath_add')) {
 			$add->processInput($input->post);
 			if($add->val()) {
 				foreach(explode("\n", $add->val()) as $path) {
@@ -2034,9 +2033,16 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function processSave() {
+		
+		$input = $this->wire()->input;
+		$pages = $this->wire()->pages;
+		$page = $this->page;
+		$user = $this->user;
+		$form = $this->form;
 
-		if($this->page->hasStatus(Page::statusLocked)) {
-			if(!$this->user->hasPermission('page-lock', $this->page) || (!empty($_POST['status']) && in_array(Page::statusLocked, $_POST['status']))) {
+		if($page->hasStatus(Page::statusLocked)) {
+			$inputStatus = $input->post('status');
+			if(!$user->hasPermission('page-lock', $page) || (is_array($inputStatus) && in_array(Page::statusLocked, $inputStatus))) {
 				$this->error($this->noticeLocked);
 				$this->processSaveRedirect($this->redirectUrl);
 				return;
@@ -2046,16 +2052,16 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$formErrors = 0;
 
 		// remove temporary status that may have been assigned by ProcessPageAdd quick add mode
-		if($this->page->hasStatus(Page::statusTemp)) $this->page->removeStatus(Page::statusTemp);
+		if($page->hasStatus(Page::statusTemp)) $page->removeStatus(Page::statusTemp);
 
-		if($this->input->post('submit_delete')) {
+		if($form->isSubmitted('submit_delete')) {
 
-			if($this->input->post('delete_page')) $this->deletePage();
+			if(((int) $input->post('delete_page')) === $this->page->id) $this->deletePage();
 
 		} else {
 
-			$this->processInput($this->form);
-			$changes = array_unique($this->page->getChanges());
+			$this->processInput($form);
+			$changes = array_unique($page->getChanges());
 			$numChanges = count($changes);
 			if($numChanges) {
 				$this->changes = $changes;
@@ -2068,50 +2074,50 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 			// if any Inputfields threw errors during processing, give the page a 'flagged' status
 			// so that it can later be identified the page may be missing something
-			if($formErrors && count($this->form->getErrors())) {
+			if($formErrors && count($form->getErrors())) {
 				// add flagged status when form had errors
-				$this->page->addStatus(Page::statusFlagged);
-			} else if($this->page->hasStatus(Page::statusFlagged)) {
+				$page->addStatus(Page::statusFlagged);
+			} else if($page->hasStatus(Page::statusFlagged)) {
 				// if no errors, remove incomplete status
-				$this->page->removeStatus(Page::statusFlagged);
+				$page->removeStatus(Page::statusFlagged);
 				$this->message($this->_('Removed flagged status because no errors reported during save'));
 			}
 
-			$isUnpublished = $this->page->hasStatus(Page::statusUnpublished);
+			$isUnpublished = $page->hasStatus(Page::statusUnpublished);
 
-			if($this->input->post('submit_publish') || $this->input->post('submit_save')) {
+			if($input->post('submit_publish') || $input->post('submit_save')) {
 
 				try {
 					$options = array();
 					$name = '';
 
-					if($this->page->isChanged('name')) {
-						if(!strlen($this->page->name) && $this->page->namePrevious) {
+					if($page->isChanged('name')) {
+						if(!strlen($page->name) && $page->namePrevious) {
 							// blank page name when there was a previous name, set back the previous
 							// example instance: when template.childNameFormat in use and template.noSettings active
-							$this->page->name = $this->page->namePrevious;
+							$page->name = $page->namePrevious;
 						} else {
-							$name = $this->page->name;
+							$name = $page->name;
 						}
 						$options['adjustName'] = true;
 					}
 
 					$numChanges = $numChanges > 0 ? ' (' . sprintf($this->_n('%d change', '%d changes', $numChanges) . ')', $numChanges) : '';
-					if($this->input->post('submit_publish') && $isUnpublished && $this->page->publishable() && !$formErrors) {
-						$this->page->removeStatus(Page::statusUnpublished);
+					if($input->post('submit_publish') && $isUnpublished && $this->page->publishable() && !$formErrors) {
+						$page->removeStatus(Page::statusUnpublished);
 						$message = sprintf($this->_('Published Page: %s'), '{path}') . $numChanges; // Message shown when page is published
 					} else {
 						$message = sprintf($this->_('Saved Page: %s'), '{path}') . $numChanges; // Message shown when page is saved
-						if($isUnpublished && $formErrors && $this->input->post('submit_publish')) {
+						if($isUnpublished && $formErrors && $input->post('submit_publish')) {
 							$message .= ' - ' . $this->_('Cannot be published until errors are corrected');
 						}
 					}
 				
 					$restored = false;
-					if($this->input->post('restore_page') && $this->page->isTrash() && $this->page->restorable()) {
+					if($input->post('restore_page') && $page->isTrash() && $page->restorable()) {
 						if($formErrors) {
 							$this->warning($this->_('Page cannot be restored while errors are present'));
-						} else if($this->wire('pages')->restore($this->page, false)) {
+						} else if($pages->restore($page, false)) {
 							$message = sprintf($this->_('Restored Page: %s'), '{path}') . $numChanges; 
 							$restored = true;
 						} else {
@@ -2119,12 +2125,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 						}
 					}
 
-					$this->wire('pages')->save($this->page, $options);
-					if($restored) $this->wire('pages')->restored($this->page);
-					$message = str_replace('{path}', $this->page->path, $message);
+					$pages->save($page, $options);
+					if($restored) $pages->restored($page);
+					$message = str_replace('{path}', $page->path, $message);
 					$this->message($message);
 
-					if($name && $name != $this->page->name) {
+					if($name && $name != $page->name) {
 						$this->warning(sprintf($this->_('Changed page URL name to "%s" because requested name was already taken.'), $this->page->name));
 					}
 
@@ -2147,7 +2153,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			// if there were errors to attend to, stay where we are
 		} else {
 			// after submit action
-			$submitAction = $this->input->post('_after_submit_action');
+			$submitAction = $input->post('_after_submit_action');
 			if($submitAction) $this->processSubmitAction($submitAction);
 		}
 
@@ -2224,7 +2230,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 		}
 		$this->setRedirectUrl($redirectUrl);
-		$this->session->redirect($this->getRedirectUrl());
+		$this->session->location($this->getRedirectUrl());
 	}
 
 	/**
@@ -2239,6 +2245,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$input = $this->wire()->input;
 		$languages = $this->wire()->languages; 
+		$page = $this->page; 
 
 		static $skipFields = array(
 			'sortfield_reverse', 
@@ -2250,10 +2257,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(!$level) {
 			$form->processInput($input->post);
 			$formRoot = $form;
-			$this->page->setQuietly('_forceAddStatus', 0);
+			$page->setQuietly('_forceAddStatus', 0);
 		}
 
-		$errorAction = (int) $this->page->template->errorAction;
+		$errorAction = (int) $page->template->errorAction;
 
 		foreach($form as $inputfield) {
 			
@@ -2263,8 +2270,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if($name == '_pw_page_name') $name = 'name';
 			if(in_array($name, $skipFields)) continue; 
 			
-			if(!$this->page->editable($name, false)) {
-				$this->page->untrackChange($name); // just in case
+			if(!$page->editable($name, false)) {
+				$page->untrackChange($name); // just in case
 				continue;
 			}
 			
@@ -2285,7 +2292,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					
 				} else if($name == 'parent_id' && count($this->predefinedParents)) {
 					if(!$this->predefinedParents->has("id=$inputfield->value")) {
-						$this->error("Parent $inputfield->value is not allowed for $this->page"); 
+						$this->error("Parent $inputfield->value is not allowed for $page"); 
 						continue; 
 					}
 				}
@@ -2293,20 +2300,20 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if($name == 'status' && $this->processInputStatus($inputfield)) continue; 
 			}
 			
-			if($this->processInputErrorAction($this->page, $inputfield, $name, $errorAction)) continue;
+			if($this->processInputErrorAction($page, $inputfield, $name, $errorAction)) continue;
 
 			if($name && $inputfield->isChanged()) {
 				if($languages && $inputfield->getSetting('useLanguages')) {
-					$v = $this->page->get($name); 
+					$v = $page->get($name); 
 					if(is_object($v)) {
 						$v = clone $v;
 						$v->setFromInputfield($inputfield); 
-						$this->page->set($name, $v); 
+						$page->set($name, $v); 
 					} else {
-						$this->page->set($name, $inputfield->value); 
+						$page->set($name, $inputfield->val()); 
 					}
 				} else { 
-					$this->page->set($name, $inputfield->value);
+					$page->set($name, $inputfield->val());
 				}
 			}
 
@@ -2316,9 +2323,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 	
 		if(!$level) {
-			$forceAddStatus = $this->page->get('_forceAddStatus');
-			if($forceAddStatus && !$this->page->hasStatus($forceAddStatus)) {
-				$this->page->addStatus($forceAddStatus);
+			$forceAddStatus = $page->get('_forceAddStatus');
+			if($forceAddStatus && !$page->hasStatus($forceAddStatus)) {
+				$page->addStatus($forceAddStatus);
 			}
 		}
 	}
@@ -2396,16 +2403,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function processInputUser(Inputfield $inputfield) {
-		if(!$this->user->isSuperuser() || !$this->page->id || !$this->page->template->allowChangeUser) return;
-		$userID = (int) $inputfield->attr('value');
+		$page = $this->page;
+		if(!$this->user->isSuperuser() || !$page->id || !$page->template->allowChangeUser) return;
+		$userID = (int) $inputfield->val();
 		if(!$userID) return;
 		if($userID == $this->page->created_users_id) return; // no change
 		$user = $this->pages->get($userID); 
 		if(!$user->id) return;
 		if(!in_array($user->template->id, $this->config->userTemplateIDs)) return; // invalid user template
 		if(!in_array($user->parent_id, $this->config->usersPageIDs)) return; // invalid user parent
-		$this->page->created_users_id = $userID; 
-		$this->page->trackChange('created_users_id');
+		$page->created_users_id = $userID; 
+		$page->trackChange('created_users_id');
 	}
 
 	/**
@@ -2420,7 +2428,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->page->template->noChangeTemplate) return true; 
 		$templateID = (int) $inputfield->attr('value');
 		if(!$templateID) return true; 
-		$template = $this->wire('templates')->get((int) $inputfield->attr('value')); 
+		$template = $this->wire()->templates->get((int) $inputfield->val());
 		if(!$template) return true; // invalid template
 		if($template->id == $this->page->template->id) return true; // no change
 		if(!$this->isAllowedTemplate($template)) {
@@ -2428,7 +2436,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 
 		// template has changed, set a redirect URL which will confirm the change
-		$this->setRedirectUrl("template?id={$this->page->id}&template={$template->id}");
+		$this->setRedirectUrl("template?id={$this->page->id}&template=$template->id");
 		return true; 
 	}
 
@@ -2478,7 +2486,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function processInputSortfield(Inputfield $inputfield) {
 		if(!$this->user->hasPermission('page-sort', $this->page)) return true; 
-		$sortfield = $this->sanitizer->name($inputfield->value); 
+		$sortfield = $this->sanitizer->name($inputfield->val()); 
 		if($sortfield != 'sort' && !empty($_POST['sortfield_reverse'])) $sortfield = '-' . $sortfield; 
 		if(empty($sortfield)) $sortfield = 'sort';
 		$this->page->sortfield = $sortfield; 
@@ -2607,10 +2615,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$v->setFromInputfield($inputfield);
 					$page->set($name, $v);
 				} else {
-					$page->set($name, $inputfield->value);
+					$page->set($name, $inputfield->val());
 				}
 			} else {
-				$page->set($name, $inputfield->value);
+				$page->set($name, $inputfield->val());
 			}
 			$numFields++;
 			$lastFieldName = $inputfield->name;
@@ -2680,7 +2688,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 */
 	protected function ___ajaxSaveDone(Page $page, array $data) {
-		if($page && $data) {} // ignore
 		return false;
 	}
 
@@ -2691,41 +2698,42 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 
 	/**
-	 * Execute a template change for a page, building an info + confirmation form (handler for /template/ action)
+	 * Build template form
 	 * 
-	 * @return string
+	 * @param Template $template Proposed template to change to
+	 * @return InputfieldForm
 	 * @throws WireException
-	 *
+	 * @since 3.0.205
+	 * 
 	 */
-	public function ___executeTemplate() {
+	protected function buildTemplateForm(Template $template) {
 		
+		if($this->page->template->noChangeTemplate) {
+			throw new WireException("Template changes not allowed by pages using template: $template");
+		}
+
 		if(!$this->useSettings || !$this->user->hasPermission('page-template', $this->page)) {
 			throw new WireException("You don't have permission to change the template on this page.");
 		}
 		
-		$templateID = (int) $this->input->get('template');
-		if($templateID < 1) throw new WireException("This method requires a 'template' get var"); 
-		$template = $this->templates->get($templateID); 
-		if(!$template) throw new WireException("Unknown template"); 
-
 		if(!$this->isAllowedTemplate($template->id)) {
 			throw new WireException("That template is not allowed");
 		}
-		
+
 		$labelConfirm = $this->_('Confirm template change'); // Change template confirmation subhead
-		$labelAction = sprintf($this->_('Change template from "%1$s" to "%2$s"'), $this->page->template, $template); // Change template A to B headline
-		
+		$labelAction = sprintf($this->_('Change template from "%1$s" to "%2$s"'), $this->page->template, $template->name); // Change template A to B headline
+
 		$this->headline($labelConfirm);
 		if($this->requestModal) $this->error("$labelConfirm – $labelAction"); // force modal open
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get("InputfieldForm"); 
-		$form->attr('action', 'saveTemplate'); 
-		$form->attr('method', 'post'); 
+		$form = $this->modules->get("InputfieldForm");
+		$form->attr('action', 'saveTemplate');
+		$form->attr('method', 'post');
 		$form->description = $labelAction;
 
 		/** @var InputfieldMarkup $f */
-		$f = $this->modules->get("InputfieldMarkup"); 	
+		$f = $this->modules->get("InputfieldMarkup");
 		$f->icon = 'cubes';
 		$f->label = $labelConfirm;
 		$list = array();
@@ -2735,34 +2743,62 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$list[] = $this->sanitizer->entities($field->getLabel()) . " ($field->name)";
 			}
 		}
-		if(!$list) $this->executeSaveTemplate($template); 
-		$f->description = $this->_('Warning, changing the template will delete the following fields:'); // Headline that precedes list of fields that will be deleted as a result of template change
-		$icon = "<i class='fa fa-times-circle'></i> ";
-		$f->attr('value', "<p class='ui-state-error-text'>$icon" . implode("<br />$icon", $list) . '</p>');
-		$form->append($f); 
+		if(count($list)) {
+			$f->description = $this->_('Warning, changing the template will delete the following fields:'); // Headline that precedes list of fields that will be deleted as a result of template change
+			$icon = wireIconMarkup('times-circle');
+			$f->attr('value', "<p class='ui-state-error-text'>$icon " . implode("<br />$icon ", $list) . '</p>');
+			$form->append($f);
+		}
 
 		/** @var InputfieldCheckbox $f */
-		$f = $this->modules->get("InputfieldCheckbox"); 
-		$f->attr('name', 'template'); 
-		$f->attr('value', $template->id); 
+		$f = $this->modules->get("InputfieldCheckbox");
+		$f->attr('name', 'template');
+		$f->attr('value', $template->id);
 		$f->label = $this->_('Are you sure?'); // Checkbox label to confirm they want to change template
 		$f->label2 = $labelAction;
 		$f->icon = 'warning';
-		$f->description = $this->_('Please confirm that you understand the above by clicking the checkbox below.'); // Checkbox description to confirm they want to change template
-		$form->append($f); 
+		if(count($list)) $f->description = $this->_('Please confirm that you understand the above by clicking the checkbox below.'); // Checkbox description to confirm they want to change template
+		$form->append($f);
 
 		/** @var InputfieldHidden $f */
-		$f = $this->modules->get("InputfieldHidden"); 
-		$f->attr('name', 'id'); 
-		$f->attr('value', $this->page->id); 
-		$form->append($f); 
+		$f = $this->modules->get("InputfieldHidden");
+		$f->attr('name', 'id');
+		$f->attr('value', $this->page->id);
+		$form->append($f);
 
 		/** @var InputfieldSubmit $f */
-		$f = $this->modules->get("InputfieldSubmit"); 
-		$form->append($f); 
+		$f = $this->modules->get("InputfieldSubmit");
+		$f->attr('name', 'submit_change_template');
+		$form->append($f);
+		
+		return $form;
+	}
 
-		$page = $this->masterPage ? $this->masterPage : $this->page; 
-		$this->wire('breadcrumbs')->add(new Breadcrumb("./?id={$page->id}", $page->get("title|name"))); 
+	/**
+	 * Execute a template change for a page, building an info + confirmation form (handler for /template/ action)
+	 * 
+	 * @return string
+	 * @throws WireException
+	 *
+	 */
+	public function ___executeTemplate() {
+	
+		$page = $this->page;
+		$editUrl = "./?id=$page->id";
+		$templateId = (int) $this->input->get('template');
+		
+		try {
+			if($templateId < 1) throw new WireException("Missing a 'template' GET variable");
+			$template = $this->templates->get($templateId);
+			if(!$template) throw new WireException("Unknown template");
+			$form = $this->buildTemplateForm($template);
+		} catch(\Exception $e) {
+			$this->error($e->getMessage());
+			$this->session->location($editUrl); 
+			return '';
+		}
+		
+		$this->breadcrumb($editUrl, $page->get("title|name"));
 
 		return $form->render();
 	}
@@ -2770,33 +2806,44 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	/**
 	 * Save a template change for a page (handler for /saveTemplate/ action)
 	 * 
-	 * @param Template $template
 	 * @throws WireException
 	 *
 	 */
-	public function ___executeSaveTemplate($template = null) {
-
-		if(!$this->useSettings || !$this->user->hasPermission('page-template', $this->page)) {
-			throw new WireException($this->_("You don't have permission to change the template on this page.")); // Error: user doesn't have permission to change template
+	public function ___executeSaveTemplate() {
+		
+		$page = $this->page;
+		$editUrl = "./?id=$page->id";
+		
+		$templateId = (int) $this->input->post('template'); 
+		$template = $templateId > 0 ? $this->templates->get($templateId) : null;
+	
+		if(!$template) {
+			// checkbox not checked, template change aborted
+			$this->session->location($editUrl);
+			return;
+		}
+	
+		try {
+			$form = $this->buildTemplateForm($template);
+		} catch(\Exception $e) {
+			$this->error($e->getMessage());
+			$form = null;
+		}
+		
+		if(!$form || !$form->isSubmitted('submit_change_template')) {
+			$this->session->location($editUrl);
+			return;
+		}
+		
+		try { 
+			$page->template = $template; 
+			$page->save();
+			$this->message(sprintf($this->_("Changed template to '%s'"), $template->name)); // Message: template was changed 
+		} catch(\Exception $e) {
+			$this->error($e->getMessage()); 
 		}
 
-		if(!$this->page->template->noChangeTemplate) { 
-
-			if(!is_null($template) || (isset($_POST['template']) && ($template = $this->templates->get((int) $_POST['template'])))) {
-				try { 
-					if(!$this->isAllowedTemplate($template)) {
-						throw new WireException($this->_('That template is not allowed')); // Error: selected template is not allowed
-					}
-					$this->page->template = $template; 
-					$this->page->save();
-					$this->message(sprintf($this->_("Changed template to '%s'"), $template)); // Message: template was changed 
-				} catch(\Exception $e) {
-					$this->error($e->getMessage()); 
-				}
-			}
-		}
-
-		$this->session->redirect("./?id={$this->page->id}"); 
+		$this->session->location($editUrl);
 	}
 
 	/**
@@ -2815,8 +2862,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$page = $this->masterPage ? $this->masterPage : $this->page;
 		$parent = $page->parent; 
 		$parentEditable = ($parent->id && $parent->editable());
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->config;
 		$superAdvanced = $isSuperuser && $config->advanced; 
 
 		// current page template is assumed, otherwise we wouldn't be here
@@ -2828,7 +2874,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			return $templates;
 		}
 		
-		$allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire('templates'); 
+		$allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire()->templates; 
 
 		// note: this triggers load of all templates, fieldgroups and fields
 		foreach($allTemplates as $template) {
@@ -2888,7 +2934,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * @return bool
 	 *
 	 */
-	protected function isAllowedTemplate($id) {
+	public function isAllowedTemplate($id) {
 
 		// if $id is a template, then convert it to it's numeric ID
 		if($id instanceof Template) $id = $id->id; 
@@ -3169,7 +3215,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function ___executeNavJSON(array $options = array()) {
 		$bookmarks = $this->getPageBookmarks();
-		$options['edit'] = $this->wire('config')->urls->admin . 'page/edit/?id={id}';
+		$options['edit'] = $this->config->urls->admin . 'page/edit/?id={id}';
 		$options['defaultIcon'] = 'pencil';
 		$options = $bookmarks->initNavJSON($options);
 		return parent::___executeNavJSON($options); 
@@ -3204,7 +3250,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$title = (string) $title;
 			}
 			if(empty($title)) {
-				if($this->wire('pages')->names()->isUntitledPageName($page->name)) {
+				if($this->pages->names()->isUntitledPageName($page->name)) {
 					$title = $page->template->getLabel();
 				} else {
 					$title = $page->get('name');
@@ -3250,9 +3296,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function setupBreadcrumbs() {
 		if($this->input->urlSegment1) return;
-		if($this->wire('page')->process != $this->className()) return;
-		$this->wire('breadcrumbs')->shift(); // shift off the 'Admin' breadcrumb
-		if($this->page && $this->page->id != 1) $this->wire('breadcrumbs')->shift(); // shift off the 'Pages' breadcrumb
+		if($this->wire()->page->process != $this->className()) return;
+		$this->wire()->breadcrumbs->shift(); // shift off the 'Admin' breadcrumb
+		if($this->page && $this->page->id != 1) $this->wire()->breadcrumbs->shift(); // shift off the 'Pages' breadcrumb
 		$page = $this->page ? $this->page : $this->parent;
 		if($this->masterPage) $page = $this->masterPage;
 		$lastID = (int) $this->session->get('ProcessPageList', 'lastID');

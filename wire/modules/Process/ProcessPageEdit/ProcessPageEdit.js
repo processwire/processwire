@@ -18,7 +18,8 @@ function initPageEditForm() {
 			$("#wrap_delete_page label").effect('highlight', {}, 500); 
 			return;
 		}
-		$(this).before("<input type='hidden' name='submit_delete' value='1' />"); 
+		var $input = $("<input type='hidden' name='submit_delete' />").val($(this).val());
+		$(this).before($input);
 		$("#ProcessPageEdit").submit();
 	}); 
 
