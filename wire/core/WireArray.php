@@ -203,7 +203,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * 
 	 * #pw-internal
 	 *
-	 * @return WireArray
+	 * @return $this
 	 *
 	 */
 	public function makeNew() {
@@ -220,7 +220,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * 
 	 * #pw-internal
 	 *
-	 * @return WireArray
+	 * @return $this
 	 *
 	 */
 	public function makeCopy() {
@@ -876,7 +876,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-group-retrieval
 	 *
 	 * @param int $num Number of items to return 
-	 * @return WireArray
+	 * @return WireArray|$this
 	 * @see WireArray::getRandom(), WireArray::findRandomTimed()
 	 *
 	 */
@@ -907,7 +907,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *   - A PHP [date()](http://php.net/manual/en/function.date.php) format string.
 	 *   - A number used to see the random number generator.
 	 *   - The default is the PHP date format "Ymd" which makes it randomize once daily. 
-	 * @return WireArray
+	 * @return WireArray|$this
 	 * @see WireArray::findRandom()
 	 *
 	 */
@@ -943,7 +943,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *
 	 * @param int $start Starting index. 
 	 * @param int $limit Number of items to include. If omitted, includes the rest of the array.
-	 * @return WireArray Returns a new WireArray.
+	 * @return WireArray|$this Returns a new WireArray.
 	 *
 	 */
 	public function slice($start, $limit = 0) {
@@ -1134,7 +1134,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-group-retrieval
 	 * 
 	 * @param int $num Index number
-	 * @return WireArray
+	 * @return WireArray|$this
 	 * @see WireArray::eq()
 	 *
 	 */
@@ -1726,7 +1726,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-group-retrieval
 	 *
 	 * @param string|array|Selectors $selector 
-	 * @return WireArray 
+	 * @return WireArray|$this
 	 *
 	 */
 	public function find($selector) {
@@ -1917,7 +1917,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * 
 	 * #pw-group-retrieval
 	 *
-	 * @return WireArray
+	 * @return WireArray|$this
 	 *
 	 */ 
 	public function reverse() {
@@ -1934,7 +1934,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-group-retrieval
 	 *
 	 * @param int $sortFlags Sort flags per PHP's `array_unique()` function (default=`SORT_STRING`)
-	 * @return WireArray 
+	 * @return WireArray|$this 
 	 *
 	 */
 	public function unique($sortFlags = SORT_STRING) {
@@ -2249,7 +2249,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-link [Introduction of and method](https://processwire.com/talk/topic/5098-new-wirearray-api-additions-on-dev/)
 	 *
 	 * @param Wire|WireArray $item Item(s) to append
-	 * @return WireArray New WireArray containing this one and the given item(s). 
+	 * @return WireArray|$this New WireArray containing this one and the given item(s). 
 	 *
 	 */
 	public function ___and($item) {
@@ -2676,7 +2676,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * 
 	 * @param array|WireArray|null $items Items to add or omit (null) for none
 	 * @param string $class Class name to instantiate or omit for called class
-	 * @return WireArray
+	 * @return WireArray|$this
 	 * 
 	 */
 	public static function newInstance($items = null, $class = '') {
