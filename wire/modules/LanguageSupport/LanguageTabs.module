@@ -20,14 +20,17 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Languages Support - Tabs',
-			'version' => 115,
+			'version' => 116,
 			'summary' => 'Organizes multi-language fields into tabs for a cleaner easier to use interface.',
-			'author' => 'adamspruijt, ryan', 
+			'author' => 'adamspruijt, ryan, flipzoom', 
 			'singular' => true,
 			'autoload' => "template=admin",
 			'requires' => 'LanguageSupport'
 		);
 	}
+
+	const rememberTabsAfterDbClickNever = 0;
+	const rememberTabsAfterDbClickAlways = 1;
 
 	/**
 	 * Temporary storage of tabs created from addTab() method
@@ -105,6 +108,9 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 			'loadStyles' => true,
 			'loadScripts' => true,
 			'tabField' => $this->get('tabField'),
+			'cookieName' => 'WireLanguageTabs',
+			'rememberDbClickedTabs' => (int) $this->rememberTabs, 
+			'requestID' => ((string) $this->wire('process')) . ((int) $this->wire('input')->get('id')), 
 		);
 		
 		$config = $this->wire()->config;
@@ -115,7 +121,6 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		} else {
 			$this->settings = $defaults;
 		}
-
 		$config->js('LanguageTabs', $this->settings);
 		
 		return $this->settings;
@@ -249,6 +254,16 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		$f->attr('value', $this->tabField);
 		$f->required = true;
 		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->attr('name', 'rememberTabs'); 
+		$f->label = $this->_('Remember language tab positions between requests?');
+		$f->description = $this->_('Should the focus be saved after a double-click on a language tab so that the focus is restored to the selected language after saving?');
+		$f->addOption(self::rememberTabsAfterDbClickNever, $this->_('Never'));
+		$f->addOption(self::rememberTabsAfterDbClickAlways, $this->_('Always'));
+		$f->attr('value', (isset($this->rememberTabs) ? (int) $this->rememberTabs : self::rememberTabsAfterDbClickNever)); 
+		$inputfields->add($f);
+		return $inputfields; 
 	}
 
 }

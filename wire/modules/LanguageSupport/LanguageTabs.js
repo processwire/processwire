@@ -24,6 +24,7 @@ function dblclickLanguageTab(e) {
 	setTimeout(function() {
 		clickLanguageTabActive = false;
 	}, 250);
+	if(ProcessWire.config.LanguageTabs.rememberDbClickedTabs === 1) setLanguageTabsCookie(langID);
 }
 
 /**
@@ -99,6 +100,33 @@ function setupLanguageTabs($form) {
 			$links.eq(cfg.activeTab).click();
 		}
 	});
+
+	initLanguageTabs();
+}
+
+/**
+ * Saves the language ID in a cookie after a double-click event on a LanguageTab.
+ * 
+ * @param {Integer} langID Language ID
+ * 
+ */
+function setLanguageTabsCookie(langID) {
+	var cfg = ProcessWire.config.LanguageTabs;
+	jQuery.cookie(cfg.cookieName, cfg.requestID + '-' + langID.toString());
+}
+
+/**
+ * Sets the focus to the language version that was saved in the cookie by a double click.
+ *
+ */
+function initLanguageTabs() {
+	var cfg = ProcessWire.config.LanguageTabs, 
+		langID = jQuery.cookie(cfg.cookieName);
+	if(!langID || langID.indexOf(cfg.requestID + '-') !== 0 || cfg.rememberDbClickedTabs === 0) return '';
+	langID = langID.substring(cfg.requestID.length + 1);
+	var $tab = $('a.langTabLink');
+	var $tabs = $tab.closest('form').find('a.langTab' + langID);
+	$tabs.click();
 }
 
 /**
