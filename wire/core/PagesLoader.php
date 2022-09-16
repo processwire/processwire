@@ -87,6 +87,7 @@ class PagesLoader extends Wire {
 	 * 
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 		$this->debug = $pages->debug();
 	}
@@ -195,6 +196,8 @@ class PagesLoader extends Wire {
 				$selector = "id=$selector";
 			}
 		}
+		
+		/** @var array|int|string $selector */
 
 		return $selector;
 	}
@@ -349,7 +352,7 @@ class PagesLoader extends Wire {
 			$selectors = $selector;
 		} else {
 			$selector = $this->normalizeSelector($selector, false); 
-			$selectors = $this->wire(new Selectors());
+			$selectors = $this->wire(new Selectors()); /** @var Selectors $selectors */
 			$selectors->init($selector);
 		}
 		
@@ -391,7 +394,7 @@ class PagesLoader extends Wire {
 		$pagesIDs = array();
 	
 		if($debug) Debug::timer("$caller($selectorString)", true);
-		$profiler = $this->wire('profiler');
+		$profiler = $this->wire()->profiler;
 		$profilerEvent = $profiler ? $profiler->start("$caller($selectorString)", "Pages") : null;
 		
 		if(($lazy || $findIDs) && strpos($selectorString, 'limit=') === false) $options['getTotal'] = false;
@@ -934,7 +937,7 @@ class PagesLoader extends Wire {
 	 *  just those used by the template. Optionally specify an $options array instead, see the method notes above.
 	 * @param int|null $parent_id Specify a parent to make the load faster, as it reduces the possibility for full table scans.
 	 *	This argument is ignored when an options array is supplied for the $template.
-	 * @return PageArray|Page Returns Page only if the 'getOne' option is specified, otherwise always returns a PageArray.
+	 * @return PageArray|Page|NullPage Returns Page only if the 'getOne' option is specified, otherwise always returns a PageArray.
 	 * @throws WireException
 	 *
 	 */
@@ -1150,6 +1153,7 @@ class PagesLoader extends Wire {
 
 			if($options['autojoin'] && $this->autojoin) {
 				foreach($fields as $field) {
+					/** @var Field $field */
 					if(!empty($options['joinFields']) && in_array($field->name, $options['joinFields'])) {
 						// joinFields option specified to force autojoin this field
 					} else {
@@ -1160,7 +1164,8 @@ class PagesLoader extends Wire {
 					}
 					$table = $database->escapeTable($field->table);
 					// check autojoin not allowed, otherwise merge in the autojoin query
-					if(!$field->type || !$field->type->getLoadQueryAutojoin($field, $query)) continue; 
+					$fieldtype = $field->type;
+					if(!$fieldtype || !$fieldtype->getLoadQueryAutojoin($field, $query)) continue; 
 					// complete autojoin
 					$query->leftjoin("$table ON $table.pages_id=pages.id"); // QA
 				}
@@ -1194,7 +1199,7 @@ class PagesLoader extends Wire {
 
 			// page to populate, if provided in 'getOne' mode
 			/** @var Page|null $_page */
-			$_page = $options['getOne'] && $options['page'] && $options['page'] instanceof Page ? $options['page'] : null;
+			$_page = $options['getOne'] && $options['page'] instanceof Page ? $options['page'] : null;
 
 			try {
 				// while($page = $stmt->fetchObject($_class, array($template))) {
@@ -1415,6 +1420,11 @@ class PagesLoader extends Wire {
 	 *
 	 */
 	public function getPath($id, $options = array()) {
+		
+		$modules = $this->wire()->modules;
+		$database = $this->wire()->database;
+		$languages = $this->wire()->languages;
+		$config = $this->wire()->config;
 
 		$defaults = array(
 			'language' => null,
@@ -1430,7 +1440,7 @@ class PagesLoader extends Wire {
 
 		$options = array_merge($defaults, $options);
 
-		if(is_object($id) && $id instanceof Page) {
+		if($id instanceof Page) {
 			if($options['useCache']) return $id->path();
 			$id = $id->id;
 		}
@@ -1438,12 +1448,11 @@ class PagesLoader extends Wire {
 		$id = (int) $id;
 		if(!$id || $id < 0) return '';
 
-		$languages = $this->wire()->languages;
 		if($languages && !$languages->hasPageNames()) $languages = null;
 		
 		$language = $options['language'];
 		$languageID = 0;
-		$homepageID = (int) $this->wire()->config->rootPageID;
+		$homepageID = (int) $config->rootPageID;
 
 		if(!empty($language) && $languages) {
 			if(is_string($language) || is_int($language)) $language = $languages->get($language);
@@ -1469,19 +1478,16 @@ class PagesLoader extends Wire {
 		}
 
 		// if PagePaths module is installed, and not in multi-language environment, attempt to get from PagePaths module
-		if(!$languages && !$languageID && $options['usePagePaths'] && $this->wire('modules')->isInstalled('PagePaths')) {
+		if(!$languages && !$languageID && $options['usePagePaths'] && $modules->isInstalled('PagePaths')) {
 			/** @var PagePaths $pagePaths */
-			$pagePaths = $this->modules->get('PagePaths');
+			$pagePaths = $modules->get('PagePaths');
 			$path = $pagePaths->getPath($id);
 			if($path) return $path;
-		} else {
-			$pagePaths = null;
 		}
 
 		$path = '';
 		$templatesID = 0;
 		$parentID = $id;
-		$database = $this->wire('database');
 		$maxParentID = $language ? 0 : 1;
 		$cols = 'parent_id, templates_id, name';
 		if($languageID) $cols .= ", name$languageID"; // col=3

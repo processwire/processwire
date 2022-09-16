@@ -34,27 +34,27 @@
  * @property WireDatabasePDO $database #pw-internal
  * @property Database $db #pw-internal deprecated
  * @property WireDateTime $datetime #pw-internal
- * @property Fieldgroups $fieldgroups #pw-internal
- * @property Fields $fields #pw-internal
- * @property Fieldtypes $fieldtypes #pw-internal
+ * @property Fieldgroups|Fieldgroup[] $fieldgroups #pw-internal
+ * @property Fields|Field[] $fields #pw-internal
+ * @property Fieldtypes|Fieldtype[] $fieldtypes #pw-internal
  * @property WireFileTools $files #pw-internal
  * @property Fuel $fuel #pw-internal
  * @property WireHooks $hooks #pw-internal
  * @property WireInput $input #pw-internal
- * @property Languages $languages (present only if LanguageSupport installed) #pw-internal
+ * @property Languages|Language[] $languages (present only if LanguageSupport installed) #pw-internal
  * @property WireLog $log #pw-internal
  * @property WireMailTools $mail #pw-internal
  * @property Modules $modules #pw-internal
- * @property Notices $notices #pw-internal
+ * @property Notices|Notice[] $notices #pw-internal
  * @property Page $page #pw-internal
  * @property Pages $pages #pw-internal
- * @property Permissions $permissions #pw-internal
+ * @property Permissions|Permission[] $permissions #pw-internal
  * @property Process|ProcessPageView $process #pw-internal
  * @property WireProfilerInterface $profiler #pw-internal
- * @property Roles $roles #pw-internal
+ * @property Roles|Role[] $roles #pw-internal
  * @property Sanitizer $sanitizer #pw-internal
  * @property Session $session #pw-internal
- * @property Templates $templates #pw-internal
+ * @property Templates|Template[] $templates #pw-internal
  * @property Paths $urls #pw-internal
  * @property User $user #pw-internal
  * @property Users $users #pw-internal
@@ -408,7 +408,6 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function _callMethod($method, $arguments) {
 		$qty = $arguments ? count($arguments) : 0;
-		$result = null;
 		switch($qty) {
 			case 0:
 				$result = $this->$method();
@@ -1151,7 +1150,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * #pw-group-changes
 	 *
 	 * @param bool $getMode When true, the track changes mode bitmask will be returned 
-	 * @return int|bool 0/false if off, 1/true if On, or mode bitmask if requested 
+	 * @return int 0/false if off, 1/true if On, or mode bitmask if requested 
 	 * 
 	 */
 	public function trackChanges($getMode = false) {
@@ -1240,7 +1239,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	protected function _notice($text, $flags, $name, $class) {
 		if($flags === true) $flags = Notice::log;
 		$class = wireClassName($class, true);
-		$notice = $this->wire(new $class($text, $flags));
+		$notice = $this->wire(new $class($text, $flags)); /** @var Notice $notice */
 		$notice->class = $this->className();
 		if($this->_notices[$name] === null) $this->_notices[$name] = $this->wire(new Notices());
 		$notices = $this->wire()->notices;
@@ -1545,7 +1544,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 				$value = array($value->text);
 			} else {
 				$_value = array();
-				foreach($value as $notice) $_value[] = $notice->text; 
+				foreach($value as $notice) {
+					/** @var Notice $notice */
+					$_value[] = $notice->text;
+				}
 				$value = $_value; 
 			}
 			if(in_array('string', $options)) {

@@ -180,6 +180,7 @@ class PagesRequest extends Wire {
 	 *
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 		$this->config = $pages->wire()->config;
 		$this->init();
@@ -274,7 +275,6 @@ class PagesRequest extends Wire {
 
 		$input = $this->wire()->input;
 		$languages = $this->wire()->languages;
-		$page = null;
 
 		// get the requested path
 		$path = $this->getRequestPath();

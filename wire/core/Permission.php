@@ -14,7 +14,7 @@
  * @property string $name Name of the permission. 
  * @property string $title Short description of what the permission is for. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  */
@@ -42,7 +42,7 @@ class Permission extends Page {
 		'page-template' => 'page-edit',
 		'page-sort' => 'page-edit',
 		'page' => 'page-edit', // all page-* permissions
-		);
+	);
 
 	/**
 	 * Create a new Permission page in memory. 
@@ -81,7 +81,7 @@ class Permission extends Page {
 	public function getParentPermission() {
 		
 		$name = $this->name; 
-		$permissions = $this->wire('permissions');
+		$permissions = $this->wire()->permissions;
 		$permission = null;
 		
 		do {
@@ -100,7 +100,7 @@ class Permission extends Page {
 			$permission = $permissions->get($name); 
 		} while(!$permission->id); 
 		
-		if(is_null($permission)) $permission = $this->wire('pages')->newNullPage();
+		if(is_null($permission)) $permission = $this->wire()->pages->newNullPage();
 		
 		return $permission;
 	}
@@ -115,20 +115,22 @@ class Permission extends Page {
 	 * 
 	 */
 	public function getRootParentPermission() {
+		$permissions = $this->wire()->permissions;
+		$pages = $this->wire()->pages;
 		if(isset(self::$parentPermissions[$this->name])) {
 			$name = self::$parentPermissions[$this->name]; 
-			if($name == 'none') return $this->wire('pages')->newNullPage();
+			if($name == 'none') return $pages->newNullPage();
 		}
 		$parts = explode('-', $this->name);	
-		if(count($parts) < 2) return $this->wire('pages')->newNullPage();
+		if(count($parts) < 2) return $pages->newNullPage();
 		$name = "$parts[0]-$parts[1]";
 		if(isset(self::$parentPermissions[$name])) {
 			$name = self::$parentPermissions[$name];
-			if($name == 'none') return $this->wire('pages')->newNullPage();
-			return $this->wire('permissions')->get($name);
+			if($name == 'none') return $pages->newNullPage();
+			return $permissions->get($name);
 		}
 		if($parts[0] == 'page') $name = 'page-edit';
-		return $this->wire('permissions')->get($name);
+		return $permissions->get($name);
 	}
 
 	/**
@@ -136,11 +138,11 @@ class Permission extends Page {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return Pages|PagesType
+	 * @return Permissions
 	 *
 	 */
 	public function getPagesManager() {
-		return $this->wire('permissions');
+		return $this->wire()->permissions;
 	}
 }
 

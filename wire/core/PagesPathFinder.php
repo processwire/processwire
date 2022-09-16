@@ -572,7 +572,7 @@ class PagesPathFinder extends Wire {
 		$this->addResultNote("Detected language '$language->name' from first segment '$segment'"); 
 		$this->setResultLanguage($language, $segment);
 		
-		if($this->verbose && $languageKey !== false) {
+		if($this->verbose) {
 			$this->result['parts'][] = array(
 				'type' => 'language',
 				'value' => $segment,
@@ -582,7 +582,7 @@ class PagesPathFinder extends Wire {
 
 		// reduce to just applicable language to limit name columns
 		// searched for by getPagesRow() method
-		if($language) $this->useLanguages = array($language);
+		$this->useLanguages = array($language);
 		
 		return $language;
 	}
@@ -639,7 +639,7 @@ class PagesPathFinder extends Wire {
 	 * Update paths for template info like urlSegments and pageNum and populate urls property
 	 *
 	 * @param string $path
-	 * @return bool|string
+	 * @return bool
 	 *
 	 */
 	protected function applyResultTemplate($path) {
@@ -790,7 +790,7 @@ class PagesPathFinder extends Wire {
 		// if there were any non-default language segments, let that dictate the language
 		if(empty($result['language']['segment'])) {
 			$useLangName = 'default';
-			foreach($result['parts'] as $key => $part) {
+			foreach($result['parts'] as $part) {
 				$langName = $part['language'];
 				if(empty($langName) || $langName === 'default') continue;
 				$useLangName = $langName;
@@ -1671,7 +1671,7 @@ class PagesPathFinder extends Wire {
 	 * Return Languages if installed w/languageSupportPageNames module or blank array if not
 	 * 
 	 * @param bool $getArray Force return value as an array indexed by language name
-	 * @return Languages|array
+	 * @return Languages|Language[]
 	 *
 	 */
 	protected function languages($getArray = false) {
@@ -2106,7 +2106,7 @@ class PagesPathFinderTests extends Wire {
 		$defaultPath = $item->path();
 		if($languages) {
 			foreach($languages as $language) {
-				// $user->setLanguage($language);
+				/** @var Language $language */
 				$path = $item->localPath($language);
 				if($language->isDefault() || $path === $defaultPath) {
 					$expect = 200;

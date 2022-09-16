@@ -144,7 +144,7 @@ class WireDataDB extends WireData implements \Countable {
 		$table = $this->table();
 		$sql = "DELETE FROM `$table` WHERE source_id=:source_id ";
 		if($name !== true) $sql .= "AND name=:name";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		if($name !== true) $query->bindValue(':name', $name);
 		try {
@@ -171,7 +171,7 @@ class WireDataDB extends WireData implements \Countable {
 		$table = $this->table();
 		$sql = "SELECT name, data FROM `$table` WHERE source_id=:source_id ";
 		if($name !== true) $sql .= "AND name=:name ";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		if($name !== true) $query->bindValue(':name', $name);
 		try {
@@ -257,7 +257,7 @@ class WireDataDB extends WireData implements \Countable {
 	public function count() {
 		$table = $this->table();
 		$sql = "SELECT COUNT(*) FROM `$table` WHERE source_id=:source_id";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT); 
 		try {
 			$query->execute();
@@ -332,13 +332,15 @@ class WireDataDB extends WireData implements \Countable {
 	 * 
 	 */
 	public function install() {
-		$engine = $this->wire('config')->dbEngine;
-		$charset = $this->wire('config')->dbCharset;
+		$config = $this->wire()->config;
+		$database = $this->wire()->database;
+		$engine = $config->dbEngine;
+		$charset = $config->dbCharset;
 		$table = $this->table();
-		if($this->wire('database')->tableExists($table)) return false;
+		if($database->tableExists($table)) return false;
 		$schema = implode(', ', $this->schema());
 		$sql = "CREATE TABLE `$table` ($schema) ENGINE=$engine DEFAULT CHARSET=$charset";
-		$this->wire('database')->exec($sql);
+		$this->database->exec($sql);
 		$this->message("Added '$table' table to database");
 		return true;
 	}
@@ -352,7 +354,7 @@ class WireDataDB extends WireData implements \Countable {
 	 */
 	public function uninstall() {
 		$table = $this->table();
-		$this->wire('database')->exec("DROP TABLE `$table`"); 
+		$this->wire()->database->exec("DROP TABLE `$table`"); 
 		return true;
 	}
 

@@ -21,7 +21,7 @@
  * 
  * May also be accessed as array. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method WireArray and($items = null)
@@ -326,12 +326,12 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 *
 	 * Otherwise the same as get()
 	 *
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed|null
 	 *
 	 */
-	public function __get($key) {
-		return $this->get($key); 
+	public function __get($name) {
+		return $this->get($name); 
 	}
 
 	/**
@@ -437,6 +437,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 			// single item
 			$className = $this->className(true) . 'Array';
 			if(!class_exists($className)) $className = wireClassName('WireArray', true);
+			/** @var WireArray $a */
 			$a = $this->wire(new $className());
 			$a->add($this);
 			if($items) $a->add($items);
@@ -480,13 +481,13 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param int|string $key Key of item to set.
+	 * @param int|string $offset Key of item to set.
 	 * @param int|string|array|object $value Value of item.
 	 * 
 	 */
 	#[\ReturnTypeWillChange] 
-	public function offsetSet($key, $value) {
-		$this->set($key, $value);
+	public function offsetSet($offset, $value) {
+		$this->set($offset, $value);
 	}
 
 	/**
@@ -494,13 +495,13 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param int|string $key Key of item to retrieve.
+	 * @param int|string $offset Key of item to retrieve.
 	 * @return int|string|array|object Value of item requested, or false if it doesn't exist.
 	 * 
 	 */
 	#[\ReturnTypeWillChange] 
-	public function offsetGet($key) {
-		$value = $this->get($key);
+	public function offsetGet($offset) {
+		$value = $this->get($offset);
 		return is_null($value) ? false : $value;
 	}
 
@@ -511,14 +512,14 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param int|string $key Key of the item to unset.
+	 * @param int|string $offset Key of the item to unset.
 	 * @return bool True if item existed and was unset. False if item didn't exist.
 	 * 
 	 */
 	#[\ReturnTypeWillChange] 
-	public function offsetUnset($key) {
-		if($this->__isset($key)) {
-			$this->remove($key);
+	public function offsetUnset($offset) {
+		if($this->__isset($offset)) {
+			$this->remove($offset);
 			return true;
 		} else {
 			return false;
@@ -532,13 +533,13 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param int|string $key Key of the item to check for existence.
+	 * @param int|string $offset Key of the item to check for existence.
 	 * @return bool True if the item exists, false if not.
 	 * 
 	 */
 	#[\ReturnTypeWillChange] 
-	public function offsetExists($key) {
-		return $this->__isset($key);
+	public function offsetExists($offset) {
+		return $this->__isset($offset);
 	}
 
 	/**

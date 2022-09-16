@@ -26,8 +26,8 @@
  * Fieldgroup/Fields 
  * 
  * @property int $fieldgroups_id Numeric ID of Fieldgroup assigned to this template. #pw-internal
- * @property Fieldgroup $fieldgroup The Fieldgroup used by the template. Can also be used to iterate a Template's fields.  #pw-group-fields
- * @property Fieldgroup $fields Alias for the fieldgroup property. Use whatever makes more sense for your code readability. #pw-internal 
+ * @property Fieldgroup|Field[] $fieldgroup The Fieldgroup used by the template. Can also be used to iterate a Template's fields.  #pw-group-fields
+ * @property Fieldgroup|Field[] $fields Alias for the fieldgroup property. Use whatever makes more sense for your code readability. #pw-internal 
  * @property Fieldgroup|null $fieldgroupPrevious Previous fieldgroup, if it was changed. Null if not.  #pw-group-fields
  * 
  * Cache

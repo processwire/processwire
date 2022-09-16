@@ -101,7 +101,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		if(WireArray::iterable($templates)) {
 			// array already provided
 			foreach($templates as $template) {
-				if(is_int($template) || !$template instanceof Template) $template = $this->wire('templates')->get($template);
+				if(!$template instanceof Template) $template = $this->wire()->templates->get($template);
 				if(!$template) continue;
 				$this->templates[$template->id] = $template;
 			}
@@ -111,7 +111,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 				$this->templates[$templates->id] = $templates;
 			} else {
 				// template id or template name
-				$template = $this->wire('templates')->get($templates);
+				$template = $this->wire()->templates->get($templates);
 				if($template) $this->templates[$template->id] = $template;
 			}
 		}
@@ -134,9 +134,9 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 			} else if(is_string($parent) && ctype_digit($parent)) {
 				$id = (int) $parent;
 			} else if(is_string($parent)) {
-				$parent = $this->wire('pages')->get($parent, array('loadOptions' => array('autojoin' => false)));
+				$parent = $this->wire()->pages->get($parent, array('loadOptions' => array('autojoin' => false)));
 				$id = $parent->id;
-			} else if(is_object($parent) && $parent instanceof Page) {
+			} else if($parent instanceof Page) {
 				$id = $parent->id;
 			} else {
 				$id = 0;

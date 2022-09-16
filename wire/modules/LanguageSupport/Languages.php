@@ -18,7 +18,7 @@
  * 
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property LanguageTabs|null $tabs Current LanguageTabs module instance, if installed #pw-internal
@@ -215,7 +215,7 @@ class Languages extends PagesType {
 	 */
 	public function findOther($selector = '', $excludeLanguage = null) {
 		if(is_null($excludeLanguage)) {
-			if(is_object($selector) && $selector instanceof Language) {
+			if($selector instanceof Language) {
 				$excludeLanguage = $selector;
 				$selector = '';
 			} else {
@@ -386,8 +386,8 @@ class Languages extends PagesType {
 	 * 
 	 */
 	public function getLanguage($name = '') {
-		if($name !== '') return is_object($name) && $name instanceof Language ? $name : $this->get($name);
-		return $this->wire('user')->language;
+		if($name !== '') return ($name instanceof Language ? $name : $this->get($name));
+		return $this->wire()->user->language;
 	}
 
 	/**
@@ -463,7 +463,7 @@ class Languages extends PagesType {
 
 		if($locale === null || is_object($locale)) {
 			// argument omitted means set according to language settings
-			$language = $locale instanceof Language ? $locale : $this->wire('user')->language;
+			$language = $locale instanceof Language ? $locale : $this->wire()->user->language;
 			$textdomain = 'wire--modules--languagesupport--languagesupport-module';
 			$locale = $language->translator()->getTranslation($textdomain, 'C');
 		}
@@ -650,7 +650,7 @@ class Languages extends PagesType {
 		// if previously identified as installed or instance loaded, return true
 		if($this->pageNames) return true;
 		// if previously identified as NOT installed, return false
-		if($this->pageNames=== false) return false;
+		if($this->pageNames === false) return false;
 		// populate with installed status boolean and return it
 		$this->pageNames = $this->wire()->modules->isInstalled('LanguageSupportPageNames');
 		return $this->pageNames;
@@ -794,24 +794,24 @@ class Languages extends PagesType {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed|Language
 	 * 
 	 */
-	public function __get($key) {
-		if($key === 'tabs') {
+	public function __get($name) {
+		if($name === 'tabs') {
 			$ls = $this->wire()->modules->get('LanguageSupport'); /** @var LanguageSupport $ls */
 			return $ls->getLanguageTabs();
-		} else if($key === 'default') {
+		} else if($name === 'default') {
 			return $this->getDefault();
-		} else if($key === 'support') {
+		} else if($name === 'support') {
 			return $this->wire()->modules->get('LanguageSupport');
-		} else if($key === 'pageNames') {
+		} else if($name === 'pageNames') {
 			return $this->pageNames();
-		} else if($key === 'hasPageNames') {
+		} else if($name === 'hasPageNames') {
 			return $this->hasPageNames();
 		}
-		return parent::__get($key);
+		return parent::__get($name);
 	}
 	
 	/**
@@ -875,20 +875,22 @@ class Languages extends PagesType {
 		$table = $matches[1];
 		// $col = $matches[2];
 		$languageID = (int) $matches[3];
+		
+		$modules = $this->wire()->modules;
+		$fields = $this->wire()->fields;
 
-		foreach($this->wire('languages') as $language) {
-			if($language->id == $languageID) {
-				$this->warning("language $language->name is missing column $column", Notice::debug);
-				if($table == 'pages' && $this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
-					$module = $this->wire('modules')->get('LanguageSupportPageNames');
-					$module->languageAdded($language);
-				} else if(strpos($table, 'field_') === 0) {
-					$fieldName = substr($table, strpos($table, '_')+1);
-					$field = $this->wire('fields')->get($fieldName);
-					if($field && $this->wire('modules')->isInstalled('LanguageSupportFields')) {
-						$module = $this->wire('modules')->get('LanguageSupportFields');
-						$module->fieldLanguageAdded($field, $language);
-					}
+		foreach($this as $language) {
+			if($language->id != $languageID) continue;
+			$this->warning("language $language->name is missing column $column", Notice::debug);
+			if($table == 'pages' && $this->hasPageNames()) { 
+				$this->pageNames()->languageAdded($language);
+			} else if(strpos($table, 'field_') === 0) {
+				$fieldName = substr($table, strpos($table, '_')+1);
+				$field = $fields->get($fieldName);
+				if($field && $modules->isInstalled('LanguageSupportFields')) {
+					/** @var LanguageSupportFields $module */
+					$module = $modules->get('LanguageSupportFields');
+					$module->fieldLanguageAdded($field, $language);
 				}
 			}
 		}

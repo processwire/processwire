@@ -371,7 +371,7 @@ class PagesEditor extends Wire {
 			/** @var Field $field */
 			if($page->isLoaded($field->name)) continue; // value already set
 			if(!$page->hasField($field)) continue; // field not valid for page
-			if(!strlen("$field->defaultValue")) continue; // no defaultValue property defined with Fieldtype config inputfields
+			if(!strlen((string) $field->get('defaultValue'))) continue; // no defaultValue property defined with Fieldtype config inputfields
 			try {
 				$blankValue = $field->type->getBlankValue($page, $field);
 				if(is_object($blankValue) || is_array($blankValue)) continue; // we don't currently handle complex types
@@ -1159,7 +1159,7 @@ class PagesEditor extends Wire {
 	 * 	- forceID (int): force a specific ID
 	 * 	- set (array): Array of properties to set to the clone (you can also do this later)
 	 * 	- recursionLevel (int): recursion level, for internal use only.
-	 * @return Page the newly cloned page or a NullPage() with id=0 if unsuccessful.
+	 * @return Page|NullPage the newly cloned page or a NullPage() with id=0 if unsuccessful.
 	 * @throws WireException|\Exception on fatal error
 	 *
 	 */

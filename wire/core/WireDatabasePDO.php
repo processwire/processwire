@@ -873,7 +873,6 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$pdoStatement = $pdo->prepare($statement, $driver_options);
 		if($this->debugMode) {
 			if($pdoStatement instanceof WireDatabasePDOStatement) {
-				/** @var WireDatabasePDOStatement $pdoStatement */
 				$pdoStatement->setDebugNote($note);
 			} else {
 				$this->queryLog($statement, $note);
@@ -897,7 +896,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function exec($statement, $note = '') {
-		if(is_object($statement) && $statement instanceof \PDOStatement) {
+		if($statement instanceof \PDOStatement) {
 			return $this->execute($statement);
 		}
 		if($this->debugMode) $this->queryLog($statement, $note); 
@@ -978,7 +977,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 * @param string|bool $sql Query (string) to log, boolean true to reset/start query logging, boolean false to stop query logging
 	 * @param string $note Any additional debugging notes about the query
-	 * @return array|bool|int Returns query log array, boolean true on success, boolean false if not
+	 * @return array|bool Returns query log array, boolean true on success, boolean false if not
 	 * 
 	 */
 	public function queryLog($sql = '', $note = '') {
@@ -1592,16 +1591,16 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed|null|\PDO
 	 * 
 	 */
-	public function __get($key) {
-		if($key === 'pdo') return $this->pdo();
-		if($key === 'pdoReader') return $this->pdoReader();
-		if($key === 'pdoWriter') return $this->pdoWriter();
-		if($key === 'debugMode') return $this->debugMode;
-		return parent::__get($key);
+	public function __get($name) {
+		if($name === 'pdo') return $this->pdo();
+		if($name === 'pdoReader') return $this->pdoReader();
+		if($name === 'pdoWriter') return $this->pdoWriter();
+		if($name === 'debugMode') return $this->debugMode;
+		return parent::__get($name);
 	}
 
 	/**
@@ -1641,7 +1640,6 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$query = $this->prepare('SHOW VARIABLES WHERE Variable_name=:name');
 		$query->bindValue(':name', $name);
 		$query->execute();
-		/** @noinspection PhpUnusedLocalVariableInspection */
 		if($query->rowCount()) {
 			list(,$value) = $query->fetch(\PDO::FETCH_NUM);
 			$this->variableCache[$name] = $value;

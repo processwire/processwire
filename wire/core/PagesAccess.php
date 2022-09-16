@@ -17,7 +17,7 @@
  * Pages using templates that already define their access (determined by $template->useRoles) 
  * are omitted from the pages_access table, as they aren't necessary. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -52,6 +52,7 @@ class PagesAccess extends Wire {
 	 * 
 	 */
 	public function __construct($item = null) {
+		parent::__construct();
 		if(!$item) return;
 		if($item instanceof Page) {
 			$this->updatePage($item);
@@ -75,9 +76,9 @@ class PagesAccess extends Wire {
 		$accessTemplates = $this->getAccessTemplates();
 		$parent_id = (int) $parent_id;
 		$accessTemplateID = (int) $accessTemplateID;
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 
-		if(!$accessTemplateID && $this->config->debug) $this->message("Rebuilding pages_access");
+		if(!$accessTemplateID && $this->wire()->config->debug) $this->message("Rebuilding pages_access");
 
 		if($parent_id == 1) {
 			// if we're going to be rebuilding the entire tree, then just delete all of them now
@@ -188,7 +189,7 @@ class PagesAccess extends Wire {
 		// this is the template where access is defined for this page
 		$accessParent = $page->getAccessParent();
 		$accessTemplate = $accessParent->template;
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 
 		if(!$accessParent->id || $accessParent->id == $page->id) {
 			// page is the same as the one that defines access, so it doesn't need to be here
@@ -231,7 +232,7 @@ class PagesAccess extends Wire {
  	 *
 	 */
 	public function deletePage(Page $page) {
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM pages_access WHERE pages_id=:page_id"); 
 		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT); 
 		$query->execute();

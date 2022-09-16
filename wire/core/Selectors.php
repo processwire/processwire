@@ -11,7 +11,8 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  * This Selectors class is used internally by ProcessWire to provide selector string (and array) matching throughout the core.
  * 
  * ~~~~~
- * $selectors = new Selectors("sale_price|retail_price>100, currency=USD|EUR");
+ * $selectors = new Selectors(); 
+ * $selectors->init("sale_price|retail_price>100, currency=USD|EUR");
  * if($selectors->matches($page)) {
  *   // selector string matches the given $page (which can be any Wire-derived item)
  * }
@@ -31,7 +32,7 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  * @link https://processwire.com/api/selectors/ Official Selectors Documentation
  * @method Selector[] getIterator()
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo Move static helper methods to dedicated API var/class so this class can be more focused
@@ -103,7 +104,7 @@ class Selectors extends WireArray {
 	/**
 	 * Given a selector string, extract it into one or more corresponding Selector objects, iterable in this object.
 	 * 
-	 * @param string|null|array $selector Selector string or array. If not provided here, please follow-up with a setSelectorString($str) call. 
+	 * @param string|null|array $selector Please omit this argument and use a separate init($selector) call instead. 
 	 *
 	 */
 	public function __construct($selector = null) {

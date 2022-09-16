@@ -15,7 +15,7 @@
  * $numRows = $pages->parents()->rebuildAll();
  * ~~~~~~
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.156
@@ -45,6 +45,7 @@ class PagesParents extends Wire {
 	 *
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 		$this->debug = $pages->debug();
 	}
@@ -174,7 +175,7 @@ class PagesParents extends Wire {
 			// more parents to go, get rest recursively
 			$o = $options;
 			$o['columns'] = $columns;
-			foreach($this->getParents($lastParentID, $o) as $key => $value) {
+			foreach($this->getParents($lastParentID, $o) as $value) {
 				$values[] = $value;
 			}
 		}
@@ -224,6 +225,8 @@ class PagesParents extends Wire {
 	 */
 	public function findParents(array $options = array()) {
 		
+		$database = $this->wire()->database;
+		
 		static $calls = 0;
 		
 		$defaults = array(
@@ -245,7 +248,6 @@ class PagesParents extends Wire {
 		
 		$options = array_merge($defaults, $options);
 		$parentID = isset($options['parent']) ? (int) "$options[parent]" : 0;
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
 		$sql = array();
 		$bind = array();
 		$column = $options['column'];
@@ -447,7 +449,7 @@ class PagesParents extends Wire {
 				JOIN pages AS parents on pages.parent_id=parents.id AND parents.parent_id>=:id
 				GROUP BY pages.parent_id 
 			";
-			$query = $this->database->prepare(trim($sql));
+			$query = $this->wire()->database->prepare(trim($sql));
 			$query->bindValue(':id', $minParentID, \PDO::PARAM_INT); 
 			$query->execute();
 			while($row = $query->fetch(\PDO::FETCH_NUM)) {
@@ -529,7 +531,7 @@ class PagesParents extends Wire {
 	public function rebuild(Page $page) {
 
 		$pages_id = (int) $page->id;
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		$inserts = array();
 		$rowCount = 0;
 
@@ -579,7 +581,7 @@ class PagesParents extends Wire {
 	 */
 	public function rebuildAll($fromParent = null) {
 
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		$inserts = array();
 		$parents = $this->findParentIDs($fromParent ? $fromParent : -2); // find parents within children
 		$rowCount = 0; 
@@ -620,7 +622,7 @@ class PagesParents extends Wire {
 	 */
 	public function clear($page) {
 		$pages_id = (int) "$page";
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM pages_parents WHERE pages_id=:id");
 		$query->bindValue(':id', $pages_id, \PDO::PARAM_INT);
 		$query->execute();
@@ -639,7 +641,7 @@ class PagesParents extends Wire {
 	 */
 	public function delete($page) {
 		$pages_id = (int) "$page";
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		$sql = "DELETE FROM pages_parents WHERE pages_id=:pages_id OR parents_id=:parents_id";
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT);
@@ -666,7 +668,7 @@ class PagesParents extends Wire {
 		
 		$id = (int) "$page";
 		$path = $page->path;
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		
 		$tests = array(
 			'query-for-parents-of-page' => array(

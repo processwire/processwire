@@ -381,7 +381,7 @@ class PagesRawFinder extends Wire {
 	/**
 	 * IDs of pages to find, becomes array once known
 	 * 
-	 * @var null|array
+	 * @var null|array|string
 	 * 
 	 */
 	protected $ids = null;
@@ -393,6 +393,7 @@ class PagesRawFinder extends Wire {
 	 *
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 	}
 
@@ -907,7 +908,7 @@ class PagesRawFinder extends Wire {
 			if(wireInstanceOf($field->type, 'FieldtypeOptions')) $getExternal = true;
 			
 		} else {
-			foreach($cols as $key => $col) {
+			foreach($cols as $col) {
 				$col = $sanitizer->name($col);
 				if(empty($col)) continue;
 				if(isset($schema[$col])) {
@@ -1104,7 +1105,7 @@ class PagesRawFinder extends Wire {
 	 */
 	protected function findCustomFieldtypePage(Field $field, $fieldName, array $pageRefCols) {
 		$pageRefIds = array();
-		foreach($this->values as $pageId => $row) {
+		foreach($this->values as /* $pageId => */ $row) {
 			if(!isset($row[$fieldName])) continue;
 			$pageRefIds = array_merge($pageRefIds, $row[$fieldName]);
 		}
@@ -1333,7 +1334,7 @@ class PagesRawFinder extends Wire {
 					$references = $fromPageIds[$toPageId];
 				} else {
 					$references = array();
-					foreach($fromPageIds[$toPageId] as $fieldName => $ids) {
+					foreach($fromPageIds[$toPageId] as /* $fieldName => */ $ids) {
 						$references = array_merge($references, $ids);
 					}
 				}

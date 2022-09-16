@@ -3,7 +3,7 @@
 /**
  * ProcessWire Pages Names
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary This class includes methods for generating and modifying page names.
@@ -71,7 +71,7 @@ class PagesNames extends Wire {
 	public function __construct(Pages $pages) {
 		$this->pages = $pages; 
 		$pages->wire($this);
-		$untitled = $this->wire('config')->pageNameUntitled;
+		$untitled = $this->wire()->config->pageNameUntitled;
 		if($untitled) $this->untitledPageName = $untitled;
 		$this->nameMaxLength = Pages::nameMaxLength;
 		parent::__construct();
@@ -228,7 +228,7 @@ class PagesNames extends Wire {
 			// default format is title (when the page has one)
 			$format = 'title';
 			
-		} else if($this->wire('languages') && $page->title instanceof LanguagesValueInterface) {
+		} else if($this->wire()->languages && $page->title instanceof LanguagesValueInterface) {
 			// check for multi-language title
 			/** @var LanguagesPageFieldValue $pageTitle */
 			$pageTitle = $page->title;
@@ -616,8 +616,8 @@ class PagesNames extends Wire {
 		$languages = $options['multilang'] || $options['language'] ? $this->wire()->languages : null;
 		if($languages && !$languages->hasPageNames()) $languages = null;
 		
-		if($this->wire('config')->pageNameCharset == 'UTF8') {
-			$name = $this->wire('sanitizer')->pageName($name, Sanitizer::toAscii);
+		if($this->wire()->config->pageNameCharset == 'UTF8') {
+			$name = $this->wire()->sanitizer->pageName($name, Sanitizer::toAscii);
 		}
 
 		$wheres = array();
@@ -649,7 +649,7 @@ class PagesNames extends Wire {
 		}
 
 		$sql = 'SELECT COUNT(*) FROM pages WHERE ' . implode(' AND ', $wheres);
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->wire()->database->prepare($sql);
 
 		foreach($binds as $key => $value) {
 			$query->bindValue($key, $value);

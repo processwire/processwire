@@ -5,7 +5,7 @@
  * 
  * This class is for internal use. You should manipulate hooks from Wire-derived classes instead. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -235,7 +235,7 @@ class WireHooks {
 				if($_namespace !== $namespace) {
 					// objects in other namespaces
 					$_className = $_namespace . $className;
-					if(!$object instanceof $_className && $method !== '*') {
+					if(!$object instanceof $_className) { // && $method !== '*') {
 						// object likely extends a class not in PW namespace, so check class parents instead
 						if(empty($objectParentNamespaces)) {
 							foreach(wireClassParents($object) as $nscn => $cn) {
@@ -280,7 +280,7 @@ class WireHooks {
 				// no method specified, retrieve all for class
 				// note: priority-based array indexes are no longer in tact
 				$hooks = array_values($hooks);
-				foreach($staticHooks as $_method => $methodHooks) {
+				foreach($staticHooks as /* $_method => */ $methodHooks) {
 					$hooks = array_merge($hooks, array_values($methodHooks));
 				}
 			}
@@ -605,6 +605,7 @@ class WireHooks {
 				list($fromClass, $objMatch) = explode('(', $fromClass, 2);
 				$objMatch = trim($objMatch, ') ');
 				if(Selectors::stringHasSelector($objMatch)) {
+					/** @var Selectors $selectors */
 					$selectors = $this->wire->wire(new Selectors());
 					$selectors->init($objMatch);
 					$objMatch = $selectors;
@@ -644,6 +645,7 @@ class WireHooks {
 				if(is_string($argMatch)) $argMatch = array(0 => $argMatch);
 				foreach($argMatch as $argKey => $argVal) {
 					if(Selectors::stringHasSelector($argVal)) {
+						/** @var Selectors $selectors */
 						$selectors = $this->wire->wire(new Selectors());
 						$selectors->init($argVal);
 						$argMatch[$argKey] = $selectors;
@@ -720,7 +722,7 @@ class WireHooks {
 		// keep track of all local hooks combined when debug mode is on
 		if($local && $this->config->debug) {
 			$debugClass = $object->className();
-			$debugID = ($local ? $debugClass : '') . $id;
+			$debugID = $debugClass . $id;
 			while(isset($this->allLocalHooks[$debugID])) $debugID .= "_";
 			$debugHook = $hooks[$method][$priority];
 			$debugHook['method'] = $debugClass . "->" . $debugHook['method'];
@@ -857,7 +859,6 @@ class WireHooks {
 			}
 			
 			// test the filter to see which one will match
-			$pos = false;
 			foreach(array("/$filter/", "/$filter", "$filter/") as $test) {
 				$pos = strpos($path, $test); 
 				if($pos === false) continue;
@@ -908,7 +909,7 @@ class WireHooks {
 		$hookTimer = self::___debug ? $this->hookTimer($object, $method, $arguments) : null;
 		$realMethod = "___$method";
 		$cancelHooks = false;
-		$profiler = $this->wire->wire('profiler');
+		$profiler = $this->wire->wire()->profiler;
 		$hooks = null;
 		$methodExists = false;
 		$useHookReturnValue = false; // allow use of "return $value;" in hook in addition to $event->return ?
@@ -959,7 +960,7 @@ class WireHooks {
 				if($when === 'after') break;
 			}
 
-			foreach($hooks as $priority => $hook) {
+			foreach($hooks as /* $priority => */ $hook) {
 
 				if(!$hook['options'][$when]) continue;
 				if($type === 'property' && $hook['options']['type'] === 'method') continue;
