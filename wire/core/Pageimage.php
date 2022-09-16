@@ -489,12 +489,13 @@ class Pageimage extends Pagefile {
 
 		$imageInfo = $this->imageInfo;
 		$filename = is_string($reset) && file_exists($reset) ? $reset : ''; 
+		$ext = $this->ext;
 	
 		if(!$reset && $imageInfo['width'] && !$filename) {
 			return $imageInfo;
 		}
 
-		if($this->ext == 'svg') {
+		if($ext == 'svg') {
 			$imageInfo = array_merge($imageInfo, $this->getImageInfoSVG($filename));
 		} else {
 			if($filename) {
@@ -509,7 +510,7 @@ class Pageimage extends Pagefile {
 			} else if($info) {
 				$imageInfo['width'] = $info[0];
 				$imageInfo['height'] = $info[1];
-				if(function_exists('exif_read_data')) {
+				if(function_exists('exif_read_data') && ($ext === 'jpg' || $ext === 'jpeg')) {
 					$exif = $filename ? @exif_read_data($filename) : @exif_read_data($this->filename);
 					if(!empty($exif['Orientation']) && (int) $exif['Orientation'] > 4) {
 						// Image has portrait orientation so reverse width and height info
