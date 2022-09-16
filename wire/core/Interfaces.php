@@ -519,7 +519,7 @@ interface LanguagesValueInterface {
 	 * Given a language, returns the value in that language
 	 *
 	 * @param Language|int
-	 * @return int
+	 * @return string|mixed
 	 *
 	 */
 	public function getLanguageValue($languageID);
