@@ -20,9 +20,9 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Languages Support - Tabs',
-			'version' => 115,
+			'version' => 116,
 			'summary' => 'Organizes multi-language fields into tabs for a cleaner easier to use interface.',
-			'author' => 'adamspruijt, ryan', 
+			'author' => 'adamspruijt, ryan, flipzoom', 
 			'singular' => true,
 			'autoload' => "template=admin",
 			'requires' => 'LanguageSupport'
@@ -74,20 +74,22 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		if(!empty($this->settings)) return $this->settings;
 		
 		$language = null;
+		$input = $this->wire()->input;
+		$languages = $this->wire()->languages; 
 		
 		// allow for specifying language in your "edit" page link, from front-end
 		// so if you want to focus on the Spanish tabs when the user clicks "edit"
 		// from /es/path/to/page/, then you can by using a page edit link like:
 		// <a href='{$config->urls->admin}page/edit/?id=$page->id&language=$user->language'>Edit</a>
-		$id = (int) $this->input->get('language');
-		if($id) $language = $this->languages->get($id);
+		$id = (int) $input->get('language');
+		if($id) $language = $languages->get($id);
 
 		// if language is not specified as a GET variable, then use the user's language
 		if(!$language || !$language->id) $language = $this->wire()->user->language;
 
 		// determine the index of the tab for the user's language	
 		$activeTab = 0;
-		foreach($this->wire()->languages as $index => $lang) {
+		foreach($languages as $index => $lang) {
 			if($lang->id == $language->id) $activeTab = $index;
 		}
 
@@ -105,6 +107,7 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 			'loadStyles' => true,
 			'loadScripts' => true,
 			'tabField' => $this->get('tabField'),
+			'requestId' => ((string) $this->wire()->process) . (int) $input->get('id'),
 		);
 		
 		$config = $this->wire()->config;
@@ -133,20 +136,21 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		$config = $this->wire()->config;
 		
 		if($settings['jQueryUI']) {
-			$adminTheme = $this->wire('adminTheme');
+			$adminTheme = $this->wire()->adminTheme;
 			if($adminTheme) $adminTheme->addBodyClass('LanguageTabsJqueryUI');
 		}
 		
 		if($settings['loadStyles']) {
-			$config->styles->add($config->urls->LanguageTabs . 'LanguageTabs.css');
+			$config->styles->add($config->urls('LanguageTabs') . 'LanguageTabs.css');
 		}
 		if($settings['loadScripts']) {
-			$config->scripts->add($config->urls->LanguageTabs . 'LanguageTabs.js');
+			$config->scripts->add($config->urls('LanguageTabs') . 'LanguageTabs.js');
 		}
 
 		/** @var JqueryCore $jQueryCore */
 		$jQueryCore = $this->wire()->modules->get('JqueryCore');
 		$jQueryCore->use('longclick');
+		$jQueryCore->use('cookie');
 		
 		if(strpos($e->return, 'LanguageSupport') === false) return;
 		

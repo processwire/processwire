@@ -24,6 +24,8 @@ function dblclickLanguageTab(e) {
 	setTimeout(function() {
 		clickLanguageTabActive = false;
 	}, 250);
+	var cfg = ProcessWire.config.LanguageTabs;
+	jQuery.cookie('langTabsDC', langID + '-' + cfg.requestId);
 }
 
 /**
@@ -99,6 +101,12 @@ function setupLanguageTabs($form) {
 			$links.eq(cfg.activeTab).click();
 		}
 	});
+	
+	var value = jQuery.cookie('langTabsDC'); // DC=DoubleClick
+	if(value && value.indexOf('-' + cfg.requestId) > 0) {
+		value = value.split('-'); // i.e. 123-ProcessPageEdit456
+		$('a.langTab' + value[0], $form).click();
+	}
 }
 
 /**
