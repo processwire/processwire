@@ -278,6 +278,9 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 		if($value) {
+			if(is_string($value) && strpos($value, self::multiValueSeparator) !== false) {
+				$value = explode(self::multiValueSeparator, $value); 
+			}
 			$wakeupValue = $this->manager->getOptions($field, array('id' => $value));
 		} else {
 			$wakeupValue = $this->getBlankValue($page, $field); 
