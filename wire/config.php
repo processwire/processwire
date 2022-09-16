@@ -962,7 +962,7 @@ $config->maxUrlDepth = 30;
  * @var string
  *
  */
-$config->pageNumUrlPrefix = 'page';
+$config->pageNumUrlPrefix = 'page'; // note that "-" is not a supported character in the prefix
 
 /**
  * Multiple prefixes that may be used for detecting pagination
@@ -1357,14 +1357,12 @@ $config->moduleServiceKey = 'pw301';
  * - `upload`: Allow installation by file upload?
  * - `download`: Allow installation by file download from URL?
  * 
- * @todo consider whether the 'directory' option should also be limited to 'debug' only.
- * 
  * @var array
  * @since 3.0.163
  * 
  */
 $config->moduleInstall = array(
-	'directory' => true, // allow install from ProcessWire modules directory? 
+	'directory' => 'debug', // allow install from ProcessWire modules directory? 
 	'upload' => 'debug', // allow install by module file upload?
 	'download' => 'debug', // allow install by download from URL?
 );

@@ -159,7 +159,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		if($this->id) $this->field = $this->fields->get($this->id);
 		if(!$this->field) $this->field = new Field();
 
-		return parent::init();
+		parent::init();
 	}
 
 	/**
@@ -404,7 +404,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->icon = 'plus-circle';
 		$button->showInHeader();
 		$out .= $button->render();
-		
+
+		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
 		$button->id = 'tags_button';
 		$button->href = './tags/';
@@ -412,6 +413,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->value = $this->labels['manage-tags'];
 		$out .= $button->render();
 
+		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
 		$button->id = 'import_button';
 		$button->href = "./import/";
@@ -419,7 +421,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->icon = 'paste';
 		$button->setSecondary();
 		$out .= $button->render();
-		
+
+		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
 		$button->id = 'export_button'; 
 		$button->href = "./export/";
@@ -494,8 +497,10 @@ class ProcessField extends Process implements ConfigurableModule {
 			$value = array();
 			foreach($fields as $field) {
 				/** @var Field $field */
+				/** @var Fieldtype $fieldtype */
+				$fieldtype = $field->type;
 				if($field->flags & Field::flagSystem && !in_array($field->name, array('title', 'email'))) continue;
-				$f->addOption($field->name, "**$field->name**|$field->label|{$field->type->shortName}|" . $field->getTags(', '));
+				$f->addOption($field->name, "**$field->name**|$field->label|{$fieldtype->shortName}|" . $field->getTags(', '));
 				if($field->hasTag($editTag)) $value[] = $field->name;
 			}
 			$f->attr('value', $value);
@@ -854,6 +859,8 @@ class ProcessField extends Process implements ConfigurableModule {
 	}
 	
 	protected function buildEditFormAlert() {
+		
+		$modules = $this->wire()->modules;
 
 		$this->field->type->getDatabaseSchema($this->field); // may add to trackGets, so we include it (i.e. FieldtypeFile and fileSchema)
 		$gets = $this->field->trackGets();
@@ -911,26 +918,29 @@ class ProcessField extends Process implements ConfigurableModule {
 			$this->session->remove($this, 'optimize'); 
 			return null;
 		}
-		
+	
+		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
 		$form->attr('class', 'WireTab');
 		$form->attr('id', 'alert');
 		$form->attr('title', $this->_x('Alert', 'tab'));
 		
 		if(count($xkeys)) {
-			$f = $this->wire('modules')->get('InputfieldCheckboxes'); 
+			/** @var InputfieldCheckboxes $f */
+			$f = $modules->get('InputfieldCheckboxes'); 
 			$f->attr('name', '_remove_keys'); 
 			$f->label = $this->_('Unknown Properties'); 
 			$f->description = $this->_('The following properties were found with this field with zero accesses during configuration. Sometimes this can indicate that the properties are no longer in use. Check the box next to each property you want to remove. If you are not sure, there is no harm in just leaving them there.'); 
 			$f->icon = 'exclamation-triangle';
 			foreach($xkeys as $key) $f->addOption($key); 
-			$this->wire('session')->set($this, '_remove_keys', $xkeys); 
+			$this->wire()->session->set($this, '_remove_keys', $xkeys); 
 			$form->add($f); 
 			$this->error($checkLabel . $this->_('Potential unknown properties found in this field. Please see the "Alert" tab.')); 
 		}
 	
 		if($numRows) {
-			$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+			/** @var InputfieldCheckbox $f */
+			$f = $modules->get('InputfieldCheckbox'); 
 			$f->attr('name', '_remove_rows');
 			$f->label = sprintf($this->_('Remove %d orphaned table rows?'), $numRows);
 			$f->description = $this->_('We found rows of data in the table for this field that do not match up with any page, or match pages that do not have this field.');
@@ -953,9 +963,9 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		if(!$this->fieldgroup) return;
 
-		$fieldOriginal = $this->wire('fields')->get($this->field->id);
+		$fieldOriginal = $this->wire()->fields->get($this->field->id);
 		$context = $this->fieldgroup->getFieldContextArray($this->field->id, $this->contextNamespace); 
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 
 		foreach($context as $key => $value) {
 
@@ -988,7 +998,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	protected function renderContextSelect() {
 
 		if(!$this->field->id) return '';
-		if($this->fieldgroup && $this->wire('input')->get('modal')) {
+		if($this->fieldgroup && $this->wire()->input->get('modal')) {
 			return "<input type='hidden' name='fieldgroup_id' value='{$this->fieldgroup->id}' />";
 		}
 		
@@ -1002,6 +1012,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			"<option value=''>$contextLabel</option>"; 
 
 		foreach($fieldgroups->sort('name') as $fieldgroup) {
+			/** @var Fieldgroup $fieldgroup */
 			$selected = $this->fieldgroup && $this->fieldgroup->id == $fieldgroup->id ? " selected='selected'" : '';
 			$out .= "<option$selected value='{$fieldgroup->id}'>{$fieldgroup->name}</option>";
 		}
@@ -1128,17 +1139,20 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form->add($field); 
 
 		if($this->fieldgroup) {
+			/** @var InputfieldHidden $field */
 			$field = $modules->get('InputfieldHidden');
 			$field->attr('name', 'fieldgroup_id'); 
 			$field->attr('value', $this->fieldgroup->id); 
 			$form->add($field);
 			if($this->contextNamespace) {
+				/** @var InputfieldHidden $field */
 				$field = $modules->get('InputfieldHidden');
 				$field->attr('name', '_context_namespace');
 				$field->attr('value', $this->contextNamespace);
 				$form->add($field);
 			}
 			if($this->contextLabel) {
+				/** @var InputfieldHidden $field */
 				$field = $modules->get('InputfieldHidden');
 				$field->attr('name', '_context_label');
 				$field->attr('value', $this->contextLabel);
@@ -1390,7 +1404,7 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		$fieldtypeNames = $this->field->type->getConfigAllowContext($this->field);
 		if(!is_array($fieldtypeNames)) $fieldtypeNames = array();
-		$dummyPage = $this->wire('pages')->get("/"); // only using this to satisfy param requirement 
+		$dummyPage = $this->wire()->pages->get("/"); // only using this to satisfy param requirement 
 		$inputfield = $this->field->getInputfield($dummyPage);
 		$inputfieldNames = $inputfield ? $inputfield->getConfigAllowContext($this->field) : array();
 		if(!is_array($inputfieldNames)) $inputfieldNames = array();
@@ -1404,10 +1418,13 @@ class ProcessField extends Process implements ConfigurableModule {
 			$tabInputfield = $form->getChildByName($tabName);
 			if(!$tabInputfield) continue;
 			foreach($tabInputfield->getAll() as $f) {
+				/** @var Inputfield $f */
 				$name = $f->name;
 				if(strpos($name, '_') === 0) continue;
 				if(in_array($name, $exclusions) || strpos($name, 'theme') === 0) continue;
-				if($f instanceof InputfieldWrapper || $f instanceof InputfieldMarkup || $f instanceof InputfieldHidden) continue;
+				if($f instanceof InputfieldMarkup) continue;
+				if($f instanceof InputfieldWrapper) continue;
+				if($f instanceof InputfieldHidden) continue;
 				$typeName = str_replace('Inputfield', '', $f->className());
 				$settingLabel = str_replace('|', ' ', "$tabLabel $f->label");
 				$label = $settingLabel .
@@ -1440,6 +1457,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$tab = null;
 		
 		foreach($customFields as $field) {
+			/** @var Inputfield|InputfieldWrapper $field */
 			// skip over wrappers if they don't have fields in them 
 			if($field instanceof InputfieldWrapper && !count($field->children)) continue; 
 			//if(!$this->fieldgroup) $field->attr('class', 'WireTab');
@@ -1460,21 +1478,26 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	protected function buildEditFormFrontEdit($tab) {
 		
+		$modules = $this->wire()->modules;
+		
 		if(!$this->field) return;
 		$cls = __NAMESPACE__ . "\\FieldtypeFieldsetOpen";
 		if($this->field->type instanceof $cls) return;
-		
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+	
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->label = $this->_('Front-end editing');
 		$fieldset->icon = 'edit';
 		$fieldset->attr('id', 'front-end-editing');
 		$fieldset->collapsed = Inputfield::collapsedYes;
 		$tab->add($fieldset);
-		
-		if(!$this->wire('modules')->isInstalled('PageFrontEdit')) {
-			$f = $this->wire('modules')->get('InputfieldMarkup');
+	
+		if(!$modules->isInstalled('PageFrontEdit')) {
+			/** @var InputfieldMarkup $f */
+			$f = $modules->get('InputfieldMarkup');
 			$fieldset->add($f);
-			$button = $this->wire('modules')->get('InputfieldButton');
+			/** @var InputfieldButton $button */
+			$button = $modules->get('InputfieldButton');
 			$button->href = $this->wire('config')->urls->admin . "module/installConfirm?name=PageFrontEdit";
 			$button->value = $this->_('Install');
 			$button->icon = 'sign-in';
@@ -1484,9 +1507,10 @@ class ProcessField extends Process implements ConfigurableModule {
 			return;
 		}
 		
-		$file = $this->wire('config')->paths->PageFrontEdit . 'PageFrontEditConfig.php';
+		$file = $this->wire()->config->paths('PageFrontEdit') . 'PageFrontEditConfig.php';
 		/** @noinspection PhpIncludeInspection */
 		include_once($file);
+		/** @var PageFrontEditConfig $moduleConfig */
 		$moduleConfig = $this->wire(new PageFrontEditConfig());
 		$moduleConfig->fieldHelpInputfields($fieldset, $this->field); 
 	}
@@ -1526,13 +1550,14 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___buildEditFormBasics() {
+	
+		$modules = $this->wire()->modules;
+		$fields = $this->wire()->fields;
+		$languages = $this->wire()->languages;
+		$config = $this->wire()->config;
 		
 		$isNew = !$this->field || !$this->field->id;
-	
-		/** @var Fields $fields */
-		$fields = $this->wire('fields');
-		/** @var Languages|null $languages */
-		$languages = $this->wire('languages');
+		
 		$languageFields = array();
 		$adminTheme = $this->wire()->adminTheme;
 		$legacyTheme = !$adminTheme || in_array($adminTheme->className(), array('AdminThemeDefault', 'AdminThemeReno'));
@@ -1544,7 +1569,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form->attr('title', $this->_x('Basics', 'tab'));
 		
 		/** @var InputfieldPageTitle $field */
-		$field = $this->modules->get('InputfieldPageTitle');
+		$field = $modules->get('InputfieldPageTitle');
 		$field->attr('id+name', 'field_label');
 		$field->label = $this->labels['label'];
 		$field->attr('value', $this->field->label);
@@ -1564,7 +1589,7 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		} else {
 			/** @var InputfieldName $field */
-			$field = $this->modules->get('InputfieldName');
+			$field = $modules->get('InputfieldName');
 			$field->attr('name', 'name');
 			$field->attr('value', $this->field->name); 
 			$field->description = '';
@@ -1578,7 +1603,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$form->add($field); 
 
 			/** @var InputfieldSelect $field */
-			$field = $this->modules->get('InputfieldSelect');
+			$field = $modules->get('InputfieldSelect');
 			$field->label = $this->labels['type'];
 			$field->attr('name', 'type'); 
 			$field->required = true; 
@@ -1604,7 +1629,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					$fieldtypeLabels[$label] = $fieldtype;
 				}
 				ksort($fieldtypeLabels);
-				$advanced = $this->wire('config')->advanced;
+				$advanced = $config->advanced;
 				foreach($fieldtypeLabels as $label => $fieldtype) {
 					if(!$advanced && $fieldtype->isAdvanced() && $this->field->name != 'title' 
 						&& $field->value != $fieldtype->className()) continue; 
@@ -1617,7 +1642,8 @@ class ProcessField extends Process implements ConfigurableModule {
 			if($isNew) {
 				$names = array();
 				foreach($fields as $f) {
-					if(($f->flags & Field::flagSystem) && !$this->wire('config')->advanced) continue;
+					/** @var Field $f */
+					if(($f->flags & Field::flagSystem) && !$config->advanced) continue;
 					if(strpos($f->name, '_END')) continue;
 					$names['_' . $f->name] = $f->name;
 				}
@@ -1635,7 +1661,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 
 		/** @var InputfieldTextarea $field */
-		$field = $this->modules->get('InputfieldTextarea');
+		$field = $modules->get('InputfieldTextarea');
 		$field->label = $this->_x('Description', 'textarea input'); // Label for the 'field description' textarea input
 		$field->attr('name', 'description'); 
 		$field->attr('value', $this->field->description); 
@@ -1646,8 +1672,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->add($field);
 		$languageFields[] = $field;
-		
-		$field = $this->modules->get('InputfieldTextarea');
+	
+		/** @var InputfieldTextarea $field */
+		$field = $modules->get('InputfieldTextarea');
 		$field->label = $this->_x('Notes', 'textarea input'); // Label for the 'field description' textarea input
 		$field->attr('name', 'notes');
 		$field->attr('value', $this->field->notes);
@@ -1660,7 +1687,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$languageFields[] = $field;
 	
 		/** @var InputfieldText $field */
-		$field = $this->modules->get('InputfieldText');
+		$field = $modules->get('InputfieldText');
 		$field->label = $this->_('Label for tab');
 		$field->attr('name', 'tabLabel');
 		$field->attr('value', (string) $this->field->get('tabLabel'));
@@ -1677,13 +1704,14 @@ class ProcessField extends Process implements ConfigurableModule {
 			$name = $field->name; 
 			if($name == 'field_label') $name = 'label';
 			foreach($languages as $language) {
-				if($language->isDefault) continue; 
+				/** @var Language $language */
+				if($language->isDefault()) continue; 
 				$field->set("value{$language->id}", $this->field->get("$name{$language->id}")); 
 			}
 		}
 		
 		/** @var InputfieldIcon $field */
-		$field = $this->modules->get("InputfieldIcon");
+		$field = $modules->get("InputfieldIcon");
 		$field->attr('name', 'icon');
 		$field->attr('value', $this->field->icon);
 		$field->icon = 'puzzle-piece';
@@ -1693,7 +1721,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form->add($field);
 	
 		/** @var InputfieldMarkup $field */
-		$field = $this->modules->get('InputfieldMarkup');
+		$field = $modules->get('InputfieldMarkup');
 		$field->attr('name', '_usage_table');
 		$field->label = $this->_('Usage');
 		$field->icon = 'search';
@@ -2020,14 +2048,17 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function ___executeSave() {
 
+		$input = $this->wire()->input;
+		$session = $this->wire()->session; 
+		$sanitizer = $this->wire()->sanitizer;
 		$form = $this->buildEditForm();
 	
 		if($this->input->get('reloadInputfieldAjax') === 'Inputfield_overrides_table') {
 			return $form->render();
 		}
-		
-		if(!$this->input->post('submit_save_field')) {
-			$this->session->redirect("./"); 
+	
+		if(!$form->isSubmitted('submit_save_field')) {
+			$session->redirect("./"); 
 		}
 
 		if($this->fieldgroup) {
@@ -2037,26 +2068,26 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		$isNew = !$this->field->id;
 
-		if($this->input->post('delete') && $this->input->post('delete') == $this->field->id && $this->field->numFieldgroups() == 0) {
-			$this->session->CSRF->validate();
-			$this->session->message($this->_('Deleted field') . " - {$this->field->name}"); // Message after deleting a field, followed by field name
+		if($input->post('delete') && $input->post('delete') == $this->field->id && $this->field->numFieldgroups() == 0) {
+			$session->CSRF->validate();
+			$session->message($this->_('Deleted field') . " - {$this->field->name}"); // Message after deleting a field, followed by field name
 			$this->fields->delete($this->field); 
 			$this->fieldDeleted($this->field); 
-			$this->session->redirect("./"); 
+			$session->redirect("./"); 
 			return ''; 
 		}
 
 		if($isNew) {
 			// when adding new field, make sure name is valid
-			$name = $this->wire('input')->post('name');
-			$name = $this->wire('sanitizer')->fieldName($name);
-			if(!$this->isAllowedName($name)) return $this->wire('session')->redirect('./add');
-			$type = $this->wire('input')->post('type');
+			$name = $input->post('name');
+			$name = $sanitizer->fieldName($name);
+			if(!$this->isAllowedName($name)) $session->location('./add');
+			$type = (string) $input->post('type');
 			// check for clone option on create
 			if(strpos($type, '_') === 0) {
 				// clone existing field option is existing field name with "_" prepended
-				$cloneFieldName = $this->wire('sanitizer')->fieldName(substr($type, 1));
-				$cloneField = $this->wire('fields')->get($cloneFieldName);
+				$cloneFieldName = $sanitizer->fieldName(substr($type, 1));
+				$cloneField = $this->wire()->fields->get($cloneFieldName);
 				if($cloneField) {
 					$this->field = $this->cloneField($cloneField, $name); 
 					if(!$this->field) throw new WireException("Error cloning $cloneFieldName");
@@ -2065,7 +2096,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 
 		try {
-			$this->form->processInput($this->input->post); 
+			$form->processInput($input->post); 
 			$this->saveInputfields($this->form); 
 		} catch(\Exception $e) {
 			$this->error($e->getMessage()); 
@@ -2082,21 +2113,21 @@ class ProcessField extends Process implements ConfigurableModule {
 		} else if($isNew) {
 			try { 
 				$this->field->save();
-				$this->session->message($this->_('Added Field') . " - {$this->field->name}"); 
+				$session->message($this->_('Added Field') . " - {$this->field->name}"); 
 				$this->fieldAdded($this->field); 
 			} catch(\Exception $e) {
 				$this->error($e->getMessage()); 
-				if(!$this->field->id) $this->session->redirect("./"); 
+				if(!$this->field->id) $session->redirect("./"); 
 			}
 			$redirectURL = "edit?id={$this->field->id}";
-			if(!$this->wire('input')->get('modal')) $redirectURL .= "#fieldtypeConfig";
-			$this->session->redirect($redirectURL);
+			if(!$input->get('modal')) $redirectURL .= "#fieldtypeConfig";
+			$session->redirect($redirectURL);
 				
 		} else {
 			
-			$removeKeys = $this->wire('input')->post('_remove_keys');
+			$removeKeys = $input->post('_remove_keys');
 			if($removeKeys && count($removeKeys)) {
-				$_removeKeys = $this->wire('session')->get($this, '_remove_keys');
+				$_removeKeys = $session->get($this, '_remove_keys');
 				foreach($removeKeys as $xkey) {
 					if(!in_array($xkey, $_removeKeys)) continue; // validate via session
 					$this->field->remove($xkey);
@@ -2104,7 +2135,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 			}
 			
-			if($this->input->post('_remove_rows') == $this->field->id) {
+			if($input->post('_remove_rows') == $this->field->id) {
 				$table = $this->field->getTable();
 				$sql = "DELETE $table FROM $table LEFT JOIN pages ON $table.pages_id=pages.id WHERE pages.id IS NULL ";
 				$templatesWithoutField = $this->getTemplatesWithoutField($this->field);
@@ -2117,34 +2148,32 @@ class ProcessField extends Process implements ConfigurableModule {
 				if($cnt) $this->message($this->field->name . ": " . sprintf($this->_('Deleted %d orphaned rows'), $cnt));
 			}
 
-			$this->session->remove($this, 'optimize');
-			if($this->input->post('_optimize')) $this->session->set($this, 'optimize', $this->field->id); 
+			$session->remove($this, 'optimize');
+			if($input->post('_optimize')) $session->set($this, 'optimize', $this->field->id); 
 		
 			try { 
 				$this->field->save();
 				$this->message($this->_('Saved Field') . " - {$this->field->name}"); 
 				$this->saveRemoveOverrides();
 				$this->fieldSaved($this->field); 
-				$select = $this->form->get("type"); 
+				$select = $form->get("type"); 
 				if($this->field->type->className() != $select->value) {
-					$this->session->redirect("changeType?id={$this->field->id}&type={$select->value}"); 
+					$session->location("changeType?id={$this->field->id}&type={$select->value}"); 
 				}	
 			} catch(\Exception $e) {
 				$this->error($e->getMessage()); 
 			}
 			
-			$cloneField = $this->form->get('_clone_field');
+			$cloneField = $form->get('_clone_field');
 			$cloneName = $cloneField ? $cloneField->attr('value') : ''; 
 			if($cloneName) {
 				$clone = $this->cloneField($this->field, $cloneName);
 				if($clone && $clone->id) {
 					try {
 						$this->fields->save($clone);
-						if(!count($errors)) {
-							$this->fieldAdded($clone);
-							$this->wire('session')->message($this->_('You are now editing the field you cloned.'));
-							$this->wire('session')->redirect("./edit?id=$clone->id#basics");
-						}
+						$this->fieldAdded($clone);
+						$session->message($this->_('You are now editing the field you cloned.'));
+						$session->location("./edit?id=$clone->id#basics");
 					} catch(\Exception $e) {
 						$errors[] = $e->getMessage();
 					}
@@ -2157,11 +2186,11 @@ class ProcessField extends Process implements ConfigurableModule {
 				foreach($errors as $error) {
 					$this->error($error);
 				}
-				if($isNew) return $this->executeAdd();
+				// if($isNew) return $this->executeAdd();
 			}
 
-			if($this->wire('input')->post('_send_templates_changed') == 'changed') {
-				$sendTemplates = $this->form->get('send_templates');
+			if($input->post('_send_templates_changed') === 'changed') {
+				$sendTemplates = $form->get('send_templates');
 				$value = $sendTemplates->attr('value');
 				$valuePrevious = $sendTemplates->_valuePrevious;
 				if($value != $valuePrevious) {
@@ -2177,18 +2206,18 @@ class ProcessField extends Process implements ConfigurableModule {
 						// $this->message("Remove from template " . $this->wire('templates')->get($templateID)); 
 					}
 					if(count($templateIDs)) {
-						$this->wire('session')->redirect("./send-templates?id={$this->field->id}&templates=" . implode(',', $templateIDs));
+						$session->location("./send-templates?id={$this->field->id}&templates=" . implode(',', $templateIDs));
 					}
 				}
 			}
 		}
 	
 		if($this->listAfterSave) {
-			$this->session->redirect("./");
+			$session->location("./");
 		} else {
 			$url = "edit?id={$this->field->id}";
-			if($this->wire('input')->post("_optimize")) $url .= '#alert';
-			$this->session->redirect($url);
+			if($input->post("_optimize")) $url .= '#alert';
+			$session->location($url);
 		}
 		
 		return '';
@@ -2321,11 +2350,13 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	protected function saveInputfields(InputfieldWrapper $wrapper) {
 
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		$sanitizer = $this->wire()->sanitizer;
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
 	
 		foreach($wrapper->children() as $inputfield) {
+			/** @var Inputfield|InputfieldWrapper $inputfield */
 
 			if($inputfield instanceof InputfieldWrapper && count($inputfield->children())) {
 				$this->saveInputfields($inputfield); 
@@ -2339,25 +2370,34 @@ class ProcessField extends Process implements ConfigurableModule {
 
 			// see /core/Fieldtype.php for the inputfields that initiate the autojoin and global flags
 			if($name == 'autojoin') {
-				if(!$this->input->post('autojoin')) $this->field->flags = $this->field->flags & ~Field::flagAutojoin; 
-					else $this->field->flags = $this->field->flags | Field::flagAutojoin;
+				if(!$input->post('autojoin')) {
+					$this->field->flags = $this->field->flags & ~Field::flagAutojoin;
+				} else {
+					$this->field->flags = $this->field->flags | Field::flagAutojoin;
+				}
 				continue; 
 
 			} else if($name == 'global') {
-				if(!$this->input->post('global')) $this->field->flags = $this->field->flags & ~Field::flagGlobal; 
-					else $this->field->flags = $this->field->flags | Field::flagGlobal;
+				if(!$input->post('global')) {
+					$this->field->flags = $this->field->flags & ~Field::flagGlobal;
+				} else {
+					$this->field->flags = $this->field->flags | Field::flagGlobal;
+				}
 				continue; 
-			} else if($name == 'system' && $this->config->advanced) {
-				if(!$this->input->post('system')) {
+			} else if($name == 'system' && $config->advanced) {
+				if(!$input->post('system')) {
 					$this->field->flags = $this->field->flags | Field::flagSystemOverride;
 					$this->field->flags = $this->field->flags & ~Field::flagSystem;
 				} else {
 					$this->field->flags = $this->field->flags | Field::flagSystem;
 				}
 				continue; 
-			} else if($name == 'permanent' && $this->config->advanced) {
-				if(!$this->input->post('permanent')) $this->field->flags = $this->field->flags & ~Field::flagPermanent; 
-					else $this->field->flags = $this->field->flags | Field::flagPermanent;
+			} else if($name == 'permanent' && $config->advanced) {
+				if(!$input->post('permanent')) {
+					$this->field->flags = $this->field->flags & ~Field::flagPermanent;
+				} else {
+					$this->field->flags = $this->field->flags | Field::flagPermanent;
+				}
 				continue; 
 			}
 
@@ -2397,9 +2437,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		if($this->field->useRoles) {
 			// access control active for this field
-			$this->field->viewRoles = $this->wire('input')->post('viewRoles');
-			$this->field->editRoles = $this->wire('input')->post('editRoles');
-			$accessFlags = $this->wire('input')->post('_accessFlags');
+			$this->field->viewRoles = $input->post('viewRoles');
+			$this->field->editRoles = $input->post('editRoles');
+			$accessFlags = $input->post('_accessFlags');
 			if(!is_array($accessFlags)) $accessFlags = array();
 			$flags = $this->field->flags;
 			if(in_array(Field::flagAccessAPI, $accessFlags)) {
@@ -2423,6 +2463,8 @@ class ProcessField extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function checkInputfieldDependencySetting(Inputfield $inputfield) {
+		$fields = $this->wire()->fields;
+		
 		$label = sprintf($this->_('Error in setting “%s”'), $inputfield->getSetting('label'));
 		$value = $inputfield->attr('value');
 		$valueLabel = ' ' . sprintf($this->_('(you specified “%s”)'), $value);
@@ -2437,7 +2479,8 @@ class ProcessField extends Process implements ConfigurableModule {
 			foreach($selector->fields() as $f) {
 				if(strpos($f, '.')) continue;
 				if(!strlen($selector->value())) continue;
-				$f = $this->wire('fields')->get($f);
+				/** @var Field $f */
+				$f = $fields->get($f);
 				if(!$f || !$f->type instanceof FieldtypePage) continue;
 				$v = implode('', $selector->values());
 				if(ctype_digit("$v")) continue; // validates
@@ -2452,7 +2495,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	protected function saveRemoveOverrides() {
 
-		$removeContext = $this->wire('input')->post('_remove_context');
+		$removeContext = $this->wire()->input->post('_remove_context');
 		if(empty($removeContext)) return;
 
 		$contextArrays = array();
@@ -2474,10 +2517,12 @@ class ProcessField extends Process implements ConfigurableModule {
 			if(isset($fieldgroups[$fieldgroupID])) {
 				$fieldgroup = $fieldgroups[$fieldgroupID];
 			} else {
-				$fieldgroup = $this->wire('fieldgroups')->get((int) $fieldgroupID);
+				$fieldgroup = $this->wire()->fieldgroups->get((int) $fieldgroupID);
 				if(!$fieldgroup) continue;
 				$fieldgroups[$fieldgroup->id] = $fieldgroup;
 			}
+			
+			/** @var Fieldgroup $fieldgroup */
 
 			if(isset($contextArrays[$fieldgroup->id])) {
 				// use previously loaded version
@@ -2524,35 +2569,40 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___executeChangeType() {
+		
+		$input = $this->wire()->input;
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
+		$sanitizer = $this->wire()->sanitizer;
 
 		$this->buildEditForm();
 
 		$this->headline(sprintf($this->_('Change type for field: %s'), $this->field->name)); // Page headline when changing type
-		$this->wire('breadcrumbs')
-			->add(new Breadcrumb('./', $this->labels['fields']))
-			->add(new Breadcrumb("./edit?id={$this->field->id}", $this->field->name)); 
+		$this->breadcrumb('./', $this->labels['fields']);
+		$this->breadcrumb("./edit?id={$this->field->id}", $this->field->name); 
 
-		if(!$this->input->get('type')) $this->session->redirect('./'); 
-		$newType = $this->wire('sanitizer')->name($this->input->get('type')); 
-		$newType = $this->wire('fieldtypes')->get($newType); 
-		if(!$newType) $this->session->redirect('./'); 
+		if(!$input->get('type')) $session->location('./'); 
+		$newType = $sanitizer->name($input->get('type')); 
+		$newType = $this->wire()->fieldtypes->get($newType); 
+		if(!$newType) $session->location('./'); 
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get("InputfieldForm"); 
+		$form = $modules->get("InputfieldForm"); 
 		$form->attr('method', 'post');
 		$form->attr('action', 'saveChangeType'); 
 		$form->head = sprintf($this->_('Change field type from "%1$s" to "%2$s"'), $this->field->type->longName, $newType->longName);  
 		$form->description = $this->_("Please note that changing the field type alters the database schema. If the new fieldtype is not compatible with the old, or if it contains a significantly different schema, it is possible for data loss to occur. As a result, you are advised to backup the database before completing a field type change."); // Change field type description
 
 		/** @var InputfieldCheckbox $f */
-		$f = $this->modules->get("InputfieldCheckbox"); 
+		$f = $modules->get("InputfieldCheckbox"); 
 		$f->attr('name', 'confirm_type'); 
 		$f->attr('value', $newType->className()); 
 		$f->label = $this->_("Confirm field type change");
 		$f->description = $this->_("If you are sure you want to change the field type, check the box below and submit this form."); // Confirm change description
 		$form->append($f);
-		
-		$f = $this->modules->get("InputfieldCheckbox");
+	
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get("InputfieldCheckbox");
 		$f->attr('name', 'keep_settings');
 		$f->label = $this->_('Keep field settings?'); 
 		$f->description = $this->_('Check this box to retain all the custom settings for this field (from the Details and Input tabs). This is desirable if the new field type has the same or similar configuration properties to the old field type. However, it can also result in unnecessary or redundant configuration data taking up space in the field. You can always analyze this later from: Advanced > Check field data.'); // Keep field settings description
@@ -2561,13 +2611,13 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form->append($f); 
 
 		/** @var InputfieldHidden $f */
-		$f = $this->modules->get("InputfieldHidden"); 	
+		$f = $modules->get("InputfieldHidden"); 	
 		$f->attr('name', 'id'); 
 		$f->attr('value', $this->field->id); 
 		$form->append($f); 	
 
 		/** @var InputfieldSubmit $field */
-		$field = $this->modules->get('InputfieldSubmit');
+		$field = $modules->get('InputfieldSubmit');
 		$field->attr('name', 'submit_change_field_type'); 
 		$form->append($field); 
 	
@@ -2623,7 +2673,6 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		/** @var ProcessFieldExportImport $o */
 		$o = $this->wire(new ProcessFieldExportImport());
-		/** @var InputfieldForm $form */
 		$form = $o->buildImport();
 		
 		return $form->render();
@@ -2643,7 +2692,6 @@ class ProcessField extends Process implements ConfigurableModule {
 		require(dirname(__FILE__) . '/ProcessFieldExportImport.php'); 
 		/** @var ProcessFieldExportImport $o */
 		$o = $this->wire(new ProcessFieldExportImport());
-		/** @var InputfieldForm $form */
 		$form = $o->buildExport();
 		
 		return $form->render();
@@ -2657,18 +2705,23 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___executeSendTemplates() {
+		
+		$modules = $this->wire()->modules;
+		$templates = $this->wire()->templates;
+		$input = $this->wire()->input;
 
 		if(!$this->field || !$this->field->id) throw new WireException('No field specified');
-		$templateIDs = $this->wire('input')->get('templates');
+		$templateIDs = $input->get('templates');
 		if(!strlen($templateIDs)) throw new WireException("No templates specified"); 
 		$templateIDs = explode(',', $templateIDs);
-		
-		$form = $this->wire('modules')->get('InputfieldForm'); 
+	
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm'); 
 		$form->attr('action', "./send-templates-save?id={$this->field->id}");
 		
 		$fields = array($this->field); 
 		if($this->field->type instanceof FieldtypeFieldsetOpen) {
-			$fieldsetClose = $this->wire('fields')->get($this->field->name . '_END'); 
+			$fieldsetClose = $this->wire()->fields->get($this->field->name . '_END'); 
 			if($fieldsetClose) $fields[] = $fieldsetClose;
 		}
 
@@ -2676,19 +2729,21 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 			$templateID = (int) $templateID; 
 			if(!$templateID) continue; 
-			$template = $this->wire('templates')->get(abs($templateID)); 
+			
+			$template = $templates->get(abs($templateID)); 
 			if(!$template) continue; 
 			
 			if($templateID < 0) {
 				// remove from template
-				
-				$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+			
+				/** @var InputfieldCheckbox $f */	
+				$f = $modules->get('InputfieldCheckbox'); 
 				$f->attr('name', "remove_{$this->field->id}_template_$template->id"); 
 				$f->attr('value', $this->field->id); 
 				$f->icon = 'minus-circle';
 				$f->label = sprintf($this->_('Remove field "%1$s" from template "%2$s"'), $this->field->name, $template->name);
 				$f->label2 = sprintf($this->_('Confirm removal of field "%1$s" from template "%2$s"'), $this->field->name, $template->name); 
-				$numRows = $this->wire('fields')->getNumRows($this->field, array('template' => $template));
+				$numRows = $this->wire()->fields->getNumRows($this->field, array('template' => $template));
 				if($numRows) {
 					$f->description = $this->_('WARNING: This will result in data associated with the field being permanently deleted.') . ' '; // Warning for field deletion
 					$f->notes = sprintf($this->_n('This will also delete %d row of data.', 'This will also delete %d rows of data.', $numRows), $numRows);  // Notes for field deletion
@@ -2704,8 +2759,9 @@ class ProcessField extends Process implements ConfigurableModule {
 				// add to template
 
 				foreach($fields as $field) {
-					
-					$f = $this->wire('modules')->get('InputfieldSelect');
+				
+					/** @var InputfieldSelect $f */
+					$f = $modules->get('InputfieldSelect');
 					$f->attr('name', "add_{$field->id}_template_$templateID");
 					$f->label = sprintf($this->_('Template: %s'), $template->name);
 					$f->label = sprintf($this->_('Add field "%1$s" to template "%2$s"'), $field->name, $template->name);
@@ -2734,8 +2790,9 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 			}
 		}
-		
-		$f = $this->wire('modules')->get('InputfieldSubmit');
+	
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
 		$form->add($f); 
 		
 		$this->headline($this->_('Add or remove from template(s)')); 
@@ -2753,15 +2810,18 @@ class ProcessField extends Process implements ConfigurableModule {
 	public function ___executeSendTemplatesSave() {
 		
 		if(!$this->field || !$this->field->id) throw new WireException('No field specified');
-		/** @var Session $session */
-		$session = $this->wire('session');
+		
+		$session = $this->wire()->session;
 		$session->CSRF->validate();
+		
+		$input = $this->wire()->input;	
+		$templates = $this->wire()->templates;
 		
 		$changedTemplates = array();
 		$isFieldset = false;
 		$fields = array($this->field);
 		if($this->field->type instanceof FieldtypeFieldsetOpen) {
-			$fieldsetClose = $this->wire('fields')->get($this->field->name . '_END');
+			$fieldsetClose = $this->wire()->fields->get($this->field->name . '_END');
 			if($fieldsetClose) {
 				$fields[] = $fieldsetClose;
 				$isFieldset = true; 
@@ -2769,7 +2829,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 		
 		// first handle additions, since it's possible for removals to take a long time or remote chance of timeout
-		foreach($this->wire('templates') as $template) {
+		foreach($templates as $template) {
 			$templateChanged = false;
 	
 			foreach($fields as $key => $field) {
@@ -2778,7 +2838,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				// there is also the corresponding FieldtypeFieldsetClose
 				$isFieldsetEnd = $isFieldset && $key > 0;
 				
-				$addFieldID = $this->wire('input')->post("add_{$field->id}_template_$template->id");
+				$addFieldID = $input->post("add_{$field->id}_template_$template->id");
 				if(!$addFieldID) continue;
 				if(!$this->allowFieldInTemplate($field, $template)) continue;
 				if($isFieldsetEnd && $template->fieldgroup->hasField($field)) continue;
@@ -2826,13 +2886,13 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 		
 		// next handle removals
-		foreach($this->wire('templates') as $template) {
-			$removeFieldID = (int) $this->wire('input')->post("remove_{$this->field->id}_template_$template->id");
+		foreach($templates as $template) {
+			$removeFieldID = (int) $input->post("remove_{$this->field->id}_template_$template->id");
 			$templateChanged = false;
 			if($removeFieldID && $removeFieldID === (int) $this->field->id) {
 				$template->fieldgroup->remove($this->field);
 				if($this->field->type instanceof FieldtypeFieldsetOpen) {
-					$fieldsetClose = $this->wire('fields')->get($this->field->name . '_END'); 
+					$fieldsetClose = $this->wire()->fields->get($this->field->name . '_END'); 
 					if($fieldsetClose) $template->fieldgroup->remove($fieldsetClose); 
 				}
 				try {
@@ -2850,7 +2910,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			if($templateChanged) $template->save();
 		}
 		
-		$this->wire('session')->redirect("./edit?id={$this->field->id}"); 
+		$session->location("./edit?id={$this->field->id}"); 
 	}
 
 	/**
@@ -2864,14 +2924,15 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	protected function getContextChanges(InputfieldWrapper $form, Field $field, Fieldgroup $fieldgroup) {
 
-		if(!$fieldgroup) return array();
-
 		$contextArray = $fieldgroup->getFieldContextArray($field->id, $this->contextNamespace);
 		if(!count($contextArray)) return array();
 
-		$fieldOriginal = $this->wire('fields')->get($field->id);
+		$fieldOriginal = $this->wire()->fields->get($field->id);
 		$changes = array();
 		// $isInContext = $this->fieldgroup || $this->contextNamespace; 
+		
+		$roles = $this->wire()->roles;
+		$languages = $this->wire()->languages;
 
 		$labels = array(
 			'on' => $this->_('On'),
@@ -2941,7 +3002,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 			if(is_array($value) && ($key == 'viewRoles' || $key == 'editRoles')) {
 				foreach($value as $k => $v) {
-					$v = $this->wire('roles')->get((int) $v);
+					$v = $roles->get((int) $v);
 					$roleName = $v->name == 'guest' ? $labels['all'] : $v->name;
 					if($v) $value[$k] = $roleName;
 				}
@@ -2949,7 +3010,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 			if(is_array($originalValue) && ($key == 'viewRoles' || $key == 'editRoles')) {
 				foreach($originalValue as $k => $v) {
-					$v = $this->wire('roles')->get((int) $v);
+					$v = $roles->get((int) $v);
 					$roleName = $v->name == 'guest' ? $labels['all'] : $v->name;
 					if($v) $originalValue[$k] = $roleName;
 				}
@@ -2997,8 +3058,8 @@ class ProcessField extends Process implements ConfigurableModule {
 					}
 				}
 				continue;
-			} else if($this->wire('languages') && preg_match('/^(label|description|notes)(\d+)$/', $key, $matches)) {
-				$label = ucfirst($matches[1]) . ' (' . $this->wire('languages')->get((int) $matches[2])->get('title|name') . ')';
+			} else if($languages && preg_match('/^(label|description|notes)(\d+)$/', $key, $matches)) {
+				$label = ucfirst($matches[1]) . ' (' . $languages->get((int) $matches[2])->get('title|name') . ')';
 			} else {
 				$label = $key;
 			}
@@ -3025,8 +3086,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function search($text, array $options = array()) {
 
-		/** @var Languages $languages */
-		$languages = $this->wire('langauges');
+		$languages = $this->wire()->langauges;
 		$page = $this->getProcessPage();
 
 		$result = array(
@@ -3052,7 +3112,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$property = isset($options['property']) ? $options['property'] : '';
 		$cnt = 0;
 
-		foreach($this->wire('fields') as $item) {
+		foreach($this->wire()->fields as $item) {
 			/** @var Field $item */
 			if(!$item->type) continue;
 
@@ -3073,7 +3133,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			}
 			
 			if($property == 'settings' || $property == 'data') {
-				foreach($item->getArray() as $k => $v) {
+				foreach($item->getArray() as $v) {
 					$search[] = (string) $v;
 				}
 			} else if(!in_array($property, $result['properties'])) {
@@ -3117,7 +3177,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 * URL to redirect to after non-authenticated user is logged-in, or false if module does not support
 	 *
 	 * @param Page $page
-	 * @return bool|string
+	 * @return string
 	 * @sine 3.0.167
 	 *
 	 */
@@ -3199,8 +3259,9 @@ class ProcessField extends Process implements ConfigurableModule {
 	public function getModuleConfigInputfields(array $data) {
 
 		$fields = $this->wire(new InputfieldWrapper());
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
 
+		/** @var InputfieldCheckbox $field */
 		$field = $modules->get("InputfieldCheckbox");
 		$field->attr('name', 'listAfterSave');
 		$field->attr('value', 1); 
@@ -3275,7 +3336,6 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___allowFieldInTemplate(Field $field, Template $template) {
-		if($field && $template) {}
 		return true; 
 	}
 
@@ -3287,14 +3347,14 @@ class ProcessField extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___upgrade($fromVersion, $toVersion) {
-		$collapsedTags = $this->wire('modules')->getConfig($this, 'collapsedTags');
+		$collapsedTags = $this->wire()->modules->getConfig($this, 'collapsedTags');
 		if(!is_array($collapsedTags)) {
 			$collapsedTags = array();
-			foreach($this->wire('fields')->getTags() as $tag) {
+			foreach($this->wire()->fields->getTags() as $tag) {
 				$c = substr($tag, 0, 1);
 				if($c === '-' || $c === '_') $collapsedTags[] = $tag;
 			}
-			$this->wire('modules')->saveConfig($this, 'collapsedTags', $collapsedTags);
+			$this->wire()->modules->saveConfig($this, 'collapsedTags', $collapsedTags);
 		}
 	}
 

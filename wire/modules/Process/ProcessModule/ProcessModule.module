@@ -2078,12 +2078,18 @@ class ProcessModule extends Process {
 			$form->append($f);
 		}
 
-		if($input->post('submit_import_translations')) {
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
+		$f->attr('name', 'submit_import_translations');
+		$f->showInHeader(true);
+		$form->add($f);
+		
+		if($form->isSubmitted('submit_import_translations')) {
 			foreach($languages as $language) {
 				$basename = $input->post->pageName("language_$language->name");
 				if(empty($basename)) continue;
 				if(empty($languageFiles[$basename])) continue;
-				$file = $languageFiles[$basename]; 
+				$file = $languageFiles[$basename];
 				if(!is_file($file)) {
 					$session->error($this->_('Cannot find CSV file') . " - " . basename($file));
 					continue;
@@ -2092,12 +2098,6 @@ class ProcessModule extends Process {
 			}
 			$session->location($moduleEditUrl);
 		}
-
-		/** @var InputfieldSubmit $f */
-		$f = $modules->get('InputfieldSubmit');
-		$f->attr('name', 'submit_import_translations');
-		$f->showInHeader(true);
-		$form->add($f);
 
 		return $form->render();
 	}

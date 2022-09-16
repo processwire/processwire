@@ -290,6 +290,7 @@ class ProcessLanguageTranslator extends Process {
 		$submit->showInHeader();
 		$form->add($submit);
 
+		/** @var InputfieldSubmit $submit */
 		$submit = $this->modules->get("InputfieldSubmit");
 		$submit->attr('name', 'submit_refresh');
 		$submit->attr('value', $this->_('Refresh File List'));
@@ -297,7 +298,7 @@ class ProcessLanguageTranslator extends Process {
 		$submit->icon = 'refresh';
 		$form->add($submit);
 
-		if($this->input->post('submit_add')) {
+		if($form->isSubmitted('submit_add')) {
 			if($this->input->post('filename')) {
 				$this->processAdd($field);
 
@@ -343,7 +344,7 @@ class ProcessLanguageTranslator extends Process {
 		if($sourceFilename) {
 			$filename = $sourceFilename;
 		} else {
-			$filename = $filename = $this->input->post('filename');
+			$filename = $this->input->post('filename');
 		}
 		
 		$filename = str_replace(array('\\', '..'), array('/', ''), $filename);

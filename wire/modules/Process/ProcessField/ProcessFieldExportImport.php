@@ -164,7 +164,7 @@ class ProcessFieldExportImport extends Wire {
 		$form->method = 'post';
 		$form->attr('id', 'import_form');
 
-		if($this->input->post('submit_commit')) {
+		if($form->isSubmitted('submit_commit')) {
 			$this->processImport();
 			return $form;
 		}
