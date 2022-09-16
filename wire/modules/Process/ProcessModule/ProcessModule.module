@@ -837,7 +837,16 @@ class ProcessModule extends Process {
 		foreach($modulesArray as $name => $installed) {
 
 			if(strpos($name, $section) !== 0 || preg_match('/' . $section . '[^A-Z0-9]/', $name)) {
-				if(!preg_match('/^([A-Za-z][a-z]+)/', $name, $matches)) $this->error(sprintf($this->_('Invalid module name: %s'), $name));
+				if(!preg_match('/^([A-Za-z][a-z]+)/', $name, $matches)) {
+					$example = $sanitizer->alpha($sanitizer->fieldName($name)); 
+					$example = strtoupper(substr($example, 0, 1)) . strtolower(substr($example, 1, 1)) . substr($example, 2);
+					$this->error(
+						sprintf($this->_('Invalid module name: “%s”'), $name) . ' ' . 
+						$this->_('Please use uppercase [A-Z] for first character, lowercase [a-z] for 2nd character, and [a-z A-Z 0-9] for the rest.') . ' ' . 
+						sprintf($this->_('For example: “%s”'), $example)
+					);
+					continue;
+				}
 				if($options['allowSections'] || is_null($table)) { 
 					$section = $matches[1];
 					$sections[] = $section;
