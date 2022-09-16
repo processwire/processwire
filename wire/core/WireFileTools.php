@@ -28,7 +28,7 @@ class WireFileTools extends Wire {
 	 * 
 	 */
 	public function __destruct() {
-		foreach($this->data as $key => $value) {
+		foreach($this->data as $value) {
 			if(isset($value['fp'])) fclose($value['fp']); 
 		}
 	}
@@ -131,7 +131,7 @@ class WireFileTools extends Wire {
 				if($file == '.' || $file == '..' || strpos($file, '..') !== false) continue;
 				$pathname = rtrim($path, '/') . '/' . $file;
 				if(is_dir($pathname)) {
-					$this->rmdir($pathname, $recursive, $options);
+					$this->rmdir($pathname, true, $options);
 				} else {
 					$this->unlink($pathname, $options['limitPath'], $options['throw']);
 				}
@@ -675,7 +675,7 @@ class WireFileTools extends Wire {
 		}
 
 		$pos = strpos($pathname, '//');
-		if($pos !== false && $pos !== strpos($this->wire('config')->paths->assets, '//')) {
+		if($pos !== false && $pos !== strpos($this->wire()->config->paths->assets, '//')) {
 			// URLs or accidental extra slashes not allowed, unless they also appear in a known safe system path
 			return $this->filesError(__FUNCTION__, 'pathname may not contain double slash “//”', $throw);
 		}
@@ -1212,7 +1212,6 @@ class WireFileTools extends Wire {
 		$dataKey = "csv:$filename";
 		$header = false;
 		$row = false;
-		$fp = null;
 		
 		if(isset($this->data[$dataKey])) {
 			// file is open
@@ -1456,7 +1455,7 @@ class WireFileTools extends Wire {
 			}
 			if(!$allowed) {
 				$error = "Filename $filename is not in an allowed path." ;
-				$error .= ' Paths: ' . implode("\n", $options['allowedPaths']) . '';
+				$error .= ' Paths: ' . implode("\n", $options['allowedPaths']);
 				if($options['throwExceptions']) $this->filesException(__FUNCTION__, $error);
 				$this->error($error);
 				return false;
@@ -1464,8 +1463,7 @@ class WireFileTools extends Wire {
 		}
 		
 		if($options['cache']) {
-			/** @var WireCache $cache */
-			$cache = $this->wire('cache');
+			$cache = $this->wire()->cache;
 			$o = $options;
 			unset($o['cache']); 
 			$o['vars'] = $vars; 
@@ -1511,7 +1509,7 @@ class WireFileTools extends Wire {
 	 */
 	public function ___include($filename, array $vars = array(), array $options = array()) {
 
-		$paths = $this->wire('config')->paths;
+		$paths = $this->wire()->config->paths;
 		$defaults = array(
 			'func' => 'include',
 			'autoExtension' => 'php',
@@ -1557,6 +1555,7 @@ class WireFileTools extends Wire {
 			$allowed = false;
 			foreach($options['allowedPaths'] as $path) {
 				if($this->fileInPath($filename, $path)) $allowed = true;
+				if($allowed) break;
 			}
 			if(!$allowed) $this->filesException(__FUNCTION__, "File is not in an allowed path: $filename");
 		}
@@ -1564,7 +1563,7 @@ class WireFileTools extends Wire {
 		if(!file_exists($filename)) $this->filesException(__FUNCTION__, "File does not exist: $filename");
 
 		// extract all API vars
-		$fuel = array_merge($this->wire('fuel')->getArray(), $vars);
+		$fuel = array_merge($this->wire()->fuel->getArray(), $vars);
 		extract($fuel);
 
 		// include the file
@@ -1621,8 +1620,9 @@ class WireFileTools extends Wire {
 		if($fileIsContents) {
 			$data = trim($file);
 		} else {
-			$data = trim(file_get_contents($file));
+			$data = file_get_contents($file);
 			if($data === false) return $namespace;
+			$data = trim($data);
 		}
 
 		// if there's no "namespace" keyword in the file, it's not declaring one
@@ -1754,7 +1754,7 @@ class WireFileTools extends Wire {
 			// for multi-instance support, use the same compiled version
 			// otherwise, require_once() statements in a file may not work as intended
 			// applied just to site/modules for the moment, but may need to do site/templates too
-			$f = str_replace($this->wire('config')->paths->root, '', $file);
+			$f = str_replace($this->wire()->config->paths->root, '', $file);
 			if(isset($compiled[$f])) return $compiled[$f];
 		} else {
 			$f = '';
