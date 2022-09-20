@@ -23,6 +23,7 @@ class PagesRaw extends Wire {
 	 *
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 	}
 
@@ -301,6 +302,12 @@ class PagesRawFinder extends Wire {
 	 * 
 	 */
 	protected $childrenFields = array();
+	
+	/**
+	 * @var array
+	 *
+	 */
+	protected $templateFields = array();
 
 	/**
 	 * @var array
@@ -561,6 +568,12 @@ class PagesRawFinder extends Wire {
 			$this->unsetFields['parent_id'] = 'parent_id';
 		}
 		
+		if(count($this->templateFields) && !isset($this->nativeFields['templates_id'])) {
+			// we need templates_id if finding any template properties
+			$this->nativeFields['templates_id'] = 'templates_id';
+			$this->unsetFields['templates_id'] = 'templates_id';
+		}
+		
 		// requested native pages table fields/properties
 		if(count($this->nativeFields) || $this->getAll || $this->getPaths) {
 			// one or more native pages table column(s) requested
@@ -580,6 +593,11 @@ class PagesRawFinder extends Wire {
 		// requested parent fields
 		if(count($this->parentFields)) {
 			$this->findParent();
+		}
+		
+		// requested template fields
+		if(count($this->templateFields)) {
+			$this->findTemplate();
 		}
 
 		// remove runtime only fields
@@ -615,7 +633,9 @@ class PagesRawFinder extends Wire {
 		if($this->options['flat']) {
 			$delimiter = is_string($this->options['flat']) ? $this->options['flat'] : '.';
 			foreach($this->values as $key => $value) {
-				$this->values[$key] = $this->flattenValues($value, '', $delimiter);
+				if(is_array($value)) {
+					$this->values[$key] = $this->flattenValues($value, '', $delimiter);
+				}
 			}
 		}
 
@@ -666,7 +686,7 @@ class PagesRawFinder extends Wire {
 				// Array where [ 'field' => [ 'subfield' ]] 
 				$colName = $fieldName; // array
 				$fieldName = $key;
-				if($fieldName === 'parent' || $fieldName === 'children') {
+				if($fieldName === 'parent' || $fieldName === 'children' || $fieldName === 'template') {
 					// passthru
 				} else if(in_array($fieldName, $runtimeNames) && !$fields->get($fieldName)) {
 					// passthru
@@ -691,7 +711,7 @@ class PagesRawFinder extends Wire {
 					list($fieldName, $colName) = explode('[', $fieldName, 2); 
 					$colName = rtrim($colName, ']');
 				}
-				if($fieldName === 'parent' || $fieldName === 'children') {
+				if($fieldName === 'parent' || $fieldName === 'children' || $fieldName === 'template') {
 					// passthru
 				} else if(in_array($fieldName, $runtimeNames) && !$fields->get($fieldName)) {
 					// passthru
@@ -714,6 +734,9 @@ class PagesRawFinder extends Wire {
 			} else if($fieldName === 'children') {
 				// @todo not yet supported
 				$this->childrenFields[$fullName] = $colName;
+
+			} else if($fieldName === 'template') {
+				$this->templateFields[$fullName] = $colName;
 
 			} else if($fullName === 'url' || $fullName === 'path') {
 				if($this->wire()->modules->isInstalled('PagePaths')) {
@@ -1194,6 +1217,48 @@ class PagesRawFinder extends Wire {
 		}
 	}
 	
+	/**
+	 * Find and apply values for template.[property]
+	 *
+	 * @since 3.0.206
+	 *
+	 */
+	protected function findTemplate() {
+
+		$templates = $this->wire()->templates;
+		$templateFields = $this->templateFields;
+		$templateData = array();
+		$templateIds = array();
+
+		foreach($this->values as /* $pageId => */ $data) {
+			$templateId = $data['templates_id'];
+			if(!isset($templateIds[$templateId])) $templateIds[$templateId] = $templateId;
+		}
+
+		foreach($templateIds as $templateId) {
+			$template = $templates->get($templateId);
+			$templateData[$templateId] = array();
+			foreach($templateFields as /* $fullName => */ $colName) {
+				if(empty($colName)) $colName = 'name';
+				$value = $template->get($colName);
+				if(is_object($value)) continue; // object values not allowed here
+				$templateData[$templateId][$colName] = $value;
+			}
+		}
+
+		if(!$this->getMultiple && count($this->templateFields) < 2) {
+			$colName = reset($this->templateFields);
+			foreach($templateData as $templateId => $data) {
+				$templateData[$templateId] = $data[$colName];
+			}
+		}
+		
+		foreach($this->values as $pageId => $data) {
+			$templateId = $data['templates_id'];
+			$this->values[$pageId]['template'] = $templateData[$templateId];
+		}
+	}
+
 	/**
 	 * Find runtime generated fields
 	 *
