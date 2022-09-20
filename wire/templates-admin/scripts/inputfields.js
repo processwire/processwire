@@ -286,7 +286,7 @@ var Inputfields = {
 		}
 
 		// if ajax loaded, force InputfieldStates() click handler to open this one
-		if(isCollapsed && isAjax) {
+		if(isCollapsed && isAjax && !$inputfield.hasClass('InputfieldStateWasCollapsed')) {
 			$toggleIcon.click();
 			return $inputfield;
 		}
