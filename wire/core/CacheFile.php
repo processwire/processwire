@@ -12,7 +12,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -48,6 +48,8 @@ class CacheFile extends Wire {
 	 *
 	 */ 
 	public function __construct($path, $id, $cacheTimeSeconds) {
+		
+		parent::__construct();
 
 		$this->useFuel(false);
 		$path = rtrim($path, '/') . '/';
@@ -55,11 +57,11 @@ class CacheFile extends Wire {
 		$this->path = $id ? $path . $id . '/' : $path;
 
 		if(!is_dir($path)) {
-			if(!$this->wire('files')->mkdir($path, true)) throw new WireException("Unable to create path: $path"); 
+			if(!wire()->files->mkdir($path, true)) throw new WireException("Unable to create path: $path"); 
 		}
 
 		if(!is_dir($this->path)) {
-			if(!$this->wire('files')->mkdir($this->path)) throw new WireException("Unable to create path: {$this->path}"); 
+			if(!wire()->files->mkdir($this->path)) throw new WireException("Unable to create path: $this->path"); 
 		}
 
 		if(is_file($this->globalExpireFile)) {
@@ -97,8 +99,11 @@ class CacheFile extends Wire {
 	 */
 	protected function buildFilename() {
 		$filename = $this->path; 
-		if($this->secondaryID) $filename .= $this->secondaryID; 
-			else $filename .= $this->primaryID; 
+		if($this->secondaryID) {
+			$filename .= $this->secondaryID;
+		} else {
+			$filename .= $this->primaryID;
+		}
 		$filename .= self::cacheFileExtension; 
 		return $filename; 
 	}
@@ -189,12 +194,12 @@ class CacheFile extends Wire {
 					return false;
 				}
 			} else {
-				$this->wire('files')->mkdir("$dirname/", true);
+				$this->wire()->files->mkdir("$dirname/", true);
 			}
 		}
 
 		$result = file_put_contents($filename, $data); 
-		$this->wire('files')->chmod($filename); 
+		$this->wire()->files->chmod($filename); 
 		return $result;
 	}
 
@@ -210,7 +215,7 @@ class CacheFile extends Wire {
 		foreach($dir as $file) {
 			if($file->isDir() || $file->isDot()) continue; 
 			//if(strpos($file->getFilename(), self::cacheFileExtension)) @unlink($file->getPathname()); 
-			if(self::isCacheFile($file->getPathname())) $this->wire('files')->unlink($file->getPathname()); 
+			if(self::isCacheFile($file->getPathname())) $this->wire()->files->unlink($file->getPathname()); 
 		}
 
 		return @rmdir($this->path); 
@@ -223,7 +228,7 @@ class CacheFile extends Wire {
 	 *
 	 */
 	protected function removeFilename($filename) {
-		$this->wire('files')->unlink($filename); 
+		$this->wire()->files->unlink($filename); 
 	}
 
 
@@ -239,6 +244,7 @@ class CacheFile extends Wire {
 
 		$dir = new \DirectoryIterator($path); 
 		$numRemoved = 0;
+		$files = wire()->files;
 	
 		foreach($dir as $file) {
 			
@@ -250,7 +256,7 @@ class CacheFile extends Wire {
 				$numRemoved += self::removeAll($pathname, true); 
 
 			} else if($file->isFile() && (self::isCacheFile($pathname) || ($file->getFilename() == self::globalExpireFilename))) {
-				if(wire('files')->unlink($pathname)) $numRemoved++;
+				if($files->unlink($pathname)) $numRemoved++;
 			}
 		}
 
@@ -266,7 +272,8 @@ class CacheFile extends Wire {
 	 *
 	 */
 	public function expireAll() {
-		$note = "The modification time of this file represents the time of the last usable cache file. " . 
+		$note = 
+			"The modification time of this file represents the time of the last usable cache file. " . 
 			"Cache files older than this file are considered expired. " . date('m/d/y H:i:s');
 		@file_put_contents($this->globalExpireFile, $note, LOCK_EX); 
 	}

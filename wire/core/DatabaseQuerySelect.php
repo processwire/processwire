@@ -12,7 +12,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property array $select
@@ -87,7 +87,7 @@ class DatabaseQuerySelect extends DatabaseQuery {
 			$this->getQueryMethod('limit')
 		) . ' ';
 
-		if($this->get('comment') && $this->wire('config')->debug) {
+		if($this->get('comment') && $this->wire()->config->debug) {
 			// NOTE: PDO thinks ? and :str param identifiers in /* comments */ are real params
 			// so we str_replace them out of the comment, and only support comments in debug mode
 			$comment = str_replace(array('*/', '?', ':'), '', $this->comment); 
@@ -142,7 +142,7 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	protected function getQuerySelect() {
 		
 		if(self::$dbCache === null) {
-			self::$dbCache = $this->wire('config')->dbCache === false ? false : true;
+			self::$dbCache = $this->wire()->config->dbCache === false ? false : true;
 		}
 
 		$select = $this->select; 

@@ -10,7 +10,7 @@
  * of what other methods/objects have done to it. It also means being able
  * to build a complex query without worrying about correct syntax placement.
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * This file is licensed under the MIT license
@@ -287,7 +287,7 @@ abstract class DatabaseQuery extends WireData {
 		} else {
 			// provided key, make sure it is valid and unique (this part is not typically used)
 			$key = ltrim($options['key'], ':') . 'X';
-			if(!ctype_alnum(str_replace('_', '', $key))) $key = $this->wire('database')->escapeCol($key);
+			if(!ctype_alnum(str_replace('_', '', $key))) $key = $this->wire()->database->escapeCol($key);
 			if(empty($key) || ctype_digit($key[0]) || isset($this->bindKeys[":$key"])) {
 				// if key is not valid, then auto-generate one instead
 				unset($options['key']);
@@ -597,7 +597,7 @@ abstract class DatabaseQuery extends WireData {
 	public function getDebugQuery() {
 		$sql = $this->getQuery();
 		$suffix = $this->bindOptions['suffix'];
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		foreach($this->bindValues as $bindKey => $bindValue) {
 			if(is_string($bindValue)) $bindValue = $database->quote($bindValue);
 			if($bindKey[strlen($bindKey)-1] === $suffix) {

@@ -7,6 +7,9 @@
  * 
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
+ * 
+ * @method bool action(Page $item)
+ * @method executeMultiple(PageArray $items)
  *
  */
 
@@ -34,6 +37,17 @@ abstract class PageAction extends WireAction implements Module {
 	 */
 	public function getItemType() {
 		return strlen(__NAMESPACE__) ? __NAMESPACE__ . '\\Page' : 'Page';
+	}
+
+	/**
+	 * Execute the action for the given page
+	 *
+	 * @param Page $item Item to operate upon
+	 * @return bool True if the item was successfully operated upon, false if not.
+	 *
+	 */
+	public function execute($item) {
+		return parent::execute($item);
 	}
 
 	/**

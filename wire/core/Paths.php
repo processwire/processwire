@@ -173,9 +173,9 @@ class Paths extends WireData {
 			$key = "$key";
 		} else if(strpos($key, 'http') === 0) {
 			if(is_null($_http)) {
-				$scheme = $this->wire('input')->scheme;
+				$scheme = $this->wire()->input->scheme;
 				if(!$scheme) $scheme = 'http';
-				$httpHost = $this->wire('config')->httpHost; 
+				$httpHost = $this->wire()->config->httpHost; 
 				if($httpHost) $_http = "$scheme://$httpHost";
 			}
 			$http = $_http;

@@ -352,7 +352,7 @@ class Debug {
 		$options = array_merge($defaults, $options);
 		if($options['limit']) $options['limit']++;
 		$traces = @debug_backtrace($options['flags'], $options['limit']);
-		$config = wire('config');
+		$config = wire()->config;
 		$rootPath = ProcessWire::getRootPath(true);
 		$rootPath2 = $config && $config->paths ? $config->paths->root : $rootPath;
 		array_shift($traces); // shift of the simpleBacktrace call, which is not needed
@@ -365,7 +365,7 @@ class Debug {
 			$apiVars[wireClassName($value)] = '$' . $name;
 		}
 		
-		foreach($traces as $n => $trace) {
+		foreach($traces as $trace) {
 			
 			if(!is_array($trace) || !isset($trace['function']) || !isset($trace['file'])) {
 				continue;

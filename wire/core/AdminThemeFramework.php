@@ -96,7 +96,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	}
 	
 	public function wired() {
-		$this->sanitizer = $this->wire('sanitizer');
+		$this->sanitizer = $this->wire()->sanitizer;
 		$user = $this->wire()->user;
 		$this->isLoggedIn = $user && $user->isLoggedin();
 		parent::wired();
@@ -128,7 +128,9 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function init() {
 		
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
+		$input = $this->wire()->input;
+		
 		if(!$this->isLoggedIn && $this->useAsLogin) $this->setCurrent();
 		parent::init();
 		
@@ -139,11 +141,11 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$this->isEditor = $this->isLoggedIn && ($this->isSuperuser || $user->hasPermission('page-edit'));
 		$this->includeInitFile();
 		
-		$modal = $this->wire('input')->get('modal');
+		$modal = $input->get('modal');
 		if($modal) $this->isModal = $modal == 'inline' ? 'inline' : true; 	
 
 		// test notices when requested
-		if($this->wire('input')->get('test_notices') && $this->isLoggedIn) $this->testNotices();
+		if($input->get('test_notices') && $this->isLoggedIn) $this->testNotices();
 	}
 	
 	/**
@@ -151,12 +153,12 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function includeInitFile() {
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$initFile = $this->path() . 'init.php';
 		if(file_exists($initFile)) {
 			if(strpos($initFile, $config->paths->site) === 0) {
 				// admin themes in /site/modules/ may be compiled
-				$initFile = $this->wire('files')->compile($initFile);
+				$initFile = $this->wire()->files->compile($initFile);
 			}
 			/** @noinspection PhpIncludeInspection */
 			include_once($initFile);
@@ -173,9 +175,11 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function _($text) {
 		static $translate = null;
-		if(is_null($translate)) $translate = $this->wire('languages') !== null;
+		static $context = null;
+		if($translate === null) $translate = $this->wire()->languages !== null;
 		if($translate === false) return $text;
-		$value = __($text, $this->wire('config')->paths->root . 'wire/templates-admin/default.php');
+		if($context === null) $context = $this->wire()->config->paths->root . 'wire/templates-admin/default.php';
+		$value = __($text, $context);
 		if($value === $text) $value = parent::_($text);
 		return $value;
 	}
@@ -188,8 +192,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function getHeadline() {
 		$headline = $this->wire('processHeadline');
-		if(!$headline) $headline = $this->wire('page')->get('title|name');
-		if($headline !== 'en' && $this->wire('languages')) $headline = $this->_($headline);
+		if(!$headline) $headline = $this->wire()->page->get('title|name');
+		if($headline !== 'en' && $this->wire()->languages) $headline = $this->_($headline);
 		return $this->sanitizer->entities1($headline);
 	}
 
@@ -225,7 +229,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function getPageIcon(Page $p) {
 		$icon = '';
 		if($p->template == 'admin') {
-			$info = $this->wire('modules')->getModuleInfo($p->process);
+			$info = $this->wire()->modules->getModuleInfo($p->process);
 			if(!empty($info['icon'])) $icon = $info['icon'];
 		}
 		// allow for option of an admin field overriding the module icon
@@ -236,7 +240,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 			case 21: $icon = 'plug'; break; // Modules
 			case 28: $icon = 'key'; break; // Access
 		}
-		if(!$icon && $p->parent->id != $this->wire('config')->adminRootPageID) {
+		if(!$icon && $p->parent->id != $this->wire()->config->adminRootPageID) {
 			$icon = 'file-o ui-priority-secondary';
 		}
 		return $icon;
@@ -253,17 +257,16 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function getAddNewActions() {
 
-		$page = $this->wire('page');
-		$process = $this->wire('process');
-		$input = $this->wire('input');
+		$page = $this->wire()->page;
+		$process = $this->wire()->process;
+		$input = $this->wire()->input;
 
 		if(!$this->isEditor) return array();
-		if($page->name != 'page' || $this->wire('input')->urlSegment1) return array();
-		if($input->urlSegment1 || $input->get('modal')) return array();
+		if($page->name != 'page' || $input->urlSegment1 || $input->get('modal')) return array();
 		if(strpos($process, 'ProcessPageList') !== 0) return array();
 
 		/** @var ProcessPageAdd $module */
-		$module = $this->wire('modules')->getModule('ProcessPageAdd', array('noInit' => true));
+		$module = $this->wire()->modules->getModule('ProcessPageAdd', array('noInit' => true));
 		$data = $module->executeNavJSON(array('getArray' => true));
 		$actions = array();
 
@@ -293,8 +296,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function getBodyClass() {
 
-		$page = $this->wire('page');
-		$process = $this->wire('process');
+		$page = $this->wire()->page;
+		$process = $this->wire()->process;
 
 		$classes = array(
 			"id-{$page->id}",
@@ -305,7 +308,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 		if($this->isModal) $classes[] = 'modal';
 		if($this->isModal === 'inline') $classes[] = 'modal-inline';
-		if($this->wire('input')->urlSegment1) $classes[] =  'hasUrlSegments';
+		if($this->wire()->input->urlSegment1) $classes[] =  'hasUrlSegments';
 		if($process) $classes[] = $process->className();
 		if(!$this->isLoggedIn) $classes[] = 'pw-guest';
 
@@ -347,14 +350,15 @@ abstract class AdminThemeFramework extends AdminTheme {
 		
 		if($p->process == 'ProcessPageAdd') {
 			// ProcessPageAdd: avoid showing this menu item if there are no predefined family settings to use
-			$numAddable = $this->wire('session')->getFor('ProcessPageAdd', 'numAddable');
+			$session = $this->wire()->session;
+			$numAddable = $session->getFor('ProcessPageAdd', 'numAddable');
 			if($numAddable === null) {
 				/** @var ProcessPageAdd $processPageAdd */
-				$processPageAdd = $this->wire('modules')->getModule('ProcessPageAdd', array('noInit' => true));
+				$processPageAdd = $this->wire()->modules->getModule('ProcessPageAdd', array('noInit' => true));
 				if($processPageAdd) {
 					$addData = $processPageAdd->executeNavJSON(array('getArray' => true));
 					$numAddable = $addData['list'];
-					$this->wire('session')->setFor('ProcessPageAdd', 'numAddable', $numAddable);
+					$session->setFor('ProcessPageAdd', 'numAddable', $numAddable);
 				}
 			}
 			// no addable options, so do not show the "Add New" item
@@ -365,23 +369,23 @@ abstract class AdminThemeFramework extends AdminTheme {
 			
 			if(!$p->process) {
 				// no process module present, so we delegate to just the page viewable state if no children to check
-				if($pageViewable && !$numChildren) return true;
+				if(!$numChildren) return true;
 				
 			} else if($p->process == 'ProcessList') {
 				// page just serves as a list for children
 				
 			} else {
 				// determine permission from Process module, if present
-				$moduleInfo = $this->wire('modules')->getModuleInfo($p->process);
+				$moduleInfo = $this->wire()->modules->getModuleInfo($p->process);
 				if(!empty($moduleInfo['permission'])) $permission = $moduleInfo['permission'];
 			}
 		}
 		
 		if($permission) {
 			// specific permission required to determine view access
-			$allow = $this->wire('user')->hasPermission($permission);
+			$allow = $this->wire()->user->hasPermission($permission);
 			
-		} else if($pageViewable && $p->parent_id == $this->wire('config')->adminRootPageID) {
+		} else if($p->parent_id == $this->wire()->config->adminRootPageID) {
 			// primary nav page requires that at least one child is viewable
 			foreach($children as $child) {
 				if($this->allowPageInNav($child)) {
@@ -403,8 +407,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function ___getPrimaryNavArray() {
 
 		$items = array();
-		$config = $this->wire('config');
-		$admin = $this->wire('pages')->get($config->adminRootPageID);
+		$config = $this->wire()->config;
+		$admin = $this->wire()->pages->get($config->adminRootPageID);
 
 		foreach($admin->children("check_access=0") as $p) {
 			$item = $this->pageToNavArray($p);
@@ -424,10 +428,11 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function moduleToNavArray($module, Page $p) {
 
-		$config = $this->wire('config');
-		$modules = $this->wire('modules');
+		$config = $this->wire()->config;
+		$modules = $this->wire()->modules;
+		$user = $this->wire()->user;
+		
 		$textdomain = str_replace($config->paths->root, '/', $modules->getModuleFile($p->process));
-		$user = $this->wire('user');
 		$navArray = array();
 
 		if(is_array($module)) {
@@ -484,7 +489,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 			// no children available
 			if($p->template == 'admin' && $p->process) {
 				// see if process module defines its own navigation
-				$moduleInfo = $this->wire('modules')->getModuleInfo($p->process);
+				$moduleInfo = $this->wire()->modules->getModuleInfo($p->process);
 				if(!empty($moduleInfo['nav'])) {
 					$navArray['children'] = $this->moduleToNavArray($moduleInfo, $p);
 				}
@@ -499,7 +504,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 		// if we reach this point, then we have a PageArray of children
 
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
 
 		foreach($children as $c) {
 
@@ -540,7 +545,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function ___getUserNavArray() {
-		$urls = $this->wire('urls');
+		$urls = $this->wire()->urls;
 		$navArray = array();
 		
 		$navArray[] = array(
@@ -550,7 +555,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 			'icon' => 'eye',
 		);
 		
-		if($this->wire('user')->hasPermission('profile-edit')) $navArray[] = array(
+		if($this->wire()->user->hasPermission('profile-edit')) $navArray[] = array(
 			'url' => $urls->admin . 'profile/',
 			'title' => $this->_('Profile'),
 			'icon' => 'user',
@@ -576,15 +581,15 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function getBrowserTitle() {
 
 		$browserTitle = $this->wire('processBrowserTitle');
-		$modal = $this->wire('input')->get('modal');
+		$modal = $this->wire()->input->get('modal');
 
 		if(!$browserTitle) {
 			if($modal) return $this->wire('processHeadline');
-			$browserTitle = $this->_(strip_tags($this->wire('page')->get('title|name'))) . ' • ProcessWire';
+			$browserTitle = $this->_(strip_tags($this->wire()->page->get('title|name'))) . ' • ProcessWire';
 		}
 
 		if(!$modal) {
-			$httpHost = $this->wire('config')->httpHost;
+			$httpHost = $this->wire()->config->httpHost;
 			if(strpos($httpHost, 'www.') === 0) $httpHost = substr($httpHost, 4); // remove www
 			if(strpos($httpHost, ':')) $httpHost = preg_replace('/:\d+/', '', $httpHost); // remove port
 			$browserTitle .= " • $httpHost";
@@ -600,7 +605,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function testNotices() {
-		if(!$this->wire('user')->isLoggedin()) return false;
+		if(!$this->wire()->user->isLoggedin()) return false;
 		$this->message('Message test');
 		$this->message('Message test debug', Notice::debug);
 		$this->message('Message test markup <a href="#">example</a>', Notice::allowMarkup);
@@ -648,7 +653,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 		
 		$options = array_merge($defaults, $options);
 		if($notices === true) return $options;
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$noticesArray = array();
 		$out = '';
 		
@@ -656,13 +661,14 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$removeLabel = $this->_('Close all');
 		$removeLink = "<a class='$options[closeClass]' href='#' title='$removeLabel'>$removeIcon</a>";
 		
-		if($this->isLoggedIn && $this->wire('modules')->isInstalled('SystemNotifications')) {
+		if($this->isLoggedIn && $this->wire()->modules->isInstalled('SystemNotifications')) {
 			$defaults['groupByType'] = false;
 			//$systemNotifications = $this->wire('modules')->get('SystemNotifications');
 			//if(!$systemNotifications->placement) return '';
 		}
 
 		foreach($notices as $n => $notice) {
+			/** @var Notice $notice */
 
 			$text = $notice->text;
 			$allowMarkup = $notice->flags & Notice::allowMarkup;

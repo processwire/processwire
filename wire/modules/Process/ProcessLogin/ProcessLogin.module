@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $allowForgot Whether the ProcessForgotPassword module is installed.
@@ -179,10 +179,10 @@ class ProcessLogin extends Process implements ConfigurableModule {
 
 		$this->id = isset($_GET['id']) ? (int) $_GET['id'] : '';  // id no longer used as anything but a toggle (on/off)
 		$this->set('allowForgot', $this->modules->isInstalled('ProcessForgotPassword')); 
-		$this->isAdmin = $this->wire('page')->template == 'admin';
+		$this->isAdmin = $this->wire()->page->template == 'admin';
 		$this->useEmailLogin = $this->useEmailLogin();
 
-		return parent::init();
+		parent::init();
 	}
 
 	/**
@@ -250,13 +250,13 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		if(!$this->emailField) return false;
 		
 		/** @var Field $field */
-		$field = $this->fields->get($this->emailField); 
+		$field = $this->wire()->fields->get($this->emailField); 
 		if(!$field) return false;
 		if(!$field->type instanceof FieldtypeEmail) return false;
 		if(!$field->hasFlag(Field::flagUnique)) return false;
 	
 		/** @var Template $template */
-		$template = $this->templates->get($this->config->userTemplateID); 
+		$template = $this->wire()->templates->get($this->wire()->config->userTemplateID); 
 		if(!$template || !$template->hasField($field)) return false;
 		
 		return (int) $this->allowEmail;
@@ -274,7 +274,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function setLoginURL($url) {
-		$url = $this->wire('sanitizer')->url($url, array('throw' => true)); 
+		$url = $this->wire()->sanitizer->url($url, array('throw' => true)); 
 		$this->loginURL = $url;
 		return $this; 
 	}
@@ -290,7 +290,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function setLogoutURL($url) {
-		$url = $this->wire('sanitizer')->url($url, array('throw' => true));
+		$url = $this->wire()->sanitizer->url($url, array('throw' => true));
 		$this->logoutURL = $url;
 		return $this;
 	}
@@ -344,7 +344,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			// two factor authentication
 			if($tfa->success()) {
 				$this->tfaLoginSuccess = true;
-				$this->loginSuccess($this->wire('user'));
+				$this->loginSuccess($this->wire()->user);
 				$this->afterLoginRedirect('./');
 			} else {
 				return $tfa->render();
@@ -395,9 +395,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function getTfa() {
-		$tfa = null;
 		$tfas = $this->wire()->modules->findByPrefix('Tfa');
-		if(!count($tfas)) return $tfa;
+		if(!count($tfas)) return null;
 		$tfa = new Tfa();
 		$this->wire($tfa);
 		$tfa->rememberDays = $this->tfaRememberDays;
@@ -416,6 +415,10 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	protected function getLoginName() {
 		
+		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
+		$users = $this->wire()->users;
+		
 		$value = $this->nameField->attr('value');
 		if(!strlen($value)) return false;
 		
@@ -433,7 +436,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		}
 		
 		// at this point we are dealing with an email login
-		$value = strtolower($this->sanitizer->email($value));
+		$value = strtolower($sanitizer->email($value));
 		$this->submitLoginName = $value;
 		if(empty($value)) return false;
 		
@@ -444,7 +447,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		}
 		
 		$error = $this->labels('email-not-supported');
-		$items = $this->users->find("include=all, $this->emailField=" . $this->sanitizer->selectorValue($value)); 
+		$items = $users->find("include=all, $this->emailField=" . $sanitizer->selectorValue($value)); 
 		
 		if(!$items->count()) {
 			// fail: no matches
@@ -453,7 +456,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			
 		} else if($items->count() > 1) {
 			// fail: more than one match
-			if($this->config->debug) $error .= ' (not unique)';
+			if($config->debug) $error .= ' (not unique)';
 			$this->loginFailed($value, $error);
 			return false;
 		} 
@@ -463,7 +466,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		
 		if($user->status > Page::statusHidden) {
 			// hidden, unpublished, trash
-			if($this->config->debug) $error .= ' (inactive)';
+			if($config->debug) $error .= ' (inactive)';
 			$this->loginFailed($value, $error);
 			return false;
 		}
@@ -566,13 +569,14 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	public function ___executeLogout() {
 		if($this->logoutURL) {
 			$url = $this->logoutURL;
-		} else if($this->isAdmin || $this->wire('page')->template == 'admin') {
-			$url = $this->config->urls->admin . './?loggedout=1';
+		} else if($this->isAdmin || $this->wire()->page->template->name === 'admin') {
+			$url = $this->wire()->config->urls->admin . './?loggedout=1';
 		} else {
 			$url = "./?logout=2";
 		}
-		$this->session->logout();
-		$this->session->redirect($url, false);
+		$session = $this->wire()->session;
+		$session->logout();
+		$session->redirect($url, false);
 		return '';
 	}
 
@@ -585,8 +589,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	protected function ___beforeLogin() {
 		
-		/** @var Session $session */
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		
 		$beforeLoginVars = $this->getBeforeLoginVars();
 		$session->setFor($this, 'beforeLoginVars', $beforeLoginVars);
@@ -596,24 +599,30 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		
 		// if checks already completed don't run them again
 		if($session->getFor($this, 'beforeLoginChecks')) return;
+		
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		$files = $this->wire()->files;
+		$log = $this->wire()->log;
 
 		// any remaining checks only if currently in the admin
 		if(!$this->isAdmin) return;
 		
 		if(	ini_get('session.save_handler') == 'files' 
-			&& !$this->wire('modules')->isInstalled('SessionHandlerDB')
-			&& !$this->wire('input')->get('db')
+			&& !$modules->isInstalled('SessionHandlerDB')
+			&& !$input->get('db')
 			) {
 			
 			$installSessionDB = false;
-			$path = $this->config->paths->sessions;
+			$path = $config->paths->sessions;
 			$error = '';
 			
 			if(!file_exists($path)) {
-				$this->wire('files')->mkdir($path);
+				$files->mkdir($path);
 				clearstatcache();
 				if(file_exists($path)) {
-					$this->wire('log')->message("Created session path $path"); 
+					$log->message("Created session path $path"); 
 				} else {
 					$installSessionDB = true;
 					$error = "Session path $path does not exist and we are unable to create it.";
@@ -621,10 +630,10 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			} 
 			
 			if(!is_writable($path)) {
-				$this->wire('files')->chmod($path);
+				$files->chmod($path);
 				clearstatcache();
 				if(is_writable($path)) {
-					$this->wire('log')->message("Updated session path to be writable $path"); 
+					$log->message("Updated session path to be writable $path"); 
 				} else {
 					$installSessionDB = true;
 					$error = "Unable to write to session path $path, and unable to fix the permissions.";
@@ -633,12 +642,12 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			
 			// if we can't get file-based sessions going, switch to database sessions to ensure admin can login
 			if($installSessionDB) {
-				if($error) $this->wire('log')->error($error); 
-				if($this->wire('modules')->get('SessionHandlerDB')) {
-					$this->wire('log')->error("Installed SessionHandlerDB as an alternate session handler. If you wish to uninstall this, do so after correcting the session path error."); 
-					$this->wire('session')->redirect("./?db=1"); // db param to prevent potential infinite redirect
+				if($error) $log->error($error); 
+				if($modules->get('SessionHandlerDB')) {
+					$log->error("Installed SessionHandlerDB as an alternate session handler. If you wish to uninstall this, do so after correcting the session path error."); 
+					$session->redirect("./?db=1"); // db param to prevent potential infinite redirect
 				} else {
-					$this->wire('log')->error("Unable to install alternate session handler module SessionHandlerDB"); 	
+					$log->error("Unable to install alternate session handler module SessionHandlerDB"); 	
 					$this->error("Session write error. Login may not be possible."); 
 				}
 			}
@@ -655,9 +664,9 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___afterLogin() {
-		if($this->wire('user')->isSuperuser()) {
+		if($this->wire()->user->isSuperuser()) {
 			/** @var SystemUpdater $systemUpdater */
-			$systemUpdater = $this->wire('modules')->get('SystemUpdater');
+			$systemUpdater = $this->wire()->modules->get('SystemUpdater');
 			if($systemUpdater) { 
 				$updatesApplied = $systemUpdater->getUpdatesApplied();
 				$checks = $systemUpdater->getChecks();
@@ -688,6 +697,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	protected function ___buildLoginForm() {
 		
+		$modules = $this->wire()->modules;
+		
 		$useEmailLogin = $this->useEmailLogin();
 		$nameInputType = 'InputfieldText';
 		$nameInputLabel = $this->labels('username'); // Login form: username field label
@@ -699,28 +710,28 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			$nameInputLabel = $this->labels('username-or-email'); // Login form: username OR email field label
 		}
 	
-		$this->nameField = $this->modules->get($nameInputType);
+		$this->nameField = $modules->get($nameInputType);
 		$this->nameField->label = $nameInputLabel;
 		$this->nameField->attr('id+name', 'login_name'); 
 		$this->nameField->attr('class', $this->className() . 'Name');
 		$this->nameField->addClass('InputfieldFocusFirst');
 		$this->nameField->collapsed = Inputfield::collapsedNever;
 
-		$this->passField = $this->modules->get('InputfieldText');
+		$this->passField = $modules->get('InputfieldText');
 		$this->passField->set('label', $this->labels('password')); // Login form: password field label
 		$this->passField->attr('id+name', 'login_pass'); 
 		$this->passField->attr('type', 'password'); 
 		$this->passField->attr('class', $this->className() . 'Pass');
 		$this->passField->collapsed = Inputfield::collapsedNever;
 
-		$this->submitField = $this->modules->get('InputfieldSubmit');
+		$this->submitField = $modules->get('InputfieldSubmit');
 		$this->submitField->attr('name', 'login_submit'); 
 		$this->submitField->attr('value', $this->labels('login')); // Login form: submit login button 
 		
-		$this->form = $this->modules->get('InputfieldForm');
+		$this->form = $modules->get('InputfieldForm');
 
 		// we'll retain an ID field in the GET url, if it was there (note: no longer used as anything but a toggle on/off)
-		$this->form->attr('action', "./" . ($this->id ? "?id={$this->id}" : '')); 
+		$this->form->attr('action', "./" . ($this->id ? "?id=$this->id" : '')); 
 		$this->form->addClass('InputfieldFormFocusFirst');
 
 		$this->form->attr('id', $this->className() . 'Form'); 
@@ -731,19 +742,21 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		if($this->isAdmin) {
 			// detect hidpi at login (populated from js)
 			/** @var InputfieldHidden $f */
-			$f = $this->modules->get('InputfieldHidden');
+			$f = $modules->get('InputfieldHidden');
 			$f->attr('id+name', 'login_hidpi');
 			$f->attr('value', 0);
 			$this->form->add($f);
 
 			// detect touch device login (populated from js)
-			$f = $this->modules->get('InputfieldHidden');
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
 			$f->attr('id+name', 'login_touch');
 			$f->attr('value', 0);
 			$this->form->add($f);
 			
 			// detect touch device login (populated from js)
-			$f = $this->modules->get('InputfieldHidden');
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
 			$f->attr('id+name', 'login_width');
 			$f->attr('value', 0);
 			$this->form->add($f);
@@ -765,10 +778,10 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___renderLoginForm() {
-		$loggedIn = $this->wire('user')->isLoggedin();
+		$loggedIn = $this->wire()->user->isLoggedin();
 		$out = '';
 		
-		if($this->wire('input')->get('login') && $loggedIn) {
+		if($this->wire()->input->get('login') && $loggedIn) {
 			// redirect to page after login
 			$this->afterLoginRedirect();
 		} else if($loggedIn) {
@@ -784,9 +797,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			if(count($links)) {
 				$out .= str_replace('{out}', implode($this->markup('login-links-split'), $links), $this->markup('login-links'));
 			}
-			if(!$this->wire('modules')->isInstalled('InputDetect')) {
-				/** @var Config $config */
-				$config = $this->wire('config');
+			if(!$this->wire()->modules->isInstalled('InputDetect')) {
+				$config = $this->wire()->config;
 				$config->scripts->prepend($config->urls('ProcessLogin') . 'what-input.min.js');
 			}
 		}
@@ -840,14 +852,15 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___afterLoginOutput() {
+		$config = $this->wire()->config;
 		/** @var InputfieldButton $btn */
-		$btn = $this->wire('modules')->get('InputfieldButton');
-		if($this->wire('user')->hasPermission('profile-edit')) {
+		$btn = $this->wire()->modules->get('InputfieldButton');
+		if($this->wire()->user->hasPermission('profile-edit')) {
 			$btn->value = $this->labels('edit-profile');
-			$btn->href = $this->config->urls->admin . 'profile/';
+			$btn->href = $config->urls->admin . 'profile/';
 		} else {
 			$btn->value = $this->labels('continue');
-			$btn->href = $this->wire('config')->urls->root;
+			$btn->href = $config->urls->root;
 		}
 		return "<p>" . $btn->render() . "</p>";
 	}
@@ -961,7 +974,6 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	protected function ___loginSuccess(User $user) {
 		
-		/** @var Session $session */
 		$session = $this->wire()->session;
 		
 		if($this->isAdmin) {
@@ -978,9 +990,10 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		if(!$user->hasTfa() && count($this->tfaRecRoleIDs) && !$this->tfaLoginSuccess) {
 			// determine if Tfa module is installed and user has role requiring Tfa
 			$requireTfa = false;
-			if(count($this->wire('modules')->findByPrefix('Tfa'))) {
+			$roles = $this->wire()->roles;
+			if(count($this->wire()->modules->findByPrefix('Tfa'))) {
 				foreach($this->tfaRecRoleIDs as $roleID) {
-					$role = $this->wire('roles')->get((int) $roleID);
+					$role = $roles->get((int) $roleID);
 					if($role && $user->hasRole($role)) {
 						$requireTfa = true;
 						break;
@@ -988,7 +1001,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 				}
 			}
 			if($requireTfa) {
-				$url = $this->wire('config')->urls('admin') . 'profile/#wrap_Inputfield_tfa_type';
+				$url = $this->wire()->config->urls('admin') . 'profile/#wrap_Inputfield_tfa_type';
 				$session->setFor('_user', 'requireTfa', $url);
 			}
 		}
@@ -1004,14 +1017,13 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
 	
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
 
 		/** @var InputfieldRadios $f */
 		$f = $modules->get('InputfieldRadios'); 
 		
 		$emailAllow = true;
-		$emailField = $this->fields->get($this->emailField); /** @var Field $field */
+		$emailField = $this->wire()->fields->get($this->emailField); /** @var Field $field */
 		$emailAttrs = array();
 		$emailLabel = $this->_('Email address');
 		$emailNotes = array();

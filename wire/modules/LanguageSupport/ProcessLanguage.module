@@ -29,8 +29,8 @@ class ProcessLanguage extends ProcessPageType {
 			'permission' => 'lang-edit',
 			'permissions' => array(
 				'lang-edit' => 'Administer languages and static translation files'
-				)
-			);
+			)
+		);
 	}
 
 	/**
@@ -90,7 +90,7 @@ class ProcessLanguage extends ProcessPageType {
 		$this->addHookAfter('InputfieldFile::renderUpload', $this, 'renderInputfieldFileUpload');
 		$this->addHookBefore('InputfieldFile::processInput', $this, 'processInputfieldFileInput');
 	
-		if(!$this->wire('config')->ajax) {
+		if(!$this->wire()->config->ajax) {
 			$this->addHookBefore('InputfieldForm::render', $this, 'renderInputfieldForm');
 		}
 		parent::init();
@@ -98,8 +98,9 @@ class ProcessLanguage extends ProcessPageType {
 
 	protected function translationUrl() {
 		if(!$this->translationUrl) {
-			$support = $this->wire('modules')->get('LanguageSupport'); 
-			$this->translationUrl = $this->wire('pages')->get($support->languageTranslatorPageID)->url;
+			/** @var LanguageSupport $support */
+			$support = $this->wire()->modules->get('LanguageSupport'); 
+			$this->translationUrl = $this->wire()->pages->get($support->languageTranslatorPageID)->url;
 		}
 		return $this->translationUrl; 
 	}
@@ -120,15 +121,14 @@ class ProcessLanguage extends ProcessPageType {
 	 */
 	public function renderInputfieldFile(HookEvent $event) {
 
-		/** @var InputfieldFile $inputfield */
-		$inputfield = $event->object;
-		$language = $this->wire('process')->getPage();
+		$inputfield = $event->object; /** @var InputfieldFile $inputfield */
+		$language = $this->wire()->process->getPage(); /** @var Language $language */
 		
 		/** @var Pagefiles $pagefiles */
 		$pagefiles = $inputfield->attr('value');
 		
 		foreach($pagefiles as $pagefile) {
-			/** Pagefile $pagefile */
+			/** @var Pagefile $pagefile */
 			if($pagefile->ext() != 'csv') continue;
 			$pagefiles->remove($pagefile);
 			$this->processCSV($pagefile->filename(), $language);
@@ -146,9 +146,13 @@ class ProcessLanguage extends ProcessPageType {
 		/** @var InputfieldForm $form */
 		$form = $event->object;
 		$language = $this->getPage();
+		
 		if(!$language->id) return;
+		
 		$file = $language->filesManager()->path . '.phrase-index.txt';
-		$inputfield = $this->wire('modules')->get('InputfieldMarkup');
+		
+		/** @var InputfieldMarkup $inputfield */
+		$inputfield = $this->wire()->modules->get('InputfieldMarkup');
 		$inputfield->label = $this->_('Live Search');
 		$inputfield->icon = 'search';
 		$placeholder = $this->_('Text to search for');
@@ -163,12 +167,13 @@ class ProcessLanguage extends ProcessPageType {
 
 			$phrases = file_get_contents($file);
 			$phrases = str_replace(array('"', "\n", "<", ">"), ' ', $phrases);
+			$script = 'script';
 
 			$inputfield->value =
-				"<script>" .
+				"<$script>" .
 				"var phraseIndex = \"$phrases\"; " .
 				"var phraseLanguageID = $language->id;" .
-				"</script>" .
+				"</$script>" .
 				"<p class='description' style='margin:0'>" .
 				$this->_('Search all translatable files for specific text/phrase.') . ' ' .
 				$this->_('Click found matches to edit translation or add file (if not already present).') .
@@ -195,10 +200,8 @@ class ProcessLanguage extends ProcessPageType {
 	public function renderInputfieldFileItem(HookEvent $event) {
 
 		$translationUrl = $this->translationUrl(); 
-		/** @var Pagefile $pagefile */
-		$pagefile = $event->arguments[0]; 
-		/** @var Language $page */
-		$page = $pagefile->get('page'); 
+		$pagefile = $event->arguments[0]; /** @var Pagefile $pagefile */
+		$page = $pagefile->get('page'); /** @var Language $page */
 		
 		if($pagefile->ext() == 'csv') {
 			$event->return .=
@@ -214,9 +217,11 @@ class ProcessLanguage extends ProcessPageType {
 
 		$data = $page->translator->getTextdomain($textdomain);
 		$file = $data['file']; 
-		$pathname = $this->wire('config')->paths->root . $file;
+		$pathname = $this->wire()->config->paths->root . $file;
 		$translations =& $data['translations'];
 		$total = count($translations); 
+		
+		/** @var LanguageParser $parser */
 		$parser = $this->wire(new LanguageParser($page->translator, $pathname));
 		$untranslated = $parser->getUntranslated();
 		$alternates = $parser->getAlternates();
@@ -276,18 +281,16 @@ class ProcessLanguage extends ProcessPageType {
 	 *
 	 */
 	public function renderInputfieldFileUpload(HookEvent $event) {
-
+		
+		$modules = $this->wire()->modules;
 		$translationUrl = $this->translationUrl();
-		/** @var Pagefiles $pagefiles */
-		$pagefiles = $event->arguments(0);
-		/** @var Page $page */
-		$page = $pagefiles->get('page'); 
-		/** @var InputfieldFile $inputfield */
-		$inputfield = $event->object; 
+		$pagefiles = $event->arguments(0); /** @var Pagefiles $pagefiles */
+		$page = $pagefiles->get('page'); /** @var Page $page */
+		$inputfield = $event->object; /** @var InputfieldFile $inputfield */
 		$out = '';
 	
 		/** @var InputfieldButton $btn1 */
-		$btn1 = $this->wire('modules')->get('InputfieldButton'); 
+		$btn1 = $modules->get('InputfieldButton'); 
 		$btn1->href = "{$translationUrl}add/?language_id={$page->id}";
 		$btn1->value = $this->_('Find Files to Translate'); 
 		$btn1->icon = 'plane';
@@ -296,7 +299,7 @@ class ProcessLanguage extends ProcessPageType {
 	
 		if(count($inputfield->attr('value'))) {
 			/** @var InputfieldButton $btn2 */
-			$btn2 = $this->wire('modules')->get('InputfieldButton');
+			$btn2 = $modules->get('InputfieldButton');
 			$btn2->href = "../download/?language_id={$page->id}&field=" . $inputfield->attr('name');
 			$btn2->value = $this->_('Download ZIP');
 			$btn2->icon = 'file-zip-o';
@@ -336,10 +339,11 @@ class ProcessLanguage extends ProcessPageType {
 
 	public function ___execute() { 
 		// check if 2.5 update needed to add new language_files_site field
-		if(!$this->wire('fields')->get('language_files_site')) {
+		if(!$this->wire()->fields->get('language_files_site')) {
 			require_once(dirname(__FILE__) . '/LanguageSupportInstall.php');
+			/** @var LanguageSupportInstall $installer */
 			$installer = $this->wire(new LanguageSupportInstall());
-			$installer->addFilesFields($this->wire('fieldgroups')->get(LanguageSupport::languageTemplateName));
+			$installer->addFilesFields($this->wire()->fieldgroups->get(LanguageSupport::languageTemplateName));
 		}
 		return parent::___execute();
 	}
@@ -376,7 +380,7 @@ class ProcessLanguage extends ProcessPageType {
 			}
 		}
 	
-		if(!count($files) && $fieldName) {
+		if(!count($files)) {
 			foreach($language->$fieldName as $file) {
 				$files[] = $file->filename;
 			}

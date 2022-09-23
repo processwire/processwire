@@ -10,7 +10,7 @@
  * This file is licensed under the MIT license. 
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int|string $version Current admin theme version
@@ -102,6 +102,7 @@ abstract class AdminTheme extends WireData implements Module {
 	 */
 	public function __construct() {
 		// placeholder
+		parent::__construct();
 	}
 
 	/**
@@ -292,7 +293,7 @@ abstract class AdminTheme extends WireData implements Module {
 	 * 
 	 */
 	protected function setCurrent() {
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$name = $this->className();
 		$config->paths->set('adminTemplates', $config->paths->get($name));
 		$config->urls->set('adminTemplates', $config->urls->get($name)); 
@@ -315,13 +316,14 @@ abstract class AdminTheme extends WireData implements Module {
 	 */
 	public function ___getExtraMarkup() {
 		$parts = $this->extraMarkup;
-		$isLoggedin = $this->wire('user')->isLoggedin();
-		if($isLoggedin && $this->wire('modules')->isInstalled('InputfieldCKEditor') 
-			&& $this->wire('process') instanceof WirePageEditor) {
+		$isLoggedin = $this->wire()->user->isLoggedin();
+		if($isLoggedin && $this->wire()->modules->isInstalled('InputfieldCKEditor') 
+			&& $this->wire()->process instanceof WirePageEditor) {
 			// necessary for when CKEditor is loaded via ajax
-			$parts['head'] .= "<script>" . 
-				"window.CKEDITOR_BASEPATH='" . $this->wire('config')->urls->InputfieldCKEditor . 
-				'ckeditor-' . InputfieldCKEditor::CKEDITOR_VERSION . "/';</script>";
+			$script = 'script';
+			$parts['head'] .= "<$script>" . 
+				"window.CKEDITOR_BASEPATH='" . $this->wire()->config->urls('InputfieldCKEditor') . 
+				'ckeditor-' . InputfieldCKEditor::CKEDITOR_VERSION . "/';</$script>";
 		}
 		/*
 		if($isLoggedin && $this->wire('config')->advanced) {
@@ -447,9 +449,12 @@ abstract class AdminTheme extends WireData implements Module {
 
 		// if we are the only admin theme installed, no need to add an admin_theme field
 		if(self::$numAdminThemes == 0) return;
+		
+		$modules = $this->wire()->modules;
 
 		// install a field for selecting the admin theme from the user's profile
-		$field = $this->wire('fields')->get('admin_theme'); 
+		/** @var Field $field */
+		$field = $this->wire()->fields->get('admin_theme'); 
 
 		$toUseNote = $this->_('To use this theme, select it from your user profile.'); 
 
@@ -458,9 +463,10 @@ abstract class AdminTheme extends WireData implements Module {
 			$this->message($toUseNote); 
 		} else {
 			// this will be the 2nd admin theme installed, so add a field that lets them select admin theme
+			/** @var Field $field */
 			$field = $this->wire(new Field());
 			$field->name = 'admin_theme';
-			$field->type = $this->wire('modules')->get('FieldtypeModule');
+			$field->type = $modules->get('FieldtypeModule');
 			$field->set('moduleTypes', array('AdminTheme'));
 			$field->set('labelField', 'title');
 			$field->set('inputfieldClass', 'InputfieldRadios');
@@ -475,7 +481,7 @@ abstract class AdminTheme extends WireData implements Module {
 
 		if($field && $field->id) {
 			/** @var Fieldgroup $fieldgroup */
-			$fieldgroup = $this->wire('fieldgroups')->get('user');
+			$fieldgroup = $this->wire()->fieldgroups->get('user');
 			if(!$fieldgroup->hasField($field)) {
 				$fieldgroup->add($field);
 				$fieldgroup->save();
@@ -483,9 +489,9 @@ abstract class AdminTheme extends WireData implements Module {
 				$this->message($toUseNote);
 			}
 			// make this field one that the user is allowed to configure in their profile
-			$data = $this->wire('modules')->getModuleConfigData('ProcessProfile');
+			$data = $modules->getModuleConfigData('ProcessProfile');
 			$data['profileFields'][] = 'admin_theme';
-			$this->wire('modules')->saveModuleConfigData('ProcessProfile', $data); 
+			$modules->saveModuleConfigData('ProcessProfile', $data); 
 		}
 	}
 
@@ -505,7 +511,7 @@ abstract class AdminTheme extends WireData implements Module {
 	
 	public function ___uninstall() { 
 	
-		$defaultAdminTheme = $this->wire('config')->defaultAdminTheme;
+		$defaultAdminTheme = $this->wire()->config->defaultAdminTheme;
 		if($defaultAdminTheme == $this->className()) {
 			throw new WireException(
 				"Cannot uninstall this admin theme because \$config->defaultAdminTheme = '$defaultAdminTheme'; " . 

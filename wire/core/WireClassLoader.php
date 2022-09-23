@@ -13,7 +13,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -243,11 +243,11 @@ class WireClassLoader {
 		$level++;
 		
 		if($this->modules === null && $this->wire) {
-			$this->modules = $this->wire->wire('modules');
+			$this->modules = $this->wire->wire()->modules;
 		}
 		
 		if($this->debug === null && $this->wire) {
-			$this->debug = $this->wire->wire('config')->debug;
+			$this->debug = $this->wire->wire()->config->debug;
 		}
 		
 		if($this->debug) {
@@ -267,7 +267,6 @@ class WireClassLoader {
 			$name = array_pop($parts);
 			$namespace = implode("\\", $parts);
 		} else {
-			$_parts = array();
 			if(strpos($className, "\\") !== false) {
 				$parts = explode("\\", $className);
 				$name = array_pop($parts);
@@ -322,7 +321,7 @@ class WireClassLoader {
 			/** @noinspection PhpIncludeInspection */
 			include_once($found);
 			if($this->debug) {
-				$file = $this->wire ? str_replace($this->wire->wire('config')->paths->root, '/', $found) : $found;
+				$file = $this->wire ? str_replace($this->wire->wire()->config->paths->root, '/', $found) : $found;
 				$this->debugLog[$_className] = $file . $levelHistoryStr;
 			}
 			if($this->findFile === true && $level === 1) {

@@ -10,7 +10,7 @@
  * 
  * See the Module interface (Module.php) for details about each method. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * This file is licensed under the MIT license
@@ -33,7 +33,7 @@ abstract class ModuleJS extends WireData implements Module {
 			'summary' => '', 	// 1 sentence summary of module
 			'href' => '', 		// URL to more information (optional)
 			'permanent' => false, 	// true if module is permanent and thus not uninstallable
-			); 
+		); 
 	}
 
 
@@ -109,7 +109,7 @@ abstract class ModuleJS extends WireData implements Module {
 	public function init() {
 		
 		$class = $this->className();
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 	
 		$file = $config->paths->$class . "$class.css";
 		if($this->loadStyles && is_file($file)) {
@@ -138,7 +138,7 @@ abstract class ModuleJS extends WireData implements Module {
 					$url = $config->urls->$class . $url;
 				}
 				$url .= "?v=$mtime";
-				$this->wire('config')->scripts->add($url);
+				$config->scripts->add($url);
 			}
 			$this->requested = array();
 		}
@@ -155,9 +155,10 @@ abstract class ModuleJS extends WireData implements Module {
 	 */
 	public function ___use($name) {
 
-		$name = $this->wire('sanitizer')->name($name);
 		$class = $this->className();
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
+		
+		if(!ctype_alnum($name)) $name = $this->wire()->sanitizer->name($name);
 
 		if(!isset($this->components[$name])) {
 			$this->error("Unrecognized $class component requested: $name");

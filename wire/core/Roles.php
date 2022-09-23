@@ -19,6 +19,10 @@
 
 class Roles extends PagesType {
 
+	/**
+	 * @var Role|null 
+	 * 
+	 */
 	protected $guestRole = null;
 
 	/**
@@ -28,13 +32,13 @@ class Roles extends PagesType {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @return Role|NullPage|Page
+	 * @return Role
 	 * @throws WireException
 	 * 
 	 */
 	public function getGuestRole() {
 		if($this->guestRole) return $this->guestRole; 
-		$this->guestRole = parent::get((int) $this->wire('config')->guestUserRolePageID); 
+		$this->guestRole = parent::get((int) $this->wire()->config->guestUserRolePageID); 
 		return $this->guestRole; 
 	}
 
@@ -85,11 +89,13 @@ class Roles extends PagesType {
 	 * #pw-group-manipulation
 	 *
 	 * @param string $name Name of role you want to add, i.e. "hello-world"
-	 * @return Role|Page|NullPage Returns a Role page on success, or a NullPage on error
+	 * @return Role|NullPage Returns a Role page on success, or a NullPage on error
 	 *
 	 */
 	public function ___add($name) {
-		return parent::___add($name);
+		/** @var Role|NullPage $role */
+		$role = parent::___add($name);
+		return $role;
 	}
 
 	/**
@@ -101,8 +107,14 @@ class Roles extends PagesType {
 	 *
 	 */
 	protected function loaded(Page $page) {
-		if(!$page->permissions->has("name=page-view")) {
-			$page->permissions->add($this->wire('permissions')->get("name=page-view")); 
+		$hasPageView = false;
+		foreach($page->permissions as $permission) {
+			if($permission->name === 'page-view') $hasPageView = true;
+			if($hasPageView) break;
+		}
+		if(!$hasPageView) {
+			$pageView = $this->wire()->permissions->get('page-view');
+			$page->permissions->add($pageView);
 		}
 	}
 	
@@ -115,7 +127,7 @@ class Roles extends PagesType {
 	 *
 	 */
 	public function ___deleted(Page $page) { 
-		foreach($this->wire('templates') as $template) {
+		foreach($this->wire()->templates as $template) {
 			/** @var Template $template */
 			if(!$template->useRoles) continue;
 			$template->removeRole($page, 'all'); 

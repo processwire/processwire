@@ -5,7 +5,7 @@
  * Class to hold combined password/salt info. Uses Blowfish when possible.
  * Specially used by FieldtypePassword.
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method setPass($value) Protected internal use method
@@ -24,7 +24,7 @@ class Password extends Wire {
 	protected $data = array(
 		'salt' => '', 
 		'hash' => '',
-		);
+	);
 
 	/**
 	 * @var WireRandom|null
@@ -216,6 +216,8 @@ class Password extends Wire {
 	 *
 	 */
 	protected function hash($pass) {
+		
+		$config = $this->wire()->config;
 
 		// if there is no salt yet, make one (for new pass or reset pass)
 		if(strlen($this->data['salt']) < 28) $this->data['salt'] = $this->salt();
@@ -227,10 +229,10 @@ class Password extends Wire {
 		$salt1 = $this->data['salt'];
 
 		// static salt stored in config.php
-		$salt2 = (string) $this->wire('config')->userAuthSalt; 
+		$salt2 = (string) $config->userAuthSalt; 
 
 		// auto-detect the hash type based on the format of the salt
-		$hashType = $this->isBlowfish($salt1) ? 'blowfish' : $this->wire('config')->userAuthHashType;
+		$hashType = $this->isBlowfish($salt1) ? 'blowfish' : $config->userAuthHashType;
 
 		if(!$hashType) {
 			// If there is no defined hash type, and the system doesn't support blowfish, then just use md5 (ancient backwards compatibility)

@@ -156,6 +156,10 @@ class Fields extends WireSaveableItems {
 			self::$nativeNamesSystem = array_flip(self::$nativeNamesSystem);
 		}
 	}
+	
+	public function getCacheItemName() {
+		return array('roles', 'permissions', 'title', 'process'); 
+	}
 
 	/**
 	 * Construct and load the Fields
@@ -457,7 +461,7 @@ class Fields extends WireSaveableItems {
 	 * 
 	 * @param Field|Saveable $item Field to clone
 	 * @param string $name Optionally specify name for new cloned item
-	 * @return bool|Saveable $item Returns the new clone on success, or false on failure
+	 * @return Field $item Returns the new clone on success, or false on failure
 	 *
 	 */
 	public function ___clone(Saveable $item, $name = '') {
@@ -637,7 +641,7 @@ class Fields extends WireSaveableItems {
 		$flags = $field2->flags; 
 		if($flags & Field::flagSystem) {
 			$field2->flags = $flags | Field::flagSystemOverride; 
-			$field2->flags = 0;
+			$field2->flags = 0; // intentional overwrite after above line
 		}
 		$field2->name = $field2->name . "_PWTMP";
 		$field2->type->createField($field2); 
@@ -688,7 +692,7 @@ class Fields extends WireSaveableItems {
 			$this->error("Field type change failed. Database reports: $error"); 
 			$database->exec("DROP TABLE `$table2`"); // QA
 			$severe = $this->wire()->process != 'ProcessField';
-			if($exception) $this->trackException($exception, $severe); 
+			$this->trackException($exception, $severe); 
 			return false; 
 		}
 
@@ -1112,6 +1116,7 @@ class Fields extends WireSaveableItems {
 		}
 		
 		foreach($this->getWireArray() as $field) {
+			/** @var Field $field */
 			$fieldtype = $field->type;
 
 			if(!$fieldtype) continue;
@@ -1290,7 +1295,7 @@ class Fields extends WireSaveableItems {
 	 * #pw-internal
 	 *
 	 * @param Field $field
-	 * @return array Array of Fieldtype objects indexed by class name
+	 * @return Fieldtypes 
 	 * @since 3.0.140
 	 *
 	 */
@@ -1298,15 +1303,16 @@ class Fields extends WireSaveableItems {
 		$fieldtype = $field->type;
 		if($fieldtype) {
 			// ask fieldtype what is compatible
+			/** @var Fieldtypes $fieldtypes */
 			$fieldtypes = $fieldtype->getCompatibleFieldtypes($field);
-			if(!$fieldtypes || !$fieldtypes instanceof WireArray) {
+			if(!$fieldtypes instanceof WireArray) {
 				$fieldtypes = $this->wire(new Fieldtypes());
 			}
 			// ensure original is present
 			$fieldtypes->prepend($fieldtype);
 		} else {
 			// allow all
-			$fieldtypes = $this->wire('fieldtypes');
+			$fieldtypes = $this->wire()->fieldtypes;
 		}
 		return $fieldtypes;
 	}
@@ -1339,7 +1345,8 @@ class Fields extends WireSaveableItems {
 
 		$fieldId = $this->_fieldId($field);
 		$fieldgroups = $this->wire()->fieldgroups;
-		$items = $getCount ? null : $this->wire(new FieldgroupsArray()); /** @var FieldgroupsArray $items */
+		/** @var FieldgroupsArray $items */
+		$items = $getCount ? null : $this->wire(new FieldgroupsArray()); 
 		$ids = array();
 		$count = 0;
 

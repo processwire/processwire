@@ -5,7 +5,7 @@
  * 
  * This class is for “Tfa” modules to extend. See the TfaEmail and TfaTotp modules as examples. 
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -272,6 +272,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function remember(User $user, array $settings) {
+		/** @var RememberTfa $remember */
 		$remember = $this->wire(new RememberTfa($this, $user, $settings));
 		$remember->setDays($this->rememberDays);
 		$remember->setFingerprints($this->rememberFingerprints);
@@ -421,8 +422,10 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function isValidUserCode(User $user, $code, array $settings) {
-		if($user && $code && $settings) throw new WireException('Modules should not call this method');
-		return false;
+		if($code && $settings) throw new WireException('Modules should not call this method');
+		$value = false;
+		/** @var bool|int $value */
+		return $value;
 	}
 
 	/**
@@ -455,7 +458,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function enabledForUser(User $user, array $settings) {
-		if($user) {} // ignore
 		$enabled = empty($settings['enabled']) ? false : true;
 		return $enabled;
 	}
@@ -475,7 +477,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$module = $this->getModule();
 		if(!$module) return false;
 		$result = $module->process(); // redirects may occur
-		if($result && $result instanceof User && $result->id) return true; 
+		if($result instanceof User && $result->id) return true; 
 		return false;
 	}
 
@@ -579,8 +581,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		
 		if($this->authCodeForm) return $this->authCodeForm;
 		
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
 		
 		/** @var InputfieldForm $form */
 		$form = $modules->get('InputfieldForm');
@@ -602,6 +603,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$form->add($f);
 		
 		if($this->rememberDays) {
+			/** @var InputfieldCheckbox $f */
 			$f = $modules->get('InputfieldCheckbox');
 			$f->attr('id+name', 'tfa_remember');
 			$f->attr('value', $this->rememberDays);
@@ -621,7 +623,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 
 		if($this->showCancel) {
 			$cancelUrl = $this->url();
-			$cancelLabel = $this->sanitizer->entities1($this->cancelLabel);
+			$cancelLabel = $this->wire()->sanitizer->entities1($this->cancelLabel);
 			$form->appendMarkup .= str_replace(
 				array('{url}', '{label}'), 
 				array($cancelUrl, $cancelLabel), 
@@ -664,17 +666,14 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 */
 	public function ___process() {
 
-		/** @var WireInput $input */
-		$input = $this->wire('input');
-		
-		/** @var Session $session */
-		$session = $this->wire('session');
+		$input = $this->wire()->input;
+		$session = $this->wire()->session;
 	
 		/** @var string|null $key */
 		$key = $input->get($this->keyName);
 		
 		// invalid key, abort 
-		if(empty($key) || $key !== $this->getSessionKey() || $this->wire('user')->isLoggedin()) {
+		if(empty($key) || $key !== $this->getSessionKey() || $this->wire()->user->isLoggedin()) {
 			return $this->sessionReset('./');
 		}
 		
@@ -683,7 +682,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$userID = (int) $this->sessionGet('id');
 		$userName = $this->sessionGet('name');
 		$userPash = $this->sessionGet('pash'); 
-		$user = $userID ? $this->wire('users')->get($userID) : null;
+		$user = $userID ? $this->wire()->users->get($userID) : null;
 		$initTime = (int) $this->sessionGet('time');
 		$numTries = (int) $this->sessionGet('tries');
 		$maxTries = 3;
@@ -778,7 +777,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ___getUserSettingsInputfields(User $user, InputfieldWrapper $fieldset, $settings) {
-		if($user || $fieldset || $settings) {} // ignore
 		$script = 'script';
 		// jump to and highlight fieldset they need to complete (where supported)
 		$fieldset->appendMarkup .= 
@@ -798,7 +796,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function ___getUserEnabledInputfields(User $user, InputfieldWrapper $fieldset, $settings) {
-		if($user) {} // ignore
 		
 		$fieldset->label .= ' - ' . $this->enabledLabel;
 		$fieldset->icon = 'user-secret';
@@ -826,7 +823,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ___processUserSettingsInputfields(User $user, InputfieldWrapper $fieldset, $settings, $settingsPrev) {
-		if($user || $fieldset || $settings || $settingsPrev) {} // ignore
 		return $settings;
 	}
 
@@ -841,7 +837,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function ___processUserEnabledInputfields(User $user, InputfieldWrapper $fieldset, $settings, $settingsPrev) {
-		if($user || $fieldset || $settings || $settingsPrev) {} // ignore
 		if($this->wire()->input->post('_tfa_clear_remember')) {
 			unset($settings['remember']);
 			$this->remember($user, $settings)->disableAll();
@@ -857,7 +852,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
-		if($inputfields) {} // ignore
 	}
 	
 	/*** SESSION *******************************************************************************************/
@@ -871,7 +865,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function sessionGet($key, $blankValue = null) {
-		$value = $this->wire('session')->getFor($this->keyName, $key);
+		$value = $this->wire()->session->getFor($this->keyName, $key);
 		if($value === null) $value = $blankValue;
 		return $value;
 	}
@@ -886,8 +880,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function sessionSet($key, $value = null) {
-		/** @var Session $session */
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		$values = is_array($key) ? $key : array($key => $value);
 		foreach($values as $k => $v) {
 			$session->setFor($this->keyName, $k, $v);
@@ -898,7 +891,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * Remove all session variables set for this module
 	 * 
 	 * @param string $redirectURL Optionally redirect to URL after reset
-	 * @return bool|string|int
+	 * @return false
 	 * 
 	 */
 	protected function sessionReset($redirectURL = '') {
@@ -997,7 +990,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function getDefaultUserSettings(User $user) {
-		if($user) {}
 		return array(
 			'enabled' => false, // whether user has this auth method enabled
 		);
@@ -1023,7 +1015,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		
 		$defaults = $this->getDefaultUserSettings($user);
 		
-		$field = $this->wire('fields')->get($this->userFieldName);
+		$field = $this->wire()->fields->get($this->userFieldName);
 		if(!$field) return $defaults;
 		
 		$value = $user->get($field->name);
@@ -1031,7 +1023,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		
 		$table = $field->getTable();
 		$sql = "SELECT `settings` FROM `$table` WHERE pages_id=:user_id";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':user_id', $user->id, \PDO::PARAM_INT);
 		$query->execute();
 		$data = $query->fetchColumn();
@@ -1072,7 +1064,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		if(!empty($settings[$className])) $settings = $settings[$className]; // just in case it is $tfaSettings
 		$tfaSettings = array($className => $settings);
 		$user->setQuietly('_tfa_settings', $tfaSettings);
-		$field = $this->wire('fields')->get($this->userFieldName);
+		$field = $this->wire()->fields->get($this->userFieldName);
 		if(!$field) return false;
 		if(!$user->get($field->name)) return false; // no module selected
 		$table = $field->getTable();
@@ -1096,7 +1088,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 
 		if($this->wire()->user->isLoggedin()) {
 			// if user is logged in, user can be current user or one being edited
-			$process = $this->wire('process');
+			$process = $this->wire()->process;
 
 			// if process API variable not adequate, attempt to get from current page
 			if(!$process || $process == 'ProcessPageView') {
@@ -1105,7 +1097,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			}
 
 			// check if we have a process
-			if($process && $process instanceof Process) {
+			if($process instanceof Process) {
 				// user being edited like in ProcessUser, ProcessProfile or ProcessPageEdit
 				if($process instanceof WirePageEditor) {
 					$user = $process->getPage();
@@ -1123,7 +1115,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		}
 
 		// if not a user being edited, user can only be current user
-		if(!$user || !$user instanceof User || !$user->id) {
+		if(!$user instanceof User || !$user->id) {
 			$user = $this->wire()->user;
 		}
 
@@ -1188,7 +1180,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			));
 		}
 		
-		if(!$module || !$module instanceof Tfa) return false;
+		if(!$module instanceof Tfa) return false;
 		
 		$settings = $module->getUserSettings($user);
 		if(!$module->enabledForUser($user, $settings)) return false;
@@ -1285,6 +1277,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		}
 		
 		foreach($fieldset->getAll() as $f) {
+			/** @var Inputfield $f */
 			$name = $f->attr('name');
 			if(strpos($name, '_tfa_') === 0) list(,$name) = explode('_tfa_', $name);
 			$f->attr('name', "_tfa_$name");
@@ -1328,6 +1321,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$changes = array();
 		
 		foreach($fieldset->getAll() as $f) {
+			/** @var Inputfield $f */
 			$name = $f->attr('name');
 			if(strpos($name, '_tfa_') === 0) list(,$name) = explode('_tfa_', $name);
 			$settings[$name] = $f->val();
@@ -1340,7 +1334,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		}
 		
 		foreach($settings as $name => $value) {
-			if(!isset($settingsPrev[$name]) || $settingsPrev[$name] !== $settings[$name]) {
+			if(!isset($settingsPrev[$name]) || $settingsPrev[$name] !== $value) {
 				$changes[$name] = $name;
 			}
 		}
@@ -1392,7 +1386,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 				'noInit' => true, 
 				'noCache' => true, 
 			));
-			if(!$module || !$module instanceof Tfa) continue;
+			if(!$module instanceof Tfa) continue;
 			if($inputfield instanceof InputfieldRadios) {
 				$label = $module->getTfaTypeName() . ' - ' . $module->getTfaTypeSummary();
 			} else {
@@ -1430,7 +1424,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			$this->getUserEnabledInputfields($user, $fieldset, $settings);
 			$session->removeFor('_user', 'requireTfa'); // set by ProcessLogin
 		} else {
-			/** @var InputfieldFieldset $fieldset */
 			$this->getUserSettingsInputfields($user, $fieldset, $settings);
 			if(!$input->requestMethod('POST')) {
 				$this->warning(
@@ -1445,6 +1438,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$inputfield->getParent()->insertAfter($fieldset, $inputfield);
 
 		foreach($fieldset->getAll() as $f) {
+			/** @var Inputfield $f */
 			$name = $f->attr('name');
 			if(isset($settings[$name])) $f->val($settings[$name]);
 			if(strpos($name, '_tfa_') !== 0) $f->attr('name', "_tfa_$name");
@@ -1469,7 +1463,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			$this->wire($field);
 			$field->name = $fieldName;
 			$field->label = $this->defaults['fieldTfaTypeLabel'];
-			$field->type = $this->wire('fieldtypes')->get('FieldtypeModule');
+			$field->type = $this->wire()->fieldtypes->get('FieldtypeModule');
 			$field->flags = Field::flagSystem;
 			$field->description = $this->defaults['fieldTfaTypeDescLabel'];
 			$field->icon = 'user-secret';
@@ -1479,11 +1473,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			$field->set('labelField', 'title-summary');
 			$field->set('inputfieldClass', 'InputfieldRadios');
 			$field->set('blankType', 'zero');
-			$this->wire('fields')->save($field);
+			$this->wire()->fields->save($field);
 			$this->message("Added field: $field->name", Notice::debug);
 			// add a custom “settings” column to the field
 			$table = $field->getTable();
-			$this->wire('database')->exec("ALTER TABLE `$table` ADD `settings` MEDIUMTEXT");
+			$this->wire()->database->exec("ALTER TABLE `$table` ADD `settings` MEDIUMTEXT");
 		}
 	
 		// add user_tfa field to all user template fieldgroups
@@ -1791,7 +1785,7 @@ class RememberTfa extends Wire {
 	 * Disable one or more cookie/remembered client by name(s)
 	 * 
 	 * @param array|string $names
-	 * @return bool
+	 * @return int
 	 * 
 	 */
 	public function disable($names) {
@@ -1851,7 +1845,7 @@ class RememberTfa extends Wire {
 			'httponly' => true,
 			'domain' => '',
 		);
-		if($this->config->https) $options['secure'] = true;
+		if($this->config->https) $cookieOptions['secure'] = true;
 		$cookieName = $this->cookieName($cookieName);
 		$this->debugNote("Setting cookie: $cookieName=$cookieValue"); 
 		return $this->wire()->input->cookie->set($cookieName, $cookieValue, $cookieOptions);
@@ -1928,9 +1922,10 @@ class RememberTfa extends Wire {
 	 */
 	public function ___getFingerprintArray() {
 		
+		$config = $this->wire()->config;
 		$agent = isset($_SERVER['HTTP_USER_AGENT']) ?  $_SERVER['HTTP_USER_AGENT'] : 'noagent';
-	
 		$fwip = '';
+		
 		if(isset($_SERVER['HTTP_X_FORWARDED_FOR'])) $fwip .= $_SERVER['HTTP_X_FORWARDED_FOR'];
 		if(isset($_SERVER['HTTP_CLIENT_IP'])) $fwip .= ' ' . $_SERVER['HTTP_CLIENT_IP'];
 		if(empty($fwip)) $fwip = 'nofwip';
@@ -1939,8 +1934,8 @@ class RememberTfa extends Wire {
 			'agent' => $agent,
 			'agentVL' => preg_replace('![^a-zA-Z]!', '', $agent), // versionless agent
 			'accept' => (isset($_SERVER['HTTP_ACCEPT']) ? $_SERVER['HTTP_ACCEPT'] : 'noaccept'),
-			'scheme' => ($this->config->https ? 'HTTPS' : 'http'),
-			'host' => $this->config->httpHost,
+			'scheme' => ($config->https ? 'HTTPS' : 'http'),
+			'host' => $config->httpHost,
 			'ip' => (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'noip'),
 			'fwip' => $fwip,
 		);

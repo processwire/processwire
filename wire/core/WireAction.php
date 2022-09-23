@@ -7,6 +7,10 @@
  * 
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
+ * 
+ * @method bool action($item)
+ * @method int executeMultiple($items)
+ * @method InputfieldWrapper getConfigInputfields()
  *
  */
 abstract class WireAction extends WireData implements Module {
@@ -42,6 +46,7 @@ abstract class WireAction extends WireData implements Module {
 	 *
 	 */
 	public function __construct() {
+		parent::__construct();
 		// $this->set('key', 'value'); 
 	}
 

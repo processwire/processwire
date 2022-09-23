@@ -3,7 +3,7 @@
 /**
  * ProcessWire Language Translator 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -96,9 +96,10 @@ class LanguageTranslator extends Wire {
 	 *
 	 */
 	public function __construct(Language $currentLanguage) {
+		parent::__construct();
 		$currentLanguage->wire($this);
 		$this->setCurrentLanguage($currentLanguage);
-		$this->rootPath = $this->wire('config')->paths->root; 
+		$this->rootPath = $this->wire()->config->paths->root; 
 		$file = __FILE__; 
 		$pos = strpos($file, '/wire/modules/LanguageSupport/'); 
 		$this->rootPath2 = $pos ? substr($file, 0, $pos+1) : '';

@@ -69,10 +69,11 @@ class Users extends PagesType {
 	 * Get the user by name, ID or selector string
 	 * 
 	 * @param string $selectorString
-	 * @return Page|NullPage|null
+	 * @return User|NullPage|null
 	 * 
 	 */
 	public function get($selectorString) {
+		/** @var User|NullPage|null $user */
 		$user = parent::get($selectorString);
 		return $user; 
 	}

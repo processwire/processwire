@@ -58,8 +58,12 @@ class User extends Page {
 	 */
 	public function wired() {
 		parent::wired();
+		// intentionally duplicated from __construct() in case a multi-instance environment
+		// and we got the wrong instance in __construct()
 		$template = $this->wire()->templates->get('user');
-		if($template !== $this->template && (!$this->template || $this->template->name === 'user')) $this->template = $template;
+		if($template !== $this->template && (!$this->template || $this->template->name === 'user')) {
+			$this->template = $template;
+		}
 		$this->_parent_id = $this->wire()->config->usersPageID; 
 	}
 	
@@ -87,7 +91,7 @@ class User extends Page {
 		if(empty($roles)) {
 			// do nothing
 			
-		} else if(is_object($role) && $role instanceof Page) {
+		} else if($role instanceof Page) {
 			$has = $roles->has($role); 
 			
 		} else if(ctype_digit("$role")) {
@@ -129,8 +133,10 @@ class User extends Page {
 	 *
 	 */
 	public function addRole($role) {
-		if(is_string($role) || is_int($role)) $role = $this->wire()->roles->get($role); 
-		if(is_object($role) && $role instanceof Role) {
+		if(is_string($role) || is_int($role)) {
+			$role = $this->wire()->roles->get($role);
+		}
+		if($role instanceof Role) {
 			$this->get('roles')->add($role); 
 			return true; 
 		}
@@ -155,8 +161,10 @@ class User extends Page {
 	 *
 	 */
 	public function removeRole($role) {
-		if(is_string($role) || is_int($role)) $role = $this->wire()->roles->get($role); 
-		if(is_object($role) && $role instanceof Role) {
+		if(is_string($role) || is_int($role)) {
+			$role = $this->wire()->roles->get($role);
+		}
+		if($role instanceof Role) {
 			$this->get('roles')->remove($role); 
 			return true; 
 		}
@@ -242,7 +250,7 @@ class User extends Page {
 			$permission = $permissions->get((int) $name);
 		} else if($name == 'page-rename') {
 			// optional permission that, if not installed, page-edit is substituted for
-			if($this->wire('permissions')->has('page-rename')) {
+			if($permissions->has('page-rename')) {
 				$permission = $permissions->get('page-rename');
 			} else {
 				$permission = $permissions->get('page-edit');
@@ -263,19 +271,20 @@ class User extends Page {
 
 		if(!$permission || !$permission->id) return false;
 
-		/** @var PageArray $roles */
-		$roles = $this->getUnformatted('roles'); 
-		if(empty($roles) || !$roles instanceof PageArray) return false; 
+		/** @var PageArray $userRoles */
+		$userRoles = $this->getUnformatted('roles'); 
+		if(empty($userRoles) || !$userRoles instanceof PageArray) return false; 
 		$has = false; 
 		$accessTemplate = is_null($page) ? false : $page->getAccessTemplate($permission->name);
 		if(is_null($accessTemplate)) return false;
 
-		foreach($roles as $key => $role) {
+		foreach($userRoles as $role) {
+			/** @var Role $role */
 
 			if(!$role || !$role->id) continue; 
 			$context = null;
 
-			if(!is_null($page)) {
+			if($page !== null) {
 				// @todo some of this logic has been duplicated in Role::hasPermission, so code within this if() may be partially redundant
 				if(!$page->id) continue;  
 
@@ -321,14 +330,14 @@ class User extends Page {
 	 */
 	protected function ___hasTemplatePermission($name, $template) {
 		
-		if(is_object($name)) $name = $name->name; 
+		if($this->isSuperuser()) return true;
 
-		if($this->isSuperuser()) return true; 
+		if(is_object($name)) $name = $name->name; 
 
 		if($template instanceof Template) {
 			// fantastic then
 		} else if(is_string($template) || is_int($template)) {
-			$template = $this->templates->get($this->wire()->sanitizer->name($template)); 
+			$template = $this->wire()->templates->get($this->wire()->sanitizer->name($template)); 
 			if(!$template) return false;
 		} else {
 			return false;
@@ -338,12 +347,12 @@ class User extends Page {
 		// because we don't have any page context to inherit from at this point
 		// if(!$template->useRoles) return false; 
 
-		/** @var PageArray $roles */
-		$roles = $this->get('roles'); 
-		if(empty($roles)) return false; 
+		/** @var PageArray $userRoles */
+		$userRoles = $this->get('roles'); 
+		if(empty($userRoles)) return false; 
 		$has = false;
 
-		foreach($roles as $role) {
+		foreach($userRoles as $role) {
 			/** @var Role $role */
 			
 			// @todo much of this logic has been duplicated in Role::hasPermission, so code within this foreach() may be partially redundant
@@ -398,11 +407,11 @@ class User extends Page {
 	public function getPermissions(Page $page = null) {
 		// Does not currently include page-add or page-create permissions (runtime).
 		if($this->isSuperuser()) return $this->wire()->permissions->getIterator(); // all permissions
-		$permissions = $this->wire()->pages->newPageArray();
-		/** @var PageArray $roles */
-		$roles = $this->get('roles'); 
-		if(empty($roles)) return $permissions; 
-		foreach($roles as $key => $role) {
+		$userPermissions = $this->wire()->pages->newPageArray();
+		/** @var PageArray $userRoles */
+		$userRoles = $this->get('roles'); 
+		if(empty($userRoles)) return $userPermissions; 
+		foreach($userRoles as $role) {
 			if($page && !$page->hasAccessRole($role)) continue; 
 			foreach($role->permissions as $permission) { 
 				if($page && $permission->name == 'page-edit') {
@@ -410,10 +419,10 @@ class User extends Page {
 					if(!$accessTemplate) continue;
 					if(!in_array($role->id, $accessTemplate->editRoles)) continue; 
 				}
-				$permissions->add($permission); 
+				$userPermissions->add($permission); 
 			}
 		}
-		return $permissions; 
+		return $userPermissions; 
 	}
 
 	/**
@@ -435,11 +444,11 @@ class User extends Page {
 			$is = false;
 		} else {
 			$superuserRoleID = (int) $config->superUserRolePageID;
-			/** @var PageArray $roles */
-			$roles = $this->getUnformatted('roles');
-			if(empty($roles)) return false; // no cache intentional
+			/** @var PageArray $userRoles */
+			$userRoles = $this->getUnformatted('roles');
+			if(empty($userRoles)) return false; // no cache intentional
 			$is = false;
-			foreach($roles as $role) {
+			foreach($userRoles as $role) {
 				/** @var Role $role */
 				if(((int) $role->id) === $superuserRoleID) {
 					$is = true;
@@ -523,7 +532,7 @@ class User extends Page {
 	 */
 	protected function getFieldValue($key, $selector = '') {
 		$value = parent::getFieldValue($key, $selector);
-		if(!$value && $key == 'language') {
+		if(!$value && $key === 'language') {
 			$languages = $this->wire()->languages;
 			if($languages) $value = $languages->getDefault();
 		}
@@ -567,7 +576,7 @@ class User extends Page {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return Pages|PagesType|Users
+	 * @return Users
 	 *
 	 */
 	public function getPagesManager() {
@@ -611,7 +620,7 @@ class User extends Page {
 	 * 
 	 */
 	public function ___changed($what, $old = null, $new = null) {
-		if($what == 'roles' && is_bool($this->isSuperuser)) $this->isSuperuser = null;
+		if($what === 'roles' && is_bool($this->isSuperuser)) $this->isSuperuser = null;
 		parent::___changed($what, $old, $new); 
 	}
 

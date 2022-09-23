@@ -367,7 +367,9 @@ abstract class Process extends WireData implements Module {
 		
 		$info = $modules->getModuleInfoVerbose($this);
 		$name = $sanitizer->pageName($name);
-		if(!strlen($name)) $name = strtolower(preg_replace('/([A-Z])/', '-$1', str_replace('Process', '', $this->className()))); 
+		if(!strlen($name)) {
+			$name = strtolower(preg_replace('/([A-Z])/', '-$1', str_replace('Process', '', $this->className())));
+		}
 		$adminPage = $pages->get($config->adminRootPageID); 
 		if($parent instanceof Page) {
 			// already have what we  need
@@ -407,14 +409,15 @@ abstract class Process extends WireData implements Module {
 	 *
 	 */
 	protected function ___uninstallPage() {
-		$moduleID = $this->wire('modules')->getModuleID($this);
+		$pages = $this->wire()->pages;
+		$moduleID = $this->wire()->modules->getModuleID($this);
 		if(!$moduleID) return 0;
 		$n = 0; 
-		foreach($this->wire('pages')->find("process=$moduleID, include=all") as $page) {
+		foreach($pages->find("process=$moduleID, include=all") as $page) {
 			if("$page->process" != "$this") continue; 
 			$page->process = null;
 			$this->message(sprintf($this->_('Trashed Page: %s'), $page->path)); 
-			$this->wire('pages')->trash($page);
+			$pages->trash($page);
 			$n++;
 		}
 		return $n;
@@ -534,6 +537,7 @@ abstract class Process extends WireData implements Module {
 		if(!empty($options['getArray'])) return $data;
 
 		if($config->ajax) header("Content-Type: application/json");
+		
 		return json_encode($data);
 	}
 
@@ -645,7 +649,6 @@ abstract class Process extends WireData implements Module {
 	 * 
 	 */
 	public static function getAfterLoginUrl(Page $page) {
-		if($page) {}
 		return false;
 	}
 }

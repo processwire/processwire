@@ -57,6 +57,7 @@ class LanguageSupportFields extends WireData implements Module {
 	 *
 	 */
 	public function __construct() {
+		parent::__construct();
 		// load other required classes
 		$dirname = dirname(__FILE__); 
 		require_once($dirname . '/LanguagesValueInterface.php'); 
@@ -138,7 +139,7 @@ class LanguageSupportFields extends WireData implements Module {
 		$field = $event->arguments[1]; 
 		if($field->name === 'language') return;
 
-		$language = $this->wire()->user->get('language'); 
+		$language = $this->wire()->user->language; 
 		if(!$language || !$language->id || $language->isDefault()) return;
 
 		// exit quickly if we can determine now we don't need to continue
@@ -327,7 +328,7 @@ class LanguageSupportFields extends WireData implements Module {
 			$fields = $selector->field;
 			$fields = is_array($fields) ? $fields : array($fields);
 
-			foreach($fields as $key => $field) {
+			foreach($fields as $field) {
 
 				$subfield = '';
 				if(strpos($field, '.')) list($field, $subfield) = explode('.', $field); 
@@ -554,7 +555,7 @@ class LanguageSupportFields extends WireData implements Module {
 	 *
 	 */
 	public function ___install() {
-		$this->modules->get('FieldtypeTextLanguage'); 
+		$this->wire()->modules->get('FieldtypeTextLanguage'); 
 	}
 
 	/**

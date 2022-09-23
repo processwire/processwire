@@ -10,7 +10,7 @@
  * Base class that holds a message, source class, and timestamp.
  * Contains notices/messages used by the application to the user. 
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property string $text Text of notice
@@ -186,7 +186,7 @@ abstract class Notice extends WireData {
 		if($key === 'text' && is_string($value) && strpos($value, 'icon-') === 0 && strpos($value, ' ')) {
 			list($icon, $value) = explode(' ', $value, 2);
 			list(,$icon) = explode('-', $icon, 2);
-			$icon = $this->wire('sanitizer')->name($icon);
+			$icon = $this->wire()->sanitizer->name($icon);
 			if(strlen($icon)) $this->set('icon', $icon);
 		} else if($key === 'flags') {
 			$this->flags($value);
@@ -475,10 +475,10 @@ class Notices extends WireArray {
 	 */
 	protected function allowNotice(Notice $item) {
 		
-		$user = $this->wire('user'); /** @var User $user */
+		$user = $this->wire()->user;
 		
 		if($item->flags & Notice::debug) {
-			if(!$this->wire('config')->debug) return false;
+			if(!$this->wire()->config->debug) return false;
 		}
 
 		if($item->flags & Notice::superuser) {
@@ -490,7 +490,7 @@ class Notices extends WireArray {
 		}
 		
 		if($item->flags & Notice::admin) {
-			$page = $this->wire('page'); /** @var Page|null $page */
+			$page = $this->wire()->page;
 			if(!$page || !$page->template || $page->template->name != 'admin') return false;
 		}
 		
@@ -519,7 +519,7 @@ class Notices extends WireArray {
 		if(is_array($text)) {
 			$item->text = "<pre>" . trim(print_r($this->sanitizeArray($text), true)) . "</pre>";
 			$item->flags = $item->flags | Notice::allowMarkup;
-		} else if(is_object($text) && $text instanceof Wire) {
+		} else if($text instanceof Wire) {
 			$item->text = "<pre>" . $this->wire()->sanitizer->entities(print_r($text, true)) . "</pre>";
 			$item->flags = $item->flags | Notice::allowMarkup;
 		} else if(is_object($text)) {
@@ -577,8 +577,7 @@ class Notices extends WireArray {
 	 *
 	 */
 	protected function storeNotice(Notice $item) {
-		/** @var Session $session */
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		if(!$session) return false;
 		$items = $session->getFor($this, 'items');
 		if(!is_array($items)) $items = array();
@@ -598,7 +597,7 @@ class Notices extends WireArray {
 	 */
 	protected function loadStoredNotices() {
 		
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		$items = $session->getFor($this, 'items');
 		$qty = 0;
 		
@@ -640,7 +639,7 @@ class Notices extends WireArray {
 			return $this;
 		}
 		if($item) parent::remove($item);
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		$items = $session->getFor($this, 'items');
 		if(is_array($items) && isset($items[$idStr])) {
 			unset($items[$idStr]);
@@ -680,13 +679,12 @@ class Notices extends WireArray {
 	 * 
 	 */
 	protected function addLog(Notice $item) {
-		/** @var Notice $item */
 		$text = $item->text;
 		if(strpos($text, '&') !== false) {
-			$text = $this->wire('sanitizer')->unentities($text);
+			$text = $this->wire()->sanitizer->unentities($text);
 		}
-		if($this->wire('config')->debug && $item->class) $text .= " ($item->class)"; 
-		$this->wire('log')->save($item->getName(), $text); 
+		if($this->wire()->config->debug && $item->class) $text .= " ($item->class)"; 
+		$this->wire()->log->save($item->getName(), $text); 
 	}
 
 	/**
@@ -729,7 +727,7 @@ class Notices extends WireArray {
 	 * 
 	 */
 	public function sanitizeArray(array $a) {
-		$sanitizer = $this->wire('sanitizer'); 
+		$sanitizer = $this->wire()->sanitizer; 
 		$b = array();
 		foreach($a as $key => $value) {
 			if(is_array($value)) {
@@ -738,7 +736,7 @@ class Notices extends WireArray {
 				if(is_object($value)) $value = (string) $value;
 				$value = $sanitizer->entities($value); 
 			} 
-			$key = $this->wire('sanitizer')->entities($key);
+			$key = $sanitizer->entities($key);
 			$b[$key] = $value;
 		}
 		return $b; 

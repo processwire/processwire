@@ -5,7 +5,7 @@
  *
  * Loads and executes Process Module instance and determines access.
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -107,7 +107,11 @@ class ProcessController extends Wire {
 	 *
 	 */
 	public function setProcessName($processName) {
-		$this->processName = $this->sanitizer->name($processName); 
+		$processName = (string) $processName;
+		if(!ctype_alnum($processName)) {
+			$processName = $this->wire()->sanitizer->className($processName);
+		}
+		$this->processName = $processName;
 	}
 
 	/**
@@ -121,7 +125,11 @@ class ProcessController extends Wire {
 	 *
 	 */
 	public function setProcessMethodName($processMethod) {
-		$this->processMethodName = $this->sanitizer->name($processMethod); 
+		$processMethod = (string) $processMethod;
+		if(!ctype_alnum($processMethod)) {
+			$processMethod = $this->wire()->sanitizer->name($processMethod);
+		}
+		$this->processMethodName = $processMethod;
 	}
 
 	/**
@@ -135,7 +143,9 @@ class ProcessController extends Wire {
 	 *
 	 */
 	public function setPrefix($prefix) {
-		$this->prefix = $this->sanitizer->name($prefix); 
+		$prefix = (string) $prefix;
+		if(!ctype_alpha($prefix)) $prefix = $this->wire()->sanitizer->name($prefix);
+		$this->prefix = $prefix;
 	}
 
 	/**
@@ -145,6 +155,8 @@ class ProcessController extends Wire {
 	 *
 	 */
 	public function getProcess() {
+		
+		$modules = $this->wire()->modules;
 
 		if($this->process) {
 			$processName = $this->process->className();
@@ -156,14 +168,14 @@ class ProcessController extends Wire {
 
 		// verify that there is adequate permission to execute the Process
 		$permissionName = '';
-		$info = $this->wire('modules')->getModuleInfoVerbose($processName);
+		$info = $modules->getModuleInfoVerbose($processName);
 		$this->processInfo = $info;
 		if(!empty($info['permission'])) $permissionName = $info['permission']; 
 
 		$this->hasPermission($permissionName, true); // throws exception if no permission
 		
 		if(!$this->process) {
-			$module = $this->modules->getModule($processName, array('returnError' => true)); 
+			$module = $modules->getModule($processName, array('returnError' => true)); 
 			if(is_string($module)) {
 				$this->processError = $module;
 				$this->process = null;
@@ -191,7 +203,7 @@ class ProcessController extends Wire {
 	 *
 	 */
 	protected function hasPermission($permissionName, $throw = true) {
-		$user = $this->wire('user'); 
+		$user = $this->wire()->user; 
 		if($user->isSuperuser()) return true; 
 		if($permissionName && $user->hasPermission($permissionName)) return true; 
 		if($throw) {
@@ -215,7 +227,7 @@ class ProcessController extends Wire {
 		// i.e. executeHelloWorld => helloWorld
 		$urlSegment = $method;
 		if(strpos($method, 'execute') === 0) list(,$urlSegment) = explode('execute', $method, 2);
-		$urlSegment = $this->wire('sanitizer')->hyphenCase($urlSegment); 
+		$urlSegment = $this->wire()->sanitizer->hyphenCase($urlSegment); 
 		if(!$this->hasUrlSegmentPermission($urlSegment, $throw)) return false;
 		return true;
 	}
@@ -231,7 +243,7 @@ class ProcessController extends Wire {
 	 */
 	protected function hasUrlSegmentPermission($urlSegment, $throw = true) {
 	
-		if(empty($this->processInfo['nav']) || $this->wire('user')->isSuperuser()) return true;
+		if(empty($this->processInfo['nav']) || $this->wire()->user->isSuperuser()) return true;
 		$hasPermission = true;
 		$urlSegment = trim(strtolower($urlSegment), '.-_');
 
@@ -259,11 +271,11 @@ class ProcessController extends Wire {
 	 *
 	 */
 	public function getProcessMethodName(Process $process) {
-
+		
+		$sanitizer = $this->wire()->sanitizer;
 		$forceFail = false;
-		$urlSegment1 = $this->wire('input')->urlSegment1;
+		$urlSegment1 = $this->wire()->input->urlSegment1;
 		$method = self::defaultProcessMethodName; 
-		$sanitizer = $this->wire('sanitizer');
 
 		if($this->processMethodName) {
 			// the method to use has been preset with the setProcessMethodName() function
@@ -272,7 +284,7 @@ class ProcessController extends Wire {
 				$this->hasMethodPermission($method);
 			}
 			
-		} else if(strlen($urlSegment1) && !$this->wire('user')->isGuest()) {
+		} else if(strlen($urlSegment1) && !$this->wire()->user->isGuest()) {
 			// determine requested method from urlSegment1
 			// $urlSegment1 = trim($this->wire('sanitizer')->hyphenCase($urlSegment1, array('allow' => 'a-z0-9_')), '_');
 			if(ctype_alpha($urlSegment1)) {
@@ -315,8 +327,8 @@ class ProcessController extends Wire {
 	 */
 	public function ___execute() {
 
-		$debug = $this->wire('config')->debug; 
-		$breadcrumbs = $this->wire('breadcrumbs'); 
+		$debug = $this->wire()->config->debug; 
+		$breadcrumbs = $this->wire()->breadcrumbs; 
 		$headline = $this->wire('processHeadline'); 
 		$numBreadcrumbs = $breadcrumbs ? count($breadcrumbs) : null;
 		$process = $this->getProcess();
@@ -341,12 +353,12 @@ class ProcessController extends Wire {
 		// setup breadcrumbs if in some method other than the main execute() method
 		if($method !== 'execute') {
 			// some method other than the main one
-			if(!is_null($numBreadcrumbs) && $numBreadcrumbs === count($breadcrumbs)) {
+			if($numBreadcrumbs === count($breadcrumbs)) {
 				// process added no breadcrumbs, but there should be more
 				if($headline === $this->wire('processHeadline')) {
 					$process->headline(str_replace('execute', '', $method));
 				}
-				$href = substr($this->wire('input')->url(), -1) == '/' ? '../' : './';
+				$href = substr($this->wire()->input->url(), -1) == '/' ? '../' : './';
 				$process->breadcrumb($href, $this->processInfo['title']); 
 			}
 		}
@@ -364,6 +376,7 @@ class ProcessController extends Wire {
 				$viewFile = $this->getViewFile($process, $method); 
 				if($viewFile) {
 					// get output from a separate view file
+					/** @var TemplateFile $template */
 					$template = $this->wire(new TemplateFile($viewFile));	
 					foreach($content as $key => $value) {
 						$template->set($key, $value);
@@ -393,7 +406,7 @@ class ProcessController extends Wire {
 	
 		if(empty($method)) $method = 'execute';
 		$className = $process->className();
-		$viewPath = $this->wire('config')->paths->$className;
+		$viewPath = $this->wire()->config->paths->$className;
 		$method2 = ''; // lowercase hyphenated version
 		$method3 = ''; // lowercase hyphenated, without leading execute
 		if(strtolower($method) != $method) {

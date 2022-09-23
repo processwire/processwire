@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -23,7 +23,7 @@ class ProcessList extends Process {
 			'version' => 101, 
 			'permanent' => true, 
 			'permission' => 'page-view',
-			);
+		);
 	}
 
 
@@ -32,6 +32,10 @@ class ProcessList extends Process {
 	}	
 
 	protected function render() {
+		
+		$modules = $this->wire()->modules;
+		$sanitizer = $this->wire()->sanitizer;
+		
 		$defaults = array(
 			'dlClass' => 'nav',
 			'dtClass' => '',
@@ -40,13 +44,14 @@ class ProcessList extends Process {
 			'disabledClass' => 'ui-priority-secondary',
 			'showIcon' => true, 
 		);
-		$settings = $this->wire('config')->ProcessList;
+		
+		$settings = $this->wire()->config->ProcessList;
 		if(!is_array($settings)) $settings = array();
 		$settings = array_merge($defaults, $settings);
 		$out = "\n<dl class='$settings[dlClass]'>";
 		$cnt = 0; 
 		
-		foreach($this->page->children("check_access=0") as $child) {
+		foreach($this->wire()->page->children("check_access=0") as $child) {
 			
 			if(!$child->viewable()) continue;
 			
@@ -56,7 +61,7 @@ class ProcessList extends Process {
 			
 			if($child->process) {
 				
-				$info = $this->modules->getModuleInfoVerbose($child->process, array('noCache' => true)); 	
+				$info = $modules->getModuleInfoVerbose($child->process, array('noCache' => true)); 	
 				if($settings['showIcon']) { 
 					$icon = $child->get('page_icon');
 					if(!$icon) $icon = $info['icon'];
@@ -71,14 +76,14 @@ class ProcessList extends Process {
 				if(!strlen($title)) $title = $child->name;
 				$titleTranslated = __($title, '/wire/templates-admin/default.php'); 
 				if($titleTranslated && $titleTranslated != $title) $title = $titleTranslated; 
-				$title = $this->wire('sanitizer')->entities1($title); 
+				$title = $sanitizer->entities1($title); 
 				if($child->summary) {
 					$summary = $child->summary;
 				} else {
 					$summary = $info['summary'];
 				}
 					
-				$summary = $this->wire('sanitizer')->entities1($summary);
+				$summary = $sanitizer->entities1($summary);
 				
 			} else {
 				
@@ -88,7 +93,7 @@ class ProcessList extends Process {
 					$dtClass .= ' ' . $settings['disabledClass'];
 					$ddClass .= ' ' . $settings['disabledClass'];
 				} else if($child->summary) {
-					$summary = $this->wire('sanitizer')->entities($child->getUnformatted('summary')); 
+					$summary = $sanitizer->entities($child->getUnformatted('summary')); 
 				} else {
 					$summary = '<!--' . $this->_('No description available') . '-->';
 				}
@@ -104,6 +109,7 @@ class ProcessList extends Process {
 
 		$out .= "\n</dl>";
 		if(!$cnt) $out = '';
+		
 		return $out; 
 	}
 }

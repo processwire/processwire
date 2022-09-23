@@ -110,11 +110,12 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 
 		$database = $this->wire()->database; 
 
-		if(is_object($selectors) && $selectors instanceof Selectors) {
+		if($selectors instanceof Selectors) {
 			// iterable selectors
 		} else if($selectors && is_string($selectors)) {
 			// selector string, convert to iterable selectors
 			$selectorString = $selectors;
+			/** @var Selectors $selectors */
 			$selectors = $this->wire(new Selectors()); 
 			$selectors->init($selectorString);
 
@@ -189,6 +190,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 			$fields[$k] = "$table.$v"; 
 		}
 
+		/** @var DatabaseQuerySelect $query */
 		$query = $this->wire(new DatabaseQuerySelect());
 		$query->select($fields)->from($table);
 		if($sort = $this->getSort()) $query->orderby($sort); 
@@ -371,12 +373,15 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 */
 	public function ___delete(Saveable $item) {
 		$blank = $this->makeBlankItem();
-		if(!$item instanceof $blank) throw new WireException("WireSaveableItems::delete(item) requires item to be of type '" . $blank->className() . "'"); 
+		if(!$item instanceof $blank) {
+			$typeName = $blank->className();
+			throw new WireException("WireSaveableItems::delete(item) requires item to be of type '$typeName'");
+		}
 		
 		$id = (int) $item->id;
 		if(!$id) return false; 
 		
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		
 		$this->deleteReady($item);
 		$this->getWireArray()->remove($item); 
@@ -465,9 +470,9 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		return $value;
 	}
 
-	public function __get($key) {
-		$value = $this->get($key);
-		if($value === null) $value = parent::__get($key);
+	public function __get($name) {
+		$value = $this->get($name);
+		if($value === null) $value = parent::__get($name);
 		return $value; 
 	}
 
@@ -548,6 +553,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		}
 		
 		foreach($items as $field) {
+			/** @var WireData $field */
 			$index = null;
 			if($matchValue !== null) {
 				if($matchArray) {
@@ -748,7 +754,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function log($str, Saveable $item = null) {
-		$logs = $this->wire('config')->logs;
+		$logs = $this->wire()->config->logs;
 		$name = $this->className(array('lowercase' => true)); 
 		if($logs && in_array($name, $logs)) {
 			if($item && strpos($str, "'$item->name'") === false) $str .= " '$item->name'";

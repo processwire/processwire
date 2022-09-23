@@ -333,7 +333,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	protected function roleTypeNames($type) {
-		if(is_object($type) && $type instanceof Page) $type = $type->name;
+		if($type instanceof Page) $type = $type->name;
 		if($type === 'view' || $type === 'roles' || $type === 'viewRoles' || $type === 'page-view') {
 			return array('view', 'roles', 'page-view');
 		} else if($type === 'edit' || $type === 'page-edit' || $type === 'editRoles') {
@@ -433,7 +433,7 @@ class Template extends WireData implements Saveable, Exportable {
 			$has = $roles->has("name=$role");
 		} else if(is_int($role)) {
 			$has = $roles->has("id=$role");
-			$rolePage = $this->wire('roles')->get($role);
+			$rolePage = $this->wire()->roles->get($role);
 		} else if($role instanceof Page) {
 			$has = $roles->has($role);
 			$rolePage = $role;
@@ -519,11 +519,14 @@ class Template extends WireData implements Saveable, Exportable {
 		if(!is_array($value)) $value = array();
 		$a = array();
 		
+		$roles = $this->wire()->roles;
+		$permissions = $this->wire()->permissions;
+		
 		foreach($value as $roleID => $permissionIDs) {
 			
 			if(!ctype_digit("$roleID")) {
 				// convert role name to ID
-				$roleID = $this->wire()->roles->get("name=$roleID")->id;
+				$roleID = $roles->get("name=$roleID")->id;
 			}
 			
 			if(!$roleID) continue;
@@ -534,7 +537,7 @@ class Template extends WireData implements Saveable, Exportable {
 				if(!ctype_digit($test)) {
 					// convert permission name to ID
 					$revoke = strpos($permissionID, '-') === 0;
-					$permissionID = $this->wire()->permissions->get("name=$test")->id;
+					$permissionID = $permissions->get("name=$test")->id;
 					if(!$permissionID) continue;
 					if($revoke) $permissionID = "-$permissionID";
 				}

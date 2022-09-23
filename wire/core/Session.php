@@ -170,8 +170,11 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function __construct(ProcessWire $wire) {
-
+		
+		parent::__construct();
 		$wire->wire($this);
+		
+		$users = $wire->wire()->users;
 		$this->config = $wire->wire()->config;
 		$this->sessionKey = $this->className();
 		
@@ -204,15 +207,15 @@ class Session extends Wire implements \IteratorAggregate {
 			$userID = $this->get('_user', 'id');
 			if($userID) {
 				if($this->isValidSession($userID)) {
-					$user = $this->wire('users')->get($userID);
+					$user = $users->get($userID);
 				} else {
 					$this->logout();
 				}
 			}
 		}
 
-		if(!$user || !$user->id) $user = $this->wire('users')->getGuestUser();
-		$this->wire('users')->setCurrentUser($user); 	
+		if(!$user || !$user->id) $user = $users->getGuestUser();
+		$users->setCurrentUser($user); 	
 
 		if($sessionAllow) $this->wakeupNotices();
 		$this->setTrackChanges(true);
@@ -377,7 +380,7 @@ class Session extends Wire implements \IteratorAggregate {
 			
 		} else if($reason && $userID && $userID != $this->wire('config')->guestUserPageID) {
 			// otherwise log the invalid session
-			$user = $this->wire('users')->get((int) $userID);
+			$user = $this->wire()->users->get((int) $userID);
 			if($user && $user->id) $reason = "User '$user->name' - $reason";
 			$reason .= " (IP: " . $this->getIP() . ")";
 			$this->log($reason);
@@ -444,7 +447,7 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		if(!$useFingerprint) return false;
 		
-		if($useFingerprint === true || $useFingerprint === 1 || $useFingerprint === "1") {
+		if($useFingerprint === true || $useFingerprint === 1 || "$useFingerprint" === "1") {
 			// default (boolean true or int 1)
 			$useFingerprint = self::fingerprintRemoteAddr | self::fingerprintUseragent;
 			if($debug) $debugInfo[] = 'default';
@@ -515,22 +518,24 @@ class Session extends Wire implements \IteratorAggregate {
 	public function get($key, $_key = null) {
 		if($key === 'CSRF') {
 			return $this->CSRF();
-		} else if(!is_null($_key)) {
+		} else if($_key !== null) {
 			// namespace
 			return $this->getFor($key, $_key);
 		}
 		if($this->sessionInit) {
 			$value = isset($_SESSION[$this->sessionKey][$key]) ? $_SESSION[$this->sessionKey][$key] : null;
 		} else {
-			if($key == 'config') return $this->config;
+			if($key === 'config') return $this->config;
 			$value = isset($this->data[$key]) ? $this->data[$key] : null;
 		}
-		
+	
+		/*
 		if(is_null($value) && is_null($_key) && strpos($key, '_user_') === 0) {
 			// for backwards compatiblity with non-core modules or templates that may be checking _user_[property]
 			// not currently aware of any instances, but this is just a precaution
 			return $this->get('_user', str_replace('_user_', '', $key)); 
 		}
+		*/
 		
 		return $value; 
 	}
@@ -696,8 +701,11 @@ class Session extends Wire implements \IteratorAggregate {
 		$ns = $this->getNamespace($ns); 
 		$data = $this->get($ns); 
 		if(!is_array($data)) $data = array();
-		if(is_null($value)) unset($data[$key]); 
-			else $data[$key] = $value; 
+		if(is_null($value)) {
+			unset($data[$key]);
+		} else {
+			$data[$key] = $value;
+		}
 		return $this->set($ns, $data); 
 	}
 
@@ -798,12 +806,12 @@ class Session extends Wire implements \IteratorAggregate {
 	/**
 	 * Provide non-namespaced $session->variable get access
 	 * 
-	 * @param string $key
+	 * @param string $name
 	 * @return SessionCSRF|mixed|null
 	 *
 	 */
-	public function __get($key) {
-		return $this->get($key); 
+	public function __get($name) {
+		return $this->get($name); 
 	}
 
 	/**
@@ -870,10 +878,13 @@ class Session extends Wire implements \IteratorAggregate {
 			$ip = '127.0.0.1';
 
 		} else if($useClient) {
-			if(!empty($_SERVER['HTTP_CLIENT_IP'])) $ip = $_SERVER['HTTP_CLIENT_IP'];
-			else if(!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-			else if(!empty($_SERVER['REMOTE_ADDR'])) $ip = $_SERVER['REMOTE_ADDR'];
-			else $ip = '0.0.0.0';
+			if(!empty($_SERVER['HTTP_CLIENT_IP'])) {
+				$ip = $_SERVER['HTTP_CLIENT_IP'];
+			} else if(!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+				$ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+			} else {
+				$ip = $_SERVER['REMOTE_ADDR'];
+			}
 			// It's possible for X_FORWARDED_FOR to have more than one CSV separated IP address, per @tuomassalo
 			if(strpos($ip, ',') !== false && $useClient !== 2) {
 				list($ip) = explode(',', $ip);
@@ -966,17 +977,14 @@ class Session extends Wire implements \IteratorAggregate {
 	
 		/** @var User|null $user */
 		$user = null;
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
-		/** @var Users $users */
-		$users = $this->wire('users');
-		/** @var int $guestUserID */	
-		$guestUserID = $this->wire('config')->guestUserPageID;
+		$sanitizer = $this->wire()->sanitizer;
+		$users = $this->wire()->users;
+		$guestUserID = $this->wire()->config->guestUserPageID;
 
 		$fail = true;
 		$failReason = '';
 		
-		if(is_object($name) && $name instanceof User) {
+		if($name instanceof User) {
 			$user = $name;
 			$name = $user->name;
 		} else {
@@ -1005,7 +1013,7 @@ class Session extends Wire implements \IteratorAggregate {
 			
 		} else if($force === true || $this->authenticate($user, $pass)) { 
 
-			$this->trackChange('login', $this->wire('user'), $user); 
+			$this->trackChange('login', $this->wire()->user, $user); 
 			session_regenerate_id(true);
 			$this->set('_user', 'id', $user->id); 
 			$this->set('_user', 'ts', time());
@@ -1108,24 +1116,22 @@ class Session extends Wire implements \IteratorAggregate {
 	public function ___allowLogin($name, $user = null) {
 		$allow = true; 
 		if(!strlen($name)) return false;
-		if(!$user || !$user instanceof User) {
-			$name = $this->wire('sanitizer')->pageNameUTF8($name);
-			$user = $this->wire('users')->get("name=" . $this->wire('sanitizer')->selectorValue($name));
+		if(!$user instanceof User) {
+			$sanitizer = $this->wire()->sanitizer;
+			$name = $sanitizer->pageNameUTF8($name);
+			$user = $this->wire()->users->get('name=' . $sanitizer->selectorValue($name));
 		}
-		if(!$user || !$user->id || !$user instanceof User) return false;
-		if($user->isGuest()) return false;
-		$xroles = $this->wire('config')->loginDisabledRoles;
-		if(!is_array($xroles) && !empty($xroles)) $xroles = array($xroles);
-		if($name) {}
-		if($user) {
-			if($user->isUnpublished()) {
-				$allow = false;
-			} else if(is_array($xroles)) {
-				foreach($xroles as $xrole) {
-					if($user->hasRole($xrole)) {
-						$allow = false;
-						break;
-					}
+		if(!$user instanceof User || !$user->id) return false;
+		if($user->isGuest() || $user->isUnpublished()) return false;
+		$xroles = $this->config->loginDisabledRoles;
+		if(!is_array($xroles) && !empty($xroles)) {
+			$xroles = array($xroles);
+		}
+		if(is_array($xroles)) {
+			foreach($xroles as $xrole) {
+				if($user->hasRole($xrole)) {
+					$allow = false;
+					break;
 				}
 			}
 		}
@@ -1198,11 +1204,14 @@ class Session extends Wire implements \IteratorAggregate {
 			session_regenerate_id(true);
 			$_SESSION[$this->sessionKey] = array();
 		}
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
+		$users = $this->wire()->users;
 		if($user) $this->logoutSuccess($user); 
-		$guest = $this->wire('users')->getGuestUser();
-		if($this->wire('languages') && "$user->language" != "$guest->language") $guest->language = $user->language;
-		$this->wire('users')->setCurrentUser($guest);
+		$guest = $users->getGuestUser();
+		if($this->wire()->languages && "$user->language" != "$guest->language") {
+			$guest->language = $user->language;
+		}
+		$users->setCurrentUser($guest);
 		$this->trackChange('logout', $user, $guest); 
 		return $this; 
 	}
@@ -1470,8 +1479,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 */
 	protected function wakeupNotices() {
 
-		/** @var Notices $notices */
-		$notices = $this->wire('notices');
+		$notices = $this->wire()->notices;
 		if(!$notices) return;
 		
 		$types = array(
@@ -1561,8 +1569,7 @@ class Session extends Wire implements \IteratorAggregate {
 		// prevent multiple calls, just in case
 		$this->skipMaintenance = true; 
 	
-		$config = $this->wire()->config;
-		$historyCnt = (int) ($config ? $config->sessionHistory : 0);
+		$historyCnt = (int) ($this->config ? $this->config->sessionHistory : 0);
 		
 		if($historyCnt) {
 		

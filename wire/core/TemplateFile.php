@@ -5,7 +5,7 @@
  *
  * A template file that will be loaded and executed as PHP and its output returned.
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $halt Set to true to halt during render, or use method $this->halt();
@@ -155,6 +155,7 @@ class TemplateFile extends WireData {
 	 *
 	 */
 	public function __construct($filename = '') {
+		parent::__construct();
 		if(self::$obStartLevel === null) self::$obStartLevel = ob_get_level();
 		if($filename) $this->setFilename($filename); 
 	}
@@ -367,7 +368,7 @@ class TemplateFile extends WireData {
 	protected function fileReady($filename) {
 		$this->currentFilename = $filename;
 		if($this->profiler) {
-			$f = str_replace($this->wire('config')->paths->root, '/', $filename);
+			$f = str_replace($this->wire()->config->paths->root, '/', $filename);
 			$this->profilerEvent = $this->profiler->start($f, $this);
 		}
 		self::pushRenderStack($filename);
@@ -400,7 +401,6 @@ class TemplateFile extends WireData {
 	 */
 	protected function ___fileFailed($filename, \Exception $e) {
 		$this->fileFinished();
-		if($e || $filename) {} // ignore
 		return true;
 	}
 
@@ -419,7 +419,7 @@ class TemplateFile extends WireData {
 		$this->savedInstance = ProcessWire::getCurrentInstance();
 		ProcessWire::setCurrentInstance($this->wire());
 		
-		$this->profiler = $this->wire('profiler');
+		$this->profiler = $this->wire()->profiler;
 	
 		if($this->chdir !== false) {
 			$cwd = getcwd();
@@ -495,42 +495,42 @@ class TemplateFile extends WireData {
 	 *
 	 */
 	public function getArray() {
-		return array_merge($this->wire('fuel')->getArray(), parent::getArray()); 
+		return array_merge($this->wire()->fuel->getArray(), parent::getArray()); 
 	}
 
 	/**
 	 * Get a set property from the template file, typically to check if a template has access to a given variable
 	 *
-	 * @param string $property
+	 * @param string $key
 	 * @return mixed Returns the value of the requested property, or NULL if it doesn't exist
 	 *	
 	 */
-	public function get($property) {
-		if($property === 'filename') return $this->filename; 
-		if($property === 'appendFilename' || $property === 'appendFilenames') return $this->appendFilename; 
-		if($property === 'prependFilename' || $property === 'prependFilenames') return $this->prependFilename;
-		if($property === 'currentFilename') return $this->currentFilename; 
-		if($property === 'halt') return $this->halt;
-		if($property === 'trim') return $this->trim;
-		if($value = parent::get($property)) return $value; 
-		if(isset(self::$globals[$property])) return self::$globals[$property];
+	public function get($key) {
+		if($key === 'filename') return $this->filename; 
+		if($key === 'appendFilename' || $key === 'appendFilenames') return $this->appendFilename; 
+		if($key === 'prependFilename' || $key === 'prependFilenames') return $this->prependFilename;
+		if($key === 'currentFilename') return $this->currentFilename; 
+		if($key === 'halt') return $this->halt;
+		if($key === 'trim') return $this->trim;
+		if($value = parent::get($key)) return $value; 
+		if(isset(self::$globals[$key])) return self::$globals[$key];
 		return null;
 	}
 
 	/**
 	 * Set a property
 	 * 
-	 * @param string $property
+	 * @param string $key
 	 * @param mixed $value
 	 * @return $this|WireData
 	 * 
 	 */
-	public function set($property, $value) {
-		if($property === 'halt') {
+	public function set($key, $value) {
+		if($key === 'halt') {
 			$this->halt($value);
 			return $this;
 		}
-		return parent::set($property, $value);
+		return parent::set($key, $value);
 	}
 
 	/**

@@ -324,6 +324,7 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function __construct() {
+		parent::__construct();
 		$this->multibyteSupport = function_exists("mb_internal_encoding"); 
 		if($this->multibyteSupport) mb_internal_encoding("UTF-8");
 		$this->allowedASCII = str_split($this->alphaASCII . $this->digitASCII);
@@ -361,7 +362,7 @@ class Sanitizer extends Wire {
 				$value = mb_strtolower($value);
 
 				if(empty($replacements)) {
-					$configData = $this->wire('modules')->getModuleConfigData('InputfieldPageName');
+					$configData = $this->wire()->modules->getModuleConfigData('InputfieldPageName');
 					$replacements = empty($configData['replacements']) ? InputfieldPageName::$defaultReplacements : $configData['replacements'];
 				}
 
@@ -719,7 +720,7 @@ class Sanitizer extends Wire {
 		if(!strlen($value)) return '';
 		
 		$defaults = array(
-			'charset' => $this->wire('config')->pageNameCharset
+			'charset' => $this->wire()->config->pageNameCharset
 		);
 		
 		if(is_array($beautify)) {
@@ -824,8 +825,10 @@ class Sanitizer extends Wire {
 		$value = $this->string($value);
 		if(!strlen($value)) return '';
 		
+		$config = $this->wire()->config;
+		
 		// if UTF8 module is not enabled then delegate this call to regular pageName sanitizer
-		if($this->wire('config')->pageNameCharset != 'UTF8') return $this->pageName($value, false, $maxLength);
+		if($config->pageNameCharset != 'UTF8') return $this->pageName($value, false, $maxLength);
 		
 		$tt = $this->getTextTools();
 	
@@ -836,7 +839,7 @@ class Sanitizer extends Wire {
 		$separators = array('.', '-', '_');
 
 		// whitelist of allowed characters and blacklist of disallowed characters
-		$whitelist = $this->wire('config')->pageNameWhitelist;
+		$whitelist = $config->pageNameWhitelist;
 		if(!strlen($whitelist)) $whitelist = false;
 		$blacklist = '/\\%"\'<>?#@:;,+=*^$()[]{}|&';
 		
@@ -1105,7 +1108,7 @@ class Sanitizer extends Wire {
 	 * #pw-group-pages
 	 *
 	 * @param string $value Value to sanitize
-	 * @param bool $beautify Beautify the value? (default=false). Maybe any of the following:
+	 * @param bool|int $beautify Beautify the value? (default=false). Maybe any of the following:
 	 * - `true` (bool): Beautify the individual page names in the path to remove redundant and trailing punctuation and more.
 	 * - `false` (bool): Do not perform any conversion or attempt to make it more pretty, just sanitize (default). 
 	 * - `Sanitizer::translate` (constant): Translate UTF-8 characters to visually similar ASCII (using InputfieldPageName module settings).
@@ -1202,7 +1205,7 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function pagePathNameUTF8($value) {
-		if($this->wire('config')->pageNameCharset !== 'UTF8') return $this->pagePathName($value);
+		if($this->wire()->config->pageNameCharset !== 'UTF8') return $this->pagePathName($value);
 		$value = $this->string($value);
 		if(!strlen($value)) return '';
 		$parts = explode('/', $value);
@@ -1363,7 +1366,7 @@ class Sanitizer extends Wire {
 		
 		if($separator !== null && $count > 1) {
 			$value = implode($separator, $a);
-		} else if($count) {
+		} else {
 			$value = reset($a); 
 		}
 		
@@ -1849,7 +1852,7 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function markupToLine($value, array $options = array()) {
-		if(!isset($options['newline'])) $options['newline'] = $options['newline'] = " "; 
+		if(!isset($options['newline'])) $options['newline'] = " "; 
 		if(!isset($options['separator'])) $options['separator'] = ", ";
 		return $this->markupToText($value, $options);
 	}
@@ -2549,7 +2552,7 @@ class Sanitizer extends Wire {
 	 * 
 	 * @param $value
 	 * @param array $options
-	 * @return bool|mixed|string
+	 * @return string
 	 * 
 	 */
 	protected function selectorValueV1($value, $options = array()) {
@@ -2829,8 +2832,8 @@ class Sanitizer extends Wire {
 
 		if($options['fullMarkdown']) {
 			// full markdown
-			
-			$markdown = $this->wire('modules')->get('TextformatterMarkdownExtra');
+			/** @var TextformatterMarkdownExtra $markdown */	
+			$markdown = $this->wire()->modules->get('TextformatterMarkdownExtra');
 			if(is_int($options['fullMarkdown'])) {
 				$markdown->flavor = $options['fullMarkdown'];
 			} else {
@@ -3037,7 +3040,8 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function purifier(array $options = array()) {
-		$purifier = $this->wire('modules')->get('MarkupHTMLPurifier');
+		/** @var MarkupHTMLPurifier $purifier */
+		$purifier = $this->wire()->modules->get('MarkupHTMLPurifier');
 		foreach($options as $key => $value) $purifier->set($key, $value);
 		return $purifier;
 	}
@@ -3335,7 +3339,7 @@ class Sanitizer extends Wire {
 		if($html) {
 			if(empty($whitespaceHTML)) {
 				$whitespaceHTML = $this->whitespaceHTML;
-				foreach($this->whitespaceUTF8 as $key => $value) {
+				foreach($this->whitespaceUTF8 as $value) {
 					$whitespaceHTML[] = "&#x$value;"; // hex entity
 					$whitespaceHTML[] = "&#" . hexdec($value) . ';'; // decimal entity
 				}
@@ -3449,7 +3453,7 @@ class Sanitizer extends Wire {
 	 * @param array $options Options to modify behavior, 3.0.169+ only:
 	 *  - `replaceWith` (string): Replace MB4+ characters with this character, may not be blank (default='�')
 	 *  - `version` (int): Replacement method version (default=2)
-	 * @return string|array|mixed 
+	 * @return string|array
 	 * 
 	 */
 	public function removeMB4($value, array $options = array()) {
@@ -3801,7 +3805,7 @@ class Sanitizer extends Wire {
 			'strict' => false,
 		);
 		$options = array_merge($defaults, $options);
-		$datetime = $this->wire('datetime');
+		$datetime = $this->wire()->datetime;
 		$iso8601 = 'Y-m-d H:i:s';
 		$_value = trim($this->string($value)); // original value string
 		if(empty($value)) return $options['default'];
@@ -4008,8 +4012,12 @@ class Sanitizer extends Wire {
 		if(is_string($min)) $min = ctype_digit($min) ? (float) $min : (int) $min;
 		if(is_string($max)) $max = ctype_digit($max) ? (float) $max : (int) $max;
 		$value = is_float($min) || is_float($max) ? (float) $value : (int) $value;
-		if($min === null) $min = is_float($value) ? PHP_FLOAT_MIN : PHP_INT_MIN;
-		if($max === null) $max = is_float($value) ? PHP_FLOAT_MAX : PHP_INT_MAX;
+		if($min === null) {
+			$min = is_float($value) && defined('PHP_FLOAT_MIN') ? constant('PHP_FLOAT_MIN') : PHP_INT_MIN;
+		}
+		if($max === null) {
+			$max = is_float($value) && defined('PHP_FLOAT_MAX') ? constant('PHP_FLOAT_MAX') : PHP_INT_MAX;
+		}
 		if($min > $max) list($min, $max) = array($max, $min); // swap args if necessary
 		if($value < $min) {
 			$value = $min;
@@ -4418,7 +4426,7 @@ class Sanitizer extends Wire {
 		}
 		$clean = array();
 		$strict = isset($options['strict']) ? $options['strict'] : false;
-		foreach($value as $k => $v) {
+		foreach($value as $v) {
 			if($strict) {
 				$isInt = is_int($v);
 				$isStr = !$isInt && is_string($v); 
@@ -4575,7 +4583,7 @@ class Sanitizer extends Wire {
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		$preserveKeys = $options['preserveKeys'];
 		
-		foreach($value as $key => $val) {
+		foreach($value as $val) {
 			if(is_array($val)) $isFlat = false;
 			if(!$isFlat) break;
 		}	
@@ -4923,7 +4931,7 @@ class Sanitizer extends Wire {
 			if($value === "1") return true; 
 			if($value === "false") return false;
 			if($value === "true") return true;
-			if($length) return true; 
+			return true; 
 		} else if(is_object($value)) {
 			$value = $this->string($value);
 		} else if(is_array($value)) {

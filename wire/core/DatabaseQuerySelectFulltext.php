@@ -20,7 +20,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property-read $tableField
@@ -164,19 +164,19 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *
 	 */
 	public function __construct(DatabaseQuerySelect $query) {
+		parent::__construct();
 		$query->wire($this);
 		$this->query = $query;
 	}
 
 	/**
-	 * @param string $key
-	 *
+	 * @param string $name
 	 * @return mixed|string
 	 *
 	 */
-	public function __get($key) {
-		if($key === 'tableField') return $this->tableField();
-		return parent::__get($key);
+	public function __get($name) {
+		if($name === 'tableField') return $this->tableField();
+		return parent::__get($name);
 	}
 
 	/**
@@ -296,7 +296,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		} else {
 			// disable orderby statements when calling object will be negating whatever we do
 			$selector = $this->query->selector;
-			if($selector && $selector instanceof Selector && $selector->not) $allowOrder = false;
+			if($selector instanceof Selector && $selector->not) $allowOrder = false;
 		}
 
 		// if allowOrder has not been specifically set, then set value now
@@ -361,7 +361,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function matchArrayFieldName(array $fieldNames, $value) {
 		$query = $this->query;
 		$query->bindOption('global', true);
-		$this->query = $this->wire(new DatabaseQuerySelect());
+		
+		$this->query = new DatabaseQuerySelect();
+		$this->wire($this->query);
 		$this->query->bindOption(true, $query->bindOption(true));
 		
 		foreach($fieldNames as $fieldName) {
@@ -397,7 +399,8 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		$query = $this->query;
 		$query->bindOption('global', true);
-		$this->query = $this->wire(new DatabaseQuerySelect());
+		$this->query = new DatabaseQuerySelect();
+		$this->wire($this->query);
 		$this->query->bindOption(true, $query->bindOption(true)); 
 		$method = $this->method;
 		
@@ -949,7 +952,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *  - `phrase` (bool): Is entire $value a full phrase to match? (default=auto-detect)
 	 *  - `useStopwords` (bool): Allow inclusion of stopwords? (default=null, auto-detect)
 	 *  - `alternates` (bool): Get word alternates? (default=null, auto-detect)
-	 * @return string|array Value provided to the function with boolean operators added, or verbose array.
+	 * @return array Value provided to the function with boolean operators added, or verbose array.
 	 *
 	 */
 	protected function getBooleanModeWords($value, array $options = array()) {
@@ -1005,7 +1008,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 		
 		// iterate through all words to build boolean query values
-		foreach($allWords as $key => $word) {
+		foreach($allWords as $word) {
 			
 			$length = strlen($word);
 			if(!$length || isset($booleanValues[$word])) continue;

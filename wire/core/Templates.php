@@ -249,9 +249,7 @@ class Templates extends WireSaveableItems {
 	 */
 	public function get($key) {
 		if($key === 'path') return $this->wire()->config->paths->templates;
-		$value = $this->getWireArray()->get($key); 
-		if(is_null($value)) $value = parent::get($key);
-		return $value; 
+		return parent::get($key);
 	}
 
 	/**
@@ -276,17 +274,17 @@ class Templates extends WireSaveableItems {
 			throw new WireException("Template '$item' cannot be saved because it has no fieldgroup assigned");
 		}
 		if(!$item->fieldgroup->id) {
-			throw new WireException("You must save Fieldgroup '{$item->fieldgroup->name}' before adding to Template '{$item}'");
+			throw new WireException("You must save Fieldgroup '{$item->fieldgroup->name}' before adding to Template '$item'");
 		}
 
 		$rolesChanged = $item->isChanged('useRoles');
 
 		if($this->wire()->pages->get('/')->template->id == $item->id) {
 			if(!$item->useRoles) {
-				throw new WireException("Template '{$item}' is used by the homepage and thus must manage access");
+				throw new WireException("Template '$item' is used by the homepage and thus must manage access");
 			}
 			if(!$item->hasRole('guest')) {
-				throw new WireException("Template '{$item}' is used by the homepage and thus must have the 'guest' role assigned.");
+				throw new WireException("Template '$item' is used by the homepage and thus must have the 'guest' role assigned.");
 			}
 		}
 		
@@ -297,6 +295,7 @@ class Templates extends WireSaveableItems {
 		if($result && !$isNew && $item->fieldgroupPrevious && $item->fieldgroupPrevious->id != $item->fieldgroup->id) {
 			// the fieldgroup has been changed
 			// remove data from all fields that are not part of the new fieldgroup
+			/** @var FieldsArray $removeFields */
 			$removeFields = $this->wire(new FieldsArray());
 			foreach($item->fieldgroupPrevious as $field) {
 				if(!$item->fieldgroup->has($field)) {
@@ -305,6 +304,7 @@ class Templates extends WireSaveableItems {
 			}
 			if(count($removeFields)) { 
 				foreach($removeFields as $field) {
+					/** @var Field $field */
 					$field->type->deleteTemplateField($item, $field); 
 				}
 				/*
@@ -320,6 +320,7 @@ class Templates extends WireSaveableItems {
 		}
 
 		if($rolesChanged) { 
+			/** @var PagesAccess $access */
 			$access = $this->wire(new PagesAccess());
 			$access->updateTemplate($item); 
 		}
@@ -366,7 +367,7 @@ class Templates extends WireSaveableItems {
 	 *
 	 * @param Template|Saveable $item Template to clone
 	 * @param string $name Name of new template that will be created, or omit to auto-assign. 
-	 * @return bool|Saveable|Template $item Returns the new Template on success, or false on failure
+	 * @return bool|Template $item Returns the new Template on success, or false on failure
 	 *
 	 */
 	public function ___clone(Saveable $item, $name = '') {
@@ -392,6 +393,7 @@ class Templates extends WireSaveableItems {
 			$item->fieldgroup = $fieldgroup;
 		}
 
+		/** @var Template|bool $item */
 		$item = parent::___clone($item, $name);
 
 		if($item && $item->id && !$item->altFilename) { 
@@ -434,7 +436,7 @@ class Templates extends WireSaveableItems {
 		$fieldgroup = $template->fieldgroup;
 		$t = $this->get($name);
 		
-		if($t && $t instanceof Template && $t->id != $template->id) {
+		if($t instanceof Template && $t->id != $template->id) {
 			throw new WireException("Template '$name' already exists");
 		}
 		
@@ -516,7 +518,7 @@ class Templates extends WireSaveableItems {
 			$values = array();
 			foreach($data[$key] as $id) {
 				if(ctype_digit("$id")) $id = (int) $id;
-				$t = $this->wire('templates')->get($id);
+				$t = $this->get($id);
 				if($t) $values[] = $t->name;
 			}
 			$data[$key] = $values;
@@ -524,11 +526,12 @@ class Templates extends WireSaveableItems {
 
 		// convert roles to guids
 		if($template->useRoles) {
+			$roles = $this->wire()->roles;
 			foreach(array('roles', 'editRoles', 'addRoles', 'createRoles') as $key) {
 				if(!isset($data[$key])) continue;
 				$values = array();
 				foreach($data[$key] as $id) {
-					$role = $id instanceof Role ? $id : $this->wire()->roles->get((int) $id);
+					$role = $id instanceof Role ? $id : $roles->get((int) $id);
 					$values[] = $role->name;
 				}
 				$data[$key] = $values;
@@ -598,6 +601,7 @@ class Templates extends WireSaveableItems {
 			if($key == 'fieldgroups_id' && !ctype_digit("$value")) {
 				$fieldgroup = $fieldgroups->get($value);
 				if(!$fieldgroup) {
+					/** @var Fieldgroup $fieldgroup */
 					$fieldgroup = $this->wire(new Fieldgroup());
 					$fieldgroup->name = $value;
 				}
@@ -636,7 +640,7 @@ class Templates extends WireSaveableItems {
 				try {
 					$template->set($key, $value);
 					if($key == 'roles') $template->getRoles(); // forces reload of roles (and resulting error messages)
-					$error = $template->errors("clear");
+					$error = $template->errors('clear');
 				} catch(\Exception $e) {
 					$this->trackException($e, false);
 					$error = array($e->getMessage());
@@ -723,7 +727,7 @@ class Templates extends WireSaveableItems {
 
 			if($getAll) {
 				// build list of all parents (will check access outside loop)
-				if($numParentPages) $foundParents->add($parentPages);
+				$foundParents->add($parentPages);
 				continue;
 			} else if($numParentPages > 1) {
 				// multiple possible parents, we can early-exit
@@ -917,7 +921,7 @@ class Templates extends WireSaveableItems {
 		$defaultPermissions = array('page-view', 'page-edit', 'page-create', 'page-add');
 		$updated = false;
 
-		if(is_string($role) || is_int($role)) $role = $this->wire('roles')->get($role);
+		if(is_string($role) || is_int($role)) $role = $this->wire()->roles->get($role);
 		if(!$role instanceof Role) throw new WireException("Unknown role for Template::setPermissionByRole");
 
 		if(is_string($permission) && in_array($permission, $defaultPermissions)) {
@@ -1005,8 +1009,7 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function _hookFinished(HookEvent $e) {
-		if($e) {}
-		foreach($this->fileModTemplates as $id => $template) {
+		foreach($this->fileModTemplates as /* $id => */ $template) {
 			if($template->isChanged('modified') || $template->isChanged('ns')) {
 				$template->save();
 			}

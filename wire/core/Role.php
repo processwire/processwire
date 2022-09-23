@@ -11,7 +11,7 @@
  * access related methods on `Page`. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property PageArray $permissions PageArray of permissions assigned to Role.
@@ -49,7 +49,7 @@ class Role extends Page {
 	 *
 	 */
 	protected function getPredefinedTemplate() {
-		return $this->wire('templates')->get('role'); 
+		return $this->wire()->templates->get('role'); 
 	}
 
 	/**
@@ -59,7 +59,7 @@ class Role extends Page {
 	 *
 	 */
 	protected function getPredefinedParent() {
-		return $this->wire('pages')->get($this->wire('config')->rolesPageID); 
+		return $this->wire()->pages->get($this->wire()->config->rolesPageID); 
 	}
 
 	/**
@@ -79,7 +79,7 @@ class Role extends Page {
 		
 		if(empty($name)) {	
 			// do nothing
-			return $has;
+			return false;
 		
 		} else if($name instanceof Page) {
 			$permission = $name;
@@ -95,16 +95,20 @@ class Role extends Page {
 				}
 			}
 			
-		} else if($name == "page-add" || $name == "page-create") {
+		} else if($name === 'page-add' || $name === 'page-create') {
 			// runtime permissions that don't have associated permission pages
 			if(empty($context)) return false;
+			/** @var Permission $permission */
 			$permission = $this->wire(new Permission());
 			$permission->name = $name;
 
 		} else if(is_string($name)) {
-			if(!$this->wire('permissions')->has($name)) {
-				if(!ctype_alnum(str_replace('-', '', $name))) $name = $this->wire('sanitizer')->pageName($name);
-				$delegated = $this->wire('permissions')->getDelegatedPermissions();
+			$permissions = $this->wire()->permissions; // all permissions
+			if(!$permissions->has($name)) {
+				if(!ctype_alnum(str_replace('-', '', $name))) {
+					$name = $this->wire()->sanitizer->pageName($name);
+				}
+				$delegated = $permissions->getDelegatedPermissions();
 				if(isset($delegated[$name])) $name = $delegated[$name];
 			}
 			foreach($this->permissions as $p) {
@@ -116,8 +120,8 @@ class Role extends Page {
 			}
 		}
 
-		if($context !== null && ($context instanceof Page || $context instanceof Template)) {
-			if(!$permission) $permission = $this->wire('permissions')->get($name);
+		if($context instanceof Page || $context instanceof Template) {
+			if(!$permission) $permission = $this->wire()->permissions->get($name);
 			if($permission) {
 				$has = $this->hasPermissionContext($has, $permission, $context);
 			}
@@ -137,21 +141,23 @@ class Role extends Page {
 	 */
 	protected function hasPermissionContext($has, Permission $permission, Wire $context) {
 		
-		if(strpos($permission->name, "page-") !== 0) return $has;
+		if(strpos($permission->name, 'page-') !== 0) return $has;
+		
 		$type = str_replace('page-', '', $permission->name);
+		
 		if(!in_array($type, array('view', 'edit', 'add', 'create'))) $type = 'edit';
 		
 		$accessTemplate = $context instanceof Page ? $context->getAccessTemplate($type) : $context;
 		if(!$accessTemplate) return false;
 		if(!$accessTemplate->useRoles) return $has;
 		
-		if($permission->name == 'page-view') {
+		if($permission->name === 'page-view') {
 			if(!$has) return false;
 			$has = $accessTemplate->hasRole($this);
 			return $has;
 		}
 	
-		if($permission->name == 'page-edit' && !$has) return false;
+		if($permission->name === 'page-edit' && !$has) return false;
 		
 		switch($permission->name) {
 			case 'page-edit':
@@ -194,8 +200,10 @@ class Role extends Page {
 	 *
 	 */
 	public function addPermission($permission) {
-		if(is_string($permission) || is_int($permission)) $permission = $this->wire('permissions')->get($permission); 
-		if(is_object($permission) && $permission instanceof Permission) {
+		if(is_string($permission) || is_int($permission)) {
+			$permission = $this->wire()->permissions->get($permission);
+		}
+		if($permission instanceof Permission) {
 			$this->permissions->add($permission); 
 			return true; 
 		}
@@ -212,8 +220,10 @@ class Role extends Page {
 	 *
 	 */
 	public function removePermission($permission) {
-		if(is_string($permission) || is_int($permission)) $permission = $this->wire('permissions')->get($permission); 
-		if(is_object($permission) && $permission instanceof Permission) {
+		if(is_string($permission) || is_int($permission)) {
+			$permission = $this->wire()->permissions->get($permission);
+		}
+		if($permission instanceof Permission) {
 			$this->permissions->remove($permission); 
 			return true; 
 		}
@@ -225,11 +235,11 @@ class Role extends Page {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return Pages|PagesType
+	 * @return Roles
 	 *
 	 */
 	public function getPagesManager() {
-		return $this->wire('roles');
+		return $this->wire()->roles;
 	}
 
 }
