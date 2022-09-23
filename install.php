@@ -11,7 +11,7 @@
  * If that file exists, the installer will not run. So if you need to re-run this installer for any
  * reason, then you'll want to delete that file. This was implemented just in case someone doesn't delete the installer.
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo 3.0.190: provide option for command-line options to install
@@ -98,7 +98,6 @@ class Installer {
 		// these two vars used by install-head.inc
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
-		if($title && $formAction) {} // ignore
 		
 		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc"); 
 
@@ -375,6 +374,16 @@ class Installer {
 		} else {
 			$this->warn("ZipArchive support was not found. This is recommended, but not required to complete installation."); 
 		}
+		
+		$memoryLimit = $this->getMemoryLimit('M');
+		$memoryLimitLabel = "PHP memory_limit is set to $memoryLimit MB";
+		if($memoryLimit < 64) {
+			$this->err("$memoryLimitLabel - At least 64 MB is strongly recommended but 128 MB or more is best");
+		} else if($memoryLimit < 128) {
+			$this->warn("$memoryLimitLabel - OK to continue, but at least 128 MB is recommended"); 
+		} else {
+			$this->ok("$memoryLimitLabel"); 
+		}
 	
 		$dirs = array(
 			// directory => required?
@@ -390,7 +399,7 @@ class Installer {
 			} else if($required) {
 				$this->err("Directory $d must be writable. Please adjust the server permissions before continuing.");
 			} else {
-				$this->warn("We recommend that directory $d be made writable before continuing."); 
+				$this->warn("Consider making directory $d writable, at least during development."); 
 			}
 		}
 		
@@ -791,7 +800,7 @@ class Installer {
 				$database->exec("CREATE SCHEMA IF NOT EXISTS `$dbName` DEFAULT CHARACTER SET `$dbCharset`");
 				// reconnect
 				$database = new \PDO($dsn, $values['dbUser'], $values['dbPass'], $driver_options);
-				if($database) $this->alertOk("Created database: $dbName"); 
+				$this->alertOk("Created database: $dbName"); 
 
 			} catch(\Exception $e) {
 				$this->alertErr("Failed to create database with name $dbName");
@@ -897,7 +906,7 @@ class Installer {
 			"\n\n";
 
 		if(!empty($values['httpHosts'])) {
-			$cfg .= "" . 
+			$cfg .= 
 			"\n/**" . 
 			"\n * Installer: HTTP Hosts Whitelist" . 
 			"\n * " . 
@@ -1960,9 +1969,31 @@ class Installer {
 			'US Alaska|America/Anchorage',
 			'US Hawaii|America/Adak',
 			'US Hawaii (no DST)|Pacific/Honolulu',
-			);
+		);
 		foreach($extras as $t) $timezones[] = $t; 
 		return $timezones; 
+	}
+
+	/**
+	 * Get memory limit
+	 * 
+	 * @param string $getInUnit Get value in 'K' [kilobytes], 'M' [megabytes], 'G' [gigabytes] (default='M')
+	 * @return int|float
+	 * @since 3.0.206
+	 * 
+	 */
+	protected function getMemoryLimit($getInUnit = 'M') {
+		// $units = array('M' => 1048576, 'K' => 1024, 'G' => 1073741824);
+		$units = array('M' => 1000000, 'K' => 1000, 'G' => 1000000000);
+		$value = (string) ini_get('memory_limit');
+		$value = trim(strtoupper($value), ' B'); // KB=K, MB=>M, GB=G, 
+		$unit = substr($value, -1); // K, M, G
+		$value = (int) rtrim($value, 'KMG');
+		if($unit === $getInUnit) return $value; // already in correct unit
+		if(isset($units[$unit])) $value = $value * $units[$unit]; // convert value to bytes
+		if(isset($units[$getInUnit])) $value = round($value / $units[$getInUnit]);
+		if(strpos("$value", '.') !== false) $value = round($value, 1);
+		return $value;
 	}
 
 
