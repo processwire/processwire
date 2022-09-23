@@ -85,6 +85,7 @@ class SystemUpdaterChecks extends Wire {
 			'checkPublishedField',
 			'checkLocale',
 			'checkDebugMode',
+			'checkMemoryLimit',
 		);
 
 		foreach($checks as $method) {
@@ -147,7 +148,7 @@ class SystemUpdaterChecks extends Wire {
 	public function checkHtaccessFile() {
 		
 		$requiredVersion = ProcessWire::htaccessVersion;
-		$htaccessFile = $this->wire('config')->paths->root . '.htaccess';
+		$htaccessFile = $this->wire()->config->paths->root . '.htaccess';
 		
 		if(is_readable($htaccessFile)) {
 			$data = file_get_contents($htaccessFile);
@@ -184,7 +185,7 @@ class SystemUpdaterChecks extends Wire {
 	 */
 	public function checkOtherHtaccessFiles() {
 		/** @var SystemUpdater $systemUpdater */
-		$systemUpdater = $this->wire('modules')->get('SystemUpdater');
+		$systemUpdater = $this->wire()->modules->get('SystemUpdater');
 		if(!$systemUpdater) return false;
 		$result = true;
 
@@ -205,11 +206,12 @@ class SystemUpdaterChecks extends Wire {
 	 * 
 	 */
 	public function checkWelcome() {
-		
-		$activeFile = $this->wire('config')->paths->assets . 'active.php';
+	
+		$config = $this->wire()->config;
+		$activeFile = $config->paths->assets . 'active.php';
 		$exists = is_file($activeFile);
 		
-		if($this->showNotices && ((!$exists && !$this->wire('config')->debug) || $this->testAll)) {
+		if($this->showNotices && ((!$exists && !$config->debug) || $this->testAll)) {
 			$this->message(
 				$this->strong($this->_('Welcome to ProcessWire!')) . ' ' . 
 				$this->_('If this installation is currently being used for development or testing, we recommend enabling debug mode.') . ' ' .
@@ -227,8 +229,8 @@ class SystemUpdaterChecks extends Wire {
 				"<?php // Created by ProcessWire - Do not delete this file. " .
 				"The existence of this file indicates the site is confirmed active " .
 				"and first-time use errors may be suppressed. Installed at: " .
-				"[{$this->config->paths->root}]";
-			$this->wire('files')->filePutContents($activeFile, $data);
+				"[{$config->paths->root}]";
+			$this->wire()->files->filePutContents($activeFile, $data);
 			return false;
 		}
 		
@@ -242,7 +244,7 @@ class SystemUpdaterChecks extends Wire {
 	 * 
 	 */
 	public function checkInstallerFiles() {
-		if(is_file($this->wire('config')->paths->root . "install.php") || $this->testAll) {
+		if(is_file($this->wire()->config->paths->root . "install.php") || $this->testAll) {
 			if($this->showNotices) {
 				$warning = $this->_("Security Warning: file '%s' exists and should be deleted as soon as possible.");
 				$this->warning(sprintf($warning, '/install.php'), Notice::log);
@@ -259,10 +261,11 @@ class SystemUpdaterChecks extends Wire {
 	 * 
 	 */
 	public function checkFilePermissions() {
+		$config = $this->wire()->config;
 		
 		// warnings about 0666/0777 file permissions
-		if($this->config->chmodDir != '0777' && $this->config->chmodFile != '0666' && !$this->testAll) return true;
-		if(!$this->config->chmodWarn || !$this->showNotices) return false;
+		if($config->chmodDir != '0777' && $config->chmodFile != '0666' && !$this->testAll) return true;
+		if(!$config->chmodWarn || !$this->showNotices) return false;
 		
 		$warning = sprintf(
 			$this->_('Warning, your %s file specifies file permissions that are too loose for many environments:'),
@@ -270,8 +273,8 @@ class SystemUpdaterChecks extends Wire {
 		);
 		
 		$code = 
-			$this->code("\$config->chmodFile = '{$this->config->chmodFile}';") . 
-			$this->code("\$config->chmodDir = '{$this->config->chmodDir}';"); 
+			$this->code("\$config->chmodFile = '{$config->chmodFile}';") . 
+			$this->code("\$config->chmodDir = '{$config->chmodDir}';"); 
 		
 		$link = $this->link(
 			'https://processwire.com/docs/security/file-permissions/', 
@@ -297,7 +300,7 @@ class SystemUpdaterChecks extends Wire {
 	 * 
 	 */
 	public function checkPublishedField() {
-		if(!$this->wire('fields')->get('published') && !$this->testAll) return true;
+		if(!$this->wire()->fields->get('published') && !$this->testAll) return true;
 		if($this->showNotices) $this->warning(
 			$this->_('Warning: you have a field named “published” that conflicts with the page “published” property.') . ' ' . 
 			$this->_('Please rename your field field to something else and update any templates referencing it.')
@@ -324,7 +327,7 @@ class SystemUpdaterChecks extends Wire {
 		$warning = $this->_('Note: your current server locale setting isn’t working as expected with the UTF-8 charset and may cause minor issues.');
 		$msg = '';
 		
-		if($this->wire('modules')->isInstalled('LanguageSupport')) {
+		if($this->wire()->modules->isInstalled('LanguageSupport')) {
 			// language support installed
 			$textdomain = 'wire--modules--languagesupport--languagesupport-module';
 			$locale = __('C', $textdomain);
@@ -336,8 +339,8 @@ class SystemUpdaterChecks extends Wire {
 					$this->location('/wire/modules/LanguageSupport/LanguageSupport.module') . ':'
 				);
 			
-			foreach($this->wire('languages') as $language) {
-				$url = $this->wire('config')->urls->admin . 
+			foreach($this->wire()->languages as $language) {
+				$url = $this->wire()->config->urls->admin . 
 					"setup/language-translator/edit/?" . 
 					"language_id=$language->id&" .
 					"textdomain=$textdomain&" .
@@ -378,7 +381,7 @@ class SystemUpdaterChecks extends Wire {
 	 * 
 	 */
 	public function checkDebugMode() {
-		if(!$this->wire('config')->debug && !$this->testAll) return true;
+		if(!$this->wire()->config->debug && !$this->testAll) return true;
 		if($this->showNotices) $this->message('icon-bug '  .
 			$this->_('The site is in debug mode, suitable for sites in development') . 
 			$this->small(
@@ -391,6 +394,54 @@ class SystemUpdaterChecks extends Wire {
 			Notice::allowMarkup | Notice::anonymous
 		);
 		return true;
+	}
+
+	/**
+	 * Check PHP memory_limit setting
+	 * 
+	 * @return bool Always returns true as memory_limit errors not considered fatal
+	 * @since 3.0.206
+	 * 
+	 */
+	public function checkMemoryLimit() {
+		$memoryLimit = $this->getMemoryLimit('M');	
+		if(empty($memoryLimit)) return true;
+		$label = sprintf($this->_('Your PHP memory_limit is currently set to %s.'), "$memoryLimit MB") . ' ';
+		$mb = '128 MB'; // recommended memory_limit
+		if($memoryLimit < 64) {
+			$this->warning(
+				$label . 
+				sprintf($this->_('We recommend increasing it to at least %s.'), $mb)
+			);
+		} else if($memoryLimit < 128) {
+			$this->warning(
+				$label . 
+				sprintf($this->_('As a performance optimization, consider increasing it to at least %s.'), $mb)
+			);
+		}
+		return true;
+	}
+
+	/**
+	 * Get memory limit
+	 *
+	 * @param string $getInUnit Get value in 'K' [kilobytes], 'M' [megabytes], 'G' [gigabytes] (default='M')
+	 * @return int|float
+	 * @since 3.0.206
+	 *
+	 */
+	public function getMemoryLimit($getInUnit = 'M') {
+		// $units = array('M' => 1048576, 'K' => 1024, 'G' => 1073741824);
+		$units = array('M' => 1000000, 'K' => 1000, 'G' => 1000000000);
+		$value = (string) ini_get('memory_limit');
+		$value = trim(strtoupper($value), ' B'); // KB=K, MB=>M, GB=G, 
+		$unit = substr($value, -1); // K, M, G
+		$value = (int) rtrim($value, 'KMG');
+		if($unit === $getInUnit) return $value; // already in correct unit
+		if(isset($units[$unit])) $value = $value * $units[$unit]; // convert value to bytes
+		if(isset($units[$getInUnit])) $value = round($value / $units[$getInUnit]);
+		if(strpos("$value", '.') !== false) $value = round($value, 1);
+		return $value;
 	}
 	
 	/*********************************************************************************************/
