@@ -978,6 +978,10 @@ class Field extends WireData implements Saveable, Exportable {
 		// predefined field settings
 		$inputfield->attr('name', $this->name . $contextStr); 
 		$inputfield->set('label', $this->label);
+		if($contextStr) {
+			// keep track of original field name in Inputfields that are are renamed by context
+			if(!$inputfield->attr('data-field-name')) $inputfield->attr('data-field-name', $this->name);
+		}
 
 		// just in case an Inputfield needs to know its Fieldtype/Field context, or lack of it
 		$inputfield->set('hasFieldtype', $this->type);

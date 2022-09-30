@@ -937,6 +937,12 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			if(!isset($ffAttrs['id'])) $ffAttrs['id'] = 'wrap_' . $inputfield->attr('id'); 
 			$ffAttrs['class'] = str_replace('Inputfield_ ', '', $ffAttrs['class']); 
 			$wrapClass = $inputfield->getSetting('wrapClass');
+			$fieldName = $inputfield->attr('data-field-name');
+			if($fieldName && $fieldName != $inputfield->attr('name')) {
+				// ensures that Inputfields renamed by context retain the original field-name based class 
+				$wrapClass = "Inputfield_$fieldName $wrapClass";
+				if(!isset($ffAttrs['data-id'])) $ffAttrs['data-id'] = "wrap_Inputfield_$fieldName";
+			}
 			if($wrapClass) $ffAttrs['class'] = trim("$ffAttrs[class] $wrapClass"); 
 			foreach($inputfield->wrapAttr() as $k => $v) {
 				if($k === 'class' && !empty($ffAttrs[$k])) {
