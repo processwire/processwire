@@ -97,7 +97,7 @@ function InputfieldRepeater($) {
 				$checkbox.prop('checked', false);
 				$header.removeClass('ui-state-error').addClass('ui-state-default');
 				//if($parent.is('.InputfieldStateCollapsed')) $parent.toggleClass('InputfieldStateCollapsed', 100);
-				$item.removeClass('InputfieldRepeaterDeletePending');
+				$item.removeClass('InputfieldRepeaterDeletePending').trigger('repeaterundelete');
 			} else {
 				// $checkbox.attr('checked', 'checked'); // JQM
 				$checkbox.prop('checked', true);
@@ -106,7 +106,7 @@ function InputfieldRepeater($) {
 					$header.find('.toggle-icon').click();
 					//$item.toggleClass('InputfieldStateCollapsed', 100);
 				}
-				$item.addClass('InputfieldRepeaterDeletePending');
+				$item.addClass('InputfieldRepeaterDeletePending').trigger('repeaterdelete'); 
 				$item.closest('.Inputfield').addClass('InputfieldStateChanged');
 			}
 			$header.find('.InputfieldRepeaterItemControls').css('background-color', $header.css('background-color'));
