@@ -3853,6 +3853,25 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
+	 * Get label markup to use in page-list or blank to use template/page-list defaults
+	 *
+	 * This method enables custom page classes to override page labels in page-list. 
+	 * PLEASE NOTE: Inline markup is allowed so make sure to entity-encode any text field values. 
+	 * 
+	 * If you are looking for a hookable version, you should instead hook
+	 * `ProcessPageListRender::getPageLabel` which receives the Page as its first argument.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string
+	 * @since 3.0.206
+	 * 
+	 */
+	public function getPageListLabel() {
+		return '';
+	}
+	
+	/**
 	 * Return the API variable used for managing pages of this type
 	 * 
 	 * #pw-internal

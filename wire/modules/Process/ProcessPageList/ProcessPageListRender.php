@@ -300,8 +300,13 @@ abstract class ProcessPageListRender extends Wire {
 	public function ___getPageLabel(Page $page, array $options = array()) {
 
 		$sanitizer = $this->wire()->sanitizer;
-
-		if(strpos($this->pageLabelField, '!') === 0) {
+		$formatLabel = true;
+		$label = $page->getPageListLabel();
+		
+		if(!empty($label)) {
+			// label from custom page class overrides others
+			$formatLabel = false;
+		} else if(strpos($this->pageLabelField, '!') === 0) {
 			// exclamation forces this one to be used, rather than template-specific one
 			$label = trim(ltrim($this->pageLabelField, '!'));
 		} else {
@@ -317,20 +322,24 @@ abstract class ProcessPageListRender extends Wire {
 		if(!empty($options['noIcon'])) $icon = '';
 		
 		while(strpos($label, '  ') !== false) $label = str_replace('  ', ' ', $label);
-		
-		$bracket1 = strpos($label, '{'); 
-		
-		if($bracket1 !== false && $bracket1 < strpos($label, '}')) {
-			// predefined format string
-			// adjust string so that it'll work on a single line, without the markup in it
-			$value = $page->getText($label, true, true); // oneLine=true, entities=true
-		} else {
-			// space delimited list of fields
-			$value = $this->getPageLabelDelimited($page, $label, $options);
-		}
+	
+		if($formatLabel) {
+			$bracket1 = strpos($label, '{');
 
-		if(!strlen($value)) {
-			$value = $sanitizer->entities($page->getUnformatted("title|name"));
+			if($bracket1 !== false && $bracket1 < strpos($label, '}')) {
+				// predefined format string
+				// adjust string so that it'll work on a single line, without the markup in it
+				$value = $page->getText($label, true, true); // oneLine=true, entities=true
+			} else {
+				// space delimited list of fields
+				$value = $this->getPageLabelDelimited($page, $label, $options);
+			}
+
+			if(!strlen($value)) {
+				$value = $sanitizer->entities($page->getUnformatted("title|name"));
+			}
+		} else {
+			$value = $label;
 		}
 		
 		if(!empty($options['noTags']) && strpos($value, '<') !== false) {

@@ -60,9 +60,11 @@
 	padding-bottom: 3px; 
 	line-height: 1em; 
 }
+/*
 .PageListItem > a span + span:before {
 	content: ', ';
 }
+*/
 
 /**
  * Style for the children label and notes
