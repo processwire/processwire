@@ -11,7 +11,7 @@
  *
  * @todo can we implement next() and prev() like on Page, as alias to getNext() and getPrev()?
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method WireArray and($item)
@@ -557,6 +557,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(is_array($key)) { 
 			if(ctype_digit(implode('', array_keys($key)))) {
 				$items = array();
+				/** @var array $key */
 				foreach($key as $k) {
 					$item = $this->get($k);
 					$items[$k] = $item;
@@ -1839,7 +1840,12 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	#[\ReturnTypeWillChange] 
 	public function offsetSet($offset, $value) {
-		$this->set($offset, $value); 
+		if($offset === null) { 
+			// i.e. $wireArray[] = $item;
+			$this->add($value);
+		} else {
+			$this->set($offset, $value);
+		}
 	}
 
 	/**
