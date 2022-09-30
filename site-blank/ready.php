@@ -2,7 +2,7 @@
 
 if(!defined("PROCESSWIRE")) die();
 
-/** @var Wire $wire */
+/** @var ProcessWire $wire */
 
 /**
  * ProcessWire Bootstrap API Ready
