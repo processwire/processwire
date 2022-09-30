@@ -3,7 +3,7 @@
 /**
  * ProcessWire Selectable Option class, for FieldtypeOptions
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $id
@@ -31,6 +31,7 @@ class SelectableOption extends WireData { // implements LanguagesValueInterface 
 	protected $of = false;
 	
 	public function __construct() {
+		parent::__construct();
 		foreach(self::$defaults as $property => $value) {
 			$this->set($property, $value); 
 		}

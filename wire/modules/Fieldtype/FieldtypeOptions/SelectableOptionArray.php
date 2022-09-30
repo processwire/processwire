@@ -3,8 +3,12 @@
 /**
  * ProcessWire Selectable Option Array, for FieldtypeOptions 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property string $title
+ * @property string $value
+ * @property int $id
  *
  */
 
@@ -51,7 +55,7 @@ class SelectableOptionArray extends WireArray {
 	 * 
 	 */
 	public function getPage() {
-		return $this->page ? $this->page : $this->wire('pages')->newNullPage();
+		return $this->page ? $this->page : $this->wire()->pages->newNullPage();
 	}
 
 	/**
@@ -85,7 +89,10 @@ class SelectableOptionArray extends WireArray {
 		$_of = $this->of; 
 		if(is_null($of)) return $_of; 
 		$this->of = $of ? true : false; 
-		foreach($this as $option) $option->of($this->of); 
+		foreach($this as $option) {
+			/** @var SelectableOption $option */
+			$option->of($this->of);
+		}
 		return $_of; // whatever previous value was
 	}
 	
@@ -143,8 +150,9 @@ class SelectableOptionArray extends WireArray {
 	public function setProperty($property, $value) {
 		if(SelectableOption::isProperty($property)) {
 			if($this->count()) {
+				/** @var SelectableOption|null $option */
 				$option = $this->first();
-				return $option->set($property, $value);
+				if($option) return $option->set($property, $value);
 			}
 		}
 		// note: there is no parent method for this one
@@ -159,8 +167,11 @@ class SelectableOptionArray extends WireArray {
 	public function __set($key, $value) {
 		// we must have both this and set() per behavior of WireArray::__set()
 		// which throws exceptions if attempting to set a property
-		if(SelectableOption::isProperty($key)) return $this->setProperty($key, $value); 
-		return parent::__set($key, $value); 
+		if(SelectableOption::isProperty($key)) {
+			$this->setProperty($key, $value);
+		} else {
+			parent::__set($key, $value);
+		}
 	}
 	
 	public function isValidItem($item) {
@@ -172,6 +183,7 @@ class SelectableOptionArray extends WireArray {
 	}
 
 	public function getItemKey($item) {
+		/** @var SelectableOption $item */
 		return $item->id ? $item->id : null;
 	}
 
@@ -189,6 +201,7 @@ class SelectableOptionArray extends WireArray {
 	 */
 	public function isIdentical(WireArray $items, $strict = true) {
 		$isIdentical = parent::isIdentical($items, false); // force non-strict
+		/** @var SelectableOptionArray $items */
 		if($isIdentical && $strict) {
 			if($this->of() != $items->of()) $isIdentical = false;
 			if($isIdentical && ((string) $this->getPage()) !== ((string) $items->getPage())) $isIdentical = false;
@@ -208,6 +221,7 @@ class SelectableOptionArray extends WireArray {
 	protected function getOptionByProperty($property, $value) {
 		$match = false;
 		foreach($this as $option) {
+			/** @var SelectableOption $option */
 			$v = $option->getProperty($property);
 			if($v !== $value) continue;
 			$match = $option;

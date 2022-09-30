@@ -3,7 +3,7 @@
 /**
  * ProcessWire Select Options Fieldtype
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property SelectableOptionManager $manager
@@ -66,6 +66,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function getBlankValue(Page $page, Field $field) {
+		/** @var SelectableOptionArray $a */
 		$a = $this->wire(new SelectableOptionArray());
 		$a->setPage($page);
 		$a->setField($field);
@@ -99,8 +100,9 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		
 		$inputfieldClass = $field->get('inputfieldClass'); 
 		if(!$inputfieldClass) $inputfieldClass = 'InputfieldSelect';
-		$inputfield = $this->wire('modules')->get($inputfieldClass);
-		if(!$inputfield) $inputfield = $this->wire('modules')->get('InputfieldSelect'); 
+		/** @var InputfieldSelect $inputfield */
+		$inputfield = $this->wire()->modules->get($inputfieldClass);
+		if(!$inputfield) $inputfield = $this->wire()->modules->get('InputfieldSelect'); 
 		
 		foreach($this->manager->getOptions($field) as $option) {
 			$inputfield->addOption((int) $option->id, $option->getTitle()); 
@@ -112,7 +114,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 				if(empty($value) || !wireCount($value)) {
 					$page->set($field->name, $field->get('initValue'));
 				}
-			} else if($this->wire('process') != 'ProcessField' && !wireCount($value)) {
+			} else if($this->wire()->process != 'ProcessField' && !wireCount($value)) {
 				$this->warning(
 					$field->getLabel() . " ($field->name): " . 
 					$this->_('Configured pre-selection not populated since value is not always required. Please correct this field configuration.') 
@@ -133,7 +135,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = $this->wire(new Fieldtypes());
-		foreach($this->wire('fieldtypes') as $fieldtype) {
+		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if($fieldtype instanceof FieldtypeOptions) $fieldtypes->add($fieldtype);
 		}
 		return $fieldtypes;
@@ -259,9 +261,13 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			}
 			return $sleepValue;
 		}
-		if(!$value instanceof SelectableOptionArray) throw new WireException("sleepValue requires SelectableOptionArray"); 
+		
+		if(!$value instanceof SelectableOptionArray) {
+			throw new WireException("sleepValue requires SelectableOptionArray");
+		}
 		
 		foreach($value as $option) {
+			/** @var SelectableOption $option */
 			$sleepValue[] = (int) $option->id;
 		}
 		return $sleepValue; 
@@ -361,6 +367,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			$subfield = 'data';
 			
 			if(count($options) < 2) {
+				/** @var SelectableOption $option */
 				$option = $options->first();
 				$value = $option ? $option->id : '';
 			} else {
@@ -373,7 +380,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		
 		if($operator == '!=') {
 			// force a != for one value to prevent matching, even if more than one value
-			$database = $this->wire('database'); 
+			$database = $this->wire()->database; 
 			$t = $database->escapeTable($query->field->getTable());
 			$s = $database->escapeCol($subfield); 
 			
@@ -402,14 +409,15 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 * @param string $table
 	 * @param string $subfield
 	 * @param bool $desc
-	 * @return bool|string
+	 * @return bool
 	 * @since 3.0.167
 	 *
 	 */
 	public function getMatchQuerySort(Field $field, $query, $table, $subfield, $desc) {
 		// FieldtypeOptions uses an separate table for option values/labels
+		$subfield = $this->wire()->sanitizer->fieldName($subfield);
 		if(empty($subfield)) return false;
-		$table2 = "_sort_options_$field->name" . ($subfield ? "_$subfield" : '');
+		$table2 = "_sort_options_{$field->name}_$subfield";
 		$bindKey = $query->bindValueGetKey($field->id, \PDO::PARAM_INT);
 		$query->leftjoin("fieldtype_options AS $table2 ON $table2.fields_id=$bindKey AND $table.data=$table2.option_id");
 		$query->orderby("$table2.$subfield " . ($desc ? 'DESC' : ''), true);
@@ -494,7 +502,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			$data['export_options'] = array('default' => $data['_options']); 
 			unset($data['_options']); 
 		}
-		if($this->manager->useLanguages()) foreach($this->wire('languages') as $language) {
+		if($this->manager->useLanguages()) foreach($this->wire()->languages as $language) {
 			if($language->isDefault()) continue; 
 			$key = "_options__$language";
 			if(isset($data[$key])) {
@@ -529,7 +537,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function ___cloneField(Field $field) {
-		$this->wire('fields')->addHookAfter('cloned', $this, 'hookCloned');
+		$this->wire()->fields->addHookAfter('cloned', $this, 'hookCloned');
 		return parent::___cloneField($field);
 	}
 	
@@ -584,6 +592,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	public function ___getConfigInputfields(Field $field) {
 		$inputfields = parent::___getConfigInputfields($field); 
 		include_once(dirname(__FILE__) . '/SelectableOptionConfig.php'); 
+		/** @var SelectableOptionConfig $cfg */
 		$cfg = $this->wire(new SelectableOptionConfig($field, $inputfields)); 
 		$inputfields = $cfg->getConfigInputfields();
 		return $inputfields; 
@@ -599,7 +608,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	protected function _getField($field) {
 		if(!$field instanceof Field) {
 			$_field = $field;
-			$field = $this->wire('fields')->get($field);
+			$field = $this->wire()->fields->get($field);
 			if(!$field) throw new WireException("Unknown field: $_field");
 		}
 		if(!$field->type instanceof FieldtypeOptions) {
@@ -634,7 +643,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function getOptions($field) {
-		return $this->manager->getOptions($field = $this->_getField($field)); 
+		return $this->manager->getOptions($this->_getField($field)); 
 	}
 
 	/**
@@ -647,7 +656,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function setOptions($field, SelectableOptionArray $options) {
-		return $this->manager->setOptions($field = $this->_getField($field), $options, true); 
+		return $this->manager->setOptions($this->_getField($field), $options, true); 
 	}
 
 	/**

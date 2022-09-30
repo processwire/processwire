@@ -6,7 +6,7 @@
  * Handles management of the fieldtype_options table and related field_[name] table
  * to assist FieldtypeOptions module. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -46,7 +46,7 @@ class SelectableOptionManager extends Wire {
 	protected $removedOptionIDs = array();
 	
 	public function wired() {
-		if($this->wire('modules')->isInstalled('LanguageSupportFields')) {
+		if($this->wire()->modules->isInstalled('LanguageSupportFields')) {
 			$this->useLanguages = true;
 			$this->addHookAfter('Languages::updated', $this, 'updateLanguages');
 		}
@@ -81,11 +81,13 @@ class SelectableOptionManager extends Wire {
 	 * 
 	 * @param Field $field
 	 * @param array $ids
-	 * @return SelectableOptionArray
+	 * @return SelectableOptionArray|SelectableOption[]
 	 * 
 	 */
 	public function getOptionsByID(Field $field, array $ids) {
-		return $this->getOptions($field, array('id' => $ids)); 
+		/** @var SelectableOptionArray|SelectableOption[] $value */
+		$value = $this->getOptions($field, array('id' => $ids)); 
+		return $value; 
 	}
 	
 	/**
@@ -96,12 +98,13 @@ class SelectableOptionManager extends Wire {
 	 *
 	 * @param Field $field
 	 * @param array $filters Any of array(property => array) where property is 'id', 'title' or 'value'. 
-	 * @return SelectableOptionArray
+	 * @return SelectableOptionArray|SelectableOption[]
 	 * @throws WireException
 	 *
 	 */
 	public function getOptions(Field $field, array $filters = array()) {
-		
+	
+		$database = $this->wire()->database;
 		$hasFilters = count($filters) > 0;
 		
 		if(isset($this->optionsCache[$field->id]) && !$hasFilters) {
@@ -141,7 +144,7 @@ class SelectableOptionManager extends Wire {
 			if(!count($filters[$property])) continue;
 			$s = "`$property` IN(";
 			foreach($filters[$property] as $val) {
-				$s .= $this->wire('database')->quote($val) . ',';
+				$s .= $database->quote($val) . ',';
 				$sorted[$val] = ''; // placeholder
 			}
 			$s = rtrim($s, ',') . ')';
@@ -159,7 +162,7 @@ class SelectableOptionManager extends Wire {
 		
 		if($sortKey === true) $sql .= 'ORDER BY sort ASC';
 
-		$query = $this->wire('database')->prepare($sql);
+		$query = $database->prepare($sql);
 		$query->bindValue(':fields_id', $field->id);
 		$query->execute();
 
@@ -183,6 +186,7 @@ class SelectableOptionManager extends Wire {
 		
 		$query->closeCursor();
 
+		/** @var SelectableOptionArray $options */
 		$options = $this->wire(new SelectableOptionArray());
 		$options->setField($field); 
 		foreach($sorted as $option) {
@@ -200,7 +204,8 @@ class SelectableOptionManager extends Wire {
 	 * Perform a partial match on title of options
 	 * 
 	 * @param Field $field
-	 * @param string $property Either 'title' or 'value'. May also be blank (to imply 'either') if operator is '=' or '!='
+	 * @param string $property Either 'title' or 'value'. May also be blank (to imply 'either') if operator is '=' or
+	 *     '!='
 	 * @param string $operator
 	 * @param string $value Value to find
 	 * @return SelectableOptionArray
@@ -253,7 +258,7 @@ class SelectableOptionManager extends Wire {
 		if(isset($a['title'])) $option->set('title', $a['title']);
 		if(isset($a['value'])) $option->set('value', $a['value']);
 		if(isset($a['sort'])) $option->set('sort', (int) $a['sort']);
-		if($this->useLanguages) foreach($this->wire('languages') as $language) {
+		if($this->useLanguages) foreach($this->wire()->languages as $language) {
 			if($language->isDefault()) continue;
 			if(isset($a["title$language"])) $option->set("title$language", $a["title$language"]);
 			if(isset($a["value$language"])) $option->set("value$language", $a["value$language"]);
@@ -360,7 +365,7 @@ class SelectableOptionManager extends Wire {
 		
 		if($language && $this->useLanguages()) {
 			if(is_string($language) || is_int($language)) {
-				$language = $this->wire('languages')->get($language);
+				$language = $this->wire()->languages->get($language);
 				if(!$language->id) throw new WireException("Unknown language: $language"); 
 			}
 			if(is_object($language) && $language->isDefault()) $language = '';
@@ -371,6 +376,7 @@ class SelectableOptionManager extends Wire {
 		$out = '';
 		
 		foreach($options as $option) {
+			/** @var SelectableOption $option */
 			$title = trim((string) $option->get("title$language"));
 			$value = trim((string) $option->get("value$language"));
 			$titleLength = strlen($title);
@@ -427,8 +433,9 @@ class SelectableOptionManager extends Wire {
 		if(!$this->useLanguages) throw new WireException("Language support not active"); 
 		$arrays = array();
 		$default = array();
+		$languages = $this->wire()->languages;
 		foreach($values as $languageID => $value) {
-			$language = $this->wire('languages')->get($languageID); 
+			$language = $languages->get($languageID); 
 			if(!$language || !$language->id) {
 				$this->error("Unknown language: $language");
 				continue; 
@@ -443,6 +450,7 @@ class SelectableOptionManager extends Wire {
 		$options = $this->optionsArrayToObjects($default); 
 		$options->setField($field); 
 		foreach($options as $option) {
+			/** @var SelectableOption $option */ 
 			foreach($arrays as $languageID => $a) {
 				$key = "id$option->id";
 				if(!isset($a[$key])) continue;
@@ -484,6 +492,7 @@ class SelectableOptionManager extends Wire {
 		$sort = 0;
 
 		foreach($options as $option) {
+			/** @var SelectableOption $option */
 
 			$option->set('sort', $sort);
 
@@ -563,11 +572,11 @@ class SelectableOptionManager extends Wire {
 		
 		unset($this->optionsCache[$field->id]); 
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$sql = "UPDATE " . self::optionsTable . " SET sort=:sort, title=:title, `value`=:value ";
 		$bindCols = array();
 		
-		if($this->useLanguages) foreach($this->wire('languages') as $language) {
+		if($this->useLanguages) foreach($this->wire()->languages as $language) {
 			if($language->isDefault()) continue; 
 			foreach(array('title', 'value') as $name) {
 				$name .= (int) $language->id;
@@ -637,11 +646,11 @@ class SelectableOptionManager extends Wire {
 	public function deleteOptionsByID(Field $field, array $ids) {
 
 		unset($this->optionsCache[$field->id]); 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$cleanIDs = array();
 
-		foreach($ids as $key => $id) {
+		foreach($ids as $id) {
 			$cleanIDs[] = (int) $id;
 		}
 
@@ -699,8 +708,7 @@ class SelectableOptionManager extends Wire {
 	 */
 	public function addOptions(Field $field, $options) {
 		
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		
 		// options that have pre-assigned IDs
 		$optionsByID = array();
