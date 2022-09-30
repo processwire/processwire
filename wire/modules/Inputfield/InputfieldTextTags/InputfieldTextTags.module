@@ -997,7 +997,9 @@ class InputfieldTextTags extends Inputfield implements
 		
 		if($isTextField || $isPageField) {
 			/** @var InputfieldText $f */
-			$examplePath = "find-$this->name";
+			$inputName = $this->name;
+			if(empty($inputName)) $inputName = '[field_name]';
+			$examplePath = "find-$inputName";
 			$exampleUrl = "/$examplePath/?q={q}";
 			$exampleDescription = 
 				sprintf($this->_('URL handler example in file %s for URL %s'), '<code>/site/init.php</code>', "<code>$exampleUrl</code>") . ' — ' . 
