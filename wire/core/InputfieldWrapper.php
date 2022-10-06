@@ -25,6 +25,7 @@
  * 
  * @method string renderInputfield(Inputfield $inputfield, $renderValueMode = false) #pw-group-output
  * @method Inputfield new($typeName, $name = '', $label = '', array $settings = []) #pw-group-manipulation
+ * @method bool allowProcessInput(Inputfield $inputfield) Allow Inputfield to have input processed? (3.0.207+) #pw-internal
  * 
  * @property InputfieldAsmSelect $InputfieldAsmSelect
  * @property InputfieldButton $InputfieldButton
@@ -1159,12 +1160,17 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 */
 	public function ___processInput(WireInputData $input) {
 	
-		if(!$this->children) return $this; 
+		if(!$this->children) return $this;
+		
+		$hasHook = $this->isHooked('InputfieldWrapper::allowProcessInput()');
 
 		foreach($this->children() as $child) {
 			/** @var Inputfield $child */
 
-			// skip over the field if it is not processable
+			// skip over the inputfield if hook tells us so
+			if($hasHook && !$this->allowProcessInput($child)) continue;
+
+			// skip over the inputfield if it is not processable
 			if(!$this->isProcessable($child)) continue; 	
 
 			// pass along the dependencies value to child wrappers
@@ -1255,6 +1261,25 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			return false;
 		}
 		
+		return true;
+	}
+
+	/**
+	 * Allow input to be processed for given Inputfield? (for hooks)
+	 * 
+	 * IMPORTANT: This method is not called unless it is hooked! Descending classes
+	 * should instead implement the isProcessable() method (when needed) and be sure to 
+	 * call the parent isProcessable() method too. 
+	 * 
+	 * #pw-hooker
+	 * #pw-internal
+	 * 
+	 * @param Inputfield $inputfield
+	 * @return bool
+	 * @since 3.0.207
+	 * 
+	 */
+	public function ___allowProcessInput(Inputfield $inputfield) {
 		return true;
 	}
 
