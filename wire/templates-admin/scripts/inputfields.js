@@ -2349,17 +2349,27 @@ function InputfieldReloadEvent(event, extraData) {
 	consoleLog('Inputfield reload: ' + fieldName);
 	$.get(url, function(data) {
 		var id = $t.attr('id');
-		var $content = jQuery(data).find("#" + id).children(".InputfieldContent");
-		if(!$content.length && id.indexOf('_repeater') > -1) {
-			id = 'wrap_Inputfield_' + fieldName;
+		var $content;
+		if(data.indexOf('{') === 0) {
+			data = JSON.parse(data);
+			console.log(data);
+			$content = '';
+		} else {
 			$content = jQuery(data).find("#" + id).children(".InputfieldContent");
-			if(!$content.length) {
-				console.log("Unable to find #" + $t.attr('id') + " in response from " + url);
+			if(!$content.length && id.indexOf('_repeater') > -1) {
+				id = 'wrap_Inputfield_' + fieldName;
+				$content = jQuery(data).find("#" + id).children(".InputfieldContent");
+				if(!$content.length) {
+					console.log("Unable to find #" + $t.attr('id') + " in response from " + url);
+				}
 			}
 		}
-		$t.children(".InputfieldContent").html($content.html());
-		// if(typeof jQuery.ui != 'undefined') $t.effect("highlight", 1000); 
-		$t.trigger('reloaded', [ 'reload' ]);
+		if($content.length) {
+			$t.children(".InputfieldContent").html($content.html());
+			//InputfieldStates($t);
+			InputfieldsInit($t);
+			$t.trigger('reloaded', ['reload']);
+		}
 	});
 	event.stopPropagation();
 }
