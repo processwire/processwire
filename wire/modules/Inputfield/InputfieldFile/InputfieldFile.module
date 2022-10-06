@@ -572,7 +572,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	protected function renderListReady($value) {
 		if(!$this->renderValueMode) {
 			// if just rendering the files list (as opposed to saving it), delete any temp files that may have accumulated
-			if(!$this->overwrite && !count($_POST) && !$this->isAjax && !$this->uploadOnlyMode) {
+			if(!$this->overwrite && !count($_POST) && !$this->isAjax && !$this->uploadOnlyMode && !$this->wire()->config->ajax) {
 				$input = $this->wire()->input;
 				// don't delete files when in render single field or fields mode
 				if(!$input->get('field') && !$input->get('fields')) {

@@ -2341,10 +2341,12 @@ function InputfieldImage($) {
 		
 		$(document).on('reloaded', '.InputfieldImage', function() {
 			var $inputfield = $(this);
+			$inputfield.removeClass('InputfieldImageInit');
 			initInputfield($inputfield);
 			initUploadHTML5($inputfield);
 			//console.log('InputfieldImage reloaded');
 			Inputfields.init($inputfield);
+			$('.InputfieldImageListToggle--active', $inputfield).click();
 		}).on('wiretabclick', function(e, $newTab, $oldTab) {
 			$newTab.find(".InputfieldImage").each(function() {
 				initInputfield($(this));

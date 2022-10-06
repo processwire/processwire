@@ -1145,6 +1145,10 @@ function InputfieldRepeater($) {
 				});
 				
 				$(this).closest('.InputfieldRepeater').trigger('sorted', [ ui.item ]);
+			},
+			
+			update: function(e, ui) {
+				$inputfieldRepeater.addClass('InputfieldStateChanged');
 			}
 		};
 
