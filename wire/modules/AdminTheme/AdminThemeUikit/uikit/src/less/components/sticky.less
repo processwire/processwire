@@ -24,12 +24,23 @@
  ========================================================================== */
 
 /*
+ * 1. Create position context so it's t the same like when fixed.
+ * 2. More robust if padding and border are used and the sticky height is transitioned
+ */
+
+.uk-sticky {
+    /* 1 */
+    position: relative;
+    /* 2 */
+    box-sizing: border-box;
+}
+
+/*
  * 1. Force new layer to resolve frame rate issues on devices with lower frame rates
  */
 
 .uk-sticky-fixed {
     z-index: @sticky-z-index;
-    box-sizing: border-box;
     margin: 0 !important;
     /* 1 */
     -webkit-backface-visibility: hidden;
@@ -44,10 +55,17 @@
 
 .uk-sticky.uk-animation-reverse { animation-duration: @sticky-reverse-animation-duration; }
 
+/*
+ * Placeholder
+ * Make content clickable for sticky cover and reveal effects
+ */
+
+.uk-sticky-placeholder { pointer-events: none; }
+
 
 // Hooks
 // ========================================================================
 
-.hook-sticky-misc;
+.hook-sticky-misc();
 
 .hook-sticky-misc() {}

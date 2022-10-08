@@ -76,6 +76,11 @@
 @base-pre-font-family:                          @base-code-font-family;
 @base-pre-color:                                @global-color;
 
+@base-focus-outline-width:                      2px;
+@base-focus-outline-style:                      dotted;
+@base-focus-outline:                            @global-emphasis-color;
+@base-focus-outline-offset:                     1px;
+
 @base-selection-background:                     #39f;
 @base-selection-color:                          @global-inverse-color;
 
@@ -86,7 +91,6 @@
 
 /*
  * 1. Set `font-size` to support `rem` units
- *    Not using `font` property because a leading hyphen (e.g. -apple-system) causes the font to break in IE11 and Edge
  * 2. Prevent adjustments of font size after orientation changes in iOS.
  * 3. Style
  */
@@ -102,7 +106,7 @@ html {
     /* 3 */
     background: @base-body-background;
     color: @base-body-color;
-    .hook-base-body;
+    .hook-base-body();
 }
 
 /*
@@ -116,13 +120,6 @@ body { margin: 0; }
  ========================================================================== */
 
 /*
- * Remove the outline on focused links when they are also active or hovered
- */
-
-a:active,
-a:hover { outline: none; }
-
-/*
  * Style
  */
 
@@ -131,16 +128,15 @@ a,
     color: @base-link-color;
     text-decoration: @base-link-text-decoration;
     cursor: pointer;
-    .hook-base-link;
+    .hook-base-link();
 }
 
 a:hover,
 .uk-link:hover,
-.uk-link-toggle:hover .uk-link,
-.uk-link-toggle:focus .uk-link {
+.uk-link-toggle:hover .uk-link {
     color: @base-link-hover-color;
     text-decoration: @base-link-hover-text-decoration;
-    .hook-base-link-hover;
+    .hook-base-link-hover();
 }
 
 
@@ -182,7 +178,7 @@ strong { font-weight: @base-strong-font-weight; }
     /* 3 */
     color: @base-code-color;
     white-space: nowrap;
-    .hook-base-code;
+    .hook-base-code();
 }
 
 /*
@@ -242,7 +238,7 @@ sub { bottom: -0.25em; }
  ========================================================================== */
 
 /*
- * Remove the gap between embedded content and the bottom of their containers.
+ * Remove the gap between the element and the bottom of its parent container.
  */
 
 audio,
@@ -253,14 +249,14 @@ svg,
 video { vertical-align: middle; }
 
 /*
- * 1. Add responsiveness.
- * 2. Auto-scale the height. Only needed if `height` attribute is present.
- * 3. Corrects responsive `max-width` behavior if padding and border are used.
- * 4. Exclude SVGs for IE11 because they don't preserve their aspect ratio.
+ * 1. Constrain the element to its parent width.
+ * 2. Preserve the intrinsic aspect ratio and auto-scale the height of an image if the `height` attribute is present.
+ * 3. Take border and padding into account.
  */
 
 canvas,
 img,
+svg,
 video {
     /* 1 */
     max-width: 100%;
@@ -270,34 +266,17 @@ video {
     box-sizing: border-box;
 }
 
-/* 4 */
-@supports (display: block) {
-
-   svg {
-        max-width: 100%;
-        height: auto;
-        box-sizing: border-box;
-    }
-
-}
-
 /*
- * Hide the overflow in IE.
- */
-
-svg:not(:root) { overflow: hidden; }
-
-/*
- * 1. Fix lazy loading images if parent element is set to `display: inline` and has `overflow: hidden`.
- * 2. Hide `alt` text for lazy loading images.
- * Note: Selector for background while loading img[data-src*='.jpg'][src*='data:image'] { background: grey; }
+ * Deprecated: only needed for `img` elements with `uk-img`
+ * 1. Hide `alt` text for lazy load images.
+ * 2. Fix lazy loading images if parent element is set to `display: inline` and has `overflow: hidden`.
  */
 
 img:not([src]) {
     /* 1 */
-    min-width: 1px;
-    /* 2 */
     visibility: hidden;
+    /* 2 */
+    min-width: 1px;
 }
 
 /*
@@ -354,7 +333,7 @@ h6, .uk-h6,
     font-weight: @base-heading-font-weight;
     color: @base-heading-color;
     text-transform: @base-heading-text-transform;
-    .hook-base-heading;
+    .hook-base-heading();
 }
 
 /* Add margin if adjacent element */
@@ -377,37 +356,37 @@ h6, .uk-h6,
 h1, .uk-h1 {
     font-size: @base-h1-font-size;
     line-height: @base-h1-line-height;
-    .hook-base-h1;
+    .hook-base-h1();
 }
 
 h2, .uk-h2 {
     font-size: @base-h2-font-size;
     line-height: @base-h2-line-height;
-    .hook-base-h2;
+    .hook-base-h2();
 }
 
 h3, .uk-h3 {
     font-size: @base-h3-font-size;
     line-height: @base-h3-line-height;
-    .hook-base-h3;
+    .hook-base-h3();
 }
 
 h4, .uk-h4 {
     font-size: @base-h4-font-size;
     line-height: @base-h4-line-height;
-    .hook-base-h4;
+    .hook-base-h4();
 }
 
 h5, .uk-h5 {
     font-size: @base-h5-font-size;
     line-height: @base-h5-line-height;
-    .hook-base-h5;
+    .hook-base-h5();
 }
 
 h6, .uk-h6 {
     font-size: @base-h6-font-size;
     line-height: @base-h6-line-height;
-    .hook-base-h6;
+    .hook-base-h6();
 }
 
 /* Tablet landscape and bigger */
@@ -460,7 +439,7 @@ hr, .uk-hr {
     margin: 0 0 @base-hr-margin-vertical 0;
     border: 0;
     border-top: @base-hr-border-width solid @base-hr-border;
-    .hook-base-hr;
+    .hook-base-hr();
 }
 
 /* Add margin if adjacent element */
@@ -482,7 +461,7 @@ blockquote {
     font-size: @base-blockquote-font-size;
     line-height: @base-blockquote-line-height;
     font-style: @base-blockquote-font-style;
-    .hook-base-blockquote;
+    .hook-base-blockquote();
 }
 
 /* Add margin if adjacent element */
@@ -498,7 +477,7 @@ blockquote footer {
     margin-top:  @base-blockquote-footer-margin-top;
     font-size: @base-blockquote-footer-font-size;
     line-height: @base-blockquote-footer-line-height;
-    .hook-base-blockquote-footer;
+    .hook-base-blockquote-footer();
 }
 
 
@@ -516,10 +495,18 @@ pre {
     tab-size: 4;
     /* 1 */
     overflow: auto;
-    .hook-base-pre;
+    .hook-base-pre();
 }
 
 pre code { font-family: @base-pre-font-family; }
+
+
+/* Focus
+ ========================================================================== */
+
+:focus { outline: none; }
+
+:focus-visible { outline: @base-focus-outline-width @base-focus-outline-style @base-focus-outline; }
 
 
 /* Selection pseudo-element
@@ -565,11 +552,6 @@ template { display: none; }
  * Breakpoints
  */
 
-.uk-breakpoint-s::before  { content: '@{breakpoint-small}'; }
-.uk-breakpoint-m::before  { content: '@{breakpoint-medium}'; }
-.uk-breakpoint-l::before  { content: '@{breakpoint-large}'; }
-.uk-breakpoint-xl::before { content: '@{breakpoint-xlarge}'; }
-
 :root {
     --uk-breakpoint-s: @breakpoint-small;
     --uk-breakpoint-m: @breakpoint-medium;
@@ -580,7 +562,7 @@ template { display: none; }
 // Hooks
 // ========================================================================
 
-.hook-base-misc;
+.hook-base-misc();
 
 .hook-base-body() {}
 .hook-base-link() {}
@@ -610,6 +592,7 @@ template { display: none; }
 @inverse-base-em-color:                        @inverse-global-emphasis-color;
 @inverse-base-heading-color:                   @inverse-global-emphasis-color;
 @inverse-base-hr-border:                       @inverse-global-border;
+@inverse-base-focus-outline:                   @inverse-global-emphasis-color;
 
 .hook-inverse() {
 
@@ -625,15 +608,14 @@ template { display: none; }
     a,
     .uk-link  {
         color: @inverse-base-link-color;
-        .hook-inverse-base-link;
+        .hook-inverse-base-link();
     }
 
     a:hover,
     .uk-link:hover,
-    .uk-link-toggle:hover .uk-link,
-    .uk-link-toggle:focus .uk-link {
+    .uk-link-toggle:hover .uk-link {
         color: @inverse-base-link-hover-color;
-        .hook-inverse-base-link-hover;
+        .hook-inverse-base-link-hover();
     }
 
     //
@@ -644,7 +626,7 @@ template { display: none; }
     :not(pre) > kbd,
     :not(pre) > samp {
         color: @inverse-base-code-color;
-        .hook-inverse-base-code;
+        .hook-inverse-base-code();
     }
 
     //
@@ -669,31 +651,31 @@ template { display: none; }
     .uk-heading-xlarge,
     .uk-heading-2xlarge {
         color: @inverse-base-heading-color;
-        .hook-inverse-base-heading;
+        .hook-inverse-base-heading();
     }
 
     h1, .uk-h1 {
-        .hook-inverse-base-h1;
+        .hook-inverse-base-h1();
     }
 
     h2, .uk-h2 {
-        .hook-inverse-base-h2;
+        .hook-inverse-base-h2();
     }
 
     h3, .uk-h3 {
-        .hook-inverse-base-h3;
+        .hook-inverse-base-h3();
     }
 
     h4, .uk-h4 {
-        .hook-inverse-base-h4;
+        .hook-inverse-base-h4();
     }
 
     h5, .uk-h5 {
-        .hook-inverse-base-h5;
+        .hook-inverse-base-h5();
     }
 
     h6, .uk-h6 {
-        .hook-inverse-base-h6;
+        .hook-inverse-base-h6();
     }
 
     //
@@ -701,11 +683,11 @@ template { display: none; }
     //
 
     blockquote {
-        .hook-inverse-base-blockquote;
+        .hook-inverse-base-blockquote();
     }
 
     blockquote footer {
-        .hook-inverse-base-blockquote-footer;
+        .hook-inverse-base-blockquote-footer();
     }
 
     //
@@ -714,8 +696,15 @@ template { display: none; }
 
     hr, .uk-hr {
         border-top-color: @inverse-base-hr-border;
-        .hook-inverse-base-hr;
+        .hook-inverse-base-hr();
     }
+
+    //
+    // Focus
+    //
+
+    :focus { outline-color: @inverse-base-focus-outline; }
+    :focus-visible { outline-color: @inverse-base-focus-outline; }
 
 }
 

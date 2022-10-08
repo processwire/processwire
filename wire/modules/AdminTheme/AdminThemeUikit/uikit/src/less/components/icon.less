@@ -107,15 +107,21 @@ button.uk-icon:not(:disabled) { cursor: pointer; }
 
 /*
  * Display images in icon dimensions
+ * 1. Required for `span` with background image
+ * 2. Required for `image`
  */
 
 .uk-icon-image {
     width: @icon-image-size;
     height: @icon-image-size;
+    /* 1 */
     background-position: 50% 50%;
     background-repeat: no-repeat;
     background-size: contain;
     vertical-align: middle;
+    /* 2 */
+    object-fit: scale-down;
+    max-width: none;
 }
 
 
@@ -124,25 +130,26 @@ button.uk-icon:not(:disabled) { cursor: pointer; }
 
 /*
  * Link
+ * 1. Allow text within link
  */
 
 .uk-icon-link {
     color: @icon-link-color;
-    .hook-icon-link;
+    /* 1 */
+    text-decoration: none !important;
+    .hook-icon-link();
 }
 
-.uk-icon-link:hover,
-.uk-icon-link:focus {
+.uk-icon-link:hover {
     color: @icon-link-hover-color;
-    outline: none;
-    .hook-icon-link-hover;
+    .hook-icon-link-hover();
 }
 
 /* OnClick + Active */
 .uk-icon-link:active,
 .uk-active > .uk-icon-link {
     color: @icon-link-active-color;
-    .hook-icon-link-active;
+    .hook-icon-link-active();
 }
 
 /*
@@ -162,16 +169,14 @@ button.uk-icon:not(:disabled) { cursor: pointer; }
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    .hook-icon-button;
+    .hook-icon-button();
 }
 
-/* Hover + Focus */
-.uk-icon-button:hover,
-.uk-icon-button:focus {
+/* Hover */
+.uk-icon-button:hover {
     background-color: @icon-button-hover-background;
     color: @icon-button-hover-color;
-    outline: none;
-    .hook-icon-button-hover;
+    .hook-icon-button-hover();
 }
 
 /* OnClick + Active */
@@ -179,14 +184,14 @@ button.uk-icon:not(:disabled) { cursor: pointer; }
 .uk-active > .uk-icon-button {
     background-color: @icon-button-active-background;
     color: @icon-button-active-color;
-    .hook-icon-button-active;
+    .hook-icon-button-active();
 }
 
 
 // Hooks
 // ========================================================================
 
-.hook-icon-misc;
+.hook-icon-misc();
 
 .hook-icon-link() {}
 .hook-icon-link-hover() {}
@@ -205,9 +210,9 @@ button.uk-icon:not(:disabled) { cursor: pointer; }
 @inverse-icon-link-active-color:               @inverse-global-color;
 @inverse-icon-button-background:               @inverse-global-muted-background;
 @inverse-icon-button-color:                    @inverse-global-muted-color;
-@inverse-icon-button-hover-background:         darken(@inverse-icon-button-background, 5%);
+@inverse-icon-button-hover-background:         fadein(@inverse-icon-button-background, 5%);
 @inverse-icon-button-hover-color:              @inverse-global-color;
-@inverse-icon-button-active-background:        darken(@inverse-icon-button-background, 10%);
+@inverse-icon-button-active-background:        fadein(@inverse-icon-button-background, 10%);
 @inverse-icon-button-active-color:             @inverse-global-color;
 
 .hook-inverse() {
@@ -218,19 +223,18 @@ button.uk-icon:not(:disabled) { cursor: pointer; }
 
     .uk-icon-link {
         color: @inverse-icon-link-color;
-        .hook-inverse-icon-link;
+        .hook-inverse-icon-link();
     }
 
-    .uk-icon-link:hover,
-    .uk-icon-link:focus {
+    .uk-icon-link:hover {
         color: @inverse-icon-link-hover-color;
-        .hook-inverse-icon-link-hover;
+        .hook-inverse-icon-link-hover();
     }
 
     .uk-icon-link:active,
     .uk-active > .uk-icon-link {
         color: @inverse-icon-link-active-color;
-        .hook-inverse-icon-link-active;
+        .hook-inverse-icon-link-active();
     }
 
     //
@@ -240,20 +244,19 @@ button.uk-icon:not(:disabled) { cursor: pointer; }
     .uk-icon-button {
         background-color: @inverse-icon-button-background;
         color: @inverse-icon-button-color;
-        .hook-inverse-icon-button;
+        .hook-inverse-icon-button();
     }
 
-    .uk-icon-button:hover,
-    .uk-icon-button:focus {
+    .uk-icon-button:hover {
         background-color: @inverse-icon-button-hover-background;
         color: @inverse-icon-button-hover-color;
-        .hook-inverse-icon-button-hover;
+        .hook-inverse-icon-button-hover();
     }
 
     .uk-icon-button:active {
         background-color: @inverse-icon-button-active-background;
         color: @inverse-icon-button-active-color;
-        .hook-inverse-icon-button-active;
+        .hook-inverse-icon-button-active();
     }
 
 }
