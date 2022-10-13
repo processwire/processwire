@@ -1,4 +1,4 @@
-// import base theme
+// RockStyle v1.1
 
 // ##############################################################
 // theme variables to easily style this theme
@@ -12,49 +12,54 @@
 @global-link-hover-color: lighten(@rock-primary, 5%);
 @base-selection-background: @rock-primary;
 
-/**
- * Custom modification to tweak several spots of the admin when using this theme.
- * I think these should likely be part of the master theme and then reno & co
- * should just override the spots that are necessary to override
- */
+// primary alert should be neutral grey instead of primary color
+// this prevents red primary alert when rock-primary color is red
+// which would be confusing as it would be the same for error messages!
+// see https://i.imgur.com/dxhDz81.png
+@alert-primary-background: @global-muted-background;
+@alert-primary-color: @global-color;
 
-/* ##### PageEdit ##### */
+/* ##### UIkit ##### */
 
-  // remove padding from tabs in page edit screen
-  .uk-tab>* { padding-left: 0; }
+// fix tooltip issue
+.uk-tooltip-inner {
+  overflow-wrap: break-word;
+}
 
-/* ##### Inputfields ##### */
+/* ##### ProcessWire ##### */
 
-  // notes
-  p.notes {
-    .uk-background-muted;
-    padding-left: 5px;
-    border-left: 3px solid @global-secondary-background;
-  }
+// remove padding from tabs in page edit screen
+.uk-tab > * {
+  padding-left: 0;
+}
 
-  // buttons
-  button.ui-button.ui-priority-secondary {
-    background-color: lighten(@global-color, 20%) !important;
-  }
+// notes
+p.notes {
+  .uk-background-muted;
+  padding-left: 5px;
+  border-left: 3px solid @global-secondary-background;
+}
 
-/* ##### Notices ##### */
+// buttons
+button.ui-button.ui-priority-secondary {
+  background-color: lighten(@global-color, 20%) !important;
+}
 
-  // remove spacing: https://i.imgur.com/l6TJIIJ.png
-  .pw-notices, .pw-notices li { margin: 0; }
-  .pw-notices { margin-top: -2px; }
+// vex dialogs
+.vex-dialog-button.vex-dialog-button-primary {
+  background: @global-primary-background !important;
+}
 
-  // vex dialogs
-  .vex-dialog-button.vex-dialog-button-primary {
-    background: @global-primary-background !important;
-  }
-
-/* ##### Datepicker ##### */
-
-  // datepicker
-  // see pw-jquery-ui-custom.less
-  // change from secondary to primary
-  @pw-datepicker-background: @background-primary-background;
-
-/* ##### Offcanvas ##### */
-  // change offcanvas background from secondary to primary
-  @offcanvas-bar-background: @background-primary-background;
+// notices
+// remove spacing: https://i.imgur.com/l6TJIIJ.png
+.pw-notices,
+.pw-notices li {
+  margin: 0;
+}
+.pw-notices {
+  margin-top: -2px;
+}
+// make notification bug darker to stand out from masthead
+#NotificationBug {
+  background-color: @global-color;
+}
