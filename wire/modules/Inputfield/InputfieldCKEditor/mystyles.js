@@ -1,4 +1,4 @@
-﻿/**
+/**
  * mystyles.js
  *
  * This file may be used when you have "Styles" as one of the items in your toolbar.

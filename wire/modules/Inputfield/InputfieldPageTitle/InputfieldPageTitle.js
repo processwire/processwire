@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Convert a title/headline to an ASCII URL name
  * 
  * 1. Convert accented characters to the ASCII equivalent. 
