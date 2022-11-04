@@ -10,7 +10,7 @@
  * in order to save resources. As a result, anything iterating through these Modules should check to make sure it's not a ModulePlaceholder
  * before using it. If it's a ModulePlaceholder, then the real Module can be instantiated/retrieved by $modules->get($className).
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Loads and manages all modules in ProcessWire. 
@@ -290,7 +290,7 @@ class Modules extends WireArray {
 		'searchable', 
 		'page',
 		// 'languages',
-		);
+	);
 
 	/**
 	 * Core module types that are isolated by directory
@@ -309,7 +309,7 @@ class Modules extends WireArray {
 		'Session',
 		'System',
 		'Textformatter',
-		);
+	);
 
 	/**
 	 * Construct the Modules
@@ -329,7 +329,7 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function wired() {
-		$this->coreModulesDir = '/' . $this->wire('config')->urls->data('modules');
+		$this->coreModulesDir = '/' . $this->wire()->config->urls->data('modules');
 		parent::wired();
 	}
 
@@ -448,7 +448,7 @@ class Modules extends WireArray {
 	 * #pw-internal
 	 * 
 	 * @param Wire $item
-	 * @return int|string
+	 * @return string
  	 *
 	 */
 	public function getItemKey($item) {
@@ -606,7 +606,6 @@ class Modules extends WireArray {
 			}
 		} else {
 			$wire1 = null;
-			$wire2 = null;
 		}
 		
 		try {
@@ -632,6 +631,7 @@ class Modules extends WireArray {
 	 *
 	 */
 	protected function newModulePlaceholder($className, $ns, $file, $singular, $autoload) { 
+		/** @var ModulePlaceholder $module */
 		$module = $this->wire(new ModulePlaceholder());
 		$module->setClass($className);
 		$module->setNamespace($ns);
@@ -757,7 +757,7 @@ class Modules extends WireArray {
 
 			if(is_string($func)) {
 				// selector string
-				if(!$this->wire('page')->is($func)) $load = false;
+				if(!$this->wire()->page->is($func)) $load = false;
 			} else {
 				// anonymous function
 				if(!is_callable($func)) $load = false;
@@ -889,7 +889,7 @@ class Modules extends WireArray {
 	 */
 	protected function load($path) {
 
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$debugKey = $this->debug ? $this->debugTimerStart("load($path)") : null; 
 		$installed =& $this->modulesTableCache;
 		$modulesLoaded = array();
@@ -991,7 +991,7 @@ class Modules extends WireArray {
 		$currentFile = $duplicates->getCurrent($basename); // returns the current file in use, if more than one
 		if($currentFile) {
 			// there is a duplicate file in use
-			$file = rtrim($this->wire('config')->paths->root, '/') . $currentFile;
+			$file = rtrim($this->wire()->config->paths->root, '/') . $currentFile;
 			if(file_exists($file) && $pathname != $file) {
 				// file in use is different from the file we are looking at
 				// check if this is a new/yet unknown duplicate
@@ -1090,7 +1090,6 @@ class Modules extends WireArray {
 			} else if($autoload) {
 				$this->includeModuleFile($pathname, $basename);
 				if(!($info['flags'] & self::flagsDisabled)) {
-					$module = null;
 					if($this->refreshing) {
 						$module = parent::get($basename);
 					} else if(isset($this->autoloadOrders[$basename]) && $this->autoloadOrders[$basename] >= 10000) {
@@ -1131,8 +1130,8 @@ class Modules extends WireArray {
 		static $prependFiles = array();
 
 		$callNum++;
-		$config = $this->wire('config');
-		$cache = $this->wire('cache'); 
+		$config = $this->wire()->config;
+		$cache = $this->wire()->cache; 
 		$cacheName = '';
 
 		if($level == 0) {
@@ -1225,7 +1224,7 @@ class Modules extends WireArray {
 	 *
 	 */
 	protected function setConfigPaths($moduleName, $path) {
-		$config = $this->wire('config'); 
+		$config = $this->wire()->config; 
 		$rootPath = $config->paths->root;
 		if(strpos($path, $rootPath) === 0) {
 			// if root path included, strip it out
@@ -1314,7 +1313,6 @@ class Modules extends WireArray {
 	 */
 	public function getModule($key, array $options = array()) {
 	
-		$module = null;
 		$needsInit = false;
 		$noInit = !empty($options['noInit']); // force cancel of Module::init() call?
 		$initOptions = array(); // options for initModule() call
@@ -1498,7 +1496,7 @@ class Modules extends WireArray {
 		$info = $this->getModuleInfo($module ? $module : $moduleName);
 		if(empty($info['permission']) && empty($info['permissionMethod'])) return ($strict ? false : true);
 		
-		if(is_null($user)) $user = $this->wire('user'); 	
+		if(is_null($user)) $user = $this->wire()->user; 	
 		if($user && $user->isSuperuser()) return true;
 		
 		if(!empty($info['permission'])) {
@@ -1507,7 +1505,7 @@ class Modules extends WireArray {
 		
 		if(!empty($info['permissionMethod'])) {
 			// module specifies a static method to call for permission
-			if(is_null($page)) $page = $this->wire('page');
+			if(is_null($page)) $page = $this->wire()->page;
 			$data = array(
 				'wire' => $this->wire(),
 				'page' => $page, 
@@ -1783,7 +1781,6 @@ class Modules extends WireArray {
 	public function findByInfo($selector, $load = false) {
 		
 		$selectors = null;
-		$infos = null;
 		$keys = null;
 		$results = array();
 		$verbose = $load === 2;
@@ -1908,7 +1905,7 @@ class Modules extends WireArray {
 		if($class === 'PHP' || $class === 'ProcessWire') {
 			$installed = true; 
 			if(!is_null($requiredVersion)) {
-				$currentVersion = $class === 'PHP' ? PHP_VERSION : $this->wire('config')->version; 
+				$currentVersion = $class === 'PHP' ? PHP_VERSION : $this->wire()->config->version; 
 			}
 		} else {
 			$installed = parent::get($class) !== null;
@@ -1937,8 +1934,7 @@ class Modules extends WireArray {
  	 *
 	 */
 	public function isInstallable($class, $now = false) {
-		$installable = array_key_exists($class, $this->installable); 
-		if(!$installable) return false;
+		if(!array_key_exists($class, $this->installable)) return false;
 		if(!wireInstanceOf($class, 'Module')) {
 			$nsClass = $this->getModuleClass($class, true);
 			if(!wireInstanceOf($nsClass, 'ProcessWire\\Module')) return false;
@@ -1947,7 +1943,7 @@ class Modules extends WireArray {
 			$requires = $this->getRequiresForInstall($class); 
 			if(count($requires)) return false;
 		}
-		return $installable;
+		return true;
 	}
 	
 	/**
@@ -1970,12 +1966,14 @@ class Modules extends WireArray {
 			'dependencies' => true, 
 			'resetCache' => true, 
 			'force' => false, 
-			);
+		);
+		
 		if(is_bool($options)) { 
 			// dependencies argument allowed instead of $options, for backwards compatibility
 			$dependencies = $options; 
 			$options = array('dependencies' => $dependencies);
 		} 
+		
 		$options = array_merge($defaults, $options); 
 		$dependencyOptions = $options; 
 		$dependencyOptions['resetCache'] = false; 
@@ -2010,8 +2008,11 @@ class Modules extends WireArray {
 				}
 			}
 		}
+
+		$database = $this->wire()->database;
+		$languages = $this->wire()->languages;
+		$config = $this->wire()->config;
 		
-		$languages = $this->wire('languages');
 		if($languages) $languages->setDefault();
 
 		$pathname = $this->installable[$class];
@@ -2021,14 +2022,13 @@ class Modules extends WireArray {
 		$module = $this->newModule($class);
 		if(!$module) return null;
 		$flags = 0;
-		$database = $this->wire('database');
 		$moduleID = 0;
 		
 		if($this->isSingular($module)) $flags = $flags | self::flagsSingular; 
 		if($this->isAutoload($module)) $flags = $flags | self::flagsAutoload; 
 
 		$sql = "INSERT INTO modules SET class=:class, flags=:flags, data=''";
-		if($this->wire('config')->systemVersion >=7) $sql .= ", created=NOW()";
+		if($config->systemVersion >= 7) $sql .= ", created=NOW()";
 		$query = $database->prepare($sql, "modules.install($class)"); 
 		$query->bindValue(":class", $class, \PDO::PARAM_STR); 
 		$query->bindValue(":flags", $flags, \PDO::PARAM_INT); 
@@ -2076,17 +2076,20 @@ class Modules extends WireArray {
 		}
 
 		$info = $this->getModuleInfoVerbose($class, array('noCache' => true)); 
-	
+
+		$sanitizer = $this->wire()->sanitizer;
+		$permissions = $this->wire()->permissions;
+		
 		// if this module has custom permissions defined in its getModuleInfo()['permissions'] array, install them 
 		foreach($info['permissions'] as $name => $title) {
-			$name = $this->wire('sanitizer')->pageName($name); 
+			$name = $sanitizer->pageName($name); 
 			if(ctype_digit("$name") || empty($name)) continue; // permission name not valid
-			$permission = $this->wire('permissions')->get($name); 
+			$permission = $permissions->get($name); 
 			if($permission->id) continue; // permision already there
 			try {
-				$permission = $this->wire('permissions')->add($name); 
+				$permission = $permissions->add($name); 
 				$permission->title = $title; 
-				$this->wire('permissions')->save($permission);
+				$permissions->save($permission);
 				if($languages) $languages->unsetDefault(); 
 				$this->message(sprintf($this->_('Added Permission: %s'), $permission->name)); 
 			} catch(\Exception $e) {
@@ -2156,7 +2159,7 @@ class Modules extends WireArray {
 			}
 
 			if(!$reason && in_array('Fieldtype', wireClassParents($namespace . $class))) {
-				foreach($this->wire('fields') as $field) {
+				foreach($this->wire()->fields as $field) {
 					$fieldtype = wireClassName($field->type, false);
 					if($fieldtype == $class) { 
 						$reason = $this->_("This module is a Fieldtype currently in use by one or more fields");
@@ -2216,24 +2219,24 @@ class Modules extends WireArray {
 	 * #pw-group-manipulation
 	 *
 	 * @param string $class Module name (class name)
-	 * @return bool|int
+	 * @return bool
 	 * @throws WireException If module can't be deleted, exception will be thrown containing reason. 
 	 *
 	 */
 	public function ___delete($class) {
+		
+		$config = $this->wire()->config;
+		$fileTools = $this->wire()->files;
 
 		$class = $this->getModuleClass($class); 
 		$success = true;
 		$reason = $this->isDeleteable($class, true); 
 		if($reason !== true) throw new WireException($reason); 
-		$siteModulesPath = $this->wire('config')->paths->siteModules;
+		$siteModulesPath = $config->paths->siteModules;
 
 		$filename = $this->installable[$class];
 		$basename = basename($filename); 
 		
-		/** @var WireFileTools $fileTools */
-		$fileTools = $this->wire('files'); 
-
 		// double check that $class is consistent with the actual $basename	
 		if($basename === "$class.module" || $basename === "$class.module.php") {
 			// good, this is consistent with the format we require
@@ -2269,7 +2272,7 @@ class Modules extends WireArray {
 			"$basename.info.json",
 			"$basename.config.php", 
 			"{$basename}Config.php",
-			);
+		);
 		
 		if($inPath) { 
 			// module is in /site/modules/[ModuleName]/
@@ -2306,7 +2309,7 @@ class Modules extends WireArray {
 			
 			if(!$inRoot && !$numOtherModules && !$numLinks) {
 				// the modulePath had no other modules or directories in it, so we can delete it entirely
-				$success = $fileTools->rmdir($path, true); 
+				$success = (bool) $fileTools->rmdir($path, true); 
 				if($success) {
 					$this->message("Removed directory: $path", Notice::debug);
 					if(is_dir($backupPath)) {
@@ -2387,7 +2390,7 @@ class Modules extends WireArray {
 		}
 
 		// remove all hooks attached to other ProcessWire objects
-		$hooks = array_merge($this->getHooks('*'), $this->wire('hooks')->getAllLocalHooks());
+		$hooks = array_merge($this->getHooks('*'), $this->wire()->hooks->getAllLocalHooks());
 		foreach($hooks as $hook) {
 			/** @var Wire $toObject */
 			$toObject = $hook['toObject'];
@@ -2404,7 +2407,7 @@ class Modules extends WireArray {
 			/** @var _Module $module */
 			$module->uninstall();
 		}
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$query = $database->prepare('DELETE FROM modules WHERE class=:class LIMIT 1'); // QA
 		$query->bindValue(":class", $class, \PDO::PARAM_STR); 
 		$query->execute();
@@ -2417,16 +2420,19 @@ class Modules extends WireArray {
 
 		unset($this->moduleIDs[$class]);
 		$this->remove($module);
-	
+
+		$sanitizer = $this->wire()->sanitizer;
+		$permissions = $this->wire()->permissions;
+		
 		// delete permissions installed by this module
 		if(isset($info['permissions']) && is_array($info['permissions'])) {
 			foreach($info['permissions'] as $name => $title) {
-				$name = $this->wire('sanitizer')->pageName($name); 
+				$name = $sanitizer->pageName($name); 
 				if(ctype_digit("$name") || empty($name)) continue; 
-				$permission = $this->wire('permissions')->get($name); 
+				$permission = $permissions->get($name); 
 				if(!$permission->id) continue; 
 				try { 
-					$this->wire('permissions')->delete($permission); 
+					$permissions->delete($permission); 
 					$this->message(sprintf($this->_('Deleted Permission: %s'), $name)); 
 				} catch(\Exception $e) {
 					$error = sprintf($this->_('Error deleting permission: %s'), $name);
@@ -2454,7 +2460,7 @@ class Modules extends WireArray {
 		$id = ctype_digit("$class") ? (int) $class : $this->getModuleID($class);
 		if(isset($this->moduleFlags[$id])) return $this->moduleFlags[$id]; 
 		if(!$id) return false;
-		$query = $this->wire('database')->prepare('SELECT flags FROM modules WHERE id=:id');
+		$query = $this->wire()->database->prepare('SELECT flags FROM modules WHERE id=:id');
 		$query->bindValue(':id', $id, \PDO::PARAM_INT);
 		$query->execute();
 		if(!$query->rowCount()) return false;
@@ -2495,7 +2501,7 @@ class Modules extends WireArray {
 		$id = ctype_digit("$class") ? (int) $class : $this->getModuleID($class);
 		if(!$id) return false;
 		if($this->moduleFlags[$id] === $flags) return true; 
-		$query = $this->wire('database')->prepare('UPDATE modules SET flags=:flags WHERE id=:id');
+		$query = $this->wire()->database->prepare('UPDATE modules SET flags=:flags WHERE id=:id');
 		$query->bindValue(':flags', $flags);
 		$query->bindValue(':id', $id);
 		if($this->debug) $this->message("setFlags(" . $this->getModuleClass($class) . ", " . $this->moduleFlags[$id] . " => $flags)");
@@ -2685,7 +2691,7 @@ class Modules extends WireArray {
 		if(!empty($this->installable[$moduleName])) {
 			$path = dirname($this->installable[$moduleName]) . '/';
 		} else {
-			$path = $this->wire('config')->paths->$moduleName;
+			$path = $this->wire()->config->paths($moduleName);
 		}
 		
 		if(empty($path)) return array();
@@ -2786,7 +2792,7 @@ class Modules extends WireArray {
 			$info['id'] = 0; 
 			$info['name'] = $moduleName;
 			$info['title'] = $moduleName;
-			$info['version'] = $this->wire('config')->version;
+			$info['version'] = $this->wire()->config->version;
 			$info['namespace'] = strlen(__NAMESPACE__) ? "\\" . __NAMESPACE__ . "\\" : "";
 			$info['requiresVersions'] = array(
 				'PHP' => array('>=', '5.3.8'),
@@ -3238,13 +3244,14 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function getNamespaces() {
+		$config = $this->wire()->config;
 		if(!is_null($this->moduleNamespaceCache)) return $this->moduleNamespaceCache;
 		$defaultNamespace = strlen(__NAMESPACE__) ? "\\" . __NAMESPACE__ . "\\" : "";
 		$namespaces = array();
-		foreach($this->moduleInfoCache as $moduleID => $info) {
+		foreach($this->moduleInfoCache as /* $moduleID => */ $info) {
 			if(!isset($info['namespace']) || $info['namespace'] === $defaultNamespace || $info['namespace'] === "\\") continue;
 			$moduleName = $info['name'];
-			$namespaces[$info['namespace']] = $this->wire('config')->paths->$moduleName;
+			$namespaces[$info['namespace']] = $config->paths($moduleName);
 		}
 		$this->moduleNamespaceCache = $namespaces; 
 		return $namespaces; 
@@ -3419,7 +3426,7 @@ class Modules extends WireArray {
 	 */
 	public function getModuleEditUrl($className, $collapseInfo = true) {
 		if(!is_string($className)) $className = $this->getModuleClass($className);
-		$url = $this->wire('config')->urls->admin . 'module/';
+		$url = $this->wire()->config->urls->admin . 'module/';
 		if(empty($className) || !$this->isInstalled($className)) return $url;
 		$url .= "edit/?name=$className";
 		if($collapseInfo) $url .= "&collapse_info=1";
@@ -3704,7 +3711,7 @@ class Modules extends WireArray {
 			// moved from verbose to non-verbose module info (i.e. this line can be deleted after PW 2.7)
 			if($info['configurable'] === null) $info = $this->getModuleInfoVerbose($className);
 			if(!$info['configurable']) {
-				if($moduleInstance && $moduleInstance instanceof ConfigurableModule) {
+				if($moduleInstance instanceof ConfigurableModule) {
 					// re-try because moduleInfo may be temporarily incorrect for this request because of change in moduleInfo format
 					// this is due to reports of ProcessChangelogHooks not getting config data temporarily between 2.6.11 => 2.6.12
 					$this->error(
@@ -3787,7 +3794,7 @@ class Modules extends WireArray {
 			$configurable = false;
 		
 			// if we have a module instance, use that for our check
-			if($moduleInstance && $moduleInstance instanceof ConfigurableModule) {
+			if($moduleInstance instanceof ConfigurableModule) {
 				if(method_exists($moduleInstance, $method)) {
 					$configurable = $method;
 				} else if(method_exists($moduleInstance, "___$method")) {
@@ -3890,7 +3897,7 @@ class Modules extends WireArray {
 	 * 
 	 * @param $className
 	 * @param bool $useCache
-	 * @return mixed
+	 * @return bool|string|int
 	 * 
 	 */
 	public function isConfigurableModule($className, $useCache = true) {
@@ -3914,7 +3921,7 @@ class Modules extends WireArray {
 		$configurable = $this->isConfigable($module); 
 		if(!$configurable) return false;
 		if(!is_array($data)) $data = $this->getConfig($module);
-		if($extraData !== null && is_array($extraData)) $data = array_merge($data, $extraData);
+		if(is_array($extraData)) $data = array_merge($data, $extraData);
 
 		$nsClassName = $module->className(true);
 		$moduleName = $module->className(false);
@@ -3959,6 +3966,7 @@ class Modules extends WireArray {
 				}
 				if(is_array($config)) {
 					// alternatively, file may just specify a $config array
+					/** @var ModuleConfig $moduleConfig */
 					$moduleConfig = $this->wire(new ModuleConfig());
 					$moduleConfig->add($config);
 					$defaults = $moduleConfig->getDefaults();
@@ -3987,7 +3995,7 @@ class Modules extends WireArray {
 	 * 
 	 * @param $className
 	 * @param array $configData
-	 * @return mixed
+	 * @return bool
 	 * 
 	 */
 	public function ___saveModuleConfigData($className, array $configData) {
@@ -4047,7 +4055,7 @@ class Modules extends WireArray {
 		
 		$this->configData[$id] = $data; 
 		$json = count($data) ? wireEncodeJSON($data, true) : '';
-		$database = $this->wire('database'); 	
+		$database = $this->wire()->database; 	
 		$query = $database->prepare("UPDATE modules SET data=:data WHERE id=:id", "modules.saveConfig($moduleName)"); // QA
 		$query->bindValue(":data", $json, \PDO::PARAM_STR);
 		$query->bindValue(":id", (int) $id, \PDO::PARAM_INT); 
@@ -4072,7 +4080,8 @@ class Modules extends WireArray {
 		$moduleName = $this->getModuleClass($moduleName);
 		$configurable = $this->isConfigurable($moduleName);
 		if(!$configurable) return null;
-		
+	
+		/** @var InputfieldWrapper $form */
 		if(is_null($form)) $form = $this->wire(new InputfieldWrapper());
 		$data = $this->getConfig($moduleName);
 		$fields = null;
@@ -4096,7 +4105,7 @@ class Modules extends WireArray {
 					// requires InputfieldWrapper
 					// we allow for option of no return statement in the method
 					$module = $this->getModule($moduleName);
-					$fields = $this->wire(new InputfieldWrapper());
+					$fields = $this->wire(new InputfieldWrapper()); /** @var InputfieldWrapper $fields */
 					$fields->setParent($form);
 					$_fields = $module->getModuleConfigInputfields($fields);
 					if($_fields instanceof InputfieldWrapper) $fields = $_fields;
@@ -4104,16 +4113,16 @@ class Modules extends WireArray {
 				} else if($configurableInterface === 19) {
 					// non-static getModuleConfigArray method
 					$module = $this->getModule($moduleName);
-					$fields = $this->wire(new InputfieldWrapper());
+					$fields = $this->wire(new InputfieldWrapper()); /** @var InputfieldWrapper $fields */
 					$fields->importArray($module->getModuleConfigArray());
 					$fields->populateValues($module);
 				}
 			} else if($configurableInterface === 20) {
 				// static getModuleConfigArray method
-				$fields = $this->wire(new InputfieldWrapper());
+				$fields = $this->wire(new InputfieldWrapper()); /** @var InputfieldWrapper $fields */
 				$fields->importArray(call_user_func(array(wireClassName($moduleName, true), 'getModuleConfigArray')));
 				$fields->populateValues($data);
-			} else if($configurableInterface) {
+			} else {
 				// static getModuleConfigInputfields method
 				$nsClassName = $this->getModuleNamespace($moduleName) . $moduleName;
 				$fields = call_user_func(array($nsClassName, 'getModuleConfigInputfields'), $data);
@@ -4167,7 +4176,7 @@ class Modules extends WireArray {
 				}
 			}
 
-			if($configModule && $configModule instanceof ModuleConfig) {
+			if($configModule instanceof ModuleConfig) {
 				$defaults = $configModule->getDefaults();
 				$data = array_merge($defaults, $data);
 				$configModule->setArray($data);
@@ -4238,7 +4247,7 @@ class Modules extends WireArray {
 	 */
 	public function isSingular($module) {
 		$info = $this->getModuleInfo($module); 
-		if(isset($info['singular']) && $info['singular'] !== null) return $info['singular'];
+		if(isset($info['singular'])) return $info['singular'];
 		if(is_object($module)) {
 			if(method_exists($module, 'isSingular')) return $module->isSingular();
 		} else {
@@ -4269,7 +4278,7 @@ class Modules extends WireArray {
 		$info = $this->getModuleInfo($module); 
 		$autoload = null;
 		
-		if(isset($info['autoload']) && $info['autoload'] !== null) {
+		if(isset($info['autoload'])) {
 			// if autoload is a string (selector) or callable, then we flag it as autoload
 			if(is_string($info['autoload']) || wireIsCallable($info['autoload'])) return "conditional"; 
 			$autoload = $info['autoload'];
@@ -4294,7 +4303,7 @@ class Modules extends WireArray {
 		}
 	
 		if($autoload === null && is_object($module) && method_exists($module, 'isAutoload')) {
-			/** @var module $module */
+			/** @var Module $module */
 			$autoload = $module->isAutoload();
 		}
 	
@@ -4488,7 +4497,7 @@ class Modules extends WireArray {
 				$currentVersion = PHP_VERSION; 
 
 			} else if($requiresClass == 'ProcessWire') { 
-				$currentVersion = $this->wire('config')->version; 
+				$currentVersion = $this->wire()->config->version; 
 
 			} else if($this->isInstalled($requiresClass)) {
 				if(!$requiresVersion) {
@@ -4823,12 +4832,13 @@ class Modules extends WireArray {
 	 * 
 	 */
 	protected function loadModuleInfoCache() {
-		$data = $this->wire('cache')->get(self::moduleInfoCacheName); 	
+		$cache = $this->wire()->cache;
+		$data = $cache->get(self::moduleInfoCacheName); 	
 		if($data) { 
 			// if module class name keys in use (i.e. ProcessModule) it's an older version of 
 			// module info cache, so we skip over it to force its re-creation
 			if(is_array($data) && !isset($data['ProcessModule'])) $this->moduleInfoCache = $data; 
-			$data = $this->wire('cache')->get(self::moduleLastVersionsCacheName);
+			$data = $cache->get(self::moduleLastVersionsCacheName);
 			if(is_array($data)) $this->modulesLastVersions = $data;
 			return true;
 		}
@@ -4844,11 +4854,14 @@ class Modules extends WireArray {
 	 */
 	protected function loadModuleInfoCacheVerbose($uninstalled = false) {
 		$name = $uninstalled ? self::moduleInfoCacheUninstalledName : self::moduleInfoCacheVerboseName;
-		$data = $this->wire('cache')->get($name);
+		$data = $this->wire()->cache->get($name);
 		if($data) {
 			if(is_array($data)) {
-				if($uninstalled) $this->moduleInfoCacheUninstalled = $data; 
-					else $this->moduleInfoCacheVerbose = $data;
+				if($uninstalled) {
+					$this->moduleInfoCacheUninstalled = $data;
+				} else {
+					$this->moduleInfoCacheVerbose = $data;
+				}
 			}
 			return true;
 		}
@@ -5030,7 +5043,7 @@ class Modules extends WireArray {
 		$toVersionStr = $this->formatVersion($toVersion);
 		$this->message($this->_('Upgrading module') . " ($moduleName: $fromVersionStr => $toVersionStr)");
 		try {
-			if(method_exists($module, '___upgrade')) {
+			if(method_exists($module, '___upgrade') || method_exists($module, 'upgrade')) {
 				$module->upgrade($fromVersion, $toVersion);
 			}
 			unset($this->modulesLastVersions[$moduleID]);
@@ -5117,8 +5130,8 @@ class Modules extends WireArray {
 		$this->moduleInfoCacheVerbose = array();
 		$this->moduleInfoCacheUninstalled = array();
 		
-		$user = $this->wire('user'); 
-		$languages = $this->wire('languages'); 
+		$user = $this->wire()->user; 
+		$languages = $this->wire()->languages; 
 		$language = null;
 		
 		if($languages) {
@@ -5229,7 +5242,7 @@ class Modules extends WireArray {
 					}
 				}
 			}
-			$this->wire('cache')->save($cacheName, $data, WireCache::expireReserved); 
+			$this->wire()->cache->save($cacheName, $data, WireCache::expireReserved); 
 		}
 	
 		$this->log('Saved module info caches'); 
@@ -5331,10 +5344,9 @@ class Modules extends WireArray {
 		$class = $this->getModuleClass($module);
 		static $classes = array();
 		if(isset($classes[$class])) return 0; // already loaded
-		$info = null;
-		$config = $this->wire('config');
-		$path = $config->paths->$class;
-		$url = $config->urls->$class;
+		$config = $this->wire()->config;
+		$path = $config->paths($class);
+		$url = $config->urls($class);
 		$debug = $config->debug;
 		$version = 0; 
 		$cnt = 0;
@@ -5412,7 +5424,7 @@ class Modules extends WireArray {
 	 * Enables use of $modules('ModuleName')
 	 *
 	 * @param string $key
-	 * @return mixed
+	 * @return Module|null
 	 *
 	 */
 	public function __invoke($key) {
@@ -5430,7 +5442,7 @@ class Modules extends WireArray {
 	 * 
 	 */	
 	public function log($str, $moduleName = '') {
-		if(!in_array('modules', $this->wire('config')->logs)) return $this->___log();
+		if(!in_array('modules', $this->wire()->config->logs)) return $this->___log();
 		if(!is_string($moduleName)) $moduleName = (string) $moduleName; 
 		if($moduleName && strpos($str, $moduleName) === false) $str .= " (Module: $moduleName)";
 		return $this->___log($str, array('name' => 'modules')); 
@@ -5465,7 +5477,7 @@ class Modules extends WireArray {
 	public function compile($moduleName, $file = '', $namespace = null) {
 		
 		static $allowCompile = null;
-		if($allowCompile === null) $allowCompile = $this->wire('config')->moduleCompile;
+		if($allowCompile === null) $allowCompile = $this->wire()->config->moduleCompile;
 		
 		// if not given a file, track it down
 		if(empty($file)) $file = $this->getModuleFile($moduleName);
