@@ -1522,12 +1522,12 @@ class WireFileTools extends Wire {
 			)
 		);
 
-		$options = array_merge($defaults, $options);
+		$opt = array_merge($defaults, $options);
 		$filename = trim($filename);
 
 		// add .php extension if filename doesn't already have an extension
-		if($options['autoExtension'] && !strrpos(basename($filename), '.')) {
-			$filename .= '.' . $options['autoExtension'];
+		if($opt['autoExtension'] && !strrpos(basename($filename), '.')) {
+			$filename .= '.' . $opt['autoExtension'];
 		}
 
 		if(strpos($filename, '..') !== false) {
@@ -1553,7 +1553,7 @@ class WireFileTools extends Wire {
 		if(strpos($filename, '/') === 0 || strpos($filename, ':/') !== false) {
 			// absolute path, make sure it's part of PW's installation
 			$allowed = false;
-			foreach($options['allowedPaths'] as $path) {
+			foreach($opt['allowedPaths'] as $path) {
 				if($this->fileInPath($filename, $path)) $allowed = true;
 				if($allowed) break;
 			}
@@ -1568,7 +1568,7 @@ class WireFileTools extends Wire {
 
 		// include the file
 		TemplateFile::pushRenderStack($filename); 
-		$func = $options['func'];
+		$func = $opt['func'];
 		if($func === 'require') {
 			require($filename);
 		} else if($func === 'require_once') {
