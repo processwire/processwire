@@ -523,15 +523,14 @@ class User extends Page {
 	}
 
 	/**
-	 * Get the value for a non-native User field
+	 * Get value
 	 * 
 	 * @param string $key
-	 * @param string|Selectors|array $selector
 	 * @return null|mixed
 	 *
 	 */
-	protected function getFieldValue($key, $selector = '') {
-		$value = parent::getFieldValue($key, $selector);
+	public function get($key) {
+		$value = parent::get($key);
 		if(!$value && $key === 'language') {
 			$languages = $this->wire()->languages;
 			if($languages) $value = $languages->getDefault();
