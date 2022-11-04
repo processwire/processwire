@@ -52,11 +52,14 @@ function setupLanguageTabs($form) {
 		if($inputfield.length) $inputfield.addClass('hasLangTabs');
 		var $parent = $this.parent('.InputfieldContent'); 
 		if($parent.length) {
-			var $span = $("<span></span>")
-				.attr('title', cfg.labelOpen)
-				.attr('class', 'langTabsToggle')
-				.append("<i class='fa fa-folder-o'></i>");
-			$parent.prev('.InputfieldHeader').append($span);
+			var $header = $parent.prev('.InputfieldHeader');
+			if($header.length && !$header.children('.langTabsToggle').length) {
+				var $span = $("<span></span>")
+					.attr('title', cfg.labelOpen)
+					.attr('class', 'langTabsToggle')
+					.append("<i class='fa fa-folder-o'></i>");
+				$header.append($span);
+			}
 		}
 		
 		var $links = $this.find('a.langTabLink');
