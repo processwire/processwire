@@ -1090,9 +1090,11 @@ function InputfieldRepeater($) {
 				});
 
 				// TinyMCE instances don't like to be dragged, so we disable them temporarily
+				/*
 				ui.item.find('.InputfieldTinyMCE textarea').each(function() {
 					tinyMCE.execCommand('mceRemoveControl', false, $(this).attr('id'));
 				});
+				*/
 			
 				if(familyFriendly && maxDepth > 0) {
 					// remember and hide depth children
@@ -1140,9 +1142,11 @@ function InputfieldRepeater($) {
 				});
 
 				// Re-enable the TinyMCE instances
+				/*
 				ui.item.find('.InputfieldTinyMCE textarea').each(function() {
 					tinyMCE.execCommand('mceAddControl', false, $(this).attr('id'));
 				});
+				 */
 				
 				$(this).closest('.InputfieldRepeater').trigger('sorted', [ ui.item ]);
 			},
