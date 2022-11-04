@@ -103,7 +103,8 @@ $(document).ready(function() {
 					$(this).find(".CommentDownvotes > input").val(0).change();
 				} else {
 					// status
-					$(this).find(".CommentStatus > input[value='" + val + "']").click();
+					// $(this).find(".CommentStatus > input[value='" + val + "']").click(); // radios
+					$(this).find("select.CommentStatus").val(val); // select
 				}
 			});
 			$checkedItems.effect('highlight', 500);

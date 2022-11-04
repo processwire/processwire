@@ -1352,7 +1352,7 @@ class ProcessCommentsManager extends Process {
 
 		$checkAllLabel = $this->_('Check/uncheck all');
 		$checkAll =
-			"<label title='$checkAllLabel'><input class='$checkboxClass' type='checkbox' id='CommentCheckAll' /> " .
+			"<label class='pw-tooltip' title='$checkAllLabel'><input class='$checkboxClass' type='checkbox' id='CommentCheckAll' /> " .
 			"<span class='detail'></span></label>";
 
 		$noCheckedLabel = $this->_('There are no checked items');
@@ -1455,7 +1455,11 @@ class ProcessCommentsManager extends Process {
 		}
 
 		$tabsOut = $wireTabs->renderTabList($tabs);
-		$this->headline .= ' (' . ($start+1) . "–" . ($start + $cnt) . " " . sprintf($this->_('of %d'), $total) . ')';
+		if($total) {
+			$this->headline .= ' (' . ($start + 1) . "–" . ($start + $cnt) . " " . sprintf($this->_('of %d'), $total) . ')';
+		} else {
+			$this->headline .= ' (0)';
+		}
 		$this->headline($this->headline);
 
 		if($cnt) { 
