@@ -391,7 +391,7 @@ class ProcessCommentsManager extends Process {
 						$this->message(sprintf($this->_('Updated meta for comment #%d'), $commentId));
 						$session->redirect($form->attr('action'));
 					} else {
-						$this->error(sprintf($this->_('Error updating meata for comment #%d'), $commentId));
+						$this->error(sprintf($this->_('Error updating meta for comment #%d'), $commentId));
 					}
 				} else {
 					$this->error($this->_('Cannot save because invalid JSON'));
