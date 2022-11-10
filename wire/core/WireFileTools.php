@@ -1522,6 +1522,7 @@ class WireFileTools extends Wire {
 			)
 		);
 
+		// need to use different name than $options
 		$options = array_merge($defaults, $options);
 		$filename = trim($filename);
 
@@ -1562,26 +1563,32 @@ class WireFileTools extends Wire {
 
 		if(!file_exists($filename)) $this->filesException(__FUNCTION__, "File does not exist: $filename");
 
+		// remember options[func] and $filename outside this method because of the extract() which can overwrite
+		$this->includeFunc = $options['func'];
+		$this->includeFile = $filename;
+		
 		// extract all API vars
 		$fuel = array_merge($this->wire()->fuel->getArray(), $vars);
 		extract($fuel);
 
 		// include the file
-		TemplateFile::pushRenderStack($filename); 
-		$func = $options['func'];
-		if($func === 'require') {
-			require($filename);
-		} else if($func === 'require_once') {
-			require_once($filename);
-		} else if($func === 'include_once') {
-			include_once($filename);
+		TemplateFile::pushRenderStack($this->includeFile);
+		if($this->includeFunc === 'require') {
+			require($this->includeFile);
+		} else if($this->includeFunc === 'require_once') {
+			require_once($this->includeFile);
+		} else if($this->includeFunc === 'include_once') {
+			include_once($this->includeFile);
 		} else {
-			include($filename);
+			include($this->includeFile);
 		}
 		TemplateFile::popRenderStack();
 
 		return true;
 	}
+
+	protected $includeFunc = '';
+	protected $includeFile = '';
 
 	/**
 	 * Same as include() method except that file will not be executed if it as previously been included
