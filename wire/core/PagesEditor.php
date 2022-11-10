@@ -1698,7 +1698,13 @@ class PagesEditor extends Wire {
 			$error = "Error clearing files for page $page"; 
 			try {
 				if(PagefilesManager::hasPath($page)) {
-					if(!$page->filesManager->emptyAllPaths()) {
+					$filesManager = $page->filesManager();
+					if(!$filesManager) {
+						// $filesManager will be null if page has deleted status
+						// so create our own instance
+						$filesManager = new PagefilesManager($page);
+					}
+					if(!$filesManager->emptyAllPaths()) {
 						$errors[] = $error;
 						$halt = $options['haltOnError'];
 					}
