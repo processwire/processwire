@@ -76,7 +76,16 @@ class PageValues extends Wire {
 					if($value instanceof WireArray) $value = $value->find($index);
 				}
 			} else if($value instanceof WireData) {
-				$value = $value->get($key);
+				$v = $value->get($key);
+				if($v === null) switch($key) {
+					// self-generated equivalents for WireArray properties/methods
+					case 'first':
+					case 'last': $v = $value; break;
+					case 'count': $v = 1; break;
+					case 'values': $v = array($value); break;
+					case 'keys': $v = ("$value" === $value->className() ? array(0) : array("$value")); break;
+				}
+				$value = $v;
 			} else if(is_array($value)) {
 				foreach($value as $kk => $vv) {
 					$value[$kk] = $vv instanceof Wire ? $vv->$k : $vv;
