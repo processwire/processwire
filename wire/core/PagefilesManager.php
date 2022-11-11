@@ -101,6 +101,7 @@ class PagefilesManager extends Wire {
 	 *
 	 */
 	public function __construct(Page $page) {
+		parent::__construct();
 		$page->wire($this);
 		$this->init($page); 
 	}
@@ -166,13 +167,14 @@ class PagefilesManager extends Wire {
 			if($pageID == $this->page->id) {
 				$page = $this->page;
 			} else {
-				$page = $this->wire('pages')->get($pageID);
+				$page = $this->wire()->pages->get($pageID);
 			}
 			if(!$page->id) return null;
 		} else {
 			$page = $this->page;
 		}
 		foreach($page->fieldgroup as $field) {
+			/** @var Field $field */
 			if(!$field->type instanceof FieldtypeFile) continue;
 			$pagefiles = $page->get($field->name);
 			// if mapping to single file, ask it for the parent array
@@ -303,7 +305,7 @@ class PagefilesManager extends Wire {
 	protected function _createPath($path) {
 		if(empty($path)) return false;
 		if(is_dir("$path")) return true; 
-		return $this->wire('files')->mkdir($path, true); 
+		return $this->wire()->files->mkdir($path, true); 
 	}
 
 	/**
@@ -329,21 +331,22 @@ class PagefilesManager extends Wire {
 	 *
 	 */
 	public function emptyPath($rmdir = false, $recursive = true) {
+		$files = $this->wire()->files;
 		$path = $this->path();
 		if(!is_dir($path)) return true;
 		$errors = 0;
 		if($recursive) {
 			// clear out path and everything below it
-			if(!$this->wire('files')->rmdir($path, true, true)) $errors++;
+			if(!$files->rmdir($path, true, true)) $errors++;
 			if(!$rmdir) $this->_createPath($path); 
 		} else {
 			// only clear out files in path
 			foreach(new \DirectoryIterator($path) as $file) {
 				if($file->isDot() || $file->isDir()) continue; 
-				if(!$this->wire('files')->unlink($file->getPathname(), true)) $errors++;
+				if(!$files->unlink($file->getPathname(), true)) $errors++;
 			}
 			if($rmdir) {
-				$this->wire('files')->rmdir($path, false, true); // will not be successful if other dirs within it
+				$files->rmdir($path, false, true); // will not be successful if other dirs within it
 			}
 		}
 		return $errors === 0;
@@ -375,7 +378,7 @@ class PagefilesManager extends Wire {
  	 *
 	 */
 	public function path() {
-		return $this->wire('hooks')->isHooked('PagefilesManager::path()') ? $this->__call('path', array()) : $this->___path();
+		return $this->wire()->hooks->isHooked('PagefilesManager::path()') ? $this->__call('path', array()) : $this->___path();
 	}
 	
 	/**
@@ -405,7 +408,7 @@ class PagefilesManager extends Wire {
 	 *
 	 */
 	public function url() {
-		return $this->wire('hooks')->isHooked('PagefilesManager::url()') ? $this->__call('url', array()) : $this->___url();
+		return $this->wire()->hooks->isHooked('PagefilesManager::url()') ? $this->__call('url', array()) : $this->___url();
 	}
 
 	/**
@@ -421,10 +424,11 @@ class PagefilesManager extends Wire {
 	 */
 	public function ___url() {
 		if(!is_null($this->url)) return $this->url;
-		if(strpos($this->path(), $this->config->paths->files . self::extendedDirName) !== false) {
-			$this->url = $this->config->urls->files . self::_dirExtended($this->page->id); 
+		$config = $this->wire()->config;
+		if(strpos($this->path(), $config->paths->files . self::extendedDirName) !== false) {
+			$this->url = $config->urls->files . self::_dirExtended($this->page->id); 
 		} else {
-			$this->url = $this->config->urls->files . $this->page->id . '/';
+			$this->url = $config->urls->files . $this->page->id . '/';
 		}
 		return $this->url;
 	}
@@ -457,15 +461,15 @@ class PagefilesManager extends Wire {
 	/**
 	 * Handle non-function versions of some properties
 	 * 
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed
 	 *
 	 */
-	public function __get($key) {
-		if($key == 'path') return $this->path();
-		if($key == 'url') return $this->url();
-		if($key == 'page') return $this->page; 
-		return parent::__get($key);
+	public function __get($name) {
+		if($name === 'path') return $this->path();
+		if($name === 'url') return $this->url();
+		if($name === 'page') return $this->page; 
+		return parent::__get($name);
 	}
 
 	/**
@@ -555,7 +559,7 @@ class PagefilesManager extends Wire {
 		
 		if($secureFiles === false) {
 			// use the public path, renaming a secure path to public if it exists
-			if(is_dir($securePath) && !is_dir($publicPath) && $secureFiles !== null) {
+			if(is_dir($securePath) && !is_dir($publicPath)) {
 				$page->wire()->files->rename($securePath, $publicPath);
 				self::$numRenamedPaths++;
 			}
@@ -656,7 +660,7 @@ class PagefilesManager extends Wire {
 
 		$parts = explode('/', $dir); 
 		$pageID = '';
-		$securePrefix = wire('config')->pagefileSecurePathPrefix; 
+		$securePrefix = wire()->config->pagefileSecurePathPrefix; 
 		if(!strlen($securePrefix)) $securePrefix = self::defaultSecurePathPrefix;
 
 		foreach(array_reverse($parts) as $key => $part) {
@@ -684,7 +688,7 @@ class PagefilesManager extends Wire {
 			$this->wire($wtd);
 			$wtd->setMaxAge(3600);
 			$name = $wtd->createName('PFM');
-			$wtd->create($name);
+			$wtd->init($name);
 		}
 		return $wtd->get();
 		// if(is_null($wtd)) $wtd = $this->wire(new WireTempDir($this->className() . $this->page->id));
