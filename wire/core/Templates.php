@@ -341,17 +341,35 @@ class Templates extends WireSaveableItems {
 	 */
 	public function ___delete(Saveable $item) {
 		
+		$name = $item->name;
+		$id = $item->id;
+		
 		if($item->flags & Template::flagSystem) {
-			throw new WireException("Can't delete template '{$item->name}' because it is a system template.");
+			throw new WireException("Can't delete template '$name' because it is a system template.");
 		}
 		
 		$cnt = $item->getNumPages();
 		
 		if($cnt > 0) {
-			throw new WireException("Can't delete template '{$item->name}' because it is used by $cnt pages.");
+			throw new WireException("Can't delete template '$name' because it is used by $cnt pages.");
 		}
 
 		$return = parent::___delete($item);
+
+		if($return) {
+			$fieldgroups = $this->wire()->fieldgroups;
+			$fieldgroup = $fieldgroups->get($name);
+			if($fieldgroup) {
+				// also delete fieldgroup, if not used by any other templates
+				$cnt = 0;
+				foreach($this as $t) {
+					/** @var Template $t */
+					if($t->id != $id && $t->fieldgroup->id == $fieldgroup->id) $cnt++;
+				}
+				if(!$cnt) $fieldgroups->delete($fieldgroup);
+			}
+		}
+		
 		$cache = $this->wire()->cache;
 		$cache->maintenance($item); 
 		
