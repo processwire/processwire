@@ -43,6 +43,7 @@ class WireTempDir extends Wire {
 	 * 
 	 */
 	public function __construct($name = '', $basePath = '') {
+		parent::__construct();
 		if($name) $this->init($name, $basePath); 
 	}
 
