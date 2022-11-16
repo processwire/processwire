@@ -77,7 +77,7 @@ class FilenameArray implements \IteratorAggregate, \Countable {
 	 * Append $filename to the end
 	 * 
 	 * @param string $filename
-	 * @return FilenameArrayadd
+	 * @return FilenameArray
 	 * 
 	 */
 	public function append($filename) {

@@ -65,7 +65,6 @@ $scripts->append($themeUrl . "scripts/main.js?v=$version");
 
 				$attributes = implode(" ", $attributes);
 			}
-			
 			echo "\n\t<script type='text/javascript' {$attributes} src='{$file['filename']}'></script>";
 		} else {
 			echo "\n\t<script type='text/javascript' src='$file'></script>";
