@@ -55,14 +55,17 @@ $scripts->append($themeUrl . "scripts/main.js?v=$version");
 	foreach($scripts as $file) {
 		if(is_array($file)){
 			$attributes = $file['attr'];
-			$attributes = array_map(function($value, $key) {
-				if(!$value){
-					return $key;
-				}
-				return "$key='$value'";
-			}, array_values($attributes), array_keys($attributes));
+			if(is_array($attributes)){
+				$attributes = array_map(function($value, $key) {
+					if(!$value){
+						return $key;
+					}
+					return "$key='$value'";
+				}, array_values($attributes), array_keys($attributes));
+
+				$attributes = implode(" ", $attributes);
+			}
 			
-			$attributes = implode(" ", $attributes);
 			echo "\n\t<script type='text/javascript' {$attributes} src='{$file['filename']}'></script>";
 		} else {
 			echo "\n\t<script type='text/javascript' src='$file'></script>";
