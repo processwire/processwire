@@ -909,7 +909,7 @@ class WireHttp extends Wire {
 	 * 
 	 * @param string $fromURL URL of file you want to download.
 	 * @param string $toFile Filename you want to save it to (including full path).
-	 * @param array $options Optional aptions array for PHP's stream_context_create(), plus these optional options: 
+	 * @param array $options Optional options array for PHP's stream_context_create(), plus these optional options: 
 	 * 	- `use` or `useMethod` (string): Specify "curl", "fopen" or "socket" to force a specific method (default=auto-detect).
 	 * 	- `timeout` (float): Number of seconds till timeout.
 	 * @return string Filename that was downloaded (including full path).

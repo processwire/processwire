@@ -616,7 +616,7 @@ class Pageimage extends Pagefile {
 	 * 
 	 *  - `quality` (int): Quality setting 1-100 (default=90, or as specified in /site/config.php).
 	 *  - `upscaling` (bool): Allow image to be upscaled? (default=true).
-	 *  - `cropping` (string|bool|array): Cropping mode, see possible values in "cropping" section below (default=center).
+	 *  - `cropping` (string|bool|array): Cropping mode, see possible values in "cropping" section below (default=true).
 	 *  - `suffix` (string|array): Suffix word to identify the new image, or use array of words for multiple (default=none).
 	 *  - `forceNew` (bool): Force re-creation of the image even if it already exists? (default=false).
 	 *  - `sharpening` (string): Sharpening mode: "none", "soft", "medium", or "strong" (default=soft).

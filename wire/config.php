@@ -506,7 +506,7 @@ $config->loginDisabledRoles = array(
 /**
  * Allow template files to be compiled?
  * 
- * Set to false do disable the option for compiled template files. 
+ * Set to false to disable the option for compiled template files. 
  * When set to true, it will be used unless a given template's 'compile' option is set to 0.
  * This setting also covers system status files like /site/ready.php, /site/init.php, etc. (3.0.142+)
  * 

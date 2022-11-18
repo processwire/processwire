@@ -3989,7 +3989,7 @@ class Sanitizer extends Wire {
 	/**
 	 * Sanitize value to be within the given min and max range
 	 * 
-	 * If float or decimal string specified for $min argument, return value will be a float,
+	 * If float or decimal string specified for $min or $max arguments, return value will be a float,
 	 * otherwise an integer is returned.
 	 * 
 	 * ~~~~~
@@ -4028,7 +4028,7 @@ class Sanitizer extends Wire {
 	}
 
 	/**
-	 * Sanitize value to be at least the given $min value
+	 * Sanitize to have a minimum value
 	 * 
 	 * If float or decimal string specified for $min argument, return value will be a float, 
 	 * otherwise an integer is returned.
@@ -4054,9 +4054,9 @@ class Sanitizer extends Wire {
 	}
 
 	/**
-	 * Sanitize value to be at least the given $min value
+	 * Sanitize to have a maximuim value
 	 *
-	 * If float or decimal string specified for $min argument, return value will be a float,
+	 * If float or decimal string specified for $max argument, return value will be a float,
 	 * otherwise an integer is returned.
 	 * 
 	 * ~~~~~
