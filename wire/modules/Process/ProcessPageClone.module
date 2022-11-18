@@ -197,7 +197,7 @@ class ProcessPageClone extends Process {
 				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$value = $page->get("name$language");
-				if(!strlen($value)) continue;
+				if(!strlen("$value")) continue;
 				$result["name$language"] = $pages->names()->incrementName($value, $n); 
 			}
 		}

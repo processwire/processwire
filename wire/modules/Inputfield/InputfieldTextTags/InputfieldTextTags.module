@@ -168,7 +168,7 @@ class InputfieldTextTags extends Inputfield implements
 	 */
 	public function setAttribute($key, $value) {
 		if($key === 'value') {
-			if(is_object($value) && $value instanceof WireArray) {
+			if($value instanceof WireArray) {
 				$value = explode('|', (string) $value);
 			}
 			if(is_array($value)) {
@@ -218,11 +218,11 @@ class InputfieldTextTags extends Inputfield implements
 	 *
 	 */
 	public function tagStringToArray($tagString) {
-		$tagString = trim($tagString);
+		$tagString = trim("$tagString");
 		$tagArray = array();
 		if(!strlen($tagString)) return $tagArray;
 		$a = explode($this->delimiter(), $tagString); 
-		foreach($a as $key => $tag) {
+		foreach($a as $tag) {
 			$tag = trim("$tag");
 			if(!strlen($tag)) continue;
 			if(strpos($tag, '_') === 0 && ctype_digit(substr($tag, 1))) $tag = ltrim($tag, '_');
@@ -288,7 +288,7 @@ class InputfieldTextTags extends Inputfield implements
 		$regex = $allowLabels ? '/[\r\n\t]+/' : '/[\s\r\n\t]+/';
 		$a = preg_split($regex, $tagString);
 		
-		foreach($a as $key => $tag) {
+		foreach($a as $tag) {
 			$tag = trim("$tag");
 			if(!strlen($tag)) continue;
 			if(strpos($tag, '=') !== false) {
@@ -597,7 +597,7 @@ class InputfieldTextTags extends Inputfield implements
 	/**
 	 * Get tags ready for use by renderReady() or render()
 	 * 
-	 * @return array|string
+	 * @return array
 	 * @throws WireException
 	 * 
 	 */
@@ -866,7 +866,7 @@ class InputfieldTextTags extends Inputfield implements
 	protected function isPageField() {
 		if($this->hasField && $this->hasFieldtype instanceof FieldtypePage) {
 			return $this->hasField;
-		} else if($this->hasInputfield && $this->hasInputfield instanceof InputfieldPage) {
+		} else if($this->hasInputfield instanceof InputfieldPage) {
 			return $this->hasInputfield;
 		} else {
 			return false;
@@ -1027,7 +1027,7 @@ class InputfieldTextTags extends Inputfield implements
 			} else {
 				$selector = '';
 				$hasInputfield = $this->hasInputfield;
-				if($hasInputfield && $hasInputfield instanceof InputfieldPage) $selector = $hasInputfield->createFindPagesSelector();
+				if($hasInputfield instanceof InputfieldPage) $selector = $hasInputfield->createFindPagesSelector();
 				if(!strlen($selector)) $selector = $this->_('your page finding selector here');
 				$exampleCode =
 					'$wire->addHook("/' . $examplePath . '/", function($e) { ' .

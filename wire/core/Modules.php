@@ -1622,7 +1622,7 @@ class Modules extends WireArray {
 				$module = true;
 			} else {
 				// module in root namespace or some other namespace
-				$namespace = $this->getModuleNamespace($moduleName, array('file' => $file));
+				$namespace = (string) $this->getModuleNamespace($moduleName, array('file' => $file));
 				$className = trim($namespace, "\\") . "\\$moduleName";
 				if(class_exists($className, false)) {
 					// successful include module
@@ -1888,6 +1888,8 @@ class Modules extends WireArray {
 	public function isInstalled($class) {
 
 		if(is_object($class)) $class = $this->getModuleClass($class);
+		$class = (string) $class;
+		if(empty($class)) return false;
 
 		$operator = null;
 		$requiredVersion = null;

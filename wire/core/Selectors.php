@@ -142,6 +142,7 @@ class Selectors extends WireArray {
 	 * 
 	 */
 	public function setSelectorString($selectorStr) {
+		$selectorStr = (string) $selectorStr;
 		$this->selectorStr = $selectorStr;
 		$this->extractString(trim($selectorStr)); 
 	}

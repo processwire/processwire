@@ -312,8 +312,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___findPagesCode(Page $page) {
-		if($page) {}
-		$pages = $this->wire('pages'); // so that it is locally scoped to the eval
+		$pages = $this->wire()->pages; // so that it is locally scoped to the eval
 		if(empty($this->findPagesCode)) return $pages->newPageArray();
 		return eval($this->findPagesCode);
 	}
@@ -469,6 +468,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 							/** @var InputfieldWrapper $repeaterWrapper */
 							$value = null;
 							foreach($repeaterWrapper->getAll() as $in) {
+								/** @var Inputfield $in */
 								if("$in->hasField" !== $field) continue;
 								$value = $in->val();
 								break;
@@ -592,9 +592,9 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		} else if($this->labelFieldName) {
 			$label = $page->get($this->labelFieldName);
 		}
-		if(!strlen($label)) $label = $page->name;
+		if(!strlen("$label")) $label = $page->name;
 		if($page->hasStatus(Page::statusUnpublished)) $label .= ' ' . $this->_('(unpublished)');
-		if(!$allowMarkup) $label = $this->wire('sanitizer')->markupToLine($label);
+		if(!$allowMarkup) $label = $this->wire()->sanitizer->markupToLine($label);
 		return $label;
 	}
 
@@ -633,7 +633,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$process = $this->wire()->process;
 
 		if($this->derefAsPage) $inputfield->set('maxSelectedItems', 1); 
-		if($process && $process instanceof WirePageEditor) $page = $process->getPage();
+		if($process instanceof WirePageEditor) $page = $process->getPage();
 
 		$inputfield->attr('name', $this->attr('name')); 
 		$inputfield->attr('id', $this->attr('id')); 
@@ -1070,7 +1070,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		if(!$this->getSetting('addable') || !$parent_id || !$template_id) return;
 
-		$user = $this->wire('user'); 
+		$user = $this->wire()->user; 
 		$key = "_{$this->name}_add_items";
 		$value = trim($input->$key); 
 		
@@ -1150,7 +1150,6 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		} else if($value instanceof PageArray) {
 			// derefAsPageArray
-			/** @var PageArray $value */
 			if(!count($value)) return true; 
 
 		} else {
@@ -1515,7 +1514,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		if(!isset($data[$name]) || !is_array($data[$name])) $data[$name] = self::$defaultInputfieldClasses; 
 		$fields = $this->wire(new InputfieldWrapper());
-		$modules = $this->wire('modules');
+		$this->wire($fields);
+		$modules = $this->wire()->modules;
 		/** @var InputfieldAsmSelect $field */
 		$field = $modules->get("InputfieldAsmSelect");
 		$field->attr('name', $name);
