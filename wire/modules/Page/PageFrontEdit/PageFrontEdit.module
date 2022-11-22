@@ -22,7 +22,7 @@ class PageFrontEdit extends WireData implements Module {
 		return array(
 			'title' => 'Front-End Page Editor',
 			'summary' => 'Enables front-end editing of page fields.',
-			'version' => 3,
+			'version' => 4,
 			'author' => 'Ryan Cramer',
 			'license' => 'MPL 2.0',
 			'icon' => 'cube', 
@@ -112,6 +112,7 @@ class PageFrontEdit extends WireData implements Module {
 	protected $editorNum = 0;
 	
 	public function __construct() {
+		parent::__construct();
 		// allowed base Fieldtypes for inline editing (all others go modal)
 		$this->set('inlineAllowFieldtypes', array(
 			'FieldtypeText',
@@ -120,7 +121,7 @@ class PageFrontEdit extends WireData implements Module {
 	}
 	
 	public function init() {
-		if($this->wire('config')->ajax && $this->wire('input')->post('action') == 'PageFrontEditSave') {
+		if($this->wire()->config->ajax && $this->wire()->input->post('action') === 'PageFrontEditSave') {
 			$this->addHookAfter('ProcessWire::ready', $this, 'inlineSaveEdits');
 		}
 	}
@@ -131,11 +132,11 @@ class PageFrontEdit extends WireData implements Module {
 	 */
 	public function ready() {
 		
-		// check if we should allow editor for current page
-		$page = $this->wire('page');
-		if($page->template == 'admin') return;
+		$page = $this->wire()->page;
 		
-		$config = $this->wire('config');
+		// check if we should allow editor for current page
+		if($page->template->name === 'admin') return;
+		
 		$this->addHookBefore('Page::edit', $this, 'hookPageEditor');
 		$this->addHook('Page::editor', $this, 'hookPageEditor');
 
@@ -143,8 +144,9 @@ class PageFrontEdit extends WireData implements Module {
 		
 		$contentType = $page->template->contentType;
 		if($contentType && $contentType != 'html' && $contentType != 'text/html') return;
+		
+		$user = $this->wire()->user;
 	
-		$user = $this->wire('user');
 		if($user->isGuest() 
 			|| ($page->hasStatus(Page::statusDraft) && !$page->get('_isDraft'))
 			|| !$page->editable() 
@@ -159,17 +161,20 @@ class PageFrontEdit extends WireData implements Module {
 		// editing is allowed
 		$this->editorAllowed = true; 
 		$this->setPage($page);
-		$input = $this->wire('input');
+		
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
+		$templates = $this->wire()->templates;
 		
 		if($config->ajax && $input->post('action') == 'PageFrontEditSave') {
 			// skip, this is handled by another hook
 			
-		} else if($this->wire('templates')->get('admin')->https == 1 && !$config->https && !$config->noHTTPS && $page->template->https != -1) {
+		} else if($templates->get('admin')->https == 1 && !$config->https && !$config->noHTTPS && $page->template->https != -1) {
 			// hooks allowed, but we need the same scheme as admin
 			$url = $input->httpUrl(true);
 			if(strpos($url, 'http://') === 0) {
 				$url = str_replace('http://', 'https://', $url);
-				$this->wire('session')->redirect($url, false);
+				$this->wire()->session->redirect($url, false);
 			}
 		} else {
 			// we are allowing this page to use the editor, so attach hooks
@@ -233,8 +238,7 @@ class PageFrontEdit extends WireData implements Module {
 	 * 
 	 */
 	protected function isEditable(Page $page, Field $field) {
-		/** @var User $user */
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		if($page->className() != 'Page' && wireInstanceOf($page, 'RepeaterPage')) {
 			/** @var RepeaterPage $page */
 			$forPage = $page->getForPage();
@@ -332,12 +336,12 @@ class PageFrontEdit extends WireData implements Module {
 
 		// if given field name doesn't map to a custom field, delegate the request to $page instead
 		$renderField = false;
-		$field = $this->wire('fields')->get($arg1);
+		$field = $this->wire()->fields->get($arg1);
 		if(!$field) {
 			if(strpos($arg1, '_') === 0 && substr($arg1, -1) === '_') {
 				$renderField = true;
 				$arg1 = substr($arg1, 1, -1);
-				$field = $this->wire('fields')->get($arg1);
+				$field = $this->wire()->fields->get($arg1);
 				if(!$field) $arg1 = "_{$arg1}_"; // restore if it didn't resolve to a field
 			}
 			if(!$field) {
@@ -358,12 +362,11 @@ class PageFrontEdit extends WireData implements Module {
 				} else {
 					$event->return = $this->modalRenderEditor($page, array($field), $arg2);
 				}
-				return;
 			} else {
 				// field is not editable by user, just return original markup
 				$event->return = $arg2; 
-				return;
 			}
+			return;
 		}
 
 		// now try for inline editable field
@@ -391,7 +394,7 @@ class PageFrontEdit extends WireData implements Module {
 
 		$this->editorNum = 0;
 		$out = $event->return;
-		if(stripos($out, "<html") === false) return;
+		if(stripos($out, '<html') === false) return;
 		
 		$hasEditTags = strpos($out, "<$this->editRegionTag") !== false; // i.e. <edit title>
 		$hasEditAttr = strpos($out, " $this->editRegionAttr=") !== false; // i.e. <div edit='title'>
@@ -408,7 +411,7 @@ class PageFrontEdit extends WireData implements Module {
 		
 		// parse <edit> tags
 		$numEditable = 0;
-		if($hasEditTags) $numEditable += $hasEditTags ? $this->populateEditTags($page, $out) : 0;
+		if($hasEditTags) $numEditable += $this->populateEditTags($page, $out);
 		if($hasEditAttr) $numEditable += $this->populateEditAttrs($page, $out);
 		$numEditable += count($this->inlineEditors);
 		
@@ -417,7 +420,7 @@ class PageFrontEdit extends WireData implements Module {
 			return;
 		}
 		
-		header("X-Frame-Options: SAMEORIGIN");
+		header('X-Frame-Options: SAMEORIGIN');
 
 		// bundle in any needed javascript files and related assets
 		if(stripos($out, '</body>')) {
@@ -483,6 +486,10 @@ class PageFrontEdit extends WireData implements Module {
 	 * 
 	 */
 	protected function populateEditTags(Page $page, &$out, $editable = null) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
 
 		$tag = $this->editRegionTag;
 		if(!preg_match_all('!<' . $tag . '([^>]+)>(.*?)</' . $tag . '>!is', $out, $matches)) return 0;
@@ -529,7 +536,7 @@ class PageFrontEdit extends WireData implements Module {
 				list($names, $pageID) = array($pageID, $names); // swap order detected
 			}
 	
-			$fields = array();
+			$foundFields = array();
 			$inlineSupported = false;
 			$p = new NullPage();
 			
@@ -539,26 +546,26 @@ class PageFrontEdit extends WireData implements Module {
 					if(ctype_digit($pageID)) {
 						$pageID = (int) $pageID; 
 					} else {
-						$pageID = $this->wire('sanitizer')->path($pageID);
+						$pageID = $sanitizer->path($pageID);
 					}
-					$p = $this->wire('pages')->get($pageID);
+					$p = $pages->get($pageID);
 					if(!$p->id) $p = $page;
 				}
 				foreach(explode(',', $names) as $name) {
 					$name = trim($name);
-					$field = $this->wire('fields')->get($name);
+					$field = $fields->get($name);
 					if($editable && $p->editable($name)) {
-						$fields[$name] = $field;
+						$foundFields[$name] = $field;
 						if($this->inlineSupported($field)) $inlineSupported = true;
 					}
 				}
 			}
 			
-			if(count($fields) == 1 && $inlineSupported) {
-				$out = str_replace($fullMatch, $this->inlineRenderEditor($p, reset($fields), $markup), $out);
+			if(count($foundFields) == 1 && $inlineSupported) {
+				$out = str_replace($fullMatch, $this->inlineRenderEditor($p, reset($foundFields), $markup), $out);
 				$numEditable++;
-			} else if(count($fields)) {
-				$out = str_replace($fullMatch, $this->modalRenderEditor($p, $fields, $markup), $out);
+			} else if(count($foundFields)) {
+				$out = str_replace($fullMatch, $this->modalRenderEditor($p, $foundFields, $markup), $out);
 				$numEditable++;
 			} else {
 				$out = str_replace($fullMatch, $markup, $out);
@@ -578,6 +585,10 @@ class PageFrontEdit extends WireData implements Module {
 	 *
 	 */
 	protected function populateEditAttrs(Page $page, &$out) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$fields = $this->wire()->fields;
+		$pages = $this->wire()->pages;
 
 		$numEditable = 0;
 		$editRegionAttr = $this->editRegionAttr;
@@ -607,9 +618,9 @@ class PageFrontEdit extends WireData implements Module {
 					list($pageID, $fieldNames) = array($fieldNames, $pageID); // swap order detected
 				}
 				// check if pageID is actually a page path
-				$pageID = ctype_digit($pageID) ? (int) $pageID : $this->wire('sanitizer')->path($pageID);
+				$pageID = ctype_digit($pageID) ? (int) $pageID : $sanitizer->path($pageID);
 				if(!$pageID) continue; // skip
-				$editPage = $this->wire('pages')->get($pageID);
+				$editPage = $pages->get($pageID);
 				if(!$editPage->id) continue; // skip 
 			} else {
 				$fieldNames = $data;
@@ -620,8 +631,8 @@ class PageFrontEdit extends WireData implements Module {
 			$fieldIDs = array();
 			
 			foreach($fieldNames as $k => $v) {
-				$fieldName = $this->wire('sanitizer')->fieldName(trim($v));
-				$field = $this->wire('fields')->get($fieldName);
+				$fieldName = $sanitizer->fieldName(trim($v));
+				$field = $fields->get($fieldName);
 				if(!$field || !$editPage->editable($fieldName)) {
 					unset($fieldNames[$k]);
 				} else {
@@ -688,14 +699,42 @@ class PageFrontEdit extends WireData implements Module {
 	 * 
 	 */
 	public function renderAssets() {
+	
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		$user = $this->wire()->user;
 
 		$scripts = array();
 		$className = $this->className();
+		$css = '';
+		$cssFiles = array();
 		
-		$config = $this->wire('config');
-		$draft = (int) $this->wire('input')->get('draft');
-		$adminTheme = $this->wire('user')->admin_theme;
-		$ckeditor = $config->urls->InputfieldCKEditor . "ckeditor-" . InputfieldCKEditor::CKEDITOR_VERSION . '/';
+		$draft = (int) $input->get('draft');
+		$adminTheme = $user->admin_theme;
+
+		if($modules->isInstalled('InputfieldCKEditor')) {
+			$modules->includeModule('InputfieldCKEditor');
+			$ckeditorUrl = $config->urls('InputfieldCKEditor') . 'ckeditor-' . constant('\ProcessWire\InputfieldCKEditor::CKEDITOR_VERSION') . '/';
+		} else {
+			$ckeditorUrl = '';
+		}
+		
+		if($modules->isInstalled('InputfieldTinyMCE')) {
+			$inputfield = $modules->get('InputfieldTinyMCE');
+			if(method_exists($inputfield, 'getExtraStyles')) $css .= $inputfield->getExtraStyles();
+			$tinymceInputfieldUrl =  $config->urls('InputfieldTinyMCE');
+			$tinymceUrl = $tinymceInputfieldUrl . 'tinymce-' . constant('\ProcessWire\InputfieldTinyMCE::mceVersion');
+			$tinymceFile1 = $tinymceUrl . '/tinymce.min.js';
+			$tinymceFile2 = $tinymceInputfieldUrl . 'InputfieldTinyMCE.js';
+			$cssFiles[] = $tinymceInputfieldUrl . 'InputfieldTinyMCE.css';
+		} else {
+			$tinymceFile1 = '';
+			$tinymceFile2 = '';
+			$tinymceUrl = '';
+		}
+		
 		$configJS = $config->js();
 		$configJS['modals'] = $config->modals;
 		$configJS['urls'] = array(
@@ -706,20 +745,24 @@ class PageFrontEdit extends WireData implements Module {
 				'cancelConfirm' => $this->_('Are you sure you want to cancel?')
 			),
 			'files' => array(
-				'modal' => $config->urls->JqueryUI . 'modal.min.js',
-				'ckeditor' => $ckeditor . 'ckeditor.js',
-				'css' => ($config->urls->$className) . "$className.css?nocache" . mt_rand(),	
+				'modal' => $config->urls('JqueryUI') . 'modal.min.js',
+				'ckeditor' => $ckeditorUrl . 'ckeditor.js',
+				'tinymce1' => $tinymceFile1, // tinymce.min.js
+				'tinymce2' => $tinymceFile2, // InputfieldTinyMCE.js
+				'css' => ($config->urls($className)) . "$className.css?nocache" . mt_rand(),	
 				'fa' => $config->urls->adminTemplates . "styles/font-awesome/css/font-awesome.min.css", 
 			),
 			'adminTheme' => $adminTheme ? $adminTheme : 'AdminThemeDefault',
-			'pageURL' => $this->wire('page')->url . ($draft ? "?draft=$draft" : "")
+			'pageURL' => $this->wire()->page->url . ($draft ? "?draft=$draft" : "")
 		);
 	
+		$scripts[] = 
+			"window.CKEDITOR_BASEPATH = '$ckeditorUrl';" . 
+			"window.TINYMCE_BASEURL = '$tinymceUrl';";
 		
-		$scripts[] = "window.CKEDITOR_BASEPATH = '$ckeditor';";
-		$scripts[] = ($config->urls->$className) . $className . 'Load.js';
+		$scripts[] = $config->urls($className) . $className . 'Load.js';
 		
-		if(self::debug && defined("JSON_PRETTY_PRINT")) {
+		if(self::debug && defined('JSON_PRETTY_PRINT')) {
 			$configJSON = json_encode($configJS, JSON_PRETTY_PRINT); // for debugging
 		} else {
 			$configJSON = json_encode($configJS);
@@ -740,7 +783,7 @@ class PageFrontEdit extends WireData implements Module {
 		// jQuery
 		$loadItems[] = array(
 			'test' => "function() { return (typeof jQuery == 'undefined'); }",
-			'file' => $config->urls->JqueryCore . 'JqueryCore.js',
+			'file' => $config->urls('JqueryCore') . 'JqueryCore.js',
 			'after' => "function() { " . 
 				"jQuery.noConflict(); " .
 			"}"
@@ -754,12 +797,12 @@ class PageFrontEdit extends WireData implements Module {
 				"});" . 
 				"return (typeof jQuery.ui == 'undefined'); " . 
 			"}",
-			'file' => $config->urls->JqueryUI . 'JqueryUI.js',
+			'file' => $config->urls('JqueryUI') . 'JqueryUI.js',
 		);
 
 		// add in our PageFrontEdit.js file
 		$loadItems[] = array(
-			'file' => ($config->urls->$className) . $className . '.js?nc=' . filemtime(dirname(__FILE__) . "/$className.js")
+			'file' => ($config->urls($className)) . $className . '.js?nc=' . filemtime(dirname(__FILE__) . "/$className.js")
 		);
 
 		$loadItemsJSON = "{$className}Load(" . json_encode($loadItems) . ");";
@@ -785,18 +828,19 @@ class PageFrontEdit extends WireData implements Module {
 		}
 	
 		// render the editor interface buttons
-		$lang = $this->wire('user')->language;
+		$lang = $user->language;
 		$lang = $lang ? $lang->id : 0;
 		$class = "pw-edit-buttons pw-edit-buttons-type-$this->buttonType pw-edit-buttons-location-$this->buttonLocation";
 		$editURL = $this->page->editUrl();
-		$viewURL = $this->wire('sanitizer')->entities($this->wire('input')->url(true));
+		$viewURL = $sanitizer->entities($input->url(true));
 		
 		$out .= 
 			"<input type='hidden' id='Inputfield_id' class='PageFrontEdit' value='{$this->page->id}' />" . // for CKE plugins
 			"<input type='hidden' id='pw-edit-lang' value='$lang' />" .
 			"<input type='hidden' id='pw-edit-href' value='$editURL' />" . // edit
 			"<input type='hidden' id='pw-url' value='$viewURL' />" . // view
-			$this->wire('session')->CSRF->renderInput() . 
+			$this->wire()->session->CSRF->renderInput() .
+			($css ? "<style style='text/css'>$css</style>" : "") . 
 			"<div class='ui-widget $class' style='display:none'>" . 
 				"<button class='ui-button pw-edit-save'>" . 
 					"<i class='fa fa-check fa-fw'></i><span>&nbsp;$saveLabel</span>" . 
@@ -812,8 +856,31 @@ class PageFrontEdit extends WireData implements Module {
 				"</button>" . 
 			"</div>" . 
 			"<i id='pw-fa-test' class='fa fa-fw'></i>"; // to test width to see if font-awesome already loaded
+		
+		foreach($cssFiles as $cssFile) {
+			$out .= "<link rel='stylesheet' href='$cssFile' />";
+		}
 
 		return $out;
+	}
+
+	/**
+	 * Get Inputfield
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield
+	 * 
+	 */
+	protected function getInputfield(Page $page, Field $field) {
+		$inputfield = $field->___getInputfield($page);
+		$inputfield->attr('name', $field->name);
+		if(wireInstanceOf($inputfield, 'InputfieldTinyMCE')) {
+			$inputfield->set('inlineMode', 1);
+			$sf = $inputfield->get('settingsField');
+			if($sf && $sf = $this->wire()->fields->get($sf)) $sf->setQuietly('inlineMode', 1);
+		}
+		return $inputfield;
 	}
 
 	/**
@@ -831,22 +898,39 @@ class PageFrontEdit extends WireData implements Module {
 
 		$unformatted = $this->getUnformattedValue($page, $field);
 		$this->inlineEditors[$field->name] = $field->name;
-		$langID = $this->wire('languages') ? $this->wire('user')->language->id : 0;
+		$langID = $this->wire()->languages ? $this->wire()->user->language->id : 0;
+		$attr = '';
 
 		// make sure we've got any initialization from the Inputfield
-		$inputfield = $field->___getInputfield($page);
-		$inputfield->attr('name', $field->name);
+		$inputfield = $this->getInputfield($page, $field);
 		$inputfield->renderReady(null, false);
 
+		if(wireInstanceOf($inputfield, 'InputfieldTinyMCE')) {
+			// Ensure TinyMCE is in inline mode and we have required attributes
+			foreach($inputfield->wrapAttr() as $attrName => $attrVal) {
+				// i.e. data-configName, data-features, data-settings, etc.
+				if(strpos($attrName, 'data-') !== 0) continue;
+				$attrVal = htmlspecialchars($attrVal);
+				$attr .= "$attrName='$attrVal' ";
+			}
+		}
+		
 		// use div tags for 'textarea' fields and 'span' tags for text fields
 		$tag = $field->type instanceof FieldtypeTextarea ? 'div' : 'span';
-
-		// return the editor markup
 		$this->editorNum++;
+
+		$attr = trim(
+			"id=pw-edit-$this->editorNum " .
+			"class='pw-edit pw-edit-$inputfield' " .
+			"data-name=$field->name " .
+			"data-page=$page->id " .
+			"data-lang='$langID' " .
+			"style='position:relative' " . 
+			"$attr "
+		);
 		
 		return
-			"<$tag id=pw-edit-$this->editorNum class='pw-edit pw-edit-$inputfield' data-name=$field->name " . 
-				"data-page=$page->id data-lang='$langID' style='position:relative'>" .
+			"<$tag $attr>" . 
 				"<$tag class=pw-edit-orig>" .
 					$formatted .
 				"</$tag>" .
@@ -871,14 +955,14 @@ class PageFrontEdit extends WireData implements Module {
 	protected function modalRenderEditor(Page $page, array $fields, $markup) {
 
 		$modalID = $this->getModalID($page, $fields);
-		$tag = "div";
+		$tag = 'div';
 		$_fields = array();
 		foreach($fields as $field) $_fields[] = $field->name;
 		$fieldsStr = implode(',', $_fields);
 		$editURL = $page->editUrl() . "&fields=$fieldsStr&modal=1";
 		$this->editorNum++;
 		
-		if($this->wire('input')->get('pw_edit_fields')) {
+		if($this->wire()->input->get('pw_edit_fields')) {
 			$markup = preg_replace('/\.(gif|png|jpg|jpeg)\b/i', '.$1?nocache=' . time(), $markup);
 		}
 		
@@ -945,7 +1029,6 @@ class PageFrontEdit extends WireData implements Module {
 			return $subject;
 		}
 	}
-	
 
 	/**
 	 * Execute the ajax page save action
@@ -955,13 +1038,15 @@ class PageFrontEdit extends WireData implements Module {
 	 */
 	protected function inlineSaveEdits() {
 
-		$this->inlineEditorActive = true; 
+		$this->inlineEditorActive = true;
+
+		$session = $this->wire()->session;
+		$input = $this->wire()->input;
+		$user = $this->wire()->user;
 		
-		$input = $this->wire('input');
 		$pageID = (int) $input->post('id');
 		$langID = (int) $input->post('language');
-		$fields = $input->post('fields');
-		$user = $this->wire('user');
+		$postFields = $input->post('fields');
 	
 		// JSON return data
 		$data = array(
@@ -980,15 +1065,13 @@ class PageFrontEdit extends WireData implements Module {
 			$data['error'] = "Edited language does not match current language ($langID != {$this->user->language})";
 		} else if(!$this->page->editable()) {
 			$data['error'] = "Page is not editable by this user (page $pageID, user {$this->user->name})";
-		} else if(!is_array($fields)) {
+		} else if(!is_array($postFields)) {
 			$data['error'] = "No changes to save";
 		} else {
 			// okay to make edits
 			try {
-				/** @var Session $session */
-				$session = $this->wire('session');
 				$session->CSRF->validate();
-				$data = $this->inlineProcessSaveEdits($fields, $data);
+				$data = $this->inlineProcessSaveEdits($postFields, $data);
 			} catch(WireCSRFException $e) {
 				$data['error'] = "Failed CSRF check";	
 			}
@@ -1004,35 +1087,41 @@ class PageFrontEdit extends WireData implements Module {
 
 	/**
 	 * Save the given fields to the page and populate the result $data array
-	 * @param array $fields
+	 * 
+	 * @param array $postFields
 	 * @param array $data
 	 * @return array
 	 * 
 	 */
-	protected function inlineProcessSaveEdits(array $fields, array $data) {
+	protected function inlineProcessSaveEdits(array $postFields, array $data) {
 
-		$languages = $this->wire('languages');
-		$language = $languages ? $this->wire('user')->language : null;
-		$pages = $this->wire('pages');
+		$sanitizer = $this->wire()->sanitizer;
+		$languages = $this->wire()->languages;
+		$fields = $this->wire()->fields;
+		$pages = $this->wire()->pages;
+		$input = $this->wire()->input;
+		$user = $this->wire()->user;
+		
+		$language = $languages ? $user->language : null;
+		
 		$pages->uncacheAll();
 		$pages->setOutputFormatting(false);
-		$input = $this->wire('input');
 		$errors = array();
 		$pagesToSave = array();
 		$names = array();
-		$draft = (int) $this->wire('input')->get('draft');
+		$draft = (int) $input->get('draft');
 		
-		foreach($fields as $key => $value) {
+		foreach($postFields as $key => $value) {
 			
-			if($this->wire('sanitizer')->name($key) != $key) {
-				unset($fields[$key]);
+			if($sanitizer->name($key) != $key) {
+				unset($postFields[$key]);
 				continue;
 			}
 		
 			list($pageID, $name) = explode('__', $key, 2);
-			$name = $this->wire('sanitizer')->fieldName($name);
+			$name = $sanitizer->fieldName($name);
 			$names[$key] = $name;
-			$field = $this->wire('fields')->get($name);
+			$field = $fields->get($name);
 			$useLanguages = in_array('FieldtypeLanguageInterface', wireClassImplements($field->type));
 			$pageID = (int) $pageID; 
 			if(!$pageID) continue;
@@ -1040,9 +1129,9 @@ class PageFrontEdit extends WireData implements Module {
 			if(isset($pagesToSave[$pageID])) {
 				$page = $pagesToSave[$pageID];
 			} else {
-				if($pageID == $this->wire('page')->id) {
+				if($pageID == $this->wire()->page->id) {
 					// ensure we are using same instance as the one loaded
-					$page = $this->wire('page');
+					$page = $this->wire()->page;
 				} else {
 					$page = $pages->get($pageID);
 				}
@@ -1063,14 +1152,18 @@ class PageFrontEdit extends WireData implements Module {
 			}
 			
 			// let the Inputfield process the input
-			$inputfield = $field->___getInputfield($page);
+			$inputfield = $this->getInputfield($page, $field);
+			$postName = $name;
 		
 			// jQuery HTML function entity encodes things like & to &amp; even if they don't appear in the source
 			// so we determine if it's necessary to decode them here
-			if($inputfield instanceof InputfieldCKEditor) {
-				$decode = false;
-			} else if($inputfield instanceof InputfieldTextarea) {
-				if($field->contentType >= FieldtypeTextarea::contentTypeHTML) {
+			if($inputfield instanceof InputfieldTextarea) {
+				if(wireInstanceOf($inputfield, 'InputfieldCKEditor')) {
+					$decode = false;
+				} else if(wireInstanceOf($inputfield, 'InputfieldTinyMCE')) {
+					$postName = "Inputfield_$name";
+					$decode = false;
+				} else if($field->get('contentType') >= FieldtypeTextarea::contentTypeHTML) {
 					$decode = false;
 				} else {
 					$decode = true;
@@ -1082,13 +1175,13 @@ class PageFrontEdit extends WireData implements Module {
 			}
 			
 			if($decode) {
-				$value = $this->wire('sanitizer')->unentities($value);
+				$value = $sanitizer->unentities($value);
 			}
 			
-			$input->post->$name = $value;
+			$input->post->$postName = $value;
 			
 			$inputfield->attr('name', $name);
-			$inputfield->attr('value', $page->getUnformatted($name));
+			$inputfield->val($page->getUnformatted($name));
 			$inputfield->resetTrackChanges(true);
 			$inputfield->processInput($input->post);
 			
@@ -1108,14 +1201,14 @@ class PageFrontEdit extends WireData implements Module {
 					$value = $page->get($name);
 					if(is_object($value) && in_array('LanguagesValueInterface', wireClassImplements($value))) {
 						/** @var LanguagesValueInterface $value */
-						$value->setLanguageValue($language, $inputfield->attr('value'));
+						$value->setLanguageValue($language, $inputfield->val());
 						$page->set($name, $value);
 						$page->trackChange($name);
 					} else {
-						$page->set($name, $inputfield->attr('value'));
+						$page->set($name, $inputfield->val());
 					}
 				} else {
-					$page->set($name, $inputfield->attr('value'));
+					$page->set($name, $inputfield->val());
 				}
 			}
 		}
@@ -1144,7 +1237,7 @@ class PageFrontEdit extends WireData implements Module {
 				$data['error'] .= " \n" . implode(" \n", $errors);
 			}
 
-			if($draft && $page->id == $this->wire('page')->id) {
+			if($draft && $page->id == $this->wire()->page->id) {
 				// use existing $page
 			} else {
 				// get fresh copy of page
@@ -1152,7 +1245,7 @@ class PageFrontEdit extends WireData implements Module {
 			}
 			$page->of(false);
 
-			foreach($fields as $key => $value) {
+			foreach($postFields as $key => $value) {
 				if(strpos($key, $page->id . '__') !== 0) continue;
 				$name = $names[$key];	
 				$data['unformatted'][$key] = (string) $this->getUnformattedValue($page, $name);
@@ -1179,7 +1272,7 @@ class PageFrontEdit extends WireData implements Module {
 			$field = $name;
 			$name = $field->name;
 		} else {
-			$field = $this->wire('fields')->get($name);
+			$field = $this->wire()->fields->get($name);
 		}
 		
 		$unformatted = $page->getUnformatted($name);
@@ -1189,7 +1282,8 @@ class PageFrontEdit extends WireData implements Module {
 
 		if($field && $field->type instanceof FieldtypeTextarea) {
 			$contentType = (int) $field->get('contentType');
-			if($field->get('inputfieldClass') == 'InputfieldCKEditor' || $contentType == 1 || $contentType == 2) {
+			$cls = $field->get('inputfieldClass');
+			if($cls === 'InputfieldCKEditor' || $cls === 'InputfieldTinyMCE' || $contentType == 1 || $contentType == 2) {
 				// HTML is expected and allowed
 				$purifyHTML = false;
 			}
@@ -1197,10 +1291,8 @@ class PageFrontEdit extends WireData implements Module {
 
 		if(is_string($unformatted) && $purifyHTML && (strpos($unformatted, '<') !== false || strpos($unformatted, '&') !== false)) {
 			// string might have some HTML in it, allow only a purified version through
-			/** @var Sanitizer $sanitizer */
 			$unformatted = trim($unformatted); 
-			$sanitizer = $this->wire('sanitizer');
-			$unformatted = $sanitizer->purify(trim($unformatted));
+			$unformatted = $this->wire()->sanitizer->purify(trim($unformatted));
 		}
 		
 		return $unformatted;
