@@ -1536,7 +1536,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function setName($value, $language = null) {
 		
-		if(!$this->isLoaded && empty($language) && is_string($value)) {
+		if(!$this->isLoaded && empty($language) && is_string($value) && strpos($value, 'xn-') !== 0) {
 			$this->settings['name'] = $value;
 		} else {
 			$this->values()->setName($this, $value, $language);
