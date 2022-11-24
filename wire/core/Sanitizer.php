@@ -1284,20 +1284,126 @@ class Sanitizer extends Wire {
 
 	/**
 	 * Sanitize and validate an email address
-	 * 
+	 *
 	 * Returns valid email address, or blank string if it isn’t valid.
-	 * 
+	 *
 	 * #pw-group-strings
 	 * #pw-group-validate
 	 *
 	 * @param string $value Email address to sanitize and validate.
-	 * @return string Sanitized, valid email address, or blank string on failure. 
-	 * 
-	 */ 
-	public function email($value) {
-		$value = filter_var($value, FILTER_SANITIZE_EMAIL); 
-		if(filter_var($value, FILTER_VALIDATE_EMAIL)) return $value;
-		return '';
+	 * @param array $options All options require 3.0.208+
+	 *  - `allowIDN` (bool|int): Allow internationalized domain names? (default=false)
+	 *     Specify int 2 to also allow UTF-8 in local-part of email [SMTPUTF8] (i.e. "bøb" in "bøb@email.com")
+	 *  - `getASCII` (bool): Returns ASCII encoded version of email when host is IDN (default=false)
+	 *     Does not require the allowIDN option since returned email host will be only ASCII.
+	 *     Not meant to be combined with allowIDN=2 option since local-part of email does not ASCII encode.
+	 *  - `getUTF8` (bool): Converts ASCII-encoded IDNs to UTF-8, when present (default=false)
+	 *  - `checkDNS` (bool): Check that host part of email has a valid DNS record? (default=false)
+	 *     Warning: this slows things down a lot and should not be used in time sensitive cases.
+	 *  - `throw` (bool): Throw WireException on fail with details on why it failed (default=false)
+	 * @return string Sanitized, valid email address, or blank string on failure.
+	 *
+	 */
+	public function email($value, array $options = array()) {
+		
+		if(empty($value)) return '';
+		
+		$defaults = array(
+			'allowIDN' => false, 
+			'getASCII' => false, 
+			'getUTF8' => false, 
+			'checkDNS' => false, 
+			'throw' => false, 
+			'_debug' => false,
+		);
+		
+		$options = array_merge($defaults, $options);
+		$debug = $options['_debug'];
+		
+		if($options['throw']) {
+			unset($options['throw']); 
+			$value = $this->email($value, array_merge($options, array('_debug' => true)));
+			if(!strpos($value, '@')) throw new WireException($value);
+			return $value;
+		}
+		
+		if($options['checkDNS']) {
+			unset($options['checkDNS']);
+			$valueASCII = $this->email($value, array_merge($options, array('getASCII' => true)));
+			if(strpos($valueASCII, '@') === false) return $valueASCII; // fail
+			list(,$host) = explode('@', $value, 2);
+			$dns = dns_get_record($host, DNS_MX | DNS_A | DNS_CNAME | DNS_AAAA);
+			if(empty($dns)) return ($debug ? 'Failed DNS check' : ''); 
+			if($options['getASCII']) return $valueASCII;
+			return $this->email($value, $options);
+		}
+		
+		$value = trim(trim((string) $value), '.@');
+		
+		if(!strlen($value)) return ($debug ? 'Trimmed value is empty' : '');
+		if(!strpos($value, '@')) return ($debug ? 'Missing at symbol' : '');
+		if(strpos($value, ' ')) $value = str_replace(' ', '', $value);
+		
+		if($options['getUTF8'] && strpos($value, 'xn-') !== false && function_exists('\idn_to_utf8')) {
+			list($addr, $host) = explode('@', $value, 2);
+			if(strpos($host, 'xn-') !== false) {
+				$host = idn_to_utf8($host);
+				if($host !== false) $value = "$addr@$host";
+			}
+		}
+
+		if(filter_var($value, FILTER_VALIDATE_EMAIL)) return $value; // valid
+		
+		$pos = strpos($value, '<');
+		if($pos !== false && strpos($value, '>') > $pos+3) {
+			// John Smith <jsmith@domain.com> => jsmith@domain.com
+			list(,$value) = explode('<', $value, 2);
+			list($value,) = explode('>', $value, 2);
+			return $this->email($value, $options);
+		}
+		
+		// all following code for processing IDN emails
+		if(!$options['allowIDN'] && !$options['getASCII']) return ($debug ? 'Invalid+allowIDN/getASCII=0' : '');
+		if(preg_match('/^[-@_.a-z0-9]+$/i', $value)) return ($debug ? 'Invalid and not IDN' : '');
+		
+		$parts = explode('@', $value);
+		if(count($parts) !== 2) return ($debug ? 'More than one at symbol' : '');
+
+		$tt = $this->getTextTools();
+		list($addr, $host) = $parts;
+		if($tt->strlen($addr) > 64) return ($debug ? 'Local part exceeds 64 max length' : '');
+		if($tt->strlen($host) > 255) return ($debug ? 'Host part exceeds 255 max length' : '');
+		
+		if(function_exists('\idn_to_ascii')) {
+			// if email doesn't survive IDN conversions then not valid
+			$email = $value;
+			$hostASCII = idn_to_ascii($host);
+			if($hostASCII === false) return ($debug ? 'Fail UTF8-to-ASCII' : '');
+			$test = ($options['allowIDN'] === 2 ? 'bob' : $addr) . "@$hostASCII";
+			if(!filter_var($test, FILTER_VALIDATE_EMAIL)) return ($debug ? 'Fail validate post IDN-to-ASCII' : '');
+			$hostUTF8 = idn_to_utf8($hostASCII);
+			if($hostUTF8 === false) return ($debug ? 'Fail IDN-to-UTF8 conversion' : '');
+			$value = "$addr@$hostUTF8";
+			if($email !== $value) return ($debug ? 'Modified by IDN conversion' : '');
+			if($options['getASCII']) return "$addr@$hostASCII";
+		} else if($options['getASCII']) {
+			return ($debug ? 'getASCII requested and idn_to_ascii not available' : ''); 
+		}
+		
+		$regex = // regex adapted from Validators::isEmail() in https://github.com/nette/utils/
+			'@^' . 
+				'("([ !#-[\]-~]*|\\\[ -~])+"|LOCAL+(\.LOCAL+)*)\@' . // local-part
+				'([\dALPHA]([-\dALPHA]{0,61}[\dALPHA])?\.)+' . // domain
+				'[ALPHA]([-\dALPHA]{0,17}[ALPHA])?' . // TLD
+			'$@Di';
+		
+		$local = "-a-z\d!#$%&'*+/=?^_`{|}~" . ($options['allowIDN'] === 2 ? "\x80-\xFF" : '');
+		$regex = str_replace('LOCAL', "[$local]", $regex); // // RFC5322 unquoted characters
+		$regex = str_replace('ALPHA', "a-z\x80-\xFF", $regex); // superset of IDN
+		
+		if(!preg_match($regex, $value)) return ($debug ? 'Fail IDN regex' : ''); 
+		
+		return $value;
 	}
 
 	/**
