@@ -196,6 +196,7 @@ class PageFrontEdit extends WireData implements Module {
 	 * 
 	 */
 	public function setPage(Page $page) {
+		$page->setQuietly('_PageFrontEdit', true);
 		$this->page = $page;
 	}
 

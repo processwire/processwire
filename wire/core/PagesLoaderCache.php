@@ -309,7 +309,7 @@ class PagesLoaderCache extends Wire {
 		// cache non-default languages separately
 		if($this->wire()->languages) {
 			$language = $this->wire()->user->language;
-			if($language && !$language->isDefault()) {
+			if($language && !$language->isDefault && $language->name != 'default') {
 				$selector .= ", _lang=$language->id"; // for caching purposes only, not recognized by PageFinder
 			}
 		}

@@ -1353,7 +1353,7 @@ function InputfieldDependencies($target) {
 
 				// also allow for matching a "0" as an unchecked value, but only if there's isn't already an input with that value
 				if(($field.attr('type') == 'checkbox' || $field.attr('type') == 'radio') && !$field.is(":checked")) {
-					if($("#Inputfield_" + conditionField + "_0").length == 0) {
+					if($("#Inputfield_" + conditionField + "_0").length == 0 && $('#' + conditionField + '_0').length == 0) {
 						values[1] = '0';
 					}
 				}
