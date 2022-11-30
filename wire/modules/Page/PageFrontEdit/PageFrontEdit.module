@@ -11,8 +11,8 @@
  * @property string $editRegionAttr
  * @property string $editRegionTag
  * @property bool|int $inlineLimitPage Limit editor to current page only
- * 
  * @property array $inlineAllowFieldtypes
+ * @method Page getPage() Get page being edited (3.0.208+)
  * 
  */
 
@@ -22,7 +22,7 @@ class PageFrontEdit extends WireData implements Module {
 		return array(
 			'title' => 'Front-End Page Editor',
 			'summary' => 'Enables front-end editing of page fields.',
-			'version' => 4,
+			'version' => 5,
 			'author' => 'Ryan Cramer',
 			'license' => 'MPL 2.0',
 			'icon' => 'cube', 
@@ -58,10 +58,10 @@ class PageFrontEdit extends WireData implements Module {
 	/**
 	 * Page this front-end editor is for
 	 * 
-	 * @var Page
+	 * @var Page|null
 	 * 
 	 */
-	protected $page;
+	protected $page = null;
 
 	/**
 	 * Whether or not the editor should be applied for any requested fields
@@ -132,7 +132,8 @@ class PageFrontEdit extends WireData implements Module {
 	 */
 	public function ready() {
 		
-		$page = $this->wire()->page;
+		$page = $this->getPage();
+		if(!$page) $page = $this->wire()->page;
 		
 		// check if we should allow editor for current page
 		if($page->template->name === 'admin') return;
@@ -187,6 +188,19 @@ class PageFrontEdit extends WireData implements Module {
 				'priority' => $this->renderHookPriority
 			));
 		}
+	}
+
+	/**
+	 * Get the page being edited or null if not yet set
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @return Page|null
+	 * @since 3.0.208
+	 * 
+	 */
+	public function ___getPage() {
+		return $this->page;
 	}
 
 	/**
