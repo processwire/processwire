@@ -442,7 +442,7 @@ class Debug {
 					} else if(is_array($arg)) { 
 						$count = count($arg); 
 						if($count < 4) {
-							$arg = $count ? self::toStr($arg, array('maxDepth' => 2)) : '[]';
+							$arg = $count ? self::traceStr($arg, array('maxDepth' => 2)) : '[]';
 						} else {
 							$arg = 'array(' . count($arg) . ')';
 						}
@@ -493,7 +493,7 @@ class Debug {
 	 * @return null|string
 	 * 
 	 */
-	static protected function toStr($value, array $options = array()) {
+	static protected function traceStr($value, array $options = array()) {
 		
 		$defaults = array(
 			'maxCount' => 10, // max size for arrays
@@ -533,7 +533,7 @@ class Debug {
 					$suffix = $options['ellipsis'];
 				}
 				foreach($value as $k => $v) {
-					$value[$k] = self::toStr($v, $options); 
+					$value[$k] = self::traceStr($v, $options); 
 				}
 				$str = '[ ' . implode(', ', $value) . $suffix . ' ]';
 			}
@@ -561,5 +561,102 @@ class Debug {
 		$depth--;
 		
 		return $str;
+	}
+
+	/**
+	 * Dump any variable to a debug string
+	 * 
+	 * @param int|float|object|string|array $value
+	 * @param array $options
+	 *  - `method` (string): Dump method to use, one of: json_encode, var_dump, var_export, print_r (default=json_encode)
+	 *  - `html` (bool): Return output-ready HTML string? (default=false)
+	 * @return string
+	 * @since 3.0.208
+	 * 
+	 */
+	static public function toStr($value, array $options = array()) {
+		
+		$defaults = array(
+			'method' => 'json_encode',
+			'html' => false,
+		);
+		
+		$options = array_merge($defaults, $options);
+		$method = $options['method'];
+		$prepend = '';
+		
+		if(is_object($value)) { 
+			// we format objects to arrays or strings
+			$className = wireClassName($value);
+			$classInfo = "object:$className";
+			$objectValue = $value;
+			if($objectValue instanceof \Countable) {
+				$classInfo .= '(' . count($objectValue) . ')';
+			}
+			if($value instanceof Wire) {
+				$value = $value->debugInfoSmall();
+			} else if(method_exists($value, '__debugInfo')) {
+				$value = $value->__debugInfo();
+			} else if(method_exists($value, '__toString')) {
+				$value = $classInfo . ":\"$value\"";
+			} else {
+				$value = $classInfo;
+			}
+			if(is_array($value)) {
+				if(empty($value)) {
+					$value = $classInfo;
+					if(method_exists($objectValue, '__toString')) {
+						$stringValue = (string) $objectValue;
+						if($stringValue != $className) $value .= ":\"$stringValue\"";
+					}
+				} else {
+					$prepend = "$classInfo ";
+				}
+			}
+			if(is_string($value)) {
+				$method = '';
+			}
+		} else if(is_int($value)) {
+			$prepend = 'int:';
+		} else if(is_float($value)) {
+			$prepend = 'float:';
+		} else if(is_string($value)) {
+			$prepend = 'string:';
+		} else if(is_callable($value)) {
+			$prepend = 'callable:';
+		} else if(is_resource($value)) {
+			$prepend = 'resource:';
+		}
+		
+		switch($method) {
+			case 'json_encode':
+				$value = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+				$value = str_replace('    ', '  ', $value);
+				break;
+			case 'var_export':
+				$value = var_export($value, true);
+				break;
+			case 'var_dump':	
+				ob_start();
+				var_dump($value);
+				$value = ob_get_contents();
+				ob_end_clean();
+				break;
+			case 'print_r':	
+				$value = print_r($value, true);
+				break;
+			default:	
+				$value = (string) $value;
+		}
+		
+		if($method && $method != 'json_encode') {
+			// array is obvious and needs no label
+			if(stripos($value, 'array') === 0) $value = trim(substr($value, 5));
+		}
+		
+		if($prepend) $value = $prepend . trim($value);
+		if($options['html']) $value = '<pre>' . wire()->sanitizer->entities($value) . '</pre>';
+
+		return $value;
 	}
 }
