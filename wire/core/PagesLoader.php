@@ -629,7 +629,8 @@ class PagesLoader extends Wire {
 		$languages = $this->wire()->languages;
 		$languageIds = array();
 		$templatesById = array();
-		
+		$tmpAutojoinFields = array(); // fields to autojoin temporarily, just during this method call
+
 		if($languages) foreach($languages as $language) $languageIds[$language->id] = $language->id;
 		
 		$options['findIDs'] = $useCache ? 4 : 3;
@@ -705,16 +706,22 @@ class PagesLoader extends Wire {
 					$page->setForced($key, $value);
 				}
 			}
-
-			// set blank values where joinField didn't appear on page row 
+			
 			foreach($joinFields as $joinField) {
-				if(isset($row["{$joinField}__data"])) continue;
 				if(empty($joinResults[$joinField])) continue; // field did not support autojoin
 				if(!$template->fieldgroup->hasField($joinField)) continue;
 				$field = $page->getField($joinField);
 				if(!$field || !$field->type) continue;
-				$blankValue = $field->type->getBlankValue($page, $field);
-				$page->setFieldValue($field->name, $blankValue, false);
+				if(isset($row["{$joinField}__data"])) {
+					if(!$field->hasFlag(Field::flagAutojoin)) {
+						$field->addFlag(Field::flagAutojoin);
+						$tmpAutojoinFields[$field->id] = $field;
+					}
+				} else {
+					// set blank values where joinField didn't appear on page row 
+					$blankValue = $field->type->getBlankValue($page, $field);
+					$page->setFieldValue($field->name, $blankValue, false);
+				}
 			}
 
 			$page->setIsLoaded(true);
@@ -730,6 +737,10 @@ class PagesLoader extends Wire {
 
 		$pageArray->setTotal($paginationTotal);
 		$pageArray->resetTrackChanges(true);
+		
+		foreach($tmpAutojoinFields as $field) { /** @var Field $field */
+			$field->removeFlag(Field::flagAutojoin)->untrackChange('flags');
+		}
 		
 		if($useCache) {
 			$selectorString = $pageArray->getSelectors(true);

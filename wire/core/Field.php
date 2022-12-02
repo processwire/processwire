@@ -38,6 +38,7 @@
  * @property array $allowContexts Names of settings that are custom configured to be allowed for context. #pw-group-properties
  * @property bool|int|null $flagUnique Non-empty value indicates request for, or presence of, Field::flagUnique flag. #pw-internal
  * @property Fieldgroup|null $_contextFieldgroup Fieldgroup field is in context for or null if not in context. #pw-internal
+ * @property true|null $distinctAutojoin When true and flagAutojoin is set, a distinct autojoin will be used. 3.0.208+ #pw-internal
  *
  * Common Inputfield properties that Field objects store:  
  * @property int|bool|null $required Whether or not this field is required during input #pw-group-properties
@@ -812,7 +813,7 @@ class Field extends WireData implements Saveable, Exportable {
 				$ids[] = (int) $role->id;
 			} else if(is_string($role) && strlen($role)) {
 				$rolePage = $this->wire()->roles->get($role); 
-				if($rolePage && $rolePage->id) {
+				if($rolePage instanceof Role && $rolePage->id) {
 					$ids[] = $rolePage->id;
 				} else {
 					$this->error("Unknown role '$role'"); 

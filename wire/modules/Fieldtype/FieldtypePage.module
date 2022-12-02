@@ -915,6 +915,19 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	}
 
 	/**
+	 * Return the query used for Autojoining this field
+	 *
+	 * @param Field $field
+	 * @param DatabaseQuerySelect $query
+	 * @return DatabaseQuerySelect|null
+	 *
+	 */
+	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
+		$field->setQuietly('distinctAutojoin', true);
+		return parent::getLoadQueryAutojoin($field, $query);
+	}
+
+	/**
 	 * Update a DatabaseQuerySelect object to match a Page
 	 *
 	 * @param DatabaseQuerySelect|PageFinderDatabaseQuerySelect $query

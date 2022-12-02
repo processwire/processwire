@@ -875,6 +875,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$schema = $this->trimDatabaseSchema($this->getDatabaseSchema($field)); 
 		$fieldName = $this->database->escapeCol($field->name); 
 		$separator = self::multiValueSeparator; 
+		if($field->distinctAutojoin) $table = "DISTINCT $table";
 		foreach($schema as $key => $unused) {
 			$query->select("GROUP_CONCAT($table.$key SEPARATOR '$separator') AS `{$fieldName}__$key`"); // QA
 		}		
