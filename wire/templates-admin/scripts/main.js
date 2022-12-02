@@ -310,7 +310,7 @@ var ProcessWireAdmin = {
 					if(!dropdownPositionsMonitored && data.list.length > 10) {
 						dropdownPositionsMonitored = true;
 						setupDropdownHover = true;
-						$(document).on('hover', 'ul.pw-dropdown-menu a', function() {
+						$(document).on('mouseenter', 'ul.pw-dropdown-menu a', function() {
 							hoverDropdownAjaxItem($(this));
 						});
 					}

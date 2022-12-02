@@ -21,11 +21,12 @@ function InputfieldPageTableDialog() {
 						$table.find('tbody').css('overflow', 'visible');
 						InputfieldPageTableSortable($table);
 						
-						// restore appearnace of any items marked for deletion
+						// restore appearance of any items marked for deletion
 						var deleteIDs = $container.siblings("input.InputfieldPageTableDelete").eq(0).val().split('|');
 						if(deleteIDs.length) {
 							for(var n = 0; n < deleteIDs.length; n++) {
 								var deleteID = deleteIDs[n];
+								if(!deleteID.length) continue;
 								$table.find("tr[data-id=" + deleteID + "]")
 									.addClass('InputfieldPageTableDelete ui-state-error-text ui-state-disabled');
 							}

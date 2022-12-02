@@ -224,7 +224,7 @@ function pwModalWindow(href, options, size) {
 	
 	$iframe.dialog(settings);
 	$iframe.data('settings', settings);
-	$iframe.load(function() {
+	$iframe.on('load', function() {
 		if(typeof settings.title == "undefined" || !settings.title) {
 			var title = jQuery('<textarea />').text($iframe.contents().find('title').text()).html();
 			$iframe.dialog('option', 'title', title); 
@@ -358,7 +358,7 @@ function pwModalOpenEvent(e) {
 		$a.removeClass('ui-state-active');
 	}, 500);
 
-	$iframe.load(function() {
+	$iframe.on('load', function() {
 
 		var buttons = [];
 		var $icontents = $iframe.contents();
