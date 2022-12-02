@@ -51,7 +51,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	public function init() {
-		$pages = $this->wire('pages'); 
+		$pages = $this->wire()->pages; 
 		if($pages) {
 			$pages->addHookAfter('delete', $this, 'hookPagesDelete');
 		} else {
@@ -81,8 +81,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public function hookPagesDelete($event) {
 		if(!$event->return) return; // if delete failed, then don't continue
 		$page_id = $event->arguments[0]->id; 
-		$database = $this->wire('database');
-		foreach($this->wire('fields') as $field) {
+		$database = $this->wire()->database;
+		foreach($this->wire()->fields as $field) {
 			if(!$field->type instanceof FieldtypePage) continue; 
 			$table = $database->escapeTable($field->table);
 			// delete references to this page
@@ -127,7 +127,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	public function getInputfield(Page $page, Field $field) {
-		$inputfield = $this->wire('modules')->get("InputfieldPage"); 
+		/** @var InputfieldPage $inputfield */
+		$inputfield = $this->wire()->modules->get("InputfieldPage"); 
 		$inputfield->class = $this->className();
 		return $inputfield; 
 	}
@@ -156,7 +157,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|array $value
-	 * @return string|int|array|object $value
+	 * @return PageArray
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
@@ -372,7 +373,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if($value instanceof Page) return $this->exportValuePage($page, $field, $value, $options); 	
 		if(!$value instanceof PageArray) return array();
 		$a = array();
-		foreach($value as $k => $v) {
+		foreach($value as $v) {
 			$a[] = $this->exportValuePage($page, $field, $v, $options); 	
 		}
 		// in human mode just return the titles separated by a carriage return
@@ -381,8 +382,6 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	}
 	
 	protected function exportValuePage(Page $page, Field $field, Page $value, array $options = array()) {
-		if($page) {}
-		if($field) {}
 		if(!$value->id) return array();
 		// in human mode, just return the title or name
 		if(!empty($options['human'])) {
@@ -416,7 +415,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
-		$pageArray = $this->wire('pages')->newPageArray();
+		$pages = $this->wire()->pages;
+		$pageArray = $pages->newPageArray();
 		if(empty($value)) return $pageArray;
 		if(is_string($value)) $value = array($value);
 		foreach($value as $item) {
@@ -428,7 +428,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			} else {
 				continue; 
 			}
-			$p = $this->wire('pages')->get($path);
+			$p = $pages->get($path);
 			if(!$p->id) {
 				$pageArray->error("Unable to find page '$path' to add to field '$field->name'");
 			} else if(!$this->isValidPage($p, $field, $page)) {
@@ -542,11 +542,11 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		} else if($derefAsPage == FieldtypePage::derefAsPageOrNullPage) {
 			// single page possible blank values
-			return $this->wire('pages')->newNullPage(); 
+			return $this->wire()->pages->newNullPage(); 
 			
 		} else {
 			// multi page blank value (FieldtypePage::derefAsPageArray)
-			$pageArray = $this->wire('pages')->newPageArray();
+			$pageArray = $this->wire()->pages->newPageArray();
 			$pageArray->setTrackChanges(true);
 			return $pageArray;
 		}
@@ -563,6 +563,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	protected function sanitizeValueString(Page $page, Field $field, $value) {
 
+		$pages = $this->wire()->pages;
+		$sanitizer = $this->wire()->sanitizer;
 		$result = false;
 		$parent_id = $field->get('parent_id');
 
@@ -577,20 +579,20 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		} else if(ctype_digit("$value")) {
 			// page ID
-			$result = $this->pages->get("id=" . $value); 
+			$result = $pages->get("id=" . $value); 
 			
 		} else if(strpos($value, '-') === 0 && ctype_digit(ltrim($value, '-'))) {
 			// page ID to remove from value
-			$result = $this->pages->get("id=" . ltrim($value, '-')); 
+			$result = $pages->get("id=" . ltrim($value, '-')); 
 			$result->set('_FieldtypePage_remove', $result->id); 
 			
 		} else if(strpos($value, '|') !== false && ctype_digit(str_replace('|', '', $value))) {
 			// CSV string separated by '|' characters
-			$result = $this->pages->getById(explode('|', $value)); 	
+			$result = $pages->getById(explode('|', $value)); 	
 
 		} else if(strlen($value) && $value[0] == '/') {
 			// path to page
-			$result = $this->pages->get($value);
+			$result = $pages->get($value);
 
 		} else if(strpos($value, "\n") !== false || strpos($value, '|') !== false) {
 			// multiple references in a newline or pipe separated string
@@ -600,7 +602,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			foreach($values as $str) {
 				$v = $this->sanitizeValueString($page, $field, trim($str)); // recursive
 				if($v && $v->id) {
-					if(!$result) $result = $this->wire('pages')->newPageArray();
+					if(!$result) $result = $pages->newPageArray();
 					$result->add($v); 
 				}
 			}
@@ -610,23 +612,23 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			$value = trim($value); 
 			$parentIDs = is_array($parent_id) ? implode('|', $parent_id) : $parent_id;
 			// find by title
-			$pageTitle = $this->wire('sanitizer')->selectorValue($value);
-			$result = $this->wire('pages')->get("parent_id=$parentIDs, title=$pageTitle"); 
+			$pageTitle = $sanitizer->selectorValue($value);
+			$result = $pages->get("parent_id=$parentIDs, title=$pageTitle"); 
 			// if cannot find by title, find by name
 			if(!$result->id) {
-				$pageName = $this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value));
-				$result = $this->wire('pages')->get("parent_id=$parentIDs, name=$pageName"); 
+				$pageName = $sanitizer->selectorValue($sanitizer->pageNameUTF8($value));
+				$result = $pages->get("parent_id=$parentIDs, name=$pageName"); 
 			}
 			if(!$result->id && $field->get('_sanitizeValueString') === 'create' && $field->get('template_id')) {
 				// option to create page if it does not already exist (useful for imports)
 				// to use this, you must $field->set('_sanitizeValueString', 'create'); ahead of time
-				$template = $this->wire('templates')->get((int) $field->get('template_id'));
-				$parent = $this->wire('pages')->get((int) $parent_id); 
+				$template = $this->wire()->templates->get((int) $field->get('template_id'));
+				$parent = $pages->get((int) $parent_id); 
 				if($template && $parent->id) {
-					$result = $this->wire('pages')->newPage($template);
+					$result = $pages->newPage($template);
 					$result->parent = $parent; 
 					$result->title = $value; 
-					$result->name = $this->wire('sanitizer')->pageNameUTF8($value); 
+					$result->name = $sanitizer->pageNameUTF8($value); 
 					$result->save(array('adjustName' => true));
 				}
 			}
@@ -635,14 +637,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			$template_ids = self::getTemplateIDs($field, true);
 			if(!empty($template_ids)) {
 				// set by title 
-				$result = $this->wire('pages')->get("templates_id=$template_ids, title=" . $this->wire('sanitizer')->selectorValue($value));
+				$result = $pages->get("templates_id=$template_ids, title=" . $sanitizer->selectorValue($value));
 				// set by name
-				if(!$result->id) $result = $this->wire('pages')->get("templates_id=$template_ids, name=" .
-					$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value)));
+				if(!$result->id) $result = $pages->get("templates_id=$template_ids, name=" .
+					$sanitizer->selectorValue($sanitizer->pageNameUTF8($value)));
 			}
 		}
 		
-		if(!$result && $this->wire('config')->debug) {
+		if(!$result && $this->wire()->config->debug) {
 			$this->warning("Unable to locate page match for: $value"); 
 		}
 
@@ -783,25 +785,27 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			}
 			return $pageArray; 
 		}
+		
+		$pages = $this->wire()->pages;
 
 		// value is an int or array of int|string|Page, load to pages, add to $pageArray
 		if(!is_array($value)) $value = array($value); 
 		foreach($value as $v) {
-			if(is_object($v) && $v instanceof Page) {
+			if($v instanceof Page) {
 				// Page object
 				if($v->id == $page->id) continue;
 				$pg = $v; 
 			} else if(is_int($v)) {
 				// integer page ID
 				if($v == $page->id) continue;
-				$pg = $this->wire('pages')->get($v);
+				$pg = $pages->get($v);
 			} else if(is_string($v)) {
 				// path or selector string
 				if(ctype_digit($v)) {
 					$v = (int) $v;
 					if($v == $page->id) continue;
 				}
-				$pg = $this->wire('pages')->get($v);
+				$pg = $pages->get($v);
 			} else {
 				// unrecognized type: can't make a page object from it
 				continue; 
@@ -950,7 +954,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			'sort',
 		);
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
+		$pages = $this->wire()->pages;
 		
 		// when $idstr is true, indicates $value is a multi-value CSV ID string (converts to boolean once known)
 		$idstr = null; 
@@ -979,8 +984,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			}
 			
 			if($subfield == 'name') {
-				$value = $this->wire('sanitizer')->pageName($value);
-				$value = implode(',', $this->pages->findIDs("name=$value, include=all"));
+				$value = $this->wire()->sanitizer->pageName($value);
+				$value = implode(',', $pages->findIDs("name=$value, include=all"));
 				if(empty($value)) $value = "0";
 				$idstr = true;
 			}
@@ -998,7 +1003,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 					$idstr = true; 
 				} else if(substr(trim($value), 0, 1) == '/') {
 					// path from root
-					$v = $this->pages->get($value); 
+					$v = $pages->get($value); 
 					if($v && $v->id) $value = $v->id; 
 				}
 			}
@@ -1055,7 +1060,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	protected function getMatchQueryNative($query, $table, $subfield, $operator, $value) {
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 
 		if(!in_array($subfield, $this->nativeNames)) return false; 
 
@@ -1068,12 +1073,12 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			$value = date('Y-m-d H:i:s', $value); 
 
 		} else if(in_array($subfield, array('template', 'templates_id'))) {
-			$template = $this->templates->get($value); 
+			$template = $this->wire()->templates->get($value); 
 			$value = $template ? $template->id : 0; 
 			$subfield = 'templates_id';
 			
 		} else if(in_array($subfield, array('parent', 'parent_id'))) {
-			if(!ctype_digit("$value")) $value = $this->pages->get($value)->id; 
+			if(!ctype_digit("$value")) $value = $this->wire()->pages->get($value)->id; 
 			$subfield = 'parent_id';	
 			
 		} else if($subfield == 'status') {
@@ -1085,7 +1090,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			} else $value = 0;
 		
 		} else if($subfield == 'name') {
-			$value = $this->sanitizer->pageName($value, Sanitizer::toAscii); 
+			$value = $this->wire()->sanitizer->pageName($value, Sanitizer::toAscii); 
 
 		} else $value = (int) $value; 
 
@@ -1340,6 +1345,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	public function ___getConfigInputfields(Field $field) {
 
+		$modules = $this->wire()->modules;
+		$sanitizer = $this->wire()->sanitizer;
 		$inputfields = parent::___getConfigInputfields($field);
 		
 		$labels = array(
@@ -1363,7 +1370,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 		
 		/** @var InputfieldRadios $select */
-		$select = $this->modules->get("InputfieldRadios"); 
+		$select = $modules->get("InputfieldRadios"); 
 		$select->attr('name', 'derefAsPage'); 
 		$select->label = $this->_('Page field value type');
 		$select->description = $this->_('If your field will contain multiple pages, then you should select the first option (PageArray). If your field only needs to contain a single page, then select one of the single Page options (if you are not sure which, select the last option).'); // Long description for: dereference in API
@@ -1373,21 +1380,22 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$select->attr('value', (int) $field->get('derefAsPage'));  
 		$select->icon = 'tasks';
 		$inputfields->append($select);
-	
-		/** @var InputfieldMarkup $f */
-		$exampleFieldset = $this->wire('modules')->get('InputfieldFieldset');
+
+		/** @var InputfieldFieldset $exampleFieldset */
+		$exampleFieldset = $modules->get('InputfieldFieldset');
 		$exampleFieldset->attr('name', '_examplesFieldset');
 		$exampleFieldset->label = $this->_('API usage examples');
 		$exampleFieldset->icon = 'code';
 		$inputfields->add($exampleFieldset);
-		
-		$f = $this->wire('modules')->get('InputfieldMarkup');
+
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
 		$f->attr('name', '_examplePageArray');
 		$f->label = $_labels['PageArray'];
 		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageArray;
 		$f->icon = 'scissors';
 		$f->value =
-			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"<pre class='language-php'><code>" . $sanitizer->entities(
 			"foreach(\$page->{$field->name} as \$item) {" .
 			"\n  echo \"<li><a href='\$item->url'>\$item->title</a></li>\";".
 			"\n}" 
@@ -1395,27 +1403,28 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$exampleFieldset->add($f);
 		
 		$alternateLabel = $this->_('Same as above with alternate syntax');
-		
-		$f = $this->wire('modules')->get('InputfieldMarkup');
+	
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
 		$f->attr('name', '_examplePageArray2');
 		$f->label = $alternateLabel;
 		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageArray;
 		$f->icon = 'scissors';
 		$f->value =
-			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"<pre class='language-php'><code>" . $sanitizer->entities(
 			"echo \$page->{$field->name}->each(\n  \"<li><a href='{url}'>{title}</a></li>\"\n);"	
 			) . "</code></pre>";
 		$f->notes = sprintf($this->_('More about the %s method.'), "[each()]($url/page-array/each/)");
 		$exampleFieldset->add($f);
 		
 		/** @var InputfieldMarkup $f */
-		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f = $modules->get('InputfieldMarkup');
 		$f->attr('name', '_examplePageOrFalse');
 		$f->label = $_labels['PageOrFalse'];
 		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrFalse;
 		$f->icon = 'scissors';
 		$f->value =
-			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"<pre class='language-php'><code>" . $sanitizer->entities(
 			"if(\$page->{$field->name}) {" .
 			"\n  echo \"<a href='{\$page->{$field->name}->url}'>{\$page->{$field->name}->title}</a>\";" .
 			"\n}" 
@@ -1423,13 +1432,13 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$exampleFieldset->add($f);
 		
 		/** @var InputfieldMarkup $f */
-		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f = $modules->get('InputfieldMarkup');
 		$f->attr('name', '_examplePageOrFalse2');
 		$f->label = $alternateLabel;
 		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrFalse;
 		$f->icon = 'scissors';
 		$f->value =
-			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"<pre class='language-php'><code>" . $sanitizer->entities(
 			"if(\$page->{$field->name}) {" .
 			"\n  echo \$page->{$field->name}(\"<a href='{url}'>{title}</a>\");" .
 			"\n}"
@@ -1437,13 +1446,13 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$exampleFieldset->add($f);
 		
 		/** @var InputfieldMarkup $f */
-		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f = $modules->get('InputfieldMarkup');
 		$f->attr('name', '_examplePageOrNullPage');
 		$f->label = $_labels['PageOrNullPage'];
 		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrNullPage;
 		$f->icon = 'scissors';
 		$f->value =
-			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"<pre class='language-php'><code>" . $sanitizer->entities(
 			"if(\$page->{$field->name}->id) {" .
 			"\n  echo \"<a href='{\$page->{$field->name}->url}'>{\$page->{$field->name}->title}</a>\";" .
 			"\n}" 
@@ -1451,13 +1460,13 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$exampleFieldset->add($f);
 		
 		/** @var InputfieldMarkup $f */
-		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f = $modules->get('InputfieldMarkup');
 		$f->attr('name', '_examplePageOrNullPage2');
 		$f->label = $alternateLabel;
 		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrNullPage;
 		$f->icon = 'scissors';
 		$f->value =
-			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"<pre class='language-php'><code>" . $sanitizer->entities(
 				"if(\$page->{$field->name}->id) {" .
 				"\n  echo \$page->{$field->name}(\"<a href='{url}'>{title}</a>\");" .
 				"\n}"
@@ -1466,7 +1475,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		
 		/** @var InputfieldCheckbox $checkbox */
 		$value = (int) $field->get('allowUnpub');
-		$checkbox = $this->modules->get('InputfieldCheckbox');
+		$checkbox = $modules->get('InputfieldCheckbox');
 		$checkbox->attr('name', 'allowUnpub');
 		$checkbox->label = $this->_('Allow unpublished pages?');
 		$checkbox->description = $this->_('When checked, unpublished pages will be selectable for input and allowed in the *unformatted* field value. They will still be excluded from the *formatted* field value either way.'); // Description for allowUnpub option
@@ -1537,11 +1546,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	public function ___importConfigData(Field $field, array $data) {
+		$sanitizer = $this->wire()->sanitizer;
+		$templates = $this->wire()->templates;
+		$pages = $this->wire()->pages;
 		$data = parent::___importConfigData($field, $data);
 		// parent page
 		if(!empty($data['parent_id']) && !ctype_digit("$data[parent_id]")) {
 			// we have a page apth rather than id
-			$id = $this->wire('pages')->get("path=" . $this->wire('sanitizer')->selectorValue($data['parent_id']))->id;
+			$id = $pages->get("path=" . $sanitizer->selectorValue($data['parent_id']))->id;
 			if(!$id) $data['errors']['parent_id'] = $this->_('Unable to find page') . " - $data[parent_id].";
 			$data['parent_id'] = $id;
 		}
@@ -1555,7 +1567,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			foreach($data[$property] as $key => $name) {
 				if(ctype_digit("$name")) continue;
 				// we have a template name rather than id
-				$template = $this->wire('templates')->get($this->wire('sanitizer')->name($name));
+				$template = $templates->get($sanitizer->name($name));
 				if($template) {
 					$data[$property][$key] = $template->id;
 				} else {
@@ -1579,10 +1591,10 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	public function cleanOrphanedReferences() {
 
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$totalCleaned = 0; 
 
-		foreach($this->wire('fields') as $field) {
+		foreach($this->wire()->fields as $field) {
 
 			if(!$field->type instanceof FieldtypePage) continue; 
 			$table = $database->escapeTable($field->getTable()); 
@@ -1637,8 +1649,9 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	public function findReferences(Page $page, $selector = '', $field = false, $getCount = false) {
 
-		/** @var Pages $pages */
-		$pages = $this->wire('pages');
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$database = $this->wire()->database;
 		
 		// modifier option defaults
 		$byField = false;
@@ -1661,9 +1674,9 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if(is_bool($field) || is_null($field)) {
 			$byField = $field ? true : false;
 		} else if(is_string($field)) {
-			$fieldName = $this->wire('sanitizer')->fieldName($field);
+			$fieldName = $this->wire()->sanitizer->fieldName($field);
 		} else if(is_int($field)) {
-			$field = $this->wire('fields')->get($field);
+			$field = $fields->get($field);
 			if($field) $fieldName = $field->name;
 		} else if($field instanceof Field) {
 			$fieldName = $field->name;
@@ -1675,14 +1688,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$total = 0;
 	
 		// first determine which fields have references to $page
-		foreach($this->wire('fields') as $field) {
+		foreach($fields as $field) {
 
 			if($fieldName && $field->name != $fieldName) continue;
 			if(!$field->type instanceof FieldtypePage) continue;
 
 			$table = $field->getTable();
 			$sql = "SELECT COUNT(*) FROM `$table` WHERE data=:id";
-			$query = $this->wire('database')->prepare($sql);
+			$query = $database->prepare($sql);
 			$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
 			$query->execute();
 
@@ -1789,7 +1802,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		$inputfields = $this->wire(new InputfieldWrapper());
 		/** @var InputfieldCheckbox $inputfield */
-		$inputfield = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$inputfield = $this->wire()->modules->get('InputfieldCheckbox'); 
 		$inputfield->attr('name', '_clean'); 
 		$inputfield->attr('value', 1); 
 		$inputfield->label = $this->_('Find and clean orphaned page references'); 
@@ -1799,9 +1812,9 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$inputfield->notes = $this->_('Warning: To be safe you should back-up your database before running this.'); // Find and clean notes
 		$inputfields->add($inputfield); 
 
-		if($this->wire('input')->post('_clean')) {
+		if($this->wire()->input->post('_clean')) {
 			$this->message($this->_('Finding and cleaning...')); 
-			$this->wire('fieldtypes')->get('FieldtypePage')->cleanOrphanedReferences();
+			$this->cleanOrphanedReferences();
 		}
 
 		return $inputfields;

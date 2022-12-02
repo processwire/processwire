@@ -187,7 +187,7 @@ class WireDebugInfo extends Wire {
 		if($page->quietMode) $info['quietMode'] = 1;
 
 		foreach(array('created', 'modified', 'published') as $key) {
-			$info[$key] = wireDate($this->wire('config')->dateFormat, $info[$key]) . " " .
+			$info[$key] = wireDate($this->wire()->config->dateFormat, $info[$key]) . " " .
 				"(" . wireDate('relative', $info[$key]) . ")";
 		}
 		
