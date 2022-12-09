@@ -1403,6 +1403,7 @@ class PagesRawFinder extends Wire {
 						$references = array_merge($references, $ids);
 					}
 				}
+				if(!$this->options['indexed']) $references = array_values($references);
 				$this->values[$toPageId]['references'] = $references;
 			}
 			return;
@@ -1426,9 +1427,17 @@ class PagesRawFinder extends Wire {
 						if(!isset($this->values[$toPageId]['references'][$fieldName])) {
 							$this->values[$toPageId]['references'][$fieldName] = array();
 						}
-						$this->values[$toPageId]['references'][$fieldName][$fromId] = $row;
+						if($this->options['indexed']) {
+							$this->values[$toPageId]['references'][$fieldName][$fromId] = $row;
+						} else {
+							$this->values[$toPageId]['references'][$fieldName][] = $row;
+						}
 					} else {
-						$this->values[$toPageId]['references'][$fromId] = $row;
+						if($this->options['indexed']) {
+							$this->values[$toPageId]['references'][$fromId] = $row;
+						} else {
+							$this->values[$toPageId]['references'][] = $row;
+						}
 					}
 				}
 			}
