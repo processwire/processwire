@@ -446,6 +446,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			if($languages) {
 				// multi-language
 				foreach($languages as $language) {
+					/** @var Language $language */
 					$languageId = $language->isDefault() ? 0 : $language->id;
 					$paths[$languageId] = $page->localPath($language);
 					if($pageId === 1 && !$languageId) $homeDefaultName = $page->name;
@@ -523,6 +524,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		
 		if($languages) {
 			foreach($languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$nameColumns[] = "pages.name$language->id AS name$language->id";
 			}
@@ -635,7 +637,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			$id = (int) $row['id'];
 			unset($row['id']);
 			foreach($row as $col => $name) {
-				if(!strlen($name)) continue;
+				if(!strlen("$name")) continue;
 				if($id === 1 && $col === 'name' && $name === Pages::defaultRootName) continue; // skip "/home/"
 				$col = str_replace('name', '', $col);
 				if(strlen($col)) {
@@ -709,7 +711,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	 * @param \PDOStatement $query
 	 * @param bool $throw Allow exceptions to be thrown? (default=true)
 	 * @return bool
-	 * @throws \PDOException|WireException
+	 * @throws \PDOException
 	 * 
 	 */
 	protected function executeQuery($query, $throw = true) {
