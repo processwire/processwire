@@ -210,15 +210,16 @@ $focusPointCircleSize: 40px;
 		}
 	}
 
-	&__trash {
-		position: absolute;
+	&__btn {
+		position: relative;
+		float: left;
 		background: white;
 		padding: .2em .6em;
 		color: #aaa;
 		z-index: 2;
 		cursor: pointer;
 
-		@at-root label#{&} {
+		@at-root .gridImage #{&} {
 			display: none;
 		}
 
@@ -235,7 +236,7 @@ $focusPointCircleSize: 40px;
 			display: block;
 		}
 
-		@at-root  .gridImage:hover label#{&}:hover {
+		@at-root .gridImage:hover #{&}:hover {
 			// overwrite a:hover
 			display: block;
 			color: $deleteColor;
@@ -349,7 +350,7 @@ $focusPointCircleSize: 40px;
 			background: rgba($activeColor, .5);
 		}
 
-		& .gridImage__trash {
+		& .gridImage__btn {
 			background-color: $activeColor;
 			color: white;
 
@@ -358,7 +359,7 @@ $focusPointCircleSize: 40px;
 			}
 		}
 
-		&:hover .gridImage__trash:hover {
+		&:hover .gridImage__btn:hover {
 			background-color: $activeColor;
 		}
 	}
@@ -374,13 +375,13 @@ $focusPointCircleSize: 40px;
 			}
 		}
 
-		& .gridImage__trash {
+		& .gridImage__btn {
 			background-color: $deleteColor;
 			color: white;
 			display: block;
 
 			&:hover {
-				background-color: $deleteColor;
+				background-color: white;
 			}
 		}
 
@@ -388,8 +389,8 @@ $focusPointCircleSize: 40px;
 			display: none;
 		}
 
-		&:hover .gridImage__trash:hover {
-			background-color: $deleteColor;
+		&:hover .gridImage__btn:hover {
+			background-color: white;
 		}
 
 		&:hover .gridImage__inner {
@@ -828,11 +829,12 @@ $focusPointCircleSize: 40px;
 			}
 		}
 
-		&__trash {
+		&__btn {
 			z-index: 5;
 			display: block !important;
 			top: 0;
 			right: 0;
+			float: right;
 		}
 		
 		&__edit {
@@ -874,7 +876,7 @@ $focusPointCircleSize: 40px;
 				display: none;
 			}
 
-			&:hover .gridImage__trash:hover {
+			&:hover .gridImage__btn:hover {
 				color: white;
 				background-color: $deleteColor;
 			}
