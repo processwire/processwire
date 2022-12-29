@@ -992,7 +992,7 @@ class ProcessModule extends Process {
 			$sectionsQty[$section]++;
 
 		}
-		$out .= $table->render();
+		$out .= $table ? $table->render() : '';
 		
 		if($options['allowSections']) {
 			$out .= "</div>";

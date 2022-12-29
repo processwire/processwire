@@ -1589,7 +1589,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			
 		} else if($name === 'template') {
 			// template label or name
-			$allowName = $this->useColumnLabels ? trim($this->get('sort'), '-') === 'template' : true;
+			$allowName = $this->useColumnLabels ? trim((string) $this->get('sort'), '-') === 'template' : true;
 			$t = $p->template;
 			$value = $t->getLabel();
 			// include template name only if it differs from template label
