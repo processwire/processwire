@@ -1287,9 +1287,9 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$f->attr('value', $value ? $value : '');
 		$f->notes = $example . "uiColor: #438ef0\n" . 
 			$this->_('If preferred, these settings can also be set in one of these files:') .
-			"\n[/site/modules/InputfieldCKEditor/config.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config.js) - " . 
+			"\n[/site/modules/InputfieldCKEditor/config.js](https://github.com/processwire/site-default/blob/main/modules/InputfieldCKEditor/config.js) - " . 
 			$this->_('for all CKEditor fields') . " " .
-			"\n[/site/modules/InputfieldCKEditor/config-$this->name.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config-body.js) - " . 
+			"\n[/site/modules/InputfieldCKEditor/config-$this->name.js](https://github.com/processwire/site-default/blob/main/modules/InputfieldCKEditor/config-body.js) - " . 
 			$this->_('only for this CKEditor field');
 		$wrapper->add($f);
 
