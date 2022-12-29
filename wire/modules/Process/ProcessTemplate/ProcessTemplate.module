@@ -104,7 +104,8 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			'templateNameFormat' => 
 				$this->_('Template names may use letters (a-z A-Z), numbers (0-9), hyphens and underscores.') . ' ' .
 				$this->_('Lowercase is optional but recommended.') . ' ' . 
-				$this->_('Do not include a file extension.'),
+				$this->_('Do not include a file extension.') . ' ' . 
+				$this->_('Do not use only digits.'),
 			'invalidTemplateName' => $this->_('Template name does not match required format.'),
 			'nameAlreadyInUse' => $this->_('The name "%s" is already in use'),
 			'name' => $this->_('Name'), 
@@ -581,7 +582,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		if(!$input->is('post')) {
 			// render form
 			$form = $this->buildAddForm($templateFiles);
-			if(count($this->input->post)) $form->processInput($this->input->post);
+			if(count($input->post)) $form->processInput($input->post);
 			return $form->render();
 		}
 		
@@ -605,6 +606,8 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		}
 
 		$postTemplates = $input->post('templates');
+		if(!is_array($postTemplates)) $postTemplates = array();
+		
 		$templateName = trim((string) $input->post('template_name')); 
 
 		// add any templates without files to the postTemplates
@@ -617,7 +620,10 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			foreach($templateNames as $name) {
 				$name = $sanitizer->name(basename($name)); 
 				if(!strlen($name)) continue;
-				if(ctype_digit($name)) continue;
+				if(ctype_digit($name)) {
+					$this->error(sprintf($this->_('Template name “%s” not added because it contains only digits.'), $name));
+					continue;
+				}
 				if($templates->get($name) || $fieldgroups->get($name)) {	
 					$this->error(sprintf($this->labels['nameAlreadyInUse'], $name)); 
 				} else {
@@ -702,7 +708,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		if(count($templateFiles)) { 
 			/** @var InputfieldCheckboxes $field */
 			$field = $modules->get('InputfieldCheckboxes');
-			$field->label = sprintf($this->_('Templates found in: %s'), "$templateUrl*.{$this->config->templateExtension}"); 
+			$field->label = sprintf($this->_('Templates found in: %s'), "$templateUrl*.{$config->templateExtension}"); 
 			$field->description = $this->_('The following new templates were found. Check the box next to each template you want to add.'); // Templates found, description
 			$field->attr('id+name', 'templates'); 
 			$field->icon = 'search-plus';
