@@ -1124,20 +1124,25 @@ abstract class Inputfield extends WireData implements Module {
 	 * content:card-body
 	 * input:form-input input-checkbox
 	 * ~~~~~
-	 * Each line represents a group containing a element name and one or more space-separated 
-	 * classes. Groups may be separated by newline (like above) or with a comma. The element
-	 * name may be any one of the following: 
+	 * Each line represents a group containing a element type, colon, and one or more space-
+	 * separated classes. Groups may be separated by newline (like above) or with a comma. 
+	 * The element type may be any one of the following: 
 	 * 
 	 *  - `wrap`: The .Inputfield element that wraps the header and content
 	 *  - `header`: The .InputfieldHeader element, typically a `<label>`. 
 	 *  - `content`: The .InputfieldContent element that wraps the input(s), typically a `<div>`.
 	 *  - `input`: The primary `<input>` element(s) that accept input for the Inputfield.
 	 *  - `class`: This is the same as the 'input' type, just an alias. 
+	 *  - `+foo`: Force adding your own new element type (i.e. “foo”) that is not indicated above.
 	 * 
 	 * Class names prefixed with a minus sign i.e. `-class` will be removed rather than added.
 	 * 
+	 * A string like `hello:world` where `hello` is not one of those element types listed above,
+	 * and is not prefixed with a plus sign `+`, will be added as a literal class name with the 
+	 * colon in it (such as those used by Tailwind). 
+	 * 
 	 * @param string $class Formatted class string to parse class types and names from
-	 * @param string $property Default/fallback property if not indicated in string
+	 * @param string $property Default/fallback element/property if not indicated in string
 	 * @return self
 	 * @since 3.0.204
 	 *
@@ -1147,6 +1152,7 @@ abstract class Inputfield extends WireData implements Module {
 		
 		if(ctype_alnum($class)) return $this->addClass($class, $property);
 		
+		$typeNames = array('wrap', 'header', 'content', 'input', 'class'); 
 		$class = trim($class);
 		if(strpos($class, "\n")) $class = str_replace("\n", ",", $class);
 		$groups = strpos($class, ',') ? explode(',', $class) : array($class);
@@ -1160,8 +1166,16 @@ abstract class Inputfield extends WireData implements Module {
 			foreach($classes as $class) {
 				if(empty($class)) continue;
 				if(strpos($class, ':')) {
-					// setting new type
-					list($type, $class) = explode(':', $class, 2);
+					// setting new element type i.e. wrap:myclass or +foo:myclass
+					list($typeName, $className) = explode(':', $class, 2);
+					$typeName = trim($typeName);
+					if(in_array($typeName, $typeNames) || strpos($typeName, '+') === 0) {
+						// accepted as element/type for adding classes
+						$type = ltrim($typeName, '+');
+						$class = trim($className);
+					} else {
+						// literal class name with a colon in it such as "lg:bg-red-400'
+					}
 				}
 				if(strpos($class, '-') === 0) {
 					$this->removeClass(ltrim($class, '-'), $type);
