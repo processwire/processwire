@@ -213,7 +213,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$max = $this->strToBytes($filesize);
 		$phpMax = $this->strToBytes(ini_get('upload_max_filesize'));
 		if($phpMax < $max) $max = $phpMax;	
-		$this->maxFilesize = $max; 
+		parent::set('maxFilesize', $max);
 		return $this;
 	}
 
