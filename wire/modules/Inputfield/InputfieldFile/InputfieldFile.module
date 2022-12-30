@@ -1397,13 +1397,31 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 
 		$context = '';
-		$process = $this->wire()->process; 
-		if($item && $process instanceof WirePageEditor) { 
-			$contextPage = $process->getPage();
-			if(wireInstanceOf($contextPage, 'RepeaterPage')) {
-				$context = "repeater{$contextPage->id}_";
+		if($item) {
+			$hasPage = $this->hasPage;
+			if($hasPage && wireInstanceOf($hasPage, 'RepeaterPage')) {
+				if(strpos($this->name, '_repeater') === false) {
+					// ensures that custom fields are properly namespaced within repeater
+					// though note that this prevents it from working when editing a repeater
+					// page directly, independently of its forPage
+					$context = "repeater{$hasPage->id}_";
+				}
 			}
+			/*
+			 * The following does not work with nested repeaters, fixed by the above, but kept here for reference
+			$process = $this->wire()->process; 
+			if($item && $process instanceof WirePageEditor) { 
+				$contextPage = $process->getPage();
+				if(wireInstanceOf($contextPage, 'RepeaterPage') && strpos($this->name, '_repeater') === false) {
+					// @var RepeaterPage $contextPage 
+					$forPage = $contextPage->getForPage();
+					if($forPage->id) $contextPage = $forPage;
+					$context = "repeater{$contextPage->id}_";
+				}
+			}
+			*/
 		}
+		
 
 		/** @var Page $page */
 		$page = $pagefiles->getFieldsPage();
