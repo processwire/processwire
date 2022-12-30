@@ -512,7 +512,12 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * @param Page $page Page that the Inputfields will be for. 
 	 * @param string|array $contextStr Optional context string to append to all the Inputfield names, OR array of options. 
 	 *  - Optional context string is helpful for things like repeaters.
-	 *  - You may instead specify associative array of any method arguments if preferred. 
+	 *  - Or associative array with any of these options:
+	 *  - `contextStr` (string): Context string to append to all Inputfield names. 
+	 *  - `fieldName` (string|array): Limit to particular fieldName(s) or field ID(s). See $fieldName argument for details.
+	 *  - `namespace` (string): Additional namespace for Inputfield context. 
+	 *  - `flat` (bool): Return all Inputfields in a flattened InputfieldWrapper?
+	 *  - `populate` (bool): Populate page values to Inputfields? (default=true) since 3.0.208
 	 * @param string|array $fieldName Limit to a particular fieldName(s) or field IDs (optional).
 	 *  - If specifying a single field (name or ID) and it refers to a fieldset, then all fields in that fieldset will be included. 
 	 *  - If specifying an array of field names/IDs the returned InputfieldWrapper will maintain the requested order. 
@@ -530,13 +535,17 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 				'fieldName' => $fieldName, 
 				'namespace' => $namespace,
 				'flat' => $flat, 
+				'populate' => true, // populate page values?
 			);
 			$options = $contextStr;
 			$options = array_merge($defaults, $options);
 			$contextStr = $options['contextStr'];
 			$fieldName = $options['fieldName'];
 			$namespace = $options['namespace'];
+			$populate = (bool) $options['populate'];
 			$flat = $options['flat'];
+		} else {
+			$populate = true;
 		}
 		
 		$container = $this->wire(new InputfieldWrapper());
@@ -649,7 +658,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 			if(!$inputfield) continue;
 			if($inputfield->collapsed == Inputfield::collapsedHidden) continue;
 
-			if(!$page instanceof NullPage) {
+			if($populate && !$page instanceof NullPage) {
 				$value = $page->get($field->name);
 				$inputfield->setAttribute('value', $value);
 			}

@@ -652,7 +652,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 				$template->roles = array($this->wire()->roles->getGuestRole()->id); 
 				$template->save();
 				
-				$this->message(sprintf($this->_('Added template and fieldgroup: %s'), $basename)); 
+				$this->message(sprintf($this->_('Added template and fieldgroup: %s'), $template->name)); 
 				$addedTemplates[] = $template;
 				
 			} catch(\Exception $e) {

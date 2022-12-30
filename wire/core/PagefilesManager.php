@@ -601,6 +601,76 @@ class PagefilesManager extends Wire {
 	}
 
 	/**
+	 * Get all potential disk paths for given Page files (not yet in use)
+	 * 
+	 * @todo FOR FUTURE USE
+	 * @param Page $page
+	 * @return string[]
+	 * 
+	static public function _paths(Page $page) {
+		$config = $page->wire()->config;
+		$path = $config->paths->files;
+		$securePrefix = $config->pagefileSecurePathPrefix;
+		$useSecure = $page->secureFiles();
+		$useExtended = $config->pagefileExtendedPaths;
+		$useUnique = $config->pagefileUnique && $page->hasStatus(Page::statusUnique);
+		
+		if(!strlen($securePrefix)) $securePrefix = self::defaultSecurePathPrefix;
+		
+		$paths = array(
+			'current' => '',
+			'normal' => $path . "$page->id/",
+			'unique' => $path . "0/$page->name/",
+			'extended' => $path . self::_dirExtended($page->id),
+			'secure' => $path . $securePrefix . "$page->id/",
+			'secureUnique' => $path . "0/$securePrefix$page->name/",
+			'secureExtended' => $path . self::_dirExtended($page->id, $securePrefix),
+		);
+
+		if($useUnique) {
+			// use unique page name paths
+			$paths['current'] = ($useSecure ? $paths['secureUnique'] : $paths['unique']); 
+			
+		} else if($useSecure) {
+			// use secure files
+			$paths['current'] = ($useExtended ? $paths['secureExtended'] : $paths['secure']);
+			
+		} else {
+			// use normal path
+			$paths['current'] = ($useExtended ? $paths['extended'] : $paths['normal']);
+		}
+		
+		return $paths;	
+	}
+	 */
+
+	/**
+	 * Scan all paths for page and make sure only the correct one exists (not yet in use)
+	 * 
+	 * Also crates and moves files when necessary.
+	 * 
+	 * @todo FOR FUTURE USE
+	 * @param Page $page
+	 * 
+	private function verifyPaths(Page $page) {
+		$paths = self::_paths($page);
+		$current = $paths['current'];
+		$currentExists = is_dir($current);
+		unset($paths['current']); 
+		foreach($paths as $path) {
+			if(!is_dir($path)) continue;
+			if(!$currentExists) {
+				$this->_createPath($current);
+				$currentExists = true;
+			}
+			$this->_copyFiles($path, $current);
+			$this->wire()->files->rmdir($path, true);
+			self::$numRenamedPaths++;
+		}
+	}
+	 */
+
+	/**
 	 * Get quantity of renamed paths to to pagefileSecure changes
 	 * 
 	 * #pw-internal

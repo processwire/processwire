@@ -284,7 +284,20 @@ abstract class ProcessPageListRender extends Wire {
 	 *
 	 */
 	public function ___getPageActions(Page $page) {
-		return $this->actions->getActions($page); 
+		$actions = $this->actions->getActions($page);
+		/*
+		 * @todo force 'extras' option to be last
+		if(isset($actions['extras'])) {
+			$keys = array_keys($actions);
+			$lastKey = array_pop($keys);
+			if($lastKey !== 'extras') {
+				$extras = $actions['extras'];
+				unset($actions['extras']);
+				$actions['extras'] = $extras; // move to last
+			}
+		}
+		*/
+		return $actions;
 	}
 	
 	/**

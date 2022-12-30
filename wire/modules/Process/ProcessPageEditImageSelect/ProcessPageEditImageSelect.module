@@ -1369,7 +1369,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$json = (int) $input->get('json'); // 1 or 0 (for json output mode on or off)
 		$rotate = (int) $input->get('rotate');
 		$flip = $input->get('flip'); 
+		$crop = $input->get('crop'); 
+		
 		if($flip != 'v' && $flip != 'h') $flip = '';
+		if($crop !== null && (!ctype_alnum($crop) || strlen($crop) > 20)) $crop = '';
 		
 		if(strpos($class, 'hidpi') !== false) {
 			if(!$hidpi) $hidpi = true; 
@@ -1378,7 +1381,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 		
 		$image = $this->getPageimage(true);
-		if(strpos($image->basename, '-cropx') !== false) $image = $this->getLastCrop($image); 
+		
+		if(!$crop && strpos($image->basename, '-cropx') !== false) $image = $this->getLastCrop($image);
 		
 		if(	(!$hidpi && $width < $image->width) || 
 			($hidpi && $width < $image->hidpiWidth()) ||
@@ -1392,6 +1396,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			);
 			if($rotate) $options['rotate'] = $rotate; 
 			if($flip) $options['flip'] = $flip;
+			if($crop) $options['cropping'] = $crop;
 			//$this->log(print_r($options, true)); 
 			$resized = $image->width($width, $options); 
 			$height = $resized->height();
