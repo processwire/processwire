@@ -517,8 +517,8 @@ abstract class Inputfield extends WireData implements Module {
 			
 		} else if($key === 'addClass') {
 			if(is_string($value) && !ctype_alnum($value)) {
-				$test = str_replace(array(' ', ':', ',', '-', '_', '.', '@', "\n"), '', $value);
-				if(!ctype_alnum($test)) $value = preg_replace('![^-_:@,. a-zA-Z0-9\n]!', '', $value);
+				$test = str_replace(array(' ', ':', ',', '-', '+', '=', '!', '_', '.', '@', "\n"), '', $value);
+				if(!ctype_alnum($test)) $value = preg_replace('/[^-+_:=@!,. a-zA-Z0-9\n]/', '', $value);
 			}
 			$this->addClass($value);
 		}
@@ -1079,8 +1079,11 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 */
 	public function addClass($class, $property = 'class') {
+
+		$force = strpos($property, '=') === 0; // force set, skip processing by addClassString
+		if($force) $property = ltrim($property, '='); 
 		
-		if(is_string($class) && !ctype_alnum($class)) {
+		if(is_string($class) && !ctype_alnum($class) && !$force) { 
 			if(strpos($class, ':') || strpos($class, "\n") || strpos($class, ",")) {
 				return $this->addClassString($class, $property);
 			}
@@ -1180,7 +1183,7 @@ abstract class Inputfield extends WireData implements Module {
 				if(strpos($class, '-') === 0) {
 					$this->removeClass(ltrim($class, '-'), $type);
 				} else {
-					$this->addClass($class, $type);
+					$this->addClass($class, "=$type"); // "=type" prevents further processing
 				}
 			}
 		}
@@ -1745,6 +1748,7 @@ abstract class Inputfield extends WireData implements Module {
 				"`";
 			$f->collapsed = Inputfield::collapsedBlank;
 			$f->renderFlags = self::renderLast;
+			$f->val($this->getSetting('addClass'));
 			$inputfields->add($f);
 		}
 	
