@@ -1434,6 +1434,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		foreach($inputfields->getAll() as $f) {
 			/** @var Inputfield $f  */
 			
+			if($f->get('requiredAttr') || $f->attr('required')) {
+				// required attribute not possible for dynamically changed inputs
+				$f->set('requiredAttr', 0);
+				$f->removeAttr('required');
+			}
+			
 			if(wireInstanceOf($f, 'InputfieldCKEditor')) {
 				/** @var InputfieldCKEditor $f */
 				$ckeField = $f->hasField;
