@@ -1361,7 +1361,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * 
 	 * #pw-group-errors
 	 * 
-	 * @return Inputfield[]
+	 * @return array|Inputfield[] Array of Inputfield objects indexed by Inputfield name attribute
 	 * @since 3.0.205
 	 * 
 	 */

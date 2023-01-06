@@ -981,7 +981,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function queryLog($sql = '', $note = '') {
-		if(empty($sql)) return $this->queryLog;
+		if($sql === '') return $this->queryLog;
 		if($sql === true) {
 			$this->debugMode = true; 
 			$this->queryLog = array();
@@ -1309,7 +1309,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * @param array $columns Associative array with one or more of `[ 'old_name' => 'new_name' ]`
 	 * @return int Number of columns renamed
 	 * @since 3.0.185
-	 * @throws \PDOException|WireException
+	 * @throws \PDOException
 	 * 
 	 */
 	public function renameColumns($table, array $columns) {
@@ -1352,7 +1352,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * @param string $oldName
 	 * @param string $newName
 	 * @return bool
-	 * @throws \PDOException|WireException
+	 * @throws \PDOException
 	 * @since 3.0.185
 	 * 
 	 */

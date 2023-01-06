@@ -1293,7 +1293,7 @@ class Sanitizer extends Wire {
 	 * @param string $value Email address to sanitize and validate.
 	 * @param array $options All options require 3.0.208+
 	 *  - `allowIDN` (bool|int): Allow internationalized domain names? (default=false)
-	 *     Specify int 2 to also allow UTF-8 in local-part of email [SMTPUTF8] (i.e. "bøb" in "bøb@email.com")
+	 *     Specify int 2 to also allow UTF-8 in local-part of email [SMTPUTF8] (i.e. `bøb`).
 	 *  - `getASCII` (bool): Returns ASCII encoded version of email when host is IDN (default=false)
 	 *     Does not require the allowIDN option since returned email host will be only ASCII.
 	 *     Not meant to be combined with allowIDN=2 option since local-part of email does not ASCII encode.

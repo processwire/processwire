@@ -3,8 +3,10 @@
 /**
  * RepeaterPage represents an individual repeater page item
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property-read int $depth
  *
  */
 
@@ -225,6 +227,11 @@ class RepeaterPage extends Page {
 		if($name !== $_name) $this->name = $name;
 		$this->depth = $depth;
 	}
+
+	/* @todo
+	public function depthParent() { }
+	public function depthChildren() { }
+	 */ 
 
 	/**
 	 * Is this page public?
