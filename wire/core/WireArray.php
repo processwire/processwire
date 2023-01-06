@@ -1409,12 +1409,33 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		}
 
 		foreach($data as $item) {
-			/** @var Wire $item */
-			$key = $this->getItemPropertyValue($item, $property); 
+			
+			if($item instanceof Wire) {
+				$key = $this->getItemPropertyValue($item, $property);
+			} else if(is_object($item)) {
+				if($property === '') {
+					$key = method_exists($item, '__toString') ? "$item" : wireClassName($item);
+				} else {
+					$key = $item->$property;
+				}
+			} else if(is_array($item)) {
+				$key = isset($item[$property]) ? $item[$property] : null;
+			} else {
+				// $property does not apply to non-object/non-array items
+				$key = $item; 
+			}
 
-			// if item->property resolves to another Wire, then try to get the subProperty from that Wire (if it exists)
-			if($key instanceof Wire && $subProperty) {
-				$key = $this->getItemPropertyValue($key, $subProperty);
+			// if there’s a $subProperty and $key resolves to a containing type, then try to get it
+			if($subProperty && $key) { 
+				if($key instanceof Wire) {
+					$key = $this->getItemPropertyValue($key, $subProperty);
+				} else if(is_object($key)) {
+					$key = $key->$subProperty;
+				} else if(is_array($key)) {
+					$key = isset($key[$subProperty]) ? $key[$subProperty] : null;
+				} else {
+					// no containing type, $subProperty ignored
+				}
 			}
 
 			if($key === null) {
