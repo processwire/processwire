@@ -200,7 +200,7 @@ echo
 			$oc++;
 		}
 		ksort($hooksSorted);
-		foreach($hooksSorted as $key => $hook) {
+		foreach($hooksSorted as $hook) {
 			$suffix = $hook['options']['type'] == 'method' ? '()' : '';
 			$toObject = !empty($hook['toObject']) ? $hook['toObject'] : '';
 			$toMethod = $hook['toMethod'];
@@ -209,7 +209,7 @@ echo
 				"<tr>" . 
 				"<td>" . ($hook['options']['before'] ? 'before ' : '') . ($hook['options']['after'] ? 'after' : '') . "</td>" . 
 				"<td>" . ($hook['options']['fromClass'] ? $hook['options']['fromClass'] . '::' : '') . "$hook[method]$suffix</td>" . 
-				"<td>" . ($toObject ? "$toObject::$toMethod" : $toMethod) . "()</td>" . 
+				"<td>" . ($toObject ? wireClassName($toObject) . "::$toMethod" : $toMethod) . "()</td>" .
 				"<td>" . ($hook['options']['allInstances'] || $hook['options']['fromClass'] ? "class " : "instance ") . $hook['options']['type'] . "</td>" . 
 				"<td>" . $hook['options']['priority'] . "</td>" . 
 				"</tr>";
@@ -237,7 +237,7 @@ echo
 		</div>
 	<?php endif; ?>
 
-	<?php if($tool == 'database'): ?>
+	<?php if($tool == 'database' && $database): ?>
 		<?php
 		$o = '';
 		$oc = 0;
@@ -288,7 +288,7 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 
 	<?php if($tool == 'db' && $db->isInstantiated()): ?>
 		<?php
-		$queries = Database::getQueryLog();
+		$queries = $database->queryLog();
 		$oc = count($queries);
 		?>
 		<div class="container">
