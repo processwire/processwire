@@ -10,7 +10,7 @@ if(!defined("PROCESSWIRE_INSTALL")) die();
 	<!-- FOOTER -->
 	<footer id='pw-footer' class='uk-margin'>
 		<div class='pw-container uk-container uk-container-center'>
-			<p>ProcessWire 3.x &copy; 2022</p>
+			<p>ProcessWire 3.x &copy; 2023</p>
 		</div>
 	</footer>
 
