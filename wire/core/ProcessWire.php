@@ -85,7 +85,7 @@ class ProcessWire extends Wire {
 	 * Version suffix string (when applicable)
 	 * 
 	 */
-	const versionSuffix = '';
+	const versionSuffix = 'dev';
 
 	/**
 	 * Minimum required index.php version, represented by the PROCESSWIRE define

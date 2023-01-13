@@ -356,7 +356,7 @@ function InputfieldRepeater($) {
 		var pageID = $repeater.attr('data-page'); // $("#Inputfield_id").val();
 		var itemID = parseInt($item.attr('data-page'));
 		var repeaterID = $repeater.attr('id');
-		var fieldName = repeaterID.replace('wrap_Inputfield_', '').replace('_LPID' + pageID, '');
+		var fieldName = getRepeaterFieldName($repeater);
 		var ajaxURL = ProcessWire.config.InputfieldRepeater.editorUrl + '?id=' + pageID + '&field=' + fieldName + '&repeater_edit=' + itemID;
 		var $spinner = $item.find('.InputfieldRepeaterDrag');
 		var $inputfields = $loaded.closest('.Inputfields');
@@ -483,7 +483,7 @@ function InputfieldRepeater($) {
 		
 		// get addItem from ajax
 		if(!pageID) pageID = inputfieldPageID;
-		var fieldName = $inputfieldRepeater.attr('id').replace('wrap_Inputfield_', '');
+		var fieldName = getRepeaterFieldName($inputfieldRepeater);
 		var $spinner = $addLink.parent().find('.InputfieldRepeaterSpinner');
 		var ajaxURL = ProcessWire.config.InputfieldRepeater.editorUrl + '?id=' + pageID + '&field=' + fieldName;
 
@@ -822,6 +822,18 @@ function InputfieldRepeater($) {
 	
 	function getItemLabel($item) {
 		return $item.children('.InputfieldHeader').children('.InputfieldRepeaterItemLabel');
+	}
+	
+	function getRepeaterFieldName($inputfield) {
+		if(!$inputfield.hasClass('InputfieldRepeater')) $inputfield = $inputfield.closest('.InputfieldRepeater');
+		if(!$inputfield.length) return '';
+		var fieldName = $inputfield.attr('data-name');
+		if(typeof fieldName === 'undefined') {
+			fieldName = $inputfield.attr('id').replace('wrap_Inputfield_', '');
+			if(fieldName.indexOf('_LPID') > -1) fieldName = fieldName.replace(/_LPID\d+$/, '');
+			console.log('Warning: repeater inputfield lacks data-name so used fallback', $inputfield);
+		}
+		return fieldName;
 	}
 	
 	/*** SORT FUNCTIONS ***********************************************************************************/
