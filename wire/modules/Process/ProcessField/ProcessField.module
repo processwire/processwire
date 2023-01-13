@@ -1709,15 +1709,17 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->description = $this->_('If you want to associate an icon with the field, select an icon below. Click the "Show all icons" link for visual selection.'); // Description for field tags
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->add($field);
-	
-		/** @var InputfieldMarkup $field */
-		$field = $modules->get('InputfieldMarkup');
-		$field->attr('name', '_usage_table');
-		$field->label = $this->_('Usage');
-		$field->icon = 'search';
-		$field->collapsed = Inputfield::collapsedYes;
-		$field->value = 'value';
-		$form->add($field);
+
+		if($this->field->id) {
+			/** @var InputfieldMarkup $field */
+			$field = $modules->get('InputfieldMarkup');
+			$field->attr('name', '_usage_table');
+			$field->label = $this->_('Usage');
+			$field->icon = 'search';
+			$field->collapsed = Inputfield::collapsedYes;
+			$field->value = 'value';
+			$form->add($field);
+		}
 
 		return $form;
 	}
