@@ -1481,6 +1481,9 @@ function InputfieldDependencies($target) {
 			var match = part.match(/^[,\s]*([_.|a-zA-Z0-9]+)(=|!=|<=|>=|<|>|%=)([^,]+),?$/);
 			if(!match) continue;
 			var field = match[1];
+			if(field.indexOf('forpage.') == 0) {
+				field = field.replace('forpage.', '').replace(/\_repeater.*/g, '');
+			}
 			var operator = match[2];
 			var value = match[3];
 			var subfield = '';
