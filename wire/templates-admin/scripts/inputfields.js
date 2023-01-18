@@ -1482,7 +1482,7 @@ function InputfieldDependencies($target) {
 			if(!match) continue;
 			var field = match[1];
 			if(field.indexOf('forpage.') == 0) {
-				field = field.replace('forpage.', '').replace(/\_repeater.*/g, '');
+				field = field.replace('forpage.', '').replace(/\_repeater\d+/g, '');
 			}
 			var operator = match[2];
 			var value = match[3];
