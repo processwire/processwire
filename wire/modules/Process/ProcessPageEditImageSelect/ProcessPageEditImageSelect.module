@@ -449,7 +449,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				if($repeaterValue) {
 					foreach($repeaterValue as $p) {
 						$images = $this->getImages($p, $p->fields, $level + 1);
-						if(!count($images)) continue;
+						if(!wireCount($images)) continue;
 						foreach($images as $image) {
 							$parentFields = $image->get('_parentFields');
 							if(!is_array($parentFields)) $parentFields = array();
@@ -457,7 +457,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 							$image->setQuietly('_parentFields', $parentFields); 
 						}
 						$allImages = array_merge($allImages, $images);
-						$numImages += count($images);
+						$numImages += wireCount($images);
 						$numImageFields++;
 					}
 				}
@@ -547,7 +547,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		$out = '';
 
-		if(count($images)) {
+		if(wireCount($images)) {
 			$winwidth = (int) $this->wire()->input->get('winwidth');
 			$in = $modules->get('InputfieldImage'); /** @var InputfieldImage $in */
 			$in->set('adminThumbs', true);
@@ -602,13 +602,13 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$field->attr('id+name', 'page_id'); 
 		$field->value = $this->page->id; 
 		$field->parent_id = 0; 
-		$field->collapsed = count($images) ? Inputfield::collapsedYes : Inputfield::collapsedNo;
+		$field->collapsed = wireCount($images) ? Inputfield::collapsedYes : Inputfield::collapsedNo;
 		$field->required = true; 
 		$form->append($field);
 		
 		// locate any image fields
 		$imageFields = $this->getImageFields($this->page);
-		if(count($imageFields)) {
+		if(wireCount($imageFields)) {
 			$imageFieldNames = implode(',', array_keys($imageFields)); 
 			/** @var InputfieldButton $btn */
 			$btn = $modules->get('InputfieldButton');
@@ -1281,7 +1281,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					$finalImage = $value->get($this->original);
 					$variationInfo = $finalImage->rebuildVariations(0, array('is', 'hidpi'));
 					foreach($variationInfo as $type => $files) {
-						if(!count($files)) continue;
+						if(!wireCount($files)) continue;
 						$body .= "<h3>" . ucfirst($type) . "</h3>";
 						$body .= "<p>" . implode('<br />', $files) . "</p>";
 						// $this->wire('log')->save('images', "$type: [ " . implode(' ], [ ', $files) . ' ]');
@@ -1703,7 +1703,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$hidden = $modules->get('InputfieldHidden');
 		$hidden->attr('id+name', 'varcnt_id'); 
 		$hidden->attr('value', $varcnt); 
-		$hidden->attr('data-cnt', count($variations)); 
+		$hidden->attr('data-cnt', wireCount($variations)); 
 		$form->add($hidden); 
 		
 		$modules->get('JqueryMagnific'); 
