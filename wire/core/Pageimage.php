@@ -1321,16 +1321,17 @@ class Pageimage extends Pagefile {
 	/**
 	 * Get ratio of width divided by height
 	 * 
+	 * @param int $precision Optionally specify a value >2 for custom precision (default=2) 3.0.211+
 	 * @return float
 	 * @since 3.0.154
 	 * 
 	 */
-	public function ratio() {
+	public function ratio($precision = 2) {
 		$width = $this->width();
 		$height = $this->height();
 		if($width === $height) return 1.0;
 		$ratio = $width / $height;
-		$ratio = round($ratio, 2);
+		$ratio = round($ratio, max(2, (int) $precision));
 		if($ratio > 99.99) $ratio = 99.99; // max allowed width>height ratio
 		if($ratio < 0.01) $ratio = 0.01; // min allowed height>width ratio
 		return $ratio;
