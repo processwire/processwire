@@ -222,13 +222,23 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 			}
 		}
 		
+		$rootUrl = $this->wire()->config->urls->httpRoot;
+		
 		if($this->itemDescriptionField) {
 			// description summary
 			$description = $page->get($this->itemDescriptionField);
 			if($description !== null) {
 				$description = $sanitizer->unentities($description, true);
 				$description = $this->truncateDescription($description);
-				$description = '<![CDATA[' . $this->ent($description) . ']]>';
+				if(strpos($description, '/') !== false) {
+					// convert relative URLs to absolute with host
+					$description = str_ireplace([' href="/', ' href=\'/', ' src="/', ' src=\'/'], [' href="' . $rootUrl, " href='$rootUrl", ' src="' . $rootUrl, " src='$rootUrl"], $description);
+				}
+				if(mb_eregi('href=[\'"]#', $description) !== false) {
+					// convert in-page #anchor links to page URL with anchor
+					$description = str_ireplace([' href="#', ' href=\'#'], [" href=\"$page->httpUrl#", " href='$page->httpUrl#"], $description);
+				}
+				$description = '<![CDATA[' . $description . ']]>';
 			} else {
 				$description = '';
 			}
@@ -237,15 +247,14 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		if($this->itemContentField) {
 			// full HTML content, like that from CKEditor
 			$content = (string) $page->get($this->itemContentField);
-			$content = str_ireplace(array('<![CDATA[', ']]>'), array('&lt;![CDATA[', ']]&gt;'), $content);
-			$rootUrl = $this->wire()->config->urls->httpRoot;
-			if(strpos($content, '"/') !== false) {
+			$content = str_ireplace(['<![CDATA[', ']]>'], ['&lt;![CDATA[', ']]&gt;'], $content);
+			if(strpos($content, '/') !== false) {
 				// convert relative URLs to absolute with host
-				$content = str_ireplace(array(' href="/', ' src="/'), array(' href="' . $rootUrl, ' src="' . $rootUrl), $content);
+				$content = str_ireplace([' href="/', ' href=\'/', ' src="/', ' src=\'/'], [' href="' . $rootUrl, " href='$rootUrl", ' src="' . $rootUrl, " src='$rootUrl"], $content);
 			}
-			if(strpos($content, 'href="#') !== false) {
+			if(mb_eregi('href=[\'"]#', $content) !== false) {
 				// convert in-page #anchor links to page URL with anchor
-				$content = str_ireplace(' href="#', ' href="' . $page->httpUrl . '#', $content);
+				$content = str_ireplace([' href="#', ' href=\'#'], [" href=\"$page->httpUrl#", " href='$page->httpUrl#"], $content);
 			}
 			$content = "\t\t<content:encoded><![CDATA[" . $content . "]]></content:encoded>\n";
 		}
