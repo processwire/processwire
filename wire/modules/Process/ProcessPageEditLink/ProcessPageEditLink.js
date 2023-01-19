@@ -153,8 +153,10 @@ $(document).ready(function() {
 			var val = $("<div />").text($linkTitle.val()).html();
 			$link.attr('title', val); 
 		}
-
-		if($linkText.length && $linkText.val().length) {
+		
+		if(ProcessWire.config.ProcessPageEditLink.noLinkTextEdit) {
+			// link text editing disabled
+		} else if($linkText.length && $linkText.val().length) {
 			$link.text($linkText.val());
 		}
 

@@ -15,6 +15,7 @@
  * @property int $extLinkRel
  * @property string $extLinkTarget
  * @property string $extLinkClass
+ * @property int $noLinkTextEdit 3.0.211+
  *
  */
 
@@ -24,7 +25,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page Edit Link',          
 			'summary' => 'Provides a link capability as used by some Fieldtype modules (like rich text editors).', 
-			'version' => 109, 
+			'version' => 110, 
 			'permanent' => true, 
 			'permission' => 'page-edit',
 			'icon' => 'link', 
@@ -86,6 +87,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'extLinkRel' => '',
 			'extLinkTarget' => '',
 			'extLinkClass' => '', 
+			'noLinkTextEdit' => 0, 
 		);
 	}
 
@@ -130,6 +132,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'extLinkRel' => $this->wire('sanitizer')->names($this->extLinkRel), 
 			'extLinkTarget' => $this->extLinkTarget, 
 			'extLinkClass' => $this->wire('sanitizer')->names($this->extLinkClass), 
+			'noLinkTextEdit' => (int) $this->noLinkTextEdit
 			));
 
 		parent::init();
@@ -167,8 +170,10 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$fieldset->attr('title', $this->_('Link')); 
 		$fieldset->addClass('WireTab');
 		$form->add($fieldset);
-
-		if($currentText) {
+		
+		if($this->noLinkTextEdit) {
+			// link text editing disabled
+		} else if($currentText) {
 			/** @var InputfieldText $field */
 			$field = $this->modules->get("InputfieldText");
 			$field->label = $this->_('Link text');
@@ -510,7 +515,19 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$f->attr('value', isset($data['urlType']) ? $data['urlType'] : self::urlTypeAbsolute); 
 		$f->notes = $this->_('*Currently experimental'); 
 		$f->collapsed = Inputfield::collapsedYes;
-		$inputfields->add($f); 
+		$inputfields->add($f);
+
+		/** @var InputfieldCheckbox $f */
+		$f = $this->wire()->modules->get('InputfieldCheckbox');
+		$f->attr('name', 'noLinkTextEdit');
+		$f->label = $this->_('Disable link text edit feature?');
+		$f->description = $this->_('Disables the “Edit Link Text” feature, enabling you to support links that can contain existing markup.');
+		if(empty($data['noLinkTextEdit'])) {
+			$f->collapsed = Inputfield::collapsedYes;
+		} else {
+			$f->attr('checked', 'checked');
+		}
+		$inputfields->add($f);
 		
 		return $inputfields; 
 	}
