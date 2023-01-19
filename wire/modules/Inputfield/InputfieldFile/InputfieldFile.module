@@ -993,7 +993,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			}
 			$replaceFile = $this->value->getFile($replace);
 			if($replaceFile instanceof Pagefile) {
-				$this->processInputDeleteFile($replaceFile);
+				// $this->processInputDeleteFile($replaceFile);
+				// PR#229 to fix #1586:
+				if($replaceFile->basename !== $pagefile->basename) { 
+					$this->processInputDeleteFile($replaceFile);
+				}
+				// ---
 				if(strtolower($pagefile->ext()) == strtolower($replaceFile->ext())) {
 					$this->value->rename($pagefile, $replaceFile->name);
 				}
