@@ -540,13 +540,9 @@ class MarkupPagerNav extends Wire implements Module {
 		foreach($this->options['getVars'] as $key => $value) {
 			if(is_array($value)) {
 				if($this->options['arrayToCSV']) {
-					$a = $value;
-					$value = '';
-					foreach($a as $k => $v) $value .= "$v,";
-					$value = rtrim($value, ", ");
-					$queryString .= "$key=" . urlencode($value) . "&";
+					$queryString .= "$key=" . urlencode(implode(",", $value)) . "&";
 				} else {
-					foreach($value as $k => $v) $queryString .= "$key%5B%5D=" . urlencode($v) . "&";
+					foreach($value as $v) $queryString .= "$key%5B%5D=" . urlencode($v) . "&";
 				}
 
 			} else {
