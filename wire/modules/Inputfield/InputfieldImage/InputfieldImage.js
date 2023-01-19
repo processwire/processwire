@@ -2351,13 +2351,15 @@ function InputfieldImage($) {
 			$newTab.find(".InputfieldImage").each(function() {
 				initInputfield($(this));
 			});
-		}).on('opened', '.InputfieldImage', function() {
-			//console.log('InputfieldImage opened');
-			initInputfield($(this));
 		}).on('opened', function() {
-			$(this).find(".InputfieldImage").each(function() {
-				initInputfield($(this));
-			});
+			var $t = $(this);
+			if($t.hasClass('InputfieldImage')) {
+				initInputfield($t);
+			} else {
+				$t.find('.InputfieldImage').each(function() {
+					initInputfield($(this));
+				});
+			}
 		});
 	}
 	
