@@ -153,6 +153,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 *
 	 */
 	public function setLanguageValue($languageID, $value) {
+		if($this->page->template->noLang) $languageID = $this->defaultLanguagePageID();
 		if($languageID instanceof Language) $languageID = $languageID->id;
 		if(is_string($languageID) && !ctype_digit("$languageID")) {
 			$languageID = $this->wire()->languages->get($languageID)->id;
