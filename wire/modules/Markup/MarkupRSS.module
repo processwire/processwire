@@ -15,7 +15,7 @@
  *   'itemTitleField' => 'title',
  *   'itemDateField' => 'created', // date field or 'created', 'published' or 'modified'
  *   'itemDescriptionField' => 'summary', 
- *   'itemDescriptionLength' => 1000, // truncate description to this max length
+ *   'itemDescriptionLength' => 1000, // truncate descriptions to this max length or 0 to allow HTML
  *   'itemContentField' => 'body', // optional HTML full-content, or omit to exclude
  *   'itemAuthorField' => 'author', // optional text or Page field containing author(s)
  * ]); 
@@ -28,7 +28,7 @@
  * options you can change at runtime. 
  *
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $title
@@ -38,16 +38,16 @@
  * @property string $css
  * @property string $copyright
  * @property int $ttl
- * @property bool $stripTags
  * @property string $itemTitleField
  * @property string $itemContentField
  * @property string $itemDateField
- * @property string $itemDescriptionField
- * @property string $itemDescriptionLength
- * @property string $itemAuthorField
+ * @property string $itemDescriptionField Field to use for item description.
+ * @property string $itemDescriptionLength Max length for item description or 0 to allow HTML markup with any length (default=1024)
+ * @property string $itemAuthorField 
  * @property string $itemAuthorElement
  * @property string $header
  * @property array|PageArray $feedPages
+ * @property bool $stripTags Strip tags from item description? Applies only if `itemDescriptionLength>0`. (default=true)
  *
  *
  */
@@ -61,7 +61,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Markup RSS Feed',
-			'version' => 104,
+			'version' => 105,
 			'summary' => 'Renders an RSS feed. Given a PageArray, renders an RSS feed of them.',
 			'icon' => 'rss-square',
 		);
@@ -226,9 +226,15 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 			// description summary
 			$description = $page->get($this->itemDescriptionField);
 			if($description !== null) {
-				$description = $sanitizer->unentities($description, true);
-				$description = $this->truncateDescription($description);
-				$description = '<![CDATA[' . $this->ent($description) . ']]>';
+				if($this->itemDescriptionLength == 0) {
+					// direct markup allowed in item description
+					$description = $this->relativeToAbsoluteHtml($description, $page);
+				} else {
+					$description = $sanitizer->unentities($description, true);
+					$description = $this->truncateDescription($description);
+					$description = $this->ent($description);
+				}
+				$description = '<![CDATA[' . $description . ']]>';
 			} else {
 				$description = '';
 			}
@@ -237,16 +243,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		if($this->itemContentField) {
 			// full HTML content, like that from CKEditor
 			$content = (string) $page->get($this->itemContentField);
-			$content = str_ireplace(array('<![CDATA[', ']]>'), array('&lt;![CDATA[', ']]&gt;'), $content);
-			$rootUrl = $this->wire()->config->urls->httpRoot;
-			if(strpos($content, '"/') !== false) {
-				// convert relative URLs to absolute with host
-				$content = str_ireplace(array(' href="/', ' src="/'), array(' href="' . $rootUrl, ' src="' . $rootUrl), $content);
-			}
-			if(strpos($content, 'href="#') !== false) {
-				// convert in-page #anchor links to page URL with anchor
-				$content = str_ireplace(' href="#', ' href="' . $page->httpUrl . '#', $content);
-			}
+			$content = $this->relativeToAbsoluteHtml($content, $page);
 			$content = "\t\t<content:encoded><![CDATA[" . $content . "]]></content:encoded>\n";
 		}
 
@@ -314,7 +311,6 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		
 		if(!$maxlen) return $str;
 
-		// note: tags are not stripped if itemDescriptionLength == 0 and stripTags == true
 		if($this->stripTags) $str = strip_tags($str); 
 
 		if(strlen($str) < $maxlen) return $str; 
@@ -341,6 +337,33 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		if(!$bestPos) $bestPos = $maxlen;
 
 		return trim(substr($str, 0, $bestPos+1)); 
+	}
+	
+	/**
+	 * Update links and other references in HTML content to be suitable for RSS
+	 *
+	 * @param string $content
+	 * @param Page $page
+	 * @return string
+	 *
+	 */
+	protected function relativeToAbsoluteHtml($content, Page $page) {
+
+		$rootUrl = $this->wire()->config->urls->httpRoot;
+		$pageUrl = $page->httpUrl();
+
+		$a = array(
+			' href="/' => ' href="' . $rootUrl,
+			" href='/" => " href='" . $rootUrl,
+			' src="/' => ' src="' . $rootUrl,
+			" src='/" => " src='" . $rootUrl,
+			' href="#' => ' href="' . $pageUrl . '#',
+			" href='#" => " href='" . $pageUrl . '#',
+			'<![CDATA[' => '&lt;![CDATA[',
+			']]>' => ']]&gt;'
+		);
+
+		return str_replace(array_keys($a), array_values($a), $content);
 	}
 
 	/**
@@ -408,6 +431,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		$f->columnWidth = 50;
 		$inputfields->add($f);
 
+		/** @var InputfieldURL $f */
 		$f = $modules->get('InputfieldURL');
 		$f->attr('name', 'css');
 		$f->attr('value', $data['css']);
@@ -458,7 +482,8 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		$f2a->attr('value', (int) $data['itemDescriptionLength']);
 		$f2a->label = "Maximum characters for item description field";
 		$f2a->columnWidth = 50;
-		$f2a->description = "The item description will be truncated to be no longer than the max length provided. Specify '0' for no max length. When there is no max length, markup tags will not be stripped.";
+		$f2a->description = "The item description will be truncated to be no longer than the max length. When greater than 0, HTML tags will be removed or encoded.";
+		$f2a->notes = "Specify `0` for no max length AND to allow HTML in the description.";
 
 		/** @var InputfieldSelect $f4 */
 		$f4 = $modules->get('InputfieldSelect');
