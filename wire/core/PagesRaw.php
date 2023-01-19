@@ -781,6 +781,8 @@ class PagesRawFinder extends Wire {
 		$templatesById = array();
 		$getPaths = $this->getPaths;
 		
+		if(empty($this->selector)) return;
+		
 		foreach($this->findIDs($this->selector, '*') as $row) {
 			$id = (int) $row['id'];
 			$this->ids[$id] = $id;
