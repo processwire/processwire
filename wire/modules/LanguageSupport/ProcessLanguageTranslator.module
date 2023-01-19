@@ -5,7 +5,7 @@
  *
  * This is the process assigned to the processwire/setup/language-translator/ page.
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -24,7 +24,7 @@ class ProcessLanguageTranslator extends Process {
 		return array(
 			'title' => __('Language Translator', __FILE__),
 			'summary' => __('Provides language translation capabilities for ProcessWire core and modules.', __FILE__),
-			'version' => 102,
+			'version' => 103,
 			'author' => 'Ryan Cramer',
 			'requires' => 'LanguageSupport',
 			'permission' => 'lang-edit'
@@ -396,20 +396,40 @@ class ProcessLanguageTranslator extends Process {
 	protected function executeEditField($hash, $untranslated, $translated, $alternates) {
 
 		/** @var InputfieldText|InputfieldTextarea $field */
-
-		if(strpos($untranslated, "\n") !== false) {
-			$qty = substr_count($untranslated, "\n")+1;
-			$qty2 = substr_count($translated, "\n")+1; 
-			if($qty2 > $qty) $qty = $qty2;
-			$field = $this->wire()->modules->get("InputfieldTextarea");
-			$field->attr('rows', $qty > 2 ? $qty : 2);
-		} else if(strlen($untranslated) < 128) {
-			$field = $this->wire()->modules->get("InputfieldText");
-		} else {
-			$field = $this->wire()->modules->get("InputfieldTextarea");
-			$field->attr('rows', 3);
+		
+		$comment = isset($this->comments[$hash]) ? $this->comments[$hash] : '';
+		$type = '';
+		
+		if(stripos($comment, 'type=') !== false && preg_match('!type=(\w+)!i', $comment, $matches)) {
+			// if type=value appears in comment then use value as Inputfield module name
+			$type = ucfirst($matches[1]);
+			$comment = str_replace($matches[0], '', $comment);
 		}
-	
+		
+		if(stripos($comment, 'rows=') !== false && preg_match('!rows=(\d+)!i', $comment, $matches)) {
+			// if rows=3 appears in comment then accept it as rows attribute for input
+			$rows = (int) $matches[1]; 
+			$comment = str_replace($matches[0], '', $comment);
+		} else if(strpos($untranslated, "\n") !== false) {
+			$qty1 = substr_count($untranslated, "\n")+1;
+			$qty2 = substr_count($translated, "\n")+1; 
+			$rows = max(2, $qty1, $qty2);
+		} else if(strlen($untranslated) < 128) {
+			$rows = 1;
+		} else {
+			$rows = 3;
+		}
+		
+		if(empty($type)) {
+			$type = $rows > 1 ? 'InputfieldTextarea' : 'InputfieldText';
+		} else if(strpos($type, 'Inputfield') !== 0) {
+			$type = "Inputfield$type";
+		}
+		
+		$field = $this->wire()->modules->get($type);
+		if(!$field) $field = $this->wire()->modules->get('InputfieldText');
+		if($rows > 1 && $field instanceof InputfieldTextarea) $field->attr('rows', $rows);
+
 		/** @var InputfieldText $field */
 		$field->attr('id+name', $hash);
 		$field->set('textFormat', Inputfield::textFormatNone);
@@ -417,8 +437,6 @@ class ProcessLanguageTranslator extends Process {
 		$field->label = $untranslated;
 		$field->addClass(strlen($translated) ? 'translated' : 'untranslated', 'wrapClass');
 		$field->addClass('translatable');
-
-		$comment = isset($this->comments[$hash]) ? $this->comments[$hash] : '';
 
 		if($comment) {
 			if(preg_match('{^(.*?)//(.*)$}', $comment, $m)) {
