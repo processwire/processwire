@@ -304,8 +304,8 @@ $config->sessionExpireSeconds = 86400;
  * Use this to determine at runtime whether or not a session is allowed for the current request. 
  * Otherwise, this should always be boolean TRUE. When using this option, we recommend 
  * providing a callable function like below. Make sure that you put in some logic to enable
- * sessions on admin pages at minimum. The callable function receives a single $wire argument
- * which is the ProcessWire instance. 
+ * sessions on admin pages at minimum. The callable function receives a single $session argument
+ * which is the ProcessWire Session instance. 
  * 
  * Note that the API is not fully ready when this function is called, so the current $page and
  * the current $user are not yet known, nor is the $input API variable available. 
