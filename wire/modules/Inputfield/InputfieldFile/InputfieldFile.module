@@ -329,7 +329,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	protected function renderItemDescriptionField(Pagefile $pagefile, $id, $n) {
 		
 		$sanitizer = $this->wire()->sanitizer;
-		$languages = $this->noLang ? null : $this->wire()->languages;
+		$languages = $this->wire()->languages;
 		$user = $this->wire()->user;
 	
 		if($n) {}
@@ -341,7 +341,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 		if($this->renderValueMode) {
 			if($languages) {
-				$description = $pagefile->description($user->language);
+				$description = $pagefile->description($this->noLang ? $languages->getDefault() : $user->language);
 			} else {
 				$description = $pagefile->description;
 			}
@@ -357,11 +357,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$userLanguage = $languages ? $user->language : null;
 			$defaultDescriptionFieldLabel = $sanitizer->entities1($this->labels['description']);
 			
-			if(!$userLanguage || $languages->count() < 2) {
+			if(!$userLanguage || $languages->count() < 2 || $this->noLang) {
 				$numLanguages = 0;
-				$languages = array(null);
+				$forLanguages = array(null);
 			} else {
 				$numLanguages = $languages->count();
+				$forLanguages = $languages;
 				if(is_null($hasLangTabs)) {
 					$modules = $this->wire()->modules;
 					$hasLangTabs = $modules->isInstalled('LanguageTabs');
@@ -373,7 +374,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				}
 			}
 
-			foreach($languages as $language) {
+			foreach($forLanguages as $language) {
 
 				$descriptionFieldName = "description_$id";
 				$descriptionFieldLabel = $defaultDescriptionFieldLabel;
@@ -401,6 +402,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					$out .= "<div class='InputfieldFileDescription'>"; // open wrapper
 					$attrStr = "placeholder='$descriptionFieldLabel&hellip;'";
 					$labelClass = 'detail pw-hidden';
+					
+					// for the $pagefile->description($language) call further below
+					if($languages && $this->noLang) $language = $languages->getDefault();
 				}
 				
 				$attrStr = "name='$descriptionFieldName' id='$descriptionFieldName' $attrStr";
@@ -847,12 +851,16 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function ___extractMetadata(Pagefile $pagefile, array $metadata = array()) {
-		
-		$metadata['description'] = $pagefile->description;
-		
-		$languages = $this->noLang ? null : $this->wire()->languages;
+	
+		$languages = $this->wire()->languages;
 		
 		if($languages) {
+			$metadata['description'] = $pagefile->description($languages->getDefault());
+		} else {
+			$metadata['description'] = $pagefile->description;
+		}
+		
+		if($languages && !$this->noLang) {
 			foreach($languages as $language) {
 				/** @var Language $language */
 				if($language->isDefault()) continue;
@@ -1026,8 +1034,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 	
 		// description and tags
-		$languages = $this->noLang ? null : $this->wire()->languages;
-		$keys = $languages ? array('tags') : array('description', 'tags'); 
+		// $languages = $this->noLang ? null : $this->wire()->languages;
+		$languages = $this->wire()->languages;
+		$useLanguages = $languages && !$this->noLang;
+		$keys = $useLanguages ? array('tags') : array('description', 'tags'); 
 
 		foreach($keys as $key) { 
 			if(isset($input[$key . '_' . $id])) { 
@@ -1045,6 +1055,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		if($languages) {
 			foreach($languages as $language) {
 				/** @var Language $language */
+				if(!$useLanguages && !$language->isDefault()) continue;
 				if(!$languages->editable($language)) continue;
 				$key = $language->isDefault() ? "description_$id" : "description{$language->id}_$id";
 				if(!isset($input[$key])) continue;
@@ -1398,6 +1409,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$this->itemFieldgroup = false;
 			$template = $pagefiles->getFieldsTemplate();
 			if(!$template) return false;
+			if($this->noLang) $template->setQuietly('noLang', 1);
 			$this->itemFieldgroup = $template->fieldgroup;
 		}
 

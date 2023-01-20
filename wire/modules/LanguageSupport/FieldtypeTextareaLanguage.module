@@ -5,7 +5,7 @@ require_once(dirname(__FILE__) . '/FieldtypeLanguageInterface.php');
 /**
  * Multi-language capable textarea field
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -19,7 +19,7 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 			'version' => 100,
 			'summary' => 'Field that stores a multiple lines of text in multiple languages',
 			'requires' => array('LanguageSupportFields')
-			);
+		);
 	}
 
 	/**
@@ -32,19 +32,28 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 	 *
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
-		if(is_object($value) && $value instanceof LanguagesPageFieldValue) {
-			// great, already what we wanted
-		} else {
-			// convert it to a LanguagesPageFieldValue
-			if(is_array($value)) $value = reset($value); 
-			$str = (string) $value; 
-			$value = $page->data($field->name); 
-			if(!is_object($value)) { // string, array or null
-				$value = new LanguagesPageFieldValue($page, $field, $value);
-			}
-			$value->setLanguageValue($this->wire('user')->language->id, $str); 
+		
+		if($value instanceof LanguagesPageFieldValue) return $value;
+		
+		if(is_array($value)) $value = reset($value); 
+		
+		$value = (string) $value;
+		$template = $page->template;
+		$pageValue = $page->data($field->name); 
+		
+		if(!$pageValue instanceof LanguagesPageFieldValue) { // string, array or null
+			$pageValue = new LanguagesPageFieldValue($page, $field, $value);
 		}
-		return $value; 
+		
+		if($template && $template->noLang) {
+			$languages = $this->wire()->languages;
+			$pageValue->setLanguageValue($languages->getDefault()->id, $value);
+		} else {
+			$language = $this->wire()->user->language;
+			if($language) $pageValue->setLanguageValue($language->id, $value);
+		}
+		
+		return $pageValue; 
 	}
 
 	/**
@@ -56,7 +65,8 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 	 */
 	public function getDatabaseSchema(Field $field) {
 		$schema = parent::getDatabaseSchema($field);
-		$languageSupport = $this->wire('modules')->get('LanguageSupport'); 
+		/** @var LanguageSupport $languageSupport */
+		$languageSupport = $this->wire()->modules->get('LanguageSupport'); 
 		foreach($languageSupport->otherLanguagePageIDs as $languageID) {
 			// $schema['data' . $languageID] = $schema['data'];
 			$schema['data' . $languageID] = 'mediumtext';
@@ -92,7 +102,7 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 		// in this method we are delegating the exportValue() to FieldtypeTextLanguage::exportValue
 		// but we want to make sure it has textarea sleepValue, so we pass sleepValue in the $options
 		if(!isset($options['sleepValue'])) $options['sleepValue'] = $this->sleepValue($page, $field, $value);
-		$exportValue = $this->wire('fieldtypes')->get('FieldtypeTextLanguage')->___exportValue($page, $field, $value, $options);
+		$exportValue = $this->wire()->fieldtypes->get('FieldtypeTextLanguage')->___exportValue($page, $field, $value, $options);
 		return $exportValue; 
 	}
 
@@ -107,11 +117,10 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 	 * 
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 	
 		/** @var LanguagesPageFieldValue $importValue */
-		$importValue = $this->wire('fieldtypes')->get('FieldtypeTextLanguage')->___importValue($page, $field, $value, $options);
+		$importValue = $this->wire()->fieldtypes->get('FieldtypeTextLanguage')->___importValue($page, $field, $value, $options);
 		
 		foreach($languages as $language) {
 			$languageValue = $importValue->getLanguageValue($language->id); 
