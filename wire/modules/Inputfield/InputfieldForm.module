@@ -167,7 +167,7 @@ class InputfieldForm extends InputfieldWrapper {
 		$attrStr = $this->getAttributesString($attrs); 
 
 		if($this->getSetting('protectCSRF') && $method === 'post') {
-			$tokenField = $this->wire('session')->CSRF->renderInput(); 
+			$tokenField = $this->wire()->session->CSRF->renderInput(); 
 		} else {
 			$tokenField = '';
 		}
@@ -628,7 +628,7 @@ class InputfieldForm extends InputfieldWrapper {
 			$submitted = true;
 			
 		} else if($submitName === true) {
-			// find which submit button was slicked to return its name
+			// find which submit button was clicked to return its name
 			$submitted = false;
 			foreach($this->getAll() as $f) {
 				if(!$f instanceof InputfieldSubmit) continue;
