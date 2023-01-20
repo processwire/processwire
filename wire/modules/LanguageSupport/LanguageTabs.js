@@ -7,12 +7,29 @@
 var clickLanguageTabActive = false;
 
 /**
- * Event called when language tab is long-clicked
+ * True after document.ready language tab events have been added
+ * 
+ * @type {boolean}
+ * 
+ */
+var languageTabsReady = false;
+
+/**
+ * Queue of selectors for language tabs to click on document ready
+ * 
+ * @type {*[]}
+ * 
+ */
+var languageTabsClickOnReady = [];
+
+/**
+ * Event called when language tab is double-clicked
  * 
  * @param e
  * 
  */
 function dblclickLanguageTab(e) {
+	if(!languageTabsReady) return;
 	if(clickLanguageTabActive) return;
 	clickLanguageTabActive = true;
 	var $tab = $(this);
@@ -85,7 +102,7 @@ function setupLanguageTabs($form) {
 			var $items = $a.closest('ul').siblings('.LanguageSupport');
 			var $closeItem = $items.filter('.LanguageSupportCurrent');
 			var $openItem = $items.filter($a.attr('href'));
-			if($closeItem.attr('id') == $openItem.attr('id')) {
+			if(languageTabsReady && $closeItem.attr('id') == $openItem.attr('id')) {
 				$a.trigger('dblclicklangtab');
 			} else {
 				$closeItem.removeClass('LanguageSupportCurrent');
@@ -108,7 +125,11 @@ function setupLanguageTabs($form) {
 	var value = jQuery.cookie('langTabsDC'); // DC=DoubleClick
 	if(value && value.indexOf('-' + cfg.requestId) > 0) {
 		value = value.split('-'); // i.e. 123-ProcessPageEdit456
-		$('a.langTab' + value[0], $form).click();
+		var languageId = value[0];
+		$('a.langTab' + languageId, $form).click();
+		if(!languageTabsReady) {
+			languageTabsClickOnReady.push('a.langTab' + languageId);
+		}
 	}
 }
 
@@ -211,5 +232,11 @@ jQuery(document).ready(function($) {
 	$(document).on('AjaxUploadDone', '.InputfieldHasFileList .InputfieldFileList', function() {
 		setupLanguageTabs($(this));
 	});
+	for(var n = 0; n < languageTabsClickOnReady.length; n++) {
+		var selector = languageTabsClickOnReady[n];
+		$(selector).click();
+	}
+	languageTabsClickOnReady = [];
+	languageTabsReady = true;
 }); 
 
