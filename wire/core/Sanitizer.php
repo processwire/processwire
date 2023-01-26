@@ -1668,7 +1668,7 @@ class Sanitizer extends Wire {
 		}
 		
 		if($options['stripQuotes']) {
-			$value = str_replace(array('"', "'"), (is_string($options['stripQuotes']) ? $options['strip_quotes'] : ''), $value);
+			$value = str_replace(array('"', "'"), (is_string($options['stripQuotes']) ? $options['stripQuotes'] : ''), $value);
 		}
 		
 		if($options['trim']) {
