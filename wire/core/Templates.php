@@ -573,6 +573,7 @@ class Templates extends WireSaveableItems {
 		if($template->fieldgroup) $fieldgroupData = $template->fieldgroup->getExportData();
 		$data['fieldgroupFields'] = $fieldgroupData['fields'];
 		$data['fieldgroupContexts'] = $fieldgroupData['contexts'];
+		unset($data['_lazy'], $data['_exportMode']); 
 
 		$template->set('_exportMode', false); 
 		return $data;

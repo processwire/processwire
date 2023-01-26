@@ -10,11 +10,15 @@
 
 class ProcessTemplateExportImport extends Wire {
 
-	/** @var Templates $items */
+	/** 
+	 * @var Templates|Template[] $items 
+	 * 
+	 */
 	protected $items; 
 	
-	public function __construct() {
-		$this->items = $this->wire('templates');
+	public function wired() {
+		parent::wired();
+		$this->items = $this->wire()->templates;
 	}
 	
 	protected function getItem($name) {
@@ -35,7 +39,8 @@ class ProcessTemplateExportImport extends Wire {
 	 */
 	protected function getExportData(array $exportTemplates) {
 		$data = array();
-		foreach($this->wire('templates') as $template) {
+		foreach($this->items as $template) {
+			/** @var Template $template */
 			if(!in_array($template->name, $exportTemplates)) continue;
 			$a = $template->getExportData();
 			$data[$template->name] = $a;
@@ -46,30 +51,35 @@ class ProcessTemplateExportImport extends Wire {
 	/**
 	 * Execute export
 	 *
-	 * @return string
+	 * @return InputfieldForm
 	 *
 	 */
 	public function ___buildExport() {
-
-		$form = $this->wire('modules')->get('InputfieldForm');
+		
+		$modules = $this->wire()->modules;
+		$input = $this->wire()->input;
+		
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
 		$form->action = './';
 		$form->method = 'post';
 
-		$exportTemplates = $this->wire('input')->post('export_templates');
+		$exportTemplates = $input->post('export_templates');
 
 		if(empty($exportTemplates)) {
 
-			$f = $this->wire('modules')->get('InputfieldSelectMultiple');
+			/** @var InputfieldSelectMultiple $f */
+			$f = $modules->get('InputfieldSelectMultiple');
 			$f->attr('id+name', 'export_templates');
 			$f->label = $this->_('Select the templates that you want to export');
 			$f->icon = 'copy';
 
-			
 			$maxName = 0;
 			$maxLabel = 0;
 			$numTemplates = 0;
 
-			foreach($this->wire('templates') as $template) {
+			foreach($this->items as $template) {
+				/** @var Template $template */
 				if(strlen($template->name) > $maxName) $maxName = strlen($template->name);
 				$label = $template->getLabel();
 				if(strlen($label) > $maxLabel) $maxLabel = strlen($label);
@@ -86,7 +96,7 @@ class ProcessTemplateExportImport extends Wire {
 				$modified;
 			$f->addOption(0, $label, array('disabled' => 'disabled'));
 			
-			foreach($this->wire('templates') as $template) {
+			foreach($this->items as $template) {
 				//if(!is_object($template->fieldgroup)) $this->error("Template: $template has no fieldgroup"); 
 				$templateName = $template->name . ' ';
 				$templateLabel = $template->getLabel() . ' ';
@@ -105,15 +115,16 @@ class ProcessTemplateExportImport extends Wire {
 			$f->attr('size', $numTemplates+1);
 			$form->add($f);
 
-			$f = $this->wire('modules')->get('InputfieldSubmit');
+			/** @var InputfieldSubmit $f */
+			$f = $modules->get('InputfieldSubmit');
 			$f->attr('name', 'submit_export');
 			$f->attr('value', $this->_x('Export', 'button'));
 			$form->add($f);
 
 		} else {
 
-			$form = $this->wire('modules')->get('InputfieldForm');
-			$f = $this->wire('modules')->get('InputfieldTextarea');
+			/** @var InputfieldTextarea $f */
+			$f = $modules->get('InputfieldTextarea');
 			$f->attr('id+name', 'export_data');
 			$f->label = $this->_('Export Data');
 			$f->description = $this->_('Copy and paste this data into the "Import" box of another installation.');
@@ -121,7 +132,8 @@ class ProcessTemplateExportImport extends Wire {
 			$f->attr('value', wireEncodeJSON($this->getExportData($exportTemplates), true, true));
 			$form->add($f);
 
-			$f = $this->wire('modules')->get('InputfieldButton');
+			/** @var InputfieldButton $f */
+			$f = $modules->get('InputfieldButton');
 			$f->href = './';
 			$f->value = $this->_x('Ok', 'button'); 
 			$form->add($f);
@@ -173,18 +185,24 @@ class ProcessTemplateExportImport extends Wire {
 	 *
 	 */
 	public function ___buildImport() {
+	
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
+		$notices = $this->wire()->notices;
+		$input = $this->wire()->input;
+		$sanitizer = $this->wire()->sanitizer;
 		
-		if($this->input->post('submit_commit')) {
+		if($input->post('submit_commit')) {
 			$this->processImport();
 			return '';
 		}
 		
-		$verify = (int) $this->input->get('verify');
+		$verify = (int) $input->get('verify');
 
 		if($verify) {
-			$json = $this->session->get($this, 'importData');
+			$json = $session->get($this, 'importData');
 		} else {
-			$json = $this->input->post('import_data');
+			$json = $input->post('import_data');
 		}
 
 		if(!$json) return $this->buildInputDataForm();
@@ -192,7 +210,7 @@ class ProcessTemplateExportImport extends Wire {
 		if(!$data) throw new WireException("Invalid import data");
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 		$form->action = './';
 		$form->method = 'post';
 		$form->attr('id', 'import_form');
@@ -214,7 +232,6 @@ class ProcessTemplateExportImport extends Wire {
 		$numErrors = 0;
 		$numExistingTemplates = 0;
 		$numNewTemplates = 0;
-		$notices = $this->wire('notices');
 		
 		if(!$verify) $notices->removeAll();
 
@@ -224,16 +241,17 @@ class ProcessTemplateExportImport extends Wire {
 			$postName = str_replace('-', '__', $name); 
 			unset($templateData['id']);
 			$new = false;
-			$name = $this->wire('sanitizer')->name($name);
-			$template = $this->wire('templates')->get($name);
+			$name = $sanitizer->name($name);
+			$template = $this->items->get($name);
 			$numChangesTemplate = 0;
 			/** @var InputfieldFieldset $fieldset */
-			$fieldset = $this->modules->get('InputfieldFieldset');
+			$fieldset = $modules->get('InputfieldFieldset');
 			$fieldset->label = $name;
 			$form->add($fieldset);
 
 			if(!$template) {
 				$new = true;
+				/** @var Template $template */
 				$template = $this->wire(new Template());
 				$template->name = $name;
 				$fieldset->icon = 'sun-o';
@@ -243,7 +261,7 @@ class ProcessTemplateExportImport extends Wire {
 			}
 
 			/** @var InputfieldMarkup $markup */
-			$markup = $this->modules->get('InputfieldMarkup');
+			$markup = $modules->get('InputfieldMarkup');
 			$markup->addClass('InputfieldCheckboxes');
 			$markup->value = "";
 			$fieldset->add($markup);
@@ -257,7 +275,8 @@ class ProcessTemplateExportImport extends Wire {
 				$this->error($e->getMessage());
 			}
 
-			$f = $this->wire('modules')->get('InputfieldCheckboxes');
+			/** @var InputfieldCheckboxes $f */
+			$f = $modules->get('InputfieldCheckboxes');
 			$f->attr('name', "item_$postName");
 			$f->label = $this->_('Changes');
 			$f->table = true;
@@ -266,6 +285,7 @@ class ProcessTemplateExportImport extends Wire {
 			$f->thead .= $this->_('New Value');
 
 			foreach($changes as $property => $info) {
+				if($property === '_lazy' || $property === '_exportMode') continue;
 			
 				$oldValue = str_replace('|', ' ', $info['old']);
 				$newValue = str_replace('|', ' ', $info['new']);
@@ -289,12 +309,12 @@ class ProcessTemplateExportImport extends Wire {
 			$errors = array();
 			foreach($notices as $notice) {
 				if(!$notice instanceof NoticeError) continue;
-				$errors[] = $this->wire('sanitizer')->entities1($notice->text);
+				$errors[] = $sanitizer->entities1($notice->text);
 				$notices->remove($notice); 
 			}
 			
 			if(count($errors)) {
-				$icon = "<i class='fa fa-exclamation-triangle'></i>";
+				$icon = wireIconMarkup('exclamation-triangle'); 
 				$markup->value .= "<ul class='ui-state-error-text'><li>$icon " . implode("</li><li>$icon ", $errors) . '</li></ul>';
 				$fieldset->label .= ' (' . sprintf($this->_n('%d notice', '%d notices', count($errors)), count($errors)) . ')';
 				$numErrors++;
@@ -303,9 +323,15 @@ class ProcessTemplateExportImport extends Wire {
 			//if(!$verify) $notices->removeAll();
 
 			if($numChangesTemplate) {
-				$fieldset->description = sprintf($this->_n('Found %d property to apply.', 'Found %d properties to apply.', $numChangesTemplate), $numChangesTemplate);
-				if($new) $numNewTemplates++;
-					else $numExistingTemplates++;
+				$fieldset->description = sprintf(
+					$this->_n('Found %d property to apply.', 'Found %d properties to apply.', $numChangesTemplate), 
+					$numChangesTemplate
+				);
+				if($new) {
+					$numNewTemplates++;
+				} else {
+					$numExistingTemplates++;
+				}
 			} else {
 				$fieldset->description = $this->_('No changes pending.');
 			}
@@ -342,7 +368,7 @@ class ProcessTemplateExportImport extends Wire {
 			}
 		
 			/** @var InputfieldSubmit $f */
-			$f = $this->modules->get('InputfieldSubmit');
+			$f = $modules->get('InputfieldSubmit');
 			$f->attr('name', 'submit_commit');
 			$f->attr('value', $this->_('Commit Changes'));
 			$f->showInHeader();
@@ -357,16 +383,31 @@ class ProcessTemplateExportImport extends Wire {
 			}
 		
 			/** @var InputfieldButton $f */
-			$f = $this->modules->get('InputfieldButton');
+			$f = $modules->get('InputfieldButton');
 			$f->href = './';
 			$f->value = $this->_x('Ok', 'button'); 
 			$form->add($f);
 		}
 
-		$this->session->set($this, 'importData', $data);
-		if($numErrors) $this->error(sprintf($this->_n('Notices in %d template', 'Notices in %d templates', $numErrors), $numErrors));
-		if($numNewTemplates) $this->message(sprintf($this->_n('Found %d new template to add', 'Found %d new templates to add', $numNewTemplates), $numNewTemplates));
-		if($numExistingTemplates) $this->message(sprintf($this->_n('Found %d existing template to update', 'Found %d existing templates to update', $numExistingTemplates), $numExistingTemplates));
+		$session->set($this, 'importData', $data);
+		if($numErrors) {
+			$this->error(sprintf(
+				$this->_n('Notices in %d template', 'Notices in %d templates', $numErrors), 
+				$numErrors
+			));
+		}
+		if($numNewTemplates) {
+			$this->message(sprintf(
+				$this->_n('Found %d new template to add', 'Found %d new templates to add', $numNewTemplates), 
+				$numNewTemplates
+			));
+		}
+		if($numExistingTemplates) {
+			$this->message(sprintf(
+				$this->_n('Found %d existing template to update', 'Found %d existing templates to update', $numExistingTemplates), 
+				$numExistingTemplates
+			));
+		}
 		
 		return $form;
 	}
@@ -376,8 +417,12 @@ class ProcessTemplateExportImport extends Wire {
 	 *
 	 */
 	protected function ___processImport() {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$session = $this->wire()->session;
+		$input = $this->wire()->input;
 
-		$data = $this->session->get($this, 'importData');
+		$data = $session->get($this, 'importData');
 		if(!$data) throw new WireException("Invalid import data");
 		
 		$numChangedItems = 0;
@@ -387,10 +432,10 @@ class ProcessTemplateExportImport extends Wire {
 		// iterate through data for each field
 		foreach($data as $name => $itemData) {
 
-			$name = $this->wire('sanitizer')->name($name);
+			$name = $sanitizer->name($name);
 			$postName = str_replace('-', '__', $name); 
 			
-			if(!$this->input->post("import_item_$postName")) {
+			if(!$input->post("import_item_$postName")) {
 				$skipNames[] = $name;
 				unset($data[$name]);
 				continue;
@@ -408,14 +453,16 @@ class ProcessTemplateExportImport extends Wire {
 
 			unset($itemData['id']);
 			foreach($itemData as $property => $value) {
-				if(!in_array($property, $this->input->post("item_$postName"))) {
+				if(!in_array($property, $input->post("item_$postName"))) {
 					unset($itemData[$property]); 
 				}
 			}
 			
 			try {
 				$changes = $item->setImportData($itemData);
-				foreach($changes as $key => $info) $this->message($this->_('Saved:') . " $name.$key => $info[new]");
+				foreach($changes as $key => $info) {
+					$this->message($this->_('Saved:') . " $name.$key => $info[new]");
+				}
 				$this->saveItem($item, $changes);
 				if($new) {
 					$numAddedItems++;
@@ -431,14 +478,14 @@ class ProcessTemplateExportImport extends Wire {
 			$data[$name] = $itemData;
 		}
 		
-		$this->session->set($this, 'skipNames', $skipNames); 
-		$this->session->set($this, 'importData', $data); 
+		$session->set($this, 'skipNames', $skipNames); 
+		$session->set($this, 'importData', $data); 
 		
 		$numSkippedItems = count($skipNames); 
 		if($numAddedItems) $this->message(sprintf($this->_n('Added %d item', 'Added %d items', $numAddedItems), $numAddedItems));
 		if($numChangedItems) $this->message(sprintf($this->_n('Modified %d item', 'Modified %d items', $numChangedItems), $numChangedItems));
 		if($numSkippedItems) $this->message(sprintf($this->_n('Skipped %d item', 'Skipped %d items', $numSkippedItems), $numSkippedItems));
-		$this->session->redirect("./?verify=1");
+		$session->redirect("./?verify=1");
 	}
 
 	/**
@@ -447,16 +494,16 @@ class ProcessTemplateExportImport extends Wire {
 	 * 
 	 */
 	public function saveItem($item, array $changes) {
-		if($changes) {} // ignore
 		/** @var Fieldgroup $fieldgroup */
 		$fieldgroup = $item->fieldgroup;
+		if(!$fieldgroup) {
+			$fieldgroup = new Fieldgroup();
+			$fieldgroup->name = $item->name;
+		}
 		$fieldgroup->save();
 		$fieldgroup->saveContext();
+		$item->setFieldgroup($fieldgroup);
 		$item->save();
-		if(!$item->fieldgroup) {
-			$item->setFieldgroup($fieldgroup);
-			$item->save();
-		}
 	}
-	
+
 }
