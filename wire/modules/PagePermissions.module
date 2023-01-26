@@ -658,7 +658,7 @@ class PagePermissions extends WireData implements Module {
 		} else if($pagefile) { 
 			if(!$viewable && wireInstanceOf($page, 'RepeaterPage')) {
 				/** @var RepeaterPage $page */
-				$viewable = $page->getForPageRoot()->viewable(); 
+				$viewable = $page->getForPageRoot()->viewable($checkTemplateFile); 
 			}
 			if($viewable) {
 				$viewable = $this->fileViewable($page, $pagefile);
