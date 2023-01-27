@@ -3914,7 +3914,7 @@ class Sanitizer extends Wire {
 		$datetime = $this->wire()->datetime;
 		$iso8601 = 'Y-m-d H:i:s';
 		$_value = trim($this->string($value)); // original value string
-		if(empty($value)) return $options['default'];
+		if(empty($value) && !is_int($value) && !strlen("$value")) return $options['default'];
 		if(!is_string($value) && !is_int($value)) $value = $this->string($value);
 		if(ctype_digit("$value")) {
 			// value is in unix timestamp format
@@ -3925,7 +3925,7 @@ class Sanitizer extends Wire {
 			$value = $datetime->stringToTimestamp($value, $format); 
 		}
 		// value is now a unix timestamp
-		if(empty($value)) return null;
+		if($value === false) return null;
 		// if format is provided and in strict mode, validate for the format and bounds
 		if($format && $options['strict']) {
 			$test = $datetime->date($format, $value);
@@ -3942,7 +3942,7 @@ class Sanitizer extends Wire {
 			if($value > $max) return null;
 		}
 		if(!empty($options['returnFormat'])) $value = wireDate($options['returnFormat'], $value);
-		return empty($value) ? null : $value;
+		return ($value === null || $value === false) ? null : $value;
 	}
 
 	/**
