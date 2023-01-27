@@ -47,6 +47,8 @@
  * @method array buildTooltipData(Pageimage $pagefile)
  * @method array getFileActions(Pagefile $pagefile)
  * @method bool|null processUnknownFileAction(Pageimage $pagefile, $action, $label)
+ * @method array getImageEditButtons($pagefile, $id, $n, $buttonClass) 3.0.212+
+ * @method array getImageThumbnailActions($pagefile, $id, $n, $class) 3.0.212+
  *
  *
  */
@@ -57,7 +59,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		return array(
 			'title' => __('Images', __FILE__), // Module Title
 			'summary' => __('One or more image uploads (sortable)', __FILE__), // Module Summary
-			'version' => 125,
+			'version' => 126,
 			'permanent' => true,
 		);
 	}
@@ -682,13 +684,18 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 				$error = str_replace('{out}', $sanitizer->entities($thumb['error']), $this->themeSettings['error']);
 			} 
 			$labels = $this->labels;
+			$thumbnailActions = array();
+			if($this->hasHook('getImageThumbnailActions()')) {
+				$thumbnailActions = $this->getImageThumbnailActions($pagefile, $id, $n, 'gridImage__btn');
+			}
+			$thumbnailActions = implode('', $thumbnailActions);
 			$out .= "
 				<div class='gridImage__hover'>
 					<div class='gridImage__inner'>
-						<label for='' class='gridImage__trash'>
+						<label for='' class='gridImage__btn gridImage__trash'>
 							<input class='gridImage__deletebox' type='checkbox' name='delete_$id' value='1' title='$labels[delete]' />
 							<span class='fa fa-trash-o'></span>
-						</label>
+						</label>$thumbnailActions
 						<a class='gridImage__edit'>
 							<span>$labels[edit]</span>
 						</a>
@@ -727,6 +734,37 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Get the image thumbnail icon actions/links/buttons
+	 * 
+	 * These are icon-only actions/links displayed next to the trash icon when hovering over an image preview. 
+	 * They are also displayed as icons on the far right side of a image when in full list mode. 
+	 * 
+	 * Example:
+	 * ~~~~~
+	 * $wire->addHookAfter('InputfieldImage::getImageThumbnailActions', function(HookEvent $event) {
+	 *   $image = $event->arguments(0); // Pageimage
+	 *   $class = $event->arguments(3); // class to use on all returned actions
+	 *   $a = $event->return; // array
+	 *   $a['download'] = "<a class='$class' href='$pagefile->url' download><span class='fa fa-download'></span></a>";
+	 *   $event->return = $a;
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param Pageimage $pagefile
+	 * @param string $id Image id string
+	 * @param int $n Image index number
+	 * @param string $class Class that should appear on all returned actions/links/buttons
+	 * @return array 
+	 * @since 3.0.212
+	 * 
+	 */
+	protected function ___getImageThumbnailActions($pagefile, $id, $n, $class) {
+		return array();
 	}
 
 	/**
@@ -807,40 +845,70 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * 
 	 */
 	protected function ___renderButtons($pagefile, $id, $n) {
-		
 		if(!$this->useImageEditor) return '';
-	
-		if($n) {} // ignore, $n is for hooks
+		$buttonClass = $this->themeSettings['buttonClass'];
+		$buttons = $this->getImageEditButtons($pagefile, $id, $n, $buttonClass);
+		return implode('', $buttons);
+	}
+
+	/**
+	 * Get array of buttons for image edit mode
+	 * 
+	 * Hook after this to add or remove image edit buttons/actions. 
+	 * 
+	 * ~~~~~
+	 * // Example of adding a download button
+	 * $wire->addHookAfter('InputfieldImage::getImageEditButtons', function(HookEvent $event) {
+	 *   $image = $event->arguments(0); // Pageimage
+	 *   $class = $event->arguments(3);
+	 *   $buttons = $event->return; // array
+	 *   $icon = wireIconMarkup('download');
+	 *   $buttons['download'] = "<button class='$class'><a download href='$image->url'>$icon Download</a></button>";
+	 *   $event->return = $buttons;
+	 * });
+	 * ~~~~~
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Pagefile|Pageimage $pagefile Image that buttons are for
+	 * @param string $id Image/file id
+	 * @param int $n Index of image/file (i.e 0=first)
+	 * @param string $buttonClass Class attribute additions that should appear on all returned <button> elements
+	 * @return array Array of <button> elements indexed by button name
+	 * @since 3.0.212
+	 *
+	 */
+	protected function ___getImageEditButtons($pagefile, $id, $n, $buttonClass) {
+		
+		$buttons = array();
 		$pageID = $pagefile->pagefiles->page->id;
 		$variationCount = $pagefile->variations()->count();
-		$editUrl = $this->getEditUrl($pagefile, $pageID); 
+		$editUrl = $this->getEditUrl($pagefile, $pageID);
 		$variationUrl = $this->getVariationUrl($pagefile, $id);
-		$buttonClass = $this->themeSettings['buttonClass'];
 		$modalButtonClass = trim("$buttonClass $this->modalClass pw-modal");
 		$modalAttrs = "data-buttons='#non_rte_dialog_buttons button' data-autoclose='1' data-close='#non_rte_cancel'";
 		$labels = $this->labels;
-		$out = '';
-		
+
 		// Crop
 		$icon = wireIconMarkup('crop');
 		$buttonText = str_replace('{out}', "$icon $labels[crop]", $this->themeSettings['buttonText']);
-		$out .= "<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $modalButtonClass' $modalAttrs>$buttonText</button>";
-	
+		$buttons['crop'] = "<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $modalButtonClass' $modalAttrs>$buttonText</button>";
+
 		// Focus
 		if($this->focusMode && $this->focusMode != 'off') {
 			$iconA = $pagefile->hasFocus ? 'fa-check-circle-o' : 'fa-circle-o';
 			$iconB = $pagefile->hasFocus ? 'fa-check-circle' : 'fa-dot-circle-o';
 			$buttonText = str_replace('{out}', "<i class='fa $iconA' data-toggle='$iconA $iconB'></i> $labels[focus]", $this->themeSettings['buttonText']);
-			$out .= "<button type='button' class='InputfieldImageButtonFocus $buttonClass'>$buttonText</button>";
+			$buttons['focus'] = "<button type='button' class='InputfieldImageButtonFocus $buttonClass'>$buttonText</button>";
 		}
-	
+
 		// Variations
 		$icon = wireIconMarkup('files-o');
 		$buttonText = "$icon $labels[variations] <span class='ui-priority-secondary'>($variationCount)</span>";
 		$buttonText = str_replace('{out}', $buttonText, $this->themeSettings['buttonText']);
-		$out .= "<button type='button' data-href='$variationUrl' class='$modalButtonClass' data-buttons='button'>$buttonText</button>";
-		
-		return $out;
+		$buttons['variations'] = "<button type='button' data-href='$variationUrl' class='$modalButtonClass' data-buttons='button'>$buttonText</button>";
+
+		return $buttons;
 	}
 
 	/**
@@ -888,7 +956,32 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	}
 
 	/**
-	 * Get array of actions available for given Pagefile
+	 * Get array of actions (displayed in select dropdown) available for given Pagefile
+	 * 
+	 * #pw-hooker
+	 * 
+	 * ~~~~~
+	 * // Example of adding an “Get EXIF data” action
+	 * $wire->addHookAfter('InputfieldImage::getFileActions', function(HookEvent $event) {
+	 *   $image = $event->arguments(0); // Pageimage
+	 *   if($image->ext == 'jpg' || $image->ext == 'jpeg') {
+	 *     $actions = $event->return; // array
+	 *     $actions['exif'] = 'Get EXIF data';
+	 *     $event->return = $actions;
+	 *   }
+	 * });
+	 * 
+	 * // Example of handling an “Get EXIF data” action
+	 * $wire->addHookAfter('InputfieldImage::processUnknownFileAction', function(HookEvent $event) {
+	 *   $image = $event->arguments(0);
+	 *   $action = $event->arguments(1);
+	 *   if($action === 'exif') {
+	 *     $exif = exif_read_data($image->filename);
+	 *     $event->warning([ "EXIF data for $image->name" => $exif ], 'icon-photo nogroup');                       
+	 *     $event->return = true;
+	 *   }
+	 * });
+	 * ~~~~~
 	 * 
 	 * @param Pagefile|Pageimage $pagefile
 	 * @return array Associative array of ('action_name' => 'Action Label')
@@ -1353,7 +1446,12 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	}
 
 	/**
-	 * Called when an action was received that InputfieldImage does not recognize (for hooking purposes)
+	 * Called when a select dropdown action was received that InputfieldImage does not recognize (for hooking purposes)
+	 * 
+	 * This is what should be hooked to provide the processing for a custom action added from a hook.
+	 * See the ___getFileActions() method documentation for full example including both hooks.
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Pageimage $pagefile Image file to process
 	 * @param string $action Action to execute
