@@ -143,6 +143,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			'drag-drop-in' => $this->_('drag and drop in new images above'), 
 			'na' => $this->_('N/A'), // for JS
 			'changes' => $this->_('This images field may have unsaved changes that could be lost after this action. Please save before cropping, or double-click the button proceed anyway.'),
+            'download' => $this->_('Download full-size image'),
 		));
 
 		$themeDefaults = array(
@@ -685,10 +686,13 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$out .= "
 				<div class='gridImage__hover'>
 					<div class='gridImage__inner'>
-						<label for='' class='gridImage__trash'>
+						<label for='' class='gridImage__btn gridImage__trash'>
 							<input class='gridImage__deletebox' type='checkbox' name='delete_$id' value='1' title='$labels[delete]' />
 							<span class='fa fa-trash-o'></span>
 						</label>
+						<a class='gridImage__btn' href='$pagefile->url' download title='$labels[download]'>
+							<span class='fa fa-download'></span>
+						</a>
 						<a class='gridImage__edit'>
 							<span>$labels[edit]</span>
 						</a>
