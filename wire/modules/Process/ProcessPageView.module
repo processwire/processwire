@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @method string execute($internal = true)
@@ -272,7 +272,7 @@ class ProcessPageView extends Process {
 			// in case it wants to concatenate it or something
 			if($n === 1) $this->pathHooksReturnValue = $out;
 
-			if(is_object($out) && $out instanceof Page) {
+			if($out instanceof Page) {
 				// hook returned Page object to set as page to render
 				$page = $out;
 				$out = true;
@@ -300,7 +300,7 @@ class ProcessPageView extends Process {
 		$this->pathHooksReturnValue = false; // no longer applicable once this line reached
 		$hooks->allowPathHooks(false); // no more path hooks allowed
 		
-		if($page && $page->id && $page instanceof Page && $page->id !== $options['page']->id) {
+		if($page instanceof Page && $page->id && $page->id !== $options['page']->id) {
 			// one of the path hooks set the page
 			$this->wire('page', $page);
 			return $this->renderPage($page, $request); 
@@ -414,7 +414,7 @@ class ProcessPageView extends Process {
 		$loginRequestURL = $request->getRedirectUrl();
 		$ns = 'ProcessPageView'; // session namespace
 
-		if(empty($loginRequestURL) && $session) {
+		if(empty($loginRequestURL)) {
 			$loginRequestURL = $session->getFor($ns, 'loginRequestURL');
 		}
 

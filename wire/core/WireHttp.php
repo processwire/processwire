@@ -22,7 +22,7 @@
  * 
  * Thanks to @horst for his assistance with several methods in this class.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool|string send($url, $data = array(), $method = 'POST', array $options = array())
@@ -289,6 +289,7 @@ class WireHttp extends Wire {
 	 * 
 	 */
 	public function __construct() {
+		parent::__construct();
 		$this->hasCURL = function_exists('curl_init') && !ini_get('safe_mode'); // && !ini_get('open_basedir');
 		$this->hasFopen = ini_get('allow_url_fopen');
 		$this->resetRequest();
@@ -396,7 +397,7 @@ class WireHttp extends Wire {
 	 * @param mixed $data Array of data to send (if not already set before) or raw data
 	 * @param bool $textMode When true function will return a string rather than integer, see the statusText() method.
 	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
-	 * @return bool|integer|string False on failure or integer or string of status code (200|404|etc) on success.
+	 * @return bool|int|string False on failure or integer or string of status code (200|404|etc) on success.
 	 * @see WireHttp::send(), WireHttp::statusText()
 	 *
 	 */
@@ -989,7 +990,7 @@ class WireHttp extends Wire {
 			
 		$methods = implode(", ", $triedMethods);
 		if(count($this->error) || ($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode]))) {
-			$this->wire('files')->unlink($toFile);
+			$this->wire()->files->unlink($toFile);
 			$error = $this->_('File could not be downloaded') . ' ' . htmlentities("($fromURL) ") . $this->getError() . " (tried: $methods)";
 			throw new WireException($error); 
 		} else {
@@ -997,7 +998,7 @@ class WireHttp extends Wire {
 			$this->message("Downloaded " . htmlentities($fromURL) . " => $toFile (using: $methods) [$bytes bytes]", Notice::debug); 
 		}
 	
-		$this->wire('files')->chmod($toFile);
+		$this->wire()->files->chmod($toFile);
 		
 		return $toFile;
 	}
@@ -1018,9 +1019,13 @@ class WireHttp extends Wire {
 		$setopts = null;
 		$proxy = '';
 		
-		if(!empty($options['proxy'])) $proxy = $options['proxy'];
-			else if(isset($options['curl']) && !empty($options['curl']['http']['proxy'])) $proxy = $options['curl']['http']['proxy'];
-			else if(isset($options['http']) && !empty($options['http']['proxy'])) $proxy = $options['http']['proxy'];
+		if(!empty($options['proxy'])) {
+			$proxy = $options['proxy'];
+		} else if(isset($options['curl']) && !empty($options['curl']['http']['proxy'])) {
+			$proxy = $options['curl']['http']['proxy'];
+		} else if(isset($options['http']) && !empty($options['http']['proxy'])) {
+			$proxy = $options['http']['proxy'];
+		}
 		
 		$curl = curl_init($fromURL);
 
@@ -1256,12 +1261,12 @@ class WireHttp extends Wire {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed
 	 *
 	 */
-	public function __get($key) {
-		return array_key_exists($key, $this->data) ? $this->data[$key] : null;
+	public function __get($name) {
+		return array_key_exists($name, $this->data) ? $this->data[$name] : null;
 	}
 
 	/**
@@ -1420,7 +1425,7 @@ class WireHttp extends Wire {
 				$this->responseHeaderArrays[$key] = $valueArray;
 			} else {
 				if(is_array($value)) {
-					foreach($value as $k => $v) {
+					foreach($value as $v) {
 						$this->responseHeaderArrays[$key][] = $v;
 					}
 				} else {
@@ -1488,7 +1493,7 @@ class WireHttp extends Wire {
 
 		$options = array_merge($defaultOptions, $options);
 		$headers = array_merge($defaultHeaders, $options['headers'], $headers);
-		$contentTypes = $this->wire('config')->fileContentTypes;
+		$contentTypes = $this->wire()->config->fileContentTypes;
 		
 		if($filename === false) {
 			// sending data string
@@ -1510,7 +1515,7 @@ class WireHttp extends Wire {
 		$forceDownload = $options['forceDownload'];
 		$bytesSent = 0;
 		
-		if($options['exit']) $this->wire('session')->close();
+		if($options['exit']) $this->wire()->session->close();
 		if(is_null($forceDownload)) $forceDownload = substr($contentType, 0, 1) === '+';
 		if(ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
 		$contentType = ltrim($contentType, '+');
@@ -1742,7 +1747,7 @@ class WireHttp extends Wire {
 		$options = $this->validateURLOptions;
 		$options['allowSchemes'] = $this->allowSchemes;
 		try {
-			$url = $this->wire('sanitizer')->url($url, $options); 
+			$url = $this->wire()->sanitizer->url($url, $options); 
 		} catch(WireException $e) {
 			if($throw) {
 				throw $e;
