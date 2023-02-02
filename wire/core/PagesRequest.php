@@ -304,8 +304,12 @@ class PagesRequest extends Wire {
 	
 		// determine if index.php is referenced in URL
 		if(stripos($this->dirtyUrl, 'index.php') !== false && stripos($path, 'index.php') === false) {
-			// this will force pathFinder to detect a redirect condition
+			// force pathFinder to detect a redirect condition without index.php
 			$path = rtrim($path, '/') . '/index.php';
+		} else if(strpos($this->dirtyUrl, '//') !== false) {
+			// force pathFinder to detect redirect sans double slashes, /page/path// => /page/path/
+			list($dirtyUrl,) = explode('?', "$this->dirtyUrl?", 2); // exclude query string
+			if(strpos($dirtyUrl, '//') !== false) $path = rtrim($path, '/') . '//';
 		}
 		
 		// get info about requested path
