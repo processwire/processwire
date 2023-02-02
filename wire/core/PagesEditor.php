@@ -1280,11 +1280,13 @@ class PagesEditor extends Wire {
 
 		if($options['recursionLevel'] === 0) {
 			// update pages_parents table, only when at recursionLevel 0 since parents()->rebuild() already descends 
+			/*
 			if($copy->numChildren) {
 				$copy->setIsNew(true);
 				$this->pages->parents()->rebuild($copy);
 				$copy->setIsNew(false);
 			}
+			*/
 			// update sort
 			if($copy->parent()->sortfield() == 'sort') {
 				$this->sortPage($copy, $copy->sort, true);

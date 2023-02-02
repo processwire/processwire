@@ -490,18 +490,21 @@ class PagesParents extends Wire {
 		
 		// homepage not maintained in pages_parents table
 		// pages being cloned are not maintained till clone operation finishes
-		if($page->id < 2 || $page->_cloning || !$page->parent) return 0;
+		if($page->id < 2 || !$page->parent) return 0;
+		// if($page->_cloning) return 0;
 		
 		// first check if page parents need any updates
 		if($page->isNew()) {
 			// newly added page
 			if($page->parent->numChildren === 1) {
 				// first time parent gets added to pages_parents
-				$numRows += $this->rebuild($page->parent);
+				$numRows += $this->addParent($page->parent);
+				// $numRows += $this->rebuild($page->parent);
 			}
 		} else if($page->parentPrevious && $page->parentPrevious->id != $page->parent->id) {
 			// existing page with parent changed
-			$this->rebuildAll();
+			$numRows += $this->movePage($page, $page->parentPrevious, $page->parent); 
+			// $this->rebuildAll();
 			/*
 			if($page->parentPrevious->numChildren === 0) {
 				// parent no longer has children and doesn’t need entry
@@ -561,6 +564,136 @@ class PagesParents extends Wire {
 	}
 
 	/**
+	 * Rebuild pages_parents table for given page (experimental faster alternative/rewrite of rebuild method)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param Page $oldParent
+	 * @param Page $newParent
+	 * @return int
+	 * @throws WireException
+	 * @since 3.0.212
+	 * 
+	 */
+	public function movePage(Page $page, Page $oldParent, Page $newParent) {
+		
+		$database = $this->wire()->database;
+		$numRows = 0;
+	
+		$oldParentIds = $oldParent->parents()->explode('id');
+		array_shift($oldParentIds); // shift off id=1 
+		$oldParentIds[] = $oldParent->id;
+		
+		$newParentIds = $newParent->parents()->explode('id');
+		array_shift($newParentIds); // shift off id=1 
+		$newParentIds[] = $newParent->id;
+
+		// update the one page that moved
+		$sql = 'UPDATE pages_parents SET parents_id=:new_parent_id WHERE pages_id=:pages_id AND parents_id=:old_parent_id';
+		$query = $database->prepare($sql);
+		$query->bindValue(':new_parent_id', $newParent->id, \PDO::PARAM_INT);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->bindValue(':old_parent_id', $oldParent->id, \PDO::PARAM_INT);
+		$query->execute();
+		$numRows += $query->rowCount();
+
+		// find children and descendents of the page that moved
+		$sql = 'SELECT pages_id FROM pages_parents WHERE parents_id=:pages_id';
+		$query = $database->prepare($sql);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+	
+		$ids = array();
+		while($row = $query->fetch(\PDO::FETCH_NUM)) {
+			$id = (int) $row[0];
+			$ids[$id] = $id;
+		}
+		
+		$query->closeCursor();
+		
+		if(!count($ids)) return $numRows;
+
+		$inserts = array();
+
+		foreach($ids as $id) {
+			foreach($newParentIds as $parentId) {
+				$inserts["$id,$parentId"] = array('pages_id' => $id, 'parents_id' => (int) $parentId);
+			}
+		}
+
+		if(count($oldParentIds)) {
+			$idStr = implode(',', $ids);
+			$oldParentIds = $this->wire()->sanitizer->intArray($oldParentIds);
+			$oldParentIdStr = implode(',', $oldParentIds);
+			$sql = "DELETE FROM pages_parents WHERE pages_id IN($idStr) AND parents_id IN($oldParentIdStr)";
+			$database->exec($sql);
+		}
+
+		if(!count($inserts)) return $numRows;
+		
+		$sql = "INSERT INTO pages_parents SET pages_id=:pages_id, parents_id=:parents_id";
+		$query = $database->prepare($sql);
+		
+		foreach($inserts as $insert) {
+			$query->bindValue(':pages_id', $insert['pages_id'], \PDO::PARAM_INT);
+			$query->bindValue(':parents_id', $insert['parents_id'], \PDO::PARAM_INT); 
+			try {
+				if($query->execute()) $numRows++;
+			} catch(\Exception $e) {
+				$this->error($e->getMessage());
+			}
+		}
+		
+		return $numRows;
+	}
+	
+	/**
+	 * Add rows for a new parent in the pages_parents table
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @return int
+	 * @since 3.0.212
+	 * 
+	 */
+	protected function addParent(Page $page) {
+		
+		// if page has no children it does not need pages_parents entries
+		if(!$page->numChildren) return 0;
+	
+		$database = $this->wire()->database;
+		$numRows = 0;
+		$pageId = (int) $page->id;
+		$inserts = array();
+		
+		// identify parents to store for $page
+		foreach($page->parents() as $parent) {
+			$parentId = (int) $parent->id;
+			if($parentId < 2) continue;
+			$inserts[] = array('pages_id' => $pageId, 'parents_id' => $parentId); 
+		}
+		
+		if(!count($inserts)) return 0;
+	
+		$sql = "INSERT INTO pages_parents SET pages_id=:pages_id, parents_id=:parents_id";
+		$query = $database->prepare($sql);
+		
+		foreach($inserts as $insert) {
+			$query->bindValue(':pages_id', $insert['pages_id'], \PDO::PARAM_INT);
+			$query->bindValue(':parents_id', $insert['parents_id'], \PDO::PARAM_INT);
+			try {
+				if($query->execute()) $numRows++;
+			} catch(\Exception $e) {
+				// ok
+			}
+		}
+		
+		return $numRows;
+	}
+
+	/**
 	 * Rebuild pages_parents branch starting at $fromParent and into all descendents
 	 * 
 	 * @param Page|int $fromParent From parent Page or ID
@@ -587,7 +720,7 @@ class PagesParents extends Wire {
 		$rowCount = 0; 
 	
 		foreach($parents as $pages_id => $parents_id) {
-			if(isset($this->excludeIDs[$parents_id])) continue;
+			// if(isset($this->excludeIDs[$parents_id])) continue;
 			$inserts[] = "$pages_id,$parents_id";
 			while(isset($parents[$parents_id])) {
 				$parents_id = $parents[$parents_id];
