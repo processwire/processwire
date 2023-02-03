@@ -143,6 +143,8 @@ class ProcessPageClone extends Process {
 		$parent = $page->parent();
 		$parentTemplate = $parent->template;
 		$pageTemplate = $page->template;
+		
+		if(!$parentTemplate) return false;
 
 		if($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID)) return false; 
 		if($parentTemplate->noChildren) return false; 
