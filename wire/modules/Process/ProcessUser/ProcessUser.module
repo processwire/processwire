@@ -262,6 +262,13 @@ class ProcessUser extends ProcessPageType {
 	 */
 	public function getPage() {
 		$page = parent::getPage();
+		if(!$page instanceof User) {
+			if(wireInstanceOf($page, 'RepeaterPage')) {
+				/** @var RepeaterPage $page */
+				$page = $page->getForPageRoot();
+			}
+		}
+		/** @var User $page */
 		if($page->id && !$page->get('_rolesPrevious') && $this->wire('input')->post('roles') !== null) {
 			$page->setQuietly('_rolesPrevious', clone $page->roles); 
 		}
