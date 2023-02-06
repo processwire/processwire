@@ -9,6 +9,9 @@
  * @property int $confirm Specify 1 to make it include a second input for confirmation
  * @property string $confirmLabel label to accompany second input
  * @property int maxlength Max length of email address (default=512)
+ * @property int allowIDN Allow email in IDN format (0=no, 1=allow domain, 2=allow domain and local)
+ * 
+ * @see Sanitizer::email() for more info about allowIDN
  * 
  * @method string renderConfirm(array $attrs)
  *
@@ -36,6 +39,7 @@ class InputfieldEmail extends InputfieldText {
 		$this->set('confirm', 0); // when 1, two inputs will appear and both must match
 		$this->set('confirmLabel', $this->_('Confirm')); 
 		$this->set('value2', '');
+		$this->set('allowIDN', 0);
 	}
 
 	/**
@@ -90,7 +94,7 @@ class InputfieldEmail extends InputfieldText {
 	protected function setAttributeValue($value) {
 		$value = (string) $value;
 		if(strlen($value)) { 
-			$value = $this->wire()->sanitizer->email($value); 	
+			$value = $this->wire()->sanitizer->email($value, [ 'allowIDN' => $this->allowIDN ]); 	
 			if(!strlen($value)) $this->error($this->_("Please enter a valid e-mail address")); // Error message when email address is invalid
 		}
 		return $value; 
@@ -118,7 +122,7 @@ class InputfieldEmail extends InputfieldText {
 		$changed = strtolower($value) !== strtolower($valuePrevious);
 		
 		if($this->confirm) {
-			$value2 = $this->wire()->sanitizer->email($input["_{$name}_confirm"]);
+			$value2 = $this->wire()->sanitizer->email($input["_{$name}_confirm"], [ 'allowIDN' => $this->allowIDN ]);
 			if((strlen($value) || strlen($value2)) && strtolower($value) !== strtolower($value2)) {
 				$errors[] = $this->_('The emails you entered did not match, please enter again');
 			}

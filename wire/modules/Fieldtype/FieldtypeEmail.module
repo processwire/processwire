@@ -10,7 +10,10 @@
  * 
  * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property int allowIDN Allow email in IDN format (0=no, 1=allow domain, 2=allow domain and local)
  *
+ * @see Sanitizer::email() for more info about allowIDN
  *
  */
 class FieldtypeEmail extends FieldtypeText {
@@ -21,6 +24,11 @@ class FieldtypeEmail extends FieldtypeText {
 			'version' => 101,
 			'summary' => 'Field that stores an e-mail address',
 		);
+	}
+
+	public function __construct() {
+		parent::__construct();
+		$this->set('allowIDN', 0);
 	}
 
 	/**
@@ -44,6 +52,7 @@ class FieldtypeEmail extends FieldtypeText {
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldEmail $inputfield */
 		$inputfield = $this->wire()->modules->get('InputfieldEmail'); 
+		$inputfield->set('allowIDN', $field->get('allowIDN'));
 		$inputfield->addClass($this->className());
 		return $inputfield; 
 	}
@@ -59,7 +68,7 @@ class FieldtypeEmail extends FieldtypeText {
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
 		if(strlen($value) > $this->getMaxEmailLength()) return '';
-		return $this->wire()->sanitizer->email($value);
+		return $this->wire()->sanitizer->email($value, [ 'allowIDN' => $field->get('allowIDN') ]);
 	}
 
 	/**
@@ -110,6 +119,43 @@ class FieldtypeEmail extends FieldtypeText {
 		$f = $fields->tableTools()->getUniqueIndexInputfield($field); 
 		$inputfields->prepend($f);
 		return $inputfields;
+	}
+
+	/**
+	 * Get field configuration
+	 *
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field);
+		
+		/** @var InputfieldRadios $f */
+		$f = $this->wire()->modules->get('InputfieldRadios');
+		$f->attr('name', 'allowIDN');
+		$f->label = $this->_('Allow E-Mails in IDN format?');
+		$f->addOption(0, $this->_('No'));
+		$f->addOption(1, $this->_x('Allow domain', 'Email sanitizer configuration'));
+		$f->addOption(2, $this->_x('Allow domain and local', 'Email sanitizer configuration'));
+		$f->attr('value', $field->get('allowIDN'));
+		$f->description = $this->_('No: Do not allow IDN format / Allow domain: Allow IDN for the domain only / Allow domain and local: allow IDN for the domain and local part');
+		$f->optionColumns = 1;
+		if(!$f->attr('value')) $f->collapsed = Inputfield::collapsedYes;
+		$inputfields->add($f);
+		
+		return $inputfields;
+	}
+
+	/**
+	 * Get array of field names allowed for field/template context
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function ___getConfigAllowContext($field) {
+		return array_merge(parent::___getConfigAllowContext($field), [ 'allowIDN' ]);
 	}
 	
 }
