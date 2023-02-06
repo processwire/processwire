@@ -26,11 +26,6 @@ class FieldtypeEmail extends FieldtypeText {
 		);
 	}
 
-	public function __construct() {
-		parent::__construct();
-		$this->set('allowIDN', 0);
-	}
-
 	/**
 	 * Get max email address length
 	 * 
