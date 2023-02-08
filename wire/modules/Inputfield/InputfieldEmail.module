@@ -17,6 +17,7 @@
  *
  */
 class InputfieldEmail extends InputfieldText {
+	const EMAIL_PATTERN = '[^@]+@[^\.]+\...+';
 
 	public static function getModuleInfo() {
 		return array(
@@ -33,7 +34,6 @@ class InputfieldEmail extends InputfieldText {
 	public function __construct() {
 		$this->setAttribute('name', 'email'); 
 		parent::__construct();
-		$this->setAttribute('type', 'email'); 
 		$this->setAttribute('maxlength', 250); 
 		$this->setAttribute('size', 0); 
 		$this->set('confirm', 0); // when 1, two inputs will appear and both must match
@@ -58,7 +58,7 @@ class InputfieldEmail extends InputfieldText {
 		
 		$attrs = $this->getAttributes();
 		
-		$out = "<input " . $this->getAttributesString($attrs) . " />"; 
+		$out = "<input pattern='" . self::EMAIL_PATTERN . "' " . $this->getAttributesString($attrs) . " />"; 
 		
 		if($this->confirm) $out .= $this->renderConfirm($attrs); 
 		
@@ -81,7 +81,7 @@ class InputfieldEmail extends InputfieldText {
 		$attrs['aria-label'] = $this->confirmLabel;
 		$attrs['placeholder'] = $this->confirmLabel;
 		
-		return "<div style='margin-top:0.5em'><input " . $this->getAttributesString($attrs) . " /></div>";
+		return "<div style='margin-top:0.5em'><input pattern='" . self::EMAIL_PATTERN . "' " . $this->getAttributesString($attrs) . " /></div>";
 	}
 
 	/**
