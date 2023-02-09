@@ -333,7 +333,7 @@ _OUT;
 			$pps->setDisplayFormat($name, $this->labelFieldFormat, true);
 			$selector .= "&format_name=$name";
 		}
-		$selector .= "&get=" . $this->labelFieldName;
+		$selector .= "&get=" . urlencode($this->labelFieldName);
 
 		// replace any pipes with encoded version
 		if(strpos($selector, '|') !== false) $selector = str_replace('|', $pipe, $selector);
