@@ -3,7 +3,7 @@
 /**
  * Helper class for FieldtypeTextarea configuration
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -29,6 +29,20 @@ class FieldtypeTextareaHelper extends Wire {
 	function getConfigInputfields(Field $field, InputfieldWrapper $inputfields) {
 		$modules = $this->wire()->modules;
 		
+		$f = $inputfields->getChildByName('textformatters'); 
+		if($f && !$this->wire()->input->is('post')) {
+			$htmlInputTypes = array('InputfieldCKEditor', 'InputfieldTinyMCE');
+			$inputType = $field->get('inputfieldClass');
+			$contentType = $field->get('contentType');
+			if($contentType >= FieldtypeTextarea::contentTypeHTML || in_array($inputType, $htmlInputTypes)) {
+				$value = $field->get('textformatters');
+				$key = is_array($value) ? array_search('TextformatterEntities', $value) : false;
+				if($key !== false) {
+					$field->warning($this->_('Please remove “HTML Entity Encoder” from “Text formatters” since this field allows Markup/HTML.'));
+				}
+			}
+		}
+		
 		$value = $field->get('inputfieldClass');
 		/** @var InputfieldSelect $f */
 		$f = $modules->get('InputfieldSelect');
@@ -39,7 +53,7 @@ class FieldtypeTextareaHelper extends Wire {
 		$f->required = true;
 
 		$baseClass = "InputfieldTextarea";
-		foreach($this->wire('modules')->find("className^=Inputfield") as $fm) {
+		foreach($modules->find("className^=Inputfield") as $fm) {
 			if("$fm" == $baseClass || is_subclass_of($fm->className(true), __NAMESPACE__ . "\\$baseClass")) {
 				$f->addOption("$fm", str_replace("Inputfield", '', "$fm"));
 			}
@@ -144,7 +158,6 @@ class FieldtypeTextareaHelper extends Wire {
 	 *
 	 */
 	public function applyFieldHTML(HookEvent $event) {
-		if($event) {} // ignore
 		
 		$pages = $this->wire()->pages;
 		$config = $this->wire()->config;
@@ -152,7 +165,7 @@ class FieldtypeTextareaHelper extends Wire {
 		set_time_limit(3600);
 		
 		$field = $this->applyFieldHTML;
-		if(!$field || !$field instanceof Field || !$field->type instanceof FieldtypeTextarea) return;
+		if(!$field instanceof Field || !$field->type instanceof FieldtypeTextarea) return;
 		
 		$selector = "$field->name%=href|src, include=all";
 		$total = $pages->count($selector);

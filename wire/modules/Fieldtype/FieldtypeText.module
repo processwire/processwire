@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -131,6 +131,7 @@ class FieldtypeText extends Fieldtype {
 	public function getInputfield(Page $page, Field $field) {
 		$modules = $this->wire()->modules;
 		$inputfieldClass = $field->get('inputfieldClass');
+		/** @var Inputfield $inputfield */
 		$inputfield = $inputfieldClass ? $modules->getModule($inputfieldClass) : null;
 		if(!$inputfield) $inputfield = $modules->get('InputfieldText');
 		return $inputfield;
@@ -167,6 +168,24 @@ class FieldtypeText extends Fieldtype {
 		$schema['keys']['data_exact'] = "KEY `data_exact` (`data`($len))"; 
 		$schema['keys']['data'] = 'FULLTEXT KEY `data` (`data`)'; 
 		return $schema;
+	}
+
+	/**
+	 * Hook called when field is about to be saved
+	 *
+	 * @param Field $field
+	 * @since 3.0.212
+	 *
+	 */
+	public function ___saveFieldReady(Field $field) {
+		parent::___saveFieldReady($field);
+		if(!$field->id && $this->allowTextFormatters() && $this->wire()->page->process == 'ProcessField') {
+			// default Textformatter for newly created fields in ProcessField
+			$value = $field->get('textformatters');
+			if(!is_array($value) || !count($value)) {
+				$field->set('textformatters', array('TextformatterEntities'));
+			}
+		}
 	}
 
 	/**
@@ -212,9 +231,32 @@ class FieldtypeText extends Fieldtype {
 		$f->notes = 
 			$this->_('For plain text fields that will not contain HTML or markup, we recommend selecting the **HTML Entity Encoder** option above.');
 		$fieldset->add($f);
+		
+		if(!in_array('TextformatterEntities', $value) && $this->allowTextformatters() && !$this->wire()->input->is('post')) {
+			// warn user when HTML is allowed and we aren’t sure they intend to allow it
+			$allowHTML = false;
+			if(wireInstanceOf($field->type, 'FieldtypeTextarea')) {
+				$inputType = $field->get('inputfieldClass');
+				$htmlInputTypes = array('InputfieldTinyMCE', 'InputfieldCKEditor'); 
+				$contentType = $field->get('contentType');
+				$allowHTML = in_array($inputType, $htmlInputTypes) || $contentType >= FieldtypeTextarea::contentTypeHTML;
+			}
+			if(!$allowHTML) {
+				$htmlValue = '<p>HTML</p>';
+				foreach($value as $textformatter) {
+					/** @var Textformatter $textformatter */
+					$textformatter = $modules->get($textformatter);
+					if($textformatter) $textformatter->format($htmlValue);
+				}
+				if(strpos($htmlValue, '<') !== false) $this->warning(
+					$this->_('This field currently allows Markup/HTML in formatted output.') . ' ' . 
+					$this->_('If you do not intend to allow Markup/HTML, please select the “HTML Entity Encoder” for “Text formatters”.')
+				);
+			}
+		}
 
 		if($field->type->className() === 'FieldtypeText') {
-			/** @var InputfieldSelect $field */
+			/** @var InputfieldSelect $f */
 			$defaultLabel = $this->_('Default'); 
 			$f = $modules->get('InputfieldRadios');
 			$f->attr('name', 'inputfieldClass');

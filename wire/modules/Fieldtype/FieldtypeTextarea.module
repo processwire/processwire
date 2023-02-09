@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * Properties set to $field that is using this type, acceessed by $field->get('property'):
@@ -99,10 +99,6 @@ class FieldtypeTextarea extends FieldtypeText {
 		$this->set('contentType', self::contentTypeUnknown); 
 		$this->set('htmlOptions', array());
 		parent::init();
-	}
-
-	public function sanitizeValue(Page $page, Field $field, $value) {
-		return parent::sanitizeValue($page, $field, $value); 
 	}
 
 	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
@@ -203,13 +199,12 @@ class FieldtypeTextarea extends FieldtypeText {
 				$value[$k] = $v;
 			}
 			
-		} else if(is_object($value) && $languages && $value instanceof LanguagesValueInterface && $value instanceof Wire) {
+		} else if($languages && $value instanceof LanguagesValueInterface) {
 			// most likely a LanguagesPageFieldValue, but can be any type implementing LanguagesValueInterface
 			/** @var Wire|LanguagesValueInterface $value */
 			$trackChanges = $value->trackChanges();
 			$value->setTrackChanges(false);
 			foreach($languages as $language) {
-				/** @var LanguagesValueInterface $value */
 				$v = $value->getLanguageValue($language->id);
 				$this->_htmlReplacement($page, $field, $v, $sleep);
 				$value->setLanguageValue($language, $v);
