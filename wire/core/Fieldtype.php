@@ -47,6 +47,7 @@
  * @method Field cloneField(Field $field)
  * @method void renamedField(Field $field, $prevName) 
  * @method void savedField(Field $field)
+ * @method void saveFieldReady(Field $field)
  * @method void install()
  * @method void uninstall()
  * 
@@ -992,8 +993,9 @@ abstract class Fieldtype extends WireData implements Module {
 					if($a == 'CHARSET') $info['charset'] = $b;
 				}
 			}
-			if(!$info['engine']) $info['engine'] = $this->wire('config')->dbEngine;
-			if(!$info['charset']) $info['charset'] = $this->wire('config')->dbCharset;
+			$config = $this->wire()->config;
+			if(!$info['engine']) $info['engine'] = $config->dbEngine;
+			if(!$info['charset']) $info['charset'] = $config->dbCharset;
 			if($info['engine']) $info['engine'] = str_replace(array('MYISAM', 'INNODB'), array('MyISAM', 'InnoDB'), $info['engine']);
 			$info['transactions'] = $info['engine'] == 'InnoDB';
 		}
@@ -1505,6 +1507,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * Most Fieldtypes don't need to do anything here, but this exists just in case.
 	 * 
 	 * #pw-internal
+	 * #pw-hooker
 	 * 
 	 * @param Field $field
 	 * @param string $prevName Previous name (current name can be found in $field->name)
@@ -1514,10 +1517,28 @@ abstract class Fieldtype extends WireData implements Module {
 	}
 
 	/**
+	 * Hook called by Fields::save() when a field is about to be saved
+	 * 
+	 * If field is a new field it will not yet have an id. 
+	 *
+	 * #pw-internal
+	 * #pw-hooker
+	 *
+	 * @param Field $field
+	 * @since 3.0.212
+	 *
+	 */
+	public function ___saveFieldReady(Field $field) {
+	}
+
+	/**
 	 * Called when Field using this Fieldtype has been saved 
 	 * 
 	 * This is primarily so that Fieldtype modules can identify when their fields are 
 	 * saved without having to add a hook to the $fields API var. 
+	 * 
+	 * #pw-internal
+	 * #pw-hooker
 	 * 
 	 * @param Field $field
 	 * @since 3.0.171

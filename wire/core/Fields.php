@@ -5,7 +5,7 @@
  *
  * Manages collection of ALL Field instances, not specific to any particular Fieldgroup
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages all custom fields in ProcessWire, independently of any Fieldgroup. 
@@ -357,6 +357,7 @@ class Fields extends WireSaveableItems {
 		}
 
 		if(!$item->type) throw new WireException("Can't save a Field that doesn't have it's 'type' property set to a Fieldtype"); 
+		$item->type->saveFieldReady($item);
 		if(!parent::___save($item)) return false;
 		if($isNew) $item->type->createField($item); 
 
@@ -773,7 +774,7 @@ class Fields extends WireSaveableItems {
 			// so use verbose/slow method to delete the field from pages
 			
 			$ids = $this->getNumPages($field, array('template' => $template, 'getPageIDs' => true)); 
-			$items = $this->wire('pages')->getById($ids, $template); 
+			$items = $this->wire()->pages->getById($ids, $template); 
 			
 			foreach($items as $page) {
 				try {
@@ -791,7 +792,7 @@ class Fields extends WireSaveableItems {
 			
 			// large number of pages to operate on: use fast method
 			
-			$database = $this->wire('database');
+			$database = $this->wire()->database;
 			$table = $database->escapeTable($field->getTable());
 			$sql = 	"DELETE $table FROM $table " .
 					"INNER JOIN pages ON pages.id=$table.pages_id " .
