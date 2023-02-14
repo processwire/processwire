@@ -1791,7 +1791,7 @@ class Modules extends WireArray {
 			// find matching all values in array
 			$keys = $selector;
 			$properties = array_keys($keys);
-		} if(!ctype_alnum($selector) && Selectors::stringHasOperator($selector)) {
+		} else if(!ctype_alnum($selector) && Selectors::stringHasOperator($selector)) {
 			// find by selectors
 			$selectors = new Selectors($selector);
 			if(!$verbose) foreach($selectors as $s) {
