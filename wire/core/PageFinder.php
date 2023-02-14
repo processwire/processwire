@@ -2667,6 +2667,7 @@ class PageFinder extends Wire {
 			// the following fields are defined in each iteration here because they may be modified in the loop
 			$table = "pages";
 			$operator = $selector->operator;
+			$not = $selector->not;
 			$compareType = $selectors::getSelectorByOperator($operator, 'compareType');
 			$isPartialOperator = ($compareType & Selector::compareTypeFind); 
 
@@ -2757,8 +2758,14 @@ class PageFinder extends Wire {
 						$field = $subfield;
 					}
 				}
-			} else if($field === 'id' && count($values) > 1 && $operator === '=' && !$selector->not) {
-				$IDs = $values;
+			} else if($field === 'id' && count($values) > 1) { 
+				if($operator === '=') {
+					$IDs = $values;
+				} else if($operator === '!=' && !$not) {
+					$not = true;
+					$operator = '=';
+					$IDs = $values;
+				}
 				
 			} else {
 				// primary field is not 'parent', 'children' or 'pages'
@@ -2766,7 +2773,7 @@ class PageFinder extends Wire {
 
 			if(count($IDs)) {
 				// parentIDs or IDs found via another query, and we don't need to match anything other than the parent ID
-				$in = $selector->not ? "NOT IN" : "IN"; 
+				$in = $not ? "NOT IN" : "IN";
 				$sql .= in_array($field, array('parent', 'parent_id')) ? "$table.parent_id " : "$table.id ";
 				$IDs = $sanitizer->intArray($IDs);
 				$strIDs = implode(',', $IDs);
