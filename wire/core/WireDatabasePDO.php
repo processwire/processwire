@@ -1561,7 +1561,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if($this->stripMB4 && is_string($str) && !empty($str)) {
 			$str = $this->wire()->sanitizer->removeMB4($str);
 		}
-		return $this->pdoLast()->quote($str);
+		return $this->pdoLast()->quote((string) $str);
 	}
 
 	/**

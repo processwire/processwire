@@ -74,10 +74,10 @@ class InputfieldInteger extends Inputfield {
 			}
 		}
 
-		if(!strlen($attrs['value'])) { 
-			if(strlen($this->initValue)) {
+		if(!strlen("$attrs[value]")) { 
+			if(strlen("$this->initValue")) {
 				$attrs['value'] = (int) $this->initValue; // Inputfield-only version
-			} else if(strlen($this->defaultValue)) {
+			} else if(strlen("$this->defaultValue")) {
 				$attrs['value'] = (int) $this->defaultValue; // Fieldtype version
 			}
 		}

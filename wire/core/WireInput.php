@@ -368,6 +368,7 @@ class WireInput extends Wire {
 			$this->cookieVars = $this->wire(new WireInputDataCookie($_COOKIE, $this->lazy));
 			$this->cookieVars->init();
 		}
+		$key = (string) $key;
 		if(!strlen($key)) return $this->cookieVars;
 		if($valid === null && $fallback === null && !strpos($key, '[]')) return $this->cookieVars->get($key);
 		return $this->getValidInputValue($this->cookieVars, $key, $valid, $fallback);
