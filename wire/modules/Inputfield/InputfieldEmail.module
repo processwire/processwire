@@ -3,12 +3,13 @@
 /**
  * An Inputfield for handling email addresses
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $confirm Specify 1 to make it include a second input for confirmation
  * @property string $confirmLabel label to accompany second input
  * @property int maxlength Max length of email address (default=512)
+ * @property int|bool $allowIDN Allow IDN emails? 1=yes for domain, 2=yes for domain+local part (default=0) 3.0.212+
  * 
  * @method string renderConfirm(array $attrs)
  *
@@ -18,7 +19,7 @@ class InputfieldEmail extends InputfieldText {
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Email', __FILE__), // Module Title
-			'version' => 101,
+			'version' => 102,
 			'summary' => __('E-Mail address in valid format', __FILE__) // Module Summary
 		);
 	}
@@ -36,6 +37,7 @@ class InputfieldEmail extends InputfieldText {
 		$this->set('confirm', 0); // when 1, two inputs will appear and both must match
 		$this->set('confirmLabel', $this->_('Confirm')); 
 		$this->set('value2', '');
+		$this->set('allowIDN', 0);
 	}
 
 	/**
@@ -53,6 +55,10 @@ class InputfieldEmail extends InputfieldText {
 		if($this->confirm && count($this->getErrors())) $this->val('');
 		
 		$attrs = $this->getAttributes();
+		if((int) $this->allowIDN > 1) {
+			// UTF-8 emails are not supported by HTML5 email input type at least in current Chrome
+			$attrs['type'] = 'text';
+		}
 		
 		$out = "<input " . $this->getAttributesString($attrs) . " />"; 
 		
@@ -90,8 +96,12 @@ class InputfieldEmail extends InputfieldText {
 	protected function setAttributeValue($value) {
 		$value = (string) $value;
 		if(strlen($value)) { 
-			$value = $this->wire()->sanitizer->email($value); 	
-			if(!strlen($value)) $this->error($this->_("Please enter a valid e-mail address")); // Error message when email address is invalid
+			$value = $this->sanitizeEmail($value); 	
+			if(!strlen($value)) {
+				$this->error($this->_('Please enter a valid e-mail address')); // Error message when email address is invalid
+			}
+		} else {
+			$value = '';
 		}
 		return $value; 
 	}
@@ -105,20 +115,23 @@ class InputfieldEmail extends InputfieldText {
 	 */
 	public function ___processInput(WireInputData $input) {
 
+		$sanitizer = $this->wire()->sanitizer;
+		$textTools = $sanitizer->getTextTools();
 		$field = $this->hasField;
 		$fieldtype = $field ? $field->type : $this->hasFieldtype; /** @var FieldtypeEmail $fieldtype */
 		$page = $this->hasPage;
 		$errors = array();
 		$valuePrevious = $this->val();
 		$name = $this->attr('name');
+		$idnError = false;
 		
 		parent::___processInput($input);
 		
 		$value = $this->val();
-		$changed = strtolower($value) !== strtolower($valuePrevious);
+		$changed = $textTools->strtolower($value) !== $textTools->strtolower($valuePrevious);
 		
 		if($this->confirm) {
-			$value2 = $this->wire()->sanitizer->email($input["_{$name}_confirm"]);
+			$value2 = $this->sanitizeEmail($input["_{$name}_confirm"]);
 			if((strlen($value) || strlen($value2)) && strtolower($value) !== strtolower($value2)) {
 				$errors[] = $this->_('The emails you entered did not match, please enter again');
 			}
@@ -132,7 +145,27 @@ class InputfieldEmail extends InputfieldText {
 			}
 		}
 		
-		if($fieldtype && $fieldtype instanceof FieldtypeEmail) {
+		if($changed && !$this->allowIDN && strpos($value, 'xn-') !== false) {
+			$idnError = true;
+		}
+		
+		if($changed && empty($value) && $this->allowIDN < 2 && $input->$name) {
+			// value was made empty by sanitization, see if it is because of IDN conversion
+			$inputValue1 = $textTools->strtolower($input->$name); // value as input
+			$inputValue2 = $sanitizer->email($inputValue1, array('allowIDN' => 2)); // input value sanitized
+			if($inputValue1 && $inputValue1 === $inputValue2) $idnError = true;
+			unset($inputValue1, $inputValue2);
+		}
+		
+		if($idnError) {
+			if($this->allowIDN) {
+				$errors[] = $this->_('Email with extended characters in the local-part of local-part@domain.com is not enabled'); 
+			} else {
+				$errors[] = $this->_('Internationalized domain name (IDN) emails are not enabled, please use a non-IDN email');
+			}
+		}
+		
+		if($fieldtype instanceof FieldtypeEmail) {
 			$max = $fieldtype->getMaxEmailLength();
 			if(strlen($value) > $max) {
 				$errors[] = sprintf($this->_('Email exceeded max allowed length of %d characters'), $max);
@@ -145,6 +178,20 @@ class InputfieldEmail extends InputfieldText {
 		}
 
 		return $this;
+	}
+
+	/**
+	 * Sanitize email address
+	 * 
+	 * @param string $email
+	 * @return string
+	 * 
+	 */
+	protected function sanitizeEmail($email) {
+		$email2 = $this->wire()->sanitizer->email($email, array(
+			'allowIDN' => (int) $this->allowIDN,
+		));
+		return $email2;
 	}
 
 	/**
@@ -163,8 +210,7 @@ class InputfieldEmail extends InputfieldText {
 			if($f) $inputfields->remove($f);
 		}
 
-		/** @var InputfieldCheckbox $f */
-		$f = $this->wire()->modules->get('InputfieldCheckbox');
+		$f = $inputfields->InputfieldCheckbox;
 		$f->attr('name', 'confirm');
 		$f->label = $this->_('Confirm email address?');
 		$f->description = $this->_('When checked, two email inputs will appear and the user will have to enter their email address twice to confirm it. This helps reduce the possibility of typos.');
@@ -172,6 +218,36 @@ class InputfieldEmail extends InputfieldText {
 		$f->collapsed = $this->confirm ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
 		if($this->confirm) $f->attr('checked', 'checked');
 		$inputfields->add($f);
+	
+		if($this->hasField && $this->hasField->name === 'email') {
+			// do not allow IDN for ProcessWire's system email field
+		} else {
+			$f = $inputfields->InputfieldRadios;
+			$f->attr('name', 'allowIDN');
+			$f->label = $this->_('Allow internationalized domain name (IDN) emails?');
+			$f->description =
+				$this->_('Please note that not all email systems support sending/receiving emails that contain IDNs and/or UTF-8 characters.') . ' ' . 
+				$this->_('Choose ASCII standard emails for broadest compatibility.');
+			$f->notes =
+				$this->_('Use ASCII standard if the email address is used for any kind of authentication or login.') . ' ' .
+				$this->_('We also recommend ASCII standard emails if you will be sending messages to the email address.');
+			$f->addOption(0,
+				$this->_('Use ASCII standard emails') . ' ' .
+				'`' . $this->_('bob@domain.com') . '` ' .
+				'[span.detail] ' . $this->_('(recommended)') . ' [/span]'
+			);
+			$f->addOption(1,
+				$this->_('Allow IDN host/domain') . ' ' .
+				'`' . $this->_('bob@dømain.com') . '`'
+			);
+			$f->addOption(2,
+				$this->_('Allow UTF-8 local-part and IDN host/domain') . ' ' .
+				'`' . $this->_('bøb@dømain.com') . '`'
+			);
+			$f->val($this->allowIDN);
+			$f->collapsed = !$this->allowIDN;
+			$inputfields->add($f);
+		}
 		
 		return $inputfields;	
 	}
