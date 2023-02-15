@@ -263,6 +263,8 @@ class Sanitizer extends Wire {
 		'filename' => 's',
 		'flatArray' => 'a',
 		'float' => 'f',
+		'htmlClass' => 's', 
+		'htmlClasses' => 's',
 		'httpUrl' => 's',
 		'hyphenCase' => 's',
 		'int' => 'i',
@@ -589,6 +591,54 @@ class Sanitizer extends Wire {
 		}
 		
 		return $value;
+	}
+
+	/**
+	 * Sanitize string to ASCII-only HTML class attribute value
+	 * 
+	 * Note that this does not support all possible characters in an HTML class attribute 
+	 * and instead focuses on the most commonly used ones. Characters allowed in HTML class
+	 * attributes from this method include: `-_:@a-zA-Z0-9`. This method does not allow
+	 * values that have no letters or digits.
+	 * 
+	 * @param string $value
+	 * @return string 
+	 * @since 3.0.212
+	 * 
+	 */
+	public function htmlClass($value) {
+		$value = trim("$value");
+		if(empty($value)) return '';
+		$extras = array('-', '_', ':', '@');
+		$value = $this->nameFilter($value, $extras, '-');
+		$value = ltrim($value, '0123456789'); // cannot begin with digit
+		if(trim($value, implode('', $extras)) === '') $value = ''; // do not allow extras-only class
+		return $value;
+	}
+
+	/**
+	 * Sanitize string to ASCII-only space-separated HTML class attribute values with no duplicates
+	 * 
+	 * See additional notes in `Sanitizer::htmlClass()` method. 
+	 *
+	 * @param string|array $value
+	 * @param bool $getArray Get array rather than string? (default=false)
+	 * @return string|array
+	 * @since 3.0.212
+	 *
+	 */
+	public function htmlClasses($value, $getArray = false) {
+		if(is_array($value)) $value = implode(' ', $value);
+		$value = str_replace(array("\n", "\r", "\t", ",", "."), ' ', $value);
+		$value = trim("$value");
+		if(empty($value)) return $getArray ? array() : '';
+		$a = array();
+		foreach(explode(' ', $value) as $c) {
+			$c = $this->htmlClass($c);
+			if(!empty($c)) $a[$c] = $c;
+		}
+		if($getArray) return array_values($a);
+		return count($a) ? implode(' ', $a) : '';
 	}
 
 	/**
