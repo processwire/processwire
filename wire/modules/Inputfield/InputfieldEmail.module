@@ -57,6 +57,7 @@ class InputfieldEmail extends InputfieldText {
 		$attrs = $this->getAttributes();
 		if((int) $this->allowIDN > 1) {
 			// UTF-8 emails are not supported by HTML5 email input type at least in current Chrome
+			$attrs['pattern'] = '[^@]+@[^\.]+\...+';
 			$attrs['type'] = 'text';
 		}
 		
@@ -188,10 +189,9 @@ class InputfieldEmail extends InputfieldText {
 	 * 
 	 */
 	protected function sanitizeEmail($email) {
-		$email2 = $this->wire()->sanitizer->email($email, array(
+		return $this->wire()->sanitizer->email($email, array(
 			'allowIDN' => (int) $this->allowIDN,
 		));
-		return $email2;
 	}
 
 	/**
