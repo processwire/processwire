@@ -669,6 +669,7 @@ class LanguageTranslator extends Wire {
 			case 'system': $v = $this->_('System'); break;
 			case 'modified': $v = $this->_('Modified'); break;
 			case 'error': $v = $this->_('Error'); break;
+			case ',': $v = $this->_(','); break; // Comma
 		}
 		
 		$level--;
