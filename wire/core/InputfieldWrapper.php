@@ -775,7 +775,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				$errors = $inputfield->getErrors(true);
 				if(count($errors)) {
 					$collapsed = $renderValueMode ? Inputfield::collapsedNoLocked : Inputfield::collapsedNo;
-					$errorsOut = implode(', ', $errors);
+					$comma = $this->_(','); // Comma or other character to separate multiple error messages
+					$errorsOut = implode("$comma ", $errors);
 				}
 			} else $errors = array();
 		
