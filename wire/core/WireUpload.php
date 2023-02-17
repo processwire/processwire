@@ -54,6 +54,14 @@ class WireUpload extends Wire {
 	protected $completedFilenames = array();
 
 	/**
+	 * Original unsanitized file basenames indexed by completed basenames
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $originalFilenames = array();
+
+	/**
 	 * Allow files to be overwritten?
 	 * 
 	 * @var bool
@@ -474,8 +482,8 @@ class WireUpload extends Wire {
 	/**
 	 * Save the uploaded file
 	 * 
-	 * @param string $tmp_name Temporary filename
-	 * @param string $filename Actual filename
+	 * @param string $tmp_name Temporary filename (full path and filename)
+	 * @param string $filename Actual filename (basename)
 	 * @param bool $ajax Is this an AJAX upload?
 	 * @return array|bool|string Boolean false on fail, array of multiple filenames, or string of filename if maxFiles=1
 	 * 
@@ -486,6 +494,7 @@ class WireUpload extends Wire {
 		
 		$success = false;
 		$error = '';
+		$originalFilename = basename($filename);
 		$filename = $this->getTargetFilename($filename); 
 		$_filename = $filename;
 		$filename = $this->validateFilename($filename, $this->validExtensions);
@@ -552,7 +561,7 @@ class WireUpload extends Wire {
 			return $this->completedFilenames; 
 
 		} else {
-			$this->completedFilenames[] = $filename; 
+			$this->addUploadedFilename($filename, $originalFilename);
 			return $filename; 
 		}
 	}
@@ -602,6 +611,7 @@ class WireUpload extends Wire {
 			}
 
 			$basename = $file;
+			$originalFilename = $basename;
 			$basename = $this->validateFilename($basename, $this->validExtensions); 
 
 			if($basename) {
@@ -624,7 +634,7 @@ class WireUpload extends Wire {
 			}
 
 			if($destination && rename($pathname, $destination)) {
-				$this->completedFilenames[] = basename($destination); 
+				$this->addUploadedFilename($destination, $originalFilename);
 				$cnt++; 
 			} else {
 				$fileTools->unlink($pathname, $tmpDir);
@@ -647,6 +657,34 @@ class WireUpload extends Wire {
 	 */
 	public function getCompletedFilenames() {
 		return $this->completedFilenames; 
+	}
+
+	/**
+	 * Add a completed upload file name and its original name
+	 *
+	 * @param string $completedFilename Sanitized filename or basename that was used for saved file
+	 * @param string $originalFilename Unsanitized filename as uploaded
+	 *
+	 */
+	protected function addUploadedFilename($completedFilename, $originalFilename) {
+		$completedFilename = basename($completedFilename);
+		$originalFilename = basename($originalFilename);
+		$this->completedFilenames[] = $completedFilename;
+		if($this->wire()->sanitizer->getTextTools()->strlen($originalFilename) > 255) {
+			$originalFilename = $completedFilename;
+		}
+		$this->originalFilenames[$completedFilename] = $originalFilename;
+	}
+
+	/**
+	 * Get unsanitized array of original filenames (basenames) indexed by completed basename
+	 * 
+	 * @return array
+	 * @since 3.0.212
+	 * 
+	 */
+	public function getOriginalFilenames() {
+		return $this->originalFilenames;
 	}
 
 	/**

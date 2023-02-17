@@ -31,7 +31,7 @@
  * @method string renderUpload($value)
  * @method void fileAdded(Pagefile $pagefile)
  * @method array extractMetadata(Pagefile $pagefile, array $metadata = array())
- * @method void processInputAddFile($filename)
+ * @method Pagefile|null processInputAddFile($filename)
  * @method void processInputDeleteFile(Pagefile $pagefile)
  * @method bool processInputFile(WireInputData $input, Pagefile $pagefile, $n)
  * @method bool processItemInputfields(Pagefile $pagefile, InputfieldWrapper $inputfields, $id, WireInputData $input)
@@ -519,11 +519,20 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	
 		$displayName = $this->getDisplayBasename($pagefile);
 		$deleteLabel = $this->labels['delete'];
+		$uploadName = $pagefile->uploadName();
+		$icon = wireIconMarkupFile($pagefile->basename, "fa-fw HideIfEmpty");
+	
+		$tooltip = $this->wire()->sanitizer->entities($pagefile->basename);
+		
+		if($uploadName && $uploadName != $pagefile->basename) {
+			$uploadName = $this->wire()->sanitizer->entities($uploadName);
+			$icon = "<span class='pw-tooltip' title='$uploadName'>$icon</span>";
+		}
 	
 		$out = 
 			"<p class='InputfieldFileInfo InputfieldItemHeader ui-state-default ui-widget-header'>" . 
-			wireIconMarkupFile($pagefile->basename, "fa-fw HideIfEmpty") . '&nbsp;' . 
-			"<a class='InputfieldFileName' title='$pagefile->basename' target='_blank' href='{$pagefile->url}'>$displayName</a> " . 
+			"$icon&nbsp;" . 
+			"<a class='InputfieldFileName pw-tooltip' title='$tooltip' target='_blank' href='$pagefile->url' download>$displayName</a> " . 
 			"<span class='InputfieldFileStats'>" . str_replace(' ', '&nbsp;', $pagefile->filesizeStr) . "</span> ";
 		
 		if(!$this->renderValueMode) $out .=
@@ -882,6 +891,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * Process input to add a file
 	 * 
 	 * @param string $filename
+	 * @return Pagefile|null Returns Pagefile (added 3.0.212+)
 	 * @throws WireException
 	 * 
 	 */
@@ -890,7 +900,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$total = count($this->value); 
 		$metadata = array();
 
-		if($this->maxFiles > 1 && $total >= $this->maxFiles) return; 
+		if($this->maxFiles > 1 && $total >= $this->maxFiles) return null; 
 		
 		// allow replacement of file if maxFiles is 1
 		if($this->maxFiles == 1 && $total) {
@@ -930,7 +940,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					$ul->error(sprintf($this->_('Refused file %s because it is already on the file system and owned by a different field.'), $filename)); 
 					$err = true; 
 				}
-				if($err) return;
+				if($err) return null;
 			}
 		}
 
@@ -955,6 +965,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$this->value->remove($item); 
 			throw new WireException($e->getMessage()); 
 		}
+		
+		return $item;
 	}
 
 	/**
@@ -1204,9 +1216,15 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				}
 
 				$ul->setValidExtensions($this->getAllowedExtensions(true));
+				
+				$filenames = $ul->execute();
+				$originalFilenames = $ul->getOriginalFilenames();
 
-				foreach($ul->execute() as $filename) {
-					$this->processInputAddFile($filename); 
+				foreach($filenames as $filename) {
+					$pagefile = $this->processInputAddFile($filename); 
+					if($pagefile && isset($originalFilenames[$filename]) && $originalFilenames[$filename] != $filename) {
+						$pagefile->filedata('uploadName', $originalFilenames[$filename]);
+					}
 					$changed = true; 
 				}
 

@@ -716,10 +716,18 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 
 			$inputfields = $this->getItemInputfields($pagefile);
 			if($inputfields) $additional .= $inputfields->render();
+			
+			$uploadName = $pagefile->uploadName();
+			if($uploadName != "$basename.$ext") {
+				$tooltip = $uploadName;
+			} else {
+				$tooltip = $this->_('Click to rename');
+			}
+			$tooltip = $sanitizer->entities($tooltip);
 				
 			$out .= "
 				<div class='ImageData'>
-					<h2 class='InputfieldImageEdit__name'><span contenteditable='true'>$basename</span>.$ext</h2>
+					<h2 class='InputfieldImageEdit__name pw-tooltip' title='$tooltip'><span contenteditable='true'>$basename</span>.$ext</h2>
 					<span class='InputfieldImageEdit__info'>$fileStats</span>
 					<div class='InputfieldImageEdit__errors'>$error</div>
 					<div class='InputfieldImageEdit__buttons'><small>$buttons</small> $actions</div>
