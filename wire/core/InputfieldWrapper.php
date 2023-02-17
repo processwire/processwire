@@ -549,7 +549,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		}
 		if($this->children()->has($item)) {
 			$this->children()->remove($item);
-		} if($this->getChildByName($item->attr('name')) && $item->parent) {
+		} else if($this->getChildByName($item->attr('name')) && $item->parent) {
 			$item->parent->remove($item);
 		}
 		return $this; 
