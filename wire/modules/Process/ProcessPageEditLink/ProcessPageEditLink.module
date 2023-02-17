@@ -73,14 +73,6 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	protected $langID = 0;
 
 	/**
-	 * Has init method been called?
-	 * 
-	 * @var bool 
-	 * 
-	 */
-	protected $init = false;
-
-	/**
 	 * Get default configuration settings
 	 * 
 	 * @return array
@@ -105,51 +97,27 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	 */
 	public function __construct() {
 		parent::__construct();
-		$this->setArray(self::getDefaultSettings());
-	}
-	
-	public function init() {
-		$this->init = true;
-		parent::init();
-	}
-
-	/**
-	 * Set
-	 * 
-	 * @param string $key
-	 * @param string|int|array $value
-	 * @return self
-	 *
-	 */
-	public function set($key, $value) {
-		if(!$this->init) return parent::set($key, $value);
-		if($key === 'classOptions' || $key === 'relOptions' || $key === 'targetOptions') {
-			$value = $this->wire()->sanitizer->htmlClasses($value, true);
-			$value = implode("\n", $value);
-		} else if($key === 'extLinkRel' || $key === 'extLinkClass') {
-			$value = $this->wire()->sanitizer->htmlClasses($value);
-		} else if($key === 'extLinkTarget') {
-			$value = $this->wire()->sanitizer->htmlClass($value);
+		foreach(self::getDefaultSettings() as $key => $value) {
+			parent::set($key, $value);
 		}
-		return parent::set($key, $value);
 	}
 
 	/**
-	 * Primary execute
-	 * 
-	 * @return string
+	 * Setup for execute methods
 	 * 
 	 */
-	public function ___execute() {
-
+	public function setup() {
 		$sanitizer = $this->wire()->sanitizer;
 		$modules = $this->wire()->modules;
-		$config = $this->wire()->config;
 		$pages = $this->wire()->pages;
 		$input = $this->wire()->input;
+
 		
+		/** @var ProcessPageList $pageList */
+		$pageList = $modules->get('ProcessPageList');
+		$pageList->renderReady();
+
 		$this->startLabel = $this->_('Choose page');
-		$modules->get('ProcessPageList');
 		$id = (int) $input->get('id');
 		$this->langID = (int) $input->get('lang');
 		if($id) $this->page = $pages->get($id);
@@ -172,7 +140,43 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'extLinkClass' => $sanitizer->names($this->extLinkClass),
 			'noLinkTextEdit' => (int) $this->noLinkTextEdit
 		));
+	}
 
+	/**
+	 * Set
+	 * 
+	 * @param string $key
+	 * @param string|int|array $value
+	 * @return self
+	 *
+	 */
+	public function set($key, $value) {
+		if($key === 'classOptions' || $key === 'relOptions' || $key === 'targetOptions') {
+			$value = $this->wire()->sanitizer->htmlClasses($value, true);
+			$value = implode("\n", $value);
+		} else if($key === 'extLinkRel' || $key === 'extLinkClass') {
+			$value = $this->wire()->sanitizer->htmlClasses($value);
+		} else if($key === 'extLinkTarget') {
+			$value = $this->wire()->sanitizer->htmlClass($value);
+		}
+		return parent::set($key, $value);
+	}
+
+	/**
+	 * Primary execute
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___execute() {
+
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		
+		$this->setup();
+		
 		if($input->get('href')) {
 			$currentValue = $sanitizer->url($input->get('href'), array(
 				'stripQuotes' => false,
@@ -419,6 +423,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___executeFiles() {
+		$this->setup();
 		if(!$this->page->id) throw new WireException("A page id must be specified"); 	
 		$files = $this->getFiles();	
 		return wireEncodeJSON($files);
