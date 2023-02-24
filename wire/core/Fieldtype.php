@@ -50,6 +50,7 @@
  * @method void saveFieldReady(Field $field)
  * @method void install()
  * @method void uninstall()
+ * @method array getFieldSetups()
  * 
  * @property bool $_exportMode True when Fieldtype is exporting config data, false otherwise.  #pw-internal
  * @property string $name Name of Fieldtype module. #pw-group-other
@@ -175,6 +176,40 @@ abstract class Fieldtype extends WireData implements Module {
 		$inputfield = $this->wire()->modules->get('InputfieldText'); 
 		$inputfield->class = $this->className();
 		return $inputfield; 
+	}
+
+	/**
+	 * Get predefined setups for newly created fields of this type
+	 * 
+	 * ~~~~~
+	 * // Example that returns 2 setup options "foo" and "bar"
+	 * return array(
+	 *   'foo' => array(
+	 *     'title' => 'Foo', 
+	 *     'any_setting' => 'any_value',
+	 *     'setup' => function(Field $field) { 
+	 *        // optional code to setup $field when 'foo' is selected 
+	 *     }
+	 *   ),
+	 *   'bar' => array(
+	 *     'title' => 'Bar',
+	 *     'hello' => 'world', // example of any setting
+	 *     'setup' => function(Field $field) {
+	 *        // optional code to setup $field when 'bar' is selected
+	 *     }
+	 *   )
+	 * );
+	 * ~~~~~
+	 * 
+	 * #pw-internal
+	 * #pw-hooker
+	 * 
+	 * @return array
+	 * @since 3.0.213
+	 * 
+	 */
+	public function ___getFieldSetups() {
+		return array();
 	}
 
 	/**

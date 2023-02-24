@@ -252,6 +252,18 @@ class Field extends WireData implements Saveable, Exportable {
 	protected $tagList = null;
 
 	/**
+	 * Setup name to apply when field is saved 
+	 * 
+	 * Set via $field->type = 'FieldtypeName.setupName'; 
+	 * or applySetup() method
+	 * 
+	 * @var string 
+	 * @since 3.0.213
+	 * 
+	 */
+	protected $setupName = '';
+
+	/**
 	 * True if lowercase tables should be enforce, false if not (null = unset). Cached from $config
 	 *
 	 */
@@ -680,6 +692,11 @@ class Field extends WireData implements Saveable, Exportable {
 			// good for you
 
 		} else if(is_string($type)) {
+			if(strpos($type, '.')) {
+				// FieldtypeName.setupName
+				list($type, $setupName) = explode('.', $type, 2);
+				$this->setSetupName($setupName);
+			}
 			$typeStr = $type;
 			$type = $this->wire()->fieldtypes->get($type);
 			if(!$type) {
@@ -1544,6 +1561,18 @@ class Field extends WireData implements Saveable, Exportable {
 		$url .= "setup/field/edit?id=$this->id";
 		if(!empty($options['find'])) $url .= '#find-' . $this->wire()->sanitizer->fieldName($options['find']);
 		return $url;
+	}
+
+	/**
+	 * Set setup name from Fieldtype to apply when field is saved 
+	 * 
+	 * @param string $setupName Setup name or omit to instead get the current value
+	 * @return string Returns current value
+	 * 
+	 */
+	public function setSetupName($setupName = null) {
+		if($setupName !== null) $this->setupName = $setupName;
+		return $this->setupName;
 	}
 
 	/**

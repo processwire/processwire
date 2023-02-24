@@ -585,7 +585,7 @@ class PageValues extends Wire {
 			
 		} else {
 			// name being set while page is loading
-			if($charset === 'UTF8' && strpos($value, 'xn-') === 0) {
+			if($charset === 'UTF8' && strpos("$value", 'xn-') === 0) {
 				// allow decode of UTF8 name while page is loading
 				$value = $sanitizer->pageName($value, Sanitizer::toUTF8);
 			} else {
