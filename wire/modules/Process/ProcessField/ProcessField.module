@@ -1591,55 +1591,9 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field->attr('required', 'required');
 			$nameField = $field;
 			$form->add($field); 
-
-			/** @var InputfieldSelect $field */
-			$field = $modules->get('InputfieldSelect');
-			$field->label = $this->labels['type'];
-			$field->attr('name', 'type'); 
-			$field->required = true; 
-			$field->attr('required', 'required');
-			$field->columnWidth = $languages ? 50 : 34;
-			$field->icon = 'database';
-			if($this->field->type) {
-				$field->attr('value', $this->field->type->name);
-			} else {
-				$field->addOption('', '');
-			}
-
-			$fieldtypes = $fields->getCompatibleFieldtypes($this->field);
-
-			if(count($fieldtypes)) {
-				$fieldtypeLabels = array();
-				foreach($fieldtypes as $fieldtype) {
-					/** @var Fieldtype $fieldtype */
-					$label = $fieldtype->longName;
-					if(isset($fieldtypeLabels[$label])) $label .= " ($fieldtype->name)";
-					$fieldtypeLabels[$label] = $fieldtype;
-				}
-				ksort($fieldtypeLabels);
-				$advanced = $config->advanced;
-				foreach($fieldtypeLabels as $label => $fieldtype) {
-					if(!$advanced && $fieldtype->isAdvanced() && $this->field->name != 'title' 
-						&& $field->value != $fieldtype->className()) continue; 
-					$field->addOption($fieldtype->name, $label); 
-				}
-			} else {
-				$field->addOption($this->field->type->name, $this->field->type->longName); 
-			}
 			
-			if($isNew) {
-				$names = array();
-				foreach($fields as $f) {
-					/** @var Field $f */
-					if(($f->flags & Field::flagSystem) && !$config->advanced) continue;
-					if(strpos($f->name, '_END')) continue;
-					$names['_' . $f->name] = $f->name;
-				}
-				$field->addOption($this->_('Clone existing field'), $names);
-			}
-
-			$typeField = $field;
-			$form->add($field); 
+			$typeField = $this->buildEditFormTypeSelect();
+			$form->add($typeField); 
 			
 			if($legacyTheme) {
 				$labelField->columnWidth = 100;
@@ -1724,10 +1678,193 @@ class ProcessField extends Process implements ConfigurableModule {
 		return $form;
 	}
 
+	/**
+	 * Build the Fieldtype selection for the editor form
+	 * 
+	 * @return InputfieldSelect
+	 * 
+	 */
+	protected function buildEditFormTypeSelect() {
+		
+		$modules = $this->wire()->modules;
+		$languages = $this->wire()->langauges;
+		$fields = $this->wire()->fields;
+		$config = $this->wire()->config;
+		$isNew = !$this->field || !$this->field->id;
+		
+		/** @var InputfieldSelect $field */
+		$field = $modules->get('InputfieldSelect');
+		$field->label = $this->labels['type'];
+		$field->attr('name', 'type');
+		$field->required = true;
+		$field->attr('required', 'required');
+		$field->columnWidth = $languages ? 50 : 34;
+		$field->icon = 'database';
+		if($this->field->type) {
+			$field->attr('value', $this->field->type->name);
+		} else {
+			$field->addOption('', '');
+		}
+
+		$fieldtypes = $fields->getCompatibleFieldtypes($this->field);
+		
+		if(!count($fieldtypes)) {
+			$field->addOption($this->field->type->name, $this->field->type->longName);
+			return $field;
+		}
+
+		$fieldtypeLabels = array();
+		foreach($fieldtypes as $fieldtype) {
+			/** @var Fieldtype $fieldtype */
+			$label = $fieldtype->longName;
+			if(isset($fieldtypeLabels[$label])) $label .= " ($fieldtype->name)";
+			$fieldtypeLabels[$label] = $fieldtype;
+		}
+		ksort($fieldtypeLabels);
+
+		$advanced = $config->advanced;
+		$fieldsetOptions = array();
+		$textOptions = array();
+		$numberOptions = array();
+		$numberTypes = array('FieldtypeInteger', 'FieldtypeFloat', 'FieldtypeDecimal');
+		$typeOptions = array();
+		$coreOptions = array();
+		$xtraGroups = array();
+		$optgroups = array();
+
+		foreach($fieldtypeLabels as $label => $fieldtype) {
+			
+			if(!$advanced && $fieldtype->isAdvanced() && $this->field->name != 'title') {
+				if($field->value != $fieldtype->className()) continue;
+			}
+			
+			if(!$isNew) {
+				$typeOptions[$fieldtype->name] = $label;
+				continue;
+			}
+			
+			$setups = $fieldtype->getFieldSetups();
+			$fieldtypeClass = wireClassName($fieldtype);
+			$inOptgroup = '';
+			
+			if(count($setups)) {
+				$setupOptions = array();
+				foreach($fieldtype->getFieldSetups() as $setupName => $setupInfo) {
+					$setupTitle = isset($setupInfo['title']) ? $setupInfo['title'] : $setupName;
+					$setupOptions["$fieldtype->name.$setupName"] = "$setupTitle";
+				}
+				while(isset($optgroups[$label])) $label .= ' …';
+				$optgroups[$label] = $setupOptions;
+				$inOptgroup = $label;
+			}
+				
+			if(wireInstanceOf($fieldtype, $numberTypes)) {
+				$numberOptions[$fieldtype->name] = $label;
+				
+			} else if(strpos($fieldtypeClass, 'FieldtypeFieldset') === 0 || wireInstanceOf($fieldtype, 'FieldtypeFieldsetOpen')) {
+				$fieldsetOptions[$fieldtype->name] = $label;
+				
+			} else if($fieldtype instanceof FieldtypeText && !$fieldtype instanceof FieldtypeTextarea) {
+				$textOptions[$fieldtype->name] = $label;
+
+			} else if($inOptgroup) {
+				// ok, does not need to be dupicated in core or 3rd party options
+				
+			} else if($modules->getModuleInfoProperty($fieldtype, 'core')) {
+				$coreOptions[$fieldtype->name] = $label;
+				
+			} else {
+				$typeOptions[$fieldtype->name] = $label;
+			}
+			
+			if(!$inOptgroup && strpos($label, ':') && preg_match('/^(.+):\s+(.+)$/', $label, $matches)) {
+				// look for 'GroupName: FieldtypeLabel'
+				$groupTitle = $matches[1];
+				$label = $matches[2];
+				if(!isset($xtraGroups[$groupTitle])) $xtraGroups[$groupTitle] = array();
+				$xtraGroups[$groupTitle][$fieldtype->name] = $label;
+			}
+		}
+		
+		if(!$isNew) {
+			$field->addOptions($typeOptions);
+			return $field;
+		}
+
+		// groups indicated by "GroupName: FieldtypeLabel" in module title
+		foreach($xtraGroups as $groupLabel => $groupOptions) {
+			if(count($groupOptions) < 2) continue;
+			foreach($groupOptions as $fieldtypeName => $label) {
+				unset($fieldsetOptions[$fieldtypeName]);
+				unset($textOptions[$fieldtypeName]);
+				unset($typeOptions[$fieldtypeName]);
+				unset($coreOptions[$fieldtypeName]);
+				unset($numberOptions[$fieldtypeName]);
+			}
+			$optgroups[$groupLabel] = $groupOptions;
+		}
+
+		$groupLabel = $this->_('Fieldset');
+		while(isset($optgroups[$groupLabel])) $groupLabel .= ' …';
+		$optgroups[$groupLabel] = $fieldsetOptions;
+
+		$groupLabel = $this->_('Text');
+		while(isset($optgroups[$groupLabel])) $groupLabel .= ' …';
+		$optgroups[$groupLabel] = $textOptions;
+
+		$groupLabel = $this->_('Number');
+		while(isset($optgroups[$groupLabel])) $groupLabel .= ' …';
+		$optgroups[$groupLabel] = $numberOptions;
+
+		ksort($optgroups);
+
+		if(count($coreOptions)) {
+			$groupLabel = $this->_('Other core types');
+			while(isset($optgroups[$groupLabel])) $groupLabel .= ' …';
+			asort($coreOptions);
+			$optgroups[$groupLabel] = $coreOptions;
+		}
+
+		if(count($typeOptions)) {
+			$groupLabel = $this->_('Other non-core types');
+			while(isset($optgroups[$groupLabel])) $groupLabel .= ' …';
+			asort($typeOptions);
+			$optgroups[$groupLabel] = $typeOptions;
+		}
+
+		foreach($optgroups as $label => $optgroupOptions) {
+			$field->addOption($label, $optgroupOptions);
+		}
+
+		// indicate fieldtypes that are not yet installed
+		$uninstalledOptions = array();
+		foreach($modules->getInstallable() as $moduleName => $filename) {
+			if(strpos($moduleName, 'Fieldtype') !== 0) continue;
+			$title = $modules->getModuleInfoProperty($moduleName, 'title');
+			$uninstalledOptions[$moduleName] = $title;
+			$field->addOption($this->_('Not yet installed'), $uninstalledOptions);
+			foreach(array_keys($uninstalledOptions) as $moduleName) {
+				$field->setOptionAttributes($moduleName, array('disabled' => 'disabled'));
+			}
+		}
+
+		// add clone options
+		$names = array();
+		foreach($fields as $f) {
+			/** @var Field $f */
+			if(($f->flags & Field::flagSystem) && !$config->advanced) continue;
+			if(strpos($f->name, '_END')) continue;
+			$names['_' . $f->name] = $f->name;
+		}
+		$field->addOption($this->_('Clone existing field'), $names);
+		
+		return $field;
+	}
+
 	protected function ___buildEditFormInfo($form) { // legacy name (left for hooks)
 		return $this->buildEditFormActions($form);
 	}
-	
+
 	/**
 	 * Build the 'Info' field shown in the Field Edit form
 	 * 
