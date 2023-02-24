@@ -281,6 +281,20 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 		if($value instanceof Pageimage) $pageimages->add($value);
 		return $pageimages;
 	}
+
+	/**
+	 * Get setup options and setup functions for new fields
+	 *
+	 * @return array
+	 * @since 3.0.213
+	 *
+	 */
+	public function ___getFieldSetups() {
+		$setups = parent::___getFieldSetups();
+		$setups['single']['title'] = $this->_('Single image');
+		$setups['multiple']['title'] = $this->_('Multiple images');
+		return $setups;
+	}
 	
 	/**
 	 * Get Inputfields to configure fields using this Fieldtype

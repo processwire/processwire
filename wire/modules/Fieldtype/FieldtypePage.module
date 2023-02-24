@@ -134,6 +134,20 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	}
 
 	/**
+	 * Get setup options and setup functions for new fields
+	 *
+	 * @return array
+	 * @since 3.0.213
+	 *
+	 */
+	public function ___getFieldSetups() {
+		$setups = parent::___getFieldSetups();
+		/** @var InputfieldPage $f */
+		$f = $this->wire()->modules->getModule('InputfieldPage', array('noInit' => true)); 
+		return array_merge($setups, $f->getFieldSetups());
+	}
+
+	/**
 	 * Per the Fieldtype interface, Save the given Field from the given Page to the database
 	 *
 	 * @param Page $page

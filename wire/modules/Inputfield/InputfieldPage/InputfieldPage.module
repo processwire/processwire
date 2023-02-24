@@ -1375,36 +1375,14 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$field->required = true; 
 		$field->icon = 'plug';
 		$inputfieldSelection = $field;
+	
+		$options = $this->getInputfieldOptions();
+		$pageListTypes = $options['pageListTypes'];
 		
-		$singles = array();
-		$multiples = array();
-		$sortables = array();
-		$pageListTypes = array();
-		
-		$inputfieldClasses = $this->inputfieldClasses;
-		if($this->hasFieldtype) $inputfieldClasses = array_merge(self::$defaultInputfieldClasses, $inputfieldClasses);
-
-		foreach($inputfieldClasses as $class) {
-			$module = $modules->getModule($class, array('noInit' => true)); 
-			$info = $modules->getModuleInfo($module);
-			$label = ucfirst((string) $info['title']);
-			if($module instanceof InputfieldPageListSelection) {
-				$pageListTypes[] = $class;
-			}
-			if($module instanceof InputfieldHasSortableValue) {
-				$sortables[$class] = $label;
-			} else if($module instanceof InputfieldHasArrayValue || $module instanceof InputfieldSupportsArrayValue) {
-				$multiples[$class] = $label;
-			} else {
-				$singles[$class] = $label;
-			}
-			if($class == 'InputfieldPageAutocomplete') $singles["_$class"] = $label;
-		}
-
 		$multiLabel = $this->_('Multiple page selection');
-		$field->addOption($this->_('Single page selection'), $singles);
-		$field->addOption($multiLabel, $multiples);
-		$field->addOption($multiLabel . ' (' . $this->_('sortable') . ')', $sortables); 
+		$field->addOption($this->_('Single page selection'), $options['singles']);
+		$field->addOption($multiLabel, $options['multiples']);
+		$field->addOption($multiLabel . ' (' . $this->_('sortable') . ')', $options['sortables']); 
 		$inputfields->insertBefore($field, $selectablePagesFieldset);
 
 		if($this->hasFieldtype === false) {
@@ -1499,6 +1477,85 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$this->configMode = false; // reverse what was set at the top of this function
 		
 		return $inputfields; 
+	}
+
+	/**
+	 * Get options available for page selection Inputfields
+	 * 
+	 * @return array
+	 * @since 3.0.213
+	 * 
+	 */
+	public function getInputfieldOptions() {
+		$modules = $this->wire()->modules;
+		
+		$singles = array();
+		$multiples = array();
+		$sortables = array();
+		$pageListTypes = array();
+
+		$inputfieldClasses = $this->inputfieldClasses;
+		if($this->hasFieldtype) $inputfieldClasses = array_merge(self::$defaultInputfieldClasses, $inputfieldClasses);
+
+		foreach($inputfieldClasses as $class) {
+			$module = $modules->getModule($class, array('noInit' => true));
+			$info = $modules->getModuleInfo($module);
+			$label = ucfirst((string) $info['title']);
+			if($module instanceof InputfieldPageListSelection) {
+				$pageListTypes[] = $class;
+			}
+			if($module instanceof InputfieldHasSortableValue) {
+				$sortables[$class] = $label;
+			} else if($module instanceof InputfieldHasArrayValue || $module instanceof InputfieldSupportsArrayValue) {
+				$multiples[$class] = $label;
+			} else {
+				$singles[$class] = $label;
+			}
+			if($class == 'InputfieldPageAutocomplete') $singles["_$class"] = $label;
+		}
+
+		return array(
+			'singles' => $singles,
+			'multiples' => $multiples,
+			'sortables' => $sortables, 
+			'pageListTypes' => $pageListTypes,
+		);
+	}
+
+	/**
+	 * Get recommended setups for FieldtypePage/InputfieldPage
+	 * 
+	 * @return array
+	 * @since 3.0.213
+	 * 
+	 */
+	public function getFieldSetups() {
+		$setups = array();
+		$options = $this->getInputfieldOptions();
+		$singleLabel = $this->_('Single page:');
+		$multiLabel = $this->_('Multiple pages:');
+		$sortLabel = $this->_('Multiple sortable pages:');
+		
+		foreach($options['singles'] as $class => $label) {
+			$name = str_replace('Inputfield', '', $class);
+			$setups[$name] = array(
+				'title' => "$singleLabel $label",
+				'derefAsPage' => FieldtypePage::derefAsPageOrNullPage,
+				'inputfield' => $class, 
+			);
+		}
+		
+		foreach(array_merge($options['multiples'], $options['sortables']) as $class => $label) {
+			$name = str_replace('Inputfield', '', $class);
+			$label = isset($options['sortables'][$class]) ? "$sortLabel $label" : "$multiLabel $label";
+			$setups[$name] = array(
+				'title' => $label,
+				'derefAsPage' => FieldtypePage::derefAsPageArray,
+				'inputfield' => $class, 
+			);
+		}
+		
+		return $setups;
 	}
 
 	/**

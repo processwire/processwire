@@ -3,7 +3,7 @@
 /**
  * ProcessWire Select Options Fieldtype
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property SelectableOptionManager $manager
@@ -124,6 +124,20 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	
 		return $inputfield;
 	}
+
+	/**
+	 * Get setup options and setup functions for new fields
+	 *
+	 * @return array
+	 * @since 3.0.213
+	 *
+	 */
+	public function ___getFieldSetups() {
+		$setups = parent::___getFieldSetups();
+		$setups = array_merge($setups, $this->getInputfieldClassOptions(true));
+		return $setups;
+	}
+
 
 	/**
 	 * Get Fieldtypes that are known compatible with this one 
@@ -598,6 +612,50 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		return $inputfields; 
 	}
 	
+	/**
+	 * Get Inputfield options
+	 * 
+	 * #pw-internal
+	 *
+	 * @param bool $getFieldSetups
+	 * @return array
+	 * @since 3.0.213
+	 *
+	 */
+	public function getInputfieldClassOptions($getFieldSetups = false) {
+		$options = array();
+		$modules = $this->wire()->modules;
+		$labelSingle = $this->_('Single option:');
+		$labelMulti = $this->_('Multiple options:');
+		$labelSortable = $this->_('Multiple sortable options:');
+
+		foreach($modules->findByPrefix('Inputfield') as $moduleName) {
+			$module = $modules->getModule($moduleName, array('noInit' => true));
+			if(!$module instanceof InputfieldHasSelectableOptions) continue;
+			$title = str_replace('Inputfield', '', $moduleName);
+			if($module instanceof InputfieldHasSortableValue) {
+				$title = "$labelSortable $title";
+			} else if($module instanceof InputfieldSelectMultiple) {
+				$title = "$labelMulti $title";
+			} else {
+				$title = "$labelSingle $title";
+			}
+			if($getFieldSetups) {
+				$name = str_replace('Inputfield', '', $moduleName);
+				$options[$name] = array(
+					'title' => $title,
+					'inputfieldClass' => $moduleName,
+				);
+			} else {
+				$options[$moduleName] = $title;
+			}
+		}
+		
+		asort($options);
+
+		return $options;
+	}
+
 	/**
 	 * Given a FieldtypeOptions field id, name or object, return the object
 	 * @param $field

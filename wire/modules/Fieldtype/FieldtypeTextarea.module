@@ -292,6 +292,34 @@ class FieldtypeTextarea extends FieldtypeText {
 		$inputfield->class = $this->className();
 		return $inputfield; 
 	}
+	
+	/**
+	 * Get setup options and setup functions for new fields
+	 *
+	 * @return array
+	 * @since 3.0.213
+	 *
+	 */
+	public function ___getFieldSetups() {
+		$class = $this->className();
+		$setups = parent::___getFieldSetups();
+		if($class !== 'FieldtypeTextarea' && $class !== 'FieldtypeTextareaLanguage') {
+			// limit setups options to the base types 
+			return $setups;
+		}
+		$setups['default'] = array('title' => 'Textarea');
+		$modules = $this->wire()->modules;
+		$editors = array('CKEditor', 'TinyMCE');
+		foreach($editors as $name) {
+			if($modules->isInstalled("Inputfield$name")) $setups[$name] = array(
+				'title' => $name,
+				'inputfieldClass' => "Inputfield$name", 
+				'contentType' => self::contentTypeHTML, 
+				'textformatters' => array()
+			);
+		}
+		return $setups;
+	}
 
 	/**
 	 * Get database schema used by the Field

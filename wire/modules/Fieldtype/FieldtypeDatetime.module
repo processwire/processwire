@@ -122,6 +122,45 @@ class FieldtypeDatetime extends Fieldtype {
 	}
 
 	/**
+	 * Get predefined setups for newly created fields of this type
+	 *
+	 * #pw-internal
+	 * #pw-hooker
+	 *
+	 * @return array
+	 * @since 3.0.213
+	 *
+	 */
+	public function ___getFieldSetups() {
+		return array(
+			'datetime' => array(
+				'title' => $this->_x('Date and Time', 'datetime-setup'), // label for datetime field setup
+				'dateOutputFormat' => $this->_x('j F Y g:i a', 'datetime-setup'), // default date/time output format for datetime (PHP dateformat)
+				'dateInputFormat' => $this->_x('Y-m-d', 'datetime-setup'), // default date input format for datetime (PHP dateformat)
+				'timeInputFormat' => $this->_x('g:i a', 'datetime-setup'), // default time input format for datetime (PHP dateformat)
+				'inputType' => $this->_x('html', 'datetime-setup'), // default input type to use for datetime - one of: html, text, select
+				'htmlType' => 'datetime',
+			),
+			'date' => array(
+				'title' => $this->_x('Date', 'date-setup'), // label for date-only fields setup
+				'dateOutputFormat' => $this->_x('j F Y', 'date-setup'), // default output format for date (PHP dateformat)
+				'dateInputFormat' => $this->_x('Y-m-d', 'date-setup'), // default input format for date (PHP dateformat)
+				'timeInputFormat' => '', 
+				'inputType' => $this->_x('html', 'date-setup'), // default input type to use for date - one of: html, text, select
+				'htmlType' => 'date',
+			),
+			'time' => array(
+				'title' => $this->_x('Time', 'time-setup'), // label for time-only field setup
+				'dateOutputFormat' => $this->_x('g:i a', 'time-setup'), // default output format for time (PHP dateformat)
+				'dateInputFormat' => '',
+				'timeInputFormat' => $this->_x('g:i a', 'time-setup'), // default input format for time (PHP dateformat)
+				'inputType' => $this->_x('html', 'time-setup'), // default input type to use for time - one of: html, text, select
+				'htmlType' => 'time',
+			),
+		);
+	}
+
+	/**
 	 * Sanitize value, per Fieldtype interface
 	 * 
 	 * @param Page $page
