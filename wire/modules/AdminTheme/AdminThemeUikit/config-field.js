@@ -89,6 +89,9 @@ function updateAdminThemeUikitExample() {
 	} else if(v == 'warning') {
 		example.addClass('InputfieldIsWarning');
 	}
+
+	var bgcolor = example.css('background-color');
+	$('#_adminTheme, #_adminTheme > *').css('background-color', bgcolor);
 }
 
 function initAdminThemeUikitColumnWidth() {
@@ -127,7 +130,6 @@ $(document).ready(function() {
 	$('#_adminTheme').find('input[type=radio],input[type=checkbox]').change(function() {
 		updateAdminThemeUikitExample();
 	});
-	$('#_adminTheme, #_adminTheme > *').css('background-color', '#fff');
 	updateAdminThemeUikitExample();
 	initAdminThemeUikitColumnWidth();
 
