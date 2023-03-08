@@ -166,6 +166,14 @@ class Sanitizer extends Wire {
 	protected $textTools = null;
 
 	/**
+	 * Runtime caches
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $caches = array();
+
+	/**
 	 * UTF-8 whitespace hex codes
 	 * 
 	 * @var array
@@ -899,8 +907,15 @@ class Sanitizer extends Wire {
 
 		// proceed only if value has some non-ascii characters
 		if(ctype_alnum(str_replace($extras, '', $value))) {
-			// let regular pageName sanitizer handle this
-			return $this->pageName($value, false, $maxLength);
+			$k = 'pageNameUTF8.whitelistIsLowercase';
+			if(!isset($this->caches[$k])) {
+				$this->caches[$k] = $whitelist !== false && $tt->strtolower($whitelist) === $whitelist;
+			}
+			if($this->caches[$k] || $tt->strtolower($value) === $value) {
+				// whitelist supports only lowercase OR value is all lowercase 
+				// let regular pageName sanitizer handle this
+				return $this->pageName($value, false, $maxLength);
+			}
 		}
 
 		// validate that all characters are in our whitelist
