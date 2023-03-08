@@ -444,7 +444,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			/** @var RepeaterPage $page */
 			$page = $page->getForPage();
 		}
-		if($page->id) {
+		if($page && $page->id) {
 			$files = $this->getFilesPage($page);
 		}
 		asort($files); 
@@ -497,7 +497,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$field->addOption('');
 		$field->addOptions($files); 
 		$field->collapsed = Inputfield::collapsedYes; 
-		if($this->page->id) $field->notes = $this->_('Showing files on page:') .  ' **' . $this->page->url . '**';
+		if($this->page && $this->page->id) $field->notes = $this->_('Showing files on page:') .  ' **' . $this->page->url . '**';
 		$field->description = 
 			$this->_('Select the file from this page that you want to link to.') . ' ' . 
 			$this->_("To select a file from another page, click 'Select Page' above and choose the page you want to select a file from."); // Instruction on how to select a file from another page
