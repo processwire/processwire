@@ -180,6 +180,10 @@ class Permissions extends PagesType {
 			if($role->name === 'superuser') continue;
 			$a["user-admin-$role->name"] = sprintf($this->_('Administer users in role: %s'), $role->name);
 		}
+
+		if($this->wire()->modules->isInstalled('PagePathHistory')) {
+			$a['page-edit-redirects'] = $this->_('User can add/edit/delete redirect URLs in the page editor');
+		}
 		
 		$languages = $this->wire()->languages;
 		if($languages) {
