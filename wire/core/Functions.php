@@ -680,7 +680,7 @@ function wireIconMarkupFile($filename, $class = '') {
 }
 
 /**
- * Given a quantity of bytes (int), return readable string that refers to quantity in bytes, kB, MB, GB, etc.
+ * Given a quantity of bytes (int), return readable string that refers to quantity in bytes, kB, MB, GB and TB
  * 
  * #pw-group-strings
  * 
@@ -694,7 +694,7 @@ function wireIconMarkupFile($filename, $class = '') {
  *  - `decimal_point` (string|null): Decimal point character, or null to detect from locale (default=null). 
  *  - `thousands_sep` (string|null): Thousands separator, or null to detect from locale (default=null). 
  *  - `small` (bool): If no $small argument was specified, you can optionally specify it in this $options array.
- *  - `type` (string): To force return value as specific type, specify one of: bytes, kilobytes, megabytes, gigabytes; or just: b, k, m, g. (3.0.148+ only)
+ *  - `type` (string): To force return value as specific type, specify one of: bytes, kilobytes, megabytes, gigabytes, terabytes; or just: b, k, m, g, t. (3.0.148+ only, t 3.0.211+ only)
  * @return string
  * 
  */
@@ -734,9 +734,12 @@ function wireBytesStr($bytes, $small = false, $options = array()) {
 	} else if($bytes < 1073741824 || $type === 'm') {
 		$val = $bytes / 1024 / 1024;
 		$label = __('MB', __FILE__); // megabytes
-	} else { 
-		$val = $bytes / 1024 / 1024 / 1024; 
+	} else if($bytes < 1099511627776 || $type === 'g') {
+		$val = $bytes / 1024 / 1024 / 1024;
 		$label = __('GB', __FILE__); // gigabytes
+	} else { 
+		$val = $bytes / 1024 / 1024 / 1024 / 1024; 
+		$label = __('TB', __FILE__); // terabytes
 	}
 
 	// determine decimal point if not specified in $options
