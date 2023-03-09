@@ -1528,12 +1528,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	/**
 	 * Update a DatabaseQuerySelect object to match a Page
 	 *
-	 * @param DatabaseQuerySelect $query
+	 * @param PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
 	 * @param string $value
-	 * @return DatabaseQuerySelect
+	 * @return PageFinderDatabaseQuerySelect
 	 * @throws WireException
 	 *
 	 */
@@ -1546,22 +1546,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 			if(	($operator == '=' && $value == 0) || 
 				(in_array($operator, array('<', '<=')) && $value > -1) ||
-				($operator == '!=' && $value)) {
+				($operator == '!=' && $value) || ($operator === '>=' && $value == 0)) {
 
-				$templateIDs = array();
-				foreach($field->getTemplates() as $template) {
-					/** @var Template $template */
-					$templateIDs[] = (int) $template->id;
-				}
-				if(count($templateIDs)) {
-					$templateIDs = implode(',', $templateIDs); 
-					$sql = 	
-						"($table.count{$operator}$value OR " . 
-						"($table.count IS NULL AND pages.templates_id IN($templateIDs)))";
-					$query->where($sql); 
-				} else {
-					$query->where("1>2"); // forced non-match
-				}
+				$fieldTable = $field->getTable();
+				$joinTable = "cnt_repeater_$table";
+				$parentQuery = $query->parentQuery;
+				$parentQuery->leftjoin("$fieldTable AS $joinTable ON $joinTable.pages_id=pages.id");
+				$parentQuery->where("($joinTable.count{$operator}$value OR $joinTable.pages_id IS NULL)");
 
 			} else {
 				$query->where("($table.count{$operator}$value)"); 
