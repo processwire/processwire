@@ -1547,12 +1547,30 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			if(	($operator == '=' && $value == 0) || 
 				(in_array($operator, array('<', '<=')) && $value > -1) ||
 				($operator == '!=' && $value) || ($operator === '>=' && $value == 0)) {
+				
+				$templateIds = array();
+				foreach($field->getTemplates() as $t) {
+					/** @var Template $t */
+					$templateIds[] = (int) $t->id;
+				}
 
-				$fieldTable = $field->getTable();
-				$joinTable = "cnt_repeater_$table";
-				$parentQuery = $query->parentQuery;
-				$parentQuery->leftjoin("$fieldTable AS $joinTable ON $joinTable.pages_id=pages.id");
-				$parentQuery->where("($joinTable.count{$operator}$value OR $joinTable.pages_id IS NULL)");
+				if(count($templateIds)) {
+					$templateIds = implode(',', $templateIds);
+					$fieldTable = $field->getTable();
+					$joinTable = "cnt_repeater_$table";
+					$parentQuery = $query->parentQuery;
+					$parentQuery->leftjoin(
+						"$fieldTable AS $joinTable " . 
+						"ON pages.templates_id IN($templateIds) " . 
+						"AND $joinTable.pages_id=pages.id " 
+					);
+					$parentQuery->where(
+						"(($joinTable.count{$operator}$value OR $joinTable.pages_id IS NULL) " .
+						"AND pages.templates_id IN($templateIds))"
+					);
+				} else {
+					$query->where('1>2');
+				}
 
 			} else {
 				$query->where("($table.count{$operator}$value)"); 
