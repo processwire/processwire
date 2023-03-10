@@ -680,7 +680,7 @@ function wireIconMarkupFile($filename, $class = '') {
 }
 
 /**
- * Given a quantity of bytes (int), return readable string that refers to quantity in bytes, kB, MB, GB, etc.
+ * Given a quantity of bytes (int), return readable string that refers to quantity in bytes, kB, MB, GB and TB
  * 
  * #pw-group-strings
  * 
@@ -690,96 +690,31 @@ function wireIconMarkupFile($filename, $class = '') {
  *  - `1` (int): Same as `true` but with space between number and unit label.
  *  - Or optionally specify the $options argument here if you do not need the $small argument. 
  * @param array|int $options Options to modify default behavior, or if an integer then `decimals` option is assumed:
- *  - `decimals` (int): Number of decimals to use in returned value (default=0).
+ *  - `decimals` (int|null): Number of decimals to use in returned value or NULL for auto (default=null).
+ *     When null (auto) a decimal value of 1 is used when appropriate, for megabytes and higher (3.0.214+). 
  *  - `decimal_point` (string|null): Decimal point character, or null to detect from locale (default=null). 
  *  - `thousands_sep` (string|null): Thousands separator, or null to detect from locale (default=null). 
  *  - `small` (bool): If no $small argument was specified, you can optionally specify it in this $options array.
- *  - `type` (string): To force return value as specific type, specify one of: bytes, kilobytes, megabytes, gigabytes; or just: b, k, m, g. (3.0.148+ only)
+ *  - `type` (string): To force return value as specific type, specify one of: bytes, kilobytes, megabytes, 
+ *     gigabytes, terabytes; or just: b, k, m, g, t. (3.0.148+ only, terabytes 3.0.214+). 
  * @return string
  * 
  */
 function wireBytesStr($bytes, $small = false, $options = array()) {
-	
-	$defaults = array(
-		'type' => '',
-		'decimals' => 0, 
-		'decimal_point' => null,
-		'thousands_sep' => null,
-	);
-
-	if(is_array($small)) {
-		$options = $small;
-		$small = isset($options['small']) ? $options['small'] : false;
-	}
-	if(!is_array($options)) $options = array('decimals' => (int) $options);
-	if(!is_int($bytes)) $bytes = (int) $bytes;
-	
-	$options = array_merge($defaults, $options);
-	$locale = array();
-	$type = empty($options['type']) ? '' : strtolower(substr($options['type'], 0, 1));
-	
-	// determine size value and units label	
-	if($bytes < 1024 || $type === 'b') {
-		$val = $bytes;
-		if($small) {
-			$label = $val > 0 ? __('B', __FILE__) : ''; // bytes
-		} else if($val == 1) {
-			$label = __('byte', __FILE__); // singular 1-byte
+	if(is_array($small)) $options = $small;
+	if(!is_array($options)) {
+		if(ctype_digit("$options")) {
+			$options = array('decimals' => (int) $options);
 		} else {
-			$label = __('bytes', __FILE__); // plural 2+ bytes (or 0 bytes)
-		}
-	} else if($bytes < 1000000 || $type === 'k') {
-		$val = $bytes / 1024;
-		$label = __('kB', __FILE__); // kilobytes
-	} else if($bytes < 1073741824 || $type === 'm') {
-		$val = $bytes / 1024 / 1024;
-		$label = __('MB', __FILE__); // megabytes
-	} else { 
-		$val = $bytes / 1024 / 1024 / 1024; 
-		$label = __('GB', __FILE__); // gigabytes
-	}
-
-	// determine decimal point if not specified in $options
-	if($options['decimal_point'] === null) {
-		if($options['decimals'] > 0) {
-			// determine decimal point from locale
-			if(empty($locale)) $locale = localeconv();
-			$options['decimal_point'] = empty($locale['decimal_point']) ? '.' : $locale['decimal_point'];
-		} else {
-			// no decimal point needed (not used)
-			$options['decimal_point'] = '.';
+			$options = array();
 		}
 	}
-
-	// determine thousands separator if not specified in $options
-	if($options['thousands_sep'] === null) {
-		if($small || $val < 1000) {
-			// no thousands separator needed
-			$options['thousands_sep'] = '';
-		} else {
-			// get thousands separator from current locale
-			if(empty($locale)) $locale = localeconv();
-			$options['thousands_sep'] = empty($locale['thousands_sep']) ? '' : $locale['thousands_sep'];
-		}
+	if(is_int($small) && !isset($options['decimals'])) {
+		$options['decimals'] = $small;
+	} else if(is_bool($small)) {
+		$options['small'] = $small;
 	}
-
-	// format number to string
-	$str = number_format($val, $options['decimals'], $options['decimal_point'], $options['thousands_sep']);
-
-	// in small mode remove numbers with decimals that consist only of zeros "0"
-	if($small && $options['decimals'] > 0) {
-		$test = substr($str, -1 * $options['decimals']);
-		if(((int) $test) === 0) {
-			$str = substr($str, 0, strlen($str) - ($options['decimals'] + 1)); // i.e. 123.00 => 123
-		} else {
-			$str = rtrim($str, '0'); // i.e. 123.10 => 123.1
-		}
-	}
-
-	// append units label to number
-	$str .= ($small === true ? '' : ' ') . $label;
-	
-	return $str;
+	return wire()->sanitizer->getNumberTools()->bytesToStr($bytes, $options);
 }
 
 /**
@@ -1158,7 +1093,7 @@ function wireInstanceOf($instance, $className, $autoload = true) {
  * @param string|callable $var
  * @param bool $syntaxOnly
  * @var string $callableName
- * @return array
+ * @return bool
  *
  */
 function wireIsCallable($var, $syntaxOnly = false, &$callableName = '') {
@@ -1184,7 +1119,7 @@ function wireIsCallable($var, $syntaxOnly = false, &$callableName = '') {
 function wireCount($value) {
 	if($value === null) return 0; 
 	if(is_array($value)) return count($value); 
-	if(is_object($value) && $value instanceof \Countable) return count($value);
+	if($value instanceof \Countable) return count($value);
 	return 1;
 }
 

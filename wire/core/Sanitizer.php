@@ -164,6 +164,12 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	protected $textTools = null;
+	
+	/**
+	 * @var null|WireNumberTools
+	 *
+	 */
+	protected $numberTools = null;
 
 	/**
 	 * Runtime caches
@@ -5336,6 +5342,24 @@ class Sanitizer extends Wire {
 			$this->wire($this->textTools);
 		}
 		return $this->textTools;
+	}
+	
+	/**
+	 * Get instance of WireNumberTools
+	 *
+	 * #pw-group-numbers
+	 * #pw-group-other
+	 *
+	 * @return WireNumberTools
+	 * @since 3.0.214
+	 *
+	 */
+	public function getNumberTools() {
+		if(!$this->numberTools) {
+			$this->numberTools = new WireNumberTools();
+			$this->wire($this->numberTools);
+		}
+		return $this->numberTools;
 	}
 
 	/**********************************************************************************************************************

@@ -398,7 +398,6 @@ class WireRandom extends Wire {
 		$count = count($a);
 		$keys = array_keys($a);
 		$items = array();
-		$item = null;
 		$keepKeys = true;
 
 		// if getArray option not specified, auto determine from qty
@@ -475,7 +474,6 @@ class WireRandom extends Wire {
 	 * 
 	 */
 	public function arrayKey(array $a) {
-		$options['getKey'] = true;
 		return $this->arrayItem($a, array('getKey' => true));
 	}
 
