@@ -116,17 +116,17 @@ class WireDatabaseBackup {
 		// find and replace in row data during backup (not supported by exec/mysql method)
 		'findReplace' => array(
 			// Example: 'databass' => 'database'
-			),
+		),
 		
 		// find and replace in create table statements (not supported by exec/mysqldump)
 		'findReplaceCreateTable' => array( 
 			// Example: 'DEFAULT CHARSET=latin1;' => 'DEFAULT CHARSET=utf8;', 
-			),
+		),
 	
 		// additional SQL queries to append at the bottom
 		'extraSQL' => array(
 			// Example: UPDATE pages SET CREATED=NOW	
-			),
+		),
 		
 		// EXEC MODE IS CURRRENTLY EXPERIMENTAL AND NOT RECOMMEND FOR USE YET
 		// if true, we will try to use mysqldump (exec) first. if false, we won't attempt mysqldump.
@@ -359,7 +359,7 @@ class WireDatabaseBackup {
 	 * 
 	 * #pw-advanced
 	 * 
-	 * @return null|\PDO|WireDatabasePDO
+	 * @return \PDO
 	 * @throws \Exception
 	 * 
 	 */
@@ -380,7 +380,7 @@ class WireDatabaseBackup {
 		$options = array(
 			\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES '$config[dbCharset]'",
 			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
-			);
+		);
 		
 		$database = new \PDO($dsn, $config['dbUser'], $config['dbPass'], $options);
 		$this->setDatabase($database); 
@@ -482,17 +482,18 @@ class WireDatabaseBackup {
 	 * 
 	 * #pw-group-reporting
 	 *
-	 * @return array of strings (basenames)
+	 * @param bool $getObjects Get SplFileInfo objects rather than basenames? (3.0.214+)
+	 * @return array|\SplFileInfo[] Array of strings (basenames), or array of SplFileInfo objects (when requested)
 	 *
 	 */
-	public function getFiles() {
+	public function getFiles($getObjects = false) {
 		$dir = new \DirectoryIterator($this->path);
 		$files = array();
 		foreach($dir as $file) {
 			if($file->isDot() || $file->isDir()) continue;
 			$key = $file->getMTime();
 			while(isset($files[$key])) $key++;
-			$files[$key] = $file->getBasename();
+			$files[$key] = ($getObjects ? $file : $file->getBasename());
 		}
 		krsort($files); // sort by date, newest to oldest
 		return array_values($files); 
@@ -528,7 +529,7 @@ class WireDatabaseBackup {
 			'numCreateTables' => null, 
 			'numInserts' => null, 
 			'numSeconds' => null,
-			);
+		);
 		
 		$filename = $this->sanitizeFilename($filename); 
 		if(!file_exists($filename)) return array();
@@ -552,7 +553,8 @@ class WireDatabaseBackup {
 		fclose($fp);
 	
 		// footer summary
-		$pos = strpos($foot, self::fileFooter) + strlen(self::fileFooter);
+		$pos = strpos($foot, self::fileFooter);
+		if($pos !== false) $pos += strlen(self::fileFooter);
 		if($info['valid'] && $pos !== false) {
 			$json = substr($foot, $pos); 
 			$summary = json_decode($json, true); 
@@ -737,7 +739,7 @@ class WireDatabaseBackup {
 			'excludeTables' => $options['excludeTables'],
 			'excludeCreateTables' => $options['excludeCreateTables'], 
 			'excludeExportTables' => $options['excludeExportTables'],
-			);
+		);
 		
 		$json = json_encode($info); 
 		$json = str_replace(array("\r", "\n"), " ", $json);
@@ -884,7 +886,7 @@ class WireDatabaseBackup {
 			'numCreateTables' => $numCreateTables, 
 			'numInserts' => $numInserts,
 			'numSeconds' => time() - $startTime, 
-			);
+		);
 		$this->backupEndFile($fp, $summary, $options); // this does the fclose
 		
 		return file_exists($file) ? $file : false;
@@ -1090,7 +1092,7 @@ class WireDatabaseBackup {
 	 *
 	 * @param string $filename Filename to restore (must be SQL file exported by this class)
 	 * @param array $options See $restoreOptions
-	 * @return true on success, false on failure. Call the errors() method to retrieve errors.
+	 * @return bool True on success, false on failure. Call the errors() method to retrieve errors.
 	 *
 	 */
 	protected function restoreExec($filename, array $options = array()) {
@@ -1163,7 +1165,7 @@ class WireDatabaseBackup {
 		}
 		
 		$inserts = $this->findInserts($filename1); 
-		foreach($inserts as $table => $tableInserts) {
+		foreach($inserts as /*$table =>*/ $tableInserts) {
 			foreach($tableInserts as $insert) {
 				if(!$this->executeQuery($insert, $options)) $numErrors++;
 			}
@@ -1264,7 +1266,7 @@ class WireDatabaseBackup {
 	 * 
 	 * @param string $filename to extract all CREATE TABLE statements from
 	 * @param array $options
-	 * @return bool|array of CREATE TABLE statements, associative: indexed by table name
+	 * @return array of CREATE TABLE statements, associative: indexed by table name
 	 * @throws \Exception if unable to open specified file
 	 *
 	 */
