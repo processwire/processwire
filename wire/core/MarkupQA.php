@@ -17,7 +17,7 @@
  * 
  * Runtime errors are logged to: /site/assets/logs/markup-qa-errors.txt
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  */ 
@@ -72,6 +72,7 @@ class MarkupQA extends Wire {
 	 *
 	 */
 	public function __construct(Page $page = null, Field $field = null) {
+		parent::__construct();
 		if($page) {
 			$this->setPage($page);
 			$page->wire($this);
@@ -80,8 +81,7 @@ class MarkupQA extends Wire {
 			$this->setField($field);
 			if(!$page) $field->wire($this);
 		}
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$this->assetsURL = $config->urls->assets;
 		$settings = $config->markupQA;
 		if(is_array($settings) && count($settings)) {
@@ -156,7 +156,7 @@ class MarkupQA extends Wire {
 	public function debug($set = null) {
 		if(is_bool($set)) {
 			if($set === true) {
-				$user = $this->wire('user');
+				$user = $this->wire()->user;
 				if(!$user || !$user->isSuperuser()) $set = false;
 			}
 			$this->settings['debug'] = $set;
@@ -213,7 +213,7 @@ class MarkupQA extends Wire {
 		// see if quick exit possible
 		if(stripos($value, 'href=') === false && stripos($value, 'src=') === false) return;
 
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$httpHost = $config->httpHost;
 		$rootURL = $config->urls->root;
 		$rootHostURL = $httpHost . $rootURL;
@@ -241,7 +241,7 @@ class MarkupQA extends Wire {
 			if($this->verbose()) {
 				$info = $this->page->get('_markupQA');	
 				if(!is_array($info)) $info = array();
-				if(!is_array($info[$this->field->name])) $info[$this->field->name] = array();
+				if(!isset($info[$this->field->name]) || !is_array($info[$this->field->name])) $info[$this->field->name] = array();
 				$info[$this->field->name]['href'] = substr_count($value, "\thref=");
 				$info[$this->field->name]['src'] = substr_count($value, "\tsrc=");
 				$this->page->setQuietly('_markupQA', $info);
@@ -326,19 +326,20 @@ class MarkupQA extends Wire {
 	
 		$info = $this->verbose() ? $this->page->get('_markupQA') : array();
 		if(!is_array($info)) $info = array();
+		
+		$counts = array(
+			'external' => 0,
+			'internal' => 0,
+			'relative' => 0,
+			'files' => 0,
+			'other' => 0,
+			'unresolved' => 0,
+			'nohttp' => 0,
+			'ignored' => 0,
+		);
+		
 		if(isset($info[$this->field->name])) {
-			$counts = $info[$this->field->name];	
-		} else {
-			$counts = array(
-				'external' => 0,
-				'internal' => 0,
-				'relative' => 0,
-				'files' => 0,
-				'other' => 0,
-				'unresolved' => 0,
-				'nohttp' => 0, 
-				'ignored' => 0, 
-			);
+			$counts = array_merge($counts, $info[$this->field->name]);	
 		}
 		
 		$re = '!' . 
@@ -393,7 +394,7 @@ class MarkupQA extends Wire {
 			} else if(strrpos($path, '.') > strrpos($path, '/')) {
 				// not relative and possibly a filename
 				// if this link is to a file that exists, then it's not a page link so skip it
-				$file = $this->wire('config')->paths->root . ltrim($path, '/');
+				$file = $config->paths->root . ltrim($path, '/');
 				if(file_exists($file)) {
 					$counts['files']++;
 					continue;
@@ -453,14 +454,14 @@ class MarkupQA extends Wire {
 				}
 			} else {
 				// did not resolve to a page, see if it resolves to a file or directory
-				$file = $this->wire('config')->paths->root . ltrim($path, '/');
+				$file = $config->paths->root . ltrim($path, '/');
 				if(file_exists($file)) {
 					if($debug) $this->message("MarkupQA sleepLinks link resolved to a file: $path");
 					$counts['files']++;
 				} else {
 					$parts = explode('/', trim($path, '/'));
 					$firstPart = array_shift($parts);
-					$test = $this->wire('config')->paths->root . $firstPart; 
+					$test = $config->paths->root . $firstPart; 
 					if(is_dir($test)) {
 						// possibly to something in another application, i.e. processwire.com/talk/
 						$counts['other']++;
@@ -506,9 +507,11 @@ class MarkupQA extends Wire {
 		if(!preg_match_all($re, $value, $matches)) return array();
 		
 		$replacements = array();
-		$languages = $this->wire('languages');
-		$rootURL = $this->wire('config')->urls->root;
-		$adminURL = $this->wire('config')->urls->admin;
+		$languages = $this->wire()->languages;
+		$config = $this->wire()->config;
+		$pages = $this->wire()->pages;
+		$rootURL = $config->urls->root;
+		$adminURL = $config->urls->admin;
 		$adminPath = $rootURL === '/' ? $adminURL : str_replace($rootURL, '/', $adminURL);
 		$debug = $this->debug();
 		
@@ -540,7 +543,7 @@ class MarkupQA extends Wire {
 				$language = null;
 			}
 			
-			$livePath = $this->wire('pages')->getPath($pageID, array(
+			$livePath = $pages->getPath($pageID, array(
 				'language' => $language
 			));
 			
@@ -619,6 +622,10 @@ class MarkupQA extends Wire {
 	 */
 	public function findLinks(Page $page = null, $fieldNames = array(), $selector = '', array $options = array()) {
 		
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$database = $this->wire()->database;
+		
 		$defaults = array(
 			'getIDs' => false,
 			'getCount' => false, 
@@ -632,7 +639,7 @@ class MarkupQA extends Wire {
 		} else if($options['getCount']) {
 			$result = 0;
 		} else {
-			$result = $this->wire('pages')->newPageArray();
+			$result = $pages->newPageArray();
 		}
 		
 		if(!$page) $page = $this->page;
@@ -652,11 +659,11 @@ class MarkupQA extends Wire {
 		// find pages
 		if($options['getCount'] && !$options['confirm']) {
 			// just return a count
-			return $this->wire('pages')->count($selector);
+			return $pages->count($selector);
 		} else {
 			// find the IDs
 			$checkIDs = array();
-			$foundIDs = $this->wire('pages')->findIDs($selector);
+			$foundIDs = $pages->findIDs($selector);
 			if(!count($foundIDs)) return $result;
 			if($options['confirm']) {
 				$checkIDs = array_flip($foundIDs);
@@ -667,12 +674,12 @@ class MarkupQA extends Wire {
 		// confirm results
 		foreach($fieldNames as $fieldName) {
 			if(!count($checkIDs)) break;
-			$field = $this->wire('fields')->get($fieldName);
+			$field = $fields->get($fieldName);
 			if(!$field) continue;
 			$table = $field->getTable();
 			$ids = implode(',', array_keys($checkIDs));
 			$sql = "SELECT * FROM `$table` WHERE `pages_id` IN($ids)";
-			$query = $this->wire('database')->prepare($sql);
+			$query = $database->prepare($sql);
 			$query->execute();
 
 			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
@@ -698,7 +705,7 @@ class MarkupQA extends Wire {
 			} else if($options['getCount']) {
 				$result = count($foundIDs); 
 			} else {
-				$result = $this->wire('pages')->getById($foundIDs);
+				$result = $pages->getById($foundIDs);
 			}
 		}
 	
@@ -713,7 +720,7 @@ class MarkupQA extends Wire {
 	 * 
 	 */
 	protected function linkWarning($path, $logWarning = true) {
-		if($this->wire('page')->template == 'admin' && $this->wire('process') == 'ProcessPageEdit') {
+		if($this->wire()->page->template == 'admin' && $this->wire()->process == 'ProcessPageEdit') {
 			$this->warning(sprintf(
 				$this->_('Unable to resolve link on page %1$s in field "%2$s": %3$s'), 
 				$this->page->path, 
@@ -738,7 +745,7 @@ class MarkupQA extends Wire {
 	 */
 	public function checkImgTags(&$value, array $options = array()) {
 		if(strpos($value, '<img ') !== false && preg_match_all('{(<' . 'img [^>]+>)}', $value, $matches)) {
-			foreach($matches[0] as $key => $img) {
+			foreach($matches[0] as $img) {
 				$this->checkImgTag($value, $img, $options);
 			}
 		}
@@ -784,7 +791,7 @@ class MarkupQA extends Wire {
 		if(!isset($info['img_noalt'])) $info['img_noalt'] = 0; // blank alt
 
 		// determine current 'alt' and 'src' attributes
-		foreach($attrStrings as $n => $attr) {
+		foreach($attrStrings as $attr) {
 
 			if(!strpos($attr, '=')) continue;
 			list($name, $val) = explode('=', $attr);
@@ -868,7 +875,7 @@ class MarkupQA extends Wire {
 			if($this->page->of()) {
 				$alt = $pagefile->description;
 				if(strlen($alt)) {
-					$alt = $this->wire('sanitizer')->entities1($alt);
+					$alt = $this->wire()->sanitizer->entities1($alt);
 					$_img = str_replace(" $replaceAlt", " alt=\"$alt\"", $img);
 					$value = str_replace($img, $_img, $value);
 				}
@@ -896,6 +903,7 @@ class MarkupQA extends Wire {
 	 *
 	 */
 	protected function checkImgExists(Pageimage $pagefile, $img, $src, &$value) {
+		
 
 		$basename = basename($src);
 		$pathname = $pagefile->pagefiles->path() . $basename;
@@ -928,6 +936,7 @@ class MarkupQA extends Wire {
 		
 		$good = 0;
 		$bad = 0;
+		$debug = $this->debug() || $this->wire()->config->debug;
 		
 		foreach(array_reverse($variations) as $info) {
 			// definitely a variation, attempt to re-create it
@@ -937,14 +946,13 @@ class MarkupQA extends Wire {
 				$options['suffix'] = $info['suffix'];
 				if(in_array('hidpi', $options['suffix'])) $options['hidpi'] = true;
 			}
-			/** @var Pageimage $newPagefile */
 			$newPagefile = $pagefile->size($info['width'], $info['height'], $options);
 			if($newPagefile && is_file($newPagefile->filename())) {
 				if(!empty($info['targetName']) && $newPagefile->basename != $info['targetName']) {
 					// new name differs from what is in text. Rename file to be consistent with text.
 					rename($newPagefile->filename(), $pathname);
 				}
-				if($this->debug() || $this->wire('config')->debug) {
+				if($debug) {
 					$this->message($this->_('Re-created image variation') . " - $newPagefile->name");
 				}
 				$pagefile = $newPagefile; // for next iteration
@@ -971,7 +979,7 @@ class MarkupQA extends Wire {
 	 */
 	public function error($text, $flags = 0) {
 		$logText = "$text (field={$this->field->name}, id={$this->page->id}, path={$this->page->path})";
-		$this->wire('log')->save(self::errorLogName, $logText);
+		$this->wire()->log->save(self::errorLogName, $logText);
 		/*
 		if($this->wire('modules')->isInstalled('SystemNotifications')) {
 			$user = $this->wire('modules')->get('SystemNotifications')->getSystemUser();
