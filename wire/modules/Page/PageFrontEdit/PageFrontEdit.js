@@ -87,7 +87,7 @@ function PageFrontEditInit($) {
 				InputfieldTinyMCE.init('#' + copyID, 'PageFrontEdit'); 
 				var editor = tinymce.get(copyID);
 				tinymces[copyID] = editor;
-				editor.on('dirty', function(e) {
+				editor.on('dirty change', function(e) {
 					t.addClass('pw-changed'); 
 				}); 
 			}
@@ -110,6 +110,7 @@ function PageFrontEditInit($) {
 		var name = t.attr('data-name');
 
 		copy.hide();
+		orig.show();
 
 		if(isTouch) orig.on('pwdoubletap', function(e) {
 			inlineEditEvent(e, t, orig, copy);
@@ -279,6 +280,8 @@ function PageFrontEditInit($) {
 		for(var copyID in tinymces) {
 			InputfieldTinyMCE.destroyEditors($('#' + copyID));
 		}
+		$('.InputfieldTinyMCELoaded').removeClass('InputfieldTinyMCELoaded');
+		$('.pw-edit-InputfieldTinyMCE').removeClass('pw-editing pw-edited');
 		tinymces = {}
 		
 		// post save data to server
@@ -323,7 +326,7 @@ function PageFrontEditInit($) {
 				buttons.hide();
 				$('.pw-editing, .pw-edited').each(function() {
 					var t = $(this);
-					t.removeClass('pw-editing, pw-edited, pw-changed');
+					t.removeClass('pw-editing pw-edited pw-changed');
 					var orig = t.children('.pw-edit-orig');
 					var copy = t.children('.pw-edit-copy');
 					copy.hide();
@@ -336,6 +339,9 @@ function PageFrontEditInit($) {
 				instance.destroy();
 			}
 			ckeditors = {};
+			$('.pw-edit-InputfieldTinyMCE').each(function() {
+				inlineInitEditableRegion($(this));
+			});
 			
 		});
 	}

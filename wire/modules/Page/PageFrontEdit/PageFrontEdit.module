@@ -22,7 +22,7 @@ class PageFrontEdit extends WireData implements Module {
 		return array(
 			'title' => 'Front-End Page Editor',
 			'summary' => 'Enables front-end editing of page fields.',
-			'version' => 5,
+			'version' => 6,
 			'author' => 'Ryan Cramer',
 			'license' => 'MPL 2.0',
 			'icon' => 'cube', 
