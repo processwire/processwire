@@ -246,7 +246,7 @@ class ProcessModuleInstall extends Wire {
 				$extractedDir = $matches[1];
 				// extractedDir follows the name format of a module
 				// determine if it lines up with any of the found modules
-				if(isset($moduleFiles1[$extractedDir])) $moduleDir = $moduleFiles1[$extractedDir]; // FOUND IT
+				if(isset($moduleFiles1[$extractedDir])) $moduleDir = $extractedDir; // FOUND IT
 
 				// if not yet found, determine if they start the same
 				if(!$moduleDir) foreach($moduleFiles1 as $name => $file) {
