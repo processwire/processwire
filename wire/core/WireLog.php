@@ -212,7 +212,7 @@ class WireLog extends Wire {
 	 * #pw-group-retrieval
 	 * 
 	 * @param bool $sortNewest Sort by newest to oldest rather than by name? (default=false) Added 3.0.143
-	 * @return array 
+	 * @return array Indexed by log name
 	 * 
 	 */
 	public function getLogs($sortNewest = false) {
@@ -241,8 +241,8 @@ class WireLog extends Wire {
 		} else {
 			ksort($logs);
 		}
-		
-		return array_values($logs);	
+	
+		return $logs;	
 	}
 
 	/**
