@@ -446,7 +446,7 @@ class InputfieldPageTable extends Inputfield {
 	 */
 	protected function renderItemLink(Page $item, $out, $url = '') {
 		if(!$url) $url = $this->getItemEditURL($item);
-		return "<a class='InputfieldPageTableEdit' data-url='$url' href='#'>$out</a>";
+		return "<a class='InputfieldPageTableEdit' data-url='$url' href='$url'>$out</a>";
 	}
 
 	/**
