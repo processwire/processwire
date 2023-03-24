@@ -238,6 +238,11 @@ class WireLog extends Wire {
 	
 		if($sortNewest) {
 			krsort($logs);
+			$a = array();
+			foreach($logs as $log) {
+				$a[$log['name']] = $log;
+			}
+			$logs = $a;
 		} else {
 			ksort($logs);
 		}
@@ -284,7 +289,7 @@ class WireLog extends Wire {
 			if($file->getExtension() != $this->logExtension) continue;
 			$name = $file->getBasename(".$this->logExtension");
 			if($name != $sanitizer->pageName($name)) continue;
-			$files[$name] = $file;
+			$files[$name] = clone $file;
 		}
 		
 		return $files;
