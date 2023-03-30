@@ -39,7 +39,7 @@ class PagesEditor extends Wire {
 		$this->pages = $pages;
 
 		$config = $pages->wire()->config;
-		if($config->dbStripMB4 && strtolower($config->dbEngine) != 'utf8mb4') {
+		if($config->dbStripMB4 && strtolower($config->dbCharset) != 'utf8mb4') {
 			$this->addHookAfter('Fieldtype::sleepValue', $this, 'hookFieldtypeSleepValueStripMB4');
 		}
 	}
