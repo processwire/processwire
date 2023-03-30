@@ -178,6 +178,10 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$langID = (int) $input->get('lang'); 
 		if($langID) $this->wire('user')->language = $this->languages->get($langID);
 		$this->trashLabel = $this->_('Trash'); // Label for 'Trash' page in PageList // Overrides page title if used
+	
+		/** @var JqueryUI $jQueryUI */	
+		$jQueryUI = $this->wire()->modules->get('JqueryUI');
+		$jQueryUI->use('vex'); // for alert boxes
 		
 		$id = $input->get('id');
 		if($id === 'bookmark') $this->wire('session')->redirect('./bookmarks/');

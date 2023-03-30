@@ -497,6 +497,12 @@ if(typeof ProcessWire != "undefined") {
 			if(allowMarkup) {
 				vex.dialog.alert({unsafeMessage: message});
 			} else {
+				if(message.indexOf('&') > -1 && message.indexOf(';') > 1) {
+					// remove entitity encoded sequences since Vex already encodes
+					var v = document.createElement('textarea');
+					v.innerHTML = message;
+					message = v.value;
+				}
 				vex.dialog.alert(message);
 			}
 		} else {
