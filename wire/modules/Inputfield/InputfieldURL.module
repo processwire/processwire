@@ -86,6 +86,7 @@ class InputfieldURL extends InputfieldText {
 				if($value === $test || $value === "http://$test" || $value === "https://$test") $error = false;
 			}
 			if($error) {
+				$value = $this->val();
 				$this->error("$label - " . $this->_("Error found - please check that it is a valid URL")); // Error message when invalid URL found
 			}
 
