@@ -4,7 +4,7 @@
  *
  * #pw-summary Methods for managing DB tables and indexes for fields, and related methods. Accessed from `$fields->tableTools()`.
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.150
@@ -39,8 +39,7 @@ class FieldsTableTools extends Wire {
 		$options = array_merge($defaults, $options);
 		$result = array();
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$col = $database->escapeCol($options['column']);
 		$sql = "SELECT $col, COUNT($col) FROM $table ";
@@ -107,8 +106,7 @@ class FieldsTableTools extends Wire {
 	 */
 	public function setUniqueIndex(Field $field, $add = true) { 
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$col = 'data';
 		$table = $database->escapeTable($field->getTable());
 		$uniqueIndexName = $this->hasUniqueIndex($field, $col);
@@ -192,8 +190,7 @@ class FieldsTableTools extends Wire {
 	 *
 	 */
 	public function hasUniqueIndex(Field $field, $col = 'data') {
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$sql = "SHOW INDEX FROM $table";
 		$query = $database->prepare($sql);
@@ -222,6 +219,8 @@ class FieldsTableTools extends Wire {
 		static $checking = false;
 		if($checking) return;
 		
+		$database = $this->wire()->database;
+		
 		$col = 'data';
 
 		// is unique index requested?
@@ -232,7 +231,7 @@ class FieldsTableTools extends Wire {
 		
 		if($useUnique === $hasUnique) return;
 		
-		if(!$this->database->tableExists($field->getTable())) return;
+		if(!$database->tableExists($field->getTable())) return;
 	
 		$checking = true;
 
@@ -286,8 +285,7 @@ class FieldsTableTools extends Wire {
 	 */
 	public function deleteEmptyRows(Field $field, $col = 'data', $strict = true) {
 		
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$fieldtype = $field->type;
 		$schema = $fieldtype->getDatabaseSchema($field);
@@ -314,7 +312,7 @@ class FieldsTableTools extends Wire {
 		if(!in_array(trim($type), $types)) return false; // if not in allowed col types, fail
 		
 		if($col !== 'data') {
-			$col = $database->escapeCol($this->sanitizer->fieldName($col));
+			$col = $database->escapeCol($this->wire()->sanitizer->fieldName($col));
 			if(empty($col)) return false;
 		}
 
@@ -354,7 +352,7 @@ class FieldsTableTools extends Wire {
 	public function getUniqueIndexInputfield(Field $field) {
 	
 		$col = 'data';
-		$modules = $this->wire('modules'); /** @var Modules $modules */
+		$modules = $this->wire()->modules;
 		
 		if((bool) $field->flagUnique != $field->hasFlag(Field::flagUnique)) {
 			$this->checkUniqueIndex($field, true);
@@ -386,10 +384,9 @@ class FieldsTableTools extends Wire {
 	 * 
 	 */
 	public function valueExists(Field $field, $value, $col = 'data') {
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
-		if($col !== 'data') $col = $database->escapeCol($this->sanitizer->fieldName($col)); 
+		if($col !== 'data') $col = $database->escapeCol($this->wire()->sanitizer->fieldName($col)); 
 		$sql = "SELECT pages_id FROM $table WHERE $col=:val LIMIT 1";
 		$query = $database->prepare($sql);
 		$query->bindValue(':val', $value); 

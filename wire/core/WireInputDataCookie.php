@@ -72,7 +72,7 @@
  * ~~~~~
  * 
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */ 
@@ -142,8 +142,7 @@ class WireInputDataCookie extends WireInputData {
 	 */
 	public function init() {
 		$this->init = true;
-		/** @var Session $session */
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		$cookies = $session->getFor($this, '');
 		if(!empty($cookies)) {
 			$this->setArray($cookies);
@@ -461,7 +460,7 @@ class WireInputDataCookie extends WireInputData {
 	 * 
 	 */
 	protected function allowSetCookie($name) {
-		if(empty($this->skipCookies)) $this->skipCookies = $this->wire('session')->getCookieNames();
+		if(empty($this->skipCookies)) $this->skipCookies = $this->wire()->session->getCookieNames();
 		return in_array($name, $this->skipCookies) ? false : true;
 	}
 }

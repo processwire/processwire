@@ -3,7 +3,7 @@
 /**
  * ProcessWire WireMail Interface
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -24,7 +24,7 @@ interface WireMailInterface {
 	 *	5. NULL (default value, to clear out any previously set values)
 	 * @param string $name Optionally provide a FROM name, applicable
 	 *	only when specifying #1 (single email) for the first argument. 
-	 * @return this 
+	 * @return self
 	 * @throws WireException if any provided emails were invalid
 	 *
 	 */
@@ -35,7 +35,7 @@ interface WireMailInterface {
 	 *
 	 * @param string Must be a single email address or "User Name <user@example.com>" string.
 	 * @param string|null An optional FROM name (same as setting/calling fromName)
-	 * @return this 
+	 * @return self
 	 * @throws WireException if provided email was invalid
 	 *
 	 */
@@ -45,7 +45,7 @@ interface WireMailInterface {
 	 * Set the email subject
 	 *
 	 * @param string $subject 
-	 * @return this 
+	 * @return self
 	 *
 	 */
 	public function subject($subject); 
@@ -54,7 +54,7 @@ interface WireMailInterface {
 	 * Set the email message body (text only)
 	 *
 	 * @param string $body in text only
-	 * @return this 
+	 * @return self
 	 *
 	 */
 	public function body($body); 
@@ -63,7 +63,7 @@ interface WireMailInterface {
 	 * Set the email message body (HTML only)
 	 *
 	 * @param string $body in HTML
-	 * @return this 
+	 * @return self
 	 *
 	 */
 	public function bodyHTML($body); 
@@ -73,7 +73,7 @@ interface WireMailInterface {
 	 *
 	 * @param string $key
 	 * @param string $value
-	 * @return this 
+	 * @return self
 	 *
 	 */
 	public function header($key, $value); 
@@ -84,7 +84,7 @@ interface WireMailInterface {
 	 * See $additional_parameters at: http://www.php.net/manual/en/function.mail.php
 	 *
 	 * @param string $value
-	 * @return this 
+	 * @return self
 	 *
 	 */
 	public function param($value); 
@@ -95,7 +95,7 @@ interface WireMailInterface {
 	 *
 	 * @param string $value
 	 * @param string $filename
-	 * @return this 
+	 * @return self
 	 *
 	public function attachment($value, $filename = ''); 
 	 */

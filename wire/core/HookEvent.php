@@ -3,7 +3,7 @@
 /**
  * ProcessWire HookEvent
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * Instances of HookEvent are passed to Hook handlers when their requested method has been called.
@@ -60,6 +60,7 @@ class HookEvent extends WireData {
 		);
 		if(!empty($eventData)) $data = array_merge($data, $eventData);
 		$this->data = $data;
+		parent::__construct();
 	}
 
 	/**
@@ -130,7 +131,6 @@ class HookEvent extends WireData {
 			return array_key_exists($key, $arguments) ? $arguments[$key] : null;
 		}
 
-		$value = null;
 		$argumentsByName = array();
 
 		foreach($names as $key => $name) {
@@ -161,8 +161,9 @@ class HookEvent extends WireData {
 		if(is_string($n) && !ctype_digit($n)) {
 			// convert argument name to position
 			$names = $this->getArgumentNames();	
-			$n = array_search($n, $names); 
-			if($n === false) throw new WireException("Unknown argument name: $n"); 
+			$name = $n;
+			$n = array_search($name, $names); 
+			if($n === false) throw new WireException("Unknown argument name: $name"); 
 		}
 
 		$this->data['arguments'][(int)$n] = $value;

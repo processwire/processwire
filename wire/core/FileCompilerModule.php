@@ -43,6 +43,7 @@ abstract class FileCompilerModule extends WireData implements Module, Configurab
 	
 	public function __construct() {
 		$this->set('runOrder', 0);
+		parent::__construct();
 	}
 	
 	/**
@@ -60,7 +61,7 @@ abstract class FileCompilerModule extends WireData implements Module, Configurab
 	 * 2. If you only want to compile non-PHP sections of the file, implement the compileMarkup() method instead.
 	 * 
 	 * @param string $data
-	 * @return string
+	 * @return string|array
 	 * 
 	 */
 	public function compile($data) {
@@ -89,7 +90,7 @@ abstract class FileCompilerModule extends WireData implements Module, Configurab
 
 		if(!preg_match_all('!\?>(.+?)<\?!s', $data, $matches)) return array();
 
-		foreach($matches[1] as $key => $markup) {
+		foreach($matches[1] as $markup) {
 			$_markup = $this->compileMarkup($markup);
 			if($_markup !== $markup) {
 				$data = str_replace("?>$markup<?", "?>$_markup<?", $data);
@@ -154,7 +155,7 @@ abstract class FileCompilerModule extends WireData implements Module, Configurab
 	 * 
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
-		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f = $inputfields->InputfieldInteger;
 		$f->attr('name', 'runOrder');
 		$f->attr('value', (int) $this->get('runOrder'));
 		$f->label = $this->_('Runtime execution order');

@@ -11,5 +11,6 @@ class Breadcrumb extends WireData {
 		$this->set('url', $url);
 		$this->set('title', $title);
 		$this->set('titleMarkup', '');
+		parent::__construct();
 	}
 }
