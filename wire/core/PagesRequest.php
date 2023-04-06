@@ -536,7 +536,7 @@ class PagesRequest extends Wire {
 		} else if(isset($_SERVER['REQUEST_URI'])) {
 			// abnormal request, something about request URL made .htaccess skip it, or index.php called directly
 			$rootUrl = $config->urls->root;
-			$shit = trim($_SERVER['REQUEST_URI']);
+			$shit = trim(urldecode($_SERVER['REQUEST_URI']));
 			if(strpos($shit, '?') !== false) list($shit,) = explode('?', $shit, 2);
 			if($rootUrl != '/') {
 				if(strpos($shit, $rootUrl) === 0) {
