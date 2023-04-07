@@ -7,7 +7,7 @@ require_once(dirname(__FILE__) . '/FieldtypeRepeater.module');
  *
  * Maintains a collection of fields as a fieldset via an independent Page.
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $repeatersRootPageID
@@ -95,9 +95,9 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	 * 
 	 */
 	public function getRepeaterPageArray(Page $page, Field $field, $value = null) {
-		if($value && $value instanceof PageArray) return $value; 
+		if($value instanceof PageArray) return $value; 
 		$pageArray = parent::getBlankValue($page, $field); 
-		if($value && $value instanceof Page) $pageArray->add($value); 
+		if($value instanceof Page) $pageArray->add($value); 
 		$pageArray->resetTrackChanges();
 		return $pageArray;
 	}
@@ -117,7 +117,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	 *
 	 * @param Page $page
 	 * @param Field $field
-	 * @return FieldsetPage|PageArray
+	 * @return FieldsetPage
 	 *
 	 */
 	public function getBlankValue(Page $page, Field $field) {
@@ -198,7 +198,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	 *
 	 * @param Page $page
 	 * @param Field $field
-	 * @param array $value
+	 * @param array|Page $value
 	 * @return FieldsetPage|Page $value
 	 *
 	 */
@@ -394,7 +394,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	 *
 	 * @param Page $page Page object to save.
 	 * @param Field $field Field to retrieve from the page.
-	 * @return mixed|null
+	 * @return FieldsetPage
 	 *
 	 */
 	public function ___loadPageField(Page $page, Field $field) {
@@ -411,13 +411,15 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	 */
 	public function ___savePageField(Page $page, Field $field) {
 		
+		$pages = $this->wire()->pages;
+		
 		if(!$page->id || !$field->id) return false;
 		
 		if($page->get('_cloning') instanceof Page) {
 			// $page is being cloned, so lets also clone the FieldsetPage
 			$source = $page->get('_cloning')->get($field->name);
 			if(!$source->id) return false;
-			$target = $this->wire('pages')->clone($source, null, false, array(
+			$target = $pages->clone($source, null, false, array(
 				'uncacheAll' => false,
 				'set' => array('name' => self::repeaterPageNamePrefix . $page->id)
 			));
@@ -441,7 +443,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 			if($value->isHidden()) $value->removeStatus(Page::statusHidden); 
 		}
 		
-		$this->wire()->pages->save($value, array('uncacheAll' => false));
+		$pages->save($value, array('uncacheAll' => false));
 
 		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->table);

@@ -363,7 +363,7 @@ class PagesEditor extends Wire {
 
 		// assign sort order
 		if($page->sort < 0) {
-			$page->sort = $page->parent->numChildren();
+			$page->sort = ($parent->id ? $parent->numChildren() : 0);
 		}
 
 		// assign any default values for fields
