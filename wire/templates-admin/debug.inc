@@ -468,13 +468,16 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 				active: false,
 				header: 'h3',
 				collapsible: true,
-				heightStyle: 'content'
+				heightStyle: 'content',
+				classes: {
+					'ui-accordion-header': 'ui-helper-reset ui-corner-top'
+				}
 			});
 		}
 		if(typeof pwPanels == "undefined" || $('body').hasClass('touch')) {
 			initDebugAccordion();
 			$debug.hide();
-			$("#debug_toggle").click(function() {
+			$("#debug_toggle").on('click', function() {
 				if($debug.is(":hidden")) {
 					$debug.slideDown();
 				} else {
@@ -491,4 +494,3 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 		}
 	}); 
 </script>
-

@@ -1,6 +1,6 @@
 function InputfieldIcon() {
 	
-	$('.InputfieldIcon select').change(function() {
+	$('.InputfieldIcon select').on('change', function() {
 		var $select = $(this);
 		var val = $select.val();
 		if(val.length > 0) {
@@ -71,4 +71,3 @@ function InputfieldIcon() {
 $(document).ready(function() {
 	InputfieldIcon();
 });
-

@@ -46,9 +46,9 @@ var InputfieldPageAutocomplete = {
 			var $remove = $input.siblings('.InputfieldPageAutocompleteRemove');
 			InputfieldPageAutocomplete.setIconPosition($remove, 'right');
 			
-			$remove.click(function() {
-				$value.val('').change();
-				$input.val('').attr('placeholder', '').attr('data-selectedLabel', '').change().focus();
+			$remove.on('click', function() {
+				$value.val('').trigger('change');
+				$input.val('').attr('placeholder', '').attr('data-selectedLabel', '').trigger('change').focus();
 				$input.trigger('keydown');
 			});
 			
@@ -74,7 +74,7 @@ var InputfieldPageAutocomplete = {
 		}
 		
 		
-		$icon.click(function() { $input.focus(); });
+		$icon.on('click', function() { $input.focus(); });
 		$icon.attr('data-class', $icon.attr('class')); 
 
 		function isAddAllowed() {
@@ -180,7 +180,7 @@ var InputfieldPageAutocomplete = {
 					// instead we add the text entered as a new item
 					// if there is an .InputfieldPageAdd sibling, which indicates support for this
 					if(isAddAllowed()) {
-						if($.trim($input.val()).length < 1) {
+						if($input.val().trim().length < 1) {
 							$input.blur();
 							return false;
 						}
@@ -427,5 +427,3 @@ $(document).ready(function() {
 		InputfieldPageAutocomplete.updateIcons($tab); 
 	});
 }); 
-
-

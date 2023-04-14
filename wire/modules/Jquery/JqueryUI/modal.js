@@ -83,8 +83,8 @@ function pwModalWindowSettings(name) {
 			var val = modal[n];
 			if (val.indexOf('=') < 1) continue;
 			val = val.split('=');
-			var key = jQuery.trim(val[0]);
-			val = jQuery.trim(val[1].toLowerCase());
+			var key = val[0].toString().trim();
+			val = val[1].toLowerCase().trim();
 			if (typeof options[key] == "undefined") continue;
 			if (val == "true" || val == "1") {
 				val = true;
@@ -274,7 +274,7 @@ function pwModalWindow(href, options, size) {
 	}
 	updateWindowSize();
 	
-	jQuery(window).resize(updateWindowSize);
+	jQuery(window).on('resize', updateWindowSize);
 	
 	$iframe.refresh = function() {
 		lastWidth = 0; // force update
@@ -429,7 +429,7 @@ function pwModalOpenEvent(e) {
 						'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''),
 						'click': function(e) {
 							// jQuery(e.currentTarget).fadeOut('fast');
-							$button.click();
+							$button.trigger('click');
 							if(closeSelector.length > 0 && $button.is(closeSelector)) {
 								// immediately close if matches closeSelector
 								$iframe.dialog('close');
@@ -514,7 +514,7 @@ function pwModalDoubleClick() {
 			timer = setTimeout(function() {
 				clicks = 0;
 				allowClick = true;
-				$a[0].click();
+				$a[0].trigger('click');
 				return true;
 			}, 700);
 		} else {

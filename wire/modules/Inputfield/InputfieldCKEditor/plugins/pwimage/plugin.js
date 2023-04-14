@@ -207,7 +207,7 @@
 		
 		var $iframe = pwModalWindow(modalUri + queryString, modalSettings, 'large');
 		
-		$iframe.load(function() {
+		$iframe.on('load', function() {
 
 			// when iframe loads, pull the contents into $i 
 			var $i = $iframe.contents();
@@ -360,7 +360,7 @@
 					var button = {
 						html: $button.html(),
 						click: function() {
-							$button.click();
+							$button.trigger('click');
 						}
 					}
 					buttons.push(button);

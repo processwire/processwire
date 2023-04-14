@@ -131,7 +131,7 @@ var AdminDataTable = {
 		});
 		
 		var resizeTimeout = null;
-		$(window).resize(function() {
+		$(window).on('resize', function() {
 			if(resizeTimeout) clearTimeout(resizeTimeout);
 			resizeTimeout = setTimeout(function() { AdminDataTable.resize() }, 500);
 		});

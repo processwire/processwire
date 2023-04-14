@@ -83,8 +83,8 @@ var ProcessLogger = {
 
 	init: function() {
 
-		$("#Inputfield_q").keyup(ProcessLogger.filterChange); 
-		$("#Inputfield_date_to, #Inputfield_date_from").change(ProcessLogger.filterChange); 
+		$("#Inputfield_q").on('keyup', ProcessLogger.filterChange); 
+		$("#Inputfield_date_to, #Inputfield_date_from").on('change', ProcessLogger.filterChange); 
 
 		$(document).on('click', '.MarkupPagerNav a', ProcessLogger.paginationClick); 
 		

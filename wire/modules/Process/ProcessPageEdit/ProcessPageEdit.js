@@ -13,7 +13,7 @@ function initPageEditForm() {
 	// trigger a submit_delete submission. this is necessary because when submit_delete is an <input type='submit'> then 
 	// some browsers call it (rather than submit_save) when the enter key is pressed in a text field. This solution
 	// by passes that undesirable behavior. 
-	$("#submit_delete").click(function() {
+	$("#submit_delete").on('click', function() {
 		if(!$("#delete_page").is(":checked")) {
 			$("#wrap_delete_page label").effect('highlight', {}, 500); 
 			return;
@@ -54,10 +54,10 @@ function initPageEditForm() {
 	
 	$("#_ProcessPageEditViewDropdownToggle").css('color', color);
 	
-	$viewLink.click(function() {
+	$viewLink.on('click', function() {
 		var action = $viewLink.attr('data-action');
 		if(action == 'this' || action == 'new' || !action.length) return true; 
-		$viewMenu.find(".page-view-action-" + action + " > a").click();
+		$viewMenu.find(".page-view-action-" + action + " > a").trigger('click');
 		return false;
 	}); 
 
