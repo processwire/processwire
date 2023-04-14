@@ -5,7 +5,7 @@ function TemplateFieldAddDialog() {
     var fieldReady = false;
     var $iframe = pwModalWindow($a.attr('href'), {}, 'large');
 
-    $iframe.load(function() {
+    $iframe.on('load', function() {
 
 		var $button;
         var buttons = [];
@@ -29,7 +29,7 @@ function TemplateFieldAddDialog() {
                     'text': text,
                     'class': ($button.hasClass('ui-priority-secondary') ? 'ui-priority-secondary' : ''),
                     'click': function() {
-                        $button.click();
+                        $button.trigger('click');
                         fieldReady = true;
                     }
                 };
@@ -80,5 +80,5 @@ function TemplateFieldAddDialog() {
 
 
 $(document).ready(function() {
-    $('#wrap_fieldgroup_fields p.description a').click(TemplateFieldAddDialog);
+    $('#wrap_fieldgroup_fields p.description a').on('click', TemplateFieldAddDialog);
 });
