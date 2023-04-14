@@ -33,6 +33,11 @@ class JqueryCore extends ModuleJS {
 	 */
 	public function wired() {
 		
+		parent::wired();
+		
+		$this->loadStyles = false;
+		$this->loadScripts = false;
+		
 		$components = array(
 			'core-dev' => 'dev/JqueryCore.js?v=3.6.4', // version used when $config->debug=dev. 
 			'migrate-dev-debug' => 'dev/jquery-migrate-debug-3.4.0.js', // migrate to 3.x with log
@@ -53,7 +58,6 @@ class JqueryCore extends ModuleJS {
 		
 		$config = $this->wire()->config;
 		$url = $config->urls('JqueryCore');
-		$this->loadScripts = false;
 		
 		if($config->admin && $config->debug === 'dev') {
 			$this->addScript('migrate', $url . $components['migrate-dev-debug']);
@@ -61,7 +65,7 @@ class JqueryCore extends ModuleJS {
 		} else {
 			if($config->admin) {
 				// also add migrate when in admin
-				$migrate = $config->debug && ProcessWire::versionSuffix === 'dev' ? 'debug' : 'quiet';
+				$migrate = $config->debug && $config->advanced && ProcessWire::versionSuffix === 'dev' ? 'debug' : 'quiet';
 				$this->addScript('migrate', $url . $components["migrate-$migrate"]);
 			}
 			$this->addScript('core', $url . 'JqueryCore.js?v=' . $this->getVersion());

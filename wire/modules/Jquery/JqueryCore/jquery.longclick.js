@@ -24,7 +24,7 @@
             duration = arguments[1],
             $this = $(this).data(_duration_, duration || null);
         /* Bind long click */
-        return handler ? $this.bind(type, handler) : $this.trigger(type);
+        return handler ? $this.on(type, handler) : $this.trigger(type);
     };
 
     /**
@@ -48,20 +48,20 @@
             if (!(/iphone|ipad|ipod/i).test(navigator.userAgent)) {
                 /* normal technique for standard mouse-based interaction */
                 $(this)
-                    .bind(_mousedown_, schedule)
-                    .bind([_mouseup_, _mouseout_, _contextmenu_].join(' '), cancel)
-                    .bind(_click_, click);
+                    .on(_mousedown_, schedule)
+                    .on([_mouseup_, _mouseout_, _contextmenu_].join(' '), cancel)
+                    .on(_click_, click);
             } else {
                 /* and special handling for touch-based interaction on iPhone-compatibile devices */
                 touch_enabled(this)
-                    .bind(_touchstart_, schedule)
-                    .bind([_touchend_, _touchcancel_].join(' '), cancel)
-                    .bind(_click_, click)
+                    .on(_touchstart_, schedule)
+                    .on([_touchend_, _touchcancel_].join(' '), cancel)
+                    .on(_click_, click)
                     .css({WebkitUserSelect: 'none'});
             }
         },
         teardown: function (namespaces) {
-            $(this).unbind(namespace);
+            $(this).off(namespace);
         }
     };
 
