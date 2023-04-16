@@ -1046,6 +1046,7 @@ function InputfieldDependencies($target) {
 	 */
 	function parseValue(str, str2) {
 
+		if(typeof str === 'undefined') return '';
 		str = str.toString().trim();
 		
 		if(str.length > 0) {
