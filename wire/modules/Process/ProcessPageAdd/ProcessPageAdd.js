@@ -82,7 +82,7 @@ $(document).ready(function() {
 			} else {
 				unhideLanguageTabs();
 			}
-		}).change();
+		}).trigger('change');
 		var noLang = $template.attr('data-nolang');
 		if(typeof noLang !== 'undefined' && parseInt(noLang) > 0) {
 			hideLanguageTabs();

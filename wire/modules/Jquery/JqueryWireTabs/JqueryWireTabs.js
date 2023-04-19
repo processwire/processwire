@@ -102,7 +102,7 @@
 					if (options.rememberTabs == 0) setTabCookie(''); // don't clear cookie when rememberTabs=1, so it continues
 					setTimeout(function() { $rememberTab.trigger('click'); }, 200); // extra backup, necessary for some event monitoring
 				} else {
-					$tabList.children("li:first").children("a").trigger('click');
+					$tabList.children("li").first().children("a").trigger('click');
 				}
 				
 				$(document).ready(function() {
@@ -162,7 +162,7 @@
 				var $oldTab = $tabList.find("a." + aActiveClass);
 				var $newTab = $(this);
 				
-				if(!$oldTab.length) $oldTab = $tabList.find("a:eq(0)");
+				if(!$oldTab.length) $oldTab = $tabList.find("a").eq(0);
 				
 				
 				var oldTabHref = $oldTab.attr('href');

@@ -48,13 +48,13 @@ function InputfieldIcon() {
 			var $i = $(this);
 			if($i.hasClass('on')) {
 				$i.removeClass('on');
-				$select.val('').change();
+				$select.val('').trigger('change');
 				return;
 			}
 			$all.find('.on').removeClass('on');
 			$i.addClass('on');
 			if(!$select.hasClass('on')) {
-				$select.val($i.attr('title')).change();
+				$select.val($i.attr('title')).trigger('change');
 			}
 		});
 

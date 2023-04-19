@@ -66,7 +66,6 @@ var InputfieldPageListSelectMultiple = {
 		});
 
 		$ol.on('click', 'a.itemRemove', function() {
-			// $(".InputfieldPageListSelectMultiple ol li a.itemRemove").live('click', function() {
 			var $li = $(this).parent();
 			var $ol = $li.parent();
 			var id = $li.children(".itemValue").text();

@@ -1677,7 +1677,7 @@ function InputfieldImage($) {
 			function setupDropHere() {
 				$dropHere = $this.find('.AjaxUploadDropHere');
 				$dropHere.show(); 
-					.click(function() {
+					.on('click', function() {
 					var $i = $(this).find('.InputfieldImageRefresh');
 					if($i.is(":visible")) {
 						$i.hide().siblings('span').show();

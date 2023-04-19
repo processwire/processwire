@@ -45,7 +45,7 @@ function TemplateFieldAddDialog() {
                 'class': ($button && $button.hasClass('ui-priority-secondary') ? 'ui-priority-secondary' : ''),
                 'click': function() {
                     setTimeout(function() {
-                        var newFieldId = $icontents.find("#Inputfield_id:last").val();
+                        var newFieldId = $icontents.find("#Inputfield_id").last().val();
                         $iframe.dialog('close');
 						var $options = $('#fieldgroup_fields option');
                         var numOptions = $options.length;

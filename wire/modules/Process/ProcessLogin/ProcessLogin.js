@@ -36,7 +36,7 @@ $(document).ready(function() {
 	});
 	
 	// via @Toutouwai #84
-	$('#ProcessLoginForm').submit(function() {
+	$('#ProcessLoginForm').on('submit', function() {
 		var $html = $('html');
 		var touch = $html.data('whatintent') == 'touch' || $html.data('whatinput') == 'touch';
 		clearInterval(interval);

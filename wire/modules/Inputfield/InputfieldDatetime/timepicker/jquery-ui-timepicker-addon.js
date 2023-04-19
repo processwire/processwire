@@ -278,7 +278,7 @@
 				if (tp_inst._defaults.altRedirectFocus === true) {
 					tp_inst.$altInput.css({
 						cursor: 'pointer'
-					}).focus(function () {
+					}).on('focus', function () {
 						$input.trigger("focus");
 					});
 				}
@@ -304,7 +304,7 @@
 			if (tp_inst._defaults.maxDateTime !== undefined && tp_inst._defaults.maxDateTime instanceof Date) {
 				tp_inst._defaults.maxDate = new Date(tp_inst._defaults.maxDateTime.getTime());
 			}
-			tp_inst.$input.bind('focus', function () {
+			tp_inst.$input.on('focus', function () {
 				tp_inst._onFocus();
 			});
 
@@ -458,7 +458,7 @@
 							marginLeft: o.isRTL ? '0' : ((size / (-2 * gridSize[litem])) + "%"),
 							marginRight: o.isRTL ? ((size / (-2 * gridSize[litem])) + "%") : '0',
 							borderCollapse: 'collapse'
-						}).find("td").click(function (e) {
+						}).find("td").on('click', function (e) {
 								var $t = $(this),
 									h = $t.html(),
 									n = parseInt(h.replace(/[^0-9]/g), 10),
@@ -509,7 +509,7 @@
 						selectLocalTimezone(tp_inst);
 					}
 				}
-				this.timezone_select.change(function () {
+				this.timezone_select.on('change', function () {
 					tp_inst._onTimeChange();
 					tp_inst._onSelectHandler();
 					tp_inst._afterInject();
@@ -525,7 +525,7 @@
 				}
 
 				this.$timeObj = $tp.find('.ui_tpicker_time_input');
-				this.$timeObj.change(function () {
+				this.$timeObj.on('change', function () {
 					var timeFormat = tp_inst.inst.settings.timeFormat;
 					var parsedTime = $.datepicker.parseTime(timeFormat, this.value);
 					var update = new Date();
@@ -557,7 +557,7 @@
 							$tp.find('.ui-slider:visible').sliderAccess(sliderAccessArgs);
 
 							// fix any grids since sliders are shorter
-							var sliderAccessWidth = $tp.find('.ui-slider-access:eq(0)').outerWidth(true);
+							var sliderAccessWidth = $tp.find('.ui-slider-access').eq(0).outerWidth(true);
 							if (sliderAccessWidth) {
 								$tp.find('table:visible').each(function () {
 									var $g = $(this),
@@ -890,7 +890,6 @@
 			this.timeDefined = true;
 			if (hasChanged) {
 				this._updateDateTime();
-				//this.$input.focus(); // may automatically open the picker on setDate
 			}
 		},
 
@@ -1085,7 +1084,7 @@
 
 					obj.children('select').remove();
 
-					$(sel).appendTo(obj).change(function (e) {
+					$(sel).appendTo(obj).on('change', function (e) {
 						tp_inst._onTimeChange();
 						tp_inst._onSelectHandler();
 						tp_inst._afterInject();

@@ -53,7 +53,7 @@ $(document).ready(function() {
 	
 	$("#Inputfield_new_seconds").on('change', function() {
 		$('#submit_check').removeAttr('hidden').trigger('click');
-		$(this).closest('form').submit();
+		$(this).closest('form').trigger('submit');
 	}); 
 	
 	$("#wrap_upload_module").removeClass('InputfieldItemList'); 

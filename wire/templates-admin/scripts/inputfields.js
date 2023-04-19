@@ -472,7 +472,7 @@ var Inputfields = {
 			$input = jQuery([]);
 		} else {
 			// find input element within Inputfield
-			$input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus):first");
+			$input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus)").first();
 			// do not attempt to focus absolute positioned inputs or button elements
 			if($input.css('position') == 'absolute' || $input.is('button')) $input = jQuery([]);
 		}
@@ -480,7 +480,7 @@ var Inputfields = {
 		if($input.length) {
 			var t = $input.attr('type');
 			if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
-				$input.focus();
+				$input.trigger('focus');
 				focused = true;
 			}
 		}
@@ -1899,9 +1899,9 @@ function InputfieldFormBeforeUnloadEvent(e) {
 	var $ = jQuery;
 	var $changes = $(".InputfieldFormConfirm:not(.InputfieldFormSubmitted) .InputfieldStateChanged");
 	if($changes.length == 0) return;
-	var msg = $('.InputfieldFormConfirm:eq(0)').attr('data-confirm') + "\n";
+	var msg = $('.InputfieldFormConfirm').eq(0).attr('data-confirm') + "\n";
 	$changes.each(function() {
-		var $header = $(this).find(".InputfieldHeader:eq(0)");
+		var $header = $(this).find('.InputfieldHeader').eq(0);
 		if($header.length) {
 			name = $header.text();
 		} else {
@@ -2161,20 +2161,22 @@ function InputfieldStates($target) {
 	 // Make the first field in any form have focus, if it is a text field that is blank
 	var $focusInputs = $('input.InputfieldFocusFirst'); // input elements only
 	if(!$focusInputs.length) {
-		$focusInputs = $('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)')
-			.find('input[type=text]:enabled:first:not(.hasDatepicker):not(.InputfieldNoFocus)');
+		$focusInputs = $('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)').find('input[type=text]:enabled').first();
+		if($focusInputs.hasClass('hasDatepicker') || $focusInputs.hasClass('InputfieldNoFocus')) $focusInputs = null;
 	}
-	if($focusInputs.length) $focusInputs.each(function() {
-		var $t = $(this);
-		// jump to first input, if it happens to be blank
-		if($t.val()) return;
-		// avoid jumping to inputs that fall "below the fold"
-		if($t.offset().top < $(window).height()) {
-			window.setTimeout(function () {
-				if($t.is(":visible")) $t.focus();
-			}, 250);
-		}
-	});
+	if($focusInputs !== null && $focusInputs.length) {
+		$focusInputs.each(function() {
+			var $t = $(this);
+			// jump to first input, if it happens to be blank
+			if($t.val()) return;
+			// avoid jumping to inputs that fall "below the fold"
+			if($t.offset().top < $(window).height()) {
+				window.setTimeout(function() {
+					if($t.is(":visible")) $t.trigger('focus');
+				}, 250);
+			}
+		});
+	}
 
 	// confirm changed forms that user navigates away from before submitting
 	$(document).on('change', '.InputfieldForm :input, .InputfieldForm .Inputfield', function() {
@@ -2264,7 +2266,7 @@ function InputfieldIntentions() {
 			if($buttons.length > 0) {
 				var $button = $buttons.eq(0);
 				$('html, body').animate({ scrollTop: $button.offset().top }, 'fast');
-				$button.focus();
+				$button.trigger('focus');
 			}
 			
 			return false;

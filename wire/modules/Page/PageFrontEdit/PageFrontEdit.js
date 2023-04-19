@@ -93,7 +93,7 @@ function PageFrontEditInit($) {
 			}
 		}
 		setTimeout(function() {
-			copy.focus();
+			copy.trigger('focus');
 		}, 250);
 	};
 
@@ -117,17 +117,17 @@ function PageFrontEditInit($) {
 			return false;
 		});
 		
-		orig.dblclick(function(e) {
+		orig.on('dblclick', function(e) {
 			inlineEditEvent(e, t, orig, copy);
 			return false;
 		});
 
 		if(t.is('span')) { // single-line text
 			// via @canrau
-			copy.keydown(function(e) {
+			copy.on('keydown', function(e) {
 				if(e.keyCode == 13){
 					e.preventDefault();
-					$(this).blur();
+					$(this).trigger('blur');
 				}
 			});
 		}
@@ -148,7 +148,7 @@ function PageFrontEditInit($) {
 					timer = setTimeout(function() {
 						clicks = 0;
 						allowClick = true;
-						$a[0].click();
+						$a[0].trigger('click');
 						return true;
 					}, 700);
 				} else {
@@ -166,7 +166,7 @@ function PageFrontEditInit($) {
 
 		// handler for non-cke/mce blur event
 		if(!t.hasClass('pw-edit-InputfieldCKEditor') && !t.hasClass('pw-edit-InputfieldTinyMCE')) {
-			copy.blur(function() {
+			copy.on('blur', function() {
 				var copy = $(this);
 				var t = copy.closest('.pw-editing');
 				if(t.length == 0) return;
@@ -366,7 +366,7 @@ function PageFrontEditInit($) {
 			viewURL += (viewURL.indexOf('?') > -1 ? '&' : '?') + 'pw_edit_fields=' + target.attr('data-fields');
 			setBusy(true);
 
-			target.load(viewURL + ' #' + targetID, {}, function() {
+			target.on('load', viewURL + ' #' + targetID, {}, function() {
 				var t = $(this);
 				var children = t.children();
 				if(children.length) {
@@ -443,11 +443,11 @@ function PageFrontEditInit($) {
 		}
 
 		// click action to cancel edits
-		$('.pw-edit-cancel').click(inlineCancelClickEvent);
+		$('.pw-edit-cancel').on('click', inlineCancelClickEvent);
 
 		// click action to save edits
-		$('.pw-edit-save').click(function() {
-			$('.pw-editing:not(.pw-edit-InputfieldCKEditor)').blur();
+		$('.pw-edit-save').on('click', function() {
+			$('.pw-editing:not(.pw-edit-InputfieldCKEditor)').trigger('blur');
 			setTimeout(function() {
 				inlineSaveClickEvent();
 			}, 250); 

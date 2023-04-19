@@ -85,7 +85,7 @@ var InputfieldSelector = {
 				// this ensures any data-template-ids attributes affect the field disabled state at the template-row level
 				InputfieldSelector.changeAny($(this)); 
 			}); 
-			$rows.eq(1).find(".input-value").change(); // first visible row, if present
+			$rows.eq(1).find(".input-value").trigger('change'); // first visible row, if present
 			$rows.each(function() {
 				var $row = $(this); 
 				$row.css('border-color', InputfieldSelector.borderColor); // match border color to current admin theme
@@ -104,7 +104,7 @@ var InputfieldSelector = {
 		$(".InputfieldSelector").each(function() {
 			if($(this).find(".selector-preview-disabled").length > 0) return;
 			// force items to populate previews
-			$(this).find(".input-value:eq(0)").change();
+			$(this).find(".input-value").eq(0).trigger('change');
 		}); 
 
 	},
@@ -298,7 +298,7 @@ var InputfieldSelector = {
 				$data.fadeIn('fast', function() {
 					// if there is a default selected option, select it now
 					//var $option = $subfield.find('.select-subfield-default');
-					//if($option.length) $option.attr('selected', 'selected').parent('select').change();
+					//if($option.length) $option.attr('selected', 'selected').parent('select').trigger('change');
 				});
 				//$row.children('.subfield').html(data); 	
 			}
@@ -394,7 +394,7 @@ var InputfieldSelector = {
 				if(!ui.item) return;
 				var $input = $item.siblings(".input-value"); 
 				$input.val(ui.item.value).attr('data-label', ui.item.label); 
-				$item.blur().hide();
+				$item.trigger('blur').hide();
 				setTimeout(function() { 
 					$item.val(ui.item.label); 
 					//$item.attr('disabled', 'disabled'); 
@@ -402,7 +402,7 @@ var InputfieldSelector = {
 				}, 100); 
 				InputfieldSelector.changeAny($input); 
 			}
-		}).focus(function() {
+		}).on('focus', function() {
 			var $input = $item.siblings(".input-value"); 
 			$input.val('');
 			$item.val(''); 
@@ -624,14 +624,14 @@ var InputfieldSelector = {
 			if(s.field == '_custom') {
 				if(s.isOrGroup) {
 					s.value = s.value.replace('(', '').replace(')', '');
-					selector += s.field + '=' + '(' + $.trim(s.value) + ')';
+					selector += s.field + '=' + '(' + ProcessWire.trim(s.value) + ')';
 				} else {
 					//selector += s.value;
-					selector += s.field + '="' + $.trim(s.value) + '"';
+					selector += s.field + '="' + ProcessWire.trim(s.value) + '"';
 				}
 			} else {
 				if(s.not) selector += '!';
-				selector += s.field + s.operator + $.trim(s.value); 
+				selector += s.field + s.operator + ProcessWire.trim(s.value); 
 			}
 		}
 
@@ -665,7 +665,7 @@ var InputfieldSelector = {
 				$preview.hide();
 				$preview.siblings('.selector-counter').html('');
 			}
-			$hiddenInput.change(); // trigger change
+			$hiddenInput.trigger('change'); // trigger change
 		}
 
 		InputfieldSelector.selector = selector; 

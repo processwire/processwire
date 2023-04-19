@@ -11,7 +11,7 @@ $(document).ready(function() {
 		}, 1000);
 	}
 	
-	$("form#ProcessProfile").submit(function() {
+	$("form#ProcessProfile").on('submit', function() {
 		var $form = $(this);
 		var $inputfields = $(".InputfieldStateChanged.InputfieldPassRequired");
 		if(!$inputfields.length) return;
@@ -29,7 +29,7 @@ $(document).ready(function() {
 					var val = $('#_old_pass_confirm').val();	
 					if(val.length) {
 						$pass.val(val);
-						setTimeout(function() { $('#submit_save_profile').click(); }, 200);
+						setTimeout(function() { $('#submit_save_profile').trigger('click'); }, 200);
 					}
 				}
 			});
@@ -38,10 +38,10 @@ $(document).ready(function() {
 			var $passWrap = $pass.closest('.InputfieldPassword');
 			if($passWrap.hasClass('InputfieldStateCollapsed')) {
 				setTimeout(function() {
-					$passWrap.find('.InputfieldHeader').click();
+					$passWrap.find('.InputfieldHeader').trigger('click');
 				}, 200);
 			}
-			setTimeout(function() { $pass.focus(); }, 400);
+			setTimeout(function() { $pass.trigger('focus'); }, 400);
 		}
 		return false;
 	}); 

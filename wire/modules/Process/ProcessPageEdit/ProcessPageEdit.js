@@ -20,7 +20,7 @@ function initPageEditForm() {
 		}
 		var $input = $("<input type='hidden' name='submit_delete' />").val($(this).val());
 		$(this).before($input);
-		$("#ProcessPageEdit").submit();
+		$("#ProcessPageEdit").trigger('submit');
 	}); 
 
 	/*

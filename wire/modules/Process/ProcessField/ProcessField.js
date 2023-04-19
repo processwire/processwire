@@ -1,7 +1,7 @@
 $(document).ready(function() {
 	
 	var fieldFilterFormChange = function() {
-		$("#field_filter_form").submit();
+		$("#field_filter_form").trigger('submit');
 	}; 
 	
 	$("#templates_id").on('change', fieldFilterFormChange); 

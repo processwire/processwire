@@ -16,7 +16,7 @@ function ProcessTemplateAsmSelect() {
 	function setupRows() {
 
 		var $inputfield = $('#wrap_fieldgroup_fields');
-		var $item = $inputfield.find('.asmListItem:eq(0)');
+		var $item = $inputfield.find('.asmListItem').eq(0);
 		var $lastItem = null;
 		var lastItemWidth = 0;
 		var total = 0;
@@ -313,7 +313,7 @@ function ProcessTemplateAsmSelect() {
 		/*
 		var toggleRequired = function() {
 			var $li = $(this).closest('.asmListItem');
-			var $a = $li.find('.asmListItemEdit:eq(0)').children('a');
+			var $a = $li.find('.asmListItemEdit').eq(0).children('a');
 			var url = $a.attr('href');
 			var $inputRequired = $li.find('.inputRequired');
 			var value = $inputRequired.text();
@@ -544,11 +544,11 @@ function ProcessTemplate() {
 	 */
 	function init() {
 		$("#wrap_filter_system input").on('click', function() {
-			$(this).parents("form").submit();
+			$(this).parents("form").trigger('submit');
 		});
 
 		$("#filter_field").on('change', function() {
-			$(this).parents("form").submit();
+			$(this).parents("form").trigger('submit');
 		});
 
 		setupAccessTab();

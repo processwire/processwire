@@ -122,7 +122,7 @@ jQuery(document).ready(function($) {
 			}
 			if($on.hasClass('pass-fail') || $on.hasClass('pass-short') || $on.hasClass('pass-common') 
 				|| $on.hasClass('pass-invalid') || $on.hasClass('pass-same')) {
-				$confirm.attr('disabled', 'disabled').val('').change();
+				$confirm.attr('disabled', 'disabled').val('').trigger('change');
 			} else {
 				$confirm.removeAttr('disabled');
 				$on.find('small').remove();
@@ -130,7 +130,7 @@ jQuery(document).ready(function($) {
 			}
 			
 			if($confirm.val().length) {
-				$confirm.change();
+				$confirm.trigger('change');
 			}
 			
 			//console.log(valid);
@@ -195,7 +195,7 @@ jQuery(document).ready(function($) {
 		setTimeout(function() {
 			$ffinputs.each(function() {
 				if($(this).val().length < 1 || $(this).attr('value').length > 0) return;
-				$(this).val('').trigger('keyup').change()
+				$(this).val('').trigger('keyup').trigger('change')
 					.closest('.Inputfield').removeClass('InputfieldStateChanged');
 			});
 		}, 1000);

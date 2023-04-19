@@ -525,4 +525,20 @@ if(typeof ProcessWire != "undefined") {
 	ProcessWire.entities = function(str) {
 		return $('<textarea />').text(str).html();
 	};
+	
+	/**
+	 * Trim any type of given value and return a trimmed string
+	 * 
+	 * @param str
+	 * @returns {string}
+	 * @since 3.0.216
+	 * 
+	 */
+	ProcessWire.trim = function(str) {
+		if(typeof str !== 'string') {
+			if(typeof str === 'undefined' || str === null || str === '') return '';
+			str = str.toString();
+		}
+		return str.trim();
+	}; 
 }

@@ -125,22 +125,6 @@ var InputfieldSubmitDropdown = {
 			$a.on('click', InputfieldSubmitDropdown.click);
 		});
 		
-		/*
-		 // add first item to be same as default button action
-		 var $li = $('<li></li>');
-		 var $a = $('<a></a>').attr('href', '#default').append(labelHTML).addClass('pw-button-dropdown-default');
-		 $a.click(pwButtonDropdownClick);
-		 var $icon = $a.find('i');
-
-		 if(!$icon.length) {
-		 $icon = "<i class='fa fa-fw fa-check-square'></i>&nbsp;";
-		 $a.prepend($icon);
-		 } else {
-		 $icon.addClass('fa-fw');
-		 }
-		 $dropdown.prepend($li.append($a));
-		 */
-
 		$mainButton.addClass('pw-button-dropdown-main');
 		$toggleButton.after($dropdown)
 			.addClass('pw-dropdown-toggle-click pw-dropdown-toggle pw-button-dropdown-toggle')

@@ -472,7 +472,7 @@ function setupSelectedImage() {
 			}); 
 	
 			/*
-			$("#rotate_right_action, #rotate_left_action").click(function() {
+			$("#rotate_right_action, #rotate_left_action").on('click', function() {
 				$img.resizable('destroy');
 				var w = $img.width();
 				var h = $img.height();
@@ -508,12 +508,12 @@ function setupSelectedImage() {
 				// setupImageResizable();
 			}); 
 			
-			$("#flip_vertical_action").click(function() {
+			$("#flip_vertical_action").on('click', function() {
 				$img.removeClass('flip_horizontal').toggleClass('flip_vertical');
 				$(this).toggleClass('on'); 
 				$("#flip_horizontal_action").removeClass('on');
 			});
-			$("#flip_horizontal_action").click(function() {
+			$("#flip_horizontal_action").on('click', function() {
 				$img.removeClass('flip_vertical').toggleClass('flip_horizontal');
 				$(this).toggleClass('on');
 				$("#flip_vertical_action").removeClass('on');
@@ -588,7 +588,7 @@ function setupSelectedImage() {
 		if($img.width() > 0 && $img.height() > 0) {
 			setupImage($img);
 		} else {
-			$img.load(function() {
+			$img.on('load', function() {
 				$img = $(this);
 				setupImage($img);
 			});
