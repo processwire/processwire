@@ -550,7 +550,7 @@ class WireMail extends WireData implements WireMailInterface {
 		if(is_null($value)) {
 			$this->mail['attachments'] = array();
 		} else if(is_file($value)) { 
-			$filename = $filename ?: basename($value);
+			$filename = $filename ? basename($filename) : basename($value);
 			$this->mail['attachments'][$filename] = $value; 
 		}
 		return $this; 
