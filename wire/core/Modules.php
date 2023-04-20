@@ -3417,8 +3417,8 @@ class Modules extends WireArray {
 	/**
 	 * Return the URL where the module can be edited, configured or uninstalled
 	 * 
-	 * If module is not installed, it just returns the URL to ProcessModule.
-	 * 
+	 * If module is not installed, it returns URL to install the module.
+	 *
 	 * #pw-group-configuration
 	 * 
 	 * @param string|Module $className
@@ -3430,11 +3430,31 @@ class Modules extends WireArray {
 		if(!is_string($className)) $className = $this->getModuleClass($className);
 		$url = $this->wire()->config->urls->admin . 'module/';
 		if(empty($className) || !$this->isInstalled($className)) return $url;
+		if(!$this->isInstalled($className)) return $this->getModuleInstallUrl($className);
 		$url .= "edit/?name=$className";
 		if($collapseInfo) $url .= "&collapse_info=1";
 		return $url;
 	}
-	
+
+	/**
+	 * Get URL where an administrator can install given module name
+	 * 
+	 * If module is already installed, it returns the URL to edit the module. 
+	 * 
+	 * #pw-group-configuration
+	 *
+	 * @param string $className
+	 * @return string
+	 * @since 3.0.216
+	 *
+	 */
+	public function getModuleInstallUrl($className) {
+		if(!is_string($className)) $className = $this->getModuleClass($className);
+		$className = $this->wire()->sanitizer->fieldName($className);
+		if($this->isInstalled($className)) return $this->getModuleEditUrl($className); 
+		return $this->wire()->config->urls->admin . "module/installConfirm?name=$className";
+	}
+
 	/**
 	 * Given a module name, return an associative array of configuration data for it
 	 * 
@@ -5521,4 +5541,3 @@ class Modules extends WireArray {
 	}
 	
 }
-
