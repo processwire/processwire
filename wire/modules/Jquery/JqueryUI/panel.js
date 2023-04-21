@@ -345,7 +345,7 @@ var pwPanels = {
 		if($('.pw-panel-container-init').length == 0) {
 			// attach window resize event only if no panels have been opened before
 			// so that we attach it only if needed, and not more than once
-			$(window).resize(pwPanels.windowResizeEvent);
+			$(window).on('resize', pwPanels.windowResizeEvent);
 		}
 
 		if(isOpen) {

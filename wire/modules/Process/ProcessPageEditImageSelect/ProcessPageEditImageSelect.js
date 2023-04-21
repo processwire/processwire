@@ -111,8 +111,8 @@ function setupSelectedImage() {
 
 		function populateResizeDimensions() {
 			
-			var w = $img.width();
-			var h = $img.height();
+			var w = Math.round($img.width());
+			var h = Math.round($img.height());
 			var $link = $("#wrap_link_original"); 
 
 			if((h >= maxHeight || w >= maxWidth) && $form.hasClass('croppable')) {
@@ -345,8 +345,8 @@ function setupSelectedImage() {
 			} 
 		
 			if(abort) {
-				$("#input_width").val(oldWidth);
-				$("#input_height").val(oldHeight);
+				$("#input_width").val(Math.round(oldWidth));
+				$("#input_height").val(Math.round(oldHeight));
 				inputPixelsActive = false;
 				return false;
 			}

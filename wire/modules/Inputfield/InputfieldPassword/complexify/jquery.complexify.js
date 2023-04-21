@@ -119,7 +119,7 @@
         banMode: 'strict' // (strict|loose)
       };
 
-      if($.isFunction(options) && !callback) {
+	  if(typeof options === "function" && !callback) {
         callback = options;
         options = {};
       }

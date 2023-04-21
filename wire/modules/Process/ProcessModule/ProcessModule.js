@@ -4,7 +4,6 @@ $(document).ready(function() {
 
 		var name = $(this).children(".not_installed").attr('data-name');
 		var $btn = $(".install_" + name + ":visible"); 
-		var disabled = $btn.attr('disabled'); 	
 	
 		if($btn.length) {	
 			$btn.effect('highlight', 1000);

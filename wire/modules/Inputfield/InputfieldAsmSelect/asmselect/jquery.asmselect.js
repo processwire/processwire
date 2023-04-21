@@ -616,7 +616,7 @@
 			 */
 			function enableSelectOption($option) {
 
-				$option.removeClass(options.optionDisabledClass).attr("disabled", false);
+				$option.removeClass(options.optionDisabledClass).prop("disabled", false);
 				
 				if(options.hideWhenEmpty) $select.show();
 				if(options.hideWhenAdded) $option.show();
