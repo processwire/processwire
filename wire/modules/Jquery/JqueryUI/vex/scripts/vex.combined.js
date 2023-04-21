@@ -1,244 +1,243 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.vex = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.vex = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
 /*
  * classList.js: Cross-browser full element.classList implementation.
- * 2014-07-23
+ * 1.1.20170427
  *
  * By Eli Grey, http://eligrey.com
- * Public Domain.
- * NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+ * License: Dedicated to the public domain.
+ *   See https://github.com/eligrey/classList.js/blob/master/LICENSE.md
  */
 
 /*global self, document, DOMException */
 
-/*! @source http://purl.eligrey.com/github/classList.js/blob/master/classList.js*/
-
-/* Copied from MDN:
- * https://developer.mozilla.org/en-US/docs/Web/API/Element/classList
- */
+/*! @source http://purl.eligrey.com/github/classList.js/blob/master/classList.js */
 
 if ("document" in window.self) {
 
-  // Full polyfill for browsers with no classList support
-  // Including IE < Edge missing SVGElement.classList
-  if (!("classList" in document.createElement("_"))
-    || document.createElementNS && !("classList" in document.createElementNS("http://www.w3.org/2000/svg","g"))) {
+// Full polyfill for browsers with no classList support
+// Including IE < Edge missing SVGElement.classList
+if (!("classList" in document.createElement("_")) 
+	|| document.createElementNS && !("classList" in document.createElementNS("http://www.w3.org/2000/svg","g"))) {
 
-  (function (view) {
+(function (view) {
 
-    "use strict";
+"use strict";
 
-    if (!('Element' in view)) return;
+if (!('Element' in view)) return;
 
-    var
-        classListProp = "classList"
-      , protoProp = "prototype"
-      , elemCtrProto = view.Element[protoProp]
-      , objCtr = Object
-      , strTrim = String[protoProp].trim || function () {
-        return this.replace(/^\s+|\s+$/g, "");
-      }
-      , arrIndexOf = Array[protoProp].indexOf || function (item) {
-        var
-            i = 0
-          , len = this.length
-        ;
-        for (; i < len; i++) {
-          if (i in this && this[i] === item) {
-            return i;
-          }
-        }
-        return -1;
-      }
-      // Vendors: please allow content code to instantiate DOMExceptions
-      , DOMEx = function (type, message) {
-        this.name = type;
-        this.code = DOMException[type];
-        this.message = message;
-      }
-      , checkTokenAndGetIndex = function (classList, token) {
-        if (token === "") {
-          throw new DOMEx(
-              "SYNTAX_ERR"
-            , "An invalid or illegal string was specified"
-          );
-        }
-        if (/\s/.test(token)) {
-          throw new DOMEx(
-              "INVALID_CHARACTER_ERR"
-            , "String contains an invalid character"
-          );
-        }
-        return arrIndexOf.call(classList, token);
-      }
-      , ClassList = function (elem) {
-        var
-            trimmedClasses = strTrim.call(elem.getAttribute("class") || "")
-          , classes = trimmedClasses ? trimmedClasses.split(/\s+/) : []
-          , i = 0
-          , len = classes.length
-        ;
-        for (; i < len; i++) {
-          this.push(classes[i]);
-        }
-        this._updateClassName = function () {
-          elem.setAttribute("class", this.toString());
-        };
-      }
-      , classListProto = ClassList[protoProp] = []
-      , classListGetter = function () {
-        return new ClassList(this);
-      }
-    ;
-    // Most DOMException implementations don't allow calling DOMException's toString()
-    // on non-DOMExceptions. Error's toString() is sufficient here.
-    DOMEx[protoProp] = Error[protoProp];
-    classListProto.item = function (i) {
-      return this[i] || null;
-    };
-    classListProto.contains = function (token) {
-      token += "";
-      return checkTokenAndGetIndex(this, token) !== -1;
-    };
-    classListProto.add = function () {
-      var
-          tokens = arguments
-        , i = 0
-        , l = tokens.length
-        , token
-        , updated = false
-      ;
-      do {
-        token = tokens[i] + "";
-        if (checkTokenAndGetIndex(this, token) === -1) {
-          this.push(token);
-          updated = true;
-        }
-      }
-      while (++i < l);
+var
+	  classListProp = "classList"
+	, protoProp = "prototype"
+	, elemCtrProto = view.Element[protoProp]
+	, objCtr = Object
+	, strTrim = String[protoProp].trim || function () {
+		return this.replace(/^\s+|\s+$/g, "");
+	}
+	, arrIndexOf = Array[protoProp].indexOf || function (item) {
+		var
+			  i = 0
+			, len = this.length
+		;
+		for (; i < len; i++) {
+			if (i in this && this[i] === item) {
+				return i;
+			}
+		}
+		return -1;
+	}
+	// Vendors: please allow content code to instantiate DOMExceptions
+	, DOMEx = function (type, message) {
+		this.name = type;
+		this.code = DOMException[type];
+		this.message = message;
+	}
+	, checkTokenAndGetIndex = function (classList, token) {
+		if (token === "") {
+			throw new DOMEx(
+				  "SYNTAX_ERR"
+				, "An invalid or illegal string was specified"
+			);
+		}
+		if (/\s/.test(token)) {
+			throw new DOMEx(
+				  "INVALID_CHARACTER_ERR"
+				, "String contains an invalid character"
+			);
+		}
+		return arrIndexOf.call(classList, token);
+	}
+	, ClassList = function (elem) {
+		var
+			  trimmedClasses = strTrim.call(elem.getAttribute("class") || "")
+			, classes = trimmedClasses ? trimmedClasses.split(/\s+/) : []
+			, i = 0
+			, len = classes.length
+		;
+		for (; i < len; i++) {
+			this.push(classes[i]);
+		}
+		this._updateClassName = function () {
+			elem.setAttribute("class", this.toString());
+		};
+	}
+	, classListProto = ClassList[protoProp] = []
+	, classListGetter = function () {
+		return new ClassList(this);
+	}
+;
+// Most DOMException implementations don't allow calling DOMException's toString()
+// on non-DOMExceptions. Error's toString() is sufficient here.
+DOMEx[protoProp] = Error[protoProp];
+classListProto.item = function (i) {
+	return this[i] || null;
+};
+classListProto.contains = function (token) {
+	token += "";
+	return checkTokenAndGetIndex(this, token) !== -1;
+};
+classListProto.add = function () {
+	var
+		  tokens = arguments
+		, i = 0
+		, l = tokens.length
+		, token
+		, updated = false
+	;
+	do {
+		token = tokens[i] + "";
+		if (checkTokenAndGetIndex(this, token) === -1) {
+			this.push(token);
+			updated = true;
+		}
+	}
+	while (++i < l);
 
-      if (updated) {
-        this._updateClassName();
-      }
-    };
-    classListProto.remove = function () {
-      var
-          tokens = arguments
-        , i = 0
-        , l = tokens.length
-        , token
-        , updated = false
-        , index
-      ;
-      do {
-        token = tokens[i] + "";
-        index = checkTokenAndGetIndex(this, token);
-        while (index !== -1) {
-          this.splice(index, 1);
-          updated = true;
-          index = checkTokenAndGetIndex(this, token);
-        }
-      }
-      while (++i < l);
+	if (updated) {
+		this._updateClassName();
+	}
+};
+classListProto.remove = function () {
+	var
+		  tokens = arguments
+		, i = 0
+		, l = tokens.length
+		, token
+		, updated = false
+		, index
+	;
+	do {
+		token = tokens[i] + "";
+		index = checkTokenAndGetIndex(this, token);
+		while (index !== -1) {
+			this.splice(index, 1);
+			updated = true;
+			index = checkTokenAndGetIndex(this, token);
+		}
+	}
+	while (++i < l);
 
-      if (updated) {
-        this._updateClassName();
-      }
-    };
-    classListProto.toggle = function (token, force) {
-      token += "";
+	if (updated) {
+		this._updateClassName();
+	}
+};
+classListProto.toggle = function (token, force) {
+	token += "";
 
-      var
-          result = this.contains(token)
-        , method = result ?
-          force !== true && "remove"
-        :
-          force !== false && "add"
-      ;
+	var
+		  result = this.contains(token)
+		, method = result ?
+			force !== true && "remove"
+		:
+			force !== false && "add"
+	;
 
-      if (method) {
-        this[method](token);
-      }
+	if (method) {
+		this[method](token);
+	}
 
-      if (force === true || force === false) {
-        return force;
-      } else {
-        return !result;
-      }
-    };
-    classListProto.toString = function () {
-      return this.join(" ");
-    };
+	if (force === true || force === false) {
+		return force;
+	} else {
+		return !result;
+	}
+};
+classListProto.toString = function () {
+	return this.join(" ");
+};
 
-    if (objCtr.defineProperty) {
-      var classListPropDesc = {
-          get: classListGetter
-        , enumerable: true
-        , configurable: true
-      };
-      try {
-        objCtr.defineProperty(elemCtrProto, classListProp, classListPropDesc);
-      } catch (ex) { // IE 8 doesn't support enumerable:true
-        if (ex.number === -0x7FF5EC54) {
-          classListPropDesc.enumerable = false;
-          objCtr.defineProperty(elemCtrProto, classListProp, classListPropDesc);
-        }
-      }
-    } else if (objCtr[protoProp].__defineGetter__) {
-      elemCtrProto.__defineGetter__(classListProp, classListGetter);
-    }
+if (objCtr.defineProperty) {
+	var classListPropDesc = {
+		  get: classListGetter
+		, enumerable: true
+		, configurable: true
+	};
+	try {
+		objCtr.defineProperty(elemCtrProto, classListProp, classListPropDesc);
+	} catch (ex) { // IE 8 doesn't support enumerable:true
+		// adding undefined to fight this issue https://github.com/eligrey/classList.js/issues/36
+		// modernie IE8-MSW7 machine has IE8 8.0.6001.18702 and is affected
+		if (ex.number === undefined || ex.number === -0x7FF5EC54) {
+			classListPropDesc.enumerable = false;
+			objCtr.defineProperty(elemCtrProto, classListProp, classListPropDesc);
+		}
+	}
+} else if (objCtr[protoProp].__defineGetter__) {
+	elemCtrProto.__defineGetter__(classListProp, classListGetter);
+}
 
-    }(window.self));
+}(window.self));
 
-    } else {
-    // There is full or partial native classList support, so just check if we need
-    // to normalize the add/remove and toggle APIs.
+}
 
-    (function () {
-      "use strict";
+// There is full or partial native classList support, so just check if we need
+// to normalize the add/remove and toggle APIs.
 
-      var testElement = document.createElement("_");
+(function () {
+	"use strict";
 
-      testElement.classList.add("c1", "c2");
+	var testElement = document.createElement("_");
 
-      // Polyfill for IE 10/11 and Firefox <26, where classList.add and
-      // classList.remove exist but support only one argument at a time.
-      if (!testElement.classList.contains("c2")) {
-        var createMethod = function(method) {
-          var original = DOMTokenList.prototype[method];
+	testElement.classList.add("c1", "c2");
 
-          DOMTokenList.prototype[method] = function(token) {
-            var i, len = arguments.length;
+	// Polyfill for IE 10/11 and Firefox <26, where classList.add and
+	// classList.remove exist but support only one argument at a time.
+	if (!testElement.classList.contains("c2")) {
+		var createMethod = function(method) {
+			var original = DOMTokenList.prototype[method];
 
-            for (i = 0; i < len; i++) {
-              token = arguments[i];
-              original.call(this, token);
-            }
-          };
-        };
-        createMethod('add');
-        createMethod('remove');
-      }
+			DOMTokenList.prototype[method] = function(token) {
+				var i, len = arguments.length;
 
-      testElement.classList.toggle("c3", false);
+				for (i = 0; i < len; i++) {
+					token = arguments[i];
+					original.call(this, token);
+				}
+			};
+		};
+		createMethod('add');
+		createMethod('remove');
+	}
 
-      // Polyfill for IE 10 and Firefox <24, where classList.toggle does not
-      // support the second argument.
-      if (testElement.classList.contains("c3")) {
-        var _toggle = DOMTokenList.prototype.toggle;
+	testElement.classList.toggle("c3", false);
 
-        DOMTokenList.prototype.toggle = function(token, force) {
-          if (1 in arguments && !this.contains(token) === !force) {
-            return force;
-          } else {
-            return _toggle.call(this, token);
-          }
-        };
+	// Polyfill for IE 10 and Firefox <24, where classList.toggle does not
+	// support the second argument.
+	if (testElement.classList.contains("c3")) {
+		var _toggle = DOMTokenList.prototype.toggle;
 
-      }
+		DOMTokenList.prototype.toggle = function(token, force) {
+			if (1 in arguments && !this.contains(token) === !force) {
+				return force;
+			} else {
+				return _toggle.call(this, token);
+			}
+		};
 
-      testElement = null;
-    }());
-  }
+	}
+
+	testElement = null;
+}());
+
 }
 
 },{}],2:[function(require,module,exports){
@@ -1076,7 +1075,7 @@ var buttonsToDOM = function buttonsToDOM (buttons) {
     var domButton = document.createElement('button')
     domButton.type = button.type
     domButton.textContent = button.text
-    domButton.classList.add(button.className)
+    domButton.className = button.className
     domButton.classList.add('vex-dialog-button')
     if (i === 0) {
       domButton.classList.add('vex-first')
@@ -1153,7 +1152,7 @@ var plugin = function plugin (vex) {
 
       // Optionally focus the first input in the form
       if (options.focusFirstInput) {
-        var el = dialogInstance.contentEl.querySelector('button, input, textarea')
+        var el = dialogInstance.contentEl.querySelector('button, input, select, textarea')
         if (el) {
           el.focus()
         }
@@ -1199,7 +1198,10 @@ var plugin = function plugin (vex) {
       // More closely mimics "window.prompt" in that a single string is returned
       var callback = options.callback
       options.callback = function promptCallback (value) {
-        value = value[Object.keys(value)[0]]
+        if (typeof value === 'object') {
+          var keys = Object.keys(value)
+          value = keys.length ? value[keys[0]] : ''
+        }
         callback(value)
       }
       return this.open(options)
@@ -1314,11 +1316,11 @@ var addClasses = function addClasses (el, classStr) {
 var animationEndEvent = (function detectAnimationEndEvent () {
   var el = document.createElement('div')
   var eventNames = {
+    'animation': 'animationend',
     'WebkitAnimation': 'webkitAnimationEnd',
     'MozAnimation': 'animationend',
     'OAnimation': 'oanimationend',
-    'msAnimation': 'MSAnimationEnd',
-    'animation': 'animationend'
+    'msAnimation': 'MSAnimationEnd'
   }
   for (var i in eventNames) {
     if (el.style[i] !== undefined) {
@@ -1425,10 +1427,13 @@ var vex = {
         }
         // Run once
         this.rootEl.removeEventListener(animationEndEvent, close)
+        this.overlayEl.removeEventListener(animationEndEvent, close)
         // Remove from lookup table (prevent memory leaks)
         delete vexes[this.id]
         // Remove the dialog from the DOM
         this.rootEl.parentNode.removeChild(this.rootEl)
+        // Remove the overlay from the DOM
+        this.bodyEl.removeChild(this.overlayEl)
         // Call after close callback
         if (options.afterClose) {
           options.afterClose.call(this)
@@ -1443,8 +1448,10 @@ var vex = {
       if (animationEndEvent && hasAnimation) {
         // Setup the end event listener, to remove the el from the DOM
         this.rootEl.addEventListener(animationEndEvent, close)
+        this.overlayEl.addEventListener(animationEndEvent, close)
         // Add the closing class to the dialog, showing the close animation
         this.rootEl.classList.add(baseClassNames.closing)
+        this.overlayEl.classList.add(baseClassNames.closing)
       } else {
         close()
       }
@@ -1470,6 +1477,9 @@ var vex = {
     // Store options on instance for future reference
     var options = vexInstance.options = Object.assign({}, vex.defaultOptions, opts)
 
+    // Get Body Element
+    var bodyEl = vexInstance.bodyEl = document.getElementsByTagName('body')[0]
+
     // vex root
     var rootEl = vexInstance.rootEl = document.createElement('div')
     rootEl.classList.add(baseClassNames.vex)
@@ -1480,13 +1490,13 @@ var vex = {
     overlayEl.classList.add(baseClassNames.overlay)
     addClasses(overlayEl, options.overlayClassName)
     if (options.overlayClosesOnClick) {
-      overlayEl.addEventListener('click', function overlayClickListener (e) {
-        if (e.target === overlayEl) {
+      rootEl.addEventListener('click', function overlayClickListener (e) {
+        if (e.target === rootEl) {
           vexInstance.close()
         }
       })
     }
-    rootEl.appendChild(overlayEl)
+    bodyEl.appendChild(overlayEl)
 
     // Content
     var contentEl = vexInstance.contentEl = document.createElement('div')
@@ -1571,8 +1581,13 @@ window.addEventListener('keyup', function vexKeyupListener (e) {
     isEscapeActive = false
   }
 })
+
 // Close all vexes on history pop state (useful in single page apps)
-window.addEventListener('popstate', vex.closeAll)
+window.addEventListener('popstate', function () {
+  if (vex.defaultOptions.closeAllOnPopState) {
+    vex.closeAll()
+  }
+})
 
 vex.defaultOptions = {
   content: '',
@@ -1583,7 +1598,8 @@ vex.defaultOptions = {
   className: '',
   overlayClassName: '',
   contentClassName: '',
-  closeClassName: ''
+  closeClassName: '',
+  closeAllOnPopState: true
 }
 
 // TODO Loading symbols?
