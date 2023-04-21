@@ -30,22 +30,27 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 	);
 
 	public function __construct() {
+		parent::__construct();
 		foreach(self::$defaultIcons as $key => $value) {
 			$this->$key = $value;
 		}
 	}
 
 	public function getModuleConfigInputfields(array $data) {
+		
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+		$templates = $this->wire()->templates;
 	
 		$this->init();
 		$inputfields = $this->wire(new InputfieldWrapper());
 
 		// colorscheme
-		$field = $this->wire('modules')->get('InputfieldRadios');
+		/** @var InputfieldRadios $field */
+		$field = $modules->get('InputfieldRadios');
 		$field->attr('name', 'colors');
 		$field->label = $this->_('Color Set');
 		$field->icon = "fa-eyedropper";
-		
 		$field->addOption('', $this->_('Reno'));
 		$field->addOption('classic', $this->_('Classic'));
 		$field->addOption('blue', $this->_('Blue'));
@@ -54,7 +59,7 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 		// Thanks Pete @notanotherdev
 		$dirs = array(
 			dirname(__FILE__) . '/styles/', 
-			$this->wire('config')->paths->siteModules . 'AdminTheme/' . $this->className() . '/styles/',
+			$config->paths->siteModules . 'AdminTheme/' . $this->className() . '/styles/',
 		);	
 		foreach($dirs as $customDir) {
 			if(is_dir($customDir)) {
@@ -74,20 +79,24 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 		// User templates
 		// Processwire 2.5.14+ supports multiple user templates
 		// Revisit when droppping support for 2.5.3
-		$template_ids = array($this->wire('templates')->get("user")->id);
-		isset($this->wire('config')->userTemplateIDs) ? $template_ids = $this->wire('config')->userTemplateIDs : '';
+		$template_ids = $config->userTemplateIDs;
+		if(empty($template_ids)) {
+			$template_ids = array($templates->get('user')->id);
+		}
 
-		$fieldset = $this->wire('modules')->get("InputfieldFieldset");
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get("InputfieldFieldset");
 		$fieldset->label = $this->_('User Images');
 		$fieldset->description = $this->_('To use this feature your user template(s) needs to have an image field. If your user template(s) do not have an image field, the avatar will default to an icon. To add an image field to the default user template to go Setup > Templates > Filters (Show System Templates). The "user" template will now show in the list. If you have created an additional/alternate user template, you can enable this feature by adding an image field to that template.');
 		$fieldset->icon = "fa-image";
 
-		foreach ($template_ids as $id){
+		foreach($template_ids as $id){
 
-			$template = $this->wire('templates')->get($id);
+			$template = $templates->get($id);
 
 			// User Avatar fields
-			$field = $this->wire('modules')->get("InputfieldSelect"); 
+			/** @var InputfieldSelect $field */
+			$field = $modules->get("InputfieldSelect"); 
 			$field->attr('name', "avatar_field_$template->name"); 
 			$field->label = sprintf($this->_('Image field for the %s template'), $template->name); 
 			$imageField = false;
@@ -96,7 +105,7 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 				if(($f->type == "FieldtypeImage") || ($f->type == "FieldtypeCropImage")){
 					if(isset($data["avatar_field_$template->name"]) && $data["avatar_field_$template->name"] == $f->name) {
 						$field->addOption($f->name, $f->name, array("selected"=>"selected"));
-						$imageField = $f->name;
+						$imageField = $f;
 					} else {
 						$field->addOption($f->name, $f->name, array());
 						$imageField = true;
@@ -107,31 +116,32 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 			if(!$imageField) {
 				// no image fields found
 				$field->addOption('', $this->_('No image fields assigned to this template'));
-			} else {
+			} else if($imageField instanceof Field) {
 				// make the image field part of the profile fields the user may edit
-				$profileConfig = $this->wire('modules')->getModuleConfigData('ProcessProfile');
-				if(!in_array($imageField, $profileConfig['profileFields'])) {
-					$profileConfig['profileFields'][] = $imageField;
-					$this->wire('modules')->saveModuleConfigData('ProcessProfile', $profileConfig);
-					$this->message(sprintf($this->_('Added field "%s" to fields editable by user in their profile.'), $f->name)); 
+				$profileConfig = $modules->getModuleConfigData('ProcessProfile');
+				if(!in_array($imageField->name, $profileConfig['profileFields'])) {
+					$profileConfig['profileFields'][] = $imageField->name;
+					$modules->saveModuleConfigData('ProcessProfile', $profileConfig);
+					$this->message(sprintf($this->_('Added field "%s" to fields editable by user in their profile.'), $imageField->name)); 
 				}
 			}
 		
 			$fieldset->add($field);
-
 		}
 		
 		$inputfields->add($fieldset);
 
 		// Display Name
-		$fieldset = $this->wire('modules')->get("InputfieldFieldset");
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get("InputfieldFieldset");
 		$fieldset->label = $this->_('User Display Names');
 		$fieldset->icon = "fa-user";
 		$fieldset->description = $this->_("Comma separated list of fields to use as the display name in the admin. (example: first_name, last_name)");
 		$fieldset->notes = $this->_('These can only be text fields. Other field types will be ignored.');
-		foreach ($template_ids as $id){
-			$template = $this->wire('templates')->get($id);
-			$field = $this->wire('modules')->get("InputfieldText");
+		foreach($template_ids as $id){
+			$template = $templates->get($id);
+			/** @var InputfieldText $field */
+			$field = $modules->get("InputfieldText");
 	        $field->attr("name+id", "userFields_$template->name");
 	        $field->label = sprintf($this->_('Display name for the %s template'), $template->name);
 	        isset($data["userFields_$template->name"]) ? $user_info = $data["userFields_$template->name"] : $user_info = "name";
@@ -141,14 +151,16 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 		$inputfields->add($fieldset);
 		
 		// Icons
-		$fieldset = $this->wire('modules')->get("InputfieldFieldset");
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get("InputfieldFieldset");
 		$fieldset->label = $this->_('Icons');
 		$fieldset->description = $this->_('Specify icons for navigation items');
 		$fieldset->icon = "fa-cog";
 		$fieldset->collapsed = true;
 
 		// notices
-		$field = $this->wire('modules')->get("InputfieldIcon");
+		/** @var InputfieldIcon $field */
+		$field = $modules->get("InputfieldIcon");
 		$field->attr('name', "notices");
 		$field->label = $this->_("Top Navigation: Notices");
 		$field->columnWidth = 50;
@@ -157,7 +169,8 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 		$fieldset->add($field);
 
 		// view homepage icon
-		$field = $this->wire('modules')->get("InputfieldIcon");
+		/** @var InputfieldIcon $field */
+		$field = $modules->get("InputfieldIcon");
 		$field->attr('name', "home");
 		$field->label = $this->_("Top Navigation: View Home Page");
 		$field->columnWidth = 50;
@@ -166,7 +179,8 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 		$fieldset->add($field);
 
 		// signout
-		$field = $this->wire('modules')->get("InputfieldIcon");
+		/** @var InputfieldIcon $field */
+		$field = $modules->get("InputfieldIcon");
 		$field->attr('name', "signout");
 		$field->label = $this->_("Sign out");
 		$field->columnWidth = 50;
@@ -174,11 +188,12 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 		if (isset($data['signout'])) $field->attr('value', $data['signout']);
 		$fieldset->add($field);
 
-		foreach($this->wire('pages')->find("parent=2, sort=sort") as $p){
+		foreach($this->wire()->pages->find("parent=2, sort=sort") as $p){
 			if(!$p->viewable()) continue;
-			$field = $this->wire('modules')->get("InputfieldIcon");
+			/** @var InputfieldIcon $field */
+			$field = $modules->get("InputfieldIcon");
 			$field->attr('name', $p->name);
-			$field->label = $this->_($p->title, '/wire/templates-admin/default.php');
+			$field->label = __($p->title, '/wire/templates-admin/default.php');
 			$field->columnWidth = 50;
 			$field->attr('value', array_key_exists($p->name, self::$defaultIcons) ? self::$defaultIcons[$p->name] : "fa-file-text-o");
 			if (isset($data[$p->name])) $field->attr('value', $data[$p->name]);

@@ -213,7 +213,7 @@ var ProcessWireAdminTheme = {
 		var $buttons = $("button.pw-head-button, button.head_button_clone");
 
 		// don't continue if no buttons here or if we're in IE
-		if($buttons.length == 0 || $.browser.msie) return;
+		if($buttons.length == 0) return; // || $.browser.msie) return;
 
 		var $head = $("<div id='head_button'></div>").prependTo("#headline").show();
 		$buttons.each(function() {
