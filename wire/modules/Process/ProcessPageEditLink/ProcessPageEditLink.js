@@ -166,7 +166,7 @@ $(document).ready(function() {
 		}
 
 		var $linkRel = $("#link_rel"); 
-		if($linkRel.length && $linkRel.val().length) {
+		if($linkRel.length && $linkRel.val() && $linkRel.val().length) {
 			$link.attr('rel', $linkRel.val()); 
 		}
 		
@@ -274,7 +274,11 @@ $(document).ready(function() {
 				}
 				var extLinkClass = cfg.extLinkClass;
 				if(extLinkClass.length > 0) {
-					extLinkClass = extLinkClass.split(' ');
+					if(extLinkClass.indexOf(' ') > -1) {
+						var extLinkClassAll = extLinkClass.replace(' ', '_');
+						$("#link_class_" + extLinkClassAll).prop('checked', true); // all classes in 1 option
+						extLinkClass = extLinkClass.split(' ');
+					}
 					for(n = 0; n < extLinkClass.length; n++) {
 						// $("#link_class_" + extLinkClass[n]).attr('checked', 'checked'); // JQM
 						$("#link_class_" + extLinkClass[n]).prop('checked', true);

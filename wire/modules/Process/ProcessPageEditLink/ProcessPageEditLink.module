@@ -152,14 +152,58 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	 */
 	public function set($key, $value) {
 		if($key === 'classOptions' || $key === 'relOptions' || $key === 'targetOptions') {
-			$value = $this->wire()->sanitizer->htmlClasses($value, true);
-			$value = implode("\n", $value);
+			$value = $this->sanitizeOptions($value);
 		} else if($key === 'extLinkRel' || $key === 'extLinkClass') {
 			$value = $this->wire()->sanitizer->htmlClasses($value);
 		} else if($key === 'extLinkTarget') {
 			$value = $this->wire()->sanitizer->htmlClass($value);
 		}
 		return parent::set($key, $value);
+	}
+
+	/**
+	 * Sanitize single option 'value', 'value=label', or 'value="label"'
+	 * 
+	 * @param string $value
+	 * @return string
+	 * 
+	 */
+	protected function sanitizeOption($value) {
+		$sanitizer = $this->wire()->sanitizer;
+		$value = trim($value);
+		$plus = strpos($value, '+') === 0 ? '+' : '';
+		if($plus) $value = ltrim($value, '+');
+		if(strpos($value, '=') === false) return $plus . $sanitizer->htmlClasses($value);
+		// value=label or value="label"
+		list($value, $label) = explode('=', $value, 2);
+		$value = trim($value);
+		$label = trim($label);
+		$value = $sanitizer->htmlClasses($value);
+		if(!strlen($value)) return '';
+		$quote = strpos($label, '"') === 0 ? '"' : '';
+		$label = str_replace('"', '', $label);
+		$label = $sanitizer->text($label);
+		$value = strlen($label) ? "$plus$value=$quote$label$quote" : "$value";
+		return $value;
+	}
+
+	/**
+	 * Sanitize multiple newline separated options
+	 * 
+	 * @param string $value
+	 * @return string
+	 * 
+	 */
+	protected function sanitizeOptions($value) {
+		$value = trim($value);
+		if(!strlen($value)) return '';
+		if(strpos($value, "\n") === false) return $this->sanitizeOption($value);
+		$lines = array();
+		foreach(explode("\n", $value) as $line) {
+			$line = $this->sanitizeOption($line);
+			if(strlen($line)) $lines[] = $line;
+		}
+		return implode("\n", $lines);
 	}
 
 	/**
@@ -303,10 +347,14 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			$field->description = $this->_('Where this link will open.');
 			$this->addSelectOptions($field, 'target', $this->targetOptions); 
 			if($this->relOptions) $field->columnWidth = 50;
-			$fieldset->add($field); 
+			$fieldset->add($field);
+			if($this->extLinkTarget) {
+				$options = $field->getOptions();
+				if(!isset($options[$this->extLinkTarget])) $field->addOption($this->extLinkTarget);
+			}
 		}
 		
-		if($this->relOptions) {
+		if($this->relOptions || $this->extLinkRel) {
 			/** @var InputfieldSelect $field */
 			$field = $modules->get('InputfieldSelect');
 			$field->attr('id+name', 'link_rel');
@@ -314,7 +362,11 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			$field->description = $this->_('Relationship of link to document.');
 			if($this->targetOptions) $field->columnWidth = 50; 
 			$this->addSelectOptions($field, 'rel', $this->relOptions); 
-			$fieldset->add($field); 
+			$fieldset->add($field);
+			if($this->extLinkRel) {
+				$options = $field->getOptions();
+				if(!isset($options[$this->extLinkRel])) $field->addOption($this->extLinkRel);
+			}
 		}
 	
 		$classOptions = $this->getClassOptions();
@@ -326,6 +378,10 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			$field->description = $this->_('Additional classes that can affect the look or behavior of the link.'); 
 			$field->optionColumns = 1; 
 			$this->addSelectOptions($field, 'class', $classOptions);
+			if($this->extLinkClass) {
+				$options = $field->getOptions();
+				if(!isset($options[$this->extLinkClass])) $field->addOption($this->extLinkClass);
+			}
 			$fieldset->add($field);
 		}
 		
@@ -350,13 +406,44 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	protected function getClassOptions() {
 		
 		$sanitizer = $this->wire()->sanitizer;
-		$class = $this->wire()->input->get->text('class');
-		if(!$class) return $this->classOptions;
+		$inputClass = $this->wire()->input->get->text('class');
 		
-		$classOptions = $this->classOptions ? explode("\n", trim("$this->classOptions")) : array();
-		$classOptions = array_merge($classOptions, explode(' ', $class));
-		$classOptions = $sanitizer->htmlClasses($classOptions, true);
+		if(empty($inputClass)) return $this->classOptions;
 		
+		$inputClass = $sanitizer->htmlClasses($inputClass, true);
+		
+		if(!count($inputClass)) return $this->classOptions;
+		
+		sort($inputClass);
+		
+		$inputClasses = $inputClass;
+		$inputClass = implode(' ', $inputClass);
+		$classOptions = array();
+		
+		if($this->classOptions) {
+			foreach(explode("\n", $this->classOptions) as $line) {
+				$value = ltrim(trim($line), '+');
+				if(strpos($value, '=')) {
+					list($value, /*$label*/) = explode('=', $value, 2);
+				}
+				if(strpos($value, ' ')) {
+					$value = $sanitizer->htmlClasses($value, true);
+					sort($value);
+					$value = implode(' ', $value);
+				}
+				$classOptions[$value] = $line;
+			}
+		}
+		
+		if(isset($classOptions[$inputClass])) {
+			// class already appears as-is, i.e. "uk-text-muted" or "uk-text-muted uk-text-small", etc. 
+		} else {
+			// add new classes from input
+			foreach($inputClasses as $class) {
+				if(!isset($classOptions[$class])) $classOptions[$class] = $class;
+			}
+		}
+
 		return count($classOptions) ? implode("\n", $classOptions) : '';
 	}
 
@@ -616,4 +703,3 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$inputfields->add($f);
 	}
 }
-

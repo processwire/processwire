@@ -375,11 +375,11 @@ abstract class Process extends WireData implements Module {
 			// already have what we  need
 		} else if(ctype_digit("$parent")) {
 			$parent = $pages->get((int) $parent);
-		} else if(strpos($parent, '/') !== false) {
+		} else if(strpos("$parent", '/') !== false) {
 			$parent = $pages->get($parent);
 		} else if($parent) {
 			$parent = $sanitizer->pageName($parent);
-			$parent = $adminPage->child("include=all, name=$parent");
+			if(strlen($parent)) $parent = $adminPage->child("include=all, name=$parent");
 		}
 		if(!$parent || !$parent->id) $parent = $adminPage; // default
 		$page = $parent->child("include=all, name=$name"); // does it already exist?
