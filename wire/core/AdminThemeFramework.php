@@ -87,6 +87,13 @@ abstract class AdminThemeFramework extends AdminTheme {
 	protected $renderFileHooked = null;
 
 	/**
+	 * Property to set a custom browser title
+	 * 
+	 * @var string|null
+	 */
+	public $browserTitle;
+
+	/**
 	 * Construct
 	 *
 	 */
@@ -579,6 +586,9 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function getBrowserTitle() {
+		// You can set a custom browser title like this:
+		// $admintheme->browserTitle = 'foo bar';
+		if ($title = $this->browserTitle) return $this->sanitizer->entities1($title);
 
 		$browserTitle = $this->wire('processBrowserTitle');
 		$modal = $this->wire()->input->get('modal');
