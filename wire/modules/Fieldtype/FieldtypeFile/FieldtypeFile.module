@@ -831,6 +831,24 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		}
 		return $out; 
 	}
+	
+	/**
+	 * Render a markup string of the value.
+	 *
+	 * @param Page $page Page that $value comes from
+	 * @param Field $field Field that $value comes from
+	 * @param mixed $value 
+	 * @param string $property 
+	 * @return string|MarkupFieldtype 
+	 *
+	 */
+	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		if($property === 'count') {
+			if($value === null) $value = $page->getUnformatted($field->name);
+			return $value instanceof Pagefiles ? $value->count() : ($value instanceof Pagefile ? 1 : 0);
+		}
+		return parent::___markupValue($page, $field, $value, $property);
+	}
 
 	/**
 	 * Get match query
@@ -1754,4 +1772,3 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		return new FieldtypeFileConfiguration($this);
 	}
 }
-
