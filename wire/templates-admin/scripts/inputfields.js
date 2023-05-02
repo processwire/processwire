@@ -1050,7 +1050,7 @@ function InputfieldDependencies($target) {
 		str = str.toString().trim();
 		
 		if(str.length > 0) {
-			if(/^-?[\d.]+$/.test(str)) {
+			if(/^-?\d[\d.]*$/.test(str)) {
 				// isNumeric
 			} else {
 				return str;
