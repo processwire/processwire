@@ -142,7 +142,8 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		
 		$out = '';
 		$repeaterTitle = $this->field ? $this->field->get('repeaterTitle') : '';
-		
+		$colorPrefix = "\rCOLOR\r";
+
 		if($page->id && $repeaterTitle) {
 			// custom repeater titles specified
 			$hasCnt = stripos($repeaterTitle, '#n') !== false;
@@ -151,6 +152,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			if($hasCnt) {
 				// replace "#n" with index number of repeater item
 				$repeaterTitle = str_replace("#n", "#$cnt", $repeaterTitle);
+			}
+			
+			if(strpos($repeaterTitle, '#') !== false) {
+				$repeaterTitle = preg_replace('/#([a-f\d]{3,})/i', "$colorPrefix$1", $out);
 			}
 			
 			if(strpos($repeaterTitle, '{') !== false) {
@@ -198,6 +203,13 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$pos = strrpos($out, ' '); 
 			if($pos > ($maxlen / 2)) $out = substr($out, 0, $pos);
 		}
+
+		if(strpos($out, '#') !== false) {
+			$sp = html_entity_decode('&#8203;', 0, 'UTF-8');
+			$out = str_replace('#', "#$sp", $out);
+		}
+		
+		$out = str_replace($colorPrefix, '#', $out);
 		
 		return $out;
 	}
