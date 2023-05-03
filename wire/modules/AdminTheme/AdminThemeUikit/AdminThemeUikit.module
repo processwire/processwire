@@ -521,14 +521,22 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		/** @var MarkupAdminDataTable $table */
 		$table = $event->object;
 		$classes = array();
-		if($table->responsive) $classes[] = 'pw-table-responsive uk-overflow-auto';
-		if($table->sortable) $classes[] = 'pw-table-sortable'; 
-		if($table->resizable) $classes[] = 'pw-table-resizable'; 
+		if($table->responsive) {
+			$classes[] = 'pw-table-responsive';
+			if(!wireInstanceOf($this->wire()->process, 'ProcessPageLister')) {
+				$classes[] = 'uk-overflow-auto';
+			}
+		}
+		if($table->sortable) {
+			$classes[] = 'pw-table-sortable';
+		}
+		if($table->resizable) {
+			$classes[] = 'pw-table-resizable'; 
+		}	
 		if(count($classes)) {
 			$class = implode(' ', $classes);
 			$event->return = "<div class='$class'>$event->return</div>";
 		}
-		
 	}
 	
 	/**
@@ -1156,4 +1164,3 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$configHelper->configModule($inputfields);
 	}
 }
-
