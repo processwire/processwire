@@ -1459,7 +1459,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		
 
 		/** @var Page $page */
-		$page = $pagefiles->getFieldsPage();
+		$page = $item ? $item->getFilePage() : $pagefiles->getFieldsPage();
 		$id = $item ? ('_' . $this->pagefileId($item, $context)) : '';
 		$inputfields = $this->itemFieldgroup->getPageInputfields($page, $id, '', false); 
 		if(!$inputfields) return false;
