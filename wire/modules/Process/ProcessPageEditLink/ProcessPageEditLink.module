@@ -16,6 +16,8 @@
  * @property string $extLinkTarget
  * @property string $extLinkClass
  * @property int $noLinkTextEdit 3.0.211+
+ * 
+ * @method InputfieldForm buildForm($currentValue, $currentText)
  *
  */
 
@@ -207,16 +209,189 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Build the edit link form
+	 * 
+	 * @param string Current href value $currentValue
+	 * @param string Current linked text $currentText
+	 * @since 3.0.217
+	 *
+	 */
+	protected function ___buildForm($currentValue, $currentText) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		
+		/** @var InputfieldForm $form */
+		$form = $modules->get("InputfieldForm");
+		$form->attr('id', 'ProcessPageEditLinkForm');
+
+		$modules->get('JqueryWireTabs');
+
+		/** @var InputfieldWrapper $fieldset */
+		$fieldset = $this->wire(new InputfieldWrapper());
+		$fieldset->attr('title', $this->_('Link'));
+		$fieldset->addClass('WireTab');
+		$form->add($fieldset);
+
+		if($this->noLinkTextEdit) {
+			// link text editing disabled
+		} else if($currentText) {
+			/** @var InputfieldText $field */
+			$field = $modules->get("InputfieldText");
+			$field->label = $this->_('Link text');
+			$field->icon = 'pencil-square';
+			$field->attr('id+name', 'link_text');
+			$field->val($currentText);
+			$fieldset->add($field);
+		}
+
+		/** @var InputfieldPageAutocomplete $field */
+		$field = $modules->get("InputfieldPageAutocomplete");
+		$field->label = $this->_('Link to URL');
+		$field->attr('id+name', 'link_page_url');
+		$field->icon = 'external-link-square';
+		$field->description = $this->_('Enter a URL, email address, anchor, or enter word(s) to find a page.');
+		$field->labelFieldName = 'url';
+		if($modules->isInstalled('PagePaths') && !$this->wire('languages')) {
+			$field->searchFields = 'path title';
+		} else {
+			$field->searchFields = 'name title';
+		}
+		if($this->langID) $field->lang_id = $this->langID;
+		$field->maxSelectedItems = 1;
+		$field->useList = false;
+		$field->allowAnyValue = true;
+		$field->disableChars = '/:.#';
+		$field->useAndWords = true;
+		$field->findPagesSelector =
+			"has_parent!=" . $config->adminRootPageID . ", " .
+			"id!=" . $config->http404PageID;
+		if($currentValue) $field->attr('value', $currentValue);
+		$fieldset->add($field);
+
+		if(is_array($input->get('anchors'))) {
+			$field->columnWidth = 60;
+			/** @var InputfieldSelect $field */
+			$field = $modules->get('InputfieldSelect');
+			$field->columnWidth = 40;
+			$field->attr('id+name', 'link_page_anchor');
+			$field->label = $this->_('Select Anchor');
+			$field->description = $this->_('Anchors found in the text you are editing.');
+			$field->icon = 'flag';
+			foreach($input->get->array('anchors') as $anchor) {
+				$anchor = '#' . $sanitizer->text($anchor);
+				if(strlen($anchor)) $field->addOption($anchor);
+				if($currentValue && $currentValue == $anchor) $field->attr('value', $currentValue);
+			}
+			$fieldset->add($field);
+		}
+
+		/** @var InputfieldInteger $field */
+		$field = $modules->get('InputfieldInteger');
+		$field->attr('id+name', 'link_page_id');
+		$field->label = $this->_("Select Page");
+		$field->set('startLabel', $this->startLabel);
+		$field->collapsed = Inputfield::collapsedYes;
+		$field->icon = 'sitemap';
+		$fieldset->add($field);
+
+		if($this->page->numChildren) {
+			/** @var InputfieldInteger $field */
+			$field = $modules->get('InputfieldInteger');
+			$field->attr('id+name', 'child_page_id');
+			$field->label = $this->_("Select Child Page");
+			$field->description = $this->_('This is the same as "Select Page" above, but may quicker to use if linking to children of the current page.');
+			$field->set('startLabel', $this->startLabel);
+			$field->collapsed = Inputfield::collapsedYes;
+			$field->icon = 'sitemap';
+			$fieldset->append($field);
+		}
+
+		$fieldset->append($this->getFilesField());
+
+		/** @var InputfieldWrapper $fieldset */
+		$fieldset = $this->wire(new InputfieldWrapper());
+		$fieldset->attr('title', $this->_('Attributes'));
+		$fieldset->attr('id', 'link_attributes');
+		$fieldset->addClass('WireTab');
+		$form->append($fieldset);
+
+		/** @var InputfieldText $field */
+		$field = $modules->get('InputfieldText');
+		$field->attr('id+name', 'link_title');
+		$field->label = $this->_('Title');
+		$field->description = $this->_('Additional text to describe link.');
+		if($input->get('title')) {
+			$field->attr('value', $sanitizer->unentities($sanitizer->text($input->get('title'))));
+		}
+		$fieldset->add($field);
+
+		if($this->targetOptions) {
+			/** @var InputfieldSelect $field */
+			$field = $modules->get('InputfieldSelect');
+			$field->attr('id+name', 'link_target');
+			$field->label = $this->_('Target');
+			$field->description = $this->_('Where this link will open.');
+			$this->addSelectOptions($field, 'target', $this->targetOptions);
+			if($this->relOptions) $field->columnWidth = 50;
+			$fieldset->add($field);
+			if($this->extLinkTarget) {
+				$options = $field->getOptions();
+				if(!isset($options[$this->extLinkTarget])) $field->addOption($this->extLinkTarget);
+			}
+		}
+
+		if($this->relOptions || $this->extLinkRel) {
+			/** @var InputfieldSelect $field */
+			$field = $modules->get('InputfieldSelect');
+			$field->attr('id+name', 'link_rel');
+			$field->label = $this->_('Rel');
+			$field->description = $this->_('Relationship of link to document.');
+			if($this->targetOptions) $field->columnWidth = 50;
+			$this->addSelectOptions($field, 'rel', $this->relOptions);
+			$fieldset->add($field);
+			if($this->extLinkRel) {
+				$options = $field->getOptions();
+				if(!isset($options[$this->extLinkRel])) $field->addOption($this->extLinkRel);
+			}
+		}
+
+		$classOptions = $this->getClassOptions();
+		if($classOptions) {
+			/** @var InputfieldCheckboxes $field */
+			$field = $modules->get('InputfieldCheckboxes');
+			$field->attr('id+name', 'link_class');
+			$field->label = $this->_('Class');
+			$field->description = $this->_('Additional classes that can affect the look or behavior of the link.');
+			$field->optionColumns = 1;
+			$this->addSelectOptions($field, 'class', $classOptions);
+			if($this->extLinkClass) {
+				$options = $field->getOptions();
+				if(!isset($options[$this->extLinkClass])) $field->addOption($this->extLinkClass);
+			}
+			$fieldset->add($field);
+		}
+
+		if($this->wire()->user->isSuperuser()) $fieldset->notes =
+			sprintf(
+				$this->_('You may customize available attributes shown above in the %s module settings.'),
+				"[ProcessPageEditLink](" . $config->urls->admin . "module/edit?name=ProcessPageEditLink)"
+			);
+		
+		return $form;
+	}
+
+	/**
 	 * Primary execute
-	 * 
+	 *
 	 * @return string
-	 * 
+	 *
 	 */
 	public function ___execute() {
 
 		$sanitizer = $this->wire()->sanitizer;
-		$modules = $this->wire()->modules;
-		$config = $this->wire()->config;
 		$input = $this->wire()->input;
 		
 		$this->setup();
@@ -232,165 +407,9 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 
 		$currentText = $input->get('text');
 		$currentText = $currentText === null ? '' : $this->wire()->sanitizer->text($currentText);
+		
+		$form = $this->buildForm($currentValue, $currentText); 
 
-		/** @var InputfieldForm $form */
-		$form = $modules->get("InputfieldForm"); 
-		$form->attr('id', 'ProcessPageEditLinkForm');
-		//$form->description = $this->_("Enter a URL, select a page, or select a file to link:"); // Headline
-		
-		$modules->get('JqueryWireTabs'); 
-	
-		/** @var InputfieldWrapper $fieldset */
-		$fieldset = $this->wire(new InputfieldWrapper());
-		$fieldset->attr('title', $this->_('Link')); 
-		$fieldset->addClass('WireTab');
-		$form->add($fieldset);
-		
-		if($this->noLinkTextEdit) {
-			// link text editing disabled
-		} else if($currentText) {
-			/** @var InputfieldText $field */
-			$field = $modules->get("InputfieldText");
-			$field->label = $this->_('Link text');
-			$field->icon = 'pencil-square';
-			$field->attr('id+name', 'link_text');
-			$field->val($currentText);
-			$fieldset->add($field);
-		}
-
-		/** @var InputfieldPageAutocomplete $field */
-		$field = $modules->get("InputfieldPageAutocomplete"); 
-		$field->label = $this->_('Link to URL'); 
-		$field->attr('id+name', 'link_page_url'); 
-		$field->icon = 'external-link-square';
-		$field->description = $this->_('Enter a URL, email address, anchor, or enter word(s) to find a page.'); 
-		$field->labelFieldName = 'url';
-		if($modules->isInstalled('PagePaths') && !$this->wire('languages')) {
-			$field->searchFields = 'path title'; 
-		} else {
-			$field->searchFields = 'name title';
-		}
-		if($this->langID) $field->lang_id = $this->langID;
-		$field->maxSelectedItems = 1; 
-		$field->useList = false; 
-		$field->allowAnyValue = true; 
-		$field->disableChars = '/:.#';
-		$field->useAndWords = true; 
-		$field->findPagesSelector = 
-			"has_parent!=" . $config->adminRootPageID . ", " . 
-			"id!=" . $config->http404PageID;
-		if($currentValue) $field->attr('value', $currentValue);
-		$fieldset->add($field);
-		
-		if(is_array($input->get('anchors'))) {
-			$field->columnWidth = 60; 
-			/** @var InputfieldSelect $field */
-			$field = $modules->get('InputfieldSelect'); 
-			$field->columnWidth = 40; 
-			$field->attr('id+name', 'link_page_anchor');
-			$field->label = $this->_('Select Anchor'); 
-			$field->description = $this->_('Anchors found in the text you are editing.'); 
-			$field->icon = 'flag';
-			foreach($input->get->array('anchors') as $anchor) {
-				$anchor = '#' . $sanitizer->text($anchor); 
-				if(strlen($anchor)) $field->addOption($anchor); 
-				if($currentValue && $currentValue == $anchor) $field->attr('value', $currentValue); 
-			}
-			$fieldset->add($field); 
-		}
-	
-		/** @var InputfieldInteger $field */
-		$field = $modules->get('InputfieldInteger'); 
-		$field->attr('id+name', 'link_page_id');
-		$field->label = $this->_("Select Page");
-		$field->set('startLabel', $this->startLabel);
-		$field->collapsed = Inputfield::collapsedYes; 
-		$field->icon = 'sitemap';
-		$fieldset->add($field); 
-
-		if($this->page->numChildren) {
-			/** @var InputfieldInteger $field */
-			$field = $modules->get('InputfieldInteger'); 
-			$field->attr('id+name', 'child_page_id');
-			$field->label = $this->_("Select Child Page");
-			$field->description = $this->_('This is the same as "Select Page" above, but may quicker to use if linking to children of the current page.'); 
-			$field->set('startLabel', $this->startLabel);
-			$field->collapsed = Inputfield::collapsedYes; 
-			$field->icon = 'sitemap';
-			$fieldset->append($field); 
-		}
-
-		$fieldset->append($this->getFilesField()); 
-	
-		/** @var InputfieldWrapper $fieldset */
-		$fieldset = $this->wire(new InputfieldWrapper());
-		$fieldset->attr('title', $this->_('Attributes'));
-		$fieldset->attr('id', 'link_attributes'); 
-		$fieldset->addClass('WireTab'); 
-		$form->append($fieldset); 
-
-		/** @var InputfieldText $field */
-		$field = $modules->get('InputfieldText'); 
-		$field->attr('id+name', 'link_title'); 
-		$field->label = $this->_('Title'); 
-		$field->description = $this->_('Additional text to describe link.');
-		if($input->get('title')) {
-			$field->attr('value', $sanitizer->unentities($sanitizer->text($input->get('title'))));
-		}
-		$fieldset->add($field);
-		
-		if($this->targetOptions) {
-			/** @var InputfieldSelect $field */
-			$field = $modules->get('InputfieldSelect');
-			$field->attr('id+name', 'link_target');
-			$field->label = $this->_('Target'); 
-			$field->description = $this->_('Where this link will open.');
-			$this->addSelectOptions($field, 'target', $this->targetOptions); 
-			if($this->relOptions) $field->columnWidth = 50;
-			$fieldset->add($field);
-			if($this->extLinkTarget) {
-				$options = $field->getOptions();
-				if(!isset($options[$this->extLinkTarget])) $field->addOption($this->extLinkTarget);
-			}
-		}
-		
-		if($this->relOptions || $this->extLinkRel) {
-			/** @var InputfieldSelect $field */
-			$field = $modules->get('InputfieldSelect');
-			$field->attr('id+name', 'link_rel');
-			$field->label = $this->_('Rel'); 
-			$field->description = $this->_('Relationship of link to document.');
-			if($this->targetOptions) $field->columnWidth = 50; 
-			$this->addSelectOptions($field, 'rel', $this->relOptions); 
-			$fieldset->add($field);
-			if($this->extLinkRel) {
-				$options = $field->getOptions();
-				if(!isset($options[$this->extLinkRel])) $field->addOption($this->extLinkRel);
-			}
-		}
-	
-		$classOptions = $this->getClassOptions();
-		if($classOptions) {
-			/** @var InputfieldCheckboxes $field */
-			$field = $modules->get('InputfieldCheckboxes');
-			$field->attr('id+name', 'link_class');
-			$field->label = $this->_('Class');
-			$field->description = $this->_('Additional classes that can affect the look or behavior of the link.'); 
-			$field->optionColumns = 1; 
-			$this->addSelectOptions($field, 'class', $classOptions);
-			if($this->extLinkClass) {
-				$options = $field->getOptions();
-				if(!isset($options[$this->extLinkClass])) $field->addOption($this->extLinkClass);
-			}
-			$fieldset->add($field);
-		}
-		
-		if($this->wire()->user->isSuperuser()) $fieldset->notes = 
-			sprintf(
-				$this->_('You may customize available attributes shown above in the %s module settings.'),
-				"[ProcessPageEditLink](" . $config->urls->admin . "module/edit?name=ProcessPageEditLink)"
-				);
-		
 		return $form->render() . "<p class='detail ui-priority-secondary'><code id='link_markup'></code></p>";
 	}
 
