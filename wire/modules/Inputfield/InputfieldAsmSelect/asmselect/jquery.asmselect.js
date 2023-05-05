@@ -938,6 +938,11 @@
 				var $iframe = pwModalWindow(href, {}, 'medium'); 
 
 				$iframe.on('load', function() {
+					// slight delay is necessary in jQuery 3.x, otherwise visible buttons found to be not visible
+					setTimeout(function() { iframeLoaded(); }, 100); 
+				});
+				
+				var iframeLoaded = function() {
 
 					var $icontents = $iframe.contents();	
 					var buttons = [];
@@ -989,7 +994,8 @@
 						$button.hide();
 					}); 
 					$iframe.setButtons(buttons); 
-				}); 
+				}; 
+				
 				return false; 
 			}
 
