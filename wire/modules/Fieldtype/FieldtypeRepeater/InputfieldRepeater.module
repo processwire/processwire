@@ -155,7 +155,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			}
 			
 			if(strpos($repeaterTitle, '#') !== false) {
-				$repeaterTitle = preg_replace('/#([a-f\d]{3,})/i', "$colorPrefix$1", $out);
+				$repeaterTitle = preg_replace('/#([a-f\d]{3,})/i', "$colorPrefix$1", $repeaterTitle);
 			}
 			
 			if(strpos($repeaterTitle, '{') !== false) {
