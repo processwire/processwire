@@ -49,7 +49,7 @@
  * ~~~~~
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -179,12 +179,12 @@ class WireDatabaseBackup {
 		// find and replace in row data (not supported by exec/mysql method)
 		'findReplace' => array( 
 			// Example: 'databass' => 'database'
-			),
+		),
 		
 		// find and replace in create table statements (not supported by exec/mysql)
 		'findReplaceCreateTable' => array( 
 			// Example: 'DEFAULT CHARSET=latin1;' => 'DEFAULT CHARSET=utf8;', 
-			),
+		),
 
 		// EXEC MODE IS CURRRENTLY EXPERIMENTAL AND NOT RECOMMEND FOR USE YET
 		// if true, we will try to use mysql via exec first (faster). if false, we won't attempt that.
@@ -218,7 +218,7 @@ class WireDatabaseBackup {
 		'dbPath' => '', // optional mysql/mysqldump path on file system
 		'dbSocket' => '', 
 		'dbCharset' => 'utf8',
-		);
+	);
 
 	/**
 	 * Array of text indicating details about what methods were used (primarily for debugging)
@@ -534,7 +534,13 @@ class WireDatabaseBackup {
 		$filename = $this->sanitizeFilename($filename); 
 		if(!file_exists($filename)) return array();
 
-		$fp = fopen($filename, "r+");
+		$fp = fopen($filename, 'r');
+		
+		if($fp === false) {
+			$this->error('Unable to open file for reading: ' . basename($filename));
+			return array();
+		}
+		
 		$line = fgets($fp);
 		if(strpos($line, self::fileHeader) === 0 || strpos($line, "# " . self::fileHeader) === 0) {
 			$pos = strpos($line, '{');
