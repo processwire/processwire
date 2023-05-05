@@ -85,6 +85,9 @@ class WireTextTools extends Wire {
 			),
 			'finishReplacements' => array(), // replacements applied at very end (internal)
 		);
+		
+		$str = (string) $str;
+		if(!strlen($str)) return '';
 
 		// merge options using arrays
 		foreach(array('replacements') as $key) {
@@ -379,7 +382,7 @@ class WireTextTools extends Wire {
 	 *  - `linksToUrls` (bool): Convert links to "(url)" rather than removing entirely? (default=false) Since 3.0.132
 	 *  - `endBlocksWith` (string): Character or string to insert to identify paragraph/header separation (default='')
 	 *  - `convertEntities` (bool): Convert entity-encoded characters to text? (default=true)
-	 * @return mixed|string
+	 * @return string
 	 *
 	 */
 	public function collapse($str, array $options = array()) {
@@ -762,7 +765,7 @@ class WireTextTools extends Wire {
 	 * Get array of punctuation characters
 	 * 
 	 * @param bool $sentence Get only sentence-ending punctuation
-	 * @return array|string
+	 * @return array
 	 * 
 	 */
 	public function getPunctuationChars($sentence = false) {
@@ -1334,7 +1337,7 @@ class WireTextTools extends Wire {
 
 		$str = array_shift($parts);
 
-		foreach($parts as $key => $part) {
+		foreach($parts as $part) {
 
 			$len = $this->strlen($part);
 			$char = $len > 0 ? $this->substr($part, 0, 1) : ''; // char being escaped
