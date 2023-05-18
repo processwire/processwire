@@ -39,7 +39,7 @@ class JqueryCore extends ModuleJS {
 		$this->loadScripts = false;
 		
 		$components = array(
-			'core-dev' => 'dev/JqueryCore.js?v=3.6.4', // version used when $config->debug=dev. 
+			'core-dev' => 'dev/jQueryCore.js?v=3.6.4', // version used when $config->debug=dev. 
 			'migrate-dev-debug' => 'dev/jquery-migrate-debug-3.4.0.js', // migrate to 3.x with log
 			'migrate-dev-quiet' => 'dev/jquery-migrate-quiet-3.4.0.min.js', // migrate to 3.x without log
 			'migrate-debug' => 'jquery-migrate-debug-1.4.1.js', // migrate with log
