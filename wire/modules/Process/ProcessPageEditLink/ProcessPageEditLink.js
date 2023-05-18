@@ -258,35 +258,39 @@ $(document).ready(function() {
 		var extLinkIcon = 'fa-external-link';
 		var emailIcon = 'fa-envelope-o';
 		var anchorIcon = 'fa-flag-o';
-		var allIcons = primaryIcon + ' ' + extLinkIcon + ' ' + emailIcon + ' ' + anchorIcon; 
+		var allIcons = primaryIcon + ' ' + extLinkIcon + ' ' + emailIcon + ' ' + anchorIcon;
+		var extLinkClass = cfg.extLinkClass;
+		var extLinkClassAll = extLinkClass.replace(' ', '_'); 
+		var extLinkClasses = extLinkClass.indexOf(' ') > -1 ? extLinkClass.split(' ') : [ extLinkClass ];
+		var extLinkRel = cfg.extLinkRel;
+		var extLinkTarget = cfg.extLinkTarget;
 		
 		if(external) {
-			if (!$this.hasClass('external-link')) {
+			if(!$this.hasClass('external-link')) {
 				icon().removeClass(allIcons).addClass(extLinkIcon);
 				$this.addClass('external-link');
-				var extLinkTarget = cfg.extLinkTarget;
-				if(extLinkTarget.length > 0) {
-					$("#link_target").val(extLinkTarget);
-				}
-				var extLinkRel = cfg.extLinkRel;
-				if(extLinkRel.length > 0) {
-					$("#link_rel").val(extLinkRel);
-				}
-				var extLinkClass = cfg.extLinkClass;
-				if(extLinkClass.length > 0) {
-					if(extLinkClass.indexOf(' ') > -1) {
-						var extLinkClassAll = extLinkClass.replace(' ', '_');
+				if(extLinkTarget.length > 0) $("#link_target").val(extLinkTarget);
+				if(extLinkRel.length > 0) $("#link_rel").val(extLinkRel);
+				if(extLinkClasses.length > 0) {
+					if(extLinkClasses.length > 1) {
 						$("#link_class_" + extLinkClassAll).prop('checked', true); // all classes in 1 option
-						extLinkClass = extLinkClass.split(' ');
 					}
-					for(n = 0; n < extLinkClass.length; n++) {
-						// $("#link_class_" + extLinkClass[n]).attr('checked', 'checked'); // JQM
-						$("#link_class_" + extLinkClass[n]).prop('checked', true);
+					for(n = 0; n < extLinkClasses.length; n++) {
+						$("#link_class_" + extLinkClasses[n]).prop('checked', true);
 					}
 				}
 			}
 		} else {
-			$this.removeClass('external-link');
+			if($this.hasClass('external-link')) {
+				// was previously an external link but no longer is
+				$this.removeClass('external-link');
+				if(extLinkRel.length) $('#link_rel').val('');
+				if(extLinkTarget.length) $('#link_target').val('');
+				$("#link_class_" + extLinkClassAll).prop('checked', false); // all classes in 1 option
+				for(n = 0; n < extLinkClasses.length; n++) {
+					$("#link_class_" + extLinkClasses[n]).prop('checked', false);
+				}
+			}
 			var $icon = icon();
 			if($this.hasClass('email')) {
 				if(!$icon.hasClass(emailIcon)) $icon.removeClass(allIcons).addClass(emailIcon);

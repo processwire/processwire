@@ -27,7 +27,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page Edit Link',          
 			'summary' => 'Provides a link capability as used by some Fieldtype modules (like rich text editors).', 
-			'version' => 111, 
+			'version' => 112, 
 			'permanent' => true, 
 			'permission' => 'page-edit',
 			'icon' => 'link', 
@@ -662,7 +662,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->label = $this->_('External link attributes'); 
-		$fieldset->description = $this->_('Specify the default selected attributed that will be automatically populated when an external link is detected.');
+		$fieldset->description = $this->_('Specify the default selected attributes that will be automatically populated when an external link is detected.');
 		$fieldset->description .= ' ' . $this->_('If used, the value must be one you have predefined above.'); 
 		$fieldset->icon = 'external-link';
 		$fieldset->collapsed = Inputfield::collapsedBlank;
