@@ -819,6 +819,109 @@ class PagesLoader extends Wire {
 	}
 	
 	/**
+	 * Find pages and cache the result for specified period of time
+	 *
+	 * Use this when you want to cache a slow or complex page finding operation so that it doesn’t
+	 * have to be repated for every web request. Note that this only caches the find operation
+	 * and not the loading of the found pages.
+	 *
+	 * ~~~~~
+	 * $items = $pages->findCache("title%=foo"); // 60 seconds (default)
+	 * $items = $pages->findCache("title%=foo", 3600); // 1 hour
+	 * $items = $pages->findCache("title%=foo", "+1 HOUR");  // same as above
+	 * ~~~~~
+	 *
+	 * @param string|array|Selectors $selector
+	 * @param int|string|bool|null $expire When the cache should expire, one of the following:
+	 *  - Max age integer (in seconds).
+	 *  - Any string accepted by PHP’s `strtotime()` that specifies when the cache should be expired.
+	 *  - Any `WireCache::expire…` constant or anything accepted by the `WireCache::get()` $expire argument.
+	 * @param array $options Options to pass to `$pages->getByIDs()`, or:
+	 *  - `findIDs` (bool): Return just the page IDs rather then the actual pages? (default=false)
+	 * @return PageArray|array
+	 * @since 3.0.218
+	 *
+	 */
+	public function findCache($selector, $expire = 60, $options = array()) {
+
+		$user = $this->wire()->user;
+		$cache = $this->wire()->cache;
+		$ns = 'pages.findCache';
+		$items = null;
+
+		if(is_string($selector)) {
+			$selectorStr = $selector;
+			$selectors = $selector;
+		} else {
+			$selectors = $this->wire(new Selectors($selector));
+			$selectorStr = (string) $selectors;
+		}
+
+		$rolesStr = (string) $user->roles;
+		if(strpos($rolesStr, '|')) {
+			$rolesArray = explode('|', $rolesStr);
+			sort($rolesArray);
+			$rolesStr = implode('|', $rolesArray);
+		}
+
+		$optionsStr = '';
+		foreach($options as $key => $value) {
+			if(!is_string($value)) {
+				if(is_array($value)) $value = print_r($value, true);
+				$value = (string) $value;
+			}
+			$optionsStr .= "$key==$value,";
+		}
+
+		$cacheName = "$rolesStr\r$selectorStr\r$optionsStr";
+		$pageNum = $this->wire()->input->pageNum();
+		if($pageNum > 1 && Selectors::selectorHasField($selectors, 'limit')) {
+			if(!Selectors::selectorHasField($selectors, 'start')) $cacheName .= "\r$pageNum";
+		}
+		$cacheName = md5($cacheName);
+		$data = $cache->getFor($ns, $cacheName, $expire);
+		
+		if(!empty($data) && $data['selector'] === $selectorStr && $data['roles'] === $rolesStr) {
+			$ids = $data['pages'];
+		} else {
+			$ids = null;
+			if(strpos($selectorStr, 'template') !== false && empty($options['template'])) {
+				$info = Selectors::selectorHasField($selectors, array('template', 'templates_id'), array('verbose' => true));
+				if($info['result']) $options['template'] = $this->wire()->templates->get($info['value']);
+				echo "template=$options[template]\n";
+			}
+		}
+
+		if($ids === null) {
+			if(empty($options['findIDs'])) {
+				$items = $this->find($selectors, $options);
+				$ids = $items->explode('id');
+			} else {
+				$ids = $this->pages->findIDs($selectors, $options);
+			}
+			$data = array(
+				'selector' => $selectorStr,
+				'roles' => $rolesStr,
+				'pages' => $ids
+			);
+			$cache->saveFor($ns, $cacheName, $data, $expire);
+			
+		} else if(empty($options['findIDs'])) {
+			$items = $this->pages->getByIDs($ids, $options);
+		}
+		
+		if(!empty($options['findIDs'])) return $ids;
+
+		foreach($items as $item) {
+			if($item instanceof NullPage || $item->status & Page::statusTrash) {
+				$items->remove($item);
+			}
+		}
+
+		return $items;
+	}
+
+	/**
 	 * Returns the first page matching the given selector with no exclusions
 	 *
 	 * @param string|int|array|Selectors $selector
