@@ -274,6 +274,18 @@ class Modules extends WireArray {
 	protected $refreshing = false;
 
 	/**
+	 * Use 'info' and 'info_verbose' cols in modules table rather than system cache?
+	 * 
+	 * Experimental, not currently used except for development/testing
+	 * Set to true to enable, false to specifically disable, null to detect when enabled.
+	 * 
+	 * @var null|bool 
+	 * @since 3.0.218
+	 * 
+	 */
+	protected $useModuleInfoCols = false;
+
+	/**
 	 * Properties that only appear in 'verbose' moduleInfo
 	 * 
 	 * @var array
@@ -289,6 +301,7 @@ class Modules extends WireArray {
 		'permissions',
 		'searchable', 
 		'page',
+		'license',
 		// 'languages',
 	);
 
@@ -392,6 +405,69 @@ class Modules extends WireArray {
 	}
 
 	/**
+	 * Get data from the module info cache
+	 * 
+	 * @param string|int|null $moduleID Module ID or name or omit to get info for all modules
+	 * @param string $property
+	 * @param bool $verbose
+	 * @return array|mixed|null
+	 * @since 3.0.218
+	 * 
+	 */
+	protected function moduleInfoCache($moduleID = null, $property = '', $verbose = false) {
+		if($verbose) {
+			$infos = &$this->moduleInfoCacheVerbose;
+		} else {
+			$infos = &$this->moduleInfoCache;
+		}
+		if($moduleID === null) {
+			// get all
+			foreach($infos as $moduleID => $info) {
+				if(empty($info)) {
+					$info = array();
+				} else if(is_array($info)) {
+					continue;
+				} else {
+					$info = json_decode($info, true);
+				}
+				$infos[$moduleID] = $info;
+			}
+			return $infos;
+		} else if($moduleID === 0) {
+			return $property ? null : array();
+		}
+		if(!ctype_digit("$moduleID")) {
+			// convert module name to module id
+			$moduleName = is_object($moduleID) ? $this->getModuleClass($moduleID) : $moduleID;
+			if(!isset($this->moduleIDs[$moduleName])) return ($property ? null : array());
+			$moduleID = $this->moduleIDs[$moduleName];
+		}
+		$moduleID = (int) $moduleID;
+		if(!isset($infos[$moduleID])) return ($property ? null : array());
+		$info = $infos[$moduleID];
+		if(empty($info)) return ($property ? null : array());
+		if(is_string($info)) {
+			$info = json_decode($info, true);
+			if(!is_array($info)) $info = array();
+			$infos[$moduleID] = $info;
+		}
+		if($property) return isset($info[$property]) ? $info[$property] : null;
+		return $info;
+	}
+
+	/**
+	 * Get data from the verbose module info cache
+	 * 
+	 * @param int|string $moduleID
+	 * @param string $property
+	 * @return array|mixed|null
+	 * 
+	 */
+	protected function moduleInfoCacheVerbose($moduleID = 0, $property = '') {
+		return $this->moduleInfoCache($moduleID, $property, true);
+	}
+
+	/**
 	 * Include site preload modules
 	 * 
 	 * Preload modules load before all other modules, including core modules. In order 
@@ -415,10 +491,12 @@ class Modules extends WireArray {
 		arsort($this->autoloadOrders);
 		foreach($this->autoloadOrders as $moduleName => $order) {
 			if($order < 10000) break;
-			if(!isset($this->moduleIDs[$moduleName])) continue;
-			$moduleID = $this->moduleIDs[$moduleName];
-			if(!isset($this->moduleInfoCache[$moduleID])) continue;
-			$info = $this->moduleInfoCache[$moduleID];
+			$info = $this->moduleInfoCache($moduleName);
+			if(empty($info)) continue;
+			//if(!isset($this->moduleIDs[$moduleName])) continue;
+			//$moduleID = $this->moduleIDs[$moduleName];
+			//if(!isset($this->moduleInfoCache[$moduleID])) continue;
+			//$info = $this->moduleInfoCache[$moduleID];
 			if(empty($info['singular'])) continue;
 			$file = $this->paths[1] . "$moduleName/$moduleName.module.php";
 			if(!file_exists($file) || !$this->includeModuleFile($file, $moduleName)) continue;
@@ -848,10 +926,17 @@ class Modules extends WireArray {
 			$this->moduleFlags[$moduleID] = $flags;
 			$autoload = $flags & self::flagsAutoload;
 			$loadSettings = $autoload || ($flags & self::flagsDuplicate) || ($class == 'SystemUpdater');
+		
+			if(isset($row['info']) && ($this->useModuleInfoCols === true || $this->useModuleInfoCols === null)) {
+				$this->useModuleInfoCols = true;
+				// initially populate as JSON string, converted to array on demand by moduleInfoCache() method
+				if(empty($this->moduleInfoCache[$moduleID])) $this->moduleInfoCache[$moduleID] = $row['info']; 
+				if(empty($this->moduleInfoCacheVerbose[$moduleID])) $this->moduleInfoCacheVerbose[$moduleID] = $row['info_verbose'];
+			}
 			
 			if($loadSettings) {
 				// preload config data for autoload modules since we'll need it again very soon
-				$data = strlen($row['data']) ? wireDecodeJSON($row['data']) : array();
+				$data = strlen((string) $row['data']) ? wireDecodeJSON($row['data']) : array();
 				$this->configData[$moduleID] = $data;
 				// populate information about duplicates, if applicable
 				if($flags & self::flagsDuplicate) $this->duplicates()->addFromConfigData($class, $data); 
@@ -865,12 +950,15 @@ class Modules extends WireArray {
 				$this->createdDates[$moduleID] = $row['created']; 
 			}
 			
-			if($autoload && !empty($this->moduleInfoCache[$moduleID]['autoload'])) {
-				$autoload = $this->moduleInfoCache[$moduleID]['autoload'];
-				$disabled = $flags & self::flagsDisabled;
-				if(is_int($autoload) && $autoload > 1 && !$disabled) {
-					// autoload specifies an order > 1, indicating it should load before others
-					$this->autoloadOrders[$class] = $autoload;
+			if($autoload) {
+				$value = $this->moduleInfoCache($moduleID, 'autoload'); 
+				if(!empty($value)) {
+					$autoload = $value;
+					$disabled = $flags & self::flagsDisabled;
+					if(is_int($autoload) && $autoload > 1 && !$disabled) {
+						// autoload specifies an order > 1, indicating it should load before others
+						$this->autoloadOrders[$class] = $autoload;
+					}
 				}
 			}
 			
@@ -879,6 +967,8 @@ class Modules extends WireArray {
 		}
 		
 		$query->closeCursor();
+
+		if($this->useModuleInfoCols === null) $this->useModuleInfoCols = false;
 	}
 
 	/**
@@ -2602,6 +2692,7 @@ class Modules extends WireArray {
 			$id = (int) $this->moduleIDs[$class];
 			
 		} else foreach($this->moduleInfoCache as $key => $info) {	
+			if(is_string($info)) $info = $this->moduleInfoCache($key); // json to array
 			if($info['name'] == $class) {
 				$id = (int) $key;
 				break;
@@ -2962,14 +3053,14 @@ class Modules extends WireArray {
 			// 'useNavJSON' => bool, // whether the Process module provides JSON navigation
 			// 'page' => array(), // page to create for Process module: see Process.php
 			// 'permissionMethod' => string or callable // method to call to determine permission: see Process.php
-			);
+		);
 		
 		if($getAll) {
 			if(empty($this->moduleInfoCache)) $this->loadModuleInfoCache();
-			$modulesInfo = $this->moduleInfoCache;
+			$modulesInfo = $this->moduleInfoCache();
 			if($options['verbose']) {
 				if(empty($this->moduleInfoCacheVerbose)) $this->loadModuleInfoCacheVerbose();
-				foreach($this->moduleInfoCacheVerbose as $moduleID => $moduleInfoVerbose) {
+				foreach($this->moduleInfoCacheVerbose() as $moduleID => $moduleInfoVerbose) {
 					$modulesInfo[$moduleID] = array_merge($modulesInfo[$moduleID], $moduleInfoVerbose);
 				}
 			}
@@ -2992,7 +3083,7 @@ class Modules extends WireArray {
 			// return from cache if available
 			
 			if(empty($options['noCache']) && !empty($this->moduleInfoCache[$moduleID])) {
-				$info = $this->moduleInfoCache[$moduleID]; 
+				$info = $this->moduleInfoCache($moduleID); 
 				$fromCache = true; 
 			} else {
 				$info = $this->getModuleInfoExternal($moduleName); 
@@ -3006,7 +3097,7 @@ class Modules extends WireArray {
 			
 			// return from cache if available (as it almost always should be)
 			if(empty($options['noCache']) && !empty($this->moduleInfoCache[$moduleID])) {
-				$info = $this->moduleInfoCache[$moduleID];
+				$info = $this->moduleInfoCache($moduleID);
 				$fromCache = true; 
 				
 			} else if(empty($options['noCache']) && $moduleID == 0) {
@@ -3054,7 +3145,7 @@ class Modules extends WireArray {
 			if($options['verbose']) { 
 				if(empty($this->moduleInfoCacheVerbose)) $this->loadModuleInfoCacheVerbose();
 				if(!empty($this->moduleInfoCacheVerbose[$moduleID])) {
-					$info = array_merge($info, $this->moduleInfoCacheVerbose[$moduleID]); 
+					$info = array_merge($info, $this->moduleInfoCacheVerbose($moduleID)); 
 				}
 			}
 		
@@ -3250,7 +3341,7 @@ class Modules extends WireArray {
 		if(!is_null($this->moduleNamespaceCache)) return $this->moduleNamespaceCache;
 		$defaultNamespace = strlen(__NAMESPACE__) ? "\\" . __NAMESPACE__ . "\\" : "";
 		$namespaces = array();
-		foreach($this->moduleInfoCache as /* $moduleID => */ $info) {
+		foreach($this->moduleInfoCache() as /* $moduleID => */ $info) {
 			if(!isset($info['namespace']) || $info['namespace'] === $defaultNamespace || $info['namespace'] === "\\") continue;
 			$moduleName = $info['name'];
 			$namespaces[$info['namespace']] = $config->paths($moduleName);
@@ -3281,24 +3372,33 @@ class Modules extends WireArray {
 		);
 		
 		$namespace = null;
-		$options = array_merge($defaults, $options);
 	
 		if(is_object($moduleName) || strpos($moduleName, "\\") !== false) {
-			$className = is_object($moduleName) ? get_class($moduleName) : $moduleName;	
+			$className = is_object($moduleName) ? get_class($moduleName) : $moduleName;
+			if(strpos($className, "ProcessWire\\") === 0) return "ProcessWire\\";
+			if(strpos($className, "\\") === false) return "\\";
 			$parts = explode("\\", $className);
 			array_pop($parts);
 			$namespace = count($parts) ? implode("\\", $parts) : "";
 			$namespace = $namespace == "" ? "\\" : "\\$namespace\\";
 			return $namespace;
 		}
-		
+
 		if(empty($options['noCache'])) {
 			$moduleID = $this->getModuleID($moduleName);
-			$info = isset($this->moduleInfoCache[$moduleID]) ? $this->moduleInfoCache[$moduleID] : null;
-			if($info && isset($info['namespace'])) {
-				return $info['namespace'];
+			$info = isset($this->moduleInfoCache[$moduleID]) ? $this->moduleInfoCache($moduleID) : null;
+			if($info) { 
+				if(isset($info['namespace'])) {
+					if("$info[namespace]" === "1") return __NAMESPACE__ . "\\";
+					return $info['namespace'];
+				} else {
+					// if namespace not present in info then use default namespace
+					return __NAMESPACE__ . "\\";
+				}
 			}
 		}
+		
+		$options = array_merge($defaults, $options);
 		
 		if(empty($options['file'])) {
 			$options['file'] = $this->getModuleFile($moduleName);
@@ -3316,6 +3416,7 @@ class Modules extends WireArray {
 
 		if(empty($options['noLoad'])) {
 			$namespace = $this->getFileNamespace($options['file']);
+
 		}
 			
 		return $namespace;
@@ -3621,8 +3722,9 @@ class Modules extends WireArray {
 				// note we don't call getModuleClass() here because it may result in a circular reference
 				if(strpos($className, "\\") === false) {
 					$moduleID = $this->getModuleID($moduleName);
-					if(!empty($this->moduleInfoCache[$moduleID]['namespace'])) {
-						$className = rtrim($this->moduleInfoCache[$moduleID]['namespace'], "\\") . "\\$moduleName";
+					$namespace = $this->moduleInfoCache($moduleID, 'namespace');
+					if(!empty($namespace)) {
+						$className = rtrim($namespace, "\\") . "\\$moduleName";
 					} else {
 						$className = strlen(__NAMESPACE__) ? "\\" . __NAMESPACE__ . "\\$moduleName" : $moduleName;
 					}
@@ -4401,6 +4503,7 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function getNamespacePath($namespace) {
+		if($namespace === 'ProcessWire') return "ProcessWire\\";
 		if(is_null($this->moduleNamespaceCache)) $this->getNamespaces();
 		$namespace = "\\" . trim($namespace, "\\") . "\\";
 		return isset($this->moduleNamespaceCache[$namespace]) ? $this->moduleNamespaceCache[$namespace] : false;	
@@ -4855,14 +4958,16 @@ class Modules extends WireArray {
 	 */
 	protected function loadModuleInfoCache() {
 		$cache = $this->wire()->cache;
-		$data = $cache->get(self::moduleInfoCacheName); 	
-		if($data) { 
-			// if module class name keys in use (i.e. ProcessModule) it's an older version of 
-			// module info cache, so we skip over it to force its re-creation
-			if(is_array($data) && !isset($data['ProcessModule'])) $this->moduleInfoCache = $data; 
-			$data = $cache->get(self::moduleLastVersionsCacheName);
-			if(is_array($data)) $this->modulesLastVersions = $data;
-			return true;
+		$data = $cache->get(self::moduleLastVersionsCacheName);
+		if(is_array($data)) $this->modulesLastVersions = $data;
+		if($this->useModuleInfoCols === false) {
+			$data = $cache->get(self::moduleInfoCacheName);
+			if($data) {
+				// if module class name keys in use (i.e. ProcessModule) it's an older version of 
+				// module info cache, so we skip over it to force its re-creation
+				if(is_array($data) && !isset($data['ProcessModule'])) $this->moduleInfoCache = $data;
+				return true;
+			}
 		}
 		return false;
 	}
@@ -4876,6 +4981,7 @@ class Modules extends WireArray {
 	 */
 	protected function loadModuleInfoCacheVerbose($uninstalled = false) {
 		$name = $uninstalled ? self::moduleInfoCacheUninstalledName : self::moduleInfoCacheVerboseName;
+		if($this->useModuleInfoCols === false && !$uninstalled) return true;
 		$data = $this->wire()->cache->get($name);
 		if($data) {
 			if(is_array($data)) {
@@ -4906,7 +5012,7 @@ class Modules extends WireArray {
 
 		// record current module versions currently in moduleInfo
 		$moduleVersions = array();
-		foreach($this->moduleInfoCache as $id => $moduleInfo) {
+		foreach($this->moduleInfoCache() as $id => $moduleInfo) {
 			if(isset($this->modulesLastVersions[$id])) {
 				$moduleVersions[$id] = $this->modulesLastVersions[$id];
 			} else {
@@ -4927,7 +5033,7 @@ class Modules extends WireArray {
 		$this->saveModuleInfoCache();
 
 		// compare new moduleInfo versions with the previous ones, looking for changes
-		foreach($this->moduleInfoCache as $id => $moduleInfo) {
+		foreach($this->moduleInfoCache() as $id => $moduleInfo) {
 			$moduleName = $moduleInfo['name'];
 			if(!isset($moduleVersions[$id])) {
 				if(isset($this->moduleIDs[$moduleName])) {
@@ -5234,8 +5340,16 @@ class Modules extends WireArray {
 			self::moduleInfoCacheUninstalledName => 'moduleInfoCacheUninstalled',
 		);
 		
+		$cols = array(
+			'moduleInfoCache' => 'info',
+			'moduleInfoCacheVerbose' => 'info_verbose'
+		);
+		
+		$defaultNS = array("\\" . __NAMESPACE__ . "\\", __NAMESPACE__ . "\\");
+		
 		foreach($caches as $cacheName => $varName) {
 			$data = $this->$varName;
+			$col = isset($cols[$varName]) ? $cols[$varName] : ''; // info, info_verbose
 			foreach($data as $moduleID => $moduleInfo) {
 				foreach($moduleInfo as $key => $value) {
 					// remove unpopulated properties
@@ -5254,7 +5368,7 @@ class Modules extends WireArray {
 						// no need to store these false, null, 0, or blank array properties
 						unset($data[$moduleID][$key]);
 						
-					} else if(($key == 'namespace' && $value == "\\" . __NAMESPACE__ . "\\") || (!strlen(__NAMESPACE__) && empty($value))) {
+					} else if(($key === 'namespace' && in_array($value, $defaultNS)) || (!strlen(__NAMESPACE__) && empty($value))) {
 						// no need to cache default namespace in module info
 						unset($data[$moduleID][$key]);
 						
@@ -5263,6 +5377,7 @@ class Modules extends WireArray {
 						unset($data[$moduleID][$key]);
 					}
 				}
+				if($col) $this->saveModuleInfoCacheCol($moduleID, $data[$moduleID], $col);
 			}
 			$this->wire()->cache->save($cacheName, $data, WireCache::expireReserved); 
 		}
@@ -5270,6 +5385,44 @@ class Modules extends WireArray {
 		$this->log('Saved module info caches'); 
 		
 		if($languages && $language) $user->language = $language; // restore
+	}
+
+	/**
+	 * Save module info cache in a column of the modules table 
+	 * 
+	 * Experimental, used only if $this->useModuleInfoCols is true
+	 * 
+	 * @param int $moduleID
+	 * @param array $info
+	 * @param string $col 'info' or 'info_verbose'
+	 * @since 3.0.218
+	 * 
+	 */
+	protected function saveModuleInfoCacheCol($moduleID, array $info, $col) {
+		
+		$database = $this->wire()->database;
+		$col = $database->escapeCol($col);
+		static $action = '';
+		
+		if($this->useModuleInfoCols) {
+			if($action !== 'added' && !$database->columnExists('modules', $col)) {
+				$database->exec("ALTER TABLE modules ADD $col TEXT");
+				$this->message("Added column modules.$col");
+				$action = 'added';
+			}
+			$sql = "UPDATE modules SET $col=:info WHERE id=:id";
+			$query = $database->prepare($sql);
+			$query->bindValue(':info', json_encode($info));
+			$query->bindValue(':id', $moduleID, \PDO::PARAM_INT);
+			$query->execute();
+			
+		} else if($this->useModuleInfoCols === false) { 
+			if($action !== 'dropped' && $database->columnExists('modules', $col)) {
+				$database->exec("ALTER TABLE modules DROP $col");
+				$this->message("Dropped column modules.$col");
+				$action = 'dropped';
+			}
+		}
 	}
 
 	/**
@@ -5459,15 +5612,18 @@ class Modules extends WireArray {
 	 * #pw-internal
 	 * 
 	 * @param string $str Message to log
-	 * @param string $moduleName
+	 * @param array|string $options Specify module name (string) or options array
 	 * @return WireLog
 	 * 
 	 */	
-	public function log($str, $moduleName = '') {
+	public function log($str, $options = array()) {
+		$moduleName = is_string($options) ? $options : '';
+		if(!is_array($options)) $options = array();
 		if(!in_array('modules', $this->wire()->config->logs)) return $this->___log();
 		if(!is_string($moduleName)) $moduleName = (string) $moduleName; 
 		if($moduleName && strpos($str, $moduleName) === false) $str .= " (Module: $moduleName)";
-		return $this->___log($str, array('name' => 'modules')); 
+		$options['name'] = 'modules';
+		return $this->___log($str, $options); 
 	}
 
 	/**
