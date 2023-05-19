@@ -378,8 +378,11 @@ class Sanitizer extends Wire {
 				$value = mb_strtolower($value);
 
 				if(empty($replacements)) {
-					$configData = $this->wire()->modules->getModuleConfigData('InputfieldPageName');
-					$replacements = empty($configData['replacements']) ? InputfieldPageName::$defaultReplacements : $configData['replacements'];
+					$modules = $this->wire()->modules;
+					if($modules) {
+						$configData = $this->wire()->modules->getModuleConfigData('InputfieldPageName');
+						$replacements = empty($configData['replacements']) ? InputfieldPageName::$defaultReplacements : $configData['replacements'];
+					}
 				}
 
 				foreach($replacements as $from => $to) {
@@ -5788,4 +5791,3 @@ class Sanitizer extends Wire {
 	}
 
 }
-

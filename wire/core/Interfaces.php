@@ -720,4 +720,90 @@ interface InputfieldHasSelectableOptions {
 	public function addOptionLabel($value, $label, $language = null);
 }
 
+/**
+ * Interface for WireCache handler classes
+ * 
+ * @since 3.0.218
+ * 
+ */
+interface WireCacheInterface {
+	/**
+	 * Get single cache
+	 * 
+	 * @param string $name
+	 * @param string|array|null|false $expire
+	 * @return string|false
+	 * 
+	 */
+	public function get($name, $expire);
 
+	/**
+	 * Get multiple caches
+	 * 
+	 * @param array $names
+	 * @param string|array|null|false $expire
+	 * @return array
+	 * 
+	 */
+	public function getMultiple(array $names, $expire);
+	
+	/**
+	 * Save a cache
+	 *
+	 * @param string $name
+	 * @param string $data
+	 * @param string $expire
+	 * @return bool
+	 *
+	 */
+	public function save($name, $data, $expire);
+
+	/**
+	 * Delete cache
+	 * 
+	 * @param string $name
+	 * @return bool
+	 * 
+	 */
+	public function delete($name);
+	
+	/**
+	 * Delete all caches
+	 *
+	 * @return int
+	 *
+	 */
+	public function deleteAll();
+	
+	/**
+	 * Expire all caches
+	 *
+	 * @return int
+	 *
+	 */
+	public function expireAll();
+	
+	/**
+	 * Cache maintenance / remove expired caches
+	 *
+	 * Called as part of a regular maintenance routine and after page/template save/deletion.
+	 *
+	 * @param Template|Page|null|bool Item to run maintenance for or, if not specified, general maintenance is performed.
+	 * 	General maintenance only runs once per request. Specify boolean true to force general maintenance to run.
+	 * @return bool
+	 *
+	 */
+	public function maintenance($obj = null);
+
+	/**
+	 * Get info about caches
+	 *
+	 * @param array $options
+	 *  - `verbose` (bool): Return verbose details? (default=true)
+	 *  - `names` (array): Names of caches to return info for, or omit for all (default=[])
+	 *  - `exclude` (array): Name prefixes of caches to exclude from return value (default=[])
+	 * @return array
+	 *
+	 */
+	public function getInfo(array $options = array());
+}
