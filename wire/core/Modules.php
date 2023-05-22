@@ -4981,7 +4981,7 @@ class Modules extends WireArray {
 	 */
 	protected function loadModuleInfoCacheVerbose($uninstalled = false) {
 		$name = $uninstalled ? self::moduleInfoCacheUninstalledName : self::moduleInfoCacheVerboseName;
-		if($this->useModuleInfoCols === false && !$uninstalled) return true;
+		if($this->useModuleInfoCols === true && !$uninstalled) return true;
 		$data = $this->wire()->cache->get($name);
 		if($data) {
 			if(is_array($data)) {
