@@ -10,7 +10,7 @@
  * in order to save resources. As a result, anything iterating through these Modules should check to make sure it's not a ModulePlaceholder
  * before using it. If it's a ModulePlaceholder, then the real Module can be instantiated/retrieved by $modules->get($className).
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Loads and manages all modules in ProcessWire. 
@@ -90,6 +90,14 @@ class Modules extends WireArray {
 	 * 
 	 */
 	const flagsNoFile = 64;
+	
+	/**
+	 * Indicates row is for Modules system cache use and not an actual module
+	 *
+	 * @since 3.0.218
+	 *
+	 */
+	const flagsSystemCache = 8192;
 
 	/**
 	 * Filename for module info cache file
@@ -274,16 +282,13 @@ class Modules extends WireArray {
 	protected $refreshing = false;
 
 	/**
-	 * Use 'info' and 'info_verbose' cols in modules table rather than system cache?
+	 * Runtime caches
 	 * 
-	 * Experimental, not currently used except for development/testing
-	 * Set to true to enable, false to specifically disable, null to detect when enabled.
-	 * 
-	 * @var null|bool 
+	 * @var array 
 	 * @since 3.0.218
 	 * 
 	 */
-	protected $useModuleInfoCols = false;
+	protected $caches = array();
 
 	/**
 	 * Properties that only appear in 'verbose' moduleInfo
@@ -395,8 +400,8 @@ class Modules extends WireArray {
 	 */
 	public function init() {
 		$this->setTrackChanges(false);
-		$this->loadModuleInfoCache();
 		$this->loadModulesTable();
+		$this->loadModuleInfoCache();
 		if(!empty($this->autoloadOrders)) $this->preloadModules();
 		foreach($this->paths as $path) {
 			$this->load($path);
@@ -417,8 +422,10 @@ class Modules extends WireArray {
 	protected function moduleInfoCache($moduleID = null, $property = '', $verbose = false) {
 		if($verbose) {
 			$infos = &$this->moduleInfoCacheVerbose;
+			if(empty($infos)) $this->loadModuleInfoCacheVerbose();
 		} else {
 			$infos = &$this->moduleInfoCache;
+			if(empty($infos)) $this->loadModuleInfoCache();
 		}
 		if($moduleID === null) {
 			// get all
@@ -909,12 +916,23 @@ class Modules extends WireArray {
 	 *
 	 */
 	protected function loadModulesTable() {
+		
 		$this->autoloadOrders = array();
 		$database = $this->wire()->database;
-		// we use SELECT * so that this select won't be broken by future DB schema additions
-		// Currently: id, class, flags, data, with created added at sysupdate 7
-		$query = $database->prepare("SELECT * FROM modules ORDER BY class", "modules.loadModulesTable()"); // QA
-		$query->execute();
+	
+		// skip loading dymanic caches at this stage
+		$skipCaches = array(
+			self::moduleInfoCacheUninstalledName, 
+			self::moduleInfoCacheVerboseName
+		);
+		
+		$query = $database->query(
+			// Currently: id, class, flags, data, with created added at sysupdate 7
+			"SELECT * FROM modules " . 
+			"WHERE class NOT IN('" . implode("','", $skipCaches) . "') " . 
+			"ORDER BY class", 
+			"modules.loadModulesTable()"
+		);
 
 		/** @noinspection PhpAssignmentInConditionInspection */
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
@@ -922,18 +940,19 @@ class Modules extends WireArray {
 			$moduleID = (int) $row['id'];
 			$flags = (int) $row['flags'];
 			$class = $row['class'];
+		
+			if($flags & self::flagsSystemCache) {
+				// system cache names are prefixed with a '.' so they load first
+				$this->caches[ltrim($class, '.')] = $row['data']; 
+				continue;
+			}
+			
 			$this->moduleIDs[$class] = $moduleID;
 			$this->moduleFlags[$moduleID] = $flags;
+			
 			$autoload = $flags & self::flagsAutoload;
 			$loadSettings = $autoload || ($flags & self::flagsDuplicate) || ($class == 'SystemUpdater');
 		
-			if(isset($row['info']) && ($this->useModuleInfoCols === true || $this->useModuleInfoCols === null)) {
-				$this->useModuleInfoCols = true;
-				// initially populate as JSON string, converted to array on demand by moduleInfoCache() method
-				if(empty($this->moduleInfoCache[$moduleID])) $this->moduleInfoCache[$moduleID] = $row['info']; 
-				if(empty($this->moduleInfoCacheVerbose[$moduleID])) $this->moduleInfoCacheVerbose[$moduleID] = $row['info_verbose'];
-			}
-			
 			if($loadSettings) {
 				// preload config data for autoload modules since we'll need it again very soon
 				$data = strlen((string) $row['data']) ? wireDecodeJSON($row['data']) : array();
@@ -967,8 +986,6 @@ class Modules extends WireArray {
 		}
 		
 		$query->closeCursor();
-
-		if($this->useModuleInfoCols === null) $this->useModuleInfoCols = false;
 	}
 
 	/**
@@ -1096,7 +1113,7 @@ class Modules extends WireArray {
 		// check if module has already been loaded, or maybe we've got duplicates
 		if(wireClassExists($basename, false)) { 
 			$module = parent::get($basename);
-			$dir = rtrim((string) $this->wire()->config->paths->$basename, '/');
+			$dir = rtrim((string) $this->wire()->config->paths($basename), '/');
 			if($module && $dir && $dirname != $dir) {
 				$duplicates->recordDuplicate($basename, $pathname, "$dir/$filename", $installed);
 				return '';
@@ -1221,22 +1238,14 @@ class Modules extends WireArray {
 
 		$callNum++;
 		$config = $this->wire()->config;
-		$cache = $this->wire()->cache; 
 		$cacheName = '';
 
 		if($level == 0) {
 			$startPath = $path;
 			$cacheName = "Modules." . str_replace($config->paths->root, '', $path);
-			if($readCache && $cache) {
-				$cacheContents = $cache->get($cacheName); 
-				if($cacheContents !== null) {
-					if(empty($cacheContents) && $callNum === 1) {
-						// don't accept empty cache for first path (/wire/modules/)
-					} else {
-						$cacheContents = explode("\n", trim($cacheContents));
-						return $cacheContents;
-					}
-				}
+			if($readCache) {
+				$cacheContents = $this->getCache($cacheName);
+				if($cacheContents) return explode("\n", trim($cacheContents)); 
 			}
 		}
 
@@ -1297,8 +1306,8 @@ class Modules extends WireArray {
 				$files = array_merge(array_keys($prependFiles), $files);
 				$prependFiles = array();
 			}
-			if($cache && $cacheName) {
-				$cache->save($cacheName, implode("\n", $files), WireCache::expireReserved);
+			if($cacheName) {
+				$this->saveCache($cacheName, implode("\n", $files)); 
 			}
 		}
 
@@ -4957,19 +4966,26 @@ class Modules extends WireArray {
 	 * 
 	 */
 	protected function loadModuleInfoCache() {
-		$cache = $this->wire()->cache;
-		$data = $cache->get(self::moduleLastVersionsCacheName);
-		if(is_array($data)) $this->modulesLastVersions = $data;
-		if($this->useModuleInfoCols === false) {
-			$data = $cache->get(self::moduleInfoCacheName);
-			if($data) {
-				// if module class name keys in use (i.e. ProcessModule) it's an older version of 
-				// module info cache, so we skip over it to force its re-creation
-				if(is_array($data) && !isset($data['ProcessModule'])) $this->moduleInfoCache = $data;
+	
+		if(empty($this->modulesLastVersions)) {
+			$name = self::moduleLastVersionsCacheName;
+			$data = $this->getCache($name);
+			if(is_array($data)) $this->modulesLastVersions = $data;
+		}
+
+		if(empty($this->moduleInfoCache)) {
+			$name = self::moduleInfoCacheName;
+			$data = $this->getCache($name);
+			// if module class name keys in use (i.e. ProcessModule) it's an older version of 
+			// module info cache, so we skip over it to force its re-creation
+			if(is_array($data) && !isset($data['ProcessModule'])) {
+				$this->moduleInfoCache = $data;
 				return true;
 			}
+			return false;
 		}
-		return false;
+		
+		return true;
 	}
 	
 	/**
@@ -4980,9 +4996,11 @@ class Modules extends WireArray {
 	 *
 	 */
 	protected function loadModuleInfoCacheVerbose($uninstalled = false) {
+		
 		$name = $uninstalled ? self::moduleInfoCacheUninstalledName : self::moduleInfoCacheVerboseName;
-		if($this->useModuleInfoCols === true && !$uninstalled) return true;
-		$data = $this->wire()->cache->get($name);
+		
+		$data = $this->getCache($name);
+		
 		if($data) {
 			if(is_array($data)) {
 				if($uninstalled) {
@@ -4993,6 +5011,7 @@ class Modules extends WireArray {
 			}
 			return true;
 		}
+		
 		return false;
 	}
 
@@ -5004,7 +5023,7 @@ class Modules extends WireArray {
 	 */
 	protected function clearModuleInfoCache($showMessages = false) {
 		
-		$cache = $this->wire()->cache;
+		// $cache = $this->wire()->cache;
 		$versionChanges = array();
 		$newModules = array();
 		$moveModules = array();
@@ -5021,9 +5040,9 @@ class Modules extends WireArray {
 		}
 	
 		// delete the caches
-		$cache->delete(self::moduleInfoCacheName);
-		$cache->delete(self::moduleInfoCacheVerboseName);
-		$cache->delete(self::moduleInfoCacheUninstalledName);
+		$this->deleteCache(self::moduleInfoCacheName);
+		$this->deleteCache(self::moduleInfoCacheVerboseName);
+		$this->deleteCache(self::moduleInfoCacheUninstalledName);
 		
 		$this->moduleInfoCache = array();
 		$this->moduleInfoCacheVerbose = array();
@@ -5126,9 +5145,9 @@ class Modules extends WireArray {
 			if(!in_array($id, $this->moduleIDs)) unset($this->modulesLastVersions[$id]);
 		}
 		if(count($this->modulesLastVersions)) {
-			$this->wire()->cache->save(self::moduleLastVersionsCacheName, $this->modulesLastVersions, WireCache::expireReserved);
+			$this->saveCache(self::moduleLastVersionsCacheName, $this->modulesLastVersions); 
 		} else {
-			$this->wire()->cache->delete(self::moduleLastVersionsCacheName);
+			$this->deleteCache(self::moduleLastVersionsCacheName);
 		}
 	}
 
@@ -5340,16 +5359,10 @@ class Modules extends WireArray {
 			self::moduleInfoCacheUninstalledName => 'moduleInfoCacheUninstalled',
 		);
 		
-		$cols = array(
-			'moduleInfoCache' => 'info',
-			'moduleInfoCacheVerbose' => 'info_verbose'
-		);
-		
 		$defaultNS = array("\\" . __NAMESPACE__ . "\\", __NAMESPACE__ . "\\");
 		
 		foreach($caches as $cacheName => $varName) {
 			$data = $this->$varName;
-			$col = isset($cols[$varName]) ? $cols[$varName] : ''; // info, info_verbose
 			foreach($data as $moduleID => $moduleInfo) {
 				foreach($moduleInfo as $key => $value) {
 					// remove unpopulated properties
@@ -5377,52 +5390,13 @@ class Modules extends WireArray {
 						unset($data[$moduleID][$key]);
 					}
 				}
-				if($col) $this->saveModuleInfoCacheCol($moduleID, $data[$moduleID], $col);
 			}
-			$this->wire()->cache->save($cacheName, $data, WireCache::expireReserved); 
+			$this->saveCache($cacheName, $data); 
 		}
 	
-		$this->log('Saved module info caches'); 
+		// $this->log('Saved module info caches'); 
 		
 		if($languages && $language) $user->language = $language; // restore
-	}
-
-	/**
-	 * Save module info cache in a column of the modules table 
-	 * 
-	 * Experimental, used only if $this->useModuleInfoCols is true
-	 * 
-	 * @param int $moduleID
-	 * @param array $info
-	 * @param string $col 'info' or 'info_verbose'
-	 * @since 3.0.218
-	 * 
-	 */
-	protected function saveModuleInfoCacheCol($moduleID, array $info, $col) {
-		
-		$database = $this->wire()->database;
-		$col = $database->escapeCol($col);
-		static $action = '';
-		
-		if($this->useModuleInfoCols) {
-			if($action !== 'added' && !$database->columnExists('modules', $col)) {
-				$database->exec("ALTER TABLE modules ADD $col TEXT");
-				$this->message("Added column modules.$col");
-				$action = 'added';
-			}
-			$sql = "UPDATE modules SET $col=:info WHERE id=:id";
-			$query = $database->prepare($sql);
-			$query->bindValue(':info', json_encode($info));
-			$query->bindValue(':id', $moduleID, \PDO::PARAM_INT);
-			$query->execute();
-			
-		} else if($this->useModuleInfoCols === false) { 
-			if($action !== 'dropped' && $database->columnExists('modules', $col)) {
-				$database->exec("ALTER TABLE modules DROP $col");
-				$this->message("Dropped column modules.$col");
-				$action = 'dropped';
-			}
-		}
 	}
 
 	/**
@@ -5695,5 +5669,86 @@ class Modules extends WireArray {
 	
 		return $file;
 	}
-	
+
+	/**
+	 * Save cache
+	 *
+	 * @param string $cacheName
+	 * @param string|array $data
+	 * @return bool
+	 * @since 3.0.218
+	 *
+	 */
+	protected function saveCache($cacheName, $data) {
+		$database = $this->wire()->database;
+		if(!$this->saveCacheReady) {
+			$this->saveCacheReady = true;
+			$col = $database->getColumns('modules', 'data');
+			if(strtolower($col['type']) === 'text') {
+				try {
+					// increase size of data column for cache storage in 3.0.218
+					$database->exec("ALTER TABLE modules MODIFY `data` MEDIUMTEXT NOT NULL");
+					$this->message("Updated modules.data to mediumtext", Notice::debug);
+				} catch(\Exception $e) {
+					$this->error($e->getMessage());
+				}
+			}
+		}
+		$cache = $this->wire()->cache;
+		if($cache) $cache->save($cacheName, $data, WireCache::expireReserved);
+		if(is_array($data)) $data = json_encode($data);
+		$sql = "INSERT INTO modules SET class=:name, data=:data, flags=:flags ON DUPLICATE KEY UPDATE data=VALUES(data)";
+		$query = $database->prepare($sql);
+		$query->bindValue(':name', ".$cacheName");
+		$query->bindValue(':data', $data);
+		$query->bindValue(':flags', self::flagsSystemCache);
+		return $query->execute();
+	}
+
+	protected $saveCacheReady = false;
+
+	/**
+	 * Get cache
+	 *
+	 * @param string $cacheName
+	 * @return string|array|bool
+	 * @since 3.0.218
+	 *
+	 */
+	protected function getCache($cacheName) {
+		$data = null;
+		if(isset($this->caches[$cacheName])) {
+			$data = $this->caches[$cacheName];
+			unset($this->caches[$cacheName]);
+		}
+		if(empty($data)) {
+			$sql = "SELECT data FROM modules WHERE class=:name";
+			$query = $this->wire()->database->prepare($sql);
+			$query->bindValue(':name', ".$cacheName");
+			$query->execute();
+			$data = $query->fetchColumn();
+			$query->closeCursor();
+		}
+		if(empty($data)) {
+			// fallback to $cache API var, necessary only temporarily
+			$data = $this->wire()->cache->get($cacheName);
+			if($data) return $data;
+		}
+		if(is_string($data) && (strpos($data, '{') === 0 || strpos($data, '[') === 0)) {
+			$data = json_decode($data, true);
+		}
+		return $data;
+	}
+
+	/**
+	 * Delete cache by name
+	 *
+	 * @param string $cacheName
+	 * @since 3.0.218
+	 *
+	 */
+	protected function deleteCache($cacheName) {
+		$this->wire()->cache->delete($cacheName);
+		unset($this->caches[$cacheName]);
+	}
 }
