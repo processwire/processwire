@@ -723,29 +723,43 @@ interface InputfieldHasSelectableOptions {
 /**
  * Interface for WireCache handler classes
  * 
+ * For example implementations of this interface see 
+ * WireCacheDatabase (core) and WireCacheFilesystem (module)
+ * 
  * @since 3.0.218
  * 
  */
 interface WireCacheInterface {
+	
 	/**
-	 * Get single cache
+	 * Find caches by names and/or expirations and return requested values
 	 * 
-	 * @param string $name
-	 * @param string|array|null|false $expire
-	 * @return string|false
+	 * ~~~~~
+	 * // Default options
+	 * $defaults = [
+	 *  'names' => [],
+	 *  'expires' => [],
+	 *  'expiresMode' => 'OR',
+	 *  'get' => [ 'name', 'expires', 'data' ],
+	 * ];
 	 * 
+	 * // Example options
+	 * $options['names'] = [ 'my-cache', 'your-cache', 'hello-*' ];
+	 * $options['expires'] => [ 
+	 *  '<= ' . WireCache::expiresNever, 
+	 *  '>= ' . date('Y-m-d H:i:s') 
+	 * ];
+	 * ~~~~~
+	 *
+	 * @param array $options
+	 *  - `get` (array): Properties to get in return value, one or more of [ `name`, `expires`, `data`, `size` ] (default=all)
+	 *  - `names` (array): Names of caches to find (OR condition), optionally appended with wildcard `*`.
+	 *  - `expires` (array): Expirations of caches to match in ISO-8601 date format, prefixed with operator and space (see expiresMode mode below).
+	 *  - `expiresMode` (string): Whether it should match any one condition 'OR', or all conditions 'AND' (default='OR')
+	 * @return array Returns array of associative arrays, each containing requested properties
+	 *
 	 */
-	public function get($name, $expire);
-
-	/**
-	 * Get multiple caches
-	 * 
-	 * @param array $names
-	 * @param string|array|null|false $expire
-	 * @return array
-	 * 
-	 */
-	public function getMultiple(array $names, $expire);
+	public function find(array $options);
 	
 	/**
 	 * Save a cache
@@ -759,7 +773,7 @@ interface WireCacheInterface {
 	public function save($name, $data, $expire);
 
 	/**
-	 * Delete cache
+	 * Delete cache by name
 	 * 
 	 * @param string $name
 	 * @return bool
@@ -768,7 +782,7 @@ interface WireCacheInterface {
 	public function delete($name);
 	
 	/**
-	 * Delete all caches
+	 * Delete all caches (except those reserved by the system)
 	 *
 	 * @return int
 	 *
@@ -776,34 +790,10 @@ interface WireCacheInterface {
 	public function deleteAll();
 	
 	/**
-	 * Expire all caches
+	 * Expire all caches (except those that should never expire)
 	 *
 	 * @return int
 	 *
 	 */
 	public function expireAll();
-	
-	/**
-	 * Cache maintenance / remove expired caches
-	 *
-	 * Called as part of a regular maintenance routine and after page/template save/deletion.
-	 *
-	 * @param Template|Page|null|bool Item to run maintenance for or, if not specified, general maintenance is performed.
-	 * 	General maintenance only runs once per request. Specify boolean true to force general maintenance to run.
-	 * @return bool
-	 *
-	 */
-	public function maintenance($obj = null);
-
-	/**
-	 * Get info about caches
-	 *
-	 * @param array $options
-	 *  - `verbose` (bool): Return verbose details? (default=true)
-	 *  - `names` (array): Names of caches to return info for, or omit for all (default=[])
-	 *  - `exclude` (array): Name prefixes of caches to exclude from return value (default=[])
-	 * @return array
-	 *
-	 */
-	public function getInfo(array $options = array());
 }

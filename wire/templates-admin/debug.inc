@@ -263,17 +263,19 @@ echo
 		<?php
 		$o = ''; $oc = 0;
 		$timers = Debug::getSavedTimers();
+		$timer1 = '';
 		foreach($timers as $name => $timer) {
+			if($timer1 === '') $timer1 = $timer;
 			$o .= "<tr><th>$name</th><td>$timer</td></tr>";
 			$oc++;
 		}
 		?>
 		<div class="container">
-			<h3><a href='#'><?php echo __('Timers', __FILE__) . " <span class='ui-priority-secondary'>($oc)</span>"; ?></a></h3>
+			<h3><a href='#'><?php echo __('Timers', __FILE__) . " <span class='ui-priority-secondary'>($oc) {$timer1}s</span>"; ?></a></h3>
 			<div>
 				<table>
 					<tbody>
-					<?php echo $o; unset($o, $oc); ?>
+					<?php echo $o; unset($o, $oc, $timers, $name, $timer, $timer1); ?>
 					</tbody>
 				</table>
 				<p class='description'>To add more timers here&hellip;</p>
@@ -373,13 +375,13 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 		<?php
 		$o = '';	
 		$oc = 0;
-		foreach($cache->getInfo(true, array(), array('FileCompiler', 'Modules', 'Permissions.')) as $info) {
+		foreach($cache->getInfo(true, array(), array('FileCompiler', 'Modules', 'Permissions.'), array('name', 'expires', 'size')) as $info) {
 			$oc++;
 			$o .= "<table class=''><thead><tr><th colspan='2'>";
 			$o .= $sanitizer->entities($info['name']) . "</th></tr></thead><tbody>";
 			foreach($info as $key => $value) {
-				if($key == 'name') continue;
-				if($key == 'size') $value = wireBytesStr($value);
+				if($key === 'name' || $key === 'type') continue;
+				if($key === 'size') $value = wireBytesStr($value);
 				$key = $sanitizer->entities($key);
 				$value = $sanitizer->entities($value);
 				$o .= "<tr><th width='30%'>$key</th><td>$value</td></tr>";
@@ -390,6 +392,7 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 		<div class="container">
 			<h3><a href='#'><?php echo __('Cache') . " <span class='ui-priority-secondary'>($oc)</span>"; ?></a></h3>
 			<div>
+				<p class='detail'><?php echo $cache->getCacheModule()->className(); ?></p>
 				<?php echo $o; unset($o, $oc); ?>
 			</div>
 		</div>

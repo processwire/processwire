@@ -1662,14 +1662,15 @@ $config->modals = array(
  * This is an optimization that can reduce some database overhead. 
  *
  * @var array
+ * @deprecated No longer in use as of 3.0.218
  *
  */
 $config->preloadCacheNames = array(
-	'Modules.info',
+	//'Modules.info',
 	//'ModulesVerbose.info',
-	'ModulesVersions.info',
-	'Modules.wire/modules/',
-	'Modules.site/modules/',
+	//'ModulesVersions.info',
+	//'Modules.wire/modules/',
+	//'Modules.site/modules/',
 );
 
 /**
