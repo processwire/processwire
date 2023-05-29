@@ -1,0 +1,198 @@
+{
+  "block_formats": "Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Heading 4=h4; Heading 5=h5; Heading 6=h6;",
+  "browser_spellcheck": false,
+  "content_css": "wire",
+  "contextmenu": "pwlink unlink pwimage lists table removeformat codesample",
+  "directionality": "ltr",
+  "external_plugins": {
+    "pwimage": "{url}plugins/pwimage.js",
+    "pwlink": "{url}plugins/pwlink.js"
+  },
+  "formats": {
+    "alignleft": {
+      "selector": "p,h1,h2,h3,h4,h5,h6,td,th,div,table,img,figure,audio,video",
+      "classes": "{alignleft}"
+    },
+    "aligncenter": {
+      "selector": "p,h1,h2,h3,h4,h5,h6,td,th,div,table,img,figure,audio,video",
+      "classes": "{aligncenter}"
+    },
+    "alignright": {
+      "selector": "p,h1,h2,h3,h4,h5,h6,td,th,div,table,img,figure,audio,video",
+      "classes": "{alignright}"
+    },
+    "alignfull": {
+      "selector": "p,h1,h2,h3,h4,h5,h6,td,th,div,img,figure,audio,video",
+      "classes": "{alignfull}"
+    },
+    "bold": {
+      "inline": "strong"
+    },
+    "italic": {
+      "inline": "em"
+    },
+    "underline": {
+      "inline": "span",
+      "styles": { "text-decoration": "underline" }
+    },
+    "strikethrough": {
+      "inline": "s"
+    }
+  },
+  "height": 500,
+  "inline": false,
+  "invalid_styles": {
+    "*": "font-size font-family line-height",
+    "table": "height",
+    "tr": "height",
+    "td": "height"
+  },
+  "menu": {
+    "edit": {
+      "title": "Edit",
+      "items": "undo redo | cut copy paste pastetext | selectall | searchreplace"
+    },
+    "view": {
+      "title": "View",
+      "items": "code | visualaid visualchars visualblocks | spellchecker | preview fullscreen | showcomments"
+    },
+    "insert": {
+      "title": "Insert",
+      "items": "pwimage pwlink media addcomment pageembed template codesample inserttable | charmap emoticons hr | pagebreak nonbreaking anchor tableofcontents | insertdatetime"
+    },
+    "format": {
+      "title": "Format",
+      "items": "bold italic underline strikethrough superscript subscript codeformat | styles blocks fontfamily fontsize align lineheight | forecolor backcolor | language | removeformat"
+    },
+    "tools": {
+      "title": "Tools",
+      "items": "code wordcount print"
+    },
+    "table": {
+      "title": "Table",
+      "items": "inserttable | cell row column | advtablesort | tableprops deletetable"
+    },
+    "help": {
+      "title": "Help",
+      "items": "help"
+    }
+  },
+  "menubar": "edit view insert format table tools help",
+  "paste_tab_spaces": 2,
+  "plugins": "anchor code link lists pwimage pwlink table",
+  "promotion": false,
+  "readonly": false,
+  "relative_urls": false,
+  "remove_script_host": true,
+  "removed_menuitems": "newdocument fontfamily fontsize lineheight forecolor backcolor",
+  "skin": "oxide",
+  "statusbar": true,
+  "style_formats": [
+    {
+      "title": "Headings",
+      "items": [
+        {
+          "title": "Heading 1",
+          "format": "h1"
+        },
+        {
+          "title": "Heading 2",
+          "format": "h2"
+        },
+        {
+          "title": "Heading 3",
+          "format": "h3"
+        },
+        {
+          "title": "Heading 4",
+          "format": "h4"
+        },
+        {
+          "title": "Heading 5",
+          "format": "h5"
+        },
+        {
+          "title": "Heading 6",
+          "format": "h6"
+        }
+      ]
+    },
+    {
+      "title": "Inline",
+      "items": [
+        {
+          "title": "Bold",
+          "format": "bold"
+        },
+        {
+          "title": "Italic",
+          "format": "italic"
+        },
+        {
+          "title": "Underline",
+          "format": "underline"
+        },
+        {
+          "title": "Strikethrough",
+          "format": "strikethrough"
+        },
+        {
+          "title": "Superscript",
+          "format": "superscript"
+        },
+        {
+          "title": "Subscript",
+          "format": "subscript"
+        },
+        {
+          "title": "Code",
+          "format": "code"
+        }
+      ]
+    },
+    {
+      "title": "Blocks",
+      "items": [
+        {
+          "title": "Paragraph",
+          "format": "p"
+        },
+        {
+          "title": "Blockquote",
+          "format": "blockquote"
+        },
+        {
+          "title": "Pre",
+          "format": "pre"
+        }
+      ]
+    },
+    {
+      "title": "Align",
+      "items": [
+        {
+          "title": "Left",
+          "format": "alignleft"
+        },
+        {
+          "title": "Center",
+          "format": "aligncenter"
+        },
+        {
+          "title": "Right",
+          "format": "alignright"
+        },
+        {
+          "title": "Justify",
+          "format": "alignfull"
+        }
+      ]
+    }
+  ],
+  "table_appearance_options": false,
+  "table_advtab": false,
+  "table_cell_advtab": false,
+  "table_row_advtab": false,
+  "toolbar": "styles bold italic pwlink pwimage blockquote hr bullist numlist table anchor code",
+  "toolbar_sticky": true
+}

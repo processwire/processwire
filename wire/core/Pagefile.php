@@ -1511,4 +1511,3 @@ class Pagefile extends WireData implements WireArrayItem {
 		return $info;
 	}
 }
-

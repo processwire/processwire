@@ -1,18 +1,18 @@
 $(document).ready(function() {
 
 	$("#select_parent_submit").hide();
-	$("#select_parent_id").change(function() {
+	$("#select_parent_id").on('change', function() {
 		var val = $(this).val();
-		if(val > 0) $("#select_parent_submit").click();
+		if(val > 0) $("#select_parent_submit").trigger('click');
 	});	
 
 	var submitted = false;
-	$("#ProcessPageAdd").submit(function() {
+	$("#ProcessPageAdd").on('submit', function() {
 		if(submitted) return false;
 		submitted = true;
 	});
 	
-	$("#template").change(function() {
+	$("#template").on('change', function() {
 		var $t = $(this);
 		var val = $t.val();
 		var showPublish = false; 
@@ -33,7 +33,7 @@ $(document).ready(function() {
 				$button2.fadeOut();
 			}
 		}
-	}).change();
+	}).trigger('change');
 
 	var existsTimer = null;	
 	var existsName = '';
@@ -66,7 +66,7 @@ $(document).ready(function() {
 		}
 	}
 	
-	$("#Inputfield_title, #Inputfield__pw_page_name").keyup(function(e) {
+	$("#Inputfield_title, #Inputfield__pw_page_name").on('keyup', function(e) {
 		if(existsTimer) clearTimeout(existsTimer);
 		existsTimer = setTimeout(function() { checkExists(); }, 250); 
 	}); 
@@ -75,14 +75,14 @@ $(document).ready(function() {
 	// we hide language tabs/inputs when such a template is selected
 	if($(".langTabs").length) {
 		var $template = $('#template');
-		$template.change(function() {
+		$template.on('change', function() {
 			var $option = $(this).find("option[value='" + $(this).val() + "']");
 			if(parseInt($option.attr('data-nolang')) > 0) {
 				hideLanguageTabs();
 			} else {
 				unhideLanguageTabs();
 			}
-		}).change();
+		}).trigger('change');
 		var noLang = $template.attr('data-nolang');
 		if(typeof noLang !== 'undefined' && parseInt(noLang) > 0) {
 			hideLanguageTabs();

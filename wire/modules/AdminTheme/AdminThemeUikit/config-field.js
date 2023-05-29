@@ -123,11 +123,11 @@ function initAdminThemeUikitColumnWidth() {
 		example.trigger('showInputfield', [ example[0] ]);
 	}); 
 	
-	$columnWidth.change();
+	$columnWidth.trigger('change');
 }
 
 $(document).ready(function() {
-	$('#_adminTheme').find('input[type=radio],input[type=checkbox]').change(function() {
+	$('#_adminTheme').find('input[type=radio],input[type=checkbox]').on('change', function() {
 		updateAdminThemeUikitExample();
 	});
 	updateAdminThemeUikitExample();

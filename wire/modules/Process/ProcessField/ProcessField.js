@@ -1,11 +1,12 @@
 $(document).ready(function() {
 	
 	var fieldFilterFormChange = function() {
-		$("#field_filter_form").submit();
+		$("#field_filter_form").trigger('submit');
 	}; 
-	$("#templates_id").change(fieldFilterFormChange); 
-	$("#fieldtype").change(fieldFilterFormChange); 
-	$("#wrap_show_system input").click(fieldFilterFormChange); 
+	
+	$("#templates_id").on('change', fieldFilterFormChange); 
+	$("#fieldtype").on('change', fieldFilterFormChange); 
+	$("#wrap_show_system input").on('click', fieldFilterFormChange); 
 
 	var $asmListItemStatus = $("#asmListItemStatus"); 
 	
@@ -29,8 +30,8 @@ $(document).ready(function() {
 		$asmListItemStatus.val(tpl);
 	}
 	
-	$("#Inputfield_showIf").change(setAsmListItemStatus);
-	$("#Inputfield_required").change(setAsmListItemStatus);
+	$("#Inputfield_showIf").on('change', setAsmListItemStatus);
+	$("#Inputfield_required").on('change', setAsmListItemStatus);
 	setAsmListItemStatus();
 
 	$('.columnWidthInput').each(function() {
@@ -56,7 +57,7 @@ $(document).ready(function() {
 		// $("#asmListItemStatus").val($columnWidth.val());
 
 		// update the slider if the columnWidth field is changed manually	
-		$columnWidth.change(function() {
+		$columnWidth.on('change', function() {
 			var val = parseInt($(this).val());
 			if(val > 100) val = 100;
 			if(val < 10) val = 10;
@@ -73,11 +74,11 @@ $(document).ready(function() {
 			items: $(".Inputfields li.WireTab"),
 			id: 'FieldEditTabs',
 			skipRememberTabIDs: ['delete']
-			});
+		});
 	}
 
 	// change fieldgroup context
-	$("#fieldgroupContextSelect").change(function() {
+	$("#fieldgroupContextSelect").on('change', function() {
 		var field_id = $("#Inputfield_id").val();	
 		var fieldgroup_id = $(this).val();
 		var href = './edit?id=' + field_id;
@@ -85,14 +86,14 @@ $(document).ready(function() {
 		window.location = href; 
 	});
 	
-	$("a.fieldFlag").click(function() { 
+	$("a.fieldFlag").on('click', function() { 
 		if($(this).attr('href') === '#') return false; 
 	});
 
-	$("#export_data").click(function() { $(this).select(); });
+	$("#export_data").on('click', function() { $(this).select(); });
 
 	// export and import functions	
-	$(".import_toggle input[type=radio]").change(function() {
+	$(".import_toggle input[type=radio]").on('change', function() {
 		var $table = $(this).parents('p.import_toggle').next('table');
 		var $fieldset = $(this).closest('.InputfieldFieldset'); 
 		if($(this).is(":checked") && $(this).val() == 0) {
@@ -102,25 +103,25 @@ $(document).ready(function() {
 			$table.show();
 			$fieldset.removeClass('ui-priority-secondary');
 		}
-	}).change();
+	}).trigger('change');
 
 	// allow processInput to ignore this field when applicable
-	$("#wrap_Inputfield_send_templates").find(":input").change(function() {
+	$("#wrap_Inputfield_send_templates").find(":input").on('change', function() {
 		$("#_send_templates_changed").val('changed'); 
 	});
 
 	// setup access control tab
-	$("#viewRoles_37").click(function() {
+	$("#viewRoles_37").on('click', function() {
 		// if guest has view, then all have view
 		// if($(this).is(":checked")) $("input.viewRoles").attr('checked', 'checked'); // JQM
 		if($(this).is(":checked")) $("input.viewRoles").prop('checked', true);
 	});
-	$("input.viewRoles:not(#viewRoles_37)").click(function() {
+	$("input.viewRoles:not(#viewRoles_37)").on('click', function() {
 		// prevent unchecking 'view' for other roles when 'guest' role is checked
 		if($("#viewRoles_37").is(":checked")) return false;
 		return true;
 	});
-	$("input.editRoles:not(:disabled)").click(function() {
+	$("input.editRoles:not(:disabled)").on('click', function() {
 		if($(this).is(":checked")) {
 			// if editable is checked, then viewable must also be checked
 			// $(this).closest('tr').find("input.viewRoles").attr('checked', 'checked'); // JQM
@@ -129,7 +130,7 @@ $(document).ready(function() {
 	}); 
 
 	// select-all link for overrides tab
-	$(".override-select-all").click(function() {
+	$(".override-select-all").on('click', function() {
 		var $checkboxes = $(this).closest('table').find("input[type=checkbox]");
 		if($(this).hasClass('override-checked')) {
 			// $checkboxes.removeAttr('checked'); // JQM

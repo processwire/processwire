@@ -39,7 +39,7 @@ class PagesEditor extends Wire {
 		$this->pages = $pages;
 
 		$config = $pages->wire()->config;
-		if($config->dbStripMB4 && strtolower($config->dbEngine) != 'utf8mb4') {
+		if($config->dbStripMB4 && strtolower($config->dbCharset) != 'utf8mb4') {
 			$this->addHookAfter('Fieldtype::sleepValue', $this, 'hookFieldtypeSleepValueStripMB4');
 		}
 	}
@@ -363,7 +363,7 @@ class PagesEditor extends Wire {
 
 		// assign sort order
 		if($page->sort < 0) {
-			$page->sort = $page->parent->numChildren();
+			$page->sort = ($parent->id ? $parent->numChildren() : 0);
 		}
 
 		// assign any default values for fields

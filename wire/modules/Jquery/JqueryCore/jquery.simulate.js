@@ -52,8 +52,8 @@ $.extend($.simulate.prototype, {
 		}, options);
 
 		var relatedTarget = $(e.relatedTarget)[0];
-
-		if ($.isFunction(document.createEvent)) {
+		
+		if (typeof document.createEvent === 'function') {
 			evt = document.createEvent("MouseEvents");
 			evt.initMouseEvent(type, e.bubbles, e.cancelable, e.view, e.detail,
 				e.screenX, e.screenY, e.clientX, e.clientY,
@@ -73,8 +73,8 @@ $.extend($.simulate.prototype, {
 			ctrlKey: false, altKey: false, shiftKey: false, metaKey: false,
 			keyCode: 0, charCode: 0
 		}, options);
-
-		if ($.isFunction(document.createEvent)) {
+		
+		if (typeof document.createEvent === 'function') {
 			try {
 				evt = document.createEvent("KeyEvents");
 				evt.initKeyEvent(type, e.bubbles, e.cancelable, e.view,
@@ -92,10 +92,12 @@ $.extend($.simulate.prototype, {
 			evt = document.createEventObject();
 			$.extend(evt, e);
 		}
+		/*
 		if ($.browser.msie || $.browser.opera) {
 			evt.keyCode = (e.charCode > 0) ? e.charCode : e.keyCode;
 			evt.charCode = undefined;
 		}
+		*/
 		return evt;
 	},
 

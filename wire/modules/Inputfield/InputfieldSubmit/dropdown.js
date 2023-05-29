@@ -67,10 +67,10 @@ var InputfieldSubmitDropdown = {
 		if(!$button) return true;
 		
 		// if any inputs are currently focused, blur them
-		$(":input:focus").blur();
+		$(":input:focus").trigger('blur');
 	
 		// click the button
-		$button.click();
+		$button.trigger('click');
 		
 		InputfieldSubmitDropdown.itemClicked = false;
 
@@ -113,7 +113,7 @@ var InputfieldSubmitDropdown = {
 		$dropdown.data('pw-button', $mainButton);
 
 		var $buttonText = $mainButton.find('.ui-button-text');
-		var labelText = $.trim($buttonText.text());
+		var labelText = $buttonText.text().trim();
 		var labelHTML = $buttonText.html();
 
 		$dropdown.find('a').each(function() {
@@ -122,25 +122,9 @@ var InputfieldSubmitDropdown = {
 				var html = $a.html();
 				if(html.indexOf('%s') > -1) $a.html(html.replace('%s', labelText));
 			}
-			$a.click(InputfieldSubmitDropdown.click);
+			$a.on('click', InputfieldSubmitDropdown.click);
 		});
 		
-		/*
-		 // add first item to be same as default button action
-		 var $li = $('<li></li>');
-		 var $a = $('<a></a>').attr('href', '#default').append(labelHTML).addClass('pw-button-dropdown-default');
-		 $a.click(pwButtonDropdownClick);
-		 var $icon = $a.find('i');
-
-		 if(!$icon.length) {
-		 $icon = "<i class='fa fa-fw fa-check-square'></i>&nbsp;";
-		 $a.prepend($icon);
-		 } else {
-		 $icon.addClass('fa-fw');
-		 }
-		 $dropdown.prepend($li.append($a));
-		 */
-
 		$mainButton.addClass('pw-button-dropdown-main');
 		$toggleButton.after($dropdown)
 			.addClass('pw-dropdown-toggle-click pw-dropdown-toggle pw-button-dropdown-toggle')
@@ -148,7 +132,7 @@ var InputfieldSubmitDropdown = {
 		if($mainButton.hasClass('ui-priority-secondary')) $toggleButton.addClass('ui-priority-secondary');
 		if($mainButton.hasClass('pw-head-button')) $toggleButton.addClass('pw-head-button');
 
-		$toggleButton.click(function() {
+		$toggleButton.on('click', function() {
 			return false;
 		}).on('pw-button-dropdown-off', function() {
 			$(this).siblings('.pw-button-dropdown-main')

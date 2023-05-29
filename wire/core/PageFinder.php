@@ -2775,8 +2775,8 @@ class PageFinder extends Wire {
 				// parentIDs or IDs found via another query, and we don't need to match anything other than the parent ID
 				$in = $not ? "NOT IN" : "IN";
 				$sql .= in_array($field, array('parent', 'parent_id')) ? "$table.parent_id " : "$table.id ";
-				$IDs = $sanitizer->intArray($IDs);
-				$strIDs = implode(',', $IDs);
+				$IDs = $sanitizer->intArray($IDs, array('strict' => true));
+				$strIDs = count($IDs) ? implode(',', $IDs) : '-1';
 				$sql .= "$in($strIDs)";
 				if($subfield === 'sort') $query->orderby("FIELD($table.id, $strIDs)");
 				unset($strIDs);

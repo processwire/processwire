@@ -32,24 +32,24 @@ var ProcessWireAdminTheme = {
 
 		$(document).on('wiretabclick opened', function(e) {
 			$('body').addClass('pw-fake-resize');
-			$(window).resize(); // force Uikit to update grid
+			$(window).trigger('resize'); // force Uikit to update grid
 			setTimeout(function() { $('body').removeClass('pw-fake-resize'); }, 100);
 		});
 		
-		$('a.notice-remove', '#notices').click(function() {
+		$('a.notice-remove', '#notices').on('click', function() {
 			$('#notices').slideUp('fast', function() { $(this).remove(); });
 			return false;
 		});
 		
-		$('a.pw-logo-link').click(this.logoClickEvent);
+		$('a.pw-logo-link').on('click', this.logoClickEvent);
 		
-		$('#_ProcessPageEditView').click(function(e) {
+		$('#_ProcessPageEditView').on('click', function(e) {
 			// Uikit tab blocks this link, so this allows it through
 			e.stopPropagation();
 		});
 	
 		var resizeTimer = null;
-		$(window).resize(function() {
+		$(window).on('resize', function() {
 			if(resizeTimer) return;
 			resizeTimer = setTimeout(function() {
 				ProcessWireAdminTheme.windowResized();
@@ -108,7 +108,7 @@ var ProcessWireAdminTheme = {
 		var $header = null;
 		var $inputfield = null;
 		if($newTabContent.hasClass('InputfieldWrapper')) {
-			$inputfield = $newTabContent.children('.Inputfields').children('.Inputfield:eq(0)')
+			$inputfield = $newTabContent.children('.Inputfields').children('.Inputfield').first();
 			$header = $inputfield.children('.InputfieldHeader');
 		} else if($newTabContent.hasClass('Inputfield')) {
 			$inputfield = $newTabContent;
@@ -249,8 +249,8 @@ var ProcessWireAdminTheme = {
 					.attr('id', $t.attr('id') + '_copy')
 					.addClass('pw-head-button'); // if not already present
 				
-				$button.click(function() {
-					$("#" + $(this).attr('data-from_id')).click(); // .parents('form').submit();
+				$button.on('click', function() {
+					$("#" + $(this).attr('data-from_id')).trigger('click'); 
 					return false;
 				});
 				
@@ -335,7 +335,7 @@ var ProcessWireAdminTheme = {
 				position.at = 'left bottom';
 			}
 			
-			$input.click(function(event) {
+			$input.on('click', function(event) {
 				// for offcanvas search input, prevents closure of sidebar
 				event.stopPropagation();
 			});
@@ -393,10 +393,10 @@ var ProcessWireAdminTheme = {
 						}
 					}
 				}
-			}).focus(function() {
+			}).on('focus', function() {
 				// $(this).siblings('label').find('i').hide(); // hide icon
 				setTimeout(function() { $input.attr('placeholder', $input.attr('data-help-note')); }, 1250); 
-			}).blur(function() {
+			}).on('blur', function() {
 				$input.attr('placeholder', '');
 				// $status.text('');
 				// $(this).siblings('label').find('i').show(); // show icon
@@ -563,7 +563,7 @@ var ProcessWireAdminTheme = {
 		function identifyFirstLastRows($inputfields) {
 			$(".InputfieldRowFirst", $inputfields).removeClass("InputfieldRowFirst");
 			$(".InputfieldRowLast", $inputfields).removeClass("InputfieldRowLast");
-			var $in = $inputfields.children(".Inputfield:not(.InputfieldStateHidden):eq(0)");
+			var $in = $inputfields.children(".Inputfield:not(.InputfieldStateHidden)").first();
 			if(!$in.length) return; 
 			do {
 				$in.addClass('InputfieldRowFirst');
@@ -893,7 +893,6 @@ var ProcessWireAdminTheme = {
 				toggleSidebarPane();
 			} else {
 				// show offcanvas nav
-				// $('#pw-admin-main')[0].contentWindow.jQuery('#offcanvas-toggle').click();
 				UIkit.toggle('#offcanvas-nav').toggle();
 			}
 		} else if(ProcessWire.config.adminTheme.logoAction == 1) {
@@ -908,4 +907,3 @@ var ProcessWireAdminTheme = {
 $(document).ready(function() {
 	ProcessWireAdminTheme.ready();
 });
-

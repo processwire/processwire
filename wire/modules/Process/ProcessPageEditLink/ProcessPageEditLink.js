@@ -103,27 +103,27 @@ $(document).ready(function() {
 			selectedPageData = data;
 			selectedPageData.url = ProcessWire.config.urls.root + data.url.substring(1);
 			selectedPageData.url = absoluteToRelativePath(selectedPageData.url); 
-			$linkPageURL.val(selectedPageData.url).change();
+			$linkPageURL.val(selectedPageData.url).trigger('change');
 			populateFileSelect(selectedPageData); // was: if($fileSelect.is(":visible")) { ... }
 		}
 
-		$(this).parents(".InputfieldInteger").children(".InputfieldHeader").click() // to close the field
+		$(this).parents(".InputfieldInteger").children(".InputfieldHeader").trigger('click') // to close the field
 			.parent().find('.PageListSelectHeader').removeClass('hidden').show(); // to open the pagelist select header so it can be re-used if the field is opened again
 		
 	}
 	
-	$("#link_page_id").ProcessPageList(options).hide().bind('pageSelected', pageSelected);
-	$("#child_page_id").ProcessPageList(options2).hide().bind('pageSelected', pageSelected); 
+	$("#link_page_id").ProcessPageList(options).hide().on('pageSelected', pageSelected);
+	$("#child_page_id").ProcessPageList(options2).hide().on('pageSelected', pageSelected); 
 
-	$fileSelect.change(function() {
+	$fileSelect.on('change', function() {
 		var $t = $(this);
 		var src = $t.val();
-		if(src.length) $linkPageURL.val(src).change();
+		if(src.length) $linkPageURL.val(src).trigger('change');
 	}); 
 	
 	if($anchorSelect.length) {
 		var anchorPreviousValue = $anchorSelect.val();
-		$anchorSelect.change(function () {
+		$anchorSelect.on('change', function() {
 			var val = $(this).val();
 			if(val.length) {
 				// populated anchor value
@@ -134,10 +134,10 @@ $(document).ready(function() {
 				// make URL field blank only if present value is the same as a previously selected anchor value
 				if($linkPageURL.val() == anchorPreviousValue) $linkPageURL.val('');
 			}
-			$linkPageURL.change();
+			$linkPageURL.trigger('change');
 		});
 		// de-select anchor when URL is changed to something other than an ahcor
-		// $linkPageURL.change(function() {
+		// $linkPageURL.on('change', function() {
 		// }); 
 	}
 
@@ -166,7 +166,7 @@ $(document).ready(function() {
 		}
 
 		var $linkRel = $("#link_rel"); 
-		if($linkRel.length && $linkRel.val().length) {
+		if($linkRel.length && $linkRel.val() && $linkRel.val().length) {
 			$link.attr('rel', $linkRel.val()); 
 		}
 		
@@ -188,7 +188,7 @@ $(document).ready(function() {
 	function urlKeydown() {
 		
 		var $this = $linkPageURL;
-		var val = $.trim($this.val());
+		var val = ProcessWire.trim($this.val());
 		var dotpos = val.indexOf('.');
 		var slashespos = val.indexOf('//');
 		var hasScheme = slashespos > -1 && slashespos < dotpos;
@@ -230,7 +230,7 @@ $(document).ready(function() {
 		}
 		
 		if(hasScheme) {
-			if (slashpos == -1) slashpos = val.length;
+			if(slashpos == -1) slashpos = val.length;
 			httpHost = (slashespos > -1 ? val.substring(slashespos + 2, slashpos) : val.substring(0, slashpos));
 			$this.attr('data-httphost', httpHost);
 		} else {
@@ -258,55 +258,64 @@ $(document).ready(function() {
 		var extLinkIcon = 'fa-external-link';
 		var emailIcon = 'fa-envelope-o';
 		var anchorIcon = 'fa-flag-o';
-		var allIcons = primaryIcon + ' ' + extLinkIcon + ' ' + emailIcon + ' ' + anchorIcon; 
+		var allIcons = primaryIcon + ' ' + extLinkIcon + ' ' + emailIcon + ' ' + anchorIcon;
+		var extLinkClass = cfg.extLinkClass;
+		var extLinkClassAll = extLinkClass.replace(' ', '_'); 
+		var extLinkClasses = extLinkClass.indexOf(' ') > -1 ? extLinkClass.split(' ') : [ extLinkClass ];
+		var extLinkRel = cfg.extLinkRel;
+		var extLinkTarget = cfg.extLinkTarget;
 		
 		if(external) {
-			if (!$this.hasClass('external-link')) {
+			if(!$this.hasClass('external-link')) {
 				icon().removeClass(allIcons).addClass(extLinkIcon);
 				$this.addClass('external-link');
-				var extLinkTarget = cfg.extLinkTarget;
-				if (extLinkTarget.length > 0) {
-					$("#link_target").val(extLinkTarget);
-				}
-				var extLinkRel = cfg.extLinkRel;
-				if (extLinkRel.length > 0) {
-					$("#link_rel").val(extLinkRel);
-				}
-				var extLinkClass = cfg.extLinkClass;
-				if (extLinkClass.length > 0) {
-					extLinkClass = extLinkClass.split(' ');
-					for(n = 0; n < extLinkClass.length; n++) {
-						// $("#link_class_" + extLinkClass[n]).attr('checked', 'checked'); // JQM
-						$("#link_class_" + extLinkClass[n]).prop('checked', true);
+				if(extLinkTarget.length > 0) $("#link_target").val(extLinkTarget);
+				if(extLinkRel.length > 0) $("#link_rel").val(extLinkRel);
+				if(extLinkClasses.length > 0) {
+					if(extLinkClasses.length > 1) {
+						$("#link_class_" + extLinkClassAll).prop('checked', true); // all classes in 1 option
+					}
+					for(n = 0; n < extLinkClasses.length; n++) {
+						$("#link_class_" + extLinkClasses[n]).prop('checked', true);
 					}
 				}
 			}
 		} else {
-			$this.removeClass('external-link');
+			if($this.hasClass('external-link')) {
+				// was previously an external link but no longer is
+				$this.removeClass('external-link');
+				if(extLinkRel.length) $('#link_rel').val('');
+				if(extLinkTarget.length) $('#link_target').val('');
+				$("#link_class_" + extLinkClassAll).prop('checked', false); // all classes in 1 option
+				for(n = 0; n < extLinkClasses.length; n++) {
+					$("#link_class_" + extLinkClasses[n]).prop('checked', false);
+				}
+			}
+			var $icon = icon();
 			if($this.hasClass('email')) {
-				if (!icon().hasClass(emailIcon)) icon().removeClass(allIcons).addClass(emailIcon);
+				if(!$icon.hasClass(emailIcon)) $icon.removeClass(allIcons).addClass(emailIcon);
 			} else if($this.hasClass('anchor')) {
-				if (!icon().hasClass(anchorIcon)) icon().removeClass(allIcons).addClass(anchorIcon);
+				if(!$icon.hasClass(anchorIcon)) $icon.removeClass(allIcons).addClass(anchorIcon);
 			} else if(!$this.hasClass(primaryIcon)) {
-				icon().removeClass(allIcons).addClass(primaryIcon);
+				$icon.removeClass(allIcons).addClass(primaryIcon);
 			}
 		}
 		updateLinkPreview();
 	}
 	
 	var urlKeydownTimer = null;
-	$linkPageURL.focus().keydown(function(event) {
+	$linkPageURL.trigger('focus').on('keydown', function(event) {
 		if(urlKeydownTimer) clearTimeout(urlKeydownTimer); 
 		urlKeydownTimer = setTimeout(function() { urlKeydown(); }, 500); 
 	});
 	
-	$linkPageURL.change(function() {
+	$linkPageURL.on('change', function() {
 		var val = $(this).val();
 		if($anchorSelect.length) {
 			if(val.substring(0, 1) == '#') {
 				var found = '';
-				$anchorSelect.children('option').each(function () {
-					if ($(this).attr('value') == val) found = val;
+				$anchorSelect.children('option').each(function() {
+					if($(this).attr('value') == val) found = val;
 				});
 				$anchorSelect.val(found);
 			} else if($anchorSelect.val().length) {
@@ -318,22 +327,22 @@ $(document).ready(function() {
 	}); 
 	
 	setTimeout(function() {
-		$linkPageURL.change();
-		$linkText.change();
+		$linkPageURL.trigger('change');
+		$linkText.trigger('change');
 	}, 250); 
 	
-	$(":input").change(updateLinkPreview);
-	$("#link_title").keydown(function(event) { updateLinkPreview(); });
-	$linkText.keyup(function(event) { updateLinkPreview(); });
+	$(":input").on('change', updateLinkPreview);
+	$("#link_title").on('keydown', function(event) { updateLinkPreview(); });
+	$linkText.on('keyup', function(event) { updateLinkPreview(); });
 
 	// when header is clicked, open up the pageList right away
-	$(".InputfieldInteger .InputfieldHeader").click(function() {
+	$(".InputfieldInteger .InputfieldHeader").on('click', function() {
 
 		var $t = $(this);
 		var $toggle = $t.parent().find(".PageListSelectActionToggle");
 		var $pageSelectHeader = $toggle.parents('.PageListSelectHeader'); 
 
-		if($pageSelectHeader.is(".hidden")) {
+		if($pageSelectHeader.is('.hidden')) {
 			// we previously hid the pageSelectHeader since it's not necessary in this context
 			// so, we can assume the field is already open, and is now being closed
 			return true; 
@@ -343,7 +352,7 @@ $(document).ready(function() {
 		$pageSelectHeader.addClass('hidden').hide();
 
 		// automatically open the PageListSelect
-		setTimeout(function() { $toggle.click(); }, 250); 
+		setTimeout(function() { $toggle.trigger('click'); }, 250); 
 		return true; 
 	});
 
@@ -356,6 +365,6 @@ $(document).ready(function() {
 	}
 
 	setTimeout(function() {
-		$('#link_page_url_input').focus();
+		$('#link_page_url_input').trigger('focus');
 	}, 250); 
 }); 

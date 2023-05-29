@@ -186,7 +186,7 @@ $(document).ready(function() {
 					/*
 					// longclick to initiate sort, still marinating on whether to support this
 					$(document).on('longclick', 'a.PageListPage', function() {
-						$(this).parent().find('.PageListActionMove > a').click();
+						$(this).parent().find('.PageListActionMove > a').trigger('click');
 					});
 					*/
 				}
@@ -251,7 +251,7 @@ $(document).ready(function() {
 				$outer.on('mouseover', '.PageListItem', function(e) {
 
 					if($root.is(".PageListSorting") || $root.is(".PageListSortSaving")) return;
-					if(!$(this).children('a:first').is(":hover")) return;
+					if(!$(this).children('a').first().is(":hover")) return;
 					
 					$hoveredItem = $(this);
 					//console.log('pageX=' + e.pageX);
@@ -268,7 +268,7 @@ $(document).ready(function() {
 					
 					hoverTimeout = setTimeout(function() {
 						if($hoveredItem.attr('class') == $item.attr('class')) {
-							if(!$hoveredItem.children('a:first').is(":hover")) return;
+							if(!$hoveredItem.children('a').first().is(":hover")) return;
 							var $hideItems = $outer.find(".PageListItemHover");
 							showItem($hoveredItem);
 							$hideItems.each(function() { hideItem($(this)); });
@@ -307,7 +307,7 @@ $(document).ready(function() {
 					.addClass("PageListSelectActionToggleStart")
 					.attr('href', '#')
 					.text(options.selectStartLabel)
-					.click(function() {
+					.on('click', function() {
 
 						if($(this).text() == options.selectStartLabel) {
 							loadChildren(options.rootPageID > 0 ? options.rootPageID : 1, $root, 0, true); 
@@ -462,7 +462,7 @@ $(document).ready(function() {
 
 				if(firstPagination > 0) {
 					$firstItem = $blankItem.clone();
-					$firstItem.find("a").text("1").attr('href', '0').click(paginationClick); 
+					$firstItem.find("a").text("1").attr('href', '0').on('click', paginationClick); 
 					$list.prepend($separator.clone()).prepend($firstItem); 
 				}
 
@@ -479,10 +479,10 @@ $(document).ready(function() {
 					$list.prepend($prevBtn); 
 				}
 
-				$list.find("a").click(paginationClick)
-					.hover(function() { 
+				$list.find("a").on('click', paginationClick)
+					.on('mouseenter', function() { 
 						$(this).addClass(options.paginationHoverClass); 
-					}, function() { 
+					}).on('mouseleave', function() { 
 						$(this).removeClass(options.paginationHoverClass); 
 					}); 
 
@@ -523,7 +523,7 @@ $(document).ready(function() {
 					}
 
 					if(data.page.numChildren > nextStart) {
-						var $a = $("<a></a>").attr('href', nextStart).data('pageId', id).text(options.moreLabel).click(clickMore); 
+						var $a = $("<a></a>").attr('href', nextStart).data('pageId', id).text(options.moreLabel).on('click', clickMore); 
 						$children.append($("<ul></ul>").addClass('PageListActions actions').append($("<li></li>").addClass('PageListActionMore').append($a)));
 					}
 					if(pagination && (data.page.numChildren > nextStart || data.start > 0)) {
@@ -579,12 +579,12 @@ $(document).ready(function() {
 					if(options.openPagination > 1) {
 						//var $a = $(".PageListPagination" + (options.openPagination-1) + ">a");
 						var $a = $(".PageListPagination a[href=" + (options.openPagination-1) + "]");
-						if($a.size() > 0) {
-							$a.click();	
+						if($a.length > 0) {
+							$a.trigger('click');	
 							options.openPagination = 0;
 						} else {
 							// last pagination link
-							$(".PageListPagination9 a").click();
+							$(".PageListPagination9 a").trigger('click');
 						}
 					}
 					*/
@@ -674,10 +674,10 @@ $(document).ready(function() {
 				if(typeof reloadNow != "undefined" && reloadNow) {
 					var $a = $pageListItem.children('a.PageListPage');
 					if($pageListItem.hasClass('PageListItemOpen')) {
-						$a.click();
-						setTimeout(function() { $a.click(); }, 250);
+						$a.trigger('click');
+						setTimeout(function() { $a.trigger('click'); }, 250);
 					} else {
-						$a.click();
+						$a.trigger('click');
 					}
 				}
 			}
@@ -689,11 +689,11 @@ $(document).ready(function() {
 			 */
 			function addClickEvents($ul) {
 
-				$("a.PageListPage", $ul).click(clickChild);
+				$("a.PageListPage", $ul).on('click', clickChild);
 				$ul.on('click', '.PageListActionMove a', clickMove); 
-				// $(".PageListActionMove a", $ul).click(clickMove);
-				$(".PageListActionSelect a", $ul).click(clickSelect);
-				$(".PageListTriggerOpen:not(.PageListID1) > a.PageListPage", $ul).click();
+				// $(".PageListActionMove a", $ul).on('click', clickMove);
+				$(".PageListActionSelect a", $ul).on('click', clickSelect);
+				$(".PageListTriggerOpen:not(.PageListID1) > a.PageListPage", $ul).trigger('click');
 				$(".PageListActionExtras > a:not(.clickExtras)", $ul).addClass('clickExtras').on('click', clickExtras);
 				
 				// if(options.useHoverActions) $(".PageListActionExtras > a", $ul).on('mouseover', clickExtras);
@@ -949,7 +949,7 @@ $(document).ready(function() {
 					/*
 					if(extra.cn == 'Trash') {
 						// handler for trash action
-						$extraLink.click(function() {
+						$extraLink.on('click', function() {
 							trashPage($li);
 							return false;
 						});
@@ -958,7 +958,7 @@ $(document).ready(function() {
 					*/
 					if(typeof extra.ajax != "undefined" && extra.ajax == true) {
 						// ajax action
-						$extraLink.click(function () {
+						$extraLink.on('click', function () {
 							
 							$li.find('.PageListActions').hide();
 							var $spinner = $(options.spinnerMarkup);
@@ -1108,7 +1108,7 @@ $(document).ready(function() {
 						if($collapseItems.length) {
 							// collapse all open items, except homepage, when homepage link is collapsed
 							$root.find('.PageListItemOpen:not(.PageListID1)').each(function() {
-								$(this).children('a.PageListPage').click();
+								$(this).children('a.PageListPage').trigger('click');
 							});
 							collapseThis = false;
 						}
@@ -1253,8 +1253,7 @@ $(document).ready(function() {
 				
 				var $li = $t.parent('li').parent('ul.PageListActions').parent('.PageListItem'); 
 
-				// $li.children(".PageListPage").click(); 
-				if($li.hasClass("PageListItemOpen")) $li.children(".PageListPage").click(); // @somatonic PR163
+				if($li.hasClass("PageListItemOpen")) $li.children(".PageListPage").trigger('click'); // @somatonic PR163
 
 				// make an invisible PageList placeholder that allows 'move' action to create a child below this
 				$root.find('.PageListItemOpen').each(function() {
@@ -1282,7 +1281,7 @@ $(document).ready(function() {
 
 				var $sortRoot = $root.children('.PageList').children('.PageList');
 
-				var $cancelLink = $("<a href='#'>" + options.selectCancelLabel + "</a>").click(function() { 
+				var $cancelLink = $("<a href='#'>" + options.selectCancelLabel + "</a>").on('click', function() { 
 					return cancelMove($li); 
 				});
 				
@@ -1330,7 +1329,7 @@ $(document).ready(function() {
 				var $trash = $root.find('.PageListID' + options.trashPageID);
 				if(!$trash.hasClass('PageListItemOpen')) {
 					$root.removeClass('PageListSorting'); 
-					$trash.children('a').click();
+					$trash.children('a').trigger('click');
 					$root.addClass('PageListSorting'); 
 				}
 				var $trashList = $trash.next('.PageList');
@@ -1475,7 +1474,7 @@ $(document).ready(function() {
 					title = '';
 				}
 
-				if(id != $container.val()) $container.val(id).change();
+				if(id != $container.val()) $container.val(id).trigger('change');
 
 				if(options.selectShowPageHeader) { 
 					$header.children(".PageListSelectName").text(title); 
@@ -1491,7 +1490,7 @@ $(document).ready(function() {
 				}); 	
 
 				if(!options.selectMultiple) {
-					$header.find(".PageListSelectActionToggle").click(); // close the list
+					$header.find(".PageListSelectActionToggle").trigger('click'); // close the list
 				}
 
 				// jump to specified anchor, if provided
@@ -1506,4 +1505,3 @@ $(document).ready(function() {
 		}); 
 	};
 })(jQuery); 
-

@@ -8,7 +8,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Holds ProcessWire configuration settings as defined in /wire/config.php and /site/config.php. 
@@ -192,6 +192,25 @@
  * @property int $externalPageID Page ID of page assigned to $page API variable when externally bootstrapped #pw-group-system-IDs
  * @property array $preloadPageIDs Page IDs of pages that will always be preloaded at beginning of request #pw-group-system-IDs
  * @property int $installed Timestamp of when this PW was installed, set automatically by the installer for future compatibility detection. #pw-group-system
+ * 
+ * @method array|string wireMail($key = '', $value = null)
+ * @method array imageSizes($key = '', $value = null)
+ * @method array|bool|string|int|float imageSizerOptions($key = '', $value = null)
+ * @method array|int|bool webpOptions($key = '', $value = null)
+ * @method array|string contentTypes($key = '', $value = null)
+ * @method array|string fileContentTypes($key = '', $value = null)
+ * @method array|string|bool fileCompilerOptions($key = '', $value = null)
+ * @method array|string|string[] dbOptions($key = '', $value = null)
+ * @method array|string|string[] dbSqlModes($key = '', $value = null)
+ * @method array|int|bool pageList($key = '', $value = null)
+ * @method array|bool pageEdit($key = '', $value = null)
+ * @method array|string pageAdd($key = '', $value = null)
+ * @method array|string moduleInstall($key = '', $value = null)
+ * @method array|string substituteModules($key = '', $value = null)
+ * @method array|string|bool AdminThemeUikit($key = '', $value = null)
+ * @method array|string modals($key = '', $value = null)
+ * @method array|bool markupQA($key = '', $value = null)
+ * @method array|string statusFiles($key = '', $value = null)
  *
  */
 class Config extends WireData {

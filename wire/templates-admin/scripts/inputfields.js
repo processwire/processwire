@@ -261,7 +261,7 @@ var Inputfields = {
 				var $tabButton = jQuery('#_' + $tabContent.attr('id'));
 				if($tabButton.length) {
 					$tabContent.show();
-					setTimeout(function() { $tabButton.click(); }, 25);
+					setTimeout(function() { $tabButton.trigger('click'); }, 25);
 				}
 			}
 			// inputfield is not visible likely due to parents being hidden
@@ -287,7 +287,7 @@ var Inputfields = {
 
 		// if ajax loaded, force InputfieldStates() click handler to open this one
 		if(isCollapsed && isAjax && !$inputfield.hasClass('InputfieldStateWasCollapsed')) {
-			$toggleIcon.click();
+			$toggleIcon.trigger('click');
 			return $inputfield;
 		}
 	
@@ -413,7 +413,7 @@ var Inputfields = {
 				InputfieldColumnWidths();
 				// jQuery(document).trigger('redrawInputfields', null);
 			}
-			jQuery(window).resize(); // trigger for FormBuilder or similar
+			jQuery(window).trigger('resize'); // trigger for FormBuilder or similar
 		}, delay);
 	},
 
@@ -472,7 +472,7 @@ var Inputfields = {
 			$input = jQuery([]);
 		} else {
 			// find input element within Inputfield
-			$input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus):first");
+			$input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus)").first();
 			// do not attempt to focus absolute positioned inputs or button elements
 			if($input.css('position') == 'absolute' || $input.is('button')) $input = jQuery([]);
 		}
@@ -480,7 +480,7 @@ var Inputfields = {
 		if($input.length) {
 			var t = $input.attr('type');
 			if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
-				$input.focus();
+				$input.trigger('focus');
 				focused = true;
 			}
 		}
@@ -777,7 +777,7 @@ var Inputfields = {
 		var $header = $inputfield.children('.InputfieldHeader');
 		if(!$header.length) return '';
 		label = $header.text();
-		if(label.length) label = jQuery.trim(label);
+		if(label.length) label = label.toString().trim();
 		return label;
 	}, 
 	
@@ -1006,7 +1006,7 @@ function InputfieldDependencies($target) {
 	 * 
 	 */
 	function trimValue(value) {
-		value = jQuery.trim(value);
+		value = value.toString().trim();
 		var first = value.substring(0,1);
 		var last = value.substring(value.length-1, value.length);
 		if((first == '"' || first == "'") && first == last) value = value.substring(1, value.length-1);
@@ -1046,9 +1046,15 @@ function InputfieldDependencies($target) {
 	 */
 	function parseValue(str, str2) {
 
-		str = jQuery.trim(str);
-		if(str.length > 0 && !jQuery.isNumeric(str)) {
-			return str;
+		if(typeof str === 'undefined') return '';
+		str = str.toString().trim();
+		
+		if(str.length > 0) {
+			if(/^-?\d[\d.]*$/.test(str)) {
+				// isNumeric
+			} else {
+				return str;
+			}
 		}
 
 		if(str.length == 0) {
@@ -1212,7 +1218,7 @@ function InputfieldDependencies($target) {
 				var $checkbox = $checkboxes.eq(cn);
 				var $label = $checkbox.closest('label');
 				if($label.length) {
-					var label = jQuery.trim($label.text());
+					var label = $label.text().trim();
 					if(label == _conditionValue) {
 						consoleLog('Matching checked label found: ' + _conditionValue);
 						value.push(label);
@@ -1570,7 +1576,7 @@ function InputfieldDependencies($target) {
 				// attach change event to dependency inputfield
 				if($inputfield.length) {
 					consoleLog('Attaching change event for: ' + $inputfield.attr('name'));
-					$inputfield.change(function() {
+					$inputfield.on('change', function() {
 						inputfieldChange(conditions, $fieldToShow);
 					});
 				} else {
@@ -1893,9 +1899,9 @@ function InputfieldFormBeforeUnloadEvent(e) {
 	var $ = jQuery;
 	var $changes = $(".InputfieldFormConfirm:not(.InputfieldFormSubmitted) .InputfieldStateChanged");
 	if($changes.length == 0) return;
-	var msg = $('.InputfieldFormConfirm:eq(0)').attr('data-confirm') + "\n";
+	var msg = $('.InputfieldFormConfirm').eq(0).attr('data-confirm') + "\n";
 	$changes.each(function() {
-		var $header = $(this).find(".InputfieldHeader:eq(0)");
+		var $header = $(this).find('.InputfieldHeader').eq(0);
 		if($header.length) {
 			name = $header.text();
 		} else {
@@ -1904,7 +1910,7 @@ function InputfieldFormBeforeUnloadEvent(e) {
 				name = $(this).find(':input').attr('name');
 			}
 		}
-		if(name.length) msg += "\n• " + $.trim(name);
+		if(name.length) msg += "\n• " + name.trim();
 	});
 	(e || window.event).returnValue = msg; // Gecko and Trident
 	return msg; // Gecko and WebKit
@@ -2060,7 +2066,7 @@ function InputfieldStates($target) {
 				if(isTab) {
 					$header.effect('highlight', 500);
 				} else if(Inputfields.toggleBehavior < 1) {
-					$header.click();
+					$header.trigger('click');
 				}
 			}, 500);
 		}, 'html');
@@ -2073,14 +2079,14 @@ function InputfieldStates($target) {
 	
 	// use different icon for open and closed
 	var $icon = $(".Inputfields .InputfieldStateCollapsed > .InputfieldHeader i.toggle-icon, .Inputfields .InputfieldStateCollapsed > .ui-widget-header i.toggle-icon", $target);
-	$icon.toggleClass($icon.attr('data-to'));
+	if($icon.length && typeof $icon.attr('data-to') !== 'undefined') $icon.toggleClass($icon.attr('data-to'));
 	
 	// display a detail with the HTML field name when the toggle icon is hovered
 	if(typeof ProcessWire != "undefined") {
 		var config = ProcessWire.config;
 	} 
 	if(typeof config !== "undefined" && config.debug) {
-		$('.InputfieldHeader > i.toggle-icon', $target).hover(function() {
+		$('.InputfieldHeader > i.toggle-icon', $target).on('mouseenter', function() {
 			var $label = $(this).parent('label');
 			if($label.length == 0) return;
 			var forId = $label.attr('for');
@@ -2093,7 +2099,7 @@ function InputfieldStates($target) {
 				$label.append($tip);
 			}
 
-		}, function() {
+		}).on('mouseleave', function() {
 			var $label = $(this).parent('label');
 			if($label.length == 0) return;
 			$label.find('.InputfieldNameTip').remove();
@@ -2135,7 +2141,7 @@ function InputfieldStates($target) {
 			Inputfields.toggle($li, null, duration);
 		} else if(Inputfields.toggleBehavior === 1) {
 			// open/close implied by header label click
-			$icon.click();
+			$icon.trigger('click');
 		} else {
 			// Inputfield not collapsible unless toggle icon clicked, so pulsate the toggle icon and focus any inputs
 			if(typeof jQuery.ui != 'undefined') {
@@ -2155,20 +2161,22 @@ function InputfieldStates($target) {
 	 // Make the first field in any form have focus, if it is a text field that is blank
 	var $focusInputs = $('input.InputfieldFocusFirst'); // input elements only
 	if(!$focusInputs.length) {
-		$focusInputs = $('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)')
-			.find('input[type=text]:enabled:first:not(.hasDatepicker):not(.InputfieldNoFocus)');
+		$focusInputs = $('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)').find('input[type=text]:enabled').first();
+		if($focusInputs.hasClass('hasDatepicker') || $focusInputs.hasClass('InputfieldNoFocus')) $focusInputs = null;
 	}
-	if($focusInputs.length) $focusInputs.each(function() {
-		var $t = $(this);
-		// jump to first input, if it happens to be blank
-		if($t.val()) return;
-		// avoid jumping to inputs that fall "below the fold"
-		if($t.offset().top < $(window).height()) {
-			window.setTimeout(function () {
-				if($t.is(":visible")) $t.focus();
-			}, 250);
-		}
-	});
+	if($focusInputs !== null && $focusInputs.length) {
+		$focusInputs.each(function() {
+			var $t = $(this);
+			// jump to first input, if it happens to be blank
+			if($t.val()) return;
+			// avoid jumping to inputs that fall "below the fold"
+			if($t.offset().top < $(window).height()) {
+				window.setTimeout(function() {
+					if($t.is(":visible")) $t.trigger('focus');
+				}, 250);
+			}
+		});
+	}
 
 	// confirm changed forms that user navigates away from before submitting
 	$(document).on('change', '.InputfieldForm :input, .InputfieldForm .Inputfield', function() {
@@ -2240,7 +2248,7 @@ function InputfieldIntentions() {
 		var numButtons = null;
 		var $input = null;
 		
-		$form.submit(function() {
+		$form.on('submit', function() {
 			if(!$(this).hasClass('nosubmit')) return;
 			if(!$input) return;
 			
@@ -2258,7 +2266,7 @@ function InputfieldIntentions() {
 			if($buttons.length > 0) {
 				var $button = $buttons.eq(0);
 				$('html, body').animate({ scrollTop: $button.offset().top }, 'fast');
-				$button.focus();
+				$button.trigger('focus');
 			}
 			
 			return false;
@@ -2404,9 +2412,9 @@ jQuery(document).ready(function($) {
 		setTimeout('InputfieldWindowResizeActions2()', 2000); 	
 	};
 
-	$(window).resize(windowResized);
+	$(window).on('resize', windowResized);
 	
-	$("ul.WireTabs > li > a").click(function() {
+	$("ul.WireTabs > li > a").on('click', function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
 		setTimeout('InputfieldWindowResizeActions1()', 250);

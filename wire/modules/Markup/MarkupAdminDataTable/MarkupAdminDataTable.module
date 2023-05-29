@@ -62,7 +62,9 @@ class MarkupAdminDataTable extends ModuleJS {
 	protected $rowAttrs = array();
 	
 	protected $actions = array();
-
+	
+	protected $colsNotSortable = array();
+	
 	/**
 	 * Initialize module and default settings
 	 * 
@@ -269,6 +271,7 @@ class MarkupAdminDataTable extends ModuleJS {
 				foreach($this->headerRow as $th) {
 					$class = '';
 					if(is_array($th)) list($th, $class) = $th;
+					if(isset($this->colsNotSortable[$maxCols])) $class = trim("$class sorter-false");
 					$th = $this->encode($th);
 					if($class) $class = " class='" . $this->encode($class) .  "'";
 					$out .= "\n\t\t<th$class>$th</th>";
@@ -409,6 +412,18 @@ class MarkupAdminDataTable extends ModuleJS {
 	 */
 	public function setID($id) {
 		$this->id = $id; 
+	}
+
+	/**
+	 * Set a column as not sortable (first column is 0)
+	 * 
+	 * @param int $index
+	 * @since 3.0.215
+	 * 
+	 */
+	public function setColNotSortable($index) {
+		$index = (int) $index;
+		$this->colsNotSortable[$index] = $index;
 	}
 
 	/**

@@ -89,6 +89,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	}
 	
 	public function getBlankValue(Page $page, Field $field) {
+		/** @var CommentArray $commentArray */
 		$commentArray = $this->wire(new CommentArray()); 
 		$commentArray->setPage($page); 
 		$commentArray->setField($field); 
@@ -148,7 +149,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|array $value
-	 * @return string|int|array|object $value
+	 * @return CommentArray
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
@@ -323,7 +324,6 @@ class FieldtypeComments extends FieldtypeMulti {
 	 */ 
 	protected function checkNewComment(Page $page, Field $field, Comment $comment) {
 
-		if($page) {} // ignore
 		if($comment->id || $comment->quiet()) return;
 		$comment->isNew = true;
 		
@@ -926,7 +926,14 @@ class FieldtypeComments extends FieldtypeMulti {
 		$f->attr('name', $name);
 		$f->attr('value', $field->get('dateFormat') ? $field->get('dateFormat') : 'relative');
 		$f->label = $this->_('Date/time format (for comment list)');
-		$f->description = $this->_('Enter the date/time format you want the default comment list output to use. May be a PHP [date](http://php.net/manual/en/function.date.php) or [strftime](http://php.net/manual/en/function.strftime.php) format. May also be "relative" for relative date format.'); // dateFormat description
+		$f->description =
+			$this->_('Enter the date/time format you want the default comment list output to use.') . ' ' . 
+			sprintf(
+				$this->_('May be a PHP [date](%s) or [strftime](%s) format.'),
+				'https://php.net/manual/en/function.date.php',
+				'https://php.net/manual/en/function.strftime.php'
+			) . ' ' . 
+			$this->_('May also be "relative" for relative date format.');
 		$f->columnWidth = 50; 
 		$fieldset->append($f);
 	
@@ -1217,7 +1224,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			if($f === 'stars' && !$value && ($operator === '=' || $operator === '!=')) {
 				if($operator === '=') {
 					$wheres[] = "($table.$f=0 OR $table.$f IS NULL)";
-				} else if($operator === '!=') {
+				} else { // if($operator === '!=') {
 					$wheres[] = "($table.$f!=0 OR $table.$f IS NOT NULL)";
 				}
 				
@@ -1756,7 +1763,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * @param Field $field
 	 * @param Comment $comment
 	 * @param string $notes
-	 * @return mixed
+	 * @return bool
 	 *
 	 */
 	public function deleteComment(Page $page, Field $field, Comment $comment, $notes = '') {
@@ -1980,9 +1987,8 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * 
 	 */
 	public function ___commentAddReady(Page $page, Field $field, Comment $comment) {
-		if($page && $field) {} // ignore
 		$text = $comment->text; 
-		if(strtolower($this->wire()->config->dbEngine) !== 'utf8mb4') {
+		if(strtolower($this->wire()->config->dbCharset) !== 'utf8mb4') {
 			$comment->text = $this->wire()->sanitizer->removeMB4($text, array('replaceWith' => ' ')); 
 		}
 	}
@@ -2365,7 +2371,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			$commentsArray[(int) $comment['id']] = $comment; // index by comment id
 		}
 
-		foreach($commentsArray as $id => $comment) {
+		foreach($commentsArray as /* $id => */ $comment) {
 
 			$key = $this->getCommentExportKey($comment);
 			$comment = $this->exportComment($comment);
@@ -2400,7 +2406,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * @param Field $field
 	 * @param array|int|object|string $value
 	 * @param array $options
-	 * @return array|string
+	 * @return array
 	 *
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {

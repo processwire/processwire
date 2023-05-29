@@ -1,9 +1,7 @@
 <?php namespace ProcessWire;
 
 /**
- * Class JqueryCore
- * 
- * jQuery core + optional extras
+ * jQuery core and optional plugins
  * 
  */
 
@@ -12,47 +10,119 @@ class JqueryCore extends ModuleJS {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'jQuery Core',
-			'version' => 183,
+			'version' => '1.12.4',
 			'summary' => 'jQuery Core as required by ProcessWire Admin and plugins',
-			'href' => 'http://jquery.com', 
+			'href' => 'https://jquery.com', 
 			'permanent' => true,
 			'singular' => true,
 			'autoload' => false
-			);
+		);
 	}
-	
+
+	/**
+	 * Urls of Scripts added with index of 'core' or 'migrate'
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $scripts = array();
+
+	/**
+	 * Wired to API
+	 * 
+	 */
 	public function wired() {
-		$this->addComponents(array(
-			'core-dev' => 'dev/JqueryCore.js?v=1.12.4',
-			'migrate-dev' => 'dev/jquery-migrate-1.4.1.js',
-			'latest' => 'dev/JqueryCore.js',
+		
+		parent::wired();
+		
+		$this->loadStyles = false;
+		$this->loadScripts = false;
+		
+		$components = array(
+			'core-dev' => 'dev/JqueryCore.js?v=3.6.4', // version used when $config->debug=dev. 
+			'migrate-dev-debug' => 'dev/jquery-migrate-debug-3.4.0.js', // migrate to 3.x with log
+			'migrate-dev-quiet' => 'dev/jquery-migrate-quiet-3.4.0.min.js', // migrate to 3.x without log
+			'migrate-debug' => 'jquery-migrate-debug-1.4.1.js', // migrate with log
+			'migrate-quiet' => 'jquery-migrate-quiet-1.4.1.min.js', // migrate without log
+			'legacy' => 'legacy/JqueryCore.js?v=1.8.3', // legacy jQuery version
 			'cookie' => 'jquery.cookie.js',
 			'iframe-resizer' => 'iframe-resizer.min.js',
 			'iframe-resizer-frame' => 'iframe-resizer-frame.min.js', 
 			'longclick' => 'jquery.longclick.min.js',
 			'simulate' => 'jquery.simulate.min.js',
 			'xregexp' => 'xregexp.js', // no "min.js" intended
-		));
-		$info = self::getModuleInfo();
-		$config = $this->config;
-		$url = $this->config->urls('JqueryCore');
-		$this->loadScripts = false;
-		if($config->debug === 'dev') {
-			$config->scripts->prepend($url . $this->components['migrate-dev']);
-			$config->scripts->prepend($url . $this->components['core-dev']); 
+		);
+		
+		$components['latest'] = $components['core-dev'];
+		$this->addComponents($components);
+		
+		$config = $this->wire()->config;
+		$url = $config->urls('JqueryCore');
+		
+		if($config->admin && $config->debug === 'dev') {
+			$this->addScript('migrate', $url . $components['migrate-dev-debug']);
+			$this->addScript('core', $url . $components['core-dev']);
 		} else {
-			$config->scripts->prepend($url . "JqueryCore.js?v=$info[version]");
+			if($config->admin) {
+				// also add migrate when in admin
+				$migrate = $config->debug && $config->advanced && ProcessWire::versionSuffix === 'dev' ? 'debug' : 'quiet';
+				$this->addScript('migrate', $url . $components["migrate-$migrate"]);
+			}
+			$this->addScript('core', $url . 'JqueryCore.js?v=' . $this->getVersion());
 		}
 	}
 
+	/**
+	 * Specify a jQuery component to use
+	 * 
+	 * @param string $name
+	 * @return self
+	 * 
+	 */
 	public function ___use($name) {
-		if($name == 'latest') {
-			$info = self::getModuleInfo();
-			$url = $this->config->urls('JqueryCore');
-			$this->config->scripts->remove($url . "JqueryCore.js?v=$info[version]");
-			$this->config->scripts->prepend($url . $this->components['latest']); 
+		if($name === 'latest' || $name === 'legacy') {
+			$url = $this->wire()->config->urls('JqueryCore');
+			$this->removeScript('core');
+			$this->removeScript('migrate');
+			if($name === 'latest') $this->addScript('migrate', $url . $this->components['migrate-dev-quiet']); 
+			$this->addScript('core' , $url . $this->components[$name]);
 			return $this; 
 		}
 		return parent::___use($name); 
-	}	
+	}
+
+	/**
+	 * Add a script
+	 * 
+	 * @param string $name
+	 * @param string $url
+	 * 
+	 */
+	protected function addScript($name, $url) {
+		$config = $this->wire()->config;
+		if(isset($this->scripts[$name])) $this->removeScript($name);
+		$this->scripts[$name] = $url;
+		$config->scripts->prepend($url);
+	}
+
+	/**
+	 * Remove a previously added script by name
+	 *
+	 * @param string $name
+	 *
+	 */
+	protected function removeScript($name) {
+		if(!isset($this->scripts[$name])) return;
+		$this->wire()->config->scripts->remove($this->scripts[$name]);
+		unset($this->scripts[$name]);
+	}
+
+	/**
+	 * @return string
+	 * 
+	 */
+	protected function getVersion() {
+		$info = self::getModuleInfo();
+		return $info['version'];
+	}
 }

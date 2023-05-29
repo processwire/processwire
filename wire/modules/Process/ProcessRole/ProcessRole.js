@@ -32,7 +32,7 @@ function ProcessRoleUpdatePermissions(init, $checkbox) {
 			$row.addClass('permission-checked');
 			if($row.hasClass('permission-page-edit')) {
 				if(!$row.find('.template-permissions-open').length) {
-					$row.find('.toggle-template-permissions').click();
+					$row.find('.toggle-template-permissions').trigger('click');
 				}
 			}
 			
@@ -43,7 +43,7 @@ function ProcessRoleUpdatePermissions(init, $checkbox) {
 			$row.removeClass('permission-checked');
 			if($row.hasClass('permission-page-edit')) {
 				if($row.find('.template-permissions-open').length) {
-					$row.find('.toggle-template-permissions').click();
+					$row.find('.toggle-template-permissions').trigger('click');
 				}
 			}
 		}
@@ -92,7 +92,7 @@ $(document).ready(function() {
 		}
 	});
 	
-	$(".toggle-template-permissions").click(function() {
+	$(".toggle-template-permissions").on('click', function() {
 		var $div = $(this).closest('tr').find('.template-permissions');
 		if($div.hasClass('template-permissions-open')) {
 			$div.fadeOut('fast', function() { 
@@ -110,18 +110,17 @@ $(document).ready(function() {
 
 	// make some of the open when page loads
 	$('.template-permissions-click').each(function() {
-		$(this).closest('tr').find('.toggle-template-permissions').click();
+		$(this).closest('tr').find('.toggle-template-permissions').trigger('click');
 		$(this).removeClass('template-permissions-click');
 	}); 
 	
-	$('.permission-title').click(function() {
-		$(this).closest('tr').find('.toggle-template-permissions').click();
+	$('.permission-title').on('click', function() {
+		$(this).closest('tr').find('.toggle-template-permissions').trigger('click');
 	}); 
 
 	// ensure checkbox classes are consistent (like for uk-checkbox)
-	a = $('input.global-permission:eq(0)'); 
-	b = $('<div />').addClass(a.attr('class')).removeClass('permission permission-checked global-permission');
-	c = $('input.template-permission').addClass(b.attr('class'));
+	var a = $('input.global-permission').eq(0); 
+	var b = $('<div />').addClass(a.attr('class')).removeClass('permission permission-checked global-permission');
+	var c = $('input.template-permission').addClass(b.attr('class'));
 	
 }); 
-

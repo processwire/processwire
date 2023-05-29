@@ -288,6 +288,7 @@ class LanguageSupportInstall extends Wire {
 	 * 
 	 */
 	public function getModuleConfigInputfields() {
+		$modules = $this->wire()->modules;
 		$install = $this->_('Click to install:') . ' ';
 
 		$form = $this->wire(new InputfieldWrapper());
@@ -300,17 +301,17 @@ class LanguageSupportInstall extends Wire {
 		$list = array();
 
 		foreach($names as $name) {
-			if($this->wire('modules')->isInstalled($name)) continue;
-			$list["./installConfirm?name=$name"] = "$install $name";
+			if($modules->isInstalled($name)) continue;
+			$list[$modules->getModuleInstallUrl($name)] = "$install $name";
 			$installed[$name] = true;
 		}
 		
 		$list["../setup/languages/"] =
 			$this->_('Add and configure new languages');
 
-		$title = $this->wire('fields')->get('title');
+		$title = $this->wire()->fields->get('title');
 		if($title && strpos($title->type->className(), 'Language') === false) {
-			$list["../setup/field/edit?id=$title->id"] =
+			$list[$title->editUrl()] =
 				$this->_('Change the type of your "title" field from "Page Title" to "Page Title (Multi-language)"') . ' *';
 		}
 
@@ -320,8 +321,10 @@ class LanguageSupportInstall extends Wire {
 			$this->_('Change the type of any other desired "Textarea" fields to "Textarea (Multi-language)"') . ' *';
 
 		if(count($list)) {
-			$this->wire('modules')->get('JqueryUI')->use('modal');
-			$f = $this->wire('modules')->get('InputfieldMarkup');
+			$jQueryUI = $modules->get('JqueryUI'); /** @var JqueryUI $jQueryUI */
+			$jQueryUI->use('modal');
+			/** @var InputfieldMarkup $f */
+			$f = $modules->get('InputfieldMarkup');
 			$f->attr('name', '_next_steps');
 			$f->label = $this->_('Next steps');
 			$f->value = "<ul>";

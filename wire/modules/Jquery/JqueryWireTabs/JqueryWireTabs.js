@@ -66,7 +66,7 @@
 				var cookieTab = getTabCookie(); 
 
 				if(options.rememberTabs == 0) {
-					$form.submit(function() { 
+					$form.on('submit', function() { 
 						setTabCookie(lastTabID); 
 						return true; 
 					}); 
@@ -98,11 +98,11 @@
 					$rememberTab = $tabList.find("a#" + cookieTab);
 				}
 				if($rememberTab && $rememberTab.length > 0) {
-					$rememberTab.click();
+					$rememberTab.trigger('click');
 					if (options.rememberTabs == 0) setTabCookie(''); // don't clear cookie when rememberTabs=1, so it continues
-					setTimeout(function() { $rememberTab.click(); }, 200); // extra backup, necessary for some event monitoring
+					setTimeout(function() { $rememberTab.trigger('click'); }, 200); // extra backup, necessary for some event monitoring
 				} else {
-					$tabList.children("li:first").children("a").click();
+					$tabList.children("li").first().children("a").trigger('click');
 				}
 				
 				$(document).ready(function() {
@@ -121,13 +121,13 @@
 				var href = $t.attr('id'); 
 				var $a = $('a#_' + href); // does it already exist?
 				if($a.length > 0) {
-					$a.click(tabClick); 
+					$a.on('click', tabClick); 
 				} else {
 					$a = $("<a></a>")
 						.attr('href', '#' + href)
 						.attr('id', '_' + href) // ID equal to tab content ID, but preceded with underscore
 						.html(title)
-						.click(tabClick); 
+						.on('click', tabClick); 
 					$tabList.append($("<li></li>").append($a)); 
 				}
 				var tip = $t.attr('data-tooltip'); 
@@ -162,7 +162,7 @@
 				var $oldTab = $tabList.find("a." + aActiveClass);
 				var $newTab = $(this);
 				
-				if(!$oldTab.length) $oldTab = $tabList.find("a:eq(0)");
+				if(!$oldTab.length) $oldTab = $tabList.find("a").eq(0);
 				
 				
 				var oldTabHref = $oldTab.attr('href');
@@ -221,4 +221,3 @@
 		})
 	}
 })(jQuery); 
-

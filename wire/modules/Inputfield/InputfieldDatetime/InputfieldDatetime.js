@@ -57,7 +57,7 @@ function InputfieldDatetimeDatepicker($t) {
 	}
 
 	if(pickerVisible) {
-		$datepicker.change(function(e) {
+		$datepicker.on('change', function(e) {
 			var d = $datepicker.datepicker('getDate');
 			var str = $.datepicker.formatDate(dateFormat, d); 
 			$t.val(str); 
@@ -70,8 +70,8 @@ function InputfieldDatetimeDatepicker($t) {
 		if($button.length) {
 			var $a = $("<a class='pw-ui-datepicker-trigger' href='#'><i class='fa fa-calendar'></i></a>");
 			$button.after($a).hide();
-			$a.click(function() {
-				$button.click();
+			$a.on('click', function() {
+				$button.trigger('click');
 				return false;
 			});
 		}

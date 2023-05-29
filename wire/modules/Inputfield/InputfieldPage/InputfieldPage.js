@@ -6,7 +6,7 @@
  */
 function initInputfieldPage($this) {
 
-	$this.find("p.InputfieldPageAddButton a").click(function() {
+	$this.find("p.InputfieldPageAddButton a").on('click', function() {
 		var $input = $(this).parent('p').next('.InputfieldPageAddItems');
 		if($input.is(":visible")) $input.slideUp('fast').find(":input").val('');
 		else $input.slideDown('fast').parents('.ui-widget-content').slice(0,1).effect('highlight', {}, 500)
@@ -44,7 +44,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 			// no values selected
 			if($select2.children().length) {
 				$select2.children().remove();
-				$select2.change();
+				$select2.trigger('change');
 			}
 			return;
 		}
@@ -102,7 +102,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 			$select2.children(".option-tbd").remove();
 			if(changed || $select2.closest('.InputfieldAsmSelect').length) {
 				// always trigger change event when asmSelect because that’s what forces it to redraw
-				$select2.change();
+				$select2.trigger('change');
 			}
 		});
 	}
@@ -160,7 +160,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 			if($select1.length < 1) continue;
 
 			// monitor changes to the dependency field
-			$select1.change(function() {
+			$select1.on('change', function() {
 				selectChanged($select1, $select2, selector, formatName, labelFieldName, part, true)
 			});
 

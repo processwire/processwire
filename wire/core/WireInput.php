@@ -6,7 +6,7 @@
  * WireInputData and the WireInput class together form a simple 
  * front end to PHP's $_GET, $_POST, and $_COOKIE superglobals.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -298,7 +298,7 @@ class WireInput extends Wire {
 	 * // setting cookies
 	 * $input->cookie->foo = 'bar'; // set with default options (expires with session)
 	 * $input->cookie->set('foo', 'bar'); // same as above
-	 * $input->cookie->set('foo', bar', 86400); // expire after 86400 seconds (1 day)
+	 * $input->cookie->set('foo', 'bar', 86400); // expire after 86400 seconds (1 day)
 	 * $input->cookie->set('foo', 'bar', [ 'age' => 86400, 'path' => $page->url ]); 
 	 * 
 	 * // getting cookies
@@ -1683,7 +1683,7 @@ class WireInput extends Wire {
 	 * @param string $method Sanitizer method name or CSV string of sanitizer method names
 	 * @param string|array|null $value
 	 * @param bool $getArray
-	 * @return array|mixed|null
+	 * @return array|int|float|string|null
 	 * @throws WireException If given unknown sanitizer method
 	 * 
 	 */
@@ -1903,4 +1903,3 @@ class WireInput extends Wire {
 	}
 
 }
-

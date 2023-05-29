@@ -533,7 +533,11 @@ class Debug {
 					$suffix = $options['ellipsis'];
 				}
 				foreach($value as $k => $v) {
-					$value[$k] = self::traceStr($v, $options); 
+					if(is_string($k) && strlen($k)) {
+						$value[$k] = "$$k => " . self::traceStr($v, $options);
+					} else {
+						$value[$k] = self::traceStr($v, $options);
+					}
 				}
 				$str = '[ ' . implode(', ', $value) . $suffix . ' ]';
 			}
@@ -632,6 +636,7 @@ class Debug {
 			case 'json_encode':
 				$value = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 				$value = str_replace('    ', '  ', $value);
+				if(strpos($value, '\\"') !== false) $value = str_replace('\\"', "'", $value);
 				break;
 			case 'var_export':
 				$value = var_export($value, true);

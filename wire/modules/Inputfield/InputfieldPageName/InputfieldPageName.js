@@ -3,8 +3,7 @@ var InputfieldPageName = {
 	sanitize: function(name) {
 
 		// replace leading and trailing whitespace 
-		name = jQuery.trim(name);
-		name = name.toLowerCase();  
+		name = name.toLowerCase().trim();  
 
 		var srch;
 		for(srch in ProcessWire.config.InputfieldPageName.replacements) {
@@ -57,7 +56,10 @@ var InputfieldPageName = {
 
 		// make sure it's not too long
 		// if(name.length > 128) name = name.substring(0, 128); 
-		if(name.length > 128) name = $.trim(name).substring(0, 128).split("-").slice(0, -1).join(" "); // @adrian
+		if(name.length > 128) {
+			name = name.trim();
+			name = name.substring(0, 128).split("-").slice(0, -1).join(" "); // @adrian
+		}
 	
 		return name;
 	},
@@ -81,7 +83,7 @@ jQuery(document).ready(function($) {
 		InputfieldPageName.updatePreview($(this), value); 
 	});
 	$(document).on("reloaded", ".InputfieldPageName", function() {
-		$(this).find("input[type=text]").keyup();
+		$(this).find("input[type=text]").trigger('keyup');
 	});
-	$(".InputfieldPageName").find("input[type=text]").keyup();
+	$(".InputfieldPageName").find("input[type=text]").trigger('keyup');
 }); 

@@ -589,6 +589,36 @@ class WireFileTools extends Wire {
 		
 		return $exists;
 	}
+
+	/**
+	 * Get size of file or directory (in bytes)
+	 * 
+	 * @param string $path File or directory path
+	 * @param array|bool $options Options array, or boolean true for getString option:
+	 *  - `getString` (bool): Get string that summarizes bytes, kB, MB, etc.? (default=false)
+	 * @return int|string
+	 * @since 3.0.214
+	 * 
+	 */
+	public function size($path, $options = array()) {
+		if(is_bool($options)) $options = array('getString' => $options);
+		$size = 0;
+		$path = realpath($path);
+		if(!is_string($path) || $path === '' || !file_exists($path)) return 0;
+		if(is_dir($path)) {
+			$dir = new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS);
+			foreach(new \RecursiveIteratorIterator($dir) as $file) {
+				try {
+					$size += $file->getSize();
+				} catch(\Exception $e) {
+					// ok
+				}
+			}
+		} else {
+			$size = (int) filesize($path);
+		}
+		return empty($options['getString']) ? $size : wireBytesStr($size);
+	}
 	
 	/**
 	 * Allow path or filename to to be used for file manipulation actions?

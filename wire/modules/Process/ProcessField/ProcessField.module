@@ -1490,7 +1490,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$fieldset->add($f);
 			/** @var InputfieldButton $button */
 			$button = $modules->get('InputfieldButton');
-			$button->href = $config->urls->admin . 'module/installConfirm?name=PageFrontEdit';
+			$button->href = $modules->getModuleInstallUrl('PageFrontEdit');
 			$button->value = $this->_('Install');
 			$button->icon = 'sign-in';
 			$button->target = '_blank';
@@ -3529,4 +3529,3 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 	}
 }
-

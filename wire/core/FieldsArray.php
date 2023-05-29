@@ -5,7 +5,7 @@
  * 
  * WireArray of Field instances, as used by Fields class
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -27,7 +27,7 @@ class FieldsArray extends WireArray {
 	 * Per WireArray interface, Field keys have to be integers
 	 * 
 	 * @param int $key
-	 * @return int
+	 * @return bool
 	 *
 	 */
 	public function isValidKey($key) {

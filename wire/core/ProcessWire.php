@@ -79,7 +79,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 213;
+	const versionRevision = 218;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -546,11 +546,7 @@ class ProcessWire extends Wire {
 			throw new WireDatabaseException($e->getMessage()); 
 		}
 	
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache', new WireCache(), true); 
-		$cacheNames = $config->preloadCacheNames;
-		if($database->getEngine() === 'innodb') $cacheNames[] = 'InnoDB.stopwords';
-		$cache->preload($cacheNames); 
+		$this->wire('cache', new WireCache(), true); 
 		
 		$modules = null;
 		try { 		
@@ -1285,5 +1281,3 @@ class ProcessWire extends Wire {
 	}
 
 }
-
-

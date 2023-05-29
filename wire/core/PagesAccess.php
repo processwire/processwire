@@ -17,7 +17,7 @@
  * Pages using templates that already define their access (determined by $template->useRoles) 
  * are omitted from the pages_access table, as they aren't necessary. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -194,8 +194,6 @@ class PagesAccess extends Wire {
 		if(!$accessParent->id || $accessParent->id == $page->id) {
 			// page is the same as the one that defines access, so it doesn't need to be here
 			$query = $database->prepare("DELETE FROM pages_access WHERE pages_id=:page_id"); 	
-			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
-			$query->execute();
 
 		} else {
 			$template_id = (int) $accessParent->template->id; 
@@ -205,10 +203,11 @@ class PagesAccess extends Wire {
 					"ON DUPLICATE KEY UPDATE templates_id=VALUES(templates_id) ";
 			
 			$query = $database->prepare($sql);
-			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
 			$query->bindValue(":template_id", $template_id, \PDO::PARAM_INT);
-			$query->execute();
 		}
+
+		$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
+		$query->execute();
 
 		if($page->numChildren > 0) { 
 

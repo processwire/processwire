@@ -956,7 +956,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	public function ___processInput(WireInputData $input) {
-		
+
+		$process = $this->wire()->process;
 		$pages = $this->wire()->pages;
 		$user = $this->wire()->user;
 
@@ -968,6 +969,15 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$value = $this->attr('value'); 
 		$existingValueStr = $value ? "$value" : '';
 		$newValue = null;
+
+		// the $editPage is used when InputfieldPage used without FieldtypePage
+		if($process instanceof WirePageEditor) {
+			$editPage = $process->getPage();
+		} else if($this->hasPage) {
+			$editPage = $this->hasPage;
+		} else {
+			$editPage = new Page();
+		}
 		
 		if($inputfield instanceof InputfieldSupportsArrayValue) {
 			$value = $inputfield->getArrayValue();
@@ -977,7 +987,6 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		
 		if(is_array($value)) {
 			$newValue = $pages->newPageArray();
-			$mockPage = new Page();
 			foreach($value as $v) {
 				$id = (int) $v; 
 				if(!$id) continue; 
@@ -985,9 +994,9 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 					// existing page
 					$page = $pages->get($id); 
 					
-					if(!$this->hasFieldtype && !self::isValidPage($page, $this, $mockPage)) {
+					if(!$this->hasFieldtype && !self::isValidPage($page, $this, $editPage)) {
 						// extra validation for usage without FieldtypePage
-						$error = $mockPage->get('_isValidPage');
+						$error = $editPage->get('_isValidPage');
 						if($error) $this->error($error);
 						continue;
 						
@@ -1012,9 +1021,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			if($newValue->hasStatus(Page::statusUnpublished) && !$this->getSetting('allowUnpub')) {
 				$newValue = null; // disallow unpublished
 			} else if($newValue && $newValue->id && !$this->hasFieldtype) { 
-				$mockPage = new Page();
-				if(!self::isValidPage($newValue, $this, $mockPage)) {
-					$error = $mockPage->get('_isValidPage');
+				if(!self::isValidPage($newValue, $this, $editPage)) {
+					$error = $editPage->get('_isValidPage');
 					if($error) $this->error($error);
 					$newValue = null;
 				}

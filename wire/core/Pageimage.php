@@ -1629,8 +1629,7 @@ class Pageimage extends Pagefile {
 			}
 		}
 
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		$image = $this;
 		$original = null;
 		$replacements = array();
@@ -1663,7 +1662,7 @@ class Pageimage extends Pagefile {
 		}
 		
 		if(strpos($markup, '{class}')) {
-			$class = isset($options['class']) ? $this->wire('sanitizer')->entities($options['class']) : 'pw-pageimage';
+			$class = isset($options['class']) ? $sanitizer->entities($options['class']) : 'pw-pageimage';
 			$replacements["{class}"] = $class; 
 		}
 		
@@ -1711,7 +1710,7 @@ class Pageimage extends Pagefile {
 		$webp = $this->extras('webp');
 		if(!$webp) {
 			$webp = new PagefileExtra($this, 'webp');
-			$webp->setArray($this->wire('config')->webpOptions);
+			$webp->setArray($this->wire()->config->webpOptions);
 			$this->extras('webp', $webp);
 			$webp->addHookAfter('create', $this, 'hookWebpCreate'); 
 		}

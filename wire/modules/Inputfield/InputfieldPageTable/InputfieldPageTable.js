@@ -41,7 +41,7 @@ function InputfieldPageTableDialog() {
 	
 	if($a.is('.InputfieldPageTableAdd')) closeOnSave = false; 
 
-	$iframe.load(function() {
+	$iframe.on('load', function() {
 
 		var buttons = []; 	
 		//$dialog.dialog('option', 'buttons', {}); 
@@ -92,7 +92,7 @@ function InputfieldPageTableDialog() {
 					'text': text, 
 					'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''), 
 					'click': function() {
-						$button.click();
+						$button.trigger('click');
 						if(closeOnSave) closeOnSaveReady = true; 
 						if(!noclose) closeOnSave = true; // only let closeOnSave happen once
 					}
@@ -172,7 +172,7 @@ $(document).ready(function() {
 	$(document).on('click', '.InputfieldPageTableAdd, .InputfieldPageTableEdit', InputfieldPageTableDialog); 
 	$(document).on('click', 'a.InputfieldPageTableDelete', InputfieldPageTableDelete); 
 	$(document).on('dblclick', '.InputfieldPageTable .AdminDataTable td', function() {
-		$(this).closest('tr').find('.InputfieldPageTableEdit').click();
+		$(this).closest('tr').find('.InputfieldPageTableEdit').trigger('click');
 	}); 
 
 	InputfieldPageTableSortable($(".InputfieldPageTable table"));

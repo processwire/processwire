@@ -13,7 +13,7 @@
  * #pw-body
  * #pw-summary-manipulation In most cases you will not need these manipulation methods as core API calls already take care of this. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string renderPager(array $options = array()) Renders pagination, when MarkupPageArray module installed
@@ -79,7 +79,9 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	 *
 	 */
 	public function getTotal() {
-		return $this->numTotal;
+		$total = $this->numTotal;
+		if(!$total) $total = $this->count();
+		return $total;
 	}
 
 	/**

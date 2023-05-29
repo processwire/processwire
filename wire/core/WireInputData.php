@@ -16,7 +16,7 @@
  *
  * Each WireInputData is not instantiated unless specifically asked for.
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/ref/input/ Offical $input API variable documentation
@@ -255,15 +255,13 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 		if(!strlen($pattern)) return array();
 		
 		$options = array_merge($defaults, $options);
-		$sanitizer = $this->wire('sanitizer'); /** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire()->sanitizer;
 		$isRE = in_array($pattern[0], array('/', '!', '%', '#', '@'));
 		$items = array();
 		$count = 0;
 		$type = $options['type'];
 		$tests = array();
 		
-		if(!strlen($pattern)) return array();
-	
 		if(strpos($pattern, '=')) {
 			// pattern indicates "value=pattern" or "name=pattern"
 			list($type, $pattern) = explode('=', $pattern, 2);
@@ -514,7 +512,7 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	 *
 	 */
 	public function ___callUnknown($method, $arguments) {
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		if(!$sanitizer->methodExists($method)) {
 			try {
 				return parent::___callUnknown($method, $arguments);

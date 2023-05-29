@@ -3,12 +3,20 @@
 /**
  * FieldsetPage represents Page objects used by the FieldtypeFieldsetPage module
  *
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 class FieldsetPage extends RepeaterPage {
+
+	/**
+	 * Is the getOf() method in progress?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $getOf = null;
 	
 	/**
 	 * Track a change to a property in this object
@@ -42,7 +50,7 @@ class FieldsetPage extends RepeaterPage {
 	public function get($key) {
 	
 		// mirror the output formatting state of the owning page
-		if($this->forPage) {
+		if($this->forPage && !$this->getOf) {
 			$of = $this->forPage->of();
 			if($of != $this->of()) $this->of($of); 
 		}
@@ -54,7 +62,51 @@ class FieldsetPage extends RepeaterPage {
 		
 		return parent::get($key);
 	}
+
+	/**
+	 * Get property in formatted (true) or unformatted (false) state
+	 * 
+	 * @param string $key
+	 * @param bool $of
+	 * @return mixed
+	 * @since 3.0.215
+	 * 
+	 */
+	protected function getOf($key, $of) {
+		$this->getOf = true;
+		if($this->of() != $of) {
+			$this->of($of);
+			$value = parent::get($key);
+			$this->of(!$of);
+		} else {
+			$value = $this->get($key);
+		}
+		$this->getOf = false;
+		return $value;
+	}
 	
+	/**
+	 * Get the unformatted value of a field, regardless of current output formatting state
+	 *
+	 * @param string $key Field or property name to retrieve
+	 * @return mixed
+	 *
+	 */
+	public function getUnformatted($key) {
+		return $this->getOf($key, false);
+	}
+	
+	/**
+	 * Get the formatted value of a field, regardless of output formatting state
+	 *
+	 * @param string $key Field or property name to retrieve
+	 * @return mixed
+	 *
+	 */
+	public function getFormatted($key) {
+		return $this->getOf($key, true);
+	}
+
 	/**
 	 * Return the page that this repeater item is for
 	 *
@@ -71,9 +123,9 @@ class FieldsetPage extends RepeaterPage {
 		if(strpos($name, $prefix) === 0) {
 			// determine owner page from name in format: for-page-1234
 			$forID = (int) substr($name, strlen($prefix));
-			$this->forPage = $this->wire('pages')->get($forID);
+			$this->forPage = $this->wire()->pages->get($forID);
 		} else {
-			$this->forPage = $this->wire('pages')->newNullPage();
+			$this->forPage = $this->wire()->pages->newNullPage();
 		}
 
 		return $this->forPage;
@@ -89,13 +141,14 @@ class FieldsetPage extends RepeaterPage {
 		
 		if(!is_null($this->forField)) return $this->forField;
 
-		$parentName = $this->parent()->name; 
+		$parent = $this->parent();
+		$parentName = $parent ? $parent->name : ''; 
 		$prefix = FieldtypeRepeater::fieldPageNamePrefix;  // for-field-
 
 		if(strpos($parentName, $prefix) === 0) {
 			// determine field from grandparent name in format: for-field-1234
 			$forID = (int) substr($parentName, strlen($prefix));
-			$this->forField = $this->wire('fields')->get($forID);
+			$this->forField = $this->wire()->fields->get($forID);
 		}
 
 		return $this->forField;

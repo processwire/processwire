@@ -5,7 +5,7 @@
  *
  * Creates and maintains a text-based log file.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -89,6 +89,7 @@ class FileLog extends Wire {
 	 * 
 	 */
 	public function __construct($path, $identifier = '') {
+		parent::__construct();
 		
 		if($identifier) {
 			$path = rtrim($path, '/') . '/';
@@ -98,19 +99,32 @@ class FileLog extends Wire {
 			$path = dirname($path) . '/';
 		}
 		$this->path = $path; 
-		if(!is_dir($path)) $this->wire('files')->mkdir($path);
 	}
-	
-	public function __get($key) {
-		if($key == 'delimiter') return $this->delimeter; // @todo learn how to spell
-		return parent::__get($key);
+
+	/**
+	 * Wired to API
+	 * 
+	 */
+	public function wired() {
+		parent::wired();
+		$this->path();
+	}
+
+	/**
+	 * @param string $name
+	 * @return mixed
+	 * 
+	 */
+	public function __get($name) {
+		if($name == 'delimiter') return $this->delimeter; // @todo learn how to spell
+		return parent::__get($name);
 	}
 
 	/**
 	 * Clean a string for use in a log file entry
 	 * 
 	 * @param $str
-	 * @return mixed|string
+	 * @return string
 	 * 
 	 */
 	protected function cleanStr($str) {
@@ -219,7 +233,7 @@ class FileLog extends Wire {
 		
 		// if we were creating the file, make sure it has the right permission
 		if($mode === 'w') {
-			$files = $this->wire('files'); /** @var WireFileTools $files */
+			$files = $this->wire()->files;
 			$files->chmod($this->logFilename);
 		}
 		
@@ -271,18 +285,42 @@ class FileLog extends Wire {
 		}
 	}
 
+	/**
+	 * Get filesize
+	 * 
+	 * @return int|false
+	 * 
+	 */
 	public function size() {
 		return filesize($this->logFilename); 
 	}
 
+	/**
+	 * Get file basename
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function filename() {
 		return basename($this->logFilename);
 	}
 
+	/**
+	 * Get file pathname
+	 * 
+	 * @return string|bool
+	 * 
+	 */
 	public function pathname() {
 		return $this->logFilename; 
 	}
 
+	/**
+	 * Get file modification time
+	 * 
+	 * @return int|false
+	 * 
+	 */
 	public function mtime() {
 		return filemtime($this->logFilename); 
 	}
@@ -483,7 +521,7 @@ class FileLog extends Wire {
 		}
 		
 		if($options['toFile']) {
-			$toFile = $this->path . basename($options['toFile']); 
+			$toFile = $this->path() . basename($options['toFile']); 
 			$fp = fopen($toFile, 'w'); 
 			if(!$fp) throw new \Exception("Unable to open file for writing: $toFile"); 
 		} else {
@@ -536,7 +574,7 @@ class FileLog extends Wire {
 		
 		if($fp) {
 			fclose($fp);
-			$this->wire('files')->chmod($toFile); 
+			$this->wire()->files->chmod($toFile); 
 			return $cnt;
 		}
 			
@@ -553,8 +591,7 @@ class FileLog extends Wire {
 	 * @param $line
 	 * @param array $options
 	 * @param bool $stopNow Populates this with true when it can determine no more lines are necessary.
-	 * @return bool|int Returns boolean true if valid, false if not.
-	 * 	If valid as a result of a date comparison, the unix timestmap for the line is returned. 
+	 * @return bool Returns boolean true if valid, false if not.
 	 * 
 	 */
 	protected function isValidLine($line, array $options, &$stopNow) {
@@ -623,13 +660,15 @@ class FileLog extends Wire {
 
 		fclose($fpw);
 		fclose($fpr); 
+		
+		$files = $this->wire()->files;
 
 		if($cnt) {
-			$this->wire('files')->unlink($filename, true);
-			$this->wire('files')->rename("$filename.new", $filename, true);
-			$this->wire('files')->chmod($filename); 
+			$files->unlink($filename, true);
+			$files->rename("$filename.new", $filename, true);
+			$files->chmod($filename); 
 		} else {
-			$this->wire('files')->unlink("$filename.new", true);
+			$files->unlink("$filename.new", true);
 		}
 	
 		return $cnt;	
@@ -651,8 +690,9 @@ class FileLog extends Wire {
 			'dateTo' => time(),
 		));
 		if(file_exists($toFile)) {
-			$this->wire('files')->unlink($this->logFilename, true);
-			$this->wire('files')->rename($toFile, $this->logFilename, true);
+			$files = $this->wire()->files;
+			$files->unlink($this->logFilename, true);
+			$files->rename($toFile, $this->logFilename, true);
 			return $qty; 
 		}
 		return 0;
@@ -665,7 +705,7 @@ class FileLog extends Wire {
 	 * 
 	 */
 	public function delete() {
-		return $this->wire('files')->unlink($this->logFilename, true);
+		return $this->wire()->files->unlink($this->logFilename, true);
 	}
 
 	public function __toString() {
@@ -703,6 +743,16 @@ class FileLog extends Wire {
 	public function chunkSize($chunkSize = 0) {
 		if($chunkSize > 0) $this->chunkSize = (int) $chunkSize;
 		return $this->chunkSize;
+	}
+
+	/**
+	 * Get path where the log is stored (with trailing slash)
+	 * @return string
+	 * 
+	 */
+	public function path() {
+		if(!is_dir($this->path)) $this->wire()->files->mkdir($this->path);
+		return $this->path;
 	}
 }
 

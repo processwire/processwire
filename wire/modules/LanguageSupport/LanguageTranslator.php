@@ -3,7 +3,7 @@
 /**
  * ProcessWire Language Translator 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -538,20 +538,32 @@ class LanguageTranslator extends Wire {
 		} else {
 			$textdomain = $this->filenameToTextdomain($filename);
 		}
-		$this->textdomains[$textdomain] = $this->textdomainTemplate(ltrim($filename, '/'), $textdomain); 
 		$file = $this->getTextdomainTranslationFile($textdomain); 
-		$result = file_put_contents($file, $this->encodeJSON($this->textdomains[$textdomain]), LOCK_EX); 
-		if($result && $this->config->chmodFile) chmod($file, octdec($this->config->chmodFile));
+		if(empty($file)) {
+			$this->error("Unable to get textdomain translation file: $textdomain");
+			return false;
+		}
+		if(is_file($file)) {
+			$result = true;
+		} else {
+			$this->textdomains[$textdomain] = $this->textdomainTemplate(ltrim($filename, '/'), $textdomain);
+			$result = file_put_contents($file, $this->encodeJSON($this->textdomains[$textdomain]), LOCK_EX);
+			if($result && $this->config->chmodFile) chmod($file, octdec($this->config->chmodFile));
+		}
 
 		if($result) {
 			$fieldName = 'language_files';
 			if(strpos($textdomain, 'wire--') !== 0)	{
-				if($this->wire('fields')->get('language_files_site')) {
+				if($this->wire()->fields->get('language_files_site')) {
 					$fieldName = 'language_files_site';
 				} 
 			}
-			$this->currentLanguage->$fieldName->add($file); 
-			if($save) $this->currentLanguage->save();
+			/** @var Pagefiles $pagefiles */
+			$pagefiles = $this->currentLanguage->$fieldName;
+			if(!$pagefiles->has(basename($file))) {
+				$pagefiles->add($file);
+				if($save) $this->currentLanguage->save();
+			}
 		}
 
 		return $result ? $textdomain : false;
@@ -677,5 +689,3 @@ class LanguageTranslator extends Wire {
 	}
 
 }
-
-

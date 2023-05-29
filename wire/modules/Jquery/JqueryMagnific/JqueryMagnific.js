@@ -1,6 +1,6 @@
-/*! Magnific Popup - v1.0.0 - 2015-09-17
+/*! Magnific Popup - v1.1.0 - 2016-02-20
 * http://dimsemenov.com/plugins/magnific-popup/
-* Copyright (c) 2015 Dmitry Semenov; */
+* Copyright (c) 2016 Dmitry Semenov; */
 ;(function (factory) { 
 if (typeof define === 'function' && define.amd) { 
  // AMD. Register as an anonymous module. 
@@ -83,7 +83,7 @@ var _mfpOn = function(name, f) {
 			// converts "mfpEventName" to "eventName" callback and triggers it if it's present
 			e = e.charAt(0).toLowerCase() + e.slice(1);
 			if(mfp.st.callbacks[e]) {
-				mfp.st.callbacks[e].apply(mfp, $.isArray(data) ? data : [data]);
+				mfp.st.callbacks[e].apply(mfp, Array.isArray(data) ? data : [data]);
 			}
 		}
 	},
@@ -136,9 +136,7 @@ MagnificPopup.prototype = {
 	 */
 	init: function() {
 		var appVersion = navigator.appVersion;
-		mfp.isIE7 = appVersion.indexOf("MSIE 7.") !== -1; 
-		mfp.isIE8 = appVersion.indexOf("MSIE 8.") !== -1;
-		mfp.isLowIE = mfp.isIE7 || mfp.isIE8;
+		mfp.isLowIE = mfp.isIE8 = document.all && !document.addEventListener;
 		mfp.isAndroid = (/android/gi).test(appVersion);
 		mfp.isIOS = (/iphone|ipad|ipod/gi).test(appVersion);
 		mfp.supportsTransition = supportsTransitions();
@@ -177,7 +175,7 @@ MagnificPopup.prototype = {
 				}
 			}
 		} else {
-			mfp.items = $.isArray(data.items) ? data.items : [data.items];
+			mfp.items = Array.isArray(data.items) ? data.items : [data.items];
 			mfp.index = data.index || 0;
 		}
 
@@ -446,8 +444,8 @@ MagnificPopup.prototype = {
 		}
 
 
-		if(mfp._lastFocusedEl) {
-			$(mfp._lastFocusedEl).focus(); // put tab focus back
+		if(mfp.st.autoFocusLast && mfp._lastFocusedEl) {
+			$(mfp._lastFocusedEl).trigger('focus'); // put tab focus back
 		}
 		mfp.currItem = null;	
 		mfp.content = null;
@@ -500,10 +498,6 @@ MagnificPopup.prototype = {
 		// _mfpOn('BeforeChange', function(e, prevType, newType) { });
 		
 		mfp.currItem = item;
-
-		
-
-		
 
 		if(!mfp.currTemplate[type]) {
 			var markup = mfp.st[type] ? mfp.st[type].markup : false;
@@ -565,8 +559,6 @@ MagnificPopup.prototype = {
 	},
 
 
-
-	
 	/**
 	 * Creates Magnific Popup data object based on given data
 	 * @param  {int} index Index of item to parse
@@ -649,7 +641,7 @@ MagnificPopup.prototype = {
 		var disableOn = options.disableOn !== undefined ? options.disableOn : $.magnificPopup.defaults.disableOn;
 
 		if(disableOn) {
-			if($.isFunction(disableOn)) {
+			if(typeof disableOn === 'function') {
 				if( !disableOn.call(mfp) ) {
 					return true;
 				}
@@ -668,7 +660,6 @@ MagnificPopup.prototype = {
 				e.stopPropagation();
 			}
 		}
-			
 
 		options.el = $(e.mfpEl);
 		if(options.delegate) {
@@ -764,7 +755,7 @@ MagnificPopup.prototype = {
 		return (  (mfp.isIE7 ? _document.height() : document.body.scrollHeight) > (winHeight || _window.height()) );
 	},
 	_setFocus: function() {
-		(mfp.st.focus ? mfp.content.find(mfp.st.focus).eq(0) : mfp.wrap).focus();
+		(mfp.st.focus ? mfp.content.find(mfp.st.focus).eq(0) : mfp.wrap).trigger('focus');
 	},
 	_onFocusIn: function(e) {
 		if( e.target !== mfp.wrap[0] && !$.contains(mfp.wrap[0], e.target) ) {
@@ -797,7 +788,7 @@ MagnificPopup.prototype = {
 						if(el.is('img')) {
 							el.attr('src', value);
 						} else {
-							el.replaceWith( '<img src="'+value+'" class="' + el.attr('class') + '" />' );
+							el.replaceWith( $('<img>').attr('src', value).attr('class', el.attr('class')) );
 						}
 					} else {
 						el.attr(arr[1], value);
@@ -843,7 +834,6 @@ $.magnificPopup = {
 		} else {
 			options = $.extend(true, {}, options);
 		}
-			
 
 		options.isObj = true;
 		options.index = index || 0;
@@ -907,7 +897,9 @@ $.magnificPopup = {
 
 		tClose: 'Close (Esc)',
 
-		tLoading: 'Loading...'
+		tLoading: 'Loading...',
+
+		autoFocusLast: true
 
 	}
 };
@@ -962,26 +954,6 @@ $.fn.magnificPopup = function(options) {
 	}
 	return jqEl;
 };
-
-
-//Quick benchmark
-/*
-var start = performance.now(),
-	i,
-	rounds = 1000;
-
-for(i = 0; i < rounds; i++) {
-
-}
-console.log('Test #1:', performance.now() - start);
-
-start = performance.now();
-for(i = 0; i < rounds; i++) {
-
-}
-console.log('Test #2:', performance.now() - start);
-*/
-
 
 /*>>core*/
 
@@ -1134,12 +1106,6 @@ $.magnificPopup.registerModule(AJAX_NS, {
 	}
 });
 
-
-
-
-
-	
-
 /*>>ajax*/
 
 /*>>image*/
@@ -1151,7 +1117,7 @@ var _imgInterval,
 		var src = mfp.st.image.titleSrc;
 
 		if(src) {
-			if($.isFunction(src)) {
+			if(typeof src === 'function') {
 				return src.call(mfp, item);
 			} else if(item.el) {
 				return item.el.attr(src) || '';
@@ -1387,8 +1353,6 @@ $.magnificPopup.registerModule('image', {
 		}
 	}
 });
-
-
 
 /*>>image*/
 
@@ -1723,8 +1687,7 @@ $.magnificPopup.registerModule('gallery', {
 		initGallery: function() {
 
 			var gSt = mfp.st.gallery,
-				ns = '.mfp-gallery',
-				supportsFastClick = Boolean($.fn.mfpFastClick);
+				ns = '.mfp-gallery';
 
 			mfp.direction = true; // true - next, false - prev
 			
@@ -1769,21 +1732,12 @@ $.magnificPopup.registerModule('gallery', {
 						arrowLeft = mfp.arrowLeft = $( markup.replace(/%title%/gi, gSt.tPrev).replace(/%dir%/gi, 'left') ).addClass(PREVENT_CLOSE_CLASS),			
 						arrowRight = mfp.arrowRight = $( markup.replace(/%title%/gi, gSt.tNext).replace(/%dir%/gi, 'right') ).addClass(PREVENT_CLOSE_CLASS);
 
-					var eName = supportsFastClick ? 'mfpFastClick' : 'click';
-					arrowLeft[eName](function() {
+					arrowLeft.on('click', function() {
 						mfp.prev();
-					});			
-					arrowRight[eName](function() {
+					});
+					arrowRight.on('click', function() {
 						mfp.next();
 					});	
-
-					// Polyfill for :before and :after (adds elements with classes mfp-a and mfp-b)
-					if(mfp.isIE7) {
-						_getEl('b', arrowLeft[0], false, true);
-						_getEl('a', arrowLeft[0], false, true);
-						_getEl('b', arrowRight[0], false, true);
-						_getEl('a', arrowRight[0], false, true);
-					}
 
 					mfp.container.append(arrowLeft.add(arrowRight));
 				}
@@ -1802,10 +1756,6 @@ $.magnificPopup.registerModule('gallery', {
 			_mfpOn(CLOSE_EVENT+ns, function() {
 				_document.off(ns);
 				mfp.wrap.off('click'+ns);
-			
-				if(mfp.arrowLeft && supportsFastClick) {
-					mfp.arrowLeft.add(mfp.arrowRight).destroyMfpFastClick();
-				}
 				mfp.arrowRight = mfp.arrowLeft = null;
 			});
 
@@ -1868,58 +1818,6 @@ $.magnificPopup.registerModule('gallery', {
 	}
 });
 
-/*
-Touch Support that might be implemented some day
-
-addSwipeGesture: function() {
-	var startX,
-		moved,
-		multipleTouches;
-
-		return;
-
-	var namespace = '.mfp',
-		addEventNames = function(pref, down, move, up, cancel) {
-			mfp._tStart = pref + down + namespace;
-			mfp._tMove = pref + move + namespace;
-			mfp._tEnd = pref + up + namespace;
-			mfp._tCancel = pref + cancel + namespace;
-		};
-
-	if(window.navigator.msPointerEnabled) {
-		addEventNames('MSPointer', 'Down', 'Move', 'Up', 'Cancel');
-	} else if('ontouchstart' in window) {
-		addEventNames('touch', 'start', 'move', 'end', 'cancel');
-	} else {
-		return;
-	}
-	_window.on(mfp._tStart, function(e) {
-		var oE = e.originalEvent;
-		multipleTouches = moved = false;
-		startX = oE.pageX || oE.changedTouches[0].pageX;
-	}).on(mfp._tMove, function(e) {
-		if(e.originalEvent.touches.length > 1) {
-			multipleTouches = e.originalEvent.touches.length;
-		} else {
-			//e.preventDefault();
-			moved = true;
-		}
-	}).on(mfp._tEnd + ' ' + mfp._tCancel, function(e) {
-		if(moved && !multipleTouches) {
-			var oE = e.originalEvent,
-				diff = startX - (oE.pageX || oE.changedTouches[0].pageX);
-
-			if(diff > 20) {
-				mfp.next();
-			} else if(diff < -20) {
-				mfp.prev();
-			}
-		}
-	});
-},
-*/
-
-
 /*>>gallery*/
 
 /*>>retina*/
@@ -1960,101 +1858,4 @@ $.magnificPopup.registerModule(RETINA_NS, {
 });
 
 /*>>retina*/
-
-/*>>fastclick*/
-/**
- * FastClick event implementation. (removes 300ms delay on touch devices)
- * Based on https://developers.google.com/mobile/articles/fast_buttons
- *
- * You may use it outside the Magnific Popup by calling just:
- *
- * $('.your-el').mfpFastClick(function() {
- *     console.log('Clicked!');
- * });
- *
- * To unbind:
- * $('.your-el').destroyMfpFastClick();
- * 
- * 
- * Note that it's a very basic and simple implementation, it blocks ghost click on the same element where it was bound.
- * If you need something more advanced, use plugin by FT Labs https://github.com/ftlabs/fastclick
- * 
- */
-
-(function() {
-	var ghostClickDelay = 1000,
-		supportsTouch = 'ontouchstart' in window,
-		unbindTouchMove = function() {
-			_window.off('touchmove'+ns+' touchend'+ns);
-		},
-		eName = 'mfpFastClick',
-		ns = '.'+eName;
-
-
-	// As Zepto.js doesn't have an easy way to add custom events (like jQuery), so we implement it in this way
-	$.fn.mfpFastClick = function(callback) {
-
-		return $(this).each(function() {
-
-			var elem = $(this),
-				lock;
-
-			if( supportsTouch ) {
-
-				var timeout,
-					startX,
-					startY,
-					pointerMoved,
-					point,
-					numPointers;
-
-				elem.on('touchstart' + ns, function(e) {
-					pointerMoved = false;
-					numPointers = 1;
-
-					point = e.originalEvent ? e.originalEvent.touches[0] : e.touches[0];
-					startX = point.clientX;
-					startY = point.clientY;
-
-					_window.on('touchmove'+ns, function(e) {
-						point = e.originalEvent ? e.originalEvent.touches : e.touches;
-						numPointers = point.length;
-						point = point[0];
-						if (Math.abs(point.clientX - startX) > 10 ||
-							Math.abs(point.clientY - startY) > 10) {
-							pointerMoved = true;
-							unbindTouchMove();
-						}
-					}).on('touchend'+ns, function(e) {
-						unbindTouchMove();
-						if(pointerMoved || numPointers > 1) {
-							return;
-						}
-						lock = true;
-						e.preventDefault();
-						clearTimeout(timeout);
-						timeout = setTimeout(function() {
-							lock = false;
-						}, ghostClickDelay);
-						callback();
-					});
-				});
-
-			}
-
-			elem.on('click' + ns, function() {
-				if(!lock) {
-					callback();
-				}
-			});
-		});
-	};
-
-	$.fn.destroyMfpFastClick = function() {
-		$(this).off('touchstart' + ns + ' click' + ns);
-		if(supportsTouch) _window.off('touchmove'+ns+' touchend'+ns);
-	};
-})();
-
-/*>>fastclick*/
  _checkInstance(); }));

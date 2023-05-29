@@ -5,7 +5,7 @@ function TemplateFieldAddDialog() {
     var fieldReady = false;
     var $iframe = pwModalWindow($a.attr('href'), {}, 'large');
 
-    $iframe.load(function() {
+    $iframe.on('load', function() {
 
 		var $button;
         var buttons = [];
@@ -29,7 +29,7 @@ function TemplateFieldAddDialog() {
                     'text': text,
                     'class': ($button.hasClass('ui-priority-secondary') ? 'ui-priority-secondary' : ''),
                     'click': function() {
-                        $button.click();
+                        $button.trigger('click');
                         fieldReady = true;
                     }
                 };
@@ -45,7 +45,7 @@ function TemplateFieldAddDialog() {
                 'class': ($button && $button.hasClass('ui-priority-secondary') ? 'ui-priority-secondary' : ''),
                 'click': function() {
                     setTimeout(function() {
-                        var newFieldId = $icontents.find("#Inputfield_id:last").val();
+                        var newFieldId = $icontents.find("#Inputfield_id").last().val();
                         $iframe.dialog('close');
 						var $options = $('#fieldgroup_fields option');
                         var numOptions = $options.length;
@@ -80,5 +80,5 @@ function TemplateFieldAddDialog() {
 
 
 $(document).ready(function() {
-    $('#wrap_fieldgroup_fields p.description a').click(TemplateFieldAddDialog);
+    $('#wrap_fieldgroup_fields p.description a').on('click', TemplateFieldAddDialog);
 });

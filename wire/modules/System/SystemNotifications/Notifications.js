@@ -235,7 +235,7 @@ var Notifications = {
 		}
 
 		// if any notifications were marked 'annoy' open the notifications menu now
-		if(annoy && !Notifications.$menu.hasClass('open')) Notifications.$bug.click();
+		if(annoy && !Notifications.$menu.hasClass('open')) Notifications.$bug.trigger('click');
 		if(annoy) window.scrollTo(0, 0);
 
 		// only update time if menu is closed since we already have a timer running, 
@@ -441,7 +441,7 @@ var Notifications = {
 			var $chevron = $("<i class='fa fa-chevron-circle-right'></i>"); 
 			$title.append(" ").append($chevron);
 			
-			$title.click(function() {
+			$title.on('click', function() {
 				if($li.hasClass('open')) {
 					$li.removeClass('open'); 
 					$text.slideUp('fast').removeClass('open'); 
@@ -457,7 +457,7 @@ var Notifications = {
 			
 			if(open || notification.flagNames.indexOf('open') != -1) {
 				if(!open) {
-					$title.click();
+					$title.trigger('click');
 					/*
 					setTimeout(function() { 
 						$text.fadeIn('slow', function() {
@@ -777,13 +777,13 @@ var Notifications = {
 		if(!Notifications.$bug.length) return;
 
 		Notifications.$menu.hide();
-		Notifications.$bug.click(Notifications.clickBug);
+		Notifications.$bug.on('click', Notifications.clickBug);
 		Notifications.useSession = typeof sessionStorage != "undefined";
 		
 		// start polling for new notifications
 		Notifications.updateTimeout = setTimeout(Notifications.update, Notifications.currentDelay); 
 
-		$("#ProcessPageSearchForm input").dblclick(function(e) { 
+		$("#ProcessPageSearchForm input").on('dblclick', function(e) { 
 			Notifications.message(
 				"ProcessWire Notifications v" + Notifications.options.version, 
 				"Grab a coffee and come and visit us at the <a target='_blank' href='https://processwire.com/talk/'>ProcessWire support forums</a>.</p>", 
@@ -811,4 +811,3 @@ var Notifications = {
 		}
 	}
 };
-
