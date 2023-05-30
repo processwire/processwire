@@ -465,12 +465,12 @@ class Modules extends WireArray {
 	/**
 	 * Get data from the verbose module info cache
 	 * 
-	 * @param int|string $moduleID
+	 * @param int|string|null $moduleID
 	 * @param string $property
 	 * @return array|mixed|null
 	 * 
 	 */
-	protected function moduleInfoCacheVerbose($moduleID = 0, $property = '') {
+	protected function moduleInfoCacheVerbose($moduleID = null, $property = '') {
 		return $this->moduleInfoCache($moduleID, $property, true);
 	}
 
@@ -672,7 +672,10 @@ class Modules extends WireArray {
 			$className = wireClassName($className, true);
 		}
 		$debugKey = $this->debug ? $this->debugTimerStart("newModule($moduleName)") : null;
-		if(!class_exists($className, false)) $this->includeModule($moduleName);
+		if(!class_exists($className, false)) {
+			$result = $this->includeModule($moduleName);
+			if(!$result) return null;
+		}
 		if(!class_exists($className, false)) {
 			// attempt 2.x module in dedicated namespace or root namespace
 			$className = $this->getModuleNamespace($moduleName) . $moduleName;
@@ -1122,16 +1125,19 @@ class Modules extends WireArray {
 		}
 
 		// if the filename doesn't end with .module or .module.php, then stop and move onto the next
-		if(!strpos($filename, '.module') || (substr($filename, -7) !== '.module' && substr($filename, -11) !== '.module.php')) return false;
+		if(strpos($filename, '.module') === false) return false;
+		list(, $ext) = explode('.module', $filename, 2);
+		if(!empty($ext) && $ext !== '.php') return false;
 		
 		//  if the filename doesn't start with the requested path, then continue
 		if(strpos($pathname, $basepath) !== 0) return ''; 
 
 		// if the file isn't there, it was probably uninstalled, so ignore it
-		if(!file_exists($pathname)) return '';
+		// if(!file_exists($pathname)) return ''; 
 
 		// if the module isn't installed, then stop and move on to next
-		if(!array_key_exists($basename, $installed)) {
+		if(!isset($installed[$basename]) && !array_key_exists($basename, $installed)) {
+			// array_key_exists is used as secondary to check the null case
 			$this->installable[$basename] = $pathname;
 			return '';
 		}
@@ -1146,11 +1152,11 @@ class Modules extends WireArray {
 			// this is an Autoload module. 
 			// include the module and instantiate it but don't init() it,
 			// because it will be done by Modules::init()
-			$moduleInfo = $this->getModuleInfo($basename);
 
 			// determine if module has dependencies that are not yet met
-			if(count($moduleInfo['requires'])) {
-				foreach($moduleInfo['requires'] as $requiresClass) {
+			$requiresClasses = $this->getModuleInfoProperty($basename, 'requires');
+			if(!empty($requiresClasses)) {
+				foreach($requiresClasses as $requiresClass) {
 					$nsRequiresClass = $this->getModuleClass($requiresClass, true);
 					if(!wireClassExists($nsRequiresClass, false)) {
 						$requiresInfo = $this->getModuleInfo($requiresClass); 
@@ -1167,22 +1173,22 @@ class Modules extends WireArray {
 					return $basename;
 				}
 			}
-
 			// if not defined in getModuleInfo, then we'll accept the database flag as enough proof
 			// since the module may have defined it via an isAutoload() function
-			if(!isset($moduleInfo['autoload'])) $moduleInfo['autoload'] = true;
 			/** @var bool|string|callable $autoload */
-			$autoload = $moduleInfo['autoload'];
+			$autoload = $this->moduleInfoCache($basename, 'autoload');
+			if(empty($autoload)) $autoload = true;
 			if($autoload === 'function') {
 				// function is stored by the moduleInfo cache to indicate we need to call a dynamic function specified with the module itself
 				$i = $this->getModuleInfoExternal($basename); 
 				if(empty($i)) {
 					$this->includeModuleFile($pathname, $basename);
-					$className = $moduleInfo['namespace'] . $basename;
+					$namespace = $this->getModuleNamespace($basename);
+					$className = $namespace . $basename;
 					if(method_exists($className, 'getModuleInfo')) {
 						$i = $className::getModuleInfo();
 					} else {
-						$i = array();
+						$i = $this->getModuleInfo($className);
 					}
 				}
 				$autoload = isset($i['autoload']) ? $i['autoload'] : true;
@@ -1207,10 +1213,13 @@ class Modules extends WireArray {
 			}
 		}
 
-		if(is_null($module)) {
+		if($module === null) {
 			// placeholder for a module, which is not yet included and instantiated
-			if(!$moduleInfo) $moduleInfo = $this->getModuleInfo($basename);
-			$module = $this->newModulePlaceholder($basename, $moduleInfo['namespace'], $pathname, $info['flags'] & self::flagsSingular, $autoload);
+			// if(!$moduleInfo) $moduleInfo = $this->getModuleInfo($basename);
+			$ns = $moduleInfo ? $moduleInfo['namespace'] : $this->moduleInfoCache($basename, 'namespace'); 
+			if(empty($namespace)) $ns = __NAMESPACE__ . "\\";
+			$singular = $info['flags'] & self::flagsSingular;
+			$module = $this->newModulePlaceholder($basename, $ns, $pathname, $singular, $autoload);
 		}
 
 		$this->moduleIDs[$basename] = $info['id'];
@@ -1701,14 +1710,17 @@ class Modules extends WireArray {
 				// still can't figure out what file is? fail
 				if(!$file) return false;
 			}
-			
+		
 			if(!$this->includeModuleFile($file, $moduleName)) {
 				// module file failed to include(), try to identify and include file again
 				if($fast) {
 					$filePrev = $file;
 					$file = $this->getModuleFile($moduleName, array('fast' => false));
 					if($file && $file !== $filePrev) {
-						$this->includeModuleFile($file, $moduleName);
+						if($this->includeModuleFile($file, $moduleName)) {
+							// module is missing a module file
+							return false;
+						}
 					}
 				} else {
 					// we already tried this earlier, no point in doing it again
@@ -2935,7 +2947,7 @@ class Modules extends WireArray {
 	 *  - `namespace` (string): PHP namespace that module lives in.
 	 *
 	 * The following properties are also included when "verbose" mode is requested. When not in verbose mode, these 
-	 * properties are present but blank:
+	 * properties may be present but with empty values:
 	 *
 	 *  - `versionStr` (string): formatted module version string.
 	 *  - `file` (string): module filename from PW installation root, or false when it can't be found.
@@ -3001,7 +3013,7 @@ class Modules extends WireArray {
 		$moduleName = '';
 		$moduleID = 0;
 		$fromCache = false;  // was the data loaded from cache?
-	
+
 		if(!$getAll && !$getSystem) {
 			$moduleName = $this->getModuleClass($module);
 			$moduleID = (string) $this->getModuleID($module); // typecast to string for cache
@@ -3068,9 +3080,16 @@ class Modules extends WireArray {
 			if(empty($this->moduleInfoCache)) $this->loadModuleInfoCache();
 			$modulesInfo = $this->moduleInfoCache();
 			if($options['verbose']) {
-				if(empty($this->moduleInfoCacheVerbose)) $this->loadModuleInfoCacheVerbose();
 				foreach($this->moduleInfoCacheVerbose() as $moduleID => $moduleInfoVerbose) {
-					$modulesInfo[$moduleID] = array_merge($modulesInfo[$moduleID], $moduleInfoVerbose);
+					if($options['noCache']) {
+						$modulesInfo[$moduleID] = $this->getModuleInfo($moduleID, $options);
+					} else {
+						$modulesInfo[$moduleID] = array_merge($modulesInfo[$moduleID], $moduleInfoVerbose);
+					}
+				}
+			} else if($options['noCache']) {
+				foreach(array_keys($modulesInfo) as $moduleID) {
+						$modulesInfo[$moduleID] = $this->getModuleInfo($moduleID, $options);
 				}
 			}
 			if(!$options['minify']) {
@@ -3159,12 +3178,12 @@ class Modules extends WireArray {
 			}
 		
 			// populate defaults for properties omitted from cache 
-			if(is_null($info['autoload'])) $info['autoload'] = false;
-			if(is_null($info['singular'])) $info['singular'] = false;
-			if(is_null($info['configurable'])) $info['configurable'] = false;
-			if(is_null($info['core'])) $info['core'] = false;
-			if(is_null($info['installed'])) $info['installed'] = true;
-			if(is_null($info['namespace'])) $info['namespace'] = strlen(__NAMESPACE__) ? "\\" . __NAMESPACE__ . "\\" : "";
+			if($info['autoload'] === null) $info['autoload'] = false;
+			if($info['singular'] === null) $info['singular'] = false;
+			if($info['configurable'] === null) $info['configurable'] = false;
+			if($info['core'] === null) $info['core'] = false;
+			if($info['installed'] === null) $info['installed'] = true;
+			if($info['namespace'] === null) $info['namespace'] = strlen(__NAMESPACE__) ? "\\" . __NAMESPACE__ . "\\" : "";
 			if(!empty($info['requiresVersions'])) $info['requires'] = array_keys($info['requiresVersions']);
 			if($moduleName == 'SystemUpdater') $info['configurable'] = 1; // fallback, just in case
 			
@@ -3272,11 +3291,13 @@ class Modules extends WireArray {
 		
 		if($options['minify']) {
 			// when minify, any values that match defaults from infoTemplate are removed
-			if(!$options['verbose']) foreach($this->moduleInfoVerboseKeys as $key) unset($info[$key]); 
-			foreach($info as $key => $value) {
-				if(!array_key_exists($key, $infoTemplate)) continue;
-				if($value !== $infoTemplate[$key]) continue;
-				unset($info[$key]); 
+			if(!$options['verbose']) {
+				foreach($this->moduleInfoVerboseKeys as $key) unset($info[$key]);
+				foreach($info as $key => $value) {
+					if(!array_key_exists($key, $infoTemplate)) continue;
+					if($value !== $infoTemplate[$key]) continue;
+					unset($info[$key]);
+				}
 			}
 		}
 		
@@ -3324,6 +3345,19 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function getModuleInfoProperty($class, $property, array $options = array()) {
+		
+		if(empty($options['noCache'])) {
+			// shortcuts where possible
+			switch($property) {
+				case 'namespace': 
+					return $this->getModuleNamespace($class);
+				case 'requires': 
+					$v = $this->moduleInfoCache($class, 'requires');
+					if(empty($v)) return array(); // early exist when known not to exist
+					break; // fallback to calling getModuleInfo
+			}
+		}
+		
 		if(in_array($property, $this->moduleInfoVerboseKeys)) {
 			$info = $this->getModuleInfoVerbose($class, $options);
 			$info['verbose'] = true;
@@ -3334,6 +3368,7 @@ class Modules extends WireArray {
 			// try again, just in case we can find it in verbose data
 			$info = $this->getModuleInfoVerbose($class, $options);
 		}
+		
 		return isset($info[$property]) ? $info[$property] : null;
 	}
 
@@ -3658,7 +3693,7 @@ class Modules extends WireArray {
 		
 		if(!$hasDuplicate) {
 			// see if we can determine it from already stored paths
-			$path = $config->paths->$moduleName;
+			$path = $config->paths($moduleName);
 			if($path) {
 				$file = $path . $moduleName . ($this->moduleFileExts[$moduleName] === 2 ? '.module.php' : '.module');
 				if(!$options['fast'] && !file_exists($file)) $file = false;
@@ -3748,7 +3783,7 @@ class Modules extends WireArray {
 		
 		if(!$file && !empty($options['guess'])) {
 			// make a guess about where module would be if we had been able to find it
-			$file = $config->paths->siteModules . "$moduleName/$moduleName.module";
+			$file = $config->paths('siteModules') . "$moduleName/$moduleName.module";
 		}
 
 		if($file) {
