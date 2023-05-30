@@ -799,13 +799,19 @@ class WireCache extends Wire {
 		$forceRun = false;
 		$database = $this->wire()->database;
 		$config = $this->wire()->config;
+		$cacher = $this->cacher();
+		$useCacherMaint = method_exists($cacher, 'maintenance');
 
 		if(!$database || !$config) return false;
 
 		if(is_object($obj)) {
+			if($useCacherMaint) {
+				$result = call_user_func_array(array($cacher, 'maintenance'), array($obj));
+				if($result) return true;
+			}
 			// check to see if it is worthwhile to perform this kind of maintenance at all
 			if($this->usePageTemplateMaintenance === null) {
-				$rows = $this->cacher()->find(array(
+				$rows = $cacher->find(array(
 					'get' => array('name'),
 					'expiresMode' => 'OR',
 					'expires' => array(
@@ -863,7 +869,14 @@ class WireCache extends Wire {
 		}
 
 		// perform general maintenance now	
-		return $this->maintenanceGeneral();
+		if($useCacherMaint) {
+			$result = (bool) call_user_func_array(array($cacher, 'maintenance'), array(null));
+		} else {
+			$result = $this->maintenanceGeneral();
+		}
+		
+		return $result;
+		
 	}
 	
 	/**

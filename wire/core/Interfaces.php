@@ -796,4 +796,27 @@ interface WireCacheInterface {
 	 *
 	 */
 	public function expireAll();
+
+	/**
+	 * Optional method to perform maintenance
+	 * 
+	 * When present, this method should return true if it handled maintenance or false if it did not.
+	 * If it returns false, WireCache will attempt to perform maintenance instead by calling find and 
+	 * delete methods where appropriate.
+	 * 
+	 * WireCache passes either null, a Page object or a Template object as the single argument.
+	 * When null is passed, it means "general maintenance". When a Page or Template object is
+	 * passed then it means that the given Page or Template was just saved, and to perform any 
+	 * necessary maintenance for that case. If the method handles general maintenance but not
+	 * object maintenance, then it should return true when it receives null, and false when it
+	 * receives a Page or Template. 
+	 * 
+	 * @param Page|Template|null $obj
+	 * @return bool
+	 * @since 3.0.219
+	 * 
+	 * The method below is commented out because it optional and only used only if present:
+	 * 
+	 */
+	// public function maintenance($obj = null);
 }
