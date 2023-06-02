@@ -2560,8 +2560,8 @@ class Modules extends WireArray {
 			case 'files': return $this->files;
 			case 'installableFiles': return $this->installableFiles;
 			case 'coreModulesDir': return $this->coreModulesDir;
-			case 'coreModulePath': return $this->paths[0];
-			case 'siteModulePath': return isset($this->paths[1]) ? $this->paths[1] : '';
+			case 'coreModulesPath': return $this->paths[0];
+			case 'siteModulesPath': return isset($this->paths[1]) ? $this->paths[1] : '';
 			case 'moduleIDs': return $this->moduleIDs;
 			case 'moduleNames': return $this->moduleNames;
 			case 'refreshing': return $this->refreshing;
