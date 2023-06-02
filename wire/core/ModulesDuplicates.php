@@ -40,6 +40,7 @@ class ModulesDuplicates extends Wire {
 	 *
 	 */
 	protected $numNewDuplicates = 0;
+	
 
 	/**
 	 * Return quantity of new duplicates found while loading modules
@@ -359,5 +360,12 @@ class ModulesDuplicates extends Wire {
 			unset($configData['-dups'], $configData['-dups-use']);
 		}
 		return $configData;
+	}
+	
+	public function getDebugData() {
+		return array(
+			'duplicates' => $this->duplicates,
+			'duplicatesUse' => $this->duplicatesUse
+		);
 	}
 }

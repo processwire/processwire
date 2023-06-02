@@ -87,6 +87,7 @@ class ProcessModule extends Process {
 	protected $newCoreModules = array(
 		'SystemNotifications', 
 		'InputfieldCKEditor',
+		'InputfieldTinyMCE',
 		'FieldtypeOptions',
 		'InputfieldIcon', 
 		'ProcessLogger',
@@ -173,6 +174,9 @@ class ProcessModule extends Process {
 		if($this->wire()->input->get('update')) {
 			$this->labels['download_install'] = $this->_('Download and Update');
 		}
+		/** @var JqueryUI $jQueryUI */
+		$jQueryUI = $this->wire()->modules->getModule('JqueryUI');
+		if($jQueryUI) $jQueryUI->use('modal');
 	}
 
 	/**
@@ -248,7 +252,7 @@ class ProcessModule extends Process {
 			
 			if($configurable) { 
 				if(!$info['configurable'] || !$info['installed']) continue;
-				$flags = $modules->getFlags($moduleName);
+				$flags = $modules->flags->getFlags($moduleName);
 				if($flags & Modules::flagsNoUserConfig) continue;
 			}
 			
@@ -443,7 +447,7 @@ class ProcessModule extends Process {
 			}
 			
 			if($info['configurable'] && $info['installed']) {
-				$flags = $modules->getFlags($name);
+				$flags = $modules->flags->getFlags($name);
 				if(!($flags & Modules::flagsNoUserConfig)) {
 					$configurableArray[$name] = $installed;
 				}
@@ -958,7 +962,7 @@ class ProcessModule extends Process {
 				$editUrl = '#';
 
 			} else if($configurable) {
-				$flags = $modules->getFlags($name);
+				$flags = $modules->flags->getFlags($name);
 				if(!($flags & Modules::flagsNoUserConfig)) {
 					$buttons .=
 						"<button type='button' class='ProcessModuleSettings ui-state-default ui-button'>" .
@@ -1624,7 +1628,7 @@ class ProcessModule extends Process {
 		}
 		
 		$sinfo = self::getModuleInfo();
-		$flags = $modules->getFlags($moduleName);
+		$flags = $modules->flags->getFlags($moduleName);
 		$allowDisabledFlag = 
 			($config->debug && $config->advanced && ($flags & Modules::flagsAutoload)) ||
 			($flags & Modules::flagsDisabled);
@@ -1828,10 +1832,10 @@ class ProcessModule extends Process {
 					// module is autoload and has an option to diable
 					if($input->post('_flags_disabled')) {
 						// add disabled flag
-						if(!($flags & Modules::flagsDisabled)) $modules->setFlag($moduleName, Modules::flagsDisabled, true);
+						if(!($flags & Modules::flagsDisabled)) $modules->flags->setFlag($moduleName, Modules::flagsDisabled, true);
 					} else {
 						// remove disabled flag
-						if($flags & Modules::flagsDisabled) $modules->setFlag($moduleName, Modules::flagsDisabled, false); 
+						if($flags & Modules::flagsDisabled) $modules->flags->setFlag($moduleName, Modules::flagsDisabled, false); 
 					}
 				}
 				
@@ -2130,4 +2134,3 @@ class ProcessModule extends Process {
 	}
 	
 }
-
