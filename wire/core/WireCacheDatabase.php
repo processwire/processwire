@@ -176,7 +176,7 @@ class WireCacheDatabase extends Wire implements WireCacheInterface {
 	 * 
 	 */
 	protected function _deleteAll($expireAll = false) {
-		$sql = 'DELETE FROM caches WHERE ' . ($expireAll ? 'expires>:never' : 'expires!=:reserved');
+		$sql = 'DELETE FROM caches WHERE ' . ($expireAll ? 'expires>:expires' : 'expires!=:expires');
 		$query = $this->wire()->database->prepare($sql, "cache.deleteAll()");
 		$query->bindValue(':expires', ($expireAll ? WireCache::expireNever : WireCache::expireReserved));
 		if(!$this->executeQuery($query)) return 0;
