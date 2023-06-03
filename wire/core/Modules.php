@@ -1506,7 +1506,6 @@ class Modules extends WireArray {
 	 * #pw-internal
 	 *
 	 * @return array
-	 * @deprecated Use $modules->info->getNamespaces() instead
 	 *
 	 */
 	public function getNamespaces() {
@@ -1524,7 +1523,6 @@ class Modules extends WireArray {
 	 * 	- `noCache` (bool): Specify true to force reload namespace info directly from module file. (default=false)
 	 *  - `noLoad` (bool): Specify true to prevent loading of file for namespace discovery. (default=false) Added 3.0.170
 	 * @return null|string Returns namespace, or NULL if unable to determine. Namespace is ready to use in a string (i.e. has trailing slashes)
-	 * @deprecated Use $modules->info->getModuleNamespace() instead
 	 *
 	 */
 	public function getModuleNamespace($moduleName, $options = array()) {
@@ -1538,7 +1536,6 @@ class Modules extends WireArray {
 	 *
 	 * @param string $namespace
 	 * @return bool|string
-	 * @deprecated Use $modules->info->getNamespacePath() instead
 	 *
 	 */
 	public function getNamespacePath($namespace) {

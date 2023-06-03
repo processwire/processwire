@@ -325,6 +325,14 @@ class ModulesFiles extends ModulesClass {
 		} else {
 			$success = false;
 		}
+		
+		if(!$success) {
+			// handle case where module has moved from /modules/Foo.module to /modules/Foo/Foo.module
+			// which can only occur during upgrades from much older versions. 
+			// examples are FieldtypeImage and FieldtypeText which moved to their own directories.
+			$file2 = preg_replace('!([/\\\\])([^/\\\\]+)(\.module(?:\.php)?)$!', '$1$2$1$2$3', $file);
+			if($file !== $file2) $success = @include_once($file2);
+		}
 
 		// set instance back, if multi-instance
 		if($wire1 !== $wire2) ProcessWire::setCurrentInstance($wire1);

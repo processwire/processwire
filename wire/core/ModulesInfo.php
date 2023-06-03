@@ -1096,14 +1096,14 @@ class ModulesInfo extends ModulesClass {
 				$fromVersion = $this->modules->formatVersion($moduleVersions[$id]);
 				$toVersion = $this->modules->formatVersion($moduleInfo['version']);
 				$versionChanges[$moduleName] = "$fromVersion => $toVersion: $moduleName";
-				$editUrl = $this->modules->configs->getModuleEditUrl($moduleName, false);
+				$editUrl = $this->modules->configs->getModuleEditUrl($moduleName, false) . '&upgrade=1';
 				$this->modulesLastVersions[$id] = $moduleVersions[$id];
 				if(strpos($moduleName, 'Fieldtype') === 0) {
 					// apply update now, to Fieldtype modules only (since they are loaded differently)
 					$this->modules->getModule($moduleName);
 				} else {
 					$upgradeLinks[$moduleName] = "<a class='pw-modal' target='_blank' href='$editUrl'>" . 
-						$sanitizer->entities1($this->_('Apply now')) . "</a>";
+						$sanitizer->entities1($this->_('Apply')) . "</a>";
 				}
 			}
 		}

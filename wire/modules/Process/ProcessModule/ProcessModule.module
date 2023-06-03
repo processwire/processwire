@@ -1681,6 +1681,11 @@ class ProcessModule extends Process {
 			$form->add($field); 
 		}
 		
+		if($input->get('upgrade')) {
+			// force it to do an upgrade check
+			$this->wire()->modules->getModule($moduleName, array('configOnly' => true));
+		}
+		
 		$fields = $modules->getModuleConfigInputfields($moduleName, $form); 
 		if($fields) {
 			foreach($fields as $field) {

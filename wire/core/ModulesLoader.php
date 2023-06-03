@@ -721,8 +721,8 @@ class ModulesLoader extends ModulesClass {
 			return false;
 
 		} else if($module instanceof ModulePlaceholder) {
-			$this->modules->files->includeModuleFile($module->file, $moduleName);
-			return true;
+			// the ModulePlaceholder indicates what file to load
+			return $this->modules->files->includeModuleFile($module->file, $moduleName);
 
 		} else if($module instanceof Module) {
 			// it's already been included, since we have a real module
