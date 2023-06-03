@@ -7,7 +7,7 @@
  * Code by Ryan Cramer
  * Sponsored by Avoine
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for "custom: OR-group" option (https://processwire.com/talk/topic/13116-or-selecters-for-different-fields/)
@@ -166,7 +166,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		'previewColumns',
 		'limitFields',
 		'maxUsers',
-		);
+	);
 
 	/**
 	 * Default values of each setting, for outside configuration
@@ -275,25 +275,32 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'inputClass' => '',
 			'checkboxClass' => '',
 		);
-		$configSettings = $this->wire('config')->InputfieldSelector;
+		
+		$config = $this->wire()->config;
+		$configSettings = $config->InputfieldSelector;
 		$configSettings = is_array($configSettings) ? array_merge($configDefaults, $configSettings) : $configDefaults;
+		
 		foreach($configSettings as $key => $value) {
 			$this->setting($key, $value);
 		}
 
-		$input = $this->wire('input'); 
+		if(!self::debug && !$this->wire()->config->ajax) return;
+		
+		$input = $this->wire()->input; 
+		
 		$name = $input->get('name'); 
 		$action = $input->get($this->className()); 
 
 		if(!$action || !$name) return;
-		if(!self::debug && !$this->wire('config')->ajax) return;
 		
-		$this->attr('name', $this->wire('sanitizer')->fieldName($name)); // for session validity
+		$sanitizer = $this->wire()->sanitizer;
+
+		$this->attr('name', $sanitizer->fieldName($name)); // for session validity
+		
 		if(!$this->sessionGet('valid')) return;
-		if(!$this->wire('user')->isLoggedin()) return;
+		if(!$this->wire()->user->isLoggedin()) return;
 
 		$this->set('initValue', $this->sessionGet('initValue')); 
-		$sanitizer = $this->wire('sanitizer'); 
 		
 		foreach($this->sessionVarNames as $key) {
 			$this->set($key, $this->sessionGet($key));
@@ -401,7 +408,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'status' => array('@=', '@!=', '<', '<=', '>', '>='), 
 			//'selector' => array('#=', '#!='),
 			'selector' => array('=', '!=', '<', '>', '<=', '>='), 
-			); 
+		); 
 	
 		// chars that are trimmed off operators before being used	
 		// enables different contexts for the same operator
@@ -425,12 +432,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		// make users selectable if there are under $maxUsers of them
 		// otherwise utilize the user ID property
 		$users = array(); 
-		$userTemplates = implode('|', $this->wire('config')->userTemplateIDs);
-		$numUsers = $this->wire('pages')->count("template=$userTemplates, include=all"); 
+		$userTemplates = implode('|', $this->wire()->config->userTemplateIDs);
+		$numUsers = $this->wire()->pages->count("template=$userTemplates, include=all"); 
 		if($numUsers < $this->maxUsers) { 
 			$usersInput = 'select';
 			$usersOperators = array('=', '!=');
-			foreach($this->wire('users') as $user) {
+			foreach($this->wire()->users as $user) {
 				$users[$user->id] = $user->name; 
 			}
 		} else {
@@ -438,7 +445,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$usersOperators = array('=', '%=', '!=');
 		}
 		
-		$titleField = $this->wire('fields')->get('title'); 
+		$titleField = $this->wire()->fields->get('title'); 
 
 		// system fields definitions
 		$this->systemFields = array(
@@ -553,7 +560,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		
 		foreach(Page::getStatuses() as $name => $status) {
 			if($status > Page::statusTrash) continue;
-			if($status === Page::statusDraft && !$this->wire('modules')->isInstalled('ProDrafts')) continue;
+			if($status === Page::statusDraft && !$this->wire()->modules->isInstalled('ProDrafts')) continue;
 			if(in_array($status, $ignoreStatuses)) continue;
 			if(isset($this->systemFields['status']['options'][$name])) continue; // use existing label
 			$this->systemFields['status']['options'][$name] = ucfirst($name);
@@ -605,7 +612,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		foreach($this->systemFields as $name => $f) {
 			$options[$name] = $f['label']; 
 		}
-		foreach($this->wire('fields') as $f) {
+		foreach($this->wire()->fields as $f) {
 			if(strpos($f->type, 'FieldtypeFieldset') === 0) continue; 
 			$options[$f->name] = $f->name;
 		}
@@ -622,13 +629,15 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 *
 	 */
 	protected function sessionSet($key, $value) {
-		$s = $this->wire('session')->get($this->className());
+		$session = $this->wire()->session;
+		if(!$session) return $this;
+		$s = $session->get($this->className());
 		if(!is_array($s)) $s = array(); 
 		if(count($s) > 100) $s = array_slice($s, -100); // prevent from growing too large
-		$id = 'id' . $this->wire('page')->id . "_" . $this->wire('sanitizer')->fieldName($this->attr('name')); 
+		$id = 'id' . $this->wire('page')->id . "_" . $this->wire()->sanitizer->fieldName($this->attr('name')); 
 		if(!isset($s[$id])) $s[$id] = array();
 		$s[$id][$key] = $value; 
-		$this->wire('session')->set($this->className(), $s); 
+		$session->set($this->className(), $s); 
 		return $this; 
 	}
 
@@ -640,9 +649,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 *
 	 */
 	protected function sessionGet($key) {
-		$s = $this->wire('session')->get($this->className());
+		$s = $this->wire()->session->get($this->className());
 		if(!$s) return null;
-		$id = 'id' . $this->wire('page')->id . "_" . $this->wire('sanitizer')->fieldName($this->attr('name')); 
+		$id = 'id' . $this->wire()->page->id . "_" . $this->wire()->sanitizer->fieldName($this->attr('name')); 
 		if(empty($s[$id])) return null;
 		if(empty($s[$id][$key])) return null;
 		return $s[$id][$key]; 
@@ -658,6 +667,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 *
 	 */
 	public function getSelectorInfo($field) {
+		$fields = $this->wire()->fields;
+		$languages = $this->wire()->languages;
+		
 		if(is_string($field)) {
 			if(isset($this->systemFields[$field])) {
 				return $this->systemFields[$field]; 
@@ -665,9 +677,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			if(isset($this->modifierFields[$field])) {
 				return $this->modifierFields[$field];
 			}
-			$field = $this->wire('fields')->get($field);
+			$field = $fields->get($field);
 		}
-		if(!$field || !$field instanceof Field || !$field->type) return array();
+		if(!$field instanceof Field || !$field->type) return array();
 		$info = $field->type->getSelectorInfo($field);
 		if($info['input'] == 'page') {
 			$info['subfields'] = array_merge($info['subfields'], $this->systemPageFields);
@@ -678,11 +690,11 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			foreach($info['subfields'] as $name => $subfield) {
 				
 				// consider multi-language
-				if(strpos($name, 'data') === 0 && $this->wire('languages')) {
+				if(strpos($name, 'data') === 0 && $languages) {
 					list($unused, $languageID) = explode('data', "x$name");
 					if($unused) {}
 					if(ctype_digit($languageID)) {
-						$language = $this->wire('languages')->get((int) $languageID);
+						$language = $languages->get((int) $languageID);
 						if($language && $language->id) {
 							$subfield['label'] = $field->getLabel() . " (" . $language->get('title|name') . ")";
 						}
@@ -693,10 +705,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 					$label = isset($this->systemFields[$name]['label']) ? $this->systemFields[$name]['label'] : $name;
 				} else if(!empty($subfield['label'])) {
 					$label = $subfield['label'];
-				} else if(strpos($name, 'data') === 0 && ctype_digit(substr($name, 4)) && $this->wire('languages')) {
-					$label = $this->wire('languages')->get((int) substr($name, 4))->get('title|name');
+				} else if(strpos($name, 'data') === 0 && ctype_digit(substr($name, 4)) && $languages) {
+					$label = $languages->get((int) substr($name, 4))->get('title|name');
 				} else {
-					$f = $this->wire('fields')->get($name);
+					$f = $fields->get($name);
 					$label = $f ? $f->getLabel() : $name;
 				}
 				$subfield['label'] = $label;
@@ -767,7 +779,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				if(is_array($previewColumns) && count($previewColumns)) {
 					$a = array();
 					$sanitizer = $this->wire()->sanitizer;
-					foreach($previewColumns as $key => $col) {
+					foreach($previewColumns as $col) {
 						$col = empty($col) ? '' : $sanitizer->name($col);
 						if(strlen("$col")) $a[] = $col;
 					}
@@ -814,7 +826,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'type' => '', 
 			'prepend' => '<option></option>',
 			'append' => '',
-			); 
+		); 
 
 		$settings = array_merge($defaults, $settings); 
 		if($this->exclude) {
@@ -855,7 +867,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'group' => '',
 			'modifier' => '', 
 			'adjust' => '', 
-			);
+		);
 		
 		$outLabels = array(
 			'system' => $this->_x('System fields', 'optgroup-label'),
@@ -864,7 +876,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'group' => $this->_x('Fields matching same (1) item', 'optgroup-label'),
 			'modifier' => $this->_x('Modifiers', 'optgroup-label'),
 			'adjust' => $this->_x('Adjustments', 'optgroup-label'),
-			);
+		);
 
 		$optgroups = array(); 
 		if($settings['showSystem']) {
@@ -925,6 +937,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		} else {
 			$customFields = $settings['customFields'];
 		}
+	
+		$templates = $this->wire()->templates;
 		
 		// build custom fields optgroup
 		foreach($customFields as $field) {
@@ -936,7 +950,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			if(count($settings['templates'])) {
 				$allow = 0;
 				foreach($settings['templates'] as $templateName) {
-					$template = $this->wire('templates')->get($templateName);
+					$template = $templates->get($templateName);
 					if($template && $template->fieldgroup->hasField($field)) {
 						$_field = $template->fieldgroup->getFieldContext($field);
 						if($_field) $field = $_field;
@@ -1005,7 +1019,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		static $fieldsToTemplates = array(); 
 		if(isset($fieldsToTemplates[$field->name])) return $fieldsToTemplates[$field->name];
 		$templateIDs = array();
-		foreach($this->wire('templates') as $template) {
+		foreach($this->wire()->templates as $template) {
 			if($template->fieldgroup->hasField($field)) $templateIDs[] = $template->id; 
 		}
 		$idStr = implode('|', $templateIDs); 
@@ -1037,7 +1051,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'all' => array()
 		); 
 		
-		$label = $this->wire('sanitizer')->entities($field->getLabel());
+		$label = $this->wire()->sanitizer->entities($field->getLabel());
 		if($settings['showFieldLabels'] == 2) $label .= " [$field->name]";
 		$text = $settings['showFieldLabels'] ? $label : $field->name;
 
@@ -1108,6 +1122,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 */
 	protected function renderSelectOperator($name, $type = '', $selectedValue = '', $operators = array()) {
 		
+		$sanitizer = $this->wire()->sanitizer;
+		
 		$inputName = $this->attr('name') . "__operator[]"; 
 
 		if(!count($operators)) { 
@@ -1143,7 +1159,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$operator = ltrim($operator, $this->operatorTrimChars); 
 			//$label .= " ($operator)";
 			$selected = $operator === $selectedValue ? ' selected' : '';
-			$out .= "<option$selected value='" . $this->wire('sanitizer')->entities($operator) . "'>$label</option>";
+			$out .= "<option$selected value='" . $sanitizer->entities($operator) . "'>$label</option>";
 		}
 		
 		$out .= "</select>";
@@ -1173,13 +1189,11 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->message("orChecked: $orChecked"); 
 		*/
 		
-		/** @var Templates $templates */
-		$templates = $this->wire('templates');
+		$templates = $this->wire()->templates;
+		$sanitizer = $this->wire()->sanitizer;
+		$fields = $this->wire()->fields;
+		$pages = $this->wire()->pages;
 		
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
-		
-		if($selector) {}
 		$field = null;
 		$inputName = $this->attr('name') . "__value[]"; 
 		$options = array();
@@ -1189,7 +1203,6 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$subfield = '';
 		$placeholder = '';
 		$_type = ''; // previous type, if changed
-		$inputfield = null;
 		$lastTemplates = $this->initTemplate ? array($this->initTemplate->id) : $this->sessionGet('lastTemplates');
 		
 		if(strpos($fieldName, '.') !== false) list($fieldName, $subfield) = explode('.', $fieldName, 2); 
@@ -1236,7 +1249,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		} else if($type == 'selector') {
 			// selector field: do nothing here but skip it, and respond to it further down
 
-		} else if(($fieldName == 'parent' && $subfield) || $field = $this->wire('fields')->get($fieldName)) { 
+		} else if(($fieldName == 'parent' && $subfield) || $field = $fields->get($fieldName)) { 
 			/** @var Field $field */
 			// custom field or parent with subfield
 			$selectorInfo = $this->getSelectorInfo($field);
@@ -1246,7 +1259,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				if($fieldName == 'parent') {
 					// if parent, there is a subfield, and $field becomes the subfield
 					$selectorInfo = $this->getSelectorInfo($subfield);
-					$field = $this->wire('fields')->get($subfield);
+					$field = $fields->get($subfield);
 				} else if($subfield && isset($selectorInfo['subfields'][$subfield])) {
 					$selectorInfo = $selectorInfo['subfields'][$subfield]; 
 				}
@@ -1257,7 +1270,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 					
 					if($subfield) {
 						// if there is a subfield, focus on that instead
-						$field = $this->wire('fields')->get($subfield);
+						$field = $fields->get($subfield);
 					}
 					
 					if(strlen($selectedValue) && !ctype_digit("$selectedValue") && Selectors::stringHasOperator($selectedValue)) {
@@ -1276,7 +1289,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 						
 					} else {
 						// page field, non-autocomplete, no options specified, and no existing selector string exists
-						$page = $this->wire('pages')->newNullPage();
+						$page = $pages->newNullPage();
 						$inputfield = $field->getInputfield($page, $field); 
 						
 						if($inputfield instanceof InputfieldPage) { 
@@ -1305,7 +1318,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 								} else if($field->get('template_id')) {
 									$findSelector[] = "templates_id=" . (int) $field->get('template_id'); 
 								}
-								foreach($this->wire('pages')->find(implode(', ', $findSelector)) as $item) {
+								foreach($pages->find(implode(', ', $findSelector)) as $item) {
 									$options[$item->id] = $inputfield->getPageLabel($item); // $item->get('title|name');
 								}
 							}
@@ -1373,6 +1386,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				$none = '0';
 				$hasNone = false;
 				foreach($options as $value => $label) {
+					/** @var string|int $value */
 					// if select is using "0" as a literal selectable value, don't consider it as "None"
 					if($value === 0 || $value === '0') {
 						$none = '""';
@@ -1401,13 +1415,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$placeholder = $this->_('Start typing...');
 			$selectedValueTitle = '';
 			if($selectedValueEntities) {
-				$selectedValuePage = $this->wire('pages')->get((int) $selectedValueEntities);
+				$selectedValuePage = $pages->get((int) $selectedValueEntities);
 				if($selectedValuePage->id) {
 					$selectedValueTitle = $selectedValuePage->get('title|name');
 					if($_type == 'page' && $field) {
-						$inputfield = $field->getInputfield($this->wire('pages')->newNullPage(), $field);
+						$inputfield = $field->getInputfield($pages->newNullPage(), $field);
 						if($inputfield instanceof InputfieldPage) {
-							/** @var InputfieldPage $inputfield */
 							$selectedValueTitle = $sanitizer->entities1($inputfield->getPageLabel($selectedValuePage));
 						}
 					}
@@ -1452,11 +1465,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * @param $name
 	 * @param $value
 	 * @param bool $useTime
-	 * @return mixed
+	 * @return string
 	 * 
 	 */
 	protected function renderDateInput($name, $value, $useTime = false) {
-		$inputfield = $this->wire('modules')->get('InputfieldDatetime'); 
+		/** @var InputfieldDatetime $inputfield */
+		$inputfield = $this->wire()->modules->get('InputfieldDatetime'); 
 		$inputfield->attr('name', $name); 
 		$inputfield->datepicker = InputfieldDatetime::datepickerFocus; 
 		$inputfield->placeholder = $this->datePlaceholder; 
@@ -1481,6 +1495,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	protected function renderSelectSubfield($fieldName, $selectedValue = '', Selector $selector = null) {
+		
+		$sanitizer = $this->wire()->sanitizer;
 		
 		if(strpos($fieldName, '.')) list($fieldName,) = explode('.', $fieldName, 2);
 		
@@ -1513,7 +1529,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		}
 
 		// check if this is a custom field		
-		$field = $this->wire('fields')->get($fieldName); 
+		$field = $this->wire()->fields->get($fieldName); 
 		if(!$field) return "Unknown Field: $fieldName"; // shouldn't happen, but for debugging
 		
 		// if we've reached this point we're dealing with a custom field
@@ -1539,19 +1555,22 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$valueHasSelectorString = strlen($selectorValue) > 0 && Selectors::stringHasSelector($selectorValue);
 		
 		$limitSubfields = array();
-		if(is_array($this->limitFields)) foreach($this->limitFields as $limitField) {
-			if(strpos($limitField, '.') === false) continue;
-			if(strpos($limitField, $fieldName) !== 0) continue; 
-			list($limitField, $limitSubfield) = explode('.', $limitField);
-			if($limitField) {} // ignore
-			if($limitSubfield) $limitSubfields[$limitSubfield] = $limitSubfield;
+		if(is_array($this->limitFields)) {
+			foreach($this->limitFields as $limitField) {
+				if(strpos($limitField, '.') === false) continue;
+				if(strpos($limitField, $fieldName) !== 0) continue;
+				list($limitField, $limitSubfield) = explode('.', $limitField);
+				if($limitField) {
+				} // ignore
+				if($limitSubfield) $limitSubfields[$limitSubfield] = $limitSubfield;
+			}
 		}
 		// render all the subfield options
 		foreach($selectorInfo['subfields'] as $name => $info) {
 			
 			if(count($limitSubfields) && !isset($limitSubfields[$name])) continue;
 		
-			$label = $this->wire('sanitizer')->entities($info['label']); 
+			$label = $sanitizer->entities($info['label']); 
 			// render primary subfield selection (unless selector info says not to)
 			if(isset($info['input']) && $info['input'] != 'none') {
 				$selected = $selectedValue == $name && (!$valueHasSelectorString || empty($info['subfields'])) ? ' selected' : '';
@@ -1646,7 +1665,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if(!$checkQuantity) return $selector; 
 		if($hasPageListSelect) return $selector; 
 
-		$quantity = $this->wire('pages')->count($selector); 
+		$quantity = $this->wire()->pages->count($selector); 
 
 		return $quantity > $threshold ? $selector : '';
 	}
@@ -1662,6 +1681,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	protected function renderAutocompleteJSON($fieldName, $q) {
 
 		header("Content-Type: application/json"); 
+		
+		$fields = $this->wire()->fields;
 
 		// format for our returned JSON 
 		$data = array(
@@ -1669,7 +1690,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'status' => 0, // 0=error, 1=success
 			'selector' => '', 
 			'items' => array()
-			);
+		);
+		
 		$selector = '';
 		$subfield = '';
 		
@@ -1677,7 +1699,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			list($fieldName, $subfield) = explode('.', $fieldName, 2);
 		}
 		
-		$field = $this->wire('fields')->get($fieldName);
+		$field = $fields->get($fieldName);
 		$selectorInfo = $this->getSelectorInfo($field); 
 		if($subfield && isset($selectorInfo['subfields'][$subfield])) {
 			$selectorInfo = $selectorInfo['subfields'][$subfield];
@@ -1688,7 +1710,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		
 		if(!$selector && $subfield) {
 			$fieldName = $subfield;
-			$field = $this->wire('fields')->get($fieldName);
+			$field = $fields->get($fieldName);
 		}
 
 		if(!$field) {
@@ -1703,6 +1725,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			return json_encode($data); 
 		}
 
+		/** @var Field|InputfieldPageAutocomplete $field */
 		$searchFields = $field->searchFields; // used by InputfieldPageAutocomplete
 		$labelFieldName = $field->labelFieldName; 
 		$labelFieldFormat = $field->labelFieldFormat;
@@ -1713,9 +1736,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$labelFieldName = $selectorInfo['labelFieldName'];
 		}
 		
-		$labelField = $labelFieldName ? $this->wire('fields')->get($labelFieldName) : null;
+		$labelField = $labelFieldName ? $fields->get($labelFieldName) : null;
 		$template_id = (int) (is_array($field->template_id) ? reset($field->template_id) : $field->template_id); 
-		$template = $template_id ? $this->wire('templates')->get($template_id) : null;
+		$template = $template_id ? $this->wire()->templates->get($template_id) : null;
 		
 		if($labelFieldFormat) {
 			/** @var InputfieldPage $inputfield */
@@ -1739,10 +1762,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$labelFieldName = 'name';
 		}
 
-		$selector .= ", $searchFields%=" . $this->wire('sanitizer')->selectorValue($q);
+		$selector .= ", $searchFields%=" . $this->wire()->sanitizer->selectorValue($q);
 		$selector .= ", limit=50, include=hidden";
 
-		foreach($this->wire('pages')->find($selector) as $item) {
+		foreach($this->wire()->pages->find($selector) as $item) {
 			$label = $inputfield ? $inputfield->getPageLabel($item) : $item->get("$labelFieldName|name");
 			$data['items'][] = array(
 				'value' => $item->id, 
@@ -1768,19 +1791,20 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	public function renderRow($select, $subfield, $opval, $class = '') {
 	
 		if($this->allowAddRemove) {
-			$delete = "<a href='#' class='delete-row'><i class='fa fa-trash-o'></i></a>";
+			$icon = wireIconMarkup('trash-o');
+			$delete = "<a href='#' class='delete-row'>$icon</a>";
 		} else {
 			$delete = '';
 		}
 		
-		$out = "<li class='selector-row ui-helper-clearfix $class'>
-			$select
-			<span class='subfield'>$subfield</span> 
-			<span class='opval'>$opval</span> &nbsp; 
-			$delete
+		return "
+			<li class='selector-row ui-helper-clearfix $class'>
+				$select
+				<span class='subfield'>$subfield</span> 
+				<span class='opval'>$opval</span> &nbsp; 
+				$delete
 			</li>
-			";
-		return $out; 
+		";
 	}
 
 	/**
@@ -1809,8 +1833,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				foreach(new Selectors($this->lastSelector) as $item) {
 					if($item->field != 'template') continue;
 					foreach($item->values as $templateValue) {
-						$template = $this->wire('templates')->get($templateValue);
-						if($template && $template instanceof Template) $lastTemplates[] = $template->id;
+						$template = $this->wire()->templates->get($templateValue);
+						if($template instanceof Template) $lastTemplates[] = $template->id;
 					}
 				}
 			} else {
@@ -1833,7 +1857,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	public function set($key, $value) {
 		if($key === 'initTemplate') {
 			if($value && !$value instanceof Template) {
-				$value = $this->wire('templates')->get($value);
+				$value = $this->wire()->templates->get($value);
 			}
 			if($value === null || $value instanceof Template) {
 				$this->initTemplate = $value;
@@ -1887,8 +1911,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 */
 	public function ___render() {
 		$this->ready();
+		
 		// tell jQuery UI we want it to load the modal component which makes a.modal open modal windows
-		$this->wire('modules')->get('JqueryUI')->use('modal'); 
+		$jQueryUI = $this->wire()->modules->getModule('JqueryUI'); /** @var JqueryUI $jQueryUI */
+		$jQueryUI->use('modal'); 
 
 		if(self::debug) $this->counter = true;
 
@@ -1924,15 +1950,17 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		// determine if there are any initValue templates in play, so that we can pre-limit what fields are available
 		$templates = array();
 		$renderSelectOptions = array();
-		if($this->initValue) foreach(new Selectors($this->initValue) as $selector) {
-			if($selector->field == 'template') {
-				$templateValue = $selector->value; 
-				if(!is_array($templateValue)) $templateValue = array($templateValue); 
-				foreach($templateValue as $t) {
-					$template = $this->wire('templates')->get($t);
-					if($template) {
-						$templates[] = $template->name; 
-						if(count($templateValue) == 1) $this->initTemplate = $template;
+		if($this->initValue) {
+			foreach(new Selectors($this->initValue) as $selector) {
+				if($selector->field == 'template') {
+					$templateValue = $selector->value;
+					if(!is_array($templateValue)) $templateValue = array($templateValue);
+					foreach($templateValue as $t) {
+						$template = $this->wire()->templates->get($t);
+						if($template) {
+							$templates[] = $template->name;
+							if(count($templateValue) == 1) $this->initTemplate = $template;
+						}
 					}
 				}
 			}
@@ -2016,7 +2044,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'value' => $this->attr('value'), 
 			'class' => 'selector-value', 
 			'data-template-ids' => implode(',', $this->getTemplatesFromInitValue($this->initValue)), 
-			);
+		);
 
 		if($this->allowBlankValues) $attr['class'] .= ' allow-blank';
 		$attrStr = $this->getAttributesString($attr);
@@ -2026,23 +2054,22 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		// starting output
 		$out =	"
 			<ul class='selector-list'>
-			$rows
+				$rows
 			</ul>
 			<div class='ui-helper-clearfix'>
-			";
+		";
 		
 		
 		if($this->allowAddRemove) $out .= "
 				<a class='selector-add' href='#'><i class='fa fa-$this->addIcon'></i> $this->addLabel</a>
-			";
+		";
 		$out .= "
 				<span class='selector-counter$counterClass detail'></span>
 				<p class='selector-preview$previewClass' data-init-value='$initValue'>$attr[value]</p>
 				<input $attrStr />
 				<p class='detail or-notes'>$notes</p>
 			</div>
-
-			";
+		";
 
 		return $this->prep($out);
 	}
@@ -2060,9 +2087,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		
 		$sanitizer = $this->wire()->sanitizer;
 		$users = $this->wire()->users;
-		
-		$initSelectors = $this->wire(new Selectors()); 
-		$userSelectors = $this->wire(new Selectors()); 
+	
+		$initSelectors = $this->wire(new Selectors()); /** @var Selectors $initSelectors */
+		$userSelectors = $this->wire(new Selectors()); /** @var Selectors $userSelectors */
 		
 		if(!$parseVars) {
 			$initSelectors->setParseVars(false); 
@@ -2082,7 +2109,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		
 			if(in_array($s->field, array('modified_users_id', 'created_users_id')) && !ctype_digit("$s->value")) {
 				$ids = array();
-				foreach($s->values as $key => $name) {
+				foreach($s->values as $name) {
 					$property = ctype_digit("$name") ? 'id' : 'name';
 					$operator = $s->operator === '!=' ? '=' : $s->operator;
 					if($property === 'name') {
@@ -2103,11 +2130,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			}
 		}
 
-		$selector = (string) $initSelectors . ", ";
-		$selector .= (string) $userSelectors; 
-		$selector = trim($selector, ", ");
-		
-		return $selector; 
+		return trim("$initSelectors, $userSelectors", ", ");
 	}
 
 
@@ -2120,18 +2143,18 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 */
 	protected function getTemplatesFromInitValue($initValue) {
 		// determine if a template is enforced and populate allowedTemplates
-		$templates = array();
+		$templates = $this->wire()->templates;
+		$templateIds = array();
 		if(!$initValue || strpos($initValue, 'template=') === false) return array();
 		foreach(new Selectors($initValue) as $selector) {
-			if($selector->field == 'template') {
-				$value = is_array($selector->value) ? $selector->value : array($selector->value); 
-				foreach($value as $name) {
-					$t = $this->wire('templates')->get($name); 
-					if($t) $templates[] = $t->id;
-				}
+			if($selector->field != 'template') continue;
+			$value = is_array($selector->value) ? $selector->value : array($selector->value); 
+			foreach($value as $name) {
+				$t = $templates->get($name); 
+				if($t) $templateIds[] = $t->id;
 			}
 		}
-		return $templates; 
+		return $templateIds; 
 	}
 
 	/**
@@ -2158,7 +2181,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	public function getModuleConfigInputfields(array $data) {
 		if($data) {} // ignore
 		$form = $this->wire(new InputfieldWrapper());
-		$f = $this->wire('modules')->get('InputfieldSelector'); 
+		/** @var InputfieldSelector $f */
+		$f = $this->wire()->modules->get('InputfieldSelector'); 
 		$f->name = 'test';
 		$f->label = $this->_('Selector Sandbox');
 		$f->description = $this->_('This is here just in case you want to test out the functionality of this Inputfield.'); 
@@ -2176,8 +2200,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 */
 	public function getParentPages(Template $template) {
 		
-		$templates = $this->wire('templates');
+		$templates = $this->wire()->templates;
 		$parentPages = $templates->getParentPages($template, true, Page::statusUnpublished);
+		
 		if($parentPages->count()) return $parentPages;
 		
 		$parentIDs = array();
@@ -2186,7 +2211,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'WHERE pages.templates_id=:templates_id ' . 
 			'AND status<' . Page::statusTrash . ' ' . 
 			'GROUP BY parent_id LIMIT 500';
-		$query = $this->wire('database')->prepare($sql);
+		
+		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue('templates_id', $template->id, \PDO::PARAM_INT);
 		$query->execute();
 		
@@ -2196,10 +2222,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		}
 	
 		$query->closeCursor();
-		$parentPages = count($parentIDs) ? $this->wire('pages')->getById($parentIDs) : new PageArray(); 
+		$parentPages = count($parentIDs) ? $this->wire()->pages->getById($parentIDs) : new PageArray(); 
+		
 		foreach($parentPages as $parentPage) {
 			if(!$parentPage->viewable(false)) $parentPages->remove($parentPage);
 		}
+		
 		return $parentPages;
 	}
 
