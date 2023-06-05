@@ -600,7 +600,7 @@ class ModulesInstaller extends ModulesClass {
 		$info = $this->modules->info->getModuleInfo($class);
 		$dependents = array();
 
-		foreach($this as $module) {
+		foreach($this->modules as $module) {
 			$c = $this->modules->getModuleClass($module);
 			if(!$uninstalled && !$this->modules->isInstalled($c)) continue;
 			$i = $this->modules->info->getModuleInfo($c);
