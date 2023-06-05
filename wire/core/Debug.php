@@ -451,8 +451,10 @@ class Debug {
 						$arg = '"' . $arg . '"';
 					} else if(is_bool($arg)) {
 						$arg = $arg ? 'true' : 'false';
+					} else if($arg === null) {
+						$arg = 'null';
 					} else {
-						// leave as-is
+						// leave as-is (int, float, etc.)
 					}
 					$newArgs[] = $arg;
 				}

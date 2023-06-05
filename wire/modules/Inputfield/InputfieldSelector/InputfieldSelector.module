@@ -69,7 +69,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'author' => 'Avoine + ProcessWire',
 			'autoload' => "template=admin", 
 			'addFlag' => Modules::flagsNoUserConfig
-			);
+		);
 	}
 
 	const debug = false;
@@ -634,7 +634,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$s = $session->get($this->className());
 		if(!is_array($s)) $s = array(); 
 		if(count($s) > 100) $s = array_slice($s, -100); // prevent from growing too large
-		$id = 'id' . $this->wire('page')->id . "_" . $this->wire()->sanitizer->fieldName($this->attr('name')); 
+		$id = 'id' . $this->wire()->page->id . "_" . $this->wire()->sanitizer->fieldName($this->attr('name')); 
 		if(!isset($s[$id])) $s[$id] = array();
 		$s[$id][$key] = $value; 
 		$session->set($this->className(), $s); 
@@ -649,7 +649,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 *
 	 */
 	protected function sessionGet($key) {
-		$s = $this->wire()->session->get($this->className());
+		$session = $this->wire()->session;
+		if(!$session) return null;
+		$s = $session->get($this->className());
 		if(!$s) return null;
 		$id = 'id' . $this->wire()->page->id . "_" . $this->wire()->sanitizer->fieldName($this->attr('name')); 
 		if(empty($s[$id])) return null;
@@ -1816,7 +1818,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	public function setAttribute($key, $value) {
-		if($key == 'value') {
+		if($key === 'value' && $value !== null) {
 			if($this->initValue && strpos($value, $this->initValue) === 0) {
 				// remove initValue from value so that inputs aren't drawn for it
 				$value = substr($value, strlen($this->initValue)); 

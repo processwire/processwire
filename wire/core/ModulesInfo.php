@@ -1052,9 +1052,10 @@ class ModulesInfo extends ModulesClass {
 	public function clearModuleInfoCache($showMessages = false) {
 		
 		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
 
 		$versionChanges = array();
-		$upgradeLinks = array();
+		$editLinks = array();
 		$newModules = array();
 		$moveModules = array();
 		$missModules = array();
@@ -1102,7 +1103,7 @@ class ModulesInfo extends ModulesClass {
 					// apply update now, to Fieldtype modules only (since they are loaded differently)
 					$this->modules->getModule($moduleName);
 				} else {
-					$upgradeLinks[$moduleName] = "<a class='pw-modal' target='_blank' href='$editUrl'>" . 
+					$editLinks[$moduleName] = "<a class='pw-modal' target='_blank' href='$editUrl'>" . 
 						$sanitizer->entities1($this->_('Apply')) . "</a>";
 				}
 			}
@@ -1124,7 +1125,10 @@ class ModulesInfo extends ModulesClass {
 				if(!$file) {
 					$file = $this->modules->getModuleFile($moduleName, array('fast' => true, 'guess' => true));
 					// add flagsNoFile if file cannot be located
-					$missModules[] = "$moduleName => $file";
+					$missModules[$moduleName] = "$moduleName => $file";
+					$editUrl = $this->modules->configs->getModuleEditUrl($moduleName, false) . '&missing=1';
+					$editLinks[$moduleName] = "<a class='pw-modal' target='_blank' href='$editUrl'>" .
+						$sanitizer->entities1($this->_('Edit')) . "</a>";
 					$this->modules->flags->setFlag($moduleID, Modules::flagsNoFile, true);
 				}
 			}
@@ -1162,12 +1166,14 @@ class ModulesInfo extends ModulesClass {
 				$items = array();
 				foreach($report['items'] as $moduleName => $item) {
 					$item = $sanitizer->entities($item);
-					if(isset($upgradeLinks[$moduleName])) $item .= " - " . $upgradeLinks[$moduleName];
+					if(isset($editLinks[$moduleName])) $item .= " - " . $editLinks[$moduleName];
 					$items[] = $item;
 				}
+				$itemsStr = implode("\n", $items);
+				$itemsStr = str_replace($config->paths->root, $config->urls->root, $itemsStr);
 				$this->message(
 					$sanitizer->entities1(sprintf($report['label'], count($items))) . 
-					'<pre>' . implode("\n", $items) . '</pre>',
+					"<pre>$itemsStr</pre>",
 					'icon-plug markup nogroup'
 				);
 				$qty++;
