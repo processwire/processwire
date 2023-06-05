@@ -495,6 +495,7 @@ class Modules extends WireArray {
 			if(!isset($this->moduleNames[$moduleID])) {
 				return empty($options['returnError']) ? null : "Unable to find module ID $moduleID";
 			}
+			$key = $this->moduleNames[$moduleID];
 		} else {
 			$moduleID = 0;
 			$key = wireClassName($key, false);
