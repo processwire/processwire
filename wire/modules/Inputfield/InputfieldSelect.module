@@ -222,7 +222,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 		foreach($options as $option) {
 
 			// in an optgroup when line starts with 3 or more spaces
-			if(strpos($option, '   ') === 0 && !empty($lastOption)) {
+			if(strpos($option, '   ') === 0 && $lastOption !== '') {
 				// if no optgroupLabel, we're starting a new option group
 				if(empty($optgroupLabel)) $optgroupLabel = $lastOption; 
 				$option = trim($option);
@@ -908,6 +908,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * 
 	 */
 	public function isEmpty() {
+		/** @var array|null|bool|string|int $value */
 		$value = $this->attr('value');
 
 		if(is_array($value)) {
@@ -923,7 +924,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 			if(!array_key_exists("$value", $this->options)) return true; 
 
 		} else {
-			return strlen($value) === 0; 
+			return strlen("$value") === 0; 
 		}
 		
 		return false;
