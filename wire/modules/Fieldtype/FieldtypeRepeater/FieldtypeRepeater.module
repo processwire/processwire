@@ -167,7 +167,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$config = $this->wire()->config;
 		$input = $this->wire()->input;
 		$modules = $this->wire()->modules;
-		$inEditor = $process == 'ProcessPageEdit' || $process == 'ProcessProfile';
+		$inEditor = wireInstanceOf($process, 'ProcessPageEdit') || $process == 'ProcessProfile';
 		$isSuperuser = $user->isSuperuser();
 		
 		// @todo would the following line be needed in some contexts (like ListerPro?)
@@ -2390,4 +2390,3 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	}
 
 }
-
