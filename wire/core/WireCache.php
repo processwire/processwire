@@ -626,10 +626,6 @@ class WireCache extends Wire {
 			// named expiration constant like "hourly", "daily", etc. 
 			$expire = time() + $this->expireNames[$expire];
 			
-		} else if(in_array($expire, array(self::expireNever, self::expireReserved, self::expireSave, self::expireNow))) {
-			// good, we'll take it as-is
-			return $verbose ? array('expire' => $expire) : $expire;
-
 		} else if(is_string($expire) && Selectors::stringHasSelector($expire)) {
 			// expire when page matches selector
 			if($verbose || $verbose === null) {
@@ -637,8 +633,12 @@ class WireCache extends Wire {
 					'expire' => self::expireSelector,
 					'selector' => $expire
 				);
-			} 
+			}
 			return self::expireSelector;
+
+		} else if(in_array($expire, array(self::expireNever, self::expireReserved, self::expireSave, self::expireNow))) {
+			// good, we'll take it as-is
+			return $verbose ? array('expire' => $expire) : $expire;
 
 		} else {
 
