@@ -37,13 +37,16 @@ class PageField extends Field {
 	 *
 	 */
 	public function getTemplateAndParentIds() {
+		
+		$pages = $this->wire()->pages;
+		$templates = $this->wire()->templates;
 
 		$parentId = $this->get('parent_id');
 		$parentIds = array();
 		$templateIds = array();
 
 		if(empty($parentId)) {
-			$parentIds = array();
+			// $parentIds = array();
 		} else if(is_string($parentId)) {
 			if(ctype_digit($parentId)) {
 				$parentIds = array((int) $parentId);
@@ -80,7 +83,7 @@ class PageField extends Field {
 						if(ctype_digit("$v")) {
 							$parentIds[] = (int) $v;
 						} else if(strpos($v, '/')) {
-							$p = $this->wire()->pages->get($v);
+							$p = $pages->get($v);
 							if($p->id) $parentIds[] = $p->id;
 						}
 					}
@@ -93,7 +96,7 @@ class PageField extends Field {
 						if(ctype_digit("$v")) {
 							$templateIds[] = (int) $v;
 						} else if($v) {
-							$template = $this->wire()->templates->get($v);
+							$template = $templates->get($v);
 							if($template instanceof Template) $templateIds[] = $template->id;
 						}
 					}

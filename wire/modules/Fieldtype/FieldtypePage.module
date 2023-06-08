@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -19,7 +19,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Reference',
-			'version' => 106,
+			'version' => 107,
 			'summary' => 'Field that stores one or more references to ProcessWire pages',
 			'permanent' => true, 
 		);
@@ -45,6 +45,13 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		'published',
 	);
 
+	/**
+	 * Runtime/temp caches indexed by function name
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $caches = array();
 
 	/**	
 	 * Setup a hook to Pages::delete so that we can remove references when pages are deleted
@@ -356,17 +363,18 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if($field->get('derefAsPage') > 0) {
 			// if the $value isn't specifically a Page, make it a blank array for storage
 			if(!$value instanceof Page || !$value->id) return $sleepValue; 
-			// if $value is a Page (not a NullPage) then place it's ID in an array for storage
-			$this->isValidPage($value, $field, $page, true);
-			$sleepValue[] = $value->id; 
+			// if $value is a Page (not a NullPage) then place its ID in an array for storage
+			if($this->isValidPage($value, $field, $page)) {
+				$sleepValue[] = $value->id;
+			}
 		} else {
 			// if $value isn't a PageArray then we'll store a blank array
 			if(!$value instanceof PageArray) return $sleepValue; 
 			// iterate through the array and place each Page ID
 			foreach($value as $pg) {
-				if(!$pg->id) continue;
-				$this->isValidPage($pg, $field, $page, true);
-				$sleepValue[] = $pg->id; 
+				if($pg->id && $this->isValidPage($pg, $field, $page)) {
+					$sleepValue[] = $pg->id;
+				}
 			}
 		}
 		
@@ -1076,10 +1084,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		$database = $this->wire()->database;
 
-		if(!in_array($subfield, $this->nativeNames)) return false; 
+		$key = array_search($subfield, $this->nativeNames);
+		if($key === false) return false;
+		$subfield = $this->nativeNames[$key];
 
 		// we let the custom field query matcher handle the '!=' scenario
-		if(!$database->isOperator($operator)) return $this->getMatchQueryCustom($query, $table, $subfield, $operator, $value); 
+		if(!$database->isOperator($operator)) {
+			return $this->getMatchQueryCustom($query, $table, $subfield, $operator, $value);
+		}
 
 		if($subfield == 'created' || $subfield == 'modified' || $subfield == 'published') {
 			if(!ctype_digit($value)) $value = strtotime($value); 
@@ -1106,17 +1118,87 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		} else if($subfield == 'name') {
 			$value = $this->wire()->sanitizer->pageName($value, Sanitizer::toAscii); 
 
-		} else $value = (int) $value; 
+		} else {
+			$value = (int) $value;
+		}
 
+		$values = $query->selector->values();
+		
+		if(count($values) > 1 && $operator === '=') {
+			// we are in an OR match among multiple values
+			// make sure they all exist before sending to match query
+			// which performs regular joins (not left joins)
+			$valids = $this->getMatchQueryNativeValidValues($subfield, $values);
+			if(!count($valids)) {
+				// none of the values in the OR are possible matches
+				// let it pass through to query, as query will fail as it should
+			} else if(count($valids) === count($values)) {
+				// all values are valid
+			} else if(!in_array($value, $valids)) {
+				// value not valid and should be ignored since others are valid
+				return true;
+			}
+		}
+		
 		static $n = 0;
 		$table = $database->escapeTable($table);
 		$table2 = "_fieldtypepage" . (++$n);
 		$subfield = $database->escapeCol($subfield);
-		$bindKey = $query->bindValueGetKey($value); 
-		$query->join("pages AS $table2 ON $table2.$subfield$operator$bindKey"); 
-		$query->where("($table.data=$table2.id)"); 
+		$bindKey = $query->bindValueGetKey($value);
+		$query->join("pages AS $table2 ON $table2.$subfield$operator$bindKey");
+		$query->where("($table.data=$table2.id)");
 
 		return true; 
+	}
+
+	/**
+	 * Get values for $subfield that match those of given $values
+	 * 
+	 * @param string $subfield
+	 * @param array $values
+	 * @return array
+	 * @since 3.0.220
+	 * 
+	 */
+	protected function getMatchQueryNativeValidValues($subfield, array $values) {
+		
+		$cacheKey = implode('|', $values);
+		
+		if(isset($this->caches[__FUNCTION__])) {
+			// cache is used to prevent back-to-back duplicate queries
+			$a = $this->caches[__FUNCTION__];
+			if($a[0] === $cacheKey) return $a[1];
+		}
+		
+		$wheres = array();
+		$binds = array();
+		
+		foreach(array_values($values) as $i => $v) {
+			$wheres[] = "$subfield=:value$i";
+			$binds[":value$i"] = $v;
+		}
+		
+		$where = implode(' OR ', $wheres);
+		$sql = "SELECT id, $subfield FROM pages WHERE $where GROUP BY $subfield";
+		$query = $this->wire()->database->prepare($sql);
+		
+		foreach($binds as $bindKey => $bindValue) {
+			$query->bindValue($bindKey, $bindValue);
+		}
+		
+		$query->execute();
+		$valids = array();
+		
+		while($row = $query->fetch(\PDO::FETCH_NUM)) {
+			$id = (int) $row[0];
+			$valids[$id] = $row[1];
+		}
+		
+		$query->closeCursor();
+		
+		$this->caches[__FUNCTION__] = array($cacheKey, $valids);
+		
+		return $valids; 
 	}
 
 	/**
@@ -1168,7 +1250,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if(in_array($subfield, $this->nativeNames)) {
 			// fine then, we can handle that here when needed (like !=)
 		} else {
-			$subfield = $this->wire('fields')->get($subfield);
+			$subfield = $this->wire()->fields->get($subfield);
 			if(!$subfield) return false; // not a custom field
 			$subfield = $subfield->name; 
 		}
@@ -1202,7 +1284,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 				/** @noinspection PhpUnusedLocalVariableInspection */
 				list($itemField, $itemSubfield) = explode('.', $itemField); 
 				if($itemField != $field->name) continue; // only group the same fields together in one selector query
-				if(!preg_match('/^' . $group . '@' . $field->name . '\.(([_a-zA-z0-9]+).*)$/', (string) $item, $matches)) continue; 
+				if(!preg_match('/^' . $group . '@' . $field->name . '\.(([_a-zA-Z0-9]+).*)$/', (string) $item, $matches)) continue; 
 				// extract the field name portion so we just get the subfield and rest of the selector
 				$selector .= "$matches[1], ";
 			}
@@ -1523,20 +1605,21 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$data = parent::___exportConfigData($field, $data); 
 		if(!empty($data['parent_id']) && ctype_digit("$data[parent_id]")) {
 			// convert parent ID to parent path
-			$data['parent_id'] = $this->wire('pages')->get((int) $data['parent_id'])->path;
+			$data['parent_id'] = $this->wire()->pages->get((int) $data['parent_id'])->path;
 		}
+		$templates = $this->wire()->templates;
 		foreach(array('template_id', 'template_ids') as $key) {
 			if(empty($data[$key])) continue;
 			if(is_array($data[$key])) {
 				// convert array of template ids to template names
 				foreach($data[$key] as $k => $id) {
 					if(ctype_digit("$id")) continue;
-					$template = $this->wire('templates')->get((int) $id);
+					$template = $templates->get((int) $id);
 					if($template) $data[$key][$k] = $template->name;
 				}
 			} else if(ctype_digit((string) $data[$key])) {
 				// convert template id to template name
-				$template = $this->wire('templates')->get((int) $data[$key]);
+				$template = $templates->get((int) $data[$key]);
 				if($template) $data[$key] = $template->name;
 			}
 		}
