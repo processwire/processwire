@@ -1723,7 +1723,7 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function ___saveModuleConfigData($className, array $configData) {
-		return $this->configs->saveConfig($className, $configData);
+		return $this->saveConfig($className, $configData);
 	}
 
 	/**
