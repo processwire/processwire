@@ -149,17 +149,17 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			// custom repeater titles specified
 			$hasCnt = stripos($repeaterTitle, '#n') !== false;
 			
-			// update index numbers?
-			if($hasCnt) {
-				// replace "#n" with index number of repeater item
-				$repeaterTitle = str_replace("#n", "#$cnt", $repeaterTitle);
-			}
-			
 			if(strpos($repeaterTitle, '#') !== false) {
 				$repeaterTitle = preg_replace('/#([a-f\d]{3,})/i', "$colorPrefix$1", $repeaterTitle);
 				if(strpos($repeaterTitle, $colorPrefix) !== false) $hasColorPrefix = true;
 			}
 			
+			// update index numbers?
+			if($hasCnt) {
+				// replace "#n" with index number of repeater item
+				$repeaterTitle = str_replace("#n", "#$cnt", $repeaterTitle);
+			}
+
 			if(strpos($repeaterTitle, '{') !== false) {
 				// formatted {label}
 				$out = $page->getText($repeaterTitle, true);
