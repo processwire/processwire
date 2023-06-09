@@ -252,8 +252,9 @@ class FieldtypeFileConfiguration extends Wire {
 		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'outputFormat');
 		$f->label = $this->_('Formatted value');
-		$f->description = $this->_('Select the type of value you want this field to provide when accessed from the API on the front-end of your site.');
-		$f->description .= sprintf($this->_('When output formatting is off, the value is always a %s array.'), $typeMulti);
+		$f->description = 
+			$this->_('Select the type of value you want this field to provide when accessed from the API on the front-end of your site.') . ' ' . 
+			sprintf($this->_('When output formatting is off, the value is always a %s array.'), $typeMulti);
 		
 		$f->addOption(FieldtypeFile::outputFormatAuto,
 			$this->_('Automatic') . ' ' .
