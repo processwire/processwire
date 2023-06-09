@@ -186,7 +186,7 @@ class PageComparison {
 	 * Given a Selectors object or a selector string, return whether this Page matches it
 	 *
 	 * @param Page $page
-	 * @param string|Selectors $s
+	 * @param string|array|Selectors $s
 	 * @return bool
 	 *
 	 */
@@ -220,7 +220,10 @@ class PageComparison {
 			}
 
 		} else if($s instanceof Selectors) {
-			$selectors = $s; 
+			$selectors = $s;
+
+		} else if(is_array($s)) {
+			$selectors = $page->wire(new Selectors($s));
 
 		} else { 
 			// unknown data type to match
@@ -397,4 +400,3 @@ class PageComparison {
 
 
 }
-
