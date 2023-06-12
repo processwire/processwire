@@ -737,26 +737,26 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	protected function isAllowedParent(Page $parent, $showError = false, Template $template = null) {
 
 		if($parent->template->noChildren) {
-			if($showError) $this->error("The parent template has specified that no children may be added here");
+			if($showError) $this->error(__("The parent template has specified that no children may be added here"));
 			return false;
 		}
 		
 		if($template && count($template->parentTemplates)) {
 			if(!in_array($parent->template->id, $template->parentTemplates)) {
-				if($showError) $this->error("The template '$template' does not allow parents of type '$parent->template'"); 
+				if ($showError) $this->error(sprintf(__("The template '%s' does not allow parents of type '%s'"), $template, $parent->template)); 
 				return false;
 			}
 		}
 		
 		if($template && count($parent->template->childTemplates)) {
 			if(!in_array($template->id, $parent->template->childTemplates)) {
-				if($showError) $this->error("The parent of type '$parent->template' does not allow children of type '$template'");
+				if($showError) $this->error(sprintf(__("The parent of type %s does not allow children of type '%s'"), $parent->template, $template));
 				return false;
 			}
 		}
 
 		if(!$parent->addable()) {
-			if($showError) $this->error("You don't have access to add pages to parent $parent->path");
+			if($showError) $this->error(sprintf(__("You don't have access to add pages to parent %s"), $parent->path));
 			return false;
 		}
 		
@@ -768,7 +768,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 				}
 			}
 			if(!$allowed) {
-				if($showError) $this->error("Specified parent is not allowed ($parent->path)");
+				if($showError) $this->error(sprintf(__("Specified parent is not allowed (%s)"), $parent->path));
 				return false;
 			}
 		}
