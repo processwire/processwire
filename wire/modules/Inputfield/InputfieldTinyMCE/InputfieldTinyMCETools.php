@@ -5,8 +5,10 @@
  * 
  * Helper tools for InputfieldTinyMCE module.
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property array $jsonBlankObjectProperties
  *
  */ 
 class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
@@ -32,6 +34,14 @@ class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
 	 * 
 	 */
 	static protected $purifier = null;
+	
+	/**
+	 * Properties found in decoded JSON that were blank objects and should remain when encoded
+	 *
+	 * @var array
+	 *
+	 */
+	protected $jsonBlankObjectProperties = array();
 
 	/**
 	 * Sanitize toolbar or plugin names
@@ -245,6 +255,13 @@ class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
 				$propertyName, json_last_error_msg()
 			)); 
 			$a = array();
+		} else if(strpos($json, '{}') !== false) {
+			if(preg_match_all('/"([_a-z0-9]+)":\s*[{][}]/i', $json, $matches)) {
+				foreach($matches[1] as $name) {
+					$this->jsonBlankObjectProperties[$name] = $name;
+				}
+			}
+			
 		}
 		return $a;	
 	}
@@ -275,18 +292,29 @@ class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
 	 * 
 	 * @param array $a
 	 * @param string $propertyName Name of property JSON is for
+	 * @param bool $pretty
 	 * @return string
 	 * 
 	 */
-	public function jsonEncode($a, $propertyName) {
+	public function jsonEncode($a, $propertyName, $pretty = true) {
 		if(!is_array($a)) return '';
-		$json = json_encode($a, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES); 
+		if($pretty) {
+			$json = json_encode($a, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+		} else {
+			$json = json_encode($a);
+		}
 		if($json === false) {
 			$this->warning(sprintf(
 				$this->_('Error encoding JSON for TinyMCE property "%1$s" - %2$s'),
 				$propertyName, json_last_error_msg()
 			));
 			$json = '';
+		}
+		if(count($this->jsonBlankObjectProperties) && strpos($json, '[]') !== false) {
+			// convert JSON arrays [] to objects {}
+			foreach($this->jsonBlankObjectProperties as $name) {
+				$json = str_replace(array("\"$name\": []", "\"$name\":[]"), "\"$name\": {}", $json);
+			}
 		}
 		return (string) $json;
 	}
@@ -379,5 +407,15 @@ class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
 		return implode("\n", $lines);
 	}
 	 */
+
+	/**
+	 * @param string $name
+	 * @return array|mixed|string|null
+	 * 
+	 */
+	public function __get($name) {
+		if($name === 'jsonBlankObjectProperties') return $this->jsonBlankObjectProperties;
+		return parent::__get($name);
+	}
 
 }
