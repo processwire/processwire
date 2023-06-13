@@ -163,7 +163,7 @@ class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
 		$toggles = $this->inputfield->toggles;
 		if(!is_array($toggles)) return $value;
 
-		if(in_array(InputfieldTinyMCE::toggleCleanDiv, $toggles) === false && strpos($value, '<div') !== false) {
+		if(in_array(InputfieldTinyMCE::toggleCleanDiv, $toggles) && strpos($value, '<div') !== false) {
 			$value = preg_replace('{\s*(</?)div[^><]*>\s*}is', '$1' . 'p>', $value);
 			while(strpos($value, '<p><p>') !== false) {
 				$value = str_replace(array('<p><p>', '</p></p>'), array('<p>', '</p>'), $value);

@@ -286,9 +286,9 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 			'styleFormatsCSS' => '', 
 			'extPlugins' => array(),
 			'toggles' => array(
-				self::toggleCleanDiv,
-				self::toggleCleanNbsp,
-				self::toggleCleanP, 
+				// self::toggleCleanDiv,
+				// self::toggleCleanNbsp,
+				// self::toggleCleanP, 
 			),
 		);
 		
