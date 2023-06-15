@@ -1796,7 +1796,7 @@ class ProcessModule extends Process {
 			if(wireCount($fields)) foreach($fields->getAll() as $field) {
 				// note field names beginning with '_' will not be stored	
 				if(($name = $field->attr('name')) && strpos($name, '_') !== 0) {
-					if($name === 'submit_save_module') continue;
+					if($name === 'submit_save_module' || $name === 'uninstall') continue;
 					$value = $field->attr('value');
 					if(!isset($data[$name]) || $value != $data[$name]) $updatedNames[] = $name;
 					$data[$name] = $value;
