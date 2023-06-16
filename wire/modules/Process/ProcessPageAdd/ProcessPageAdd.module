@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string executeTemplate()
@@ -125,7 +125,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 */
 	public function init() {
 		$this->page = null;
-		return parent::init();
+		parent::init();
 	}
 
 	/**
@@ -184,8 +184,6 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 
 			if(!$user->isGuest() && $user->hasPermission('page-edit')) {
 
-				$items = array();
-
 				foreach($templates as $template) {
 					$parent = $template->getParentPage(true);
 					if(!$parent) continue;
@@ -213,7 +211,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 				}
 				ksort($items);
 	
-				$configData = $modules->getModuleConfigData($this); // because admin theme calls with noInit option
+				$configData = $modules->getConfig($this); // because admin theme calls with noInit option
 				$shortcutSort = isset($configData['shortcutSort']) ? $configData['shortcutSort'] : array(); 
 				if(!is_array($shortcutSort)) $shortcutSort = array();
 				if(!empty($shortcutSort)) {
@@ -245,7 +243,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$listLength = count($data['list']);
 		$n = 0;
 		
-		foreach(array_values($options2['items']) as $p) {
+		foreach($options2['items'] as $p) {
 			/** @var Page $p */
 			if($p->id == 'bookmark' && !$user->isSuperuser()) continue;
 			$item = array(
@@ -417,6 +415,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 					$out .= "<li><a href='./$url'>";
 					$parentParents = $parent->parents()->and($parent);
 					foreach($parentParents as $p) {
+						/** @var Page $p */
 						if($p->id == 1 && $parentParents->count() > 1) continue;
 						$out .= $p->title . $rightIcon;
 					}
@@ -429,9 +428,11 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if($out) {
 			$out = "<dl class='nav'>$out</dl>";
 		} else {
+			// Text shown when no templates use family settings
 			$out = 
 				"<h2>" . 
-				$this->_('There are currently no templates with defined parent/child relationships needed to show "Add New" shortcuts here. To configure this, edit any template (Setup > Templates) and click on the "Family" tab.') . // Text shown when no templates use family settings
+				$this->_('There are currently no templates with defined parent/child relationships needed to show “Add New” shortcuts here.') . ' ' . 
+				$this->_('To configure this, edit any template (Setup > Templates) and click on the “Family” tab.') . 
 				"</h2>";
 		}
 		if($bookmarkItem) {
@@ -1149,6 +1150,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$languages = $template->getLanguages();
 		if($languages) {
 			foreach($languages as $language) {
+				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$languageStatus = $parent->get("status$language");
 				if($languageStatus) $page->set("status$language", $languageStatus);
@@ -1267,9 +1269,11 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$languages = $template->getLanguages();
 
 		foreach($this->page->fieldgroup as $field) {
+			/** @var Field $field */
 			if(!$this->page->hasField($field)) continue;
 			$f = $form->children->get($field->name); 
 			if($f) {
+				/** @var Inputfield $f */
 				if($languages && $f->getSetting('useLanguages')) {
 					// account for language fields (most likely FieldtypePageTitleLanguage)
 					$value = $this->page->get($field->name); 
@@ -1391,7 +1395,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 *
 	 */
 	protected function getPageBookmarks() {
-		require_once($this->wire()->config->paths->ProcessPageEdit . 'PageBookmarks.php');
+		require_once($this->wire()->config->paths('ProcessPageEdit') . 'PageBookmarks.php');
 		return $this->wire(new PageBookmarks($this));
 	}
 
@@ -1410,9 +1414,9 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$modules = $this->wire()->modules;
 		
 		if(is_array($input->post('shortcutSort')) && $user->isSuperuser()) {
-			$data = $modules->getModuleConfigData($this);	
+			$data = $modules->getConfig($this);	
 			$data['shortcutSort'] = $input->post->intArray('shortcutSort'); 
-			$modules->saveModuleConfigData($this, $data);
+			$modules->saveConfig($this, $data);
 		}
 	
 		$bookmarks = $this->getPageBookmarks();
@@ -1437,7 +1441,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	/**
 	 * Get Inputfield that lets you define shorcuts and sort order
 	 * 
-	 * @return InputfieldAsmSelect
+	 * @return InputfieldAsmSelect|InputfieldHidden
 	 * 
 	 */
 	public function getShortcutSortField() {
@@ -1468,6 +1472,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		}
 		
 		if(!count($f->getOptions())) {
+			/** @var InputfieldHidden $f */
 			$f = $this->wire()->modules->get('InputfieldHidden');
 			$f->attr('name', $name);
 			return $f;
@@ -1495,7 +1500,10 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		/** @var InputfieldCheckbox $f */
 		$f = $this->wire()->modules->get('InputfieldCheckbox');
 		$f->label = $this->_('Disable automatic publishing');
-		$f->description = $this->_('By default, pages with nothing but global fields (most commonly "title") will be published automatically when added, bypassing the usual unpublished state. Usually this is a desirable time saver. But you may cancel this behavior by checking the box below.'); // Description of automatic publishing
+		$f->description = 
+			$this->_('By default, pages with nothing but global fields (most commonly “title”) will be published automatically when added.') . ' ' . 
+			$this->_('This bypasses the unpublished state, which can be a desirable time saver in some instances.') . ' ' . 
+			$this->_('You may optionally cancel this behavior by checking the box below.');
 		$f->attr('name', 'noAutoPublish');
 		$f->attr('value', 1);
 		if(!empty($data['noAutoPublish'])) $f->attr('checked', 'checked');
