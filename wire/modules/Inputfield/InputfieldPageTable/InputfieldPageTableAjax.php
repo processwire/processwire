@@ -7,7 +7,7 @@
  * Code by Ryan Cramer
  * Sponsored by Avoine
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @method void checkAjax()
@@ -37,20 +37,22 @@ class InputfieldPageTableAjax extends Wire {
 	 */
 	protected function ___checkAjax() { 
 
-		$input = $this->wire('input'); 
+		$pages = $this->wire()->pages;
+		$input = $this->wire()->input; 
+		
 		$fieldName = $input->get('InputfieldPageTableField'); 
 		if(!$fieldName) return;
 
-		$processPage = $this->wire('page'); 
+		$processPage = $this->wire()->page; 
 		if(!in_array('WirePageEditor', wireClassImplements((string) $processPage->process))) return; // not ProcessPageEdit or compatible
 
-		$field = $this->wire('fields')->get($this->wire('sanitizer')->fieldName($fieldName)); 
+		$field = $this->wire()->fields->get($this->wire()->sanitizer->fieldName($fieldName)); 
 		if(!$field || !$field->type instanceof FieldtypePageTable) return; // die('field does not exist or is not FieldtypePageTable'); 
 
 		$pageID = (int) $input->get('id'); 
 		if(!$pageID) return; // die('page ID not specified'); 
 
-		$page = $this->wire('pages')->get($pageID); 
+		$page = $pages->get($pageID); 
 		if(!$page->id) return;
 		if(!$page->editable($field->name)) return;
 		
@@ -59,7 +61,7 @@ class InputfieldPageTableAjax extends Wire {
 
 		// check for new item that should be added
 		$itemID = (int) $input->get('InputfieldPageTableAdd'); 
-		if($itemID) $this->addItem($page, $field, $this->wire('pages')->get($itemID)); 
+		if($itemID) $this->addItem($page, $field, $pages->get($itemID)); 
 		
 		$sort = $input->get('InputfieldPageTableSort'); 
 		if(strlen("$sort")) $this->sortItems($page, $field, $sort); 
@@ -79,7 +81,7 @@ class InputfieldPageTableAjax extends Wire {
 		if(!$inputfield) return;
 		echo $inputfield->render();
 		if($this->notes) {
-			echo "<p class='notes'>" . $this->wire('sanitizer')->entities($this->notes) . "</p>";
+			echo "<p class='notes'>" . $this->wire()->sanitizer->entities($this->notes) . "</p>";
 			$this->notes = '';
 		}
 		exit; 
@@ -96,7 +98,7 @@ class InputfieldPageTableAjax extends Wire {
 	 */
 	protected function addItem(Page $page, Field $field, Page $item) {
 		// add an item and save the field
-		if(!$item->id || $item->createdUser->id != $this->wire('user')->id) return false;
+		if(!$item->id || $item->createdUser->id !== $this->wire()->user->id) return false;
 
 		$value = $page->getUnformatted($field->name); 
 

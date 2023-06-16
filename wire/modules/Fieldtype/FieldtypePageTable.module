@@ -7,7 +7,7 @@
  * Code by Ryan Cramer
  * Sponsored by Avoine
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -21,7 +21,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 			'summary' => 'A fieldtype containing a group of editable pages.',
 			'installs' => 'InputfieldPageTable',
 			'autoload' => true, 
-			);
+		);
 	}
 
 	/**
@@ -29,13 +29,25 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function init() {
-		$pages = $this->wire('pages'); 
+		$pages = $this->wire()->pages; 
 		$pages->addHookAfter('delete', $this, 'hookPagesDelete');
 		$pages->addHookAfter('deleteReady', $this, 'hookPagesDeleteReady');
 		$pages->addHookAfter('trashed', $this, 'hookPagesTrashed');
 		$pages->addHookAfter('unpublished', $this, 'hookPagesUnpublished');
 		$pages->addHookAfter('published', $this, 'hookPagesPublished'); 
 		$pages->addHookAfter('cloned', $this, 'hookPagesCloned'); 
+		parent::init();
+	}
+
+	/**
+	 * Get class name to use Field objects of this type (must be class that extends Field class)
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string Return class name or blank to use default Field class
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		return 'PageTableField';
 	}
 
 	/**
@@ -47,12 +59,13 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function hookPagesDelete(HookEvent $event) {
-		$page = $event->arguments(0); 
-		foreach($this->wire('fields') as $field) {
+		$database = $this->wire()->database;
+		$page = $event->arguments(0); /** @var Page $page */
+		foreach($this->wire()->fields as $field) {
 			if(!$field->type instanceof FieldtypePageTable) continue; 
-			$table = $this->wire('database')->escapeTable($field->table); 
+			$table = $database->escapeTable($field->table); 
 			$sql = "DELETE FROM `$table` WHERE pages_id=:pages_id OR data=:data";
-			$query = $this->wire('database')->prepare($sql); 
+			$query = $database->prepare($sql); 
 			$query->bindValue(':pages_id', (int) $page->id); 
 			$query->bindValue(':data', (int) $page->id); 
 			$query->execute();
@@ -70,8 +83,12 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function hookPagesDeleteReady(HookEvent $event) {
-		$page = $event->arguments(0); 
+		
+		$pages = $this->wire()->pages;
+		$page = $event->arguments(0); /** @var Page $page */
+		
 		foreach($page->template->fieldgroup as $field) {
+			/** @var PageTableField $field */
 			if(!$field->type instanceof FieldtypePageTable) continue; 
 			if(is_null($field->trashOnDelete) && !is_null($field->autoTrash)) $field->trashOnDelete = $field->autoTrash;
 			if(!$field->parent_id || !$field->trashOnDelete) continue; 
@@ -81,18 +98,18 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 				/** @var Page $item */
 				$deleted = false; 
 				if($field->trashOnDelete == 2) {
-					$this->wire('pages')->message("Auto Delete PageTable Item: $item->url", Notice::debug); 
+					$pages->message("Auto Delete PageTable Item: $item->url", Notice::debug); 
 					try {
-						$this->wire('pages')->delete($item); 
+						$pages->delete($item); 
 						$deleted = true; 
 					} catch(\Exception $e) {
-						$this->wire('pages')->error($e->getMessage(), Notice::debug); 
+						$pages->error($e->getMessage(), Notice::debug); 
 					}
 				}
 				if(!$deleted) {
 					if($item->isTrash()) continue; 
-					$this->wire('pages')->message("Auto Trash PageTable Item: $item->url", Notice::debug);
-					$this->wire('pages')->trash($item);
+					$pages->message("Auto Trash PageTable Item: $item->url", Notice::debug);
+					$pages->trash($item);
 				}
 			}
 		}
@@ -105,15 +122,19 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function hookPagesTrashed(HookEvent $event) {
-		$page = $event->arguments(0);
+		
+		$pages = $this->wire()->pages;
+		$page = $event->arguments(0); /** @var Page $page */
+		
 		foreach($page->template->fieldgroup as $field) {
 			if(!$field->type instanceof FieldtypePageTable) continue;
+			/** @var PageTableField $field */
 			if(!$field->parent_id || !$field->unpubOnTrash) continue;
 			$value = $page->getUnformatted($field->name);
 			if(!wireCount($value)) continue;
 			foreach($value as $item) {
 				/** @var Page $item */
-				$this->wire('pages')->message("Auto Unpublish PageTable Item: $item->url", Notice::debug);
+				$pages->message("Auto Unpublish PageTable Item: $item->url", Notice::debug);
 				$of = $item->of();
 				$item->of(false);
 				$item->addStatus(Page::statusUnpublished); 
@@ -130,10 +151,15 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function hookPagesUnpublished(HookEvent $event) {
-		$page = $event->arguments(0);
-		if($this->wire('pages')->cloning) return;
+		
+		$pages = $this->wire()->pages;
+		$page = $event->arguments(0); /** @var Page $page */
+		
+		if($pages->cloning) return;
+		
 		foreach($page->template->fieldgroup as $field) {
 			if(!$field->type instanceof FieldtypePageTable) continue;
+			/** @var PageTableField $field */
 			if(!$field->parent_id || !$field->unpubOnUnpub) continue;
 			$value = $page->getUnformatted($field->name);
 			if(!wireCount($value)) continue;
@@ -142,10 +168,10 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 				$of = $item->of();
 				$item->of(false);
 				if($field->unpubOnUnpub == 2) {
-					$this->wire('pages')->message("Auto Hide PageTable Item: $item->url", Notice::debug);
+					$pages->message("Auto Hide PageTable Item: $item->url", Notice::debug);
 					$item->addStatus(Page::statusHidden);
 				} else {
-					$this->wire('pages')->message("Auto Unpublish PageTable Item: $item->url", Notice::debug);
+					$pages->message("Auto Unpublish PageTable Item: $item->url", Notice::debug);
 					$item->addStatus(Page::statusUnpublished);
 				}
 				$item->save();
@@ -161,9 +187,13 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function hookPagesPublished(HookEvent $event) {
+		
+		$pages = $this->wire()->pages;
 		$page = $event->arguments(0);
+		
 		foreach($page->template->fieldgroup as $field) {
 			if(!$field->type instanceof FieldtypePageTable) continue;
+			/** @var PageTableField $field */
 			if(!$field->parent_id || $field->unpubOnUnpub != 2) continue;
 			$value = $page->getUnformatted($field->name);
 			if(!wireCount($value)) continue;
@@ -172,7 +202,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 				if(!$item->hasStatus(Page::statusHidden)) continue; 
 				$of = $item->of();
 				$item->of(false);
-				$this->wire('pages')->message("Auto Un-hide PageTable Item: $item->url", Notice::debug);
+				$pages->message("Auto Un-hide PageTable Item: $item->url", Notice::debug);
 				$item->removeStatus(Page::statusHidden);
 				$item->save();
 				$item->of($of);
@@ -193,8 +223,9 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 
 		static $clonedIDs = array();
 
-		$page = $event->arguments(0); 
-		$copy = $event->arguments(1); 
+		$pages = $this->wire()->pages;
+		$page = $event->arguments(0); /** @var Page $page */
+		$copy = $event->arguments(1); /** @var Page $copy */
 		
 		if($page) {} // ignore
 
@@ -203,27 +234,28 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	
 		foreach($copy->template->fieldgroup as $field) {
 			if(!$field->type instanceof FieldtypePageTable) continue; 
+			/** @var PageTableField $field */
 			//if(!$field->parent_id) continue; // let that be handled manually since recursive clones are already an option
-			$parent = $field->parent_id ? $this->wire('pages')->get($field->parent_id) : $copy; 
+			$parent = $field->parent_id ? $pages->get($field->parent_id) : $copy; 
 			$value = $copy->getUnformatted($field->name); 
 			if(!wireCount($value)) continue; 
-			$newValue = $this->wire('pages')->newPageArray();
+			$newValue = $pages->newPageArray();
 			foreach($value as $item) {
 				try { 
 					$newItem = null;
 					if(!$field->parent_id && $copy->numChildren) {
 						// value was already cloned by API with recursive option?
-						$newItem = $this->wire('pages')->get("parent=$copy, name=$item->name, include=all"); 
+						$newItem = $pages->get("parent=$copy, name=$item->name, include=all"); 
 						if(!$newItem->id) $newItem = null; 
 					}
-					if(!$newItem) $newItem = $this->wire('pages')->clone($item, $parent); 
+					if(!$newItem) $newItem = $pages->clone($item, $parent); 
 					if($newItem->id) {
 						$newValue->add($newItem); 
-						$this->wire('pages')->message("Cloned item $item->path", Notice::debug); 
+						$pages->message("Cloned item $item->path", Notice::debug); 
 					}
 				} catch(\Exception $e) {
-					$this->wire('pages')->error("Error cloning $item->path"); 
-					$this->wire('pages')->error($e->getMessage(), Notice::debug); 
+					$pages->error("Error cloning $item->path"); 
+					$pages->error($e->getMessage(), Notice::debug); 
 				}
 			}
 			$copy->set($field->name, $newValue); 
@@ -238,12 +270,13 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function ready() {
-		if(	$this->wire('config')->ajax && 
-			$this->wire('input')->get('InputfieldPageTableField') && 
-			$this->wire('user')->isLoggedin() && 
-			$this->wire('page')->template == 'admin') {
+		$config = $this->wire()->config;
+		if(	$config->ajax && 
+			$this->wire()->input->get('InputfieldPageTableField') && 
+			$this->wire()->user->isLoggedin() && 
+			$this->wire()->page->template->name === 'admin') {
 			// handle ajax request to render table
-			require_once($this->wire('config')->paths->InputfieldPageTable . 'InputfieldPageTableAjax.php'); 
+			require_once($config->paths('InputfieldPageTable') . 'InputfieldPageTableAjax.php'); 
 			new InputfieldPageTableAjax();
 		}
 	}
@@ -275,14 +308,14 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
-		return $this->wire('modules')->get('FieldtypePage')->getMatchQuery($query, $table, $subfield, $operator, $value); 	
+		return $this->wire()->fieldtypes->FieldtypePage->getMatchQuery($query, $table, $subfield, $operator, $value); 	
 	}
 
 	/**
 	 * Get the Inputfield used for input by PageTable
 	 * 
 	 * @param Page $page
-	 * @param Field $field
+	 * @param Field|PageTableField $field
 	 * @return Inputfield
 	 * 
 	 */
@@ -307,12 +340,16 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param int|object|string|WireArray $value
-	 * @return int|object|PageArray|string|WireArray
+	 * @return PageArray
 	 * 
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
-		if(is_array($value) && wireCount($value)) $value = $this->wakeupValue($page, $field, $value); 
-		if(!$value instanceof PageArray) return $this->wire('pages')->newPageArray();	
+		if(is_array($value) && wireCount($value)) {
+			$value = $this->wakeupValue($page, $field, $value);
+		}
+		if(!$value instanceof PageArray) {
+			return $this->wire()->pages->newPageArray();
+		}
 		foreach($value as $item) {
 			if($this->isValidItem($page, $field, $item)) continue; 
 			$value->remove($item); 
@@ -324,13 +361,12 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * Return true or false as to whether the item is valid for this PageTable
 	 * 
 	 * @param Page $page
-	 * @param Field $field
+	 * @param Field|PageTableField $field
 	 * @param Page $item
 	 * @return bool
 	 * 
 	 */
 	protected function isValidItem(Page $page, Field $field, Page $item) {
-		if($page) {} // ignore
 		$template_id = $field->get('template_id'); 
 		if(is_array($template_id)) {
 			if(in_array($item->template->id, $template_id)) return true; 
@@ -350,7 +386,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function getBlankValue(Page $page, Field $field) {
-		return $this->wire('pages')->newPageArray();
+		return $this->wire()->pages->newPageArray();
 	}
 
 	/**
@@ -363,7 +399,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
-		$formatted = $this->wire('pages')->newPageArray();
+		$formatted = $this->wire()->pages->newPageArray();
 		if(!$value instanceof PageArray) return $formatted; 
 		foreach($value as $item) {
 			if($item->status >= Page::statusHidden) continue; 
@@ -377,7 +413,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * Prep a value for storage
 	 * 
 	 * @param Page $page
-	 * @param Field $field
+	 * @param Field|PageTableField $field
 	 * @param PageArray $value
 	 * @throws WireException
 	 * @return array
@@ -385,9 +421,15 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
 		$sleepValue = array();
-		if(!$value instanceof PageArray) return $sleepValue; 
-		if($field->get('sortfields')) $value->sort($field->get('sortfields')); 
-		if($value->data('notSaveable')) throw new WireException("Field '$field->name' from page $page->id is not saveable because it is a formatted value."); 
+		if(!$value instanceof PageArray) {
+			return $sleepValue;
+		}
+		if($field->get('sortfields')) {
+			$value->sort($field->get('sortfields'));
+		}
+		if($value->data('notSaveable')) {
+			throw new WireException("Field '$field->name' from page $page->id is not saveable because it is a formatted value.");
+		}
 		foreach($value as $item) {
 			if(!$item->id) continue; 
 			if(!$this->isValidItem($page, $field, $item)) continue; 
@@ -400,14 +442,16 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * Wake up a stored value
 	 *
 	 * @param Page $page
-	 * @param Field $field
+	 * @param Field|PageTableField $field
 	 * @param array $value
 	 * @return PageArray
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 		
-		if(!is_array($value) || !wireCount($value) || empty($field->template_id)) return $this->getBlankValue($page, $field);
+		if(!is_array($value) || !wireCount($value) || empty($field->template_id)) {
+			return $this->getBlankValue($page, $field);
+		}
 		
 		$template_id = $field->get('template_id'); 
 		
@@ -416,7 +460,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		}
 		
 		if(wireCount($template_id) == 1) {
-			$template = $this->wire('templates')->get(reset($template_id));
+			$template = $this->wire()->templates->get(reset($template_id));
 		} else {
 			$template = null;
 		}
@@ -424,13 +468,14 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$loadOptions = array('cache' => false);
 		if($template) $loadOptions['template'] = $template;
 		
-		$items = $this->wire('pages')->getById($value, $loadOptions);
+		$items = $this->wire()->pages->getById($value, $loadOptions);
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$sortfields = $field->get('sortfields');
 		if($sortfields) {
 			$sorts = array();
 			foreach(explode(',', $sortfields) as $sortfield) {
-				$sorts[] = $this->wire('sanitizer')->name(trim($sortfield));
+				$sorts[] = $sanitizer->name(trim($sortfield));
 			}
 			if(wireCount($sorts)) $items->sort($sorts);
 		}
@@ -452,7 +497,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function ___getSelectorInfo(Field $field, array $data = array()) {
-		$info = $this->wire('modules')->get('FieldtypePage')->getSelectorInfo($field, $data); 
+		$info = $this->wire()->fieldtypes->FieldtypePage->getSelectorInfo($field, $data); 
 		$info['operators'] = array(); // force it to be non selectable, subfields only
 		return $info; 
 	}
@@ -469,12 +514,13 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function ___exportConfigData(Field $field, array $data) {
-		$data = $this->wire('fieldtypes')->get('FieldtypePage')->exportConfigData($field, $data);
+		$data = $this->wire()->fieldtypes->FieldtypePage->exportConfigData($field, $data);
 		if(isset($data['template_id']) && is_array($data['template_id'])) {
 			// convert template IDs to names
+			$templates = $this->wire()->templates;
 			$names = array();
 			foreach($data['template_id'] as $id) {
-				$template = $this->wire('templates')->get((int) $id); 
+				$template = $templates->get((int) $id); 
 				if($template) $names[] = $template->name;
 			}
 			$data['template_id'] = $names;
@@ -492,12 +538,15 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function ___importConfigData(Field $field, array $data) {
+		
+		$templates = $this->wire()->templates;
 		$templateIDs = array();
+		
 		if(!empty($data['template_id'])) {
 			if(!is_array($data['template_id'])) $data['template_id'] = array($data['template_id']); 
 			$errorTemplates = array();
 			foreach($data['template_id'] as $name) {
-				$template = $this->wire('templates')->get($name); 	
+				$template = $templates->get($name); 	
 				if($template) {
 					$templateIDs[] = $template->id;
 				} else {
@@ -509,8 +558,10 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 				$data['errors']['template_id'] = "Unable to find template(s): " . implode(', ', $errorTemplates);
 			}
 		}
-		$data = $this->wire('fieldtypes')->get('FieldtypePage')->importConfigData($field, $data);
+		
+		$data = $this->wire()->fieldtypes->FieldtypePage->importConfigData($field, $data);
 		$data['template_id'] = $templateIDs; 
+		
 		return $data;
 	}
 
@@ -526,29 +577,43 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function findOrphans(Page $page, Field $field) { 
-		$orphans = $this->wire('pages')->newPageArray();
+		$pages = $this->wire()->pages;
+		
+		$orphans = $pages->newPageArray();
 		if($field->get('parent_id')) return $orphans;
+		
 		$templateID = $field->get('template_id'); 
 		if(!$templateID) return $orphans; // we need at least a template to do this
+		
 		if(!is_array($templateID)) $templateID = array($templateID); 
+		
 		$value = $page->getUnformatted($field->name); 
-		if(!$value instanceof PageArray) $value = $this->wire('pages')->newPageArray();
+		if(!$value instanceof PageArray) $value = $pages->newPageArray();
+		
 		if($page->numChildren <= $value->count()) return $orphans; // nothing new
+		
 		$templateNames = array();
+		$templates = $this->wire()->templates;
+		
 		foreach($templateID as $id) {
-			$template = $this->wire('templates')->get($id);
+			$template = $templates->get($id);
 			if($template) $templateNames[] = $template->name; 
 		}
+		
 		$selector = "include=unpublished, template=" . implode('|', $templateNames); 
 		if($value->count()) $selector .= ", id!=$value";
-		foreach($page->children($selector) as $item) $orphans->add($item); 
+		
+		foreach($page->children($selector) as $item) {
+			$orphans->add($item);
+		}
+		
 		return $orphans;	
 	}
 
 	/**
 	 * Return configuration fields definable for each FieldtypePage
 	 * 
-	 * @param Field $field
+	 * @param Field|PageTableField $field
 	 * @return InputfieldWrapper
 	 *
 	 */
@@ -563,11 +628,10 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 
 		$inputfields = parent::___getConfigInputfields($field);
 
-		/** @var InputfieldAsmSelect $f */
-		$f = $this->wire('modules')->get('InputfieldAsmSelect');
+		$f = $inputfields->InputfieldAsmSelect;
 		$f->attr('name', 'template_id');
 		$f->label = $this->_('Select one or more templates for items');
-		foreach($this->wire('templates') as $template) {
+		foreach($this->wire()->templates as $template) {
 			if($template->flags & Template::flagSystem) continue; 
 			$f->addOption($template->id, $template->name); 
 		}
@@ -579,8 +643,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$f->notes = $this->_('Please hit Save after selecting a template and the remaining configuration on the Input tab will contain more context.'); // Templates selection notes 
 		$inputfields->add($f);
 
-		/** @var InputfieldPageListSelect $f */
-		$f = $this->wire('modules')->get('InputfieldPageListSelect'); 
+		$f = $inputfields->InputfieldPageListSelect; 
 		$f->attr('name', 'parent_id'); 
 		$f->label = $this->_('Select a parent for items'); 
 		$f->description = $this->_('All items created and managed from this field will live under the parent you select here.');
@@ -589,20 +652,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$f->attr('value', (int) $field->get('parent_id')); 
 		$inputfields->add($f);
 		
-		/*
-		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
-		$f->attr('name', 'autoTrash'); 
-		$f->attr('value', 1); 
-		if($field->autoTrash) $f->attr('checked', 'checked'); 
-		$f->label = $this->_('Trash items when page is deleted?'); 
-		$f->description = $this->_('When checked, items created/managed by a given page will be automatically trashed when that page is deleted. If not checked, the items will remain under the parent you selected above.'); // autoTrash option description
-		$f->notes = $this->_('This option applies only if you have selected a parent above.'); 
-		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->add($f);
-		*/
-	
-		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset'); 
+		$fieldset = $inputfields->InputfieldFieldset; 
 		$fieldset->label = $this->_('Page behaviors');
 		$fieldset->showIf = 'parent_id!=""';
 		$inputfields->add($fieldset);
@@ -613,10 +663,9 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 			'delete' => $this->_('Delete them'),
 			'unpub' => $this->_('Unpublish them'), 
 			'hide' => $this->_('Hide them'), 
-			);
+		);
 	
-		/** @var InputfieldRadios $f */
-		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f = $inputfields->InputfieldRadios;
 		$f->attr('name', 'trashOnDelete');
 		$f->label = $this->_('Delete');
 		$f->description = sprintf($this->_('What should happen to "%s" items when the containing page is permanently deleted?'), $field->name); 
@@ -626,8 +675,9 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$f->attr('value', (int) $field->get('trashOnDelete')); // aka autoTrash
 		$f->columnWidth = 33; 
 		$fieldset->add($f); 
+		unset($f);
 
-		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f = $inputfields->InputfieldRadios;
 		$f->attr('name', 'unpubOnTrash');
 		$f->label = $this->_('Trash');
 		$f->description = sprintf($this->_('What should happen to "%s" items when the containing page is trashed?'), $field->name); 
@@ -636,8 +686,9 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$f->attr('value', (int) $field->get('unpubOnTrash'));
 		$f->columnWidth = 33; 
 		$fieldset->add($f); 
+		unset($f);
 		
-		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f = $inputfields->InputfieldRadios;
 		$f->attr('name', 'unpubOnUnpub');
 		$f->label = $this->_('Unpublish');
 		$f->description = sprintf($this->_('What should happen to "%s" items when the containing page is unpublished?'), $field->name); 
@@ -648,8 +699,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$f->columnWidth = 33; 
 		$fieldset->add($f); 
 	
-		/** @var InputfieldText $f */
-		$f = $this->wire('modules')->get('InputfieldText'); 
+		$f = $inputfields->InputfieldText; 
 		$f->attr('name', 'sortfields'); 
 		$f->label = $this->_('Sort fields'); 
 		$f->description = $this->_('Enter the field name that you want your table to sort by. For a descending sort, precede the field name with a hyphen, i.e. "-date" rather than "date".'); // sort description 1 
@@ -661,7 +711,6 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		
 		return $inputfields;
 	}
-
-
 }
 
+require_once(__DIR__ . '/PageTableField.php');
