@@ -1150,7 +1150,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			if(strpos($selector, 'page.') !== false) {
 				// remove any page.property from selector as it won't be applicable during a getMatchQuery
 				$selector = preg_replace('/\bpage\.[a-zA-Z0-9_]+\s*[=!]+\s*[^,]*,?/', '', $selector);
-				$selector = preg_replace('/[a-zA-Z0-9_.]+\s*[=!]+\s*page(\.[a-zA-Z0-9_]+)+\s*,?/', '', $selector);
+				$selector = preg_replace('/[a-zA-Z0-9_.]+\s*[=!]+\s*page\.[a-zA-Z0-9_]+\s*,?/', '', $selector);
 			}
 		}
 		
