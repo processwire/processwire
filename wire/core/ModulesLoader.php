@@ -486,7 +486,6 @@ class ModulesLoader extends ModulesClass {
 		$basename = basename($basename, '.module');
 		$requires = array();
 		$duplicates = $this->modules->duplicates();
-		$moduleInfo = null;
 
 		// check if module has duplicate files, where one to use has already been specified to use first
 		$currentFile = $duplicates->getCurrent($basename); // returns the current file in use, if more than one
@@ -607,9 +606,8 @@ class ModulesLoader extends ModulesClass {
 
 		if($module === null) {
 			// placeholder for a module, which is not yet included and instantiated
-			// if(!$moduleInfo) $moduleInfo = $this->getModuleInfo($basename);
-			$ns = $moduleInfo ? $moduleInfo['namespace'] : $this->modules->info->moduleInfoCache($basename, 'namespace');
-			if(empty($namespace)) $ns = __NAMESPACE__ . "\\";
+			$ns = $this->modules->info->moduleInfoCache($basename, 'namespace');
+			if(empty($ns)) $ns = __NAMESPACE__ . "\\";
 			$singular = $info['flags'] & Modules::flagsSingular;
 			$module = $this->newModulePlaceholder($basename, $ns, $pathname, $singular, $autoload);
 		}
