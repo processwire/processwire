@@ -798,7 +798,7 @@ class PageFrontEdit extends WireData implements Module {
 		// jQuery
 		$loadItems[] = array(
 			'test' => "function() { return (typeof jQuery == 'undefined'); }",
-			'file' => $config->urls('JqueryCore') . 'JqueryCore.js',
+			'file' => $config->urls('JqueryCore') . ($config->debug === 'dev' ? 'dev/' : '') . 'JqueryCore.js',
 			'after' => "function() { " . 
 				"jQuery.noConflict(); " .
 			"}"
@@ -812,7 +812,7 @@ class PageFrontEdit extends WireData implements Module {
 				"});" . 
 				"return (typeof jQuery.ui == 'undefined'); " . 
 			"}",
-			'file' => $config->urls('JqueryUI') . 'JqueryUI.js',
+			'file' => $config->urls('JqueryUI') . ($config->debug === 'dev' ? 'dev/' : '') . 'JqueryUI.js'
 		);
 
 		// add in our PageFrontEdit.js file
@@ -1313,6 +1313,3 @@ class PageFrontEdit extends WireData implements Module {
 		return $unformatted;
 	}
 }
-
-
-

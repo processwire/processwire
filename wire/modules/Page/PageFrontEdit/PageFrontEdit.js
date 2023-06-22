@@ -365,8 +365,8 @@ function PageFrontEditInit($) {
 			var viewURL = $('#pw-url').val();
 			viewURL += (viewURL.indexOf('?') > -1 ? '&' : '?') + 'pw_edit_fields=' + target.attr('data-fields');
 			setBusy(true);
-
-			target.on('load', viewURL + ' #' + targetID, {}, function() {
+			
+			target.load(viewURL + ' #' + targetID, {}, function() {
 				var t = $(this);
 				var children = t.children();
 				if(children.length) {
