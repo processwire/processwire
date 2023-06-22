@@ -1264,7 +1264,11 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function moduleName($id, $setName = null) {
-		if(!ctype_digit("$id")) {
+		if($id instanceof Module) {
+			$name = $id->className();
+			if($setName === null) return $name;
+			$id = $this->getModuleID($name);
+		} else if(!ctype_digit("$id")) {
 			if(is_string($id)) return $id;
 			$id = $this->getModuleID($id);
 		}
