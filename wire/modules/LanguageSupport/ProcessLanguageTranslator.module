@@ -467,6 +467,7 @@ class ProcessLanguageTranslator extends Process implements ConfigurableModule {
 			$c = strpos($matches[1], '|') ? '|' : ',';
 			$options = explode($c, $matches[1]); 
 			$comment = str_replace($matches[0], '', $comment);
+			if(empty($type)) $type = 'Radios';
 		} else {
 			$options = array();
 		}
