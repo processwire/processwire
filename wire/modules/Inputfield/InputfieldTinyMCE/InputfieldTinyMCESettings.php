@@ -467,6 +467,7 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 			$contentStyle = implode(' ', $lines);
 			while(strpos($contentStyle, '  ') !== false) $contentStyle = str_replace('  ', ' ', $contentStyle);
 			$contentStyle = str_replace(['{ ', ' }'], ['{', '}'], $contentStyle);
+			$contentStyle = str_replace('@', "\\@", $contentStyle);
 			$settings['content_style'] = $contentStyle;
 		}
 	
