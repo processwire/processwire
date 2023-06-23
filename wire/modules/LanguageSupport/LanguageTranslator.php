@@ -644,6 +644,7 @@ class LanguageTranslator extends Wire {
 		$v = '';
 
 		switch(strtolower($str)) {
+			case '0-plural': $v = $this->_('0-plural'); break; // Is zero (0) plural or singular? type=radios options=[0-plural:Plural,0-singular:Singular] // i.e. would language use "0 items" (plural) or "0 item" (singular)?
 			case 'edit': $v = $this->_('Edit'); break;
 			case 'delete': $v = $this->_('Delete'); break;
 			case 'save': $v = $this->_('Save'); break;
