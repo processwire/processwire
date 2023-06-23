@@ -311,6 +311,9 @@ class Session extends Wire implements \IteratorAggregate {
 			} else {
 				ini_set("session.save_path", rtrim($this->config->paths->sessions, '/'));
 			}
+		} else {
+			if(!ini_get('session.gc_probability')) ini_set('session.gc_probability', 1);
+			if(!ini_get('session.gc_divisor')) ini_set('session.gc_divisor', 100);
 		}
 		
 		$options = array();
