@@ -1257,7 +1257,13 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if($subfield === 'keys' || $subfield === 'xtra') return false;
 		$fieldtype = $field->type;
 		$schema = $fieldtype->getDatabaseSchema($field);
-		return isset($schema[$subfield]);
+		if(isset($schema[$subfield])) return true;
+		$selectorInfo = $fieldtype->getSelectorInfo($field);
+		if(isset($selectorInfo['input']) && $selectorInfo['input'] === 'page') {
+			if(isset($selectorInfo['subfields'][$subfield])) return true;
+			if($this->wire()->pages->loader()->isNativeColumn($subfield)) return true;
+		}
+		return false;
 	}
 
 	/**
