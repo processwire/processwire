@@ -721,7 +721,7 @@ class PagesPathFinder extends Wire {
 		$_path = $path;
 		if(strlen($appendPath)) $path = rtrim($path, '/') . $appendPath;
 		
-		if($fail || $_path !== $path) {
+		if($fail || $_path !== $path || ($hadTrailingSlash && $useTrailingSlash < 0)) {
 			if($fail && isset($result['errors']['indexFile']) && count($result['urlSegments']) === 1) {
 				// allow for an /index.php or /index.html type urlSegmentStr to redirect rather than fail
 				$fail = false;
