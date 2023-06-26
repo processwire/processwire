@@ -489,7 +489,7 @@ class WireCache extends Wire {
 	public function save($name, $data, $expire = self::expireDaily) {
 		$options = array(); // additional data to pass along to cacher save() method
 	
-		if(empty($expire)) $expire = self::expireDaily;	
+		if(empty($expire) && $expire !== self::expireNow) $expire = self::expireDaily;	
 		
 		if($expire === WireCache::expireSelector) {
 			$this->cacheNameSelectors = null;
