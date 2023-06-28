@@ -523,7 +523,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$classes = array();
 		if($table->responsive) {
 			$classes[] = 'pw-table-responsive';
-			if(!wireInstanceOf($this->wire()->process, 'ProcessPageLister')) {
+			if(!wireInstanceOf($this->wire()->process, array('ProcessPageLister', 'ProcessUser'))) {
 				$classes[] = 'uk-overflow-auto';
 			}
 		}
