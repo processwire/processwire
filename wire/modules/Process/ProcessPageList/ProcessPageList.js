@@ -251,7 +251,9 @@ $(document).ready(function() {
 				$outer.on('mouseover', '.PageListItem', function(e) {
 
 					if($root.is(".PageListSorting") || $root.is(".PageListSortSaving")) return;
-					if(!$(this).children('a').first().is(":hover")) return;
+					
+					var $a = $(this).children('a').first(); 
+					if($a.length && !$a.is(':hover')) return;
 					
 					$hoveredItem = $(this);
 					//console.log('pageX=' + e.pageX);
@@ -268,7 +270,8 @@ $(document).ready(function() {
 					
 					hoverTimeout = setTimeout(function() {
 						if($hoveredItem.attr('class') == $item.attr('class')) {
-							if(!$hoveredItem.children('a').first().is(":hover")) return;
+							var $a = $hoveredItem.children('a').first();
+							if($a.length && !$a.is(':hover')) return;
 							var $hideItems = $outer.find(".PageListItemHover");
 							showItem($hoveredItem);
 							$hideItems.each(function() { hideItem($(this)); });

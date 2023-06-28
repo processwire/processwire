@@ -164,7 +164,7 @@ var ProcessWireAdmin = {
 				function mouseleaver() {
 					if(timer) clearTimeout(timer);
 					timer = setTimeout(function() {
-						if($ul.filter(":hover").length || $a.filter(":hover").length) {
+						if(($ul.length && $ul[0].matches(':hover')) || ($a.length && $a[0].matches(':hover'))) {
 							return;
 						}
 						$ul.fadeOut('fast');
