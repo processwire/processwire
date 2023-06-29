@@ -419,7 +419,7 @@ class PagesEditor extends Wire {
 	 * 	- `uncacheAll` (boolean): Whether the memory cache should be cleared (default=true)
 	 * 	- `resetTrackChanges` (boolean): Whether the page's change tracking should be reset (default=true)
 	 * 	- `quiet` (boolean): When true, created/modified time+user will use values from $page rather than current user+time (default=false)
-	 *	- `adjustName` (boolean): Adjust page name to ensure it is unique within its parent (default=false)
+	 *	- `adjustName` (boolean): Adjust page name to ensure it is unique within its parent (default=true)
 	 * 	- `forceID` (integer): Use this ID instead of an auto-assigned on (new page) or current ID (existing page)
 	 * 	- `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false)
 	 *  - `noHooks` (boolean): Prevent before/after save hooks from being called (default=false)
@@ -433,7 +433,7 @@ class PagesEditor extends Wire {
 		$defaultOptions = array(
 			'uncacheAll' => true,
 			'resetTrackChanges' => true,
-			'adjustName' => false,
+			'adjustName' => true,
 			'forceID' => 0,
 			'ignoreFamily' => false,
 			'noHooks' => false, 
@@ -473,7 +473,7 @@ class PagesEditor extends Wire {
 			}
 		}
 
-		$this->pages->names()->checkNameConflicts($page);
+		if($options['adjustName']) $this->pages->names()->checkNameConflicts($page);
 		if(!$this->savePageQuery($page, $options)) return false;
 		$result = $this->savePageFinish($page, $isNew, $options);
 		if($language) $user->language = $language; // restore language

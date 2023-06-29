@@ -443,7 +443,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 */
 	public function ___save(Page $page) {
 		if(!$this->isValid($page)) throw new WireException($this->errors('first'));
-		return $this->wire('pages')->save($page);
+		return $this->wire()->pages->save($page, array('adjustName' => false));
 	}
 	
 	/**
