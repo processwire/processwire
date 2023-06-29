@@ -127,7 +127,8 @@ class MarkupFieldtype extends WireData implements Module {
 						}
 						return $this->arrayToString($a, false);
 					} else {
-						$value = $value->explode($property, array('getMethod' => 'getFormatted'));
+						$getMethod = strpos($property, '}') ? 'getText' : 'getFormatted';
+						$value = $value->explode($property, array('getMethod' => $getMethod));
 					}
 					$valid = true;
 					

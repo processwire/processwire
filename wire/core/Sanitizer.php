@@ -1970,13 +1970,19 @@ class Sanitizer extends Wire {
 
 		if(strpos($value, '<') !== false) {
 			// tag replacements before strip_tags()
-			$regex =
-				'!<(?:' .
-					'/?(?:ul|ol|p|h\d|div)(?:>|\s[^><]*)' .
-					'|' . 
-					'(?:br[\s/]*)' .
-				')>!is';
-			$value = preg_replace($regex, $newline, $value);
+			if(stripos($value, '</ul>') || stripos($value, '</ol>')) {
+				$regex = '!<(?:/?(?:ul|ol)(?:>|\s[^><]*))>!i';
+				$value = preg_replace($regex, '', $value);
+			}
+			if(stripos($value, '</p>') || stripos($value, '</h') || stripos($value, '</div>')) {
+				$regex =
+					'!<(?:' .
+						'/?(?:p|h\d|div)(?:>|\s[^><]*)' .
+						'|' .
+						'(?:br[\s/]*)' .
+					')>!is';
+				$value = preg_replace($regex, $newline, $value);
+			}
 			if(stripos($value, '</li>')) {
 				$value = preg_replace('!</li>\s*<li!is', "$options[separator]<li", $value);
 			}
