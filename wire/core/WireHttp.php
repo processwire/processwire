@@ -730,9 +730,9 @@ class WireHttp extends Wire {
 		$this->resetResponse();
 		$this->lastSendType = 'curl';
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
+		$timeoutMS = (int) ($timeout * 1000);
 		$postMethods = array('POST', 'PUT', 'DELETE', 'PATCH'); // methods for CURLOPT_POSTFIELDS
 		$isPost = in_array($method, $postMethods);
-		$proxy = '';
 		
 		if(!empty($options['proxy'])) {
 			$proxy = $options['proxy'];
@@ -740,12 +740,14 @@ class WireHttp extends Wire {
 			$proxy = $options['curl']['http']['proxy'];
 		} else if(isset($options['http']) && !empty($options['http']['proxy'])) {
 			$proxy = $options['http']['proxy'];
+		} else {
+			$proxy = '';
 		}
 
 		$curl = curl_init();
 
-		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
-		curl_setopt($curl, CURLOPT_TIMEOUT, $timeout);
+		curl_setopt($curl, CURLOPT_TIMEOUT_MS, $timeoutMS);
+		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT_MS, $timeoutMS);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($curl, CURLOPT_USERAGENT, $this->getUserAgent());
 		
@@ -1095,8 +1097,9 @@ class WireHttp extends Wire {
 		$curl = curl_init($fromURL);
 
 		if(isset($options['timeout'])) {
-			curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, (int) $options['timeout']);
-			curl_setopt($curl, CURLOPT_TIMEOUT, (int) $options['timeout']);
+			$timeoutMS = (int) ($options['timeout'] * 1000);
+			curl_setopt($curl, CURLOPT_CONNECTTIMEOUT_MS, $timeoutMS);
+			curl_setopt($curl, CURLOPT_TIMEOUT_MS, $timeoutMS);
 		}
 		curl_setopt($curl, CURLOPT_FILE, $fp); // write curl response to file
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
