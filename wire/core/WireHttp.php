@@ -314,7 +314,8 @@ class WireHttp extends Wire {
 	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to post to (including http:// or https://)
-	 * @param mixed $data Associative array of data to send (if not already set before), or raw data to send.
+	 * @param array|string $data Associative array of data to send (if not already set before), 
+	 *   or raw string of data to send, such as JSON. 
 	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|string False on failure or string of contents received on success.
 	 * @see WireHttp::send(), WireHttp::get(), WireHttp::head()
@@ -343,7 +344,8 @@ class WireHttp extends Wire {
 	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to send request to (including http:// or https://)
-	 * @param mixed $data Array of data to send (if not already set before) or raw data to send.
+	 * @param array|string $data Array of data to send (if not already set before) 
+	 *   or raw string of data to send, such as JSON.
 	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|string False on failure or string of contents received on success.
 	 * @see WireHttp::send(), WireHttp::post(), WireHttp::head(), WireHttp::getJSON()
@@ -356,7 +358,9 @@ class WireHttp extends Wire {
 	/**
 	 * Send to a URL that responds with JSON (using GET request) and return the resulting array or object.
 	 * 
-	 * #pw-group-HTTP-requests
+	 * This is the same as doing a json_decode() on the result of a regular get request.
+	 * 
+	 * #pw-internal
 	 *
 	 * @param string $url URL to send request to (including http:// or https://)
 	 * @param bool $assoc Default is to return an array (specified by TRUE). If you want an object instead, specify FALSE. 
@@ -376,7 +380,8 @@ class WireHttp extends Wire {
 	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to request (including http:// or https://)
-	 * @param mixed $data Array of data to send (if not already set before) or raw data to send
+	 * @param array|string $data Array of data to send (if not already set before) 
+	 *   or raw string data to send, such as JSON.
 	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|array False on failure or Array with ResponseHeaders on success.
 	 * @see WireHttp::send(), WireHttp::post(), WireHttp::get()
@@ -397,7 +402,7 @@ class WireHttp extends Wire {
 	 * @param mixed $data Array of data to send (if not already set before) or raw data
 	 * @param bool $textMode When true function will return a string rather than integer, see the statusText() method.
 	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
-	 * @return bool|int|string False on failure or integer or string of status code (200|404|etc) on success.
+	 * @return int|string Integer or string of status code (200, 404, etc.) 
 	 * @see WireHttp::send(), WireHttp::statusText()
 	 *
 	 */
@@ -414,7 +419,7 @@ class WireHttp extends Wire {
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data
 	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
-	 * @return bool|string False on failure or string of status code + text on success.
+	 * @return string String of status code + text on success.
 	 *	Example: "200 OK', "302 Found", "404 Not Found"
 	 * @see WireHttp::send(), WireHttp::status()
 	 *
@@ -423,6 +428,66 @@ class WireHttp extends Wire {
 		return $this->status($url, $data, true, $options); 
 	}
 
+	/**
+	 * Send a DELETE request to a URL
+	 * 
+	 * “The HTTP DELETE request method deletes the specified resource.”
+	 * [More about DELETE](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE)
+	 *
+	 * #pw-group-HTTP-requests
+	 *
+	 * @param string $url URL to send to (including http:// or https://)
+	 * @param array|string $data Optional associative array of data to send (if not already set before), 
+	 *   or raw data to send (such as JSON string)
+	 * @param array $options Optional options to modify default behavior, see the send() method for details.
+	 * @return bool|string False on failure or string of contents received on success.
+	 * @since 3.0.222
+	 *
+	 */
+	public function delete($url, $data = array(), array $options = array()) {
+		return $this->send($url, $data, 'DELETE', $options);
+	}
+	
+	/**
+	 * Send a PATCH request to a URL
+	 * 
+	 * “The HTTP PATCH request method applies partial modifications to a resource.” 
+	 * [More about PATCH](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PATCH)
+	 *
+	 * #pw-group-HTTP-requests
+	 *
+	 * @param string $url URL to PATCH to (including http:// or https://)
+	 * @param array|string $data Associative array of data to send (if not already set before),
+	 *   or raw data to send (such as JSON string)
+	 * @param array $options Optional options to modify default behavior, see the send() method for details.
+	 * @return bool|string False on failure or string of contents received on success.
+	 * @since 3.0.222
+	 *
+	 */
+	public function patch($url, $data = array(), array $options = array()) {
+		return $this->send($url, $data, 'PATCH', $options);
+	}
+	
+	/**
+	 * Send a PUT request to a URL
+	 * 
+	 * “The HTTP PUT request method creates a new resource or replaces a representation of the 
+	 * target resource with the request payload.” 
+	 * [More about PUT](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PUT)
+	 *
+	 * #pw-group-HTTP-requests
+	 *
+	 * @param string $url URL to PUT to (including http:// or https://)
+	 * @param array|string $data Associative array of data to send (if not already set before),
+	 *   or raw data to send (such as JSON string)
+	 * @param array $options Optional options to modify default behavior, see the send() method for details.
+	 * @return bool|string False on failure or string of contents received on success.
+	 * @since 3.0.222
+	 *
+	 */
+	public function put($url, $data = array(), array $options = array()) {
+		return $this->send($url, $data, 'PUT', $options);
+	}
 
 	/**
 	 * Send the given $data array to a URL using given method (i.e. POST, GET, PUT, DELETE, etc.)
