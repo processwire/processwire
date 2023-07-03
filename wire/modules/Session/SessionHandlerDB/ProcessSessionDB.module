@@ -95,6 +95,7 @@ class ProcessSessionDB extends Process {
 
 			/** @var MarkupAdminDataTable $table */
 			$table = $modules->get('MarkupAdminDataTable');
+			$table->setSortable(false);
 			$header = array(
 				$this->_('Time'), 
 				$this->_('User'), 
@@ -175,4 +176,3 @@ class ProcessSessionDB extends Process {
 		return $form->render();
 	}	
 }
-
