@@ -5,7 +5,7 @@
  * 
  * #pw-summary The $datetime API variable provides helpers for working with dates/times and conversion between formats.
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string relativeTimeStr($ts, $abbreviate = false, $useTense = true)
@@ -122,6 +122,8 @@ class WireDateTime extends Wire {
 		'r' => array(	'', 	'',		'\w+, \d+ \w+ \d{4}'),		// RFC-2822 date			Thu, 21 Dec 2000 16:01:07 +0200
 		'U' => array(	'%s', 	'@', 	'\d+'),				// Unix timestamp			123344556	
 	);
+	
+	protected $caches = array();
 
 	/**
 	 * Return all predefined PHP date() formats for use as dates
@@ -404,17 +406,29 @@ class WireDateTime extends Wire {
 			// ts is a non-integer string, we assume to be a strtotime() compatible formatted date
 			$ts = strtotime($ts);
 		}
-		if($format == '') $format = $this->wire('config')->dateFormat;
-		if($format == 'relative') $value = $this->relativeTimeStr($ts);
-			else if($format == 'relative-') $value = $this->relativeTimeStr($ts, false, false);
-			else if($format == 'rel') $value = $this->relativeTimeStr($ts, true);
-			else if($format == 'rel-') $value = $this->relativeTimeStr($ts, true, false);
-			else if($format == 'r') $value = $this->relativeTimeStr($ts, 1);
-			else if($format == 'r-') $value = $this->relativeTimeStr($ts, 1, false);
-			else if($format == 'ts') $value = $ts;
-			else if(strpos($format, '%') !== false && version_compare(PHP_VERSION, '8.1.0', '<')) $value = $this->strftime($format, $ts);
-			else $value = date($format, $ts);
-		return $value;
+		if($format == '') $format = $this->wire()->config->dateFormat;
+		if($format == 'relative') {
+			$value = $this->relativeTimeStr($ts);
+		} else if($format == 'relative-') {
+			$value = $this->relativeTimeStr($ts, false, false);
+		} else if($format == 'rel') {
+			$value = $this->relativeTimeStr($ts, true);
+		} else if($format == 'rel-') {
+			$value = $this->relativeTimeStr($ts, true, false);
+		} else if($format == 'r') {
+			$value = $this->relativeTimeStr($ts, 1);
+		} else if($format == 'r-') {
+			$value = $this->relativeTimeStr($ts, 1, false);
+		} else if($format == 'ts') {
+			$value = $ts;
+		} else if(strpos($format, '%') !== false && version_compare(PHP_VERSION, '8.1.0', '<')) {
+			$value = $this->strftime($format, $ts);
+		} else {
+			$value = date($format, $ts);
+			$value = $this->localizeDateText($value, $format);
+		}
+			
+		return $value; 
 	}
 
 	/**
@@ -481,7 +495,10 @@ class WireDateTime extends Wire {
 		
 		$format = $this->strftimeToDateFormat($format);
 
-		return date($format, $timestamp);
+		$value = date($format, $timestamp);
+		$value = $this->localizeDateText($value, $format);
+		
+		return $value;
 	}
 
 	/**
@@ -879,4 +896,125 @@ class WireDateTime extends Wire {
 		return $periods;
 	}
 
+	/**
+	 * Localize a date's month and day names, when present
+	 *
+	 * @param string $value Date that is already formated with $format
+	 * @param string $format Format that was used to format the date
+	 * @return string
+	 * 
+	 */
+	protected function localizeDateText($value, $format) {
+		
+		if(!$this->wire()->languages) return $value; 
+
+		$findReplace = [];
+		$f = $format;
+		$keys = array();
+		$ltrKeys = array(
+			'F' => 'monthNames',
+			'M' => 'monthAbbrs',
+			'l' => 'dayNames',
+			'D' => 'dayAbbrs',
+			'a' => 'meridiums',
+			'A' => 'meridiums',
+		);
+		
+		foreach($ltrKeys as $ltr => $key) {
+			$a = self::$dateConversion[$ltr];
+			if(strpos($f, $ltr) !== false || strpos($f, $a[0]) !== false || strpos($f, $a[1]) !== false) {
+				$keys[] = $key;
+			}
+		}
+		
+		foreach($keys as $key) {
+			$findReplace = array_merge($findReplace, $this->dateWords($key));
+		}
+
+		if(count($findReplace)) {
+			$find = array_keys($findReplace);
+			$replace = array_values($findReplace);
+			if($find != $replace) {
+				$value = str_replace($find, $replace, $value);
+			}
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Get translated month/day words indexed by English words
+	 * 
+	 * @param string $key One of: monthNames, monthAbbrs, dayNames, dayAbbrs, meridiums
+	 * @return array
+	 * 
+	 */
+	protected function dateWords($key) {
+		$k = $key . $this->wire()->user->language->id;
+		switch($key) {
+			case 'monthNames':
+				if(empty($this->caches[$k])) $this->caches[$k] = array(
+					'January' => $this->_('January'),
+					'February' => $this->_('February'),
+					'March' => $this->_('March'),
+					'April' => $this->_('April'),
+					'May' => $this->_('May'),
+					'June' => $this->_('June'),
+					'July' => $this->_('July'),
+					'August' => $this->_('August'),
+					'September' => $this->_('September'),
+					'October' => $this->_('October'),
+					'November' => $this->_('November'),
+					'December' => $this->_('December'),
+				);
+				return $this->caches[$k];
+			case 'monthAbbrs':
+				if(empty($this->caches[$k])) $this->caches[$k] = array(
+					'Jan' => $this->_x('Jan', 'month-abbr'),
+					'Feb' => $this->_x('Feb', 'month-abbr'),
+					'Mar' => $this->_x('Mar', 'month-abbr'),
+					'Apr' => $this->_x('Apr', 'month-abbr'),
+					'May' => $this->_x('May', 'month-abbr'),
+					'Jun' => $this->_x('Jun', 'month-abbr'),
+					'Jul' => $this->_x('Jul', 'month-abbr'),
+					'Aug' => $this->_x('Aug', 'month-abbr'),
+					'Sep' => $this->_x('Sep', 'month-abbr'),
+					'Oct' => $this->_x('Oct', 'month-abbr'),
+					'Nov' => $this->_x('Nov', 'month-abbr'),
+					'Dec' => $this->_x('Dec', 'month-abbr'),
+				);
+				return $this->caches[$k];
+			case 'dayNames':
+				if(empty($this->caches[$k])) $this->caches[$k] = array(
+					'Monday' => $this->_('Monday'),
+					'Tuesday' => $this->_('Tuesday'),
+					'Wednesday' => $this->_('Wednesday'),
+					'Thursday' => $this->_('Thursday'),
+					'Friday' => $this->_('Friday'),
+					'Saturday' => $this->_('Saturday'),
+					'Sunday' => $this->_('Sunday'),
+				);
+				return $this->caches[$k];
+			case 'dayAbbrs':
+				if(empty($this->caches[$k])) $this->caches[$k] = array(
+					'Mon' => $this->_x('Mon', 'day-abbr'),
+					'Tue' => $this->_x('Tue', 'day-abbr'),
+					'Wed' => $this->_x('Wed', 'day-abbr'),
+					'Thu' => $this->_x('Thu', 'day-abbr'),
+					'Fri' => $this->_x('Fri', 'day-abbr'),
+					'Sat' => $this->_x('Sat', 'day-abbr'),
+					'Sun' => $this->_x('Sun', 'day-abbr'),
+				);
+				return $this->caches[$k];
+			case 'meridiums':
+				if(empty($this->caches[$k])) $this->caches[$k] = array(
+					'am' => $this->_x('am', 'ante-meridium-lowercase'),
+					'pm' => $this->_x('pm', 'post-meridium-lowercase'),
+					'AM' => $this->_x('AM', 'ante-meridium-uppercase'),
+					'PM' => $this->_x('PM', 'post-meridium-uppercase'),
+				);
+				return $this->caches[$k];
+		}
+		return array();
+	}
 }
