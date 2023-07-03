@@ -979,7 +979,8 @@ class WireHttp extends Wire {
 	 * @param string $toFile Filename you want to save it to (including full path).
 	 * @param array $options Optional options array for PHP's stream_context_create(), plus these optional options: 
 	 * 	- `use` or `useMethod` (string): Specify "curl", "fopen" or "socket" to force a specific method (default=auto-detect).
-	 * 	- `timeout` (float): Number of seconds till timeout.
+	 * 	- `timeout` (float): Number of seconds till timeout or omit to use previously set timeout setting or default. 
+	 *  - `fopen_bufferSize' (int): Buffer size (bytes) or 0 to disable buffer, used only by fopen method (default=1048576) 3.0.222+
 	 * @return string Filename that was downloaded (including full path).
 	 * @throws WireException All error conditions throw exceptions.
 	 * @todo update the use option to support array like the send() method
@@ -992,7 +993,8 @@ class WireHttp extends Wire {
 		$https = stripos($fromURL, 'https://') === 0;
 		$allowMethods = array('curl', 'fopen', 'socket');
 		$triedMethods = array();
-		
+		$fp = false;
+
 		if(!$http && !$https) {
 			throw new WireException($this->_('Download URLs must begin with http:// or https://'));
 		}
@@ -1016,18 +1018,17 @@ class WireHttp extends Wire {
 			if(!in_array($useMethod, $allowMethods)) throw new WireException("Unrecognized useMethod: $useMethod"); 
 			if($useMethod == 'curl' && !$this->hasCURL) throw new WireException("System does not support CURL");
 			if($useMethod == 'fopen' && !$this->hasFopen) throw new WireException("System does not support fopen"); 
+		} else if($this->hasCURL) {
+			$useMethod = 'curl';
+		} else if($this->hasFopen) {
+			$useMethod = 'fopen';
 		} else {
-			if($this->hasCURL) $useMethod = 'curl';
-				else if($this->hasFopen) $useMethod = 'fopen';
-				else $useMethod = 'socket';
+			$useMethod = 'socket';
 		}
 		
-		if(($fp = fopen($toFile, 'wb')) === false) {
-			throw new WireException($this->_('fopen error for filename:') . ' ' . $toFile);
-		}
-
 		// CURL
 		if($useMethod == 'curl') {
+			$fp = $this->openWritableFile($toFile);
 			$triedMethods[] = 'curl';
 			$result = $this->downloadCURL($fromURL, $fp, $options);
 			if($result === false && !$this->httpCode) {
@@ -1042,6 +1043,7 @@ class WireHttp extends Wire {
 				// WireHttp::download-OpenSSL extension required but not available, fallback to socket
 				$useMethod = 'socket';
 			} else {
+				$fp = $this->openWritableFile($toFile, $fp);
 				$result = $this->downloadFopen($fromURL, $fp, $options);
 				if($result === false && !$this->httpCode) $useMethod = 'socket'; 
 			}
@@ -1049,6 +1051,7 @@ class WireHttp extends Wire {
 	
 		// SOCKET
 		if($useMethod == 'socket') {
+			$fp = $this->openWritableFile($toFile, $fp);
 			$triedMethods[] = 'socket';
 			$this->downloadSocket($fromURL, $fp, $options); 
 		}
@@ -1142,9 +1145,13 @@ class WireHttp extends Wire {
 		// Define the options
 		$defaultOptions = array(
 			'max_redirects' => 3,
+			'fopen_bufferSize' => 1024 * 1024, // 1 megabyte default buffer size
 		);
 		
 		$options = array_merge($defaultOptions, $options);
+		$bufferSize = $options['fopen_bufferSize'];
+		unset($options['fopen_bufferSize']);
+		
 		$context = stream_context_create(
 			array(
 				'http' => $options
@@ -1153,18 +1160,35 @@ class WireHttp extends Wire {
 
 		// download the file
 		set_error_handler(array($this, '_errorHandler'));
-		$content = file_get_contents($fromURL, false, $context);
-		restore_error_handler();
-
-		if(isset($http_response_header)) $this->setResponseHeader($http_response_header);
-
-		if($content === false) {
-			$result = false;
-		} else {
-			$result = true; 
-			fwrite($fp, $content);
+		$result = false;
+		
+		if($bufferSize > 0) {
+			// download in chunks
+			$fpRemote = @fopen($fromURL, 'rb', false, $context);
+			if($fpRemote !== false) {
+				while(!feof($fpRemote)) {
+					$data = fread($fpRemote, $bufferSize);
+					fwrite($fp, $data);
+				}
+				fclose($fpRemote);
+				$result = true;
+			}
+		} 
+		
+		if($result === false) {
+			// download all at once
+			$content = file_get_contents($fromURL, false, $context);
+			if($content === false) {
+				$result = false;
+			} else {
+				$result = true;
+				fwrite($fp, $content);
+			}
 		}
 		
+		restore_error_handler();
+		if(isset($http_response_header)) $this->setResponseHeader($http_response_header);
+
 		return $result; 
 	}
 	
@@ -1187,7 +1211,28 @@ class WireHttp extends Wire {
 		if(empty($content) && !count($this->error)) $this->error[] = 'no data received'; 
 		return count($this->error) ? false : true; 
 	}
-	
+
+	/**
+	 * Open a new file for writing (for download methods)
+	 *
+	 * @param string $toFile
+	 * @param resource|false $fp
+	 * @return resource
+	 * @throws WireException
+	 * @since 3.0.222
+	 *
+	 */
+	protected function openWritableFile($toFile, $fp = false) {
+		if($fp !== false) {
+			// close existing file that was open and remove it
+			fclose($fp);
+			if(file_exists($toFile)) $this->wire()->files->unlink($toFile);
+		}
+		$fp = fopen($toFile, 'wb');
+		if($fp === false) throw new WireException($this->_('fopen error for filename:') . ' ' . $toFile);
+		return $fp;
+	}
+
 	/**
 	 * Set an array of request headers to send with GET/POST/etc. request
 	 *
