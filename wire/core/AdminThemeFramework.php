@@ -264,7 +264,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$input = $this->wire()->input;
 
 		if(!$this->isEditor) return array();
-		if($page->name != 'page' || $input->urlSegment1 || $input->get('modal')) return array();
+		if($page->name != 'page' && $page->name != 'list') return array();
+		if($input->urlSegment1 || $input->get('modal')) return array();
 		if(strpos($process, 'ProcessPageList') !== 0) return array();
 
 		/** @var ProcessPageAdd $module */
