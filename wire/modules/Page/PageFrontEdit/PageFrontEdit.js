@@ -148,7 +148,7 @@ function PageFrontEditInit($) {
 					timer = setTimeout(function() {
 						clicks = 0;
 						allowClick = true;
-						$a[0].trigger('click');
+						$a[0].click(); // JS, not jQuery click() event
 						return true;
 					}, 700);
 				} else {
