@@ -1070,7 +1070,8 @@ function InputfieldRepeater($) {
 				$item.removeClass('InputfieldRepeaterItemHasDepth');
 			}
 		});
-		$inputfieldRepeater.children('.InputfieldContent').css('position', 'relative');
+		// $inputfieldRepeater.children('.InputfieldContent').css('position', 'relative');
+		$inputfieldRepeater.children('.InputfieldContent').children('.Inputfields').css('position', 'relative');
 	}
 
 	/**
