@@ -288,6 +288,7 @@ class ProcessLanguageTranslator extends Process implements ConfigurableModule {
 				$untranslated => array(),
 			);
 			$maxLength = 0;
+			sort($value);
 			foreach($value as $file) {
 				$textdomain = $this->translator->filenameToTextdomain($file);
 				$label = substr($file, 5);
