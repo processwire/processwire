@@ -5,7 +5,7 @@
  * 
  * This class is for internal use. You should manipulate hooks from Wire-derived classes instead. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -172,6 +172,22 @@ class WireHooks {
 	 * 
 	 */
 	protected $wire;
+
+	/**
+	 * Conditional argument match types and the PHP function to detect them
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $argMatchTypes = array(
+		'array' => 'is_array',
+		'bool' => 'is_bool',
+		'float' => 'is_float',
+		'int' => 'is_int',
+		'null' => 'is_null',
+		'object' => 'is_object',
+		'string' => 'is_string',
+	);
 
 	/**
 	 * Construct WireHooks
@@ -991,6 +1007,24 @@ class WireHooks {
 							} else {
 								// we don't work with non-object here
 								$matches = false;
+							}
+						} else if(is_string($argMatch) && strpos($argMatch, '<') === 0 && substr($argMatch, -1) === '>') {
+							// i.e. <Page>, <User>, <string>, <object>, <bool>, etc.
+							$argMatch = trim($argMatch, '<>'); 
+							if(strpos($argMatch, '|')) {
+								// i.e. <User|Role|Permission> or <int|float> etc.
+								$argMatches = explode('|', str_replace(array('<', '>'), '', $argMatch));
+							} else {
+								$argMatches = array($argMatch);
+							}
+							foreach($argMatches as $argMatchType) {
+								if(isset($this->argMatchTypes[$argMatchType])) {
+									$argMatchFunc = $this->argMatchTypes[$argMatchType];
+									$matches = $argMatchFunc($argVal);
+								} else {
+									$matches = wireInstanceOf($argVal, $argMatchType);
+								}
+								if($matches) break;
 							}
 						} else {
 							if(is_array($argVal)) {
