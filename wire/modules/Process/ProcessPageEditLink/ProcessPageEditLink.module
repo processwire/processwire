@@ -18,6 +18,7 @@
  * @property int $noLinkTextEdit 3.0.211+
  * 
  * @method InputfieldForm buildForm($currentValue, $currentText)
+ * @method array getFilesPage(Page $page, $prefix = '') Hookable only in 3.0.222+
  *
  */
 
@@ -560,12 +561,14 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	/**
 	 * Get array of info about files attached to given Page, including any repeater items
 	 * 
+	 * Hookable in 3.0.222+ only
+	 * 
 	 * @param Page $page
-	 * @param string $prefix
+	 * @param string $prefix Optional prefix to prepend to "Field label:" portion of label
 	 * @return array Associative array of "/url/to/file.pdf" => "Field label: basename"
 	 * 
 	 */
-	protected function getFilesPage(Page $page, $prefix = '') {
+	protected function ___getFilesPage(Page $page, $prefix = '') {
 		$files = array();
 		foreach($page->template->fieldgroup as $field) {
 			/** @var Fieldtype $type */
