@@ -285,12 +285,11 @@ function _x($text, $context, $textdomain = null) {
  */
 function _n($textSingular, $textPlural, $count, $textdomain = null) {
 	$count = (int) $count;
-	$value = $count === 1 ? __($textSingular, $textdomain) : __($textPlural, $textdomain);
-	if($count === 0 && $value !== $textPlural && wire()->languages) {
+	if($count === 0 && wire()->languages) {
 		$plural = __('0-plural', 'common');
-		if(strtolower($plural) === '0-singular') { 
-			$value = __($textSingular, $textdomain);
-		}
+		$value = strtolower($plural) === '0-singular' ? __($textSingular, $textdomain) : __($textPlural, $textdomain);
+	} else {
+		$value = $count === 1 ? __($textSingular, $textdomain) : __($textPlural, $textdomain);
 	}
 	return $value;
 }
