@@ -2413,6 +2413,24 @@ class PageFinder extends Wire {
 				} else {
 					$value = "pages." . $database->escapeCol($value);
 				}
+				
+			} else if(($value === 'path' || $value === 'url') && $this->wire()->modules->isInstalled('PagePaths')) {
+				static $pathN = 0;
+				$pathN++;
+				$pathsTable = "_sort_pages_paths$pathN";
+				if($language && !$language->isDefault() && $this->supportsLanguagePageNames()) {
+					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id AND $pathsTable.language_id=0");
+					$lid = (int) $language->id;
+					$asc = $descending ? 'DESC' : 'ASC';
+					$pathsLangTable = $pathsTable . "_$lid";
+					$s = "pages_paths AS $pathsLangTable ON $pathsLangTable.pages_id=pages.id AND $pathsLangTable.language_id=$lid";
+					$query->leftjoin($s);
+					$query->orderby("if($pathsLangTable.pages_id IS NULL, $pathsTable.path, $pathsLangTable.path) $asc");
+					$value = false;
+				} else {
+					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id");
+					$value = "$pathsTable.path";
+				}
 
 			} else {
 				// sort by custom field, or parent w/custom field
@@ -3696,4 +3714,3 @@ class PageFinder extends Wire {
  * @property PageFinder $pageFinder PageFinder instance that initiated the query
  */
 abstract class PageFinderDatabaseQuerySelect extends DatabaseQuerySelect { }
-
