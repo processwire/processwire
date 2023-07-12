@@ -155,11 +155,15 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 				}
 			}
 			if(!$this->lister && $modules->isInstalled('ProcessPageLister')) {
-				$this->lister = $modules->get('ProcessPageLister');
+				// for regular Lister we init() in the getLister() method instead
+				$this->lister = $modules->getModule('ProcessPageLister', array('noInit' => true));
 			}
 		}
 		
 		if($this->lister && $bookmarkID) {
+			if($this->lister->className() === 'ProcessPageLister') {
+				$this->lister->set('_' . $this->className(), true)->init();
+			}
 			$bookmarks = $this->lister->getBookmarksInstance();
 			$bookmarkID = $bookmarks->_bookmarkID(ltrim($bookmarkID, 'bm'));
 			$this->listerBookmarkID = $this->lister->checkBookmark($bookmarkID);
@@ -311,12 +315,16 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		}
 		
 		if($lister->className() == 'ProcessPageListerPro') {
-			$data = $this->wire('modules')->getModuleConfigData('ProcessPageListerPro');
+			// ProcessPageListerPro only
+			$data = $this->wire()->modules->getConfig('ProcessPageListerPro');
 			if(isset($data['settings'][$this->page->name])) {
 				foreach($data['settings'][$this->page->name] as $key => $value) {
 					$lister->$key = $value;
 				}
 			}
+		} else if(!$lister->get('_' . $this->className())) {
+			// ProcessPageLister only
+			$lister->set('_'. $this->className(), true)->init(); // because it used noInit option on get()
 		}
 		
 		return $lister;
@@ -763,4 +771,3 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	}
 	
 }
-
