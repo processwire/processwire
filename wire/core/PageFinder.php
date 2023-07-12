@@ -1828,7 +1828,8 @@ class PageFinder extends Wire {
 					// shortcut for blank value condition: this ensures that NULL/non-existence is considered blank
 					// without this section the query would still work, but a blank value must actually be present in the field
 					$isEmptyValue = $fieldtype->isEmptyValue($field, $value);
-					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $value < 0 && $operator[0] === '>');	
+					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $value < 0 && $operator[0] === '>') 
+						|| ($operator === '!=' && $isEmptyValue === false);	
 					if($useEmpty && strpos($subfield, 'data') === 0) { // && !$fieldtype instanceof FieldtypeMulti) {
 						if($isEmptyValue) $numEmptyValues++;
 						if(in_array($operator, array('=', '!=', '<', '<=', '>', '>='))) {
@@ -2137,18 +2138,24 @@ class PageFinder extends Wire {
 			
 		} else if($operator === '!=' || $operator === '<>') {
 			// not equals
-			// $whereType = 'AND';
-			if($value === "0" && !$ft->isEmptyValue($field, "0")) {
-				// may match rows with no value present
+			$zeroIsEmpty = $ft->isEmptyValue($field, "0"); 
+			if($value === "0" && !$zeroIsEmpty) {
+				// may match non-rows (no value present) or row with value=0
 				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!='0'";
+				
+			} else if($value !== "0" && $zeroIsEmpty) {
+				// match all rows except empty and those having specific non-empty value
+				$bindKey = $query->bindValueGetKey($value);
+				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!=$bindKey";
 				
 			} else if($blankIsObject) {
 				$sql = "$tableAlias.$col IS NOT NULL";
 				
 			} else {
-				$bindKey = $query->bindValueGetKey($blankValue);
-				$sql = "$tableAlias.$col IS NOT NULL AND ($tableAlias.$col!=$bindKey";
-				if($blankValue !== "0" && !$ft->isEmptyValue($field, "0")) {
+				$bindKeyBlank = $query->bindValueGetKey($blankValue);
+				$bindKeyValue = $query->bindValueGetKey($value);
+				$sql = "$tableAlias.$col IS NOT NULL AND $tableAlias.$col!=$bindKeyValue AND ($tableAlias.$col!=$bindKeyBlank";
+				if($blankValue !== "0" && !$zeroIsEmpty) {
 					$sql .= " OR $tableAlias.$col='0'";
 				}
 				$sql .= ")";
