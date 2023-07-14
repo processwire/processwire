@@ -679,12 +679,19 @@ class InputfieldForm extends InputfieldWrapper {
 	 *
 	 * #pw-group-errors
 	 *
-	 * @param bool $clear Specify true to clear out the errors (default=false).
+	 * @param bool|null $clear Clear or re-check for errors? (default=false)
+	 * - Specify `true` to clear out the errors. 
+	 * - Specify `false` or omit the argument to neither clear or uncache errors. (default)
+	 * - Specify `null` to uncache a previous call and re-check all fields in the form. (3.0.223+)
 	 * @return array Array of error strings
 	 *
 	 */
 	public function getErrors($clear = false) {
-		if($this->errorCache !== null) return $this->errorCache;
+		if($clear === null) {
+			$this->errorCache = null;
+			$clear = false;
+		}
+		if($this->errorCache !== null && $clear === false) return $this->errorCache;
 		$errors = parent::getErrors($clear);
 		$this->errorCache = $clear ? null : $errors;
 		return $errors;
@@ -714,4 +721,3 @@ class InputfieldForm extends InputfieldWrapper {
 	protected function ___renderOrProcessReady($type) {
 	}
 }
-
