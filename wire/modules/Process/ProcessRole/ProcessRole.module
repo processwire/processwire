@@ -6,7 +6,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -22,7 +22,7 @@ class ProcessRole extends ProcessPageType {
 			'permission' => 'role-admin', // add this permission if you want this Process available for roles other than Superuser
 			'icon' => 'gears',
 			'useNavJSON' => true,
-			); 
+		); 
 	}
 
 	/**
@@ -64,9 +64,12 @@ class ProcessRole extends ProcessPageType {
 	public function init() {
 		
 		parent::init();
-	
-		$this->wire('modules')->get('JqueryUI')->use('vex');
-		$this->guestRole = $this->wire('roles')->get($this->wire('config')->guestUserRolePageID);
+
+		/** @var JqueryUI $jQueryUI */
+		$jQueryUI = $this->wire()->modules->get('JqueryUI');
+		$jQueryUI->use('vex');
+		
+		$this->guestRole = $this->wire()->roles->get($this->wire()->config->guestUserRolePageID);
 		$this->addHookBefore('InputfieldForm::render', $this, 'hookFormRender');
 		$this->addHookBefore('ProcessPageEdit::processInput', $this, 'hookProcessInput');
 		
@@ -109,7 +112,7 @@ class ProcessRole extends ProcessPageType {
 	 */
 	public function hookProcessInput(HookEvent $event) {
 		static $n = 0;
-		if(!$n && $event->wire('input')->post('_pw_page_name')) {
+		if(!$n && $event->wire()->input->post('_pw_page_name')) {
 			$this->savePermissionOptions();
 			$n++;
 		}
@@ -129,7 +132,7 @@ class ProcessRole extends ProcessPageType {
 		$f = $form->getChildByName('permissions');
 		if(!$f) return;
 		
-		if($this->getPage()->id == $this->wire('config')->superUserRolePageID) {
+		if($this->getPage()->id == $this->wire()->config->superUserRolePageID) {
 			$f->wrapAttr('style', 'display:none');
 			$fn = $form->getChildByName('_pw_page_name');
 			if($fn) $fn->notes = $this->_('Note: superuser role always has all permissions, so permissions field is not shown.'); 
@@ -153,10 +156,12 @@ class ProcessRole extends ProcessPageType {
 		$options = $f->getOptions();
 		$pageViewID = 0; 
 		
-		foreach($options as $name => $label) $f->removeOption($name);
+		foreach($options as $name => $label) {
+			$f->removeOption($name);
+		}
 		
 		// establish root permission containers
-		foreach($this->wire('permissions') as $permission) {
+		foreach($this->wire()->permissions as $permission) {
 			if($permission->getParentPermission()->id) continue;
 			$permissions[$permission->name] = array();
 			if($permission->name == 'page-view') $pageViewID = $permission->id;
@@ -171,7 +176,7 @@ class ProcessRole extends ProcessPageType {
 		$pageEdit = $permissions['page-edit'];
 		$permissions = array_merge(array('page-view' => $pageView, 'page-edit' => $pageEdit), $permissions); 
 		
-		foreach($this->wire('permissions') as $permission) {
+		foreach($this->wire()->permissions as $permission) {
 			/** @var Permission $permission */
 			/** @var Permission $parent */
 			$parent = $permission->getParentPermission();
@@ -227,7 +232,7 @@ class ProcessRole extends ProcessPageType {
 			$pageEditTemplates = array();
 
 			if($name == 'page-add' || $name == 'page-create') {
-				$parent = $this->wire('permissions')->get('page-edit');
+				$parent = $this->wire()->permissions->get('page-edit');
 				$rootParent = $parent;
 				$permission = new Permission(); 
 				$permission->set('name', $name); 
@@ -238,9 +243,9 @@ class ProcessRole extends ProcessPageType {
 				}
 				$alert = $this->_('This permission can only be assigned by template.');
 			} else {
-				$permission = $this->wire('permissions')->get($name);
+				$permission = $this->wire()->permissions->get($name);
 				if(!$permission->id) continue;
-				$title = str_replace('|', ' ', $this->wire('sanitizer')->entities($permission->getUnformatted('title')));
+				$title = str_replace('|', ' ', $this->wire()->sanitizer->entities($permission->getUnformatted('title')));
 				$parent = $permission->getParentPermission();
 				$rootParent = $permission->getRootParentPermission();
 				$checked = in_array($permission->id, $inputfieldValue);
@@ -262,8 +267,7 @@ class ProcessRole extends ProcessPageType {
 				}
 			}
 		
-			foreach($this->wire('templates') as $template) {
-				/** @var Template $template */
+			foreach($this->wire()->templates as $template) {
 				
 				if(!$template->useRoles) continue;
 				$rolesPermissions = $template->rolesPermissions;
@@ -548,7 +552,7 @@ class ProcessRole extends ProcessPageType {
 		$attr['href'] = $href;
 		$out = "<a ";
 		foreach($attr as $key => $value) {
-			$out .= " $key='" . $this->wire('sanitizer')->entities($value) . "'";
+			$out .= " $key='" . $this->wire()->sanitizer->entities($value) . "'";
 		}
 		$out .= ">$text</a>";
 		return $out; 
@@ -592,13 +596,13 @@ class ProcessRole extends ProcessPageType {
 		if(!$role->id) return;
 		$isGuestRole = $role->id == $this->guestRole->id;
 		
-		/** @var WireInput $input */
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
+		$permissions = $this->wire()->permissions;
 		
-		$viewPermission = $this->wire('permissions')->get('page-view');
-		$editPermission = $this->wire('permissions')->get('page-edit');
+		$viewPermission = $permissions->get('page-view');
+		$editPermission = $permissions->get('page-edit');
 		
-		foreach($this->wire('templates') as $template) {
+		foreach($this->wire()->templates as $template) {
 			
 			/** @var Template $template */
 			if(!$template->useRoles) continue;
@@ -694,7 +698,7 @@ class ProcessRole extends ProcessPageType {
 				
 				if(!$edit) {
 					/** @var Permission $permission */
-					$permission = $this->wire('permissions')->get((int) $permissionID);
+					$permission = $permissions->get((int) $permissionID);
 					if(!$permission->id) continue;
 					$parentPermission = $permission->getParentPermission();
 					// if permission requires page-edit, and user doesn't have page-edit, don't allow it to be added
@@ -717,18 +721,18 @@ class ProcessRole extends ProcessPageType {
 			sort($rolePermissionsNew); 
 			sort($rolePermissions);
 			if($rolePermissionsNew != $rolePermissions) { 
-				if($this->wire('config')->debug) {
+				if($this->wire()->config->debug) {
 					$removedPermissions = array_diff($rolePermissions, $rolePermissionsNew);
 					$addedPermissions = array_diff($rolePermissionsNew, $rolePermissions);
 					foreach($removedPermissions as $permissionID) {
 						$permissionID = (int) $permissionID;
-						$permission = $this->wire('permissions')->get(abs($permissionID));
+						$permission = $permissions->get(abs($permissionID));
 						$updates[] = ($permissionID < 0 ? "Removed revoke" : "Removed add") . " " . 
 							"$permission->name for template $template->name" ;
 					}
 					foreach($addedPermissions as $permissionID) {
 						$permissionID = (int) $permissionID;
-						$permission = $this->wire('permissions')->get(abs($permissionID));
+						$permission = $permissions->get(abs($permissionID));
 						$updates[] = ($permissionID < 0 ? "Added revoke" : "Added add") . " " .
 							"$permission->name for template $template->name" ;
 					}
@@ -745,7 +749,7 @@ class ProcessRole extends ProcessPageType {
 				if($addRoles != $template->addRoles) $template->addRoles = $addRoles;
 				if($createRoles != $template->createRoles) $template->createRoles = $createRoles;
 				
-				if($this->wire('config')->debug) {
+				if($this->wire()->config->debug) {
 					foreach($updates as $update) $this->message($update);
 				}
 				
@@ -754,4 +758,3 @@ class ProcessRole extends ProcessPageType {
 		}
 	}
 }
-

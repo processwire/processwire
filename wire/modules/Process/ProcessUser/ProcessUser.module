@@ -6,7 +6,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $maxAjaxQty
@@ -44,15 +44,16 @@ class ProcessUser extends ProcessPageType {
 	 * 
 	 */
 	public function init() {
-		$this->wire('pages')->addHookBefore('save', $this, 'hookPageSave');
+		$this->wire()->pages->addHookBefore('save', $this, 'hookPageSave');
 		parent::init();
+		
 		if($this->lister) {
 			$this->lister->addHookBefore('execute', $this, 'hookListerExecute');
 			$this->lister->addHookAfter('getSelector', $this, 'hookListerGetSelector');
 		}
 
 		// make this field translatable
-		$roles = $this->wire('fields')->get('roles');
+		$roles = $this->wire()->fields->get('roles');
 		$roles->label = $this->_('Roles');
 		$roles->description = $this->_("User will inherit the permissions assigned to each role. You may assign multiple roles to a user. When accessing a page, the user will only inherit permissions from the roles that are also assigned to the page's template."); // Roles description
 	}
@@ -64,7 +65,7 @@ class ProcessUser extends ProcessPageType {
 	 * 
 	 */
 	protected function useLister() {
-		return $this->wire('user')->hasPermission('page-lister'); 
+		return $this->wire()->user->hasPermission('page-lister'); 
 	}
 
 	/**
@@ -79,12 +80,12 @@ class ProcessUser extends ProcessPageType {
 		$max = $this->maxAjaxQty > 0 && $this->maxAjaxQty <= 100 ? (int) $this->maxAjaxQty : 50;
 
 		if(empty($options) && $this->pages->count("id>0") > $max) {
-			$user = $this->wire('user');
-			$userAdminAll = $user->isSuperuser() ? $this->wire('pages')->newNullPage() : $this->wire('permissions')->get('user-admin-all');
+			$user = $this->wire()->user;
+			$userAdminAll = $user->isSuperuser() ? $this->wire()->pages->newNullPage() : $this->wire()->permissions->get('user-admin-all');
 			/** @var PagePermissions $pagePermissions */
-			$pagePermissions = $this->wire('modules')->get('PagePermissions');
+			$pagePermissions = $this->wire()->modules->get('PagePermissions');
 			$items = array();
-			foreach($this->wire('roles') as $role) {
+			foreach($this->wire()->roles as $role) {
 				if($userAdminAll->id && !$pagePermissions->userCanAssignRole($role)) continue;
 				$cnt = $this->pages->count("roles=$role");
 				$item = array(
@@ -229,7 +230,8 @@ class ProcessUser extends ProcessPageType {
 		$filterRole = $filterRoleId ? $this->wire()->roles->get($filterRoleId) : null;
 		$user = $this->wire()->user;
 		$session = $this->wire()->session;
-		$ajax = $this->wire('config')->ajax;
+		$config = $this->wire()->config;
+		$ajax = $config->ajax;
 	
 		if($filterRole && $filterRole->id) {
 			$lister->resetLister();
@@ -252,7 +254,7 @@ class ProcessUser extends ProcessPageType {
 				// system has user-admin-all permission, and user doesn't have it
 				// so limit them only to the permission user-admin-[role] roles that they have assigned
 				$roles = array();
-				$rolesSelector .= ", roles!=" . $this->wire()->config->superUserRolePageID;
+				$rolesSelector .= ", roles!=" . $config->superUserRolePageID;
 				foreach($user->getPermissions() as $permission) {
 					if(strpos($permission->name, 'user-admin-') !== 0) continue;
 					$roleName = str_replace('user-admin-', '', $permission->name);
@@ -260,7 +262,6 @@ class ProcessUser extends ProcessPageType {
 					if($rolePage->id) $roles[$rolePage->id] = $rolePage->id;
 				}
 				// allow them to view users that only have guest role
-				$config = $this->wire()->config;
 				$guestRoleID = $config->guestUserRolePageID;
 				$guestUserID = $config->guestUserPageID;
 				$rolesSelector .= ", id!=$guestUserID, roles=(roles.count=1, roles=$guestRoleID)";
@@ -296,7 +297,7 @@ class ProcessUser extends ProcessPageType {
 			}
 		}
 		/** @var User $page */
-		if($page->id && !$page->get('_rolesPrevious') && $this->wire('input')->post('roles') !== null) {
+		if($page->id && !$page->get('_rolesPrevious') && $this->wire()->input->post('roles') !== null) {
 			$page->setQuietly('_rolesPrevious', clone $page->roles); 
 		}
 		return $page;
@@ -310,13 +311,13 @@ class ProcessUser extends ProcessPageType {
 	 * 
 	 */
 	protected function getEditableRoles(User $page) {
-		/** @var User $user */
-		$user = $this->wire('user');
+		
+		$user = $this->wire()->user;
 		$superuser = $user->isSuperuser();
 		$editableRoles = array();
-		$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+		$userAdminAll = $this->wire()->permissions->get('user-admin-all');
 		
-		foreach($this->wire('roles') as $role) {
+		foreach($this->wire()->roles as $role) {
 			if($role->name == 'guest') continue;
 			// if non-superuser editing a user, don't allow them to assign new roles with user-admin permission, 
 			// unless the user already has the role checked, OR the non-superuser has user-admin-all permission
@@ -362,13 +363,12 @@ class ProcessUser extends ProcessPageType {
 	/**
 	 * Edit user
 	 * 
-	 * @return array|string
+	 * @return string
 	 * 
 	 */
 	public function ___executeEdit() {
 
-		/** @var User $user */
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		
 		if(!$user->isSuperuser()) {
 			// prevent showing superuser role at all
@@ -382,7 +382,7 @@ class ProcessUser extends ProcessPageType {
 		/** @var User $page Available only after executeEdit() */
 		$page = $this->getPage();
 
-		$this->wire('config')->js('ProcessUser', array(
+		$this->wire()->config->js('ProcessUser', array(
 			'editableRoles' => array_keys($this->getEditableRoles($page)),
 			'notEditableAlert' => $this->_('You may not change this role'),
 		));
@@ -418,7 +418,7 @@ class ProcessUser extends ProcessPageType {
 		$theme = $form->getChildByName('admin_theme');
 		if(!$theme) return;
 		if(!$theme->attr('value')) {
-			$theme->attr('value', $this->wire('config')->defaultAdminTheme); 
+			$theme->attr('value', $this->wire()->config->defaultAdminTheme); 
 		}
 	}
 	
@@ -434,22 +434,24 @@ class ProcessUser extends ProcessPageType {
 	 */
 	public function hookPageSave(HookEvent $event) {
 
+		$config = $this->wire()->config;
 		$arguments = $event->arguments; 
-		$page = $arguments[0]; 
+		$page = $arguments[0]; /** @var Page|User $page */
 		
-		if(!$page instanceof User && !in_array($page->template->id, $this->wire('config')->userTemplateIDs)) {
+		if(!$page instanceof User && !in_array($page->template->id, $config->userTemplateIDs)) {
 			// don't handle anything other than User page saves
 			return;
 		}
 
-		$pages = $this->wire('pages');
-		$user = $this->wire('user');
+		$pages = $this->wire()->pages;
+		$user = $this->wire()->user;
+		$roles = $this->wire()->roles;
 		$superuser = $user->isSuperuser();
-		$suRole = $this->wire('roles')->get($this->wire('config')->superUserRolePageID); 
+		$suRole = $roles->get($config->superUserRolePageID); 
 
 		// don't allow removal of the guest role
 		if(!$page->roles->has("name=guest")) {
-			$page->roles->add($this->wire('roles')->get('guest')); 	
+			$page->roles->add($roles->get('guest')); 	
 		}
 
 		// check if user is editing themself
@@ -533,21 +535,21 @@ class ProcessUser extends ProcessPageType {
 		
 		if($user->isSuperuser()) return;
 		
-		$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+		$userAdminAll = $this->wire()->permissions->get('user-admin-all');
 		if(!$userAdminAll->id || $user->hasPermission($userAdminAll)) return;
 		
 		// user-admin-all permission is installed and user doesn't have it
 		// check that the role assignments are valid
 		
-		/** @var Pages $pages */
-		$pages = $this->wire('pages');
+		$pages = $this->wire()->pages;
 		$changedUser = $page;
 		$pages->uncache($page, array('shallow' => true));
-		$originalUser = $this->wire('users')->get($page->id); // get a fresh, unmodified copy
+		$originalUser = $this->wire()->users->get($page->id); // get a fresh, unmodified copy
+		
 		if(!$originalUser->id) return;
 		
 		/** @var PagePermissions $pagePermissions */
-		$pagePermissions = $this->wire('modules')->get('PagePermissions');
+		$pagePermissions = $this->wire()->modules->get('PagePermissions');
 		$removedRoles = array();
 
 		foreach($originalUser->roles as $role) {
@@ -579,4 +581,3 @@ class ProcessUser extends ProcessPageType {
 	}
 	
 }
-
