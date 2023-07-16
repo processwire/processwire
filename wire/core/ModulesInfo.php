@@ -787,7 +787,7 @@ class ModulesInfo extends ModulesClass {
 				case 'namespace':
 					return $this->getModuleNamespace($class);
 				case 'requires':
-					$v = $this->moduleInfoCache($class, 'requires');
+					$v = $this->moduleInfoCache($class, 'requiresVersions'); // must be 'requiredVersions' here
 					if(empty($v)) return array(); // early exit when known not to exist
 					break; // fallback to calling getModuleInfo
 			}
