@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $listAfterSave
@@ -196,7 +196,10 @@ class ProcessField extends Process implements ConfigurableModule {
 		$fieldsArray = array();
 		$showAll = $this->wire()->config->advanced; 
 		foreach($this->wire()->fields as $field) {
-			if(!$showAll && ($field->flags & Field::flagSystem) && $field->name != 'title') continue;
+			if(!$showAll) {
+				if(($field->flags & Field::flagSystem) && $field->name != 'title') continue;
+				if($field->type instanceof FieldtypeFieldsetClose) continue;
+			}
 			$fieldsArray[] = $field; 
 		}
 		$options['items'] = $fieldsArray;
@@ -649,6 +652,10 @@ class ProcessField extends Process implements ConfigurableModule {
 		$sanitizer = $this->wire()->sanitizer; 
 		$session = $this->wire()->session;
 		$editUrl = "edit?id=$field->id";
+		
+		if($field->type instanceof FieldtypeFieldsetClose) {
+			if(!$session->getFor($this, 'filterShowSystem')) return array();
+		}
 
 		$flagDefs = array(
 			'Autojoin' => array(
@@ -1544,11 +1551,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	protected function ___buildEditFormBasics() {
 	
 		$modules = $this->wire()->modules;
-		$fields = $this->wire()->fields;
 		$languages = $this->wire()->languages;
-		$config = $this->wire()->config;
-		
-		$isNew = !$this->field || !$this->field->id;
 		
 		$languageFields = array();
 		$adminTheme = $this->wire()->adminTheme;
@@ -2376,7 +2379,17 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		if($field->type instanceof FieldtypeFieldsetOpen && strpos($cloneField->name, '_END') === false) {
 			// handle a cloned fieldset by also cloning its closer
-			$field->set('closeFieldID', null);
+			$closeFieldset = $fields->get($cloneField->name . '_END'); 
+			$closeFieldsetCopy = null;
+			if($closeFieldset) {
+				$closeName = $name . '_END';
+				$closeFieldsetCopy = $fields->get($closeName);
+				if(!$closeFieldsetCopy) $closeFieldsetCopy = $fields->clone($closeFieldset, $closeName);
+				if($closeFieldsetCopy) $field->set('closeFieldID', $closeFieldsetCopy->id);
+			}
+			if(!$closeFieldsetCopy) {
+				$field->set('closeFieldID', null);
+			}
 		}
 		
 		return $field;
