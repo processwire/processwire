@@ -5,7 +5,7 @@
  * 
  * #pw-summary Provides management of all Permission pages independent of users, for access control.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @method PageArray find($selector) Return the permissions(s) matching the the given selector query.
@@ -83,11 +83,27 @@ class Permissions extends PagesType {
 	 * 
 	 */
 	public function has($name) {
-		
 		if($name == 'page-add' || $name == 'page-create') return true; // runtime only permissions
-		
-		if(empty($this->permissionNames)) {
+		$a = $this->getPermissionNameIds();
+		return isset($a[$name]);
+	}
 
+	/**
+	 * Get all installed permission names and IDs
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string $namePrefix Optional name prefix to match
+	 * @return array Array of [ permission name => permission ID ]
+	 * @since 3.0.223
+	 * 
+	 */
+	public function getPermissionNameIds($namePrefix = '') {
+		
+		if(count($this->permissionNames)) {
+			$names = $this->permissionNames;
+			
+		} else {
 			$cache = $this->wire()->cache;
 			$names = $cache->get(self::cacheName);
 
@@ -101,10 +117,15 @@ class Permissions extends PagesType {
 
 			$this->permissionNames = $names;
 		}
-			
-		return isset($this->permissionNames[$name]);
-	}
 
+		if($namePrefix !== '') {
+			foreach($names as $name => $id) {
+				if(strpos($name, $namePrefix) !== 0) unset($names[$name]);
+			}
+		}
+		
+		return $names;
+	}
 
 	/**
 	 * Save a Permission
@@ -145,7 +166,9 @@ class Permissions extends PagesType {
 	 *
 	 */
 	public function ___add($name) {
-		return parent::___add($name);
+		/** @var Permission|NullPage $value */
+		$value = parent::___add($name);
+		return $value;
 	}
 
 
@@ -229,7 +252,7 @@ class Permissions extends PagesType {
 				$a[] = "page-edit-lang-$language->name";
 			}
 		}
-		foreach($this->wire('roles') as $role) {
+		foreach($this->wire()->roles as $role) {
 			$a[] = "user-admin-$role->name";
 		}
 		$a = array_flip($a);
@@ -248,6 +271,48 @@ class Permissions extends PagesType {
 	 */
 	public function getDelegatedPermissions() {
 		return $this->delegatedPermissions;
+	}
+
+	/**
+	 * Return permission name that given one delegates to when permission $name is not installed
+	 * 
+	 * Returns blank string if given permission $name is already installed 
+	 * or does not have a delegate.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name Permission name
+	 * @return string Delegate permission name or blank string 
+	 * @since 3.0.223
+	 * 
+	 */
+	public function getDelegatedPermission($name) {
+		if($this->has($name)) return '';
+		return isset($this->delegatedPermissions[$name]) ? $this->delegatedPermissions[$name] : ''; 
+	}
+
+	/**
+	 * Get method on given $context object to delegate permission $name to
+	 * 
+	 * If given permission already exists, this method returns blank string. 
+	 * If there is no method to delegate to, this method returns blank string. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name Permission name
+	 * @param Page|Template $context
+	 * @return string Method name or blank string
+	 * @since 3.0.223
+	 * 
+	 */
+	public function getDelegatedMethod($name, $context) {
+		if($this->has($name)) return '';
+		if($context instanceof Page) {
+			// page-edit-images needs to delegate to $page->editable() method
+			// so that hooks can apply, such as when user editing images on other user
+			if($name === 'page-edit-images') return 'editable';
+		}
+		return '';
 	}
 
 	/**
