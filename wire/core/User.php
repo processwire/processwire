@@ -261,6 +261,10 @@ class User extends Page {
 				// code later on will make sure they exist in the template's addRoles/createRoles
 				$p = 'page-edit';
 			} else if(!$permissions->has($name)) {
+				if($page) {
+					$method = $permissions->getDelegatedMethod($name, $page);
+					if($method) return $page->$method(); // i.e. $page->editable()
+				}
 				$delegated = $permissions->getDelegatedPermissions();
 				$p = isset($delegated[$name]) ? $delegated[$name] : $name;
 			} else {

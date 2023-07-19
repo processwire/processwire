@@ -108,6 +108,13 @@ class Role extends Page {
 				if(!ctype_alnum(str_replace('-', '', $name))) {
 					$name = $this->wire()->sanitizer->pageName($name);
 				}
+				if($context) {
+					$method = $permissions->getDelegatedMethod($name, $context);
+					if($method) {
+						// non-installed permission delegates to a method call such as $page->editable()
+						return $context->$method();
+					}
+				}
 				$delegated = $permissions->getDelegatedPermissions();
 				if(isset($delegated[$name])) $name = $delegated[$name];
 			}
@@ -243,4 +250,3 @@ class Role extends Page {
 	}
 
 }
-
