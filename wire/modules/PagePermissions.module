@@ -245,7 +245,8 @@ class PagePermissions extends WireData implements Module {
 		$process = $this->wire()->process;
 		$processName = (string) $process;
 		$config = $this->wire()->config;
-		$guestRoleID = $config->guestUserRolePageID;
+		$guestRoleID = (int) $config->guestUserRolePageID;
+		$permissions = $this->wire()->permissions;
 		
 		$defaults = array(
 			'viewable' => false, // specify true if method is being used to determine viewable state
@@ -304,10 +305,15 @@ class PagePermissions extends WireData implements Module {
 			if($userViewable) return true;
 			
 		} else {
-			// if the current process is something other than ProcessUser, they don't have permission
-			if($processName !== 'ProcessUser' && (!$process instanceof ProcessPageList) && (!$process instanceof ProcessPageLister)) {
-				return false;
-			}
+			// if the current process is something other than ProcessUser (or a Process module that can be
+			// used within ProcessUser) they don't have permission
+			$processNames = array(
+				'ProcessUser', 
+				'ProcessPageList', 
+				'ProcessPageLister', 
+				'ProcessPageEditImageSelect'
+			); 
+			if(!wireInstanceOf($process, $processNames)) return false;
 		}
 	
 		// if user doesn't have user-admin permission, they have no edit access
@@ -320,30 +326,44 @@ class PagePermissions extends WireData implements Module {
 
 		// if we reach this point then check if there are more granular user-admin permissions available
 		// special permissions: user-admin-all, and user-admin-[role]
-		$userAdminAll = $this->wire()->permissions->get('user-admin-all');
-		
-		// if there are no special permissions, then let them through
-		if(!$userAdminAll->id) return true;
-		
-		// if user has user-admin-all permission, they are good to edit
-		if($user->hasPermission($userAdminAll)) return true;
+		$userAdminPerms = $permissions->getPermissionNameIds('user-admin-'); 
 
+		// if there are no special permissions, then let them through
+		if(isset($userAdminPerms['user-admin-all'])) {
+			// if user has 'user-admin-all' permission, they are good to edit
+			if($user->hasPermission('user-admin-all')) return true;
+			// if there are no other user-admin perms then not editable
+			if(count($userAdminPerms) === 1) return false;
+			
+		} else if(empty($userAdminPerms)) {
+			// no 'user-admin-[role]' permissions means permission delegated to just 'user-admin'
+			return true;
+		}
+		
 		// there are role-specific permissions in the system, and user must have appropriate one to edit
 		$userEditable = false;
+		$pageRoles = $page->roles;
 		$n = 0;
-		foreach($page->roles as $role) {
+		
+		foreach($pageRoles as $role) {
 			$n++;
 			if($role->id == $guestRoleID) continue;
-			if($user->hasPermission("user-admin-$role->name")) {
+			$permName = "user-admin-$role->name";
+			if(!isset($userAdminPerms[$permName])) continue; // does not exist
+			if($user->hasPermission($permName)) { 
 				// found a matching permission for role, so it is editable
 				$userEditable = true;
 				break;
+			} else {
+				// user does not have
 			}
 		}
-		if($userEditable) return true;
-		// if there is only role (guest), then no specific permission needed for that
-		if($n == 0 || ($n == 1 && $page->roles->first()->id == $guestRoleID)) return true;
 		
+		if($userEditable) return true;
+		
+		// if there is only 1 role (guest), then no role-specific permission needed for that
+		if($n == 0 || ($n == 1 && $pageRoles->first()->id == $guestRoleID)) return true;
+	
 		return false;
 	}
 
@@ -560,7 +580,7 @@ class PagePermissions extends WireData implements Module {
 		if($user === null) $user = $this->wire()->user;
 		if(!$user->isLoggedin()) return false;
 		if(!$user->hasPermission('profile-edit')) return false;
-		$data = $this->wire()->modules->getModuleConfigData('ProcessProfile');
+		$data = $this->wire()->modules->getConfig('ProcessProfile');
 		$profileFields = isset($data['profileFields']) ? $data['profileFields'] : array();
 		if(in_array($name, $profileFields)) return true;
 		return false;
