@@ -231,19 +231,12 @@ class ProcessPageSearchLive extends Wire {
 	 */
 	protected function init(array $presets = array()) {
 
-		/** @var WireInput $input */
-		$input = $this->wire('input');
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
-		/** @var Fields $fields */
-		$fields = $this->wire('fields');
-		/** @var Templates $templates */
-		$templates = $this->wire('templates');
-		/** @var User $user */
-		$user = $this->wire('user');
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
-		/** @var AdminTheme|AdminThemeFramework $adminTheme */
+		$input = $this->wire()->input;
+		$sanitizer = $this->wire()->sanitizer;
+		$fields = $this->wire()->fields;
+		$templates = $this->wire()->templates;
+		$user = $this->wire()->user;
+		$languages = $this->wire()->languages;
 		$adminTheme = $this->wire()->adminTheme; 
 
 		$type = isset($presets['type']) ? $presets['type'] : '';
@@ -354,7 +347,7 @@ class ProcessPageSearchLive extends Wire {
 			$template = $templates->get($type);
 		}
 		
-		if($template && $template instanceof Template) {
+		if($template instanceof Template) {
 			// does search type match the name of a template?
 			$selectors[] = "template=$template->name";
 			$type = '';
@@ -386,7 +379,7 @@ class ProcessPageSearchLive extends Wire {
 			'q' => $q,
 			'selectors' => $selectors,
 			'template' => $template,
-			'multilang' => $this->wire('languages') ? true : false,
+			'multilang' => $languages ? true : false,
 			'language' => $language, 
 			'start' => $start, 
 			'limit' => $limit,
@@ -414,8 +407,7 @@ class ProcessPageSearchLive extends Wire {
 	 */
 	public function ___execute($getJSON = true) {
 
-		/** @var WireInput $input */
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
 
 		$liveSearch = $this->init();
 
@@ -449,8 +441,8 @@ class ProcessPageSearchLive extends Wire {
 	 */
 	public function executeViewAll() {
 	
-		/** @var WireInput $input */
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
+		
 		$this->isViewAll = true;
 		
 		$type = $input->get->pageName('type');
@@ -531,21 +523,18 @@ class ProcessPageSearchLive extends Wire {
 	 *
 	 */
 	protected function find(array &$liveSearch) {
+		
+		$user = $this->wire()->user;
+		$modules = $this->wire()->modules;
+		$languages = $this->wire()->languages;
 
 		$items = array();
-		$user = $this->wire('user');
 		$userLanguage = null;
 		$q = $liveSearch['q'];
 		$type = $liveSearch['type'];
 		$foundTypes = array();
 		$modulesInfo = array();
 		$help = $liveSearch['help'];
-		
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
-		
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
 		
 		if($languages && $liveSearch['language']) {
 			// change current user to have requested language, temporarily
@@ -575,7 +564,6 @@ class ProcessPageSearchLive extends Wire {
 			$foundTypes[] = $thisType;
 			$module = null;
 			$result = array();
-			$timer = null;
 			
 			try {
 				/** @var SearchableModule $module */
@@ -629,7 +617,7 @@ class ProcessPageSearchLive extends Wire {
 		}
 		
 		if($type && !$help && !count($foundTypes) && !in_array($type, array('pages', 'trash', 'modules'))) {
-			if(empty($liveSearch['template']) && !count($foundTypes)) {
+			if(empty($liveSearch['template'])) {
 				// if no types matched, and it’s going to skip pages, assume type is a property, and do a pages search
 				$liveSearch = $this->init(array(
 					'q' => $liveSearch['q'], 
@@ -651,7 +639,7 @@ class ProcessPageSearchLive extends Wire {
 		}
 
 		// use built-in modules search when appropriate
-		if($this->useType('modules', $type) && $this->wire('user')->isSuperuser()) {
+		if($this->useType('modules', $type) && $this->wire()->user->isSuperuser()) {
 			if(!in_array('modules', $this->searchTypesOrder)) $this->searchTypesOrder[] = 'modules';
 			$order = array_search('modules', $this->searchTypesOrder) * 100;
 			foreach($this->findModules($liveSearch, $modulesInfo) as $item) {
@@ -686,14 +674,14 @@ class ProcessPageSearchLive extends Wire {
 	 */
 	protected function findPages(array &$liveSearch) {
 
-		$user = $this->wire('user');
+		$pages = $this->wire()->pages;
+		$config = $this->wire()->config;
+		$user = $this->wire()->user;
 		$superuser = $user->isSuperuser();
-		$pages = $this->wire('pages');
-		$config = $this->wire('config');
 		
 		if(!empty($liveSearch['help'])) {
 			$result = array('title' => 'pages', 'items' => array(), 'properties' => array('name', 'title'));
-			if($this->wire('fields')->get('body')) $result['properties'][] = 'body';
+			if($this->wire()->fields->get('body')) $result['properties'][] = 'body';
 			$result['properties'][] = $this->_('or any field name');
 			return $this->makeHelpItems($result, 'pages');	
 		}
@@ -820,13 +808,16 @@ class ProcessPageSearchLive extends Wire {
 	 */
 	protected function findModules(array &$liveSearch, array &$modulesInfo) {
 		
+		$modules = $this->wire()->modules;
+		$adminUrl = $this->wire()->config->urls->admin;
+		
 		$q = $liveSearch['q'];
 		$groupLabel = $this->labels['modules'];
 		$items = array();
 		$forceMatch = false;
 		
 		if(!empty($liveSearch['help'])) {
-			$info = $this->wire('modules')->getModuleInfoVerbose('ProcessPageSearch');
+			$info = $modules->getModuleInfoVerbose('ProcessPageSearch');
 			$properties = array();
 			foreach(array_keys($info) as $property) {
 				$value = $info[$property];
@@ -846,9 +837,9 @@ class ProcessPageSearchLive extends Wire {
 		if($liveSearch['type'] === 'modules' && !empty($liveSearch['property'])) {
 			// searching for custom module property
 			$forceMatch = true;
-			$infos = $this->wire('modules')->findByInfo(
+			$infos = $modules->findByInfo(
 				$liveSearch['property'] . $liveSearch['operator'] . 
-				$this->wire('sanitizer')->selectorValue($q), 2
+				$this->wire()->sanitizer->selectorValue($q), 2
 			);
 		} else {
 			// text-matching for all modules
@@ -870,7 +861,7 @@ class ProcessPageSearchLive extends Wire {
 				'title' => $title,
 				'subtitle' => $name,
 				'summary' => $summary, 
-				'url' => $this->wire('config')->urls->admin . "module/edit?name=$name",
+				'url' => $adminUrl . "module/edit?name=$name",
 				'group' => $groupLabel,
 			);
 			$item = array_merge($this->itemTemplate, $item);
@@ -899,7 +890,7 @@ class ProcessPageSearchLive extends Wire {
 	protected function convertItemsFormat(array $items) {
 		
 		$converted = array();
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		
 		foreach($items as $item) {
 			$a = array(
@@ -933,7 +924,7 @@ class ProcessPageSearchLive extends Wire {
 	 * 
 	 */
 	protected function makeDebugItem($liveSearch) {
-		$liveSearch['user_language'] = $this->wire('user')->language->name;
+		$liveSearch['user_language'] = $this->wire()->user->language->name;
 		$summary = print_r($liveSearch, true);
 		return array_merge($this->itemTemplate, array(
 			'id' => 0,
@@ -955,11 +946,12 @@ class ProcessPageSearchLive extends Wire {
 	 *
 	 */
 	protected function makeHelpItems(array $result, $type) {
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$items = array();
 		$helloLabel = $this->_('test');
-		$usage1desc = $this->wire('sanitizer')->unentities($this->_('Searches %1$s for: %2$s')); 
-		$usage2desc = $this->wire('sanitizer')->unentities($this->_('Searches “%1$s” property of %2$s for: %3$s')); 
+		$usage1desc = $sanitizer->unentities($this->_('Searches %1$s for: %2$s')); 
+		$usage2desc = $sanitizer->unentities($this->_('Searches “%1$s” property of %2$s for: %3$s')); 
 		
 		if($type === 'help') {
 			$operators = ProcessPageSearch::getOperators();
@@ -976,11 +968,11 @@ class ProcessPageSearchLive extends Wire {
 				'group' => 'help',
 				'url' => 'https://processwire.com/api/selectors/#operators'
 			);
-			if($this->wire('user')->isSuperuser() && $this->process) {
+			if($this->wire()->user->isSuperuser() && $this->process) {
 				$items[] = array(
 					'title' => $this->_('configure'),
 					'subtitle' => $this->_('Click here to configure search settings'),
-					'url' => $url = $this->wire('modules')->getModuleEditUrl('ProcessPageSearch'),
+					'url' => $this->wire()->modules->getModuleEditUrl('ProcessPageSearch'),
 					'group' => 'help',
 				);
 			}
@@ -1044,7 +1036,7 @@ class ProcessPageSearchLive extends Wire {
 			$properties = implode(', ', $result['properties']);
 
 			if(strlen($properties) > 50) {
-				$properties = $this->wire('sanitizer')->truncate($properties, 50) . ' ' . $this->_('(hover for more)');
+				$properties = $this->wire()->sanitizer->truncate($properties, 50) . ' ' . $this->_('(hover for more)');
 			}
 
 			$summary =
@@ -1086,7 +1078,7 @@ class ProcessPageSearchLive extends Wire {
 		if(!empty($url)) {
 			// use provided url
 		} else if($type == 'pages' || $type == 'trash' || !empty($liveSearch['template'])) {
-			$url = $this->wire('page')->url();
+			$url = $this->wire()->page->url();
 			$url .= "?q=" . urlencode($liveSearch['q']) . "&live=1";
 			if($type == 'trash') $url .= "&trash=1";
 			if(!empty($liveSearch['template'])) {
@@ -1133,7 +1125,7 @@ class ProcessPageSearchLive extends Wire {
 		$groups = array();
 		$totals = array();
 		$counts = array();
-		$btn = $this->modules->get('InputfieldButton'); /** @var InputfieldButton $btn */
+		$btn = $this->wire()->modules->get('InputfieldButton'); /** @var InputfieldButton $btn */
 		$btn->aclass = "$prefix-view-all";
 	
 		foreach($items as $item) {
@@ -1162,8 +1154,9 @@ class ProcessPageSearchLive extends Wire {
 			$totalGroups["$group ($total)"] = $content;
 			unset($groups[$group]); 
 		}
-		
-		$wireTabs = $this->wire('modules')->get('JqueryWireTabs');
+	
+		/** @var JqueryWireTabs $wireTabs */
+		$wireTabs = $this->wire()->modules->get('JqueryWireTabs');
 		
 		return
 			"<div class='pw-search-$class'>" . 
@@ -1183,8 +1176,7 @@ class ProcessPageSearchLive extends Wire {
 	 */
 	protected function ___renderItem(array $item, $prefix = 'pw-search', $class = 'item') {
 	
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		
 		foreach(array('title', 'subtitle', 'summary', 'url') as $key) {
 			if(isset($item[$key])) {
