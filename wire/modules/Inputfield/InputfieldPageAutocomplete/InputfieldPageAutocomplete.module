@@ -5,7 +5,7 @@
  *
  * This Inputfield connects the jQuery UI Autocomplete widget with the ProcessWire ProcessPageSearch AJAX API.
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $parent_id Limit results to this parent, or if combined with findPagesSelector, the search is performed as $pages->get($parent_id)->find() rather than $pages->find().
@@ -25,6 +25,7 @@
  * 
  * @method string renderList()
  * @method string renderListItem($label, $value, $class = '')
+ * @method string getAjaxUrl() Hookable since 3.0.223
  *
  */
 class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArrayValue, InputfieldHasSortableValue {
@@ -33,7 +34,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		return array(
 			'title' => __('Page Auto Complete', __FILE__), // Module Title
 			'summary' => __('Multiple Page selection using auto completion and sorting capability. Intended for use as an input field for Page reference fields.', __FILE__), // Module Summary
-			'version' => 112,
+			'version' => 113,
 		);
 	}
 
@@ -108,10 +109,10 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$label = $this->wire()->sanitizer->entities($label);
 		$out = 	
 			"<li class='ui-state-default$class'>" . 
-			"<i class='itemSort fa fa-arrows fa-fw'></i> " . 
-			"<span class='itemValue'>$value</span>" . 
-			"<span class='itemLabel'>$label</span> " . 
-			"<a class='itemRemove' href='#'><i class='fa fa-trash'></i></a>" . 
+				"<i class='itemSort fa fa-arrows fa-fw'></i> " . 
+				"<span class='itemValue'>$value</span>" . 
+				"<span class='itemLabel'>$label</span> " . 
+				"<a class='itemRemove' href='#'><i class='fa fa-trash'></i></a>" . 
 			"</li>";
 		return $out; 
 	}
@@ -123,13 +124,14 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 *
 	 */
 	protected function ___renderList() { 
-
-		$out = "<ol id='{$this->id}_items' data-id='{$this->id}' data-name='{$this->name}'>" . 
-			$this->renderListItem("Label", "1", "itemTemplate"); 
 		
-		foreach($this->value as $page_id) {
-			if(!$page_id) continue; 
-			$page = $this->pages->get((int) $page_id); 
+		$pages = $this->wire()->pages;
+
+		$out = $this->renderListItem('Label', '1', 'itemTemplate'); 
+		
+		foreach($this->val() as $pageId) {
+			if(!$pageId) continue; 
+			$page = $pages->get((int) $pageId); 
 			if(!$page || !$page->id) continue; 
 			$value = $this->labelFieldFormat ? $page->getText($this->labelFieldFormat, true, false) : $page->get($this->labelFieldName); 
 			$value = strip_tags($value);
@@ -137,8 +139,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			$out .= $this->renderListItem($value, $page->id); 
 		}
 
-		$out .= "</ol>";
-		return $out; 
+		return "<ol id='{$this->id}_items' data-id='$this->id' data-name='$this->name'>$out</ol>";
 	}
 
 	/**
@@ -198,7 +199,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			"data-max='$max' " . 
 			"data-url='" . $sanitizer->entities($url) . "' " . 
 			"data-label='" . $sanitizer->entities($labelField) . "' " . 
-			"data-search='$searchField' " . 
+			"data-search='" . $sanitizer->entities($searchField) . "' " . 
 			"data-operator='$operator'";
 		
 		$textValue = '';
@@ -220,26 +221,16 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$addingLabel = $sanitizer->entities1($this->_('New item:'));
 		$dataClass = $sanitizer->entities(trim('InputfieldPageAutocompleteData ' . $this->attr('class')));
 		
-		$out .= <<< _OUT
-
-		<p>
-		<input type='hidden' name='{$this->name}[]' id='$id' class='$dataClass' value='$value' $attrs/>
-		<input type='text' data-parent-input='$id' id='{$id}_input' class='$class' value='$textValue' $disableChars/>
-		<i class='fa fa-fw fa-angle-double-right InputfieldPageAutocompleteStatus'></i>
-		$remove
-		<span class='notes InputfieldPageAutocompleteNote' data-adding='$addingLabel'><br />$addNote</span>
-		</p>
-		
-_OUT;
+		$out .= "
+			<p>
+				<input type='hidden' name='{$this->name}[]' id='$id' class='$dataClass' value='$value' $attrs/>
+				<input type='text' data-parent-input='$id' id='{$id}_input' class='$class' value='$textValue' $disableChars/>
+				<i class='fa fa-fw fa-angle-double-right InputfieldPageAutocompleteStatus'></i>
+				$remove
+				<span class='notes InputfieldPageAutocompleteNote' data-adding='$addingLabel'><br />$addNote</span>
+			</p>
+		";
 	
-		/*
-		<script>
-		$(document).ready(function() { 
-			InputfieldPageAutocomplete.init('$id', '$url', '$labelField', '$searchField', '$operator');
-			console.log('initAutocomplete: $id');
-		}); 
-		</script>
-		*/
 		return $out; 
 	}
 
@@ -258,9 +249,13 @@ _OUT;
 		if(is_array($value)) $value = reset($value);
 		$value = trim($value);
 		
-		if(strpos($value, ",") !== false) $value = explode(",", $value);
-			else if($value) $value = array($value);
-			else $value = array();
+		if(strpos($value, ',') !== false) {
+			$value = explode(',', $value);
+		} else if($value) {
+			$value = array($value);
+		} else {
+			$value = array();
+		}
 		
 		foreach($value as $k => $v) {
 			if(empty($v)) {
@@ -281,29 +276,31 @@ _OUT;
 	 * This URL is focused on using the AJAX API from ProcessPageSearch
 	 *
 	 */
-	protected function getAjaxUrl() {
+	protected function ___getAjaxUrl() {
 
 		$pipe = '%7C'; // encoded pipe "|"
-		$selector = (string) $this->findPagesSelector; 	
-
+		$selector = (string) $this->findPagesSelector;
+		$selectorLength = strlen($selector);
+		$name = 'autocomplete_' . $this->attr('name');
+		$queryStrings = array();
+		
+		/** @var ProcessPageSearch $pps */
+		$pps = $this->wire()->modules->get('ProcessPageSearch');
+		
 		if($this->parent_id) {
-			if($selector) {
+			if($selectorLength) {
 				// if a selector was specified, AND a parent, then we'll use the parent as a root
-				$selector .= ",has_parent={$this->parent_id}";
+				$selector .= 'has_parent=' . (int) $this->parent_id;
 			} else {
 				// otherwise matches must be direct children of the parent
-				$selector = "parent_id={$this->parent_id}"; 
+				$selector = 'parent_id=' . (int) $this->parent_id; 
 			}
 		}
 
 		if(count($this->template_ids)) {
-			$selector .= ",templates_id=" . implode($pipe, $this->template_ids);
+			$selector .= ',templates_id=' . implode($pipe, $this->template_ids);
 		} else if($this->template_id) {
-			$selector .= ",templates_id={$this->template_id}";
-		}
-		
-		if($this->lang_id) {
-			$selector .= ",lang_id=" . (int) $this->lang_id;
+			$selector .= ',templates_id=' . (int) $this->template_id;
 		}
 		
 		$allowUnpub = $this->getSetting('allowUnpub');
@@ -313,32 +310,30 @@ _OUT;
 
 		// allow for full site matches
 		if(!strlen($selector)) $selector = "id>0";
+		
+		// include language
+		if($this->lang_id) $queryStrings[] = 'lang_id=' . (int) $this->lang_id;
 
 		// match no more than 50, unless selector specifies it's own limit
-		if(strpos($selector, 'limit=') === false) $selector .= ",limit=50";
-
-		// replace non-escaped commas with ampersands
-		$selector = preg_replace('/(?<!\\\\),\s*/', '&', $selector); 
-		
-		if(strpos($selector, '.')) {
-			// replace things like children.count with children-count since "." is not allowed in URL var names
-			$selector = preg_replace('/(^|&)([_a-zA-Z0-9]+)\.([_a-zA-Z0-9]+)=/', '$1$2-$3=', $selector); 
-		}
+		if(strpos($selector, 'limit=') === false) $queryStrings[] = 'limit=50';
 
 		// specify what label field we want to retrieve
 		if($this->labelFieldFormat) {
-			$name = "autocomplete_" . $this->attr('name');
-			/** @var ProcessPageSearch $pps */
-			$pps = $this->wire()->modules->get('ProcessPageSearch'); 
 			$pps->setDisplayFormat($name, $this->labelFieldFormat, true);
-			$selector .= "&format_name=$name";
+			$queryStrings[] = "format_name=$name";
 		}
-		$selector .= "&get=" . urlencode($this->labelFieldName);
+		
+		$queryStrings[] = 'get=' . urlencode($this->labelFieldName);
+
+		// tell ProcessPageSearch to store this selector which we can tell it to use 
+		// by setting $_GET['for_selector_name'] = $name
+		$url = $pps->setForSelector($name, trim($selector, ', ')); 
+		if(count($queryStrings)) $url .= '&' . implode('&', $queryStrings);
 
 		// replace any pipes with encoded version
-		if(strpos($selector, '|') !== false) $selector = str_replace('|', $pipe, $selector);
+		if(strpos($url, '|') !== false) $url = str_replace('|', $pipe, $url);
 		
-		return $this->config->urls->admin . "page/search/for?" . $selector;
+		return $url;
 	}
 
 	/**
@@ -348,9 +343,9 @@ _OUT;
 	 *
 	 */
 	public function ___install() {
-		$data = $this->wire('modules')->getModuleConfigData('InputfieldPage'); 	
+		$data = $this->wire()->modules->getConfig('InputfieldPage'); 	
 		$data['inputfieldClasses'][] = $this->className();
-		$this->wire('modules')->saveModuleConfigData('InputfieldPage', $data); 
+		$this->wire()->modules->saveConfig('InputfieldPage', $data); 
 	}
 
 	/**
@@ -360,11 +355,11 @@ _OUT;
 	 *
 	 */
 	public function ___uninstall() {
-		$data = $this->wire('modules')->getModuleConfigData('InputfieldPage'); 	
+		$data = $this->wire()->modules->getConfig('InputfieldPage'); 	
 		foreach($data['inputfieldClasses'] as $key => $value) {
 			if($value == $this->className()) unset($data['inputfieldClasses'][$key]); 
 		}
-		$this->wire('modules')->saveModuleConfigData('InputfieldPage', $data); 
+		$this->wire()->modules->saveConfig('InputfieldPage', $data); 
 	}
 
 	/**
