@@ -343,7 +343,18 @@ class ProcessController extends Wire {
 		if(!$method) {
 			throw new ProcessController404Exception("Unrecognized path");
 		}
-	
+		
+		if($method === 'executeNavJSON' && !$this->wire()->config->ajax && !$debug) {
+			// disallow navJSON output when not ajax and not debug mode
+			if(!$this->wire()->user->isLoggedin()) wire404();
+			$navJSON = substr($this->wire()->input->url(), -8); 
+			if($navJSON === 'navJSON/') {
+				$this->wire()->session->location('../');
+			} else if($navJSON === '/navJSON') {
+				$this->wire()->session->location('./');
+			}
+		}
+
 		// call method from Process (and time it if debug mode enabled)
 		$className = $process->className();
 		if($debug) Debug::timer("$className.$method()"); 
@@ -500,6 +511,3 @@ class ProcessController extends Wire {
 	}
 
 }	
-
-
-
