@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $allowForgot Whether the ProcessForgotPassword module is installed.
@@ -32,6 +32,10 @@
  * @method void login($name, $pass) #pw-hooker
  * @method void loginFailed($name, $message = '') #pw-hooker
  * @method void loginSuccess(User $user) #pw-hooker
+ * @method void loginAttemptReady($name) #pw-hooker 3.0.223+
+ * @method void loginAttempted($user, $name) #pw-hooker 3.0.223+
+ * @method void loginFormProcessReady($form) #pw-hooker 3.0.223+
+ * @method void loginFormProcessed($form, $name) #pw-hooker 3.0.223+
  * @method array getBeforeLoginVars() #pw-hooker
  * @method array getLoginLinks() #pw-hooker
  * @method string renderLoginLinks() #pw-hooker
@@ -360,16 +364,19 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->buildLoginForm();
 		$loginSubmit = $input->post('login_submit');
 
-		if($loginSubmit) {
-			$this->form->processInput($input->post);
-		} else {
+		if(!$loginSubmit) {
 			$this->beforeLogin();
 			return $this->renderLoginForm();
 		}
+		
+		$this->loginFormProcessReady($this->form);
+		$this->form->processInput($input->post);
 	
 		// at this point login form has been submitted
 		$name = $this->getLoginName();
 		$pass = substr($this->passField->attr('value'), 0, 128);
+	
+		$this->loginFormProcessed($this->form, $name);
 
 		if(!$name || !$pass) return $this->renderLoginForm();
 
@@ -542,12 +549,16 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$session = $this->wire()->session;
 		$input = $this->wire()->input;
 		
+		$this->loginAttemptReady($name);
+		
 		if($name && $pass) {
 			$loginUser = $session->login($name, $pass);
 		} else {
 			$loginUser = false;
 		}
-		
+
+		$this->loginAttempted($loginUser, $name);
+
 		if($loginUser && $loginUser->id) {
 			$this->loginSuccess($loginUser); 
 			$url = $input->urlSegment1 === 'navJSON' ? '../' : './';
@@ -961,6 +972,52 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Hook called right before a login is attempted
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param string $name
+	 * @since 3.0.223
+	 * 
+	 */
+	protected function ___loginAttemptReady($name) {}
+
+	/**
+	 * Hook called immediately after a login was attempted
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param User|false $user This will be User object on success, or false on fail
+	 * @param string $name Attempted login name
+	 * @since 3.0.223
+	 * 
+	 */
+	protected function ___loginAttempted($user, $name) {}
+
+	/**  
+	 * Hook called immediately before the login form in processed
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param InputfieldForm $form
+	 * @since 3.0.223
+	 * 
+	 */
+	protected function ___loginFormProcessReady($form) {}
+
+	/**
+	 * Hook called immediately after login form processed and user name/pass identified as present
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param InputfieldForm $form
+	 * @param string $name Attempted user name
+	 * @since 3.0.223
+	 * 
+	 */	
+	protected function ___loginFormProcessed($form, $name) {}
+
+	/**
 	 * Hook called on login fail
 	 * 
 	 * @param string $name
@@ -1207,4 +1264,3 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	}
 
 }
-
