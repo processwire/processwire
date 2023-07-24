@@ -269,10 +269,10 @@ class WireCache extends Wire {
 			if(!is_int($expire) && !is_string($expire) && is_callable($expire) && !$expire instanceof Wire) {
 				$_func = $func;
 				$func = $expire;
-				$expire = $_func === null ? null : $this->getExpires($_func, false);
+				$expire = $_func === null ? null : $this->getExpires($_func);
 				unset($_func);
 			} else {
-				$expire = $this->getExpires($expire, false);
+				$expire = $this->getExpires($expire);
 			}
 		}
 	
@@ -280,6 +280,12 @@ class WireCache extends Wire {
 			// forced expiration now
 			$expireNow = true;
 			$expires = array();
+			
+		} else if(is_array($expire)) {
+			// selector [ 'expire' => self::expireSelector, 'selector' => '...' ]
+			$expires = array(
+				'= ' . $expire['expire']
+			);
 			
 		} else if(in_array($expire, $expireIgnores, true)) {
 			// no expires conditions to match when: 
