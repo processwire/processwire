@@ -1106,8 +1106,8 @@ function InputfieldDependencies($target) {
 		var matched = 0;
 
 		switch(operator) {
-			case '=': if(value == conditionValue) matched++; break;
-			case '!=': if(value != conditionValue) matched++; break;
+			case '=': if(value === conditionValue) matched++; break;
+			case '!=': if(value !== conditionValue) matched++; break;
 			case '>': if(value > conditionValue) matched++; break;
 			case '<': if(value < conditionValue) matched++; break;
 			case '>=': if(value >= conditionValue) matched++; break;
