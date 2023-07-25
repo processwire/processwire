@@ -722,7 +722,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	 */
 	public function ___processInput(WireInputData $input) {
 
-		$value = trim($input[$this->name]); 
+		$value = trim((string) $input[$this->name]); 
 		if($value == self::PLACEHOLDER_TEXT) return $this; // ignore value
 
 		$value = $this->purifyValue($value); 
