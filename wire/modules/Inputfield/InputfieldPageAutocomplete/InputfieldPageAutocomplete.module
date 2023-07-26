@@ -298,7 +298,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		}
 
 		if(count($this->template_ids)) {
-			$selector .= ',templates_id=' . implode($pipe, $this->template_ids);
+			$selector .= ',templates_id=' . implode('|', $this->template_ids);
 		} else if($this->template_id) {
 			$selector .= ',templates_id=' . (int) $this->template_id;
 		}
