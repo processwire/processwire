@@ -318,6 +318,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		'ajaxChildren' => true,
 		'ajaxParent' => true,
 		'ajaxTemplate' => true, 
+		'ajaxCreatedUser' => true, 
 		'editCrumbs' => false,
 	);
 
@@ -1441,25 +1442,64 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function ___buildFormCreatedUser() {
+	
+		$templates = $this->wire()->templates;
 		$modules = $this->wire()->modules;
 		$config = $this->wire()->config;
 		$pages = $this->wire()->pages;
+		
 		$selector = "parent_id=$config->usersPageID, include=all, limit=100";
-		if(count($config->usersPageIDs) < 2 && $pages->count($selector) < 100) {
+		$usersPageIDs = $config->usersPageIDs;
+		$createdUser = $this->page->createdUser;
+		
+		if(count($usersPageIDs) < 2 && $pages->count($selector) < 100) {
 			/** @var InputfieldPageListSelect $f */
 			$f = $modules->get('InputfieldPageListSelect');
-			$f->parent_id = $this->config->usersPageID;
+			$f->parent_id = $config->usersPageID;
 			$f->showPath = false;
+			$f->labelFieldName = 'name';
+			
 		} else {
-			/** @var InputfieldInteger $f */
-			$f = $modules->get('InputfieldInteger');
-			$f->description = $this->_('Enter the created user’s ID.'); 
-			$f->notes = "{$this->page->created_users_id} = {$this->page->createdUser->name}";
+			$searchFields = array('name', 'email');
+			$selector = "include=all, parent_id=" . implode('|', $usersPageIDs);
+			if($createdUser->id != $config->guestUserPageID) $selector .= ", id!=$config->guestUserPageID";
+			$userTemplate = null;
+			
+			foreach($config->userTemplateIDs as $templateID) {
+				$template = $templates->get((int) $templateID);
+				if(!$userTemplate && $template->id === $config->userTemplateID) {
+					$userTemplate = $template;
+				}
+				if($template && $template->hasField('title')) {
+					$searchFields[] = 'title';
+					break;
+				}
+			}
+
+			/** @var InputfieldPageAutocomplete $f */
+			$f = $modules->get('InputfieldPageAutocomplete');
+			$f->labelFieldName = 'name';
+			if($userTemplate && $userTemplate->pageLabelField) {
+				$f->labelFieldFormat = $userTemplate->pageLabelField;
+			} else {
+				$f->labelFieldFormat = '{name} ({email}) [roles.name]';
+			}
+			$f->searchFields = implode(' ', $searchFields);
+			$f->maxSelectedItems = 1;
+			$f->findPagesSelector = $selector;
+			$f->template_ids = $config->userTemplateIDs;
+			$f->required = true;
+			$f->useList = false;
+			$f->addClass('InputfieldNoFocus', 'wrapClass');
 		}
-		$f->label = $this->_('Created by User');
+
+		$f->val($createdUser);
+		$f->label = $this->_('Created by User') . ($createdUser->id ? " ($createdUser->name)" : "");
+		$f->icon = 'user-circle';
 		$f->attr('id+name', 'created_users_id');
-		$f->attr('value', $this->page->created_users_id);
+		if($this->configSettings['ajaxCreatedUser']) $f->collapsed = Inputfield::collapsedYesAjax;
 		$f->required = true;
+		
 		return $f;
 	}
 	
@@ -2406,14 +2446,18 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function processInputUser(Inputfield $inputfield) {
 		$page = $this->page;
 		if(!$this->user->isSuperuser() || !$page->id || !$page->template->allowChangeUser) return;
-		$userID = (int) $inputfield->val();
+		$userID = $inputfield->val();
+		if(is_array($userID)) $userID = reset($userID);
+		if($userID instanceof PageArray) $userID = $userID->first();
+		if($userID instanceof Page) $userID = $userID->id;
+		$userID = (int) $userID;
 		if(!$userID) return;
 		if($userID == $this->page->created_users_id) return; // no change
 		$user = $this->pages->get($userID); 
 		if(!$user->id) return;
 		if(!in_array($user->template->id, $this->config->userTemplateIDs)) return; // invalid user template
 		if(!in_array($user->parent_id, $this->config->usersPageIDs)) return; // invalid user parent
-		$page->created_users_id = $userID; 
+		$page->created_users_id = $user->id; 
 		$page->trackChange('created_users_id');
 	}
 
@@ -3414,4 +3458,3 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	}
 
 }
-
