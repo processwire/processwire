@@ -13,7 +13,7 @@
 
 .InputfieldCheckboxes ul li label {
 	display: inline-block;
-	white-space: nowrap;
+	white-space: break-spaces;
 	vertical-align: top;
 }
 
@@ -59,4 +59,3 @@
 .InputfieldCheckboxes table label {
 	white-space: nowrap;
 }
-
