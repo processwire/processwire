@@ -12,6 +12,14 @@
 
 class PageComparison {
 
+	/**
+	 * Selector properties that the matches() method ignores
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $matchesIgnores = array('limit', 'start', 'sort', 'include');
+
 	/** 
 	 * Is this page of the given type? (status, template, etc.)
  	 *
@@ -231,7 +239,6 @@ class PageComparison {
 		}
 
 		$matches = false;
-		$ignores = array('limit', 'start', 'sort', 'include');
 
 		foreach($selectors as $selector) {
 			
@@ -240,7 +247,7 @@ class PageComparison {
 			
 			if(is_array($property)) $property = reset($property);
 			if(strpos($property, '.')) list($property, $subproperty) = explode('.', $property, 2);
-			if(in_array($property, $ignores)) continue;
+			if(in_array($property, $this->matchesIgnores)) continue;
 			
 			$matches = true; 
 			$value = $page->getUnformatted($property); 
