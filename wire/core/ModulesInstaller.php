@@ -116,10 +116,22 @@ class ModulesInstaller extends ModulesClass {
 		if($languages) $languages->setDefault();
 
 		$pathname = $this->modules->installableFile($class);
-		$this->modules->files->includeModuleFile($pathname, $class);
-		$this->modules->files->setConfigPaths($class, dirname($pathname));
+		
+		if(strpos($class, "\\") === false) {
+			$ns = $this->modules->info->getModuleNamespace($class, array(
+				'file' => $pathname
+			));
+			$nsClass = $ns . $class;
+		} else {
+			$nsClass = $class;
+		}
+		
+		if(!class_exists($nsClass, false)) {
+			$this->modules->files->includeModuleFile($pathname, $class);
+			$this->modules->files->setConfigPaths($class, dirname($pathname));
+		}
 
-		$module = $this->modules->newModule($class);
+		$module = $this->modules->newModule($nsClass, $class);
 		if(!$module) return null;
 		
 		$flags = 0;

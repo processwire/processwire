@@ -649,11 +649,15 @@ class ModulesInfo extends ModulesClass {
 			if(!$info['installed'] && !$info['created'] && $installableFile) {
 				// uninstalled modules get their created date from the file or dir that they are in (whichever is newer)
 				$pathname = $installableFile;
-				$filemtime = (int) filemtime($pathname);
-				$dirname = dirname($pathname);
-				$coreModulesPath = $this->modules->coreModulesPath;
-				$dirmtime = substr($dirname, -7) == 'modules' || strpos($dirname, $coreModulesPath) !== false ? 0 : (int) filemtime($dirname);
-				$info['created'] = $dirmtime > $filemtime ? $dirmtime : $filemtime;
+				$filemtime = @filemtime($pathname);
+				if($filemtime === false) {
+					$info['created'] = 0;
+				} else {
+					$dirname = dirname($pathname);
+					$coreModulesPath = $this->modules->coreModulesPath;
+					$dirmtime = substr($dirname, -7) == 'modules' || strpos($dirname, $coreModulesPath) !== false ? 0 : (int) filemtime($dirname);
+					$info['created'] = $dirmtime > $filemtime ? $dirmtime : $filemtime;
+				}
 			}
 
 			// namespace
