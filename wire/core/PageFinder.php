@@ -2139,23 +2139,39 @@ class PageFinder extends Wire {
 		} else if($operator === '!=' || $operator === '<>') {
 			// not equals
 			$zeroIsEmpty = $ft->isEmptyValue($field, "0"); 
-			if($value === "0" && !$zeroIsEmpty) {
+			$zeroIsNotEmpty = !$zeroIsEmpty;
+			$value = (string) $value;
+			$blankValue = (string) $blankValue;
+			if($value === '') {
+				// match present rows that do not contain a blank string (or 0, when applicable)
+				$sql = "$tableAlias.$col IS NOT NULL AND ($tableAlias.$col!=''";
+				if($zeroIsEmpty) {
+					$sql .= " AND $tableAlias.$col!='0'";
+				} else {
+					$sql .= " OR $tableAlias.$col='0'";
+				}
+				$sql .= ')';
+				
+			} else if($value === "0" && $zeroIsNotEmpty) {
 				// may match non-rows (no value present) or row with value=0
 				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!='0'";
-				
+
 			} else if($value !== "0" && $zeroIsEmpty) {
 				// match all rows except empty and those having specific non-empty value
 				$bindKey = $query->bindValueGetKey($value);
 				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!=$bindKey";
 				
 			} else if($blankIsObject) {
+				// match all present rows
 				$sql = "$tableAlias.$col IS NOT NULL";
 				
 			} else {
+				// match all present rows that are not blankValue and not given blank value...
 				$bindKeyBlank = $query->bindValueGetKey($blankValue);
 				$bindKeyValue = $query->bindValueGetKey($value);
 				$sql = "$tableAlias.$col IS NOT NULL AND $tableAlias.$col!=$bindKeyValue AND ($tableAlias.$col!=$bindKeyBlank";
-				if($blankValue !== "0" && !$zeroIsEmpty) {
+				if($zeroIsNotEmpty && $blankValue !== "0" && $value !== "0") {
+					// ...allow for 0 to match also if 0 is not considered empty value
 					$sql .= " OR $tableAlias.$col='0'";
 				}
 				$sql .= ")";
