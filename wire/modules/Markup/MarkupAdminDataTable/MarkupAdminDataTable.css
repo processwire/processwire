@@ -61,6 +61,12 @@ table.AdminDataList td .sort-date {
 }
 
 /*
+table.AdminDataTableSortable thead tr.tablesorter-headerRow th.sorter-false .tablesorter-header-inner {
+	display: none !important;
+}
+*/
+
+/*
 table.AdminDataTableResizable,
 table.AdminDataTableResizable *,
 table.AdminDataTableResizable *:before,
@@ -161,5 +167,3 @@ table.AdminDataTableResizable *:after {
 	}
     
 }
-
-

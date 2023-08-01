@@ -1482,7 +1482,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if($userTemplate && $userTemplate->pageLabelField) {
 				$f->labelFieldFormat = $userTemplate->pageLabelField;
 			} else {
-				$f->labelFieldFormat = '{name} ({email}) [roles.name]';
+				$f->labelFieldFormat = '{name} ({email}) [{roles.name}]';
 			}
 			$f->searchFields = implode(' ', $searchFields);
 			$f->maxSelectedItems = 1;

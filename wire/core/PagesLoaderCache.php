@@ -84,9 +84,10 @@ class PagesLoaderCache extends Wire {
 		if(!ctype_digit("$id")) $id = str_replace('id=', '', $id);
 		if(ctype_digit("$id")) $id = (int) $id;
 		if(!isset($this->pageIdCache[$id])) return null;
-		/** @var Page $page */
-		$page = $this->pageIdCache[$id];
-		$page->setOutputFormatting($this->pages->outputFormatting);
+		$page = $this->pageIdCache[$id]; /** @var Page $page */
+		$of = $this->pages->loader()->getOutputFormatting();
+		if(!$of && $page === $this->wire()->page) return $page; // skip of() adjustment
+		$page->of($of);
 		return $page;
 	}
 

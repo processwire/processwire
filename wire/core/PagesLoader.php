@@ -1352,7 +1352,7 @@ class PagesLoader extends Wire {
 				}
 			} catch(\Exception $e) {
 				$error = $e->getMessage() . " [pageClass=$class, template=$template]";
-				$user = $this->wire('user');
+				$user = $this->wire()->user;
 				if($user && $user->isSuperuser()) $this->error($error);
 				$this->wire()->log->error($error);
 				$this->trackException($e, false);
