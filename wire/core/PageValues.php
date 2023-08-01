@@ -48,7 +48,7 @@ class PageValues extends Wire {
 				$index = rtrim($index, ']');
 				if(ctype_digit($index)) $index = (int) $index;
 			}
-			if($value instanceof Page) {
+			if($value instanceof Page && !in_array($key, $wireArrayProperties)) {
 				// value is a Page
 				if(isset(PageProperties::$traversalReturnTypes[$k])) {
 					// traversal property: Page or PageArray
