@@ -2176,7 +2176,14 @@ class PageFinder extends Wire {
 				}
 				$sql .= ")";
 			}
-			
+			if($ft instanceof FieldtypeMulti && !$ft->isEmptyValue($field, $value)) {
+				// when a multi-row field is in use, exclude match when any of the rows contain $value
+				$tableMulti = $table . "__multi$tableCnt";
+				$bindKey = $query->bindValueGetKey($value);
+				$query->leftjoin("$table AS $tableMulti ON $tableMulti.pages_id=pages.id AND $tableMulti.$col=$bindKey");
+				$query->where("$tableMulti.$col IS NULL");
+			}
+
 		} else if($operator == '<' || $operator == '<=') {
 			// less than 
 			if($value > 0 && $ft->isEmptyValue($field, "0")) {
