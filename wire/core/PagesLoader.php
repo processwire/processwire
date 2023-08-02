@@ -1988,7 +1988,7 @@ class PagesLoader extends Wire {
 	/**
 	 * Count and return how many pages will match the given selector string
 	 *
-	 * @param string|array $selector Specify selector, or omit to retrieve a site-wide count.
+	 * @param string|array|Selectors $selector Specify selector, or omit to retrieve a site-wide count.
 	 * @param array|string $options See $options in Pages::find
 	 * @return int
 	 *
@@ -2016,6 +2016,8 @@ class PagesLoader extends Wire {
 			$selector .= ", limit=1";
 		} else if(is_array($selector)) {
 			$selector['limit'] = 1;
+		} else if($selector instanceof Selectors) {
+			$selector->add(new SelectorEqual('limit', 1));
 		}
 		return $this->pages->find($selector, $options)->getTotal();
 	}
