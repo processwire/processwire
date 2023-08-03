@@ -199,7 +199,6 @@ CREATE TABLE `modules` (
   UNIQUE KEY `class` (`class`)
 ) ENGINE=MyISAM AUTO_INCREMENT=148 DEFAULT CHARSET=utf8;
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (1,'FieldtypeTextarea',0,'');
-INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (2,'FieldtypeNumber',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (3,'FieldtypeText',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (4,'FieldtypePage',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (30,'InputfieldForm',0,'');
@@ -221,7 +220,6 @@ INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (28,'FieldtypeDate
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (29,'FieldtypeEmail',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (108,'InputfieldURL',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (32,'InputfieldSubmit',0,'');
-INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (33,'InputfieldWrapper',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (34,'InputfieldText',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (35,'InputfieldTextarea',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (36,'InputfieldSelect',0,'');
@@ -232,7 +230,6 @@ INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (40,'InputfieldHid
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (41,'InputfieldName',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (43,'InputfieldSelectMultiple',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (45,'JqueryWireTabs',0,'');
-INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (46,'ProcessPage',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (47,'ProcessTemplate',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (48,'ProcessField',0,'');
 INSERT INTO `modules` (`id`, `class`, `flags`, `data`) VALUES (50,'ProcessModule',0,'');
@@ -394,4 +391,3 @@ CREATE TABLE `session_login_throttle` (
   `last_attempt` int(10) unsigned NOT NULL,
   PRIMARY KEY  (`name`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
