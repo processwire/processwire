@@ -14,7 +14,7 @@ if(!defined("PROCESSWIRE")) die();
 /** @var Paths $urls */
 /** @var string $layout */
 
-$version = $adminTheme->version . 'g';
+$version = $adminTheme->version . 'h';
 $rootUrl = $config->urls->root;
 $themeUrl = $adminTheme->url();
 $styles = $config->styles;
