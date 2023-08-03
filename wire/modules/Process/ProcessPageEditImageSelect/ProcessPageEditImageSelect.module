@@ -707,9 +707,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(!isset($parts['class']) && $input->get('class')) {
 			$class = $input->get('class'); 
 			if($class) {
-				$validClasses = array($this->alignLeftClass, $this->alignCenterClass, $this->alignRightClass);
+				$validClasses = array_merge(
+					explode(' ', $this->alignLeftClass), 
+					explode(' ', $this->alignCenterClass), 
+					explode(' ', $this->alignRightClass)
+				);
 				$classes = array();
 				foreach(explode(' ', $class) as $c) {
+					if(empty($c)) continue;
 					if(in_array($c, $validClasses)) $classes[] = $c; 
 				}
 				if(count($classes)) $parts['class'] = urlencode(implode(' ' , $classes)); 
