@@ -79,7 +79,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 223;
+	const versionRevision = 224;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -563,7 +563,7 @@ class ProcessWire extends Wire {
 		}
 		$this->updater = $modules->get('SystemUpdater'); 
 		if(!$this->updater) {
-			$modules->resetCache();
+			$modules->refresh();
 			$this->updater = $modules->get('SystemUpdater');
 		}
 
