@@ -5,7 +5,7 @@
  *
  * Provides implementation for Page comparison functions.
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -237,7 +237,14 @@ class PageComparison {
 			// unknown data type to match
 			return false;
 		}
+		
+		$selectors->add(new SelectorEqual('id', $page->id))->add(new SelectorEqual('include', 'all'));
+		
+		return $page->wire()->pages->count($selectors) > 0;
 
+		/*
+		 * the following is for performing in-memory matches, left here for reference
+		 * 
 		$matches = false;
 
 		foreach($selectors as $selector) {
@@ -269,6 +276,7 @@ class PageComparison {
 		}
 
 		return $matches; 
+		*/
 	}
 
 	/**
