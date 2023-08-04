@@ -133,6 +133,21 @@ function wirePage($key = '', $value = null) {
 }
 
 /**
+ * Return id for given page or false if it’s not a page
+ * 
+ * Returns positive int (page id) for page that exists, 0 for NullPage,
+ * or false if given $value is not a Page.
+ * 
+ * @param Page|mixed $value
+ * @return int|false
+ * @since 3.0.224
+ * 
+ */
+function wirePageId($value) {
+	return ($value instanceof Page ? $value->id : false);
+}
+
+/**
  * Access the $config API variable as a function
  *
  * ~~~~~
@@ -166,9 +181,11 @@ function wireConfig($key = '', $value = null) {
  *
  */
 function wireModules($name = '') {
-	/** @var Modules $modules */
-	$modules = wire('modules');
-	return strlen($name) ? $modules->getModule($name) : $modules;
+	$name = (string) $name;
+	$modules = wire()->modules;
+	/** @var Modules|Module|ConfigurableModule|null $value */
+	$value = strlen($name) ? $modules->getModule($name) : $modules;
+	return $value;
 }
 
 /**
@@ -189,12 +206,14 @@ function wireUser($key = '', $value = null) {
  * See the pages() function for full usage details.
  *
  * @param string|array $selector Optional selector to send to find() or get()
- * @return Users|PageArray|User|mixed
+ * @return Users|PageArray|User|NullPage|mixed
  * @see pages()
  *
  */
 function wireUsers($selector = '') {
-	return _wirePagesAPI('users', $selector);
+	/** @var Users|PageArray|User|NullPage|mixed $value */
+	$value = _wirePagesAPI('users', $selector);
+	return $value;
 }
 
 /**
@@ -217,8 +236,7 @@ function wireSession($key = '', $value = null) {
  *
  */
 function wireFields($name = '') {
-	/** @var Fields $fields */
-	$fields = wire('fields');
+	$fields = wire()->fields;
 	return strlen($name) ? $fields->get($name) : $fields;
 }
 
@@ -230,8 +248,7 @@ function wireFields($name = '') {
  *
  */
 function wireTemplates($name = '') {
-	/** @var Templates $templates */
-	$templates = wire('templates');
+	$templates = wire()->templates;
 	return strlen($name) ? $templates->get($name) : $templates;
 }
 
@@ -242,7 +259,7 @@ function wireTemplates($name = '') {
  *
  */
 function wireDatabase() {
-	return wire('database');
+	return wire()->database;
 }
 
 /**
@@ -255,7 +272,9 @@ function wireDatabase() {
  *
  */
 function wirePermissions($selector = '') {
-	return _wirePagesAPI('permissions', $selector);
+	/** @var Permissions|Permission|PageArray|null|NullPage $value */
+	$value = _wirePagesAPI('permissions', $selector);
+	return $value;
 }
 
 /**
@@ -268,7 +287,9 @@ function wirePermissions($selector = '') {
  *
  */
 function wireRoles($selector = '') {
-	return _wirePagesAPI('roles', $selector);
+	/** @var Roles|Role|PageArray|null|NullPage $value */
+	$value = _wirePagesAPI('roles', $selector);
+	return $value;
 }
 
 /**
@@ -286,7 +307,8 @@ function wireRoles($selector = '') {
  *
  */
 function wireSanitizer($name = '', $value = '') {
-	$sanitizer = wire('sanitizer');
+	$name = (string) $name;
+	$sanitizer = wire()->sanitizer;
 	return strlen($name) ? $sanitizer->$name($value) : $sanitizer;
 }
 
@@ -306,8 +328,7 @@ function wireSanitizer($name = '', $value = '') {
  *
  */
 function wireDatetime($format = '', $value = '') {
-	/** @var WireDateTime $datetime */
-	$datetime = wire('datetime');
+	$datetime = wire()->datetime;
 	return strlen($format) ? $datetime->formatDate($value ? $value : time(), $format) : $datetime;
 }
 
@@ -318,7 +339,7 @@ function wireDatetime($format = '', $value = '') {
  *
  */
 function wireFiles() {
-	return wire('files');
+	return wire()->files;
 }
 
 /**
@@ -335,9 +356,7 @@ function wireFiles() {
  *
  */
 function wireCache($name = '', $expire = null, $func = null) {
-	/** @var WireCache $cache */
-	$cache = wire('cache');
-	return strlen($name) ? $cache->get($name, $expire, $func) : $cache;
+	return strlen($name) ? wire()->cache->get($name, $expire, $func) : wire()->cache;
 }
 
 /**
@@ -357,8 +376,7 @@ function wireCache($name = '', $expire = null, $func = null) {
  *
  */
 function wireLanguages($name = '') {
-	/** @var Languages $languages */
-	$languages = wire('languages');
+	$languages = wire()->languages;
 	if(!$languages) return null;
 	if(strlen($name)) return $languages->get($name);
 	return $languages;
@@ -392,8 +410,7 @@ function wireLanguages($name = '') {
  *
  */
 function wireInput($type = '', $key = '', $sanitizer = null, $fallback = null) {
-	/** @var WireInput $input */
-	$input = wire('input');
+	$input = wire()->input;
 	if(!strlen($type)) return $input;
 	$type = strtolower($type);
 	if(!strlen($key)) return $input->$type;
@@ -458,8 +475,7 @@ function wireInputCookie($key = '', $sanitizer = null, $fallback = null) {
  * 
  */
 function wireLog($logName = '', $message = '') {
-	/** @var WireLog $log */
-	$log = wire('log');
+	$log = wire()->log;
 	if(strlen($message)) {
 		if(!strlen($logName)) $logName = 'unknown';
 		return $log->save($logName, $message);
@@ -477,13 +493,14 @@ function wireLog($logName = '', $message = '') {
  *
  */
 function wireProfiler($name = null, $source = null, $data = array()) {
-	$profiler = wire('profiler');
+	$profiler = wire()->profiler;
 	if(is_null($name)) return $profiler;
 	if(!$profiler) return null;
 	if(is_string($name)) {
 		return $profiler->start($name, $source, $data);
 	} else {
-		return $profiler->stop($name);
+		$profiler->stop($name);
+		return null;
 	}
 }
 
@@ -495,8 +512,8 @@ function wireProfiler($name = null, $source = null, $data = array()) {
  * 
  */
 function wireUrls($key = '') {
-	if(empty($key)) return wire('config')->urls;
-	return wire('config')->urls($key);
+	if(empty($key)) return wire()->config->urls;
+	return wire()->config->urls($key);
 }
 
 /**
@@ -507,8 +524,8 @@ function wireUrls($key = '') {
  *
  */
 function wirePaths($key = '') {
-	if(empty($key)) return wire('config')->paths;
-	return wire('config')->paths($key);
+	if(empty($key)) return wire()->config->paths;
+	return wire()->config->paths($key);
 }
 
 /**
@@ -594,4 +611,3 @@ function _wireFunctionsAPI() {
 	);
 	return $names;
 }
-
