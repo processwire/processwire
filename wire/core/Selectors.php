@@ -1620,7 +1620,7 @@ class Selectors extends WireArray {
 	 *  - `operator` (string): Require this operator (default='' for any) 
 	 *  - `value` (string|int): Require this value (default=null for any)
 	 *  - `remove` (bool): Remove matched Selector from Selectors returned in verbose result? (default=false)
-	 * @return array|bool True of has field, false if not, or array with the following if 'verbose' option requested:
+	 * @return array|bool True if has field, false if not, or array with the following, if 'verbose' option requested:
 	 *  - `result` (bool): Did it match (true or false)
 	 *  - `selector` (Selector|null): Selector object that matched (only if result is true)
 	 *  - `selectors` (Selectors|null): Selectors object that was analyzed or null if not needed
