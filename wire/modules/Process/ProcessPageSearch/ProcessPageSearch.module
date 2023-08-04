@@ -695,7 +695,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$selector = ''; // for regular ProcessPageSearch
 		
 		// search query text
-		$q = $input->whitelist('q');
+		$q = (string) $input->whitelist('q');
 		if(strlen($q)) { 
 			// GET vars "property" or "field" can used interchangably
 			if($input->whitelist('property')) {

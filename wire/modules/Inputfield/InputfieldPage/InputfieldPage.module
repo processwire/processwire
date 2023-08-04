@@ -1082,7 +1082,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		$user = $this->wire()->user; 
 		$key = "_{$this->name}_add_items";
-		$value = trim($input->$key); 
+		$value = trim((string) $input->$key); 
 		
 		if(empty($value)) return;
 
