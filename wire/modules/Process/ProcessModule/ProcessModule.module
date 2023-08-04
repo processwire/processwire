@@ -11,7 +11,7 @@
  * This version also lifts several pieces of code from Soma's Modules Manager
  * specific to the parts involved with downloading modules from the directory.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for module configuration inputfields with useLanguages option
@@ -1294,7 +1294,7 @@ class ProcessModule extends Process {
 
 		$destinationDir = $this->wire()->config->paths->siteModules . $className . '/';
 		
-		$completedDir = $this->installer()->downloadModule($url, $destinationDir);
+		$completedDir = $this->installer()->downloadModuleFromDirectory($url, $destinationDir);
 		if($completedDir) {
 			return $this->buildDownloadSuccessForm($className)->render();
 		} else {
@@ -1510,7 +1510,7 @@ class ProcessModule extends Process {
 		if(!$user->isSuperuser()) throw new WirePermissionException('Superuser required');
 		if(!$config->advanced) throw new WireException('This feature requires config.advanced=true;');
 	
-		$moduleData = $modules->getModuleConfigData($moduleName);
+		$moduleData = $modules->getConfig($moduleName);
 		$sinfo = self::getModuleInfo();
 		
 		$this->headline(sprintf($this->_('%s raw config data'), $moduleName));
@@ -1771,7 +1771,7 @@ class ProcessModule extends Process {
 		if($languages && $fields) {
 			// multi-language support for Inputfield with useLanguages==true
 			// we populate the language values from module config data so module doesn't have to do this
-			$data = $modules->getModuleConfigData($moduleName);
+			$data = $modules->getConfig($moduleName);
 			foreach($fields->getAll() as $field) {
 				if(!$field->getSetting('useLanguages')) continue;
 				foreach($languages as $language) {
@@ -1789,7 +1789,7 @@ class ProcessModule extends Process {
 		// check for submitted form
 		if($submitSave) {
 
-			if(is_null($data)) $data = $modules->getModuleConfigData($moduleName);
+			if(is_null($data)) $data = $modules->getConfig($moduleName);
 			$form->processInput($input->post); 
 			$updatedNames = array();
 			
