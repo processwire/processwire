@@ -220,7 +220,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 		// require javascript and css
 		$class = $this->className();
 		$info = self::getModuleInfo();
-		$ver = $info['version'];
+		$ver = $config->version . '-' . $info['version'];
 		$jsfile = $config->debug ? 'jquery.asmselect.js' : 'jquery.asmselect.min.js';
 		$url = $config->urls($class);
 

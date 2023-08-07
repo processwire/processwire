@@ -767,7 +767,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		}
 		
 		$min = $config->debug ? '' : '.min';
-		$config->scripts->add($config->urls('ProcessTemplate') . "ProcessTemplateFieldCreator$min.js?v=1");
+		$config->scripts->add($config->urls('ProcessTemplate') . "ProcessTemplateFieldCreator$min.js?v=$config->version");
 		
 		$label = $this->template->getLabel();
 		if(!$label) $label = $this->template->name;
@@ -3931,4 +3931,3 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) { }
 
 }
-

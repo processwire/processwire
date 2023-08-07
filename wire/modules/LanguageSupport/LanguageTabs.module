@@ -142,10 +142,10 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		}
 		
 		if($settings['loadStyles']) {
-			$config->styles->add($config->urls('LanguageTabs') . "LanguageTabs.css?v=$info[version]");
+			$config->styles->add($config->urls('LanguageTabs') . "LanguageTabs.css?v=$config->version-$info[version]");
 		}
 		if($settings['loadScripts']) {
-			$config->scripts->add($config->urls('LanguageTabs') . "LanguageTabs.js?v=$info[version]");
+			$config->scripts->add($config->urls('LanguageTabs') . "LanguageTabs.js?v=$config->version-$info[version]");
 		}
 
 		/** @var JqueryCore $jQueryCore */

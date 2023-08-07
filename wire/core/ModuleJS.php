@@ -10,7 +10,7 @@
  * 
  * See the Module interface (Module.php) for details about each method. 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * This file is licensed under the MIT license
@@ -110,23 +110,23 @@ abstract class ModuleJS extends WireData implements Module {
 		
 		$class = $this->className();
 		$config = $this->wire()->config;
+		$version = $config->version;
+		$debug = $config->debug;
 	
 		$file = $config->paths->$class . "$class.css";
 		if($this->loadStyles && is_file($file)) {
-			$mtime = filemtime($file);
-			$this->config->styles->add($config->urls->$class . "$class.css?v=$mtime");
+			if($debug) $version = filemtime($file);
+			$this->config->styles->add($config->urls->$class . "$class.css?v=$version");
 		}
 		
 		$file = $config->paths->$class . "$class.js"; 
-		$mtime = 0;
 		if($this->loadScripts && is_file($file)) {
 			$minFile = $config->paths->$class . "$class.min.js";
-			if(!$config->debug && is_file($minFile)) {
-				$mtime = filemtime($minFile);
-				$config->scripts->add($config->urls->$class . "$class.min.js?v=$mtime");
+			if(!$debug && is_file($minFile)) {
+				$config->scripts->add($config->urls->$class . "$class.min.js?v=$version");
 			} else {
-				$mtime = filemtime($file);
-				$config->scripts->add($config->urls->$class . "$class.js?v=$mtime");
+				if($debug) $version = filemtime($file);
+				$config->scripts->add($config->urls->$class . "$class.js?v=$version");
 			}
 		}
 
@@ -134,10 +134,10 @@ abstract class ModuleJS extends WireData implements Module {
 			foreach($this->requested as $name) {
 				$url = $this->components[$name]; 
 				if(strpos($url, '/') === false) {
-					$mtime = filemtime($config->paths->$class . $url);
+					if($debug) $version = filemtime($config->paths->$class . $url);
 					$url = $config->urls->$class . $url;
 				}
-				$url .= "?v=$mtime";
+				$url .= "?v=$version";
 				$config->scripts->add($url);
 			}
 			$this->requested = array();
@@ -167,13 +167,13 @@ abstract class ModuleJS extends WireData implements Module {
 
 		if($this->initialized) {
 			$url = $this->components[$name];
-			$mtime = 0;
+			$version = $config->version;
 			if(strpos($url, '/') === false) {
 				$file = $config->paths->$class . $url;
 				$url = $config->urls->$class . $url;
-				$mtime = filemtime($file);
+				if($config->debug) $version = filemtime($file);
 			}
-			$config->scripts->add($url . "?v=$mtime");
+			$config->scripts->add($url . "?v=$version");
 		} else {
 			$this->requested[$name] = $name;
 		}
@@ -186,4 +186,3 @@ abstract class ModuleJS extends WireData implements Module {
 	public function isSingular() { return true; }	
 	public function isAutoload() { return false; }
 }
-

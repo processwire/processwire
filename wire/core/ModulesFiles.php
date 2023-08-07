@@ -484,27 +484,27 @@ class ModulesFiles extends ModulesClass {
 		$path = $config->paths($class);
 		$url = $config->urls($class);
 		$debug = $config->debug;
-		$version = 0;
+		$coreVersion = $config->version;
+		$moduleVersion = 0;
 		$cnt = 0;
 
 		foreach(array('styles' => 'css', 'scripts' => 'js') as $type => $ext) {
 			$fileURL = '';
-			$modified = 0;
 			$file = "$path$class.$ext";
+			$fileVersion = $coreVersion;
 			$minFile = "$path$class.min.$ext";
 			if(!$debug && is_file($minFile)) {
 				$fileURL = "$url$class.min.$ext";
-				$modified = filemtime($minFile);
 			} else if(is_file($file)) {
 				$fileURL = "$url$class.$ext";
-				$modified = filemtime($file);
+				if($debug) $fileVersion = filemtime($file);
 			}
 			if($fileURL) {
-				if(!$version) {
+				if(!$moduleVersion) {
 					$info = $this->modules->info->getModuleInfo($module, array('verbose' => false));
-					$version = (int) isset($info['version']) ? $info['version'] : 0;
+					$moduleVersion = (int) isset($info['version']) ? $info['version'] : 0;
 				}
-				$config->$type->add("$fileURL?v=$version-$modified");
+				$config->$type->add("$fileURL?v=$moduleVersion-$fileVersion");
 				$cnt++;
 			}
 		}
