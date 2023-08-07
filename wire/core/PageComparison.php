@@ -195,11 +195,13 @@ class PageComparison {
 	 *
 	 * @param Page $page
 	 * @param string|array|Selectors $s
+	 * @param array $options Options to modify behavior (3.0.225+ only):
+	 *  - `useDatabase` (bool|null): Use database for matching rather than in-memory? (default=false)
 	 * @return bool
 	 *
 	 */
-	public function matches(Page $page, $s) {
-		
+	public function matches(Page $page, $s, array $options = array()) {
+	
 		$selectors = array();
 
 		if(is_string($s) || is_int($s)) {
@@ -238,13 +240,11 @@ class PageComparison {
 			return false;
 		}
 		
-		$selectors->add(new SelectorEqual('id', $page->id))->add(new SelectorEqual('include', 'all'));
-		
-		return $page->wire()->pages->count($selectors) > 0;
+		if(!empty($options['useDatabase'])) {
+			$selectors->add(new SelectorEqual('id', $page->id))->add(new SelectorEqual('include', 'all'));
+			return $page->wire()->pages->count($selectors) > 0;
+		} 
 
-		/*
-		 * the following is for performing in-memory matches, left here for reference
-		 * 
 		$matches = false;
 
 		foreach($selectors as $selector) {
@@ -276,7 +276,26 @@ class PageComparison {
 		}
 
 		return $matches; 
-		*/
+	}
+	
+	/**
+	 * Same as matches() method but forces use of the database only for matching
+	 * 
+	 * ~~~~~
+	 * $selector = "created>=" . strtotime("today");
+	 * if($page->comparison()->matchesDatabase($selector) {
+	 *   echo "This page was created today";
+	 * }
+	 * ~~~~~
+	 *
+	 * @param Page $page
+	 * @param string|array|Selectors $s
+	 * @return bool
+	 * @since 3.0.225
+	 *
+	 */
+	public function matchesDatabase(Page $page, $s) {
+		return $this->matches($page, $s, array('useDatabase' => true)); 
 	}
 
 	/**
