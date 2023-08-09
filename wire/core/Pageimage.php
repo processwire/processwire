@@ -1702,17 +1702,19 @@ class Pageimage extends Pagefile {
 	/**
 	 * Get WebP "extra" version of this Pageimage
 	 *
+	 * @param array $webpOptions Optionally override image webp options.
 	 * @return PagefileExtra
 	 * @since 3.0.132
 	 *
 	 */
-	public function webp() {
+	public function webp($webpOptions = []) {
 		$webp = $this->extras('webp');
 		if(!$webp) {
 			$webp = new PagefileExtra($this, 'webp');
-			$webp->setArray($this->wire()->config->webpOptions);
+			$webpOptions = array_merge($this->wire('config')->webpOptions, $webpOptions);
+			$webp->setArray($webpOptions);
 			$this->extras('webp', $webp);
-			$webp->addHookAfter('create', $this, 'hookWebpCreate'); 
+			$webp->addHookAfter('create', $this, 'hookWebpCreate');
 		}
 		return $webp;
 	}
@@ -1747,7 +1749,13 @@ class Pageimage extends Pagefile {
 			$width = $this->width;
 			$height = 0;
 		}
+
+		$quality = $webp->quality;
+		if($quality)
+			$options['webpQuality'] = $quality;
+		
 		$options['webpAdd'] = true;
+		
 		try {
 			$original->size($width, $height, $options);
 		} catch(\Exception $e) {
