@@ -5,7 +5,7 @@
  *
  * Implements page trash/restore/empty methods of the $pages API variable
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -25,6 +25,7 @@ class PagesTrash extends Wire {
 	 * 
 	 */
 	public function __construct(Pages $pages) {
+		parent::__construct();
 		$this->pages = $pages;
 	}
 	
@@ -106,18 +107,22 @@ class PagesTrash extends Wire {
 	 *
 	 */
 	public function restore(Page $page, $save = true) {
-
 		$info = $this->getRestoreInfo($page, true);
-		if(!$info['restorable']) return false;
-		
-		if($page->parent->isTrash()) {
+
+		if($info['restorable']) {
+			// we detected original parent
 			if($save) $page->save();
-		} else {
+			
+		} else if(!$page->parent->isTrash()) {
+			// page has had new parent already set
 			$page->removeStatus(Page::statusTrash);
 			if($save) $page->save();
 			$this->pages->editor()->savePageStatus($page->id, Page::statusTrash, true, true);
 			if($save) $this->pages->restored($page);
 			$this->pages->debugLog('restore', $page, true);
+		} else {
+			// page is in trash and we cannot detect new parent
+			return false;
 		}
 		
 		return true;
@@ -171,7 +176,7 @@ class PagesTrash extends Wire {
 	
 		$name = $result['name'];
 		$trashPrefix = $result['prefix']; // pageID.parentID.sort_ prefix for testing other language names later
-		$newParent = null;
+		$newParent = null; // auto-detected new parent, or null if new parent already on $page
 		$parentID = $result['parent_id'];
 		$sort = $result['sort'];
 
@@ -184,7 +189,7 @@ class PagesTrash extends Wire {
 					$info['notes'][] = 'Original parent no longer exists';
 				}
 			} else {
-				$info['notes'][] = 'Page root parent is not trash';
+				$info['notes'][] = 'Page root parent is not trash or page already has new parent';
 			}
 			
 		} else if($parentID) {
@@ -198,47 +203,49 @@ class PagesTrash extends Wire {
 		$info['parent'] = $newParent ? $newParent : $this->pages->newNullPage();
 		$info['parent_id'] = $parentID;
 		$info['sort'] = $sort;
-	
-		// if we have no new parent available we can exit now
-		if(!$newParent) {
-			$info['notes'][] = 'Unable to determine parent to restore to';
-			return $info;
-		}	
-
-		// check if there is already a page at the restore location with the same name
-		$namePrevious = $name;
-		$name = $this->pages->names()->uniquePageName($name, $page, array('parent' => $newParent));
 		
-		if($name !== $namePrevious) {
-			$info['notes'][] = "Name changed from '$namePrevious' to '$name' to be unique in new parent";
-			$info['namePrevious'] = $namePrevious;
+		$namePrevious = $name;
+		$nameParent = $newParent ? $newParent : $page->parent;
+
+		if($newParent || $this->pages->count("parent=$nameParent, name=$name, id!=$page->id, include=all")) {
+			// check if there is already a page at the restore location with the same name
+			$name = $this->pages->names()->uniquePageName($name, $page, array('parent' => $nameParent));
+			if($name !== $namePrevious) {
+				$info['notes'][] = "Name changed from '$namePrevious' to '$name' to be unique in new parent";
+				$info['namePrevious'] = $namePrevious;
+			}
 		}
 		
 		$info['name'] = $name;
-		$info['restorable'] = true;
+		$info['restorable'] = $newParent !== null;
 		
 		if($populateToPage) {
 			$page->name = $name;
-			$page->parent = $newParent; 
-			$page->sort = $sort;
+			if($newParent) {
+				$page->sort = $sort;
+				$page->parent = $newParent;
+			}
 		}
 
 		// do the same for other languages, when applicable
 		foreach($languages as $language) {
 			/** @var Language $language */
 			if($language->isDefault()) continue;
-			$langName = (string) $page->get("name$language->id");
+			$langKey = "name$language->id";
+			$langName = (string) $page->get($langKey);
 			if(!strlen($langName)) continue;
 			if(strpos($langName, $trashPrefix) === 0) {
 				list(,$langName) = explode('_', $langName);
 			}
 			$langNamePrevious = $langName;
-			$langName = $this->pages->names()->uniquePageName($langName, $page, array(
-				'parent' => $newParent, 
-				'language' => $language
-			));
-			if($populateToPage) $page->set("name$language->id", $langName);
-			$info["name$language->id"] = $langName;
+			if($this->pages->count("parent=$nameParent, $langKey=$langName, id!=$page->id, include=all")) {
+				$langName = $this->pages->names()->uniquePageName($langName, $page, array(
+					'parent' => $nameParent,
+					'language' => $language
+				));
+				if($populateToPage) $page->set($langKey, $langName);
+			}
+			$info[$langKey] = $langName;
 			if($langName !== $langNamePrevious) {
 				$info['notes'][] = $language->get('title|name') . ' ' . 
 					"name changed from '$langNamePrevious' to '$langName' to be unique in new parent";
@@ -333,7 +340,7 @@ class PagesTrash extends Wire {
 		$startTime = time();
 		$stopTime = $options['timeLimit'] ? $startTime + $options['timeLimit'] : false;
 		$stopNow = false;
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$useTransaction = $database->supportsTransaction();
 		$options['stopTime'] = $stopTime; // for pass2
 		$timeExpired = false;
@@ -449,7 +456,7 @@ class PagesTrash extends Wire {
 		}
 			
 		if($totalDeleted || $options['verbose']) {
-			$numTrashChildren = $this->wire('pages')->trasher()->getTrashTotal();
+			$numTrashChildren = $this->pages->trasher()->getTrashTotal();
 			// return a negative number if pages still remain in trash
 			if($numTrashChildren && !$options['verbose']) $totalDeleted = $totalDeleted * -1;
 		} else {
@@ -540,7 +547,7 @@ class PagesTrash extends Wire {
 	 * 
 	 */
 	public function getTrashPage() {
-		$trashPageID = $this->wire('config')->trashPageID;
+		$trashPageID = $this->wire()->config->trashPageID;
 		$trashPage = $this->pages->get((int) $trashPageID);
 		if(!$trashPage->id || $trashPage->id != $trashPageID) {
 			throw new WireException("Cannot find trash page $trashPageID");
