@@ -279,26 +279,6 @@ class PageComparison {
 	}
 	
 	/**
-	 * Same as matches() method but forces use of the database only for matching
-	 * 
-	 * ~~~~~
-	 * $selector = "created>=" . strtotime("today");
-	 * if($page->comparison()->matchesDatabase($selector) {
-	 *   echo "This page was created today";
-	 * }
-	 * ~~~~~
-	 *
-	 * @param Page $page
-	 * @param string|array|Selectors $s
-	 * @return bool
-	 * @since 3.0.225
-	 *
-	 */
-	public function matchesDatabase(Page $page, $s) {
-		return $this->matches($page, $s, array('useDatabase' => true)); 
-	}
-
-	/**
 	 * Given an object, return the value(s) it represents (optionally from a property in the object)
 	 * 
 	 * This method is setup for the matches() method above this. It will go recursive when given a property

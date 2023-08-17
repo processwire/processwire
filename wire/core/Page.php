@@ -3188,13 +3188,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 	
 	/**
-	 * Given a selector, return whether or not this Page matches it
+	 * Given a selector, return whether or not this Page matches using runtime/memory comparison
 	 *
 	 * ~~~~~
 	 * if($page->matches("created>=" . strtotime("today"))) {
 	 *   echo "This page was created today";
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-traversal
 	 * 
 	 * @param string|Selectors|array $s Selector to compare against (string, Selectors object, or array).
 	 * @return bool Returns true if this page matches, or false if it doesn't. 
@@ -3204,6 +3206,26 @@ class Page extends WireData implements \Countable, WireMatchable {
 		// This method implements the WireMatchable interface
 		return $this->comparison()->matches($this, $s);
 	}
+	
+	/**
+	 * Given a selector, return whether or not this Page matches by querying the database
+	 *
+	 * ~~~~~
+	 * if($page->matchesDatabase("created>=today")) {
+	 *   echo "This page was created today";
+	 * }
+	 * ~~~~~
+	 * 
+	 * #pw-group-traversal
+	 *
+	 * @param string|Selectors|array $s Selector to compare against (string, Selectors object, or array).
+	 * @return bool Returns true if this page matches, or false if it doesn't.
+	 * @since 3.0.225
+	 *
+	 */
+	public function matchesDatabase($s) {
+		return $this->comparison()->matches($this, $s, array('useDatabase' => true));
+	}
 
 	/**
 	 * Does this page have the specified status number or template name?
@@ -3211,7 +3233,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * See status flag constants at top of Page class.
 	 * You may also use status names: hidden, locked, unpublished, system, systemID
 	 * 
-	 * #pw-internal
+	 * #pw-group-status
 	 *
 	 * @param int|string|Selectors $status Status number, status name, or Template name or selector string/object
 	 * @return bool
@@ -4178,4 +4200,3 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 }
-
