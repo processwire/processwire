@@ -1329,6 +1329,32 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	}
 
 	/**
+	 * Return a cloned copy of $field
+	 *
+	 * @param Field $field
+	 * @return Field cloned copy
+	 *
+	 */
+	public function ___cloneField(Field $field) {
+		$this->wire()->fields->addHookAfter('cloned', function(HookEvent $e) {
+			$e->removeHook(null); // run once only
+			$oldField = $e->arguments(0); /** @var Field $oldField */
+			$newField = $e->arguments(1); /** @var Field $newField */
+			if(!$newField->type instanceof FieldtypeFile) return;
+			$templates = $e->wire()->templates;
+			$oldTpl = $templates->get("field-$oldField|field-x-$oldField");
+			if(!$oldTpl) return; // no custom field-* template present
+			$newTpl = $templates->clone($oldTpl, str_replace("$oldField", "$newField", $oldTpl->name));
+			if($newTpl) {
+				$e->message(sprintf(__('Cloned fields template - %1$s => %2$s'), $oldTpl->name, $newTpl->name));
+			} else {
+				$e->warning(sprintf(__('Error cloning template - %1$s => %2$s'), $oldTpl->name, $newTpl->name));
+			}
+		});
+		return parent::___cloneField($field);
+	}
+	
+	/**
 	 * Default list of file extensions supported by this field, and used as the default by getConfigInputfields()
 	 * method. 
 	 *
