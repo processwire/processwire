@@ -3,7 +3,7 @@
 /**
  * ProcessWire shutdown handler
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  *  
  * Look for errors at shutdown and log them, plus echo the error if the page is editable
  *
@@ -115,6 +115,7 @@ class WireShutdown extends Wire {
 		register_shutdown_function(array($this, 'shutdown'));
 		// If script is being called externally, add an extra shutdown function 
 		if(!$config->internal) register_shutdown_function(array($this, 'shutdownExternal'));
+		parent::__construct();
 	}
 
 	/**
@@ -396,7 +397,7 @@ class WireShutdown extends Wire {
 		$http = new WireHttp();
 		$codes = $http->getHttpCodes();
 		$code = 500;
-		if($this->fatalErrorResponse['code']) {;
+		if($this->fatalErrorResponse['code']) {
 			$code = (int) $this->fatalErrorResponse['code'];
 		} else if($this->config) {
 			$code = (int) $this->config->fatalErrorCode;
@@ -458,7 +459,7 @@ class WireShutdown extends Wire {
 		}
 		*/
 		
-		$out = ob_get_level() ? ob_get_clean() : '';
+		$out = ob_get_level() ? (string) ob_get_clean() : '';
 		if(!strlen(trim($out))) return false;
 		
 		// if error message isn't in existing output, then return as-is
@@ -491,7 +492,7 @@ class WireShutdown extends Wire {
 		$out = str_replace($message, $token, $out);
 		
 		// replace anything else on the same line as the PHP error (error type, file, line-number)
-		$out = preg_replace('/([\r\n]|^)[^\r\n]+' . $token . '[^\r\n]*/', '', $out);
+		$out = (string) preg_replace('/([\r\n]|^)[^\r\n]+' . $token . '[^\r\n]*/', '', $out);
 
 		// ensure certain tags that could interfere with error message output are closed
 		$tags = array(
@@ -650,6 +651,7 @@ class WireShutdown extends Wire {
 		if(!$config->paths->logs) return false;
 		$message = str_replace(array("\n", "\t"), " ", $message);
 		try {
+			/** @var FileLog $log */
 			$log = $this->wire(new FileLog($config->paths->logs . 'errors.txt'));
 			$log->setDelimeter("\t");
 			$saved = $log->save("$userName\t$url\t$message"); 
@@ -783,4 +785,3 @@ class WireShutdown extends Wire {
 		if($process == 'ProcessPageView') $process->finished();
 	}
 }
-

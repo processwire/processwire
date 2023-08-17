@@ -970,7 +970,12 @@ class PagesExportImport extends Wire {
 			}
 			if(!$commitException) {
 				if($pageValue !== null && $fieldtypeImportOptions['returnsPageValue']) {
-					$page->set($field->name, $pageValue);
+					// @todo debug why FieldtypeTextLanguage requires a setAndSave() at this point.
+					//if($field->type == 'FieldtypePageTitleLanguage' || $field->type == 'FieldtypeTextLanguage') {
+					//	$page->setAndSave($field->name, $pageValue);
+					// } else {
+						$page->set($field->name, $pageValue);
+					// }
 				} else if(!$fieldtypeImportOptions['returnsPageValue']) {
 					$page->trackChange("{$field->name}__");
 				}

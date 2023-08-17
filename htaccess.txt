@@ -448,7 +448,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_FILENAME} !(favicon\.ico|robots\.txt)
 
   # -----------------------------------------------------------------------------------------------
-  # 18. Optionally (O) prevent PW from attempting to serve images or anything in /site/assets/. 
+  # 18. Optionally (O) prevent PW from serving some file types, or anything in /site/assets/. 
   # Both of these lines are optional, but can help to reduce server load. However, they
   # are not compatible with the $config->pagefileSecure option (if enabled) and they 
   # may produce an Apache 404 rather than your regular 404. You may uncomment the two lines
@@ -458,7 +458,7 @@ DirectoryIndex index.php index.html index.htm
   # section #2 above that makes ProcessWire the 404 handler. 
   # ----------------------------------------------------------------------------------------------- 
 
-  # RewriteCond %{REQUEST_URI} !\.(jpg|jpeg|gif|png|ico|webp|svg)$ [NC]
+  # RewriteCond %{REQUEST_URI} !\.(jpg|jpeg|gif|png|ico|webp|svg|js|css)$ [NC]
   # RewriteCond %{REQUEST_FILENAME} !(^|/)site/assets/
 
   # ----------------------------------------------------------------------------------------------- 
@@ -479,4 +479,3 @@ DirectoryIndex index.php index.html index.htm
 #################################################################################################
 # END PROCESSWIRE HTACCESS DIRECTIVES
 #################################################################################################
-
