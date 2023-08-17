@@ -161,7 +161,10 @@ var ProcessLister = {
 					if(!confirm(msg)) return false;
 				}
 			}
-			ProcessLister.results.find('.lister_headline').append("<i class='fa fa-spin fa-spinner'></i>");
+			var $headline = ProcessLister.results.find('.lister_headline');
+			if(!$headline.find('i.fa-spin').length) {
+				$headline.append("<i class='fa fa-spin fa-spinner'></i>");
+			}
 		} else {
 			refreshAll = false;
 		}
