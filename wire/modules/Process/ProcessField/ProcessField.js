@@ -90,7 +90,7 @@ $(document).ready(function() {
 		if($(this).attr('href') === '#') return false; 
 	});
 
-	$("#export_data").on('click', function() { $(this).select(); });
+	$("#export_data").on('click', function() { $(this).trigger('select'); });
 
 	// export and import functions	
 	$(".import_toggle input[type=radio]").on('change', function() {
