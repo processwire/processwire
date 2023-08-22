@@ -2138,6 +2138,7 @@ class PageFinder extends Wire {
 			
 		} else if($operator === '!=' || $operator === '<>') {
 			// not equals
+			$whereType = 'AND';
 			$zeroIsEmpty = $ft->isEmptyValue($field, "0"); 
 			$zeroIsNotEmpty = !$zeroIsEmpty;
 			$value = (string) $value;
