@@ -1671,7 +1671,7 @@ class Sanitizer extends Wire {
 			'outCharset' => 'UTF-8',  // output charset
 			'truncateTail' => true, // if truncate necessary for maxLength, remove chars from tail? False to truncate from head.
 			'trim' => true, // trim whitespace from beginning/end, or specify character(s) to trim, or false to disable
-			);
+		);
 		
 		static $alwaysReplace = null;
 		$truncated = false;
@@ -1682,13 +1682,9 @@ class Sanitizer extends Wire {
 		if($options['maxBytes'] < 0) $options['maxBytes'] = 0;
 		
 		if($alwaysReplace === null) {
-			if($this->multibyteSupport) {
-				$alwaysReplace = array(
-					mb_convert_encoding('&#8232;', 'UTF-8', 'HTML-ENTITIES') => '', // line-seperator that is sometimes copy/pasted
-				);
-			} else {
-				$alwaysReplace = array();
-			}
+			$alwaysReplace = array(
+				html_entity_decode('&#8232;', ENT_QUOTES, 'UTF-8') => '', // line-seperator that is sometimes copy/pasted
+			);
 		}
 		
 		if($options['reduceSpace'] !== false && $options['stripSpace'] === false) {
