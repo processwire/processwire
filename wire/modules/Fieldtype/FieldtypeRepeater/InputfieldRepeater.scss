@@ -16,7 +16,7 @@
 		}
 	}
 
-	.InputfieldRepeaterItemHasDepth {
+	.InputfieldContent .InputfieldRepeaterItemHasDepth {
 		// avoids white left background where indent is
 		background: transparent;
 	}
@@ -255,4 +255,3 @@
 	// AdminThemeReno has wrong/reverse color here for ui-priority-secondary, not sure why
 	color: rgba(255,255,255,0.8) !important;
 }
-
