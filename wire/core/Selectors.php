@@ -1276,8 +1276,8 @@ class Selectors extends WireArray {
 	 *  - `getIndexType` (string): Index type to use in returned array: 'operator', 'className', 'class', or 'none' (default='class')
 	 *  - `getValueType` (string): Value type to use in returned array: 'operator', 'class', 'className', 'label', 'description', 'compareType', 'verbose' (default='operator').
 	 *     If 'verbose' option used then assoc array returned for each operator containing 'class', 'className', 'operator', 'compareType', 'label', 'description'.
-	 * @return array|string|int Returned array where both keys and values are operators (or values are requested 'valueType' option)
-	 *   If 'operator' option specified, return value is string, int or array (requested 'valueType'), and there is no indexType.
+	 * @return array|string|int Returned array where values are operators and keys are class names (or requested 'getIndexType or 'getValueType' options)
+	 *   If 'operator' option specified, return value is string, int or array (of requested 'getValueType'), and there is no index.
 	 * @since 3.0.154
 	 *
 	 */

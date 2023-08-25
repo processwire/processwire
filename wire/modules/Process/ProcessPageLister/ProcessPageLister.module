@@ -1900,9 +1900,11 @@ class ProcessPageLister extends Process implements ConfigurableModule {
  	 *
 	 */
 	public function removeBlankSelectors($selector) {
-		$selector = preg_replace('/,\s*@?[_a-z0-9]+(=|!=|<=?|>=?|%=|\^=|\$=|\*=|~=)(?=,)/i', '', ",$selector");
-		$selector = trim($selector, ',');
-		return $selector;
+		// $selector = preg_replace('/,\s*@?[_a-z0-9]+(=|!=|<=?|>=?|%=|\^=|\$=|\*=|~=)(?=,)/i', '', ",$selector");
+		$opChars = str_replace('=', '', implode('', Selectors::getOperatorChars()));
+		$regex = '/,\s*@?[_.a-z0-9]+(=|<|>|[' . $opChars . ']+=)(?=,)/i';
+		$selector = preg_replace($regex, '', ",$selector,");
+		return trim($selector, ', ');
 	}
 
 
