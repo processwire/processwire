@@ -650,13 +650,14 @@ class PageTraversal {
 			$options['pageNum'] = $input->pageNum();
 		}
 
-		if(count($options['urlSegments'])) {
+		if(is_array($options['urlSegments']) && count($options['urlSegments'])) {
 			$str = '';
-			if(is_string($options['urlSegments'][0])) {
+			reset($options['urlSegments']); 
+			if(is_string(key($options['urlSegments']))) {
 				// associative array converts to key/value style URL segments
 				foreach($options['urlSegments'] as $key => $value) {
 					$str .= "$key/$value/";
-					if(is_int($key)) $str = '';
+					if(is_int($key)) $str = ''; // abort assoc array option if any int key found
 					if($str === '') break;
 				}
 			}
