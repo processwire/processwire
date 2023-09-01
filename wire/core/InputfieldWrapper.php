@@ -863,7 +863,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 
 			// wrap the inputfield output
 			$attrs = '';
-			$label = $inputfield->getSetting('label');
+			$label = (string) $inputfield->getSetting('label');
 			$skipLabel = $inputfield->getSetting('skipLabel'); 
 			$skipLabel = is_bool($skipLabel) || empty($skipLabel) ? (bool) $skipLabel : (int) $skipLabel; // force as bool or int
 			if(!strlen($label) && $skipLabel !== Inputfield::skipLabelBlank && $inputfield->className() != 'InputfieldWrapper') {
@@ -1954,4 +1954,3 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	}
 	
 }
-

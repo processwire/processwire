@@ -167,8 +167,8 @@ class LazyCron extends WireData implements Module {
 			}
 		}
 
-		if(!$files->filePutContents($this->lockfile, time(), LOCK_EX)) {
-			$this->error("Unable to write lock file: $this->lockfile", Notice::logOnly); 
+		if(!$files->filePutContents($this->lockfile, (string) time(), LOCK_EX)) {
+			// $this->error("Unable to write lock file: $this->lockfile", Notice::logOnly); 
 			return;
 		}
 		
