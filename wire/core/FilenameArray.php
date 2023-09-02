@@ -24,12 +24,20 @@ class FilenameArray implements \IteratorAggregate, \Countable {
 	 * Add a file
 	 * 
 	 * @param string $filename
+	 * @param array|string $attr Array of attributes for script or link tag in format [ 'name' => 'value' ] or string containing attributes
 	 * @return $this
 	 * 
 	 */
-	public function add($filename) {
+	public function add($filename, $attr = '') {
 		$key = $this->getKey($filename);
-		$this->data[$key] = $filename; 
+		if($attr){
+			$this->data[$key] = [
+				'filename' => $filename,
+				'attr' => $attr
+			];
+		}else{
+			$this->data[$key] = $filename;
+		}
 		return $this; 
 	}
 

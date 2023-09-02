@@ -53,5 +53,20 @@ $scripts->append($themeUrl . "scripts/main.js?v=$version");
 		echo "\n\t<style type='text/css'>.pw-container { max-width: {$adminTheme->maxWidth}px; }</style>";
 	}
 	foreach($scripts as $file) {
-		echo "\n\t<script type='text/javascript' src='$file'></script>";
+		if(is_array($file)){
+			$attributes = $file['attr'];
+			if(is_array($attributes)){
+				$attributes = array_map(function($value, $key) {
+					if(!$value){
+						return $key;
+					}
+					return "$key='$value'";
+				}, array_values($attributes), array_keys($attributes));
+
+				$attributes = implode(" ", $attributes);
+			}
+			echo "\n\t<script type='text/javascript' {$attributes} src='{$file['filename']}'></script>";
+		} else {
+			echo "\n\t<script type='text/javascript' src='$file'></script>";
+		}
 	}
