@@ -805,6 +805,22 @@ class Config extends WireData {
 	}
 
 	/**
+	 * Read config from json file
+	 *
+	 * Usage: Add this line in your /site/config.php
+	 * $config->readFromFile('/path/to/your/config.json');
+	 *
+	 * @param string $file
+	 * @return void
+	 */
+	public function readFromFile($jsonFilePath) {
+		$content = file_get_contents($jsonFilePath);
+		$json = json_decode($content);
+		if (!$json instanceof \stdClass) return;
+		foreach($json as $k=>$v) $this->set($k, $v);
+	}
+	
+	/**
 	 * Current unsanitized request URL
 	 * 
 	 * - This is an alternative to `$input->url()` that’s available prior to API ready state.
@@ -954,4 +970,3 @@ class Config extends WireData {
 		if($urls) $urls->setWire($wire);
 	}
 }
-
