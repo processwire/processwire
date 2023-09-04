@@ -1297,6 +1297,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$sanitizer = $this->wire()->sanitizer;
 		$modules = $this->wire()->modules;
 		$fields = $this->wire()->fields;
+		$adminTheme = $this->wire()->adminTheme;
 
 		/** @var Languages $languages */
 		$columns = $this->sessionGet('columns');
@@ -1307,7 +1308,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		/** @var MarkupAdminDataTable $table */
 		$table = $modules->get('MarkupAdminDataTable');
 		$table->setSortable(false);
-		$table->setResizable(true);
+		$table->setResizable(wireInstanceOf($adminTheme, 'AdminThemeUikit')); // non-100% width error w/default+reno themes
 		$table->setResponsive($this->responsiveTable);
 		$table->setClass('ProcessListerTable');
 		$table->setEncodeEntities(false);
