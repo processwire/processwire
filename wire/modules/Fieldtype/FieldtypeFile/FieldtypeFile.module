@@ -1755,6 +1755,29 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	}
 
 	/**
+	 * Called after field renamed
+	 *
+	 * @param Field $field
+	 * @param string $prevName Previous name (current name can be found in $field->name)
+	 *
+	 */
+	public function ___renamedField(Field $field, $prevName) {
+		// if there is a custom-fields template, rename it
+		$templates = $this->wire()->templates;
+		if($templates->get("field-$field->name")) return;
+		if($templates->get("field-x-$field->name")) return;
+		$template = $templates->get("field-$prevName"); 
+		if($template) {
+			$templates->rename($template, "field-$field->name");
+		} else {
+			$template = $templates->get("field-x-$prevName");
+			if($template) {
+				$templates->rename($template, "field-x-$field->name");
+			}
+		}
+	}
+
+	/**
 	 * Field config
 	 * 
 	 * @param Field $field
