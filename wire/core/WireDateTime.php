@@ -663,17 +663,44 @@ class WireDateTime extends Wire {
 	/**
 	 * Render an elapsed time string
 	 * 
+	 * If the `$stop` argument is omitted then it is assumed to be the current time. 
+	 * The maximum period used is weeks, as months and years are not fixed length periods. 
+	 * 
+	 * ~~~~~
+	 * $start = '2023-09-08 08:33:52';
+	 * $stop = '2023-09-09 10:47:23';
+	 * 
+	 * // Regular: 1 day 2 hours 13 minutes 31 seconds
+	 * echo $datetime->elapsedTimeStr($start, $stop);
+	 *
+	 * // Abbreviated: 1 day 2 hrs 13 mins 31 secs 
+	 * echo $datetime->elapsedTimeStr($start, $stop, true);
+	 * 
+	 * // Abbreviated with exclusions: 1 day 2 hrs
+	 * echo $datetime->elapsedTimeStr($start, $stop, true, [ 'exclude' => 'minutes seconds' ]);
+	 * 
+	 * // Optional 3.0.227+ usage and inclusions: 26 hours 13 minutes
+	 * echo $datetime->elapsedTimeStr($start, [ 'stop' => $stop, 'include' => 'hours minutes' ]);
+	 * ~~~~~
+	 * 
 	 * @param int|string $start Starting timestamp or date/time string.
-	 * @param int|string $stop Ending timestamp or date/time string, or omit for now. 
+	 * @param int|string|array $stop Ending timestamp or date/time string, omit for “now”, or: 
+	 *  - In 3.0.227+ you may optionally substitute the `$options` array argument here. When doing so, 
+	 *    all remaining arguments are ignored and the `stop` and `abbreviate` (if needed) may be 
+	 *    specified in the given options array, along with any other options.
 	 * @param bool|int|array $abbreviate
 	 *  - Specify boolean FALSE for verbose elapsed time string without abbreviations (default). 
 	 *  - Specify boolean TRUE for abbreviations (abbreviated where common, not always different from non-abbreviated).
-	 *  - Specify integer 1 for extra short abbreviations (all terms abbreviated into shortest possible string).
-	 *  - Specify integer 0 for digital elapsed time string like “00:01:12” referring to hours:minutes:seconds. 
+	 *  - Specify integer `1` for extra short abbreviations (all terms abbreviated into shortest possible string).
+	 *  - Specify integer `0` for digital elapsed time string like “00:01:12” referring to hours:minutes:seconds.
+	 *  - Note that when using `0` no options apply except except for `exclude[seconds]` option.
 	 * @param array $options Additional options:
 	 *  - `delimiter` (string): String to separate time periods (default=' ').
+	 *  - `getArray` (bool): Return an array of integers indexed by period name (rather than a string)? 3.0.227+
 	 *  - `exclude` (array|string): Exclude these periods, one or more of: 'seconds', 'minutes', 'hours', 'days', 'weeks' (default=[])
-	 * @return string
+	 *  - `include` (array|string): Include only these periods, one or more of: 'seconds', 'minutes', 'hours', 'days', 'weeks' (default=[]) 3.0.227+
+	 *  - Note the exclude and include options should not be used together, and the include option requires 3.0.227+. 
+	 * @return string|array Returns array only if the `getArray` option is true, otherwise returns a string.
 	 * @since 3.0.129
 	 * 
 	 */
@@ -682,72 +709,131 @@ class WireDateTime extends Wire {
 		$defaults = array(
 			'delimiter' => ' ', 
 			'exclude' => array(),
+			'include' => array(),
+			'getArray' => false, 
 		);
-	
+		
+		if(is_array($stop)) {
+			// options specified in $stop argument 
+			$options = $stop;
+			$stop = isset($options['stop']) ? $options['stop'] : null;
+			$abbreviate = isset($options['abbreviate']) ? $options['abbreviate'] : false;
+		}
+
 		$options = array_merge($defaults, $options);
-		if(is_string($options['exclude'])) $options['exclude'] = explode(' ', $options['exclude']);
+		$periodNames = array('weeks', 'days', 'hours', 'minutes', 'seconds');
+		$usePeriods = array();
+		$negative = false;
+		
+		foreach(array('exclude', 'include') as $key) {
+			if(is_string($options[$key])) {
+				$value = trim($options[$key]);
+				$options[$key] = $value ? explode(' ', $value) : array();
+			} else if(!is_array($options[$key])) {
+				$options[$key] = array();
+			}
+			foreach($options[$key] as $k => $v) {
+				if(!in_array($v, $periodNames)) unset($options[$key][$k]); 
+			}
+		}
+		
+		$include = count($options['include']) && $abbreviate !== 0 ? $options['include'] : null;
+		$exclude = count($options['exclude']) ? $options['exclude'] : null;
+		
+		foreach($periodNames as $name) {
+			if($include && !in_array($name, $include)) continue;
+			if($exclude && in_array($name, $exclude)) continue;
+			$usePeriods[$name] = $name;
+		}
+		
 		if($stop === null) $stop = time();
 		if(!ctype_digit("$start")) $start = strtotime($start);
 		if(!ctype_digit("$stop")) $stop = strtotime($stop);
+		
+		if($start > $stop) {
+			list($start, $stop) = array($stop, $start);
+			$negative = true;
+		}
 
 		$times = array();
 		$seconds = $stop - $start;
-		
-		if($seconds >= 604800 && $abbreviate !== 0 && !in_array('weeks', $options['exclude'])) {
+	
+		if($seconds >= 604800 && $abbreviate !== 0 && isset($usePeriods['weeks'])) {
 			$weeks = floor($seconds / 604800);
 			$seconds = $seconds - ($weeks * 604800);
-			$key = $weeks === 1 ? 'week' : 'weeks';
+			$key = $weeks == 1 ? 'week' : 'weeks';
 			$times[$key] = $weeks;
-		}
-		
-		if($seconds >= 86400 && $abbreviate !== 0 && !in_array('days', $options['exclude'])) {
-			$days = floor($seconds / 86400); 
-			$seconds = $seconds - ($days * 86400); 
-			$key = $days === 1 ? 'day' : 'days';
-			$times[$key] = $days;
+		} else {
+			$times['weeks'] = 0;
 		}
 
-		if($seconds >= 3600 && !in_array('hours', $options['exclude'])) {
+		if($seconds >= 86400 && $abbreviate !== 0 && isset($usePeriods['days'])) {
+			$days = floor($seconds / 86400); 
+			$seconds = $seconds - ($days * 86400); 
+			$key = $days == 1 ? 'day' : 'days';
+			$times[$key] = $days;
+		} else {
+			$times['days'] = 0;
+		}
+
+		if($seconds >= 3600 && isset($usePeriods['hours'])) {
 			$hours = floor($seconds / 3600);
 			$seconds = $seconds - ($hours * 3600);
-			$key = $hours === 1 ? 'hour' : 'hours';
+			$key = $hours == 1 ? 'hour' : 'hours';
 			$times[$key] = $hours;
 		} else {
+			$times['hours'] = 0;
 			$hours = 0;
 		}
 
-		if($seconds >= 60 && !in_array('minutes', $options['exclude'])) {
+		if($seconds >= 60 && isset($usePeriods['minutes'])) {
 			$minutes = floor($seconds / 60);
 			$seconds = $seconds - ($minutes * 60);
-			$key = $minutes === 1 ? 'minute' : 'minutes';
+			$key = $minutes == 1 ? 'minute' : 'minutes';
 			$times[$key] = $minutes;
 		} else {
+			$times['minutes'] = 0;
 			$minutes = 0;
 		}
 
-		if(($seconds > 0 || empty($times)) && !in_array('seconds', $options['exclude'])) {
-			$key = $seconds === 1 ? 'second' : 'seconds';
+		if(($seconds > 0 || empty($times)) && isset($usePeriods['seconds'])) {
+			$key = $seconds == 1 ? 'second' : 'seconds';
 			$times[$key] = $seconds;
 		} else {
+			$times['seconds'] = 0;
 			$seconds = 0;
 		}
 		
-		if($abbreviate === 0) {
+		if($abbreviate === 0 && !$options['getArray']) {
 			if(strlen($hours) < 2) $hours = "0$hours";
 			if(strlen($minutes) < 2) $minutes = "0$minutes";
 			if(strlen($seconds) < 2) $seconds = "0$seconds";
-			$str = "$hours:$minutes:$seconds";
+			$value = "$hours:$minutes";
+			if(isset($usePeriods['seconds'])) $value .= ":$seconds";
 		} else {
 			$periods = $this->getPeriods($abbreviate); 
 			$a = array();
+			$getArray = array();
 			foreach($times as $key => $qty) {
+				$pluralKey = rtrim($key, 's') . 's';
+				if(empty($qty) && ($pluralKey !== 'seconds' || count($a))) continue;
+				if(!isset($usePeriods[$pluralKey])) continue;
 				$sep = $abbreviate === 1 ? '' : ' ';
-				$a[] = $qty . $sep . $periods[$key];
+				$str = $qty . $sep . $periods[$key];
+				$a[] = $str;
+				$getArray[$pluralKey] = $qty;
+				$getArray[$pluralKey . 'Text'] = $str;
 			}
-			$str = implode($options['delimiter'], $a); 
+			$value = implode($options['delimiter'], $a);
+			if($negative) $value = "-$value";
+			if($options['getArray']) {
+				$getArray['negative'] = $negative;
+				$getArray['text'] = $value;
+				$value = $getArray;
+			}
 		}
 
-		return $str;
+		return $value;
 	}
 
 	/**
