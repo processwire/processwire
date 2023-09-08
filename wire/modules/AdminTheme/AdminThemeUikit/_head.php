@@ -46,12 +46,12 @@ $scripts->append($themeUrl . "scripts/main.js?v=$version");
 	</script>
 
 	<?php
-	foreach($styles as $file) {
+	foreach($styles->urls() as $file) {
 		echo "\n\t<link type='text/css' href='$file' rel='stylesheet' />";
 	}
 	if($adminTheme->maxWidth && strpos($layout, 'sidenav') === false) {
 		echo "\n\t<style type='text/css'>.pw-container { max-width: {$adminTheme->maxWidth}px; }</style>";
 	}
-	foreach($scripts as $file) {
+	foreach($scripts->urls() as $file) {
 		echo "\n\t<script type='text/javascript' src='$file'></script>";
 	}

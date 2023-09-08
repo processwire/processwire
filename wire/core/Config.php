@@ -948,10 +948,98 @@ class Config extends WireData {
 	 */
 	public function setWire(ProcessWire $wire) {
 		parent::setWire($wire);
-		$paths = $this->paths;
-		if($paths) $paths->setWire($wire);
-		$urls = $this->urls;
-		if($urls) $urls->setWire($wire);
+		foreach(array('paths', 'urls', 'styles', 'scripts') as $key) {
+			$value = $this->get($key);
+			if($value instanceof Wire) $value->setWire($wire);
+		}
 	}
-}
 
+	/**
+	 * Given array of file asset URLs return them with cache-busting version strings
+	 *
+	 * URLs that aready have query strings or URLs with scheme (i.e. https://) are ignored.
+	 * URLs that do not resolve to a physical file on the file system, relative URLs, or
+	 * URLs that are outside of ProcessWire’s web root, are only eligible to receive a
+	 * common/shared version in the URL (like the core version).
+	 *
+	 * ~~~~~
+	 * foreach($config->versionUrls($config->styles) as $url) {
+	 *   echo "<link rel='stylesheet' href='$url' />";
+	 * }
+	 * // there is also this shortcut for the above
+	 * foreach($config->styles->urls() as $url) {
+	 *   echo "<link rel='stylesheet' href='$url' />";
+	 * }
+	 * ~~~~~
+	 *
+	 * #pw-group-URLs
+	 * #pw-group-tools
+	 *
+	 * @param array|FilenameArray|WireArray|\ArrayObject $urls Array of URLs to file assets such as JS/CSS files.
+	 * @param bool|null|string $useVersion What to use for the version string (`null` is default):
+	 *  - `true` (bool): Get version from filemtime.
+	 *  - `false` (bool): Never get file version, just use $config->version.
+	 *  - `null` (null): Auto-detect: use file version in debug mode or dev branch only, $config->version otherwise.
+	 *  - `str` (string): Specify any string to be the version to use on all URLs needing it.
+	 * @return array Array of URLs updated with version strings where needed
+	 * @since 3.0.227
+	 *
+	 */
+	public function versionUrls($urls, $useVersion = null) {
+
+		$a = array();
+		$rootUrl = $this->urls->root;
+		$rootPath = $this->paths->root;
+		$versionStr = "?v=" . (is_string($useVersion) ? $useVersion : $this->version);
+
+		if($useVersion === null) {
+			$useVersion = ($this->debug || ProcessWire::versionSuffix === 'dev');
+		}
+
+		foreach($urls as $url) {
+			if(strpos($url, $versionStr)) {
+				if($useVersion === false) {
+					$a[] = $url;
+					continue;
+				}
+				list($u, $r) = explode($versionStr, $url, 2);
+				if(!strlen($r)) $url = $u;
+			}
+			if(strpos($url, '?') !== false || strpos($url, '//') !== false) {
+				$a[] = $url;
+			} else if($useVersion === true && strpos($url, $rootUrl) === 0) {
+				$f = $rootPath . substr($url, strlen($rootUrl));
+				if(is_readable($f)) {
+					$a[] = "$url?" . base_convert((int) filemtime($f), 10, 36);
+				} else {
+					$a[] = $url . $versionStr;
+				}
+			} else {
+				$a[] = $url . $versionStr;
+			}
+		}
+
+		return $a;
+	}
+
+	/**
+	 * Given a file asset URLs return it with cache-busting version string
+	 *
+	 * URLs that aready have query strings are left alone.
+	 *
+	 * #pw-group-URLs
+	 * #pw-group-tools
+	 *
+	 * @param string $url URL to a file asset (such as JS/CSS file)
+	 * @param bool|null|string $useVersion See versionUrls() method for description of this argument.
+	 * @return string URL updated with version strings where necessary
+	 * @since 3.0.227
+	 * @see Config::versionUrls()
+	 *
+	 */
+	public function versionUrl($url, $useVersion = null) {
+		$a = $this->versionUrls(array($url), $useVersion);
+		return isset($a[0]) ? $a[0] : $url;
+	}
+
+}

@@ -10,7 +10,7 @@
  *
  */
 
-class FilenameArray implements \IteratorAggregate, \Countable {
+class FilenameArray extends Wire implements \IteratorAggregate, \Countable {
 
 	/**
 	 * Array of filenames indexed by MD5 hash of filename
@@ -85,6 +85,23 @@ class FilenameArray implements \IteratorAggregate, \Countable {
 	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return new \ArrayObject($this->data); 
+	}
+
+	/**
+	 * Get cache-busting URLs for this FilenameArray
+	 * 
+	 * This is the same as iterating this FilenameArray except that it appends cache-busting
+	 * query strings to the URLs that resolve to physical files. 
+	 * 
+	 * @param bool|null|string $useVersion See Config::versionUrls() for arument details
+	 * @return array
+	 * @throws WireException
+	 * @see Config::versionUrls()
+	 * @since 3.0.227
+	 * 
+	 */
+	public function urls($useVersion = null) {
+		return $this->wire()->config->versionUrls($this, $useVersion);
 	}
 
 	/**
