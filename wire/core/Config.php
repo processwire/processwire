@@ -151,6 +151,7 @@
  * @property bool $useMarkupRegions Enable support for front-end markup regions? #pw-group-system
  * @property bool|array $useLazyLoading Delay loading of fields (and templates/fieldgroups) till requested? Can improve performance on systems with lots of fields or templates. #pw-group-system @since 3.0.193
  * @property bool $usePageClasses Use custom Page classes in `/site/classes/[TemplateName]Page.php`? #pw-group-system @since 3.0.152
+ * @property bool|int|string|null $useVersionUrls Default value for $useVersion argument of $config->versionUrls() method #pw-group-system @since 3.0.227
  * @property int $lazyPageChunkSize Chunk size for for $pages->findMany() calls. #pw-group-system
  * 
  * @property string $userAuthSalt Salt generated at install time to be used as a secondary/non-database salt for the password system. #pw-group-session
@@ -957,10 +958,17 @@ class Config extends WireData {
 	/**
 	 * Given array of file asset URLs return them with cache-busting version strings
 	 *
-	 * URLs that aready have query strings or URLs with scheme (i.e. https://) are ignored.
+	 * URLs that aready have query strings or URLs with scheme (i.e. https://) are ignored,
+	 * except for URLs that already have a core version query string, i.e. `?v=3.0.227`
+	 * may be converted to a different version string when appropriate. 
+	 * 
 	 * URLs that do not resolve to a physical file on the file system, relative URLs, or
 	 * URLs that are outside of ProcessWire’s web root, are only eligible to receive a
 	 * common/shared version in the URL (like the core version).
+	 * 
+	 * To set a different default value for the `$useVersion` argument, you can populate
+	 * the `$config->useVersionUrls` setting in your /site/config.php with the default
+	 * value you want to substitute. 
 	 *
 	 * ~~~~~
 	 * foreach($config->versionUrls($config->styles) as $url) {
@@ -980,7 +988,9 @@ class Config extends WireData {
 	 *  - `true` (bool): Get version from filemtime.
 	 *  - `false` (bool): Never get file version, just use $config->version.
 	 *  - `null` (null): Auto-detect: use file version in debug mode or dev branch only, $config->version otherwise.
-	 *  - `str` (string): Specify any string to be the version to use on all URLs needing it.
+	 *  - `foobar` (string): Specify any string to be the version to use on all URLs needing it.
+	 * `- ?foo=bar` (string): Optionally specify your own query string variable=value.
+	 *  - The default value (null) can be overridden by the `$config->useVersionUrls` setting. 
 	 * @return array Array of URLs updated with version strings where needed
 	 * @since 3.0.227
 	 *
@@ -990,24 +1000,50 @@ class Config extends WireData {
 		$a = array();
 		$rootUrl = $this->urls->root;
 		$rootPath = $this->paths->root;
-		$versionStr = "?v=" . (is_string($useVersion) ? $useVersion : $this->version);
+		$coreVersionStr = "?v=$this->version";
 
 		if($useVersion === null) {
-			$useVersion = ($this->debug || ProcessWire::versionSuffix === 'dev');
+			// if useVersion argument not specified pull from $config->useVersionUrls
+			$useVersion = $this->useVersionUrls;
+			if($useVersion === null) {
+				// if null or still not specified, auto-detect what to use
+				$useVersion = ($this->debug || ProcessWire::versionSuffix === 'dev');
+			}
+		}
+		
+		if(is_string($useVersion)) {
+			// custom version string specified 
+			if(!ctype_alnum(str_replace(array('.', '-', '_', '?', '='), '', $useVersion))) {
+				// if it fails sanitization then fallback to core version
+				$useVersion = false;
+				$versionStr = $coreVersionStr;
+			} else {
+				// use custom version str
+				$versionStr = $useVersion;
+				if(strpos($versionStr, '?') === false) $versionStr = "?v=$versionStr";
+			}
+		} else {
+			// use core version when appropriate
+			$versionStr = $coreVersionStr;
 		}
 
 		foreach($urls as $url) {
-			if(strpos($url, $versionStr)) {
+			if(strpos($url, $coreVersionStr)) {
+				// url already has core version present in it
 				if($useVersion === false) {
+					// use as-is since this is already what's requested
 					$a[] = $url;
 					continue;
 				}
-				list($u, $r) = explode($versionStr, $url, 2);
+				// remove existing core-version query string
+				list($u, $r) = explode($coreVersionStr, $url, 2);
 				if(!strlen($r)) $url = $u;
 			}
 			if(strpos($url, '?') !== false || strpos($url, '//') !== false) {
+				// leave URL with query string or scheme:// alone
 				$a[] = $url;
 			} else if($useVersion === true && strpos($url, $rootUrl) === 0) {
+				// use filemtime based version
 				$f = $rootPath . substr($url, strlen($rootUrl));
 				if(is_readable($f)) {
 					$a[] = "$url?" . base_convert((int) filemtime($f), 10, 36);
@@ -1015,6 +1051,7 @@ class Config extends WireData {
 					$a[] = $url . $versionStr;
 				}
 			} else {
+				// use standard or specified versino string
 				$a[] = $url . $versionStr;
 			}
 		}

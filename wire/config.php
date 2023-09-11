@@ -227,6 +227,36 @@ $config->usePageClasses = false;
 $config->useLazyLoading = true;
 
 /**
+ * Default value for $useVersion argument of $config->versionUrls() method
+ * 
+ * Controls the cache busting behavior of the `$config->versionUrls()` method as used by
+ * ProcessWire’s admin themes (but may be used independently as well). When no 
+ * `$useVersion` argument is specified to the versionUrls() method, it will use the 
+ * default value specified here. If not specified, null is the default. 
+ * 
+ * - `true` (bool): Get version from filemtime.
+ * - `false` (bool): Never get file version, just use `$config->version`.
+ * - `foobar` (string): Specify any string to be the version to use on all URLs needing it.
+ * - `?foo=bar` (string): Optionally specify your own query string variable=value. 
+ * - `null` (null): Auto-detect: use file version in debug mode or dev branch only, 
+ *    otherwise use `$config->version`.
+ * 
+ * ~~~~~
+ * // choose one to start with, copy and place in /site/config.php to enable
+ * $config->useVersionUrls = null; // default setting
+ * $config->useVersionUrls = true; // always use filemtime based version URLs
+ * $config->useVersionUrls = false; // only use core version in URLs
+ * $config->versionUrls = 'hello-world'; // always use this string as the version
+ * $config->versionUrls = '?version=123'; // optionally specify query string var and value
+ * ~~~~~
+ * 
+ * @var null|bool|string
+ * @since 3.0.227
+ *
+ * $config->useVersionUrls = null;
+ */
+
+/**
  * Disable all HTTPS requirements?
  * 
  * Use this option only for development or staging environments, on sites where you are 
@@ -700,7 +730,7 @@ $config->contentTypes = array(
 	'txt' => 'text/plain', 
 	'json' => 'application/json',
 	'xml' => 'application/xml', 
-	);
+);
 
 /**
  * File content types
@@ -733,7 +763,7 @@ $config->fileContentTypes = array(
 	'webp' => 'image/webp',
 	'zip' => '+application/zip',
 	'mp3' => 'audio/mpeg',
-	);
+);
 
 /**
  * Named predefined image sizes and options
@@ -797,7 +827,7 @@ $config->imageSizerOptions = array(
 	'hidpiQuality' => 60, // Same as above quality setting, but specific to hidpi images
 	'defaultGamma' => 2.0, // defaultGamma: 0.5 to 4.0 or -1 to disable gamma correction (default=2.0)
 	'webpAdd' => false, // set this to true, if the imagesizer engines should create a Webp copy with every (new) image variation
-	);
+);
 
 /**
  * Options for webp images
@@ -815,7 +845,7 @@ $config->webpOptions = array(
 	'useSrcExt' => false, // Use source file extension in webp filename? (file.jpg.webp rather than file.webp)
 	'useSrcUrlOnSize' => true, // Fallback to source file URL when webp file is larger than source?
 	'useSrcUrlOnFail' => true, // Fallback to source file URL when webp file fails for some reason?
-	);
+);
 
 /**
  * Admin thumbnail image options
@@ -846,7 +876,7 @@ $config->adminThumbOptions = array(
 	'sharpening' => 'soft', // sharpening: none | soft | medium | strong
 	'quality' => 90,
 	'suffix' => '', 
-	);
+);
 
 /**
  * File compiler options (as used by FileCompiler class)
@@ -875,7 +905,7 @@ $config->fileCompilerOptions = array(
 	'exclusions' => array(), // exclude filenames or paths that start with any of these
 	'extensions' => array('php', 'module', 'inc'), // file extensions we compile
 	'cachePath' => '', // path where compiled files are stored, or blank for $config->paths->cache . 'FileCompiler/'
-	);
+);
 
 /**
  * Temporary directory for uploads
