@@ -85,7 +85,7 @@ class ProcessLanguage extends ProcessPageType {
 	 *
 	 */
 	public function init() {
-		$this->addHookBefore('InputfieldFile::render', $this, 'renderInputfieldFile');
+		$this->addHookBefore('InputfieldFile(name^=language_files)::render', $this, 'renderInputfieldFile');
 		$this->addHookAfter('InputfieldFile::renderItem', $this, 'renderInputfieldFileItem'); 
 		$this->addHookAfter('InputfieldFile::renderUpload', $this, 'renderInputfieldFileUpload');
 		$this->addHookBefore('InputfieldFile::processInput', $this, 'processInputfieldFileInput');
@@ -647,4 +647,3 @@ class ProcessLanguage extends ProcessPageType {
 		$translator->unloadTextdomain($textdomain);
 	}
 }
-
