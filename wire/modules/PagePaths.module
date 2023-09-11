@@ -141,7 +141,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$query->bindValue(":language_id", $languageId, \PDO::PARAM_INT);
 		$path = null;
 		
-		if(!$this->executeQuery($query)) return $path;
+		if(!$this->executeQuery($query)) return null;
 		
 		if($query->rowCount()) {
 			$path = $query->fetchColumn();
@@ -662,7 +662,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Returns Languages object or false if not available
 	 *
-	 * @return Languages|false
+	 * @return Languages|Language[]|false
 	 *
 	 */
 	public function getLanguages() {

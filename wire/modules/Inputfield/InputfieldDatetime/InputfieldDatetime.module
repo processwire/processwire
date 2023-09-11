@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * ~~~~~~
@@ -147,7 +147,7 @@ class InputfieldDatetime extends Inputfield {
 		$this->set('subMinute', 0);
 		$this->set('requiredAttr', 0);
 		
-		foreach($this->getInputTypes() as $name => $type) {
+		foreach($this->getInputTypes() as $type) {
 			$this->setArray($type->getDefaultSettings()); 
 		}
 
@@ -297,7 +297,7 @@ class InputfieldDatetime extends Inputfield {
 			$format .= self::defaultTimeInputFormat;
 		}
 		
-		return $this->wire('datetime')->formatDate($value, trim($format));
+		return $this->wire()->datetime->formatDate($value, trim($format));
 	}
 
 	/**
@@ -364,7 +364,7 @@ class InputfieldDatetime extends Inputfield {
 
 		$inputfields = parent::___getConfigInputfields();
 		$inputTypes = $this->getInputTypes();
-		$modules = $this->wire('modules'); /** @var Modules $modules */
+		$modules = $this->wire()->modules;
 
 		/** @var InputfieldRadios $f */
 		$f = $modules->get('InputfieldRadios');
@@ -383,7 +383,7 @@ class InputfieldDatetime extends Inputfield {
 		$inputfields->add($f);
 
 		foreach($inputTypes as $inputTypeName => $inputType) {
-			/** @var InputfieldFieldset $inputfields */
+			/** @var InputfieldFieldset $fieldset */
 			$fieldset = $modules->get('InputfieldFieldset');
 			$fieldset->attr('name', '_' . $inputTypeName . 'Options');
 			$fieldset->label = $inputType->getTypeLabel();
@@ -393,7 +393,7 @@ class InputfieldDatetime extends Inputfield {
 		}
 		
 		/** @var InputfieldCheckbox $f */
-		$f = $this->modules->get('InputfieldCheckbox');
+		$f = $modules->get('InputfieldCheckbox');
 		$f->setAttribute('name', 'defaultToday');
 		$f->attr('value', 1);
 		if($this->defaultToday) $f->attr('checked', 'checked');

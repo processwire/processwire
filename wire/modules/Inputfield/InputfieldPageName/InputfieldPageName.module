@@ -118,7 +118,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 		'ł' => 'l',
 		'ż' => 'z',
 		'ź' => 'z',
-		);
+	);
 
 	/**
 	 * Whether or not the system has LanguageSupportPageNames module installed
@@ -155,12 +155,14 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 			$this->description = $this->_("Any combination of letters (a-z), numbers (0-9), dashes or underscores (no spaces)."); // Field description describing what characters are allowed
 			$this->set('sanitizeMethod', 'pageName');
 		}
-		$this->hasLanguagePageNames = $this->wire('modules')->isInstalled('LanguageSupportPageNames'); 
+		$this->hasLanguagePageNames = $this->wire()->modules->isInstalled('LanguageSupportPageNames'); 
 		
 		$this->removeClass('InputfieldNoBorder', 'wrapClass'); 
 	}
 
 	public function ___render() {
+		
+		$config = $this->wire()->config;
 		
 		$url = '';
 		$out = '';
@@ -181,7 +183,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 			} else {
 				$url = $this->parentPage->path;
 			}
-			if($this->hasLanguagePageNames && $this->parentPage->id == $this->wire('config')->rootPageID) {
+			if($this->hasLanguagePageNames && $this->parentPage->id == $config->rootPageID) {
 				if($user->language->isDefault()) {
 					$parentName = $this->parentPage->name;
 					if(!trim($url, '/')) $url = ($parentName === Pages::defaultRootName ? "" : $parentName);
@@ -221,7 +223,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 
 		if(strlen($value) && $this->hasLanguagePageNames) {
 			$link = trim($url, '/') . "/$value" . ($slashUrls ? '/' : '');
-			$link = $this->wire('config')->urls->root . ltrim($link, '/');
+			$link = $config->urls->root . ltrim($link, '/');
 			$link = "<a href='$link'>";
 		}
 		
@@ -238,7 +240,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 		if($this->languageSupportLabel) $out .= $box . "</div>";
 
 		// make the replacements part of the JS config	
-		$charset = $this->wire('config')->pageNameCharset;
+		$charset = $config->pageNameCharset;
 		if($charset == 'UTF8') {
 			$replacements = array(':' => '-', ',' => '-');
 			$whitelist = $this->config->pageNameWhitelist;
@@ -246,7 +248,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 			$replacements = empty($this->replacements) ? self::$defaultReplacements : $this->replacements; 
 			$whitelist = '';
 		}
-		$this->config->js($this->className(), array(
+		$config->js($this->className(), array(
 			'replacements' => $replacements,
 			'charset' => $charset, 
 			'whitelist' => $whitelist
@@ -257,14 +259,14 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 	
 	public function ___processInput(WireInputData $input) {
 		if($this->attr('disabled')) return $this;
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		if($this->editPage && $this->editPage->template->noLang) $languages = false;
 		if($languages && $this->hasLanguagePageNames) {
-			$user = $this->wire('user');
+			$user = $this->wire()->user;
 			if(!$languages->editable($user->language)) return $this;
 			$return = parent::___processInput($input);
-			$process = $this->wire('process');
-			if($process instanceof WirePageEditor && $process->getPage()->id == $this->wire('config')->rootPageID) {
+			$process = $this->wire()->process;
+			if($process instanceof WirePageEditor && $process->getPage()->id == $this->wire()->config->rootPageID) {
 				if(!strlen($this->attr('value'))) {
 					$this->attr('value', Pages::defaultRootName);
 				}
@@ -278,7 +280,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 	static public function replacementStringToArray($str) {
 		$r = preg_split('/[\r\n]+/', $str); 
 		$a = array();
-		foreach($r as $key => $value) {
+		foreach($r as $value) {
 			if(!strpos($value, '=')) continue; 
 			list($k, $v) = explode('=', $value);
 			$a[trim($k)] = trim($v); 	
@@ -293,14 +295,14 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 	}
 
 	public function getModuleConfigInputfields(array $data) {
+		$modules = $this->wire()->modules;
 		
 		$fields = $this->wire(new InputfieldWrapper());
-		if($this->wire('config')->pageNameCharset === 'UTF8') {
+		if($this->wire()->config->pageNameCharset === 'UTF8') {
 			$this->message($this->_('Character replacements configuration is disabled because $config->pageNameCharset is UTF8.'));
 			return $fields;
 		}
 
-		$modules = $this->wire('modules');
 		$modules->addHookBefore('saveModuleConfigData', null, 'InputfieldPageName_saveModuleConfigData'); 
 
 		$name = 'replacements';
@@ -317,6 +319,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 			$data[$name] = self::replacementStringToArray($replacements); 
 		}
 
+		/** @var InputfieldTextarea $field */
 		$field = $modules->get("InputfieldTextarea");
 		$field->attr('name', $name);
 		$field->attr('value', $replacements);
@@ -350,4 +353,3 @@ function InputfieldPageName_saveModuleConfigData(HookEvent $event) {
 	$arguments[1] = $data; 
 	$event->arguments = $arguments; 
 }
-

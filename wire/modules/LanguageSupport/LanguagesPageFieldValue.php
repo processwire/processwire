@@ -3,7 +3,7 @@
 /**
  * Serves as a multi-language value placeholder for field values that contain a value in more than one language. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -117,10 +117,11 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		if(strpos($testKey, 'data') !== 0) {
 			// array does not use "data123" indexes, so work with language ID or language name indexes
 			// and convert to "data123" indexes
+			$languages = $this->wire()->languages;
 			$_values = array();
 			foreach($values as $key => $value) {
 				if(ctype_digit("$key")) $key = (int) $key;
-				$language = $this->wire()->languages->get($key);
+				$language = $languages->get($key);
 				if($language && $language->id) {
 					$dataKey = $language->isDefault() ? "data" : "data$language->id";
 					$_values[$dataKey] = $value;
@@ -419,5 +420,3 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		return $this->defaultLanguagePageID; 
 	}
 }
-
-

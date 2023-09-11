@@ -98,7 +98,8 @@ class TextformatterSmartypants extends Textformatter implements ConfigurableModu
 	 * 
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
-		$f = $this->wire('modules')->get('InputfieldRadios');
+		/** @var InputfieldRadios $f */
+		$f = $this->wire()->modules->get('InputfieldRadios');
 		$f->attr('name', 'useUTF8');
 		$f->label = $this->_('Use UTF-8 characters for replacements rather than HTML entities?');
 		$f->description = $this->_('The default behavior for SmartyPants is to add/update characters using HTML entities.') . ' ';

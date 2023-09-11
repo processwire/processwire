@@ -3,7 +3,7 @@
 /**
  * A type of Page that represents a single Language in ProcessWire
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property LanguageTranslator $translator Get instance of LanguageTranslator for this language
@@ -68,7 +68,7 @@ class Language extends Page {
 	 *
 	 */
 	public function translator() {
-		return $this->wire('languages')->translator($this); 
+		return $this->wire()->languages->translator($this); 
 	}	
 
 	/**
@@ -98,7 +98,7 @@ class Language extends Page {
 	 * 
 	 */
 	public function isCurrent() {
-		return $this->id == $this->wire('user')->language->id;
+		return $this->id == $this->wire()->user->language->id;
 	}
 
 	/**
@@ -106,11 +106,11 @@ class Language extends Page {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return Pages|PagesType
+	 * @return Languages
 	 *
 	 */
 	public function getPagesManager() {
-		return $this->wire('languages');
+		return $this->wire()->languages;
 	}
 
 	/**
@@ -124,7 +124,7 @@ class Language extends Page {
 	 * 
 	 */
 	public function getLocale($category = LC_ALL) {
-		return $this->wire('languages')->getLocale($category, $this);
+		return $this->wire()->languages->getLocale($category, $this);
 	}
 
 	/**
@@ -139,7 +139,6 @@ class Language extends Page {
 	 * 
 	 */
 	public function setLocale($category = LC_ALL) {
-		return $this->wire('languages')->setLocale($category, $this);
+		return $this->wire()->languages->setLocale($category, $this);
 	}
 }
-

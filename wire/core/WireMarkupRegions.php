@@ -5,7 +5,7 @@
  * 
  * Supportings finding and manipulating of markup regions in an HTML document. 
  *
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -277,7 +277,7 @@ class WireMarkupRegions extends Wire {
 		
 		if(!empty($options['leftover'])) {
 			if(!empty($leftover)) {
-				foreach($regions as $key => $region) {
+				foreach($regions as $region) {
 					if(strpos($leftover, $region['html']) !== false) {
 						$leftover = str_replace($region['html'], '', $leftover);	
 					}
@@ -340,7 +340,7 @@ class WireMarkupRegions extends Wire {
 		if(strpos($find, '.') > 0) {
 			// i.e. "div.myclass"
 			list($findTag, $_find) = explode('.', $find, 2);
-			if($this->wire('sanitizer')->alphanumeric($findTag) === $findTag) {
+			if($this->wire()->sanitizer->alphanumeric($findTag) === $findTag) {
 				$find = ".$_find";
 			} else {
 				$findTag = '';
@@ -997,14 +997,15 @@ class WireMarkupRegions extends Wire {
 	 *
 	 */
 	public function renderAttributes(array $attrs, $encode = true, $quote = '"') {
-		
+	
+		$sanitizer = $this->wire()->sanitizer;
 		$str = '';
 		
 		foreach($attrs as $name => $value) {
 			
 			if(!ctype_alnum($name)) {
 				// only allow [-_a-zA-Z] attribute names
-				$name = $this->wire('sanitizer')->name($name);
+				$name = $sanitizer->name($name);
 			}
 			
 			// convert arrays to space separated string
@@ -1023,7 +1024,7 @@ class WireMarkupRegions extends Wire {
 			
 			if($encode) {
 				// entity encode value
-				$value = $this->wire('sanitizer')->entities($value);
+				$value = $sanitizer->entities($value);
 				
 			} else if(strpos($value, '"') !== false && strpos($value, "'") === false) {
 				// if value has a quote in it, use single quotes rather than double quotes
@@ -1358,7 +1359,7 @@ class WireMarkupRegions extends Wire {
 		$options = array_merge($defaults, $options);
 		$leftoverMarkup = '';
 		$hasDebugLandmark = strpos($htmlDocument, self::debugLandmark) !== false;
-		$debug = $hasDebugLandmark && $this->wire('config')->debug;
+		$debug = $hasDebugLandmark && $this->wire()->config->debug;
 		$debugTimer = $debug ? Debug::timer() : 0;
 		
 		if(is_array($htmlRegions)) {
@@ -1398,7 +1399,7 @@ class WireMarkupRegions extends Wire {
 		$updates = array();
 		$numUpdates = 0;
 
-		foreach($regions as $regionKey => $region) {
+		foreach($regions as /* $regionKey => */ $region) {
 
 			if(empty($region['action'])) $region['action'] = 'auto'; // replace
 			if(empty($region['actionTarget'])) $region['actionTarget'] = $region['pwid']; // replace
@@ -1506,7 +1507,7 @@ class WireMarkupRegions extends Wire {
 			if(count($this->debugNotes)) {
 				$this->debugNotes = array_unique($this->debugNotes); 
 				$debugNotes[] = "---------------";
-				foreach($this->debugNotes as $n => $s) {
+				foreach($this->debugNotes as $s) {
 					$debugNotes[] = $this->debugNoteStr($s);
 				}
 			}
@@ -1630,7 +1631,7 @@ class WireMarkupRegions extends Wire {
 		if(!count($debugNotes)) $debugNotes[] = "Nothing found";
 		if($debugTimer !== null) $debugNotes[] = '[sm]' . Debug::timer($debugTimer) . ' seconds[/sm]';
 		$out = "• " . implode("\n• ", $debugNotes);
-		$out = $this->wire('sanitizer')->entities($out);
+		$out = $this->wire()->sanitizer->entities($out);
 		$out = str_replace(array('[sm]', '[/sm]'), array('<small style="opacity:0.7">', '</small>'), $out);
 		$out = str_replace(array('[b]', '[/b]'), array('<strong>', '</strong>'), $out);
 		$out = "<pre class='pw-debug pw-region-debug'>$out</pre>" . self::debugLandmark;

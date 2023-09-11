@@ -3,7 +3,7 @@
 /**
  * An Inputfield for handling a single checkbox
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * Note: if you want a checkbox already checked, you need to add a setAttribute('checked', 'checked'); 
@@ -324,6 +324,7 @@ class InputfieldCheckbox extends Inputfield {
 		// if working with fieldtype, no additional settings are applicable
 		if($this->hasFieldtype) return $inputfields;
 
+		/** @var InputfieldText $f */
 		$f = $this->wire()->modules->get('InputfieldText');
 		$f->attr('name', 'checkedValue');
 		$f->attr('value', $this->checkedValue);
@@ -333,6 +334,7 @@ class InputfieldCheckbox extends Inputfield {
 		$f->required = true; 
 		$inputfields->add($f);
 
+		/** @var InputfieldText $f */
 		$f = $this->wire()->modules->get('InputfieldText');
 		$f->attr('name', 'uncheckedValue');
 		$f->attr('value', "$this->uncheckedValue");

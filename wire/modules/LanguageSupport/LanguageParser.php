@@ -7,7 +7,7 @@
  *
  * Return the results by calling $parser->getUntranslated() and $parser->getComments();
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -61,6 +61,7 @@ class LanguageParser extends Wire {
 	 *
 	 */
 	public function __construct(LanguageTranslator $translator, $file) {
+		parent::__construct();
 		$this->translator = $translator; 
 		$this->textdomain = $this->translator->filenameToTextdomain($file); 
 		$this->translator->loadTextdomain($this->textdomain); 
@@ -322,7 +323,7 @@ class LanguageParser extends Wire {
 		$this->numFound++;
 
 		// check if there are comments in the $tail and record them if so
-		if(($pos = strpos($tail, '//')) !== false) {
+		if(strpos($tail, '//') !== false) {
 			if(preg_match('![^:"\']//(.+)$!', $tail, $matches)) {
 				$comments = $matches[1];
 			}

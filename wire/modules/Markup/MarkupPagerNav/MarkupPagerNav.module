@@ -5,7 +5,7 @@ require_once(dirname(__FILE__) . '/PagerNav.php');
 /**
  * MarkupPagerNav Module for generating pagination markup
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * #pw-summary Module for generating pagination markup automatically for paginated WireArray types. 
@@ -117,7 +117,7 @@ class MarkupPagerNav extends Wire implements Module {
 			'permanent' => false, 
 			'singular' => false, 
 			'autoload' => false, 
-			);
+		);
 	}
 
 	/**
@@ -210,7 +210,7 @@ class MarkupPagerNav extends Wire implements Module {
 		// the queryString used in links (set automatically, based on whitelist or getVars array)
 		'queryString' => '', 	
 	
-		);
+	);
 
 	/**
 	 * True when the current page is also the last page
@@ -229,10 +229,11 @@ class MarkupPagerNav extends Wire implements Module {
 	protected $pageNumUrlPrefix = 'page';
 
 	/**
-	 * Construct
+	 * Wired to ProcessWire instance
 	 * 
 	 */
-	public function __construct() {
+	public function wired() {
+		parent::wired();
 		$this->options['nextItemLabel'] = $this->_('Next');
 		$this->options['previousItemLabel'] = $this->_('Prev');
 		$this->options['listAriaLabel'] = $this->_('Pagination links');
@@ -241,9 +242,9 @@ class MarkupPagerNav extends Wire implements Module {
 		$this->options['nextItemAriaLabel'] = $this->_('Next page');
 		$this->options['previousItemAriaLabel'] = $this->_('Previous page');
 		$this->options['lastItemAriaLabel'] = $this->_('Page {n}, last page');
-	
+
 		// check for all-instance options
-		$options = $this->wire('config')->MarkupPagerNav;
+		$options = $this->wire()->config->MarkupPagerNav;
 		if(is_array($options)) $this->options = array_merge($this->options, $options);
 	}
 
@@ -270,7 +271,7 @@ class MarkupPagerNav extends Wire implements Module {
 	 */
 	public function ___render(WirePaginatable $items, $options = array()) {
 
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$this->isLastPage = true; 
 		$this->totalItems = $items->getTotal();
 		if(!$this->totalItems) return '';
@@ -285,7 +286,7 @@ class MarkupPagerNav extends Wire implements Module {
 		}
 
 		if(!strlen($this->queryString)) {
-			$whitelist = $this->wire('input')->whitelist->getArray(); 
+			$whitelist = $this->wire()->input->whitelist->getArray(); 
 			if(!count($this->options['getVars']) && count($whitelist)) {
 				$this->setGetVars($whitelist);
 			} else if(count($this->options['getVars'])) {
@@ -453,13 +454,13 @@ class MarkupPagerNav extends Wire implements Module {
 	/**
 	 * Retrieve a MarkupPagerNav option as an object property
 	 * 
-	 * @param string $property
+	 * @param string $name
 	 * @return mixed
 	 *
 	 */
-	public function __get($property) {
-		if(isset($this->options[$property])) return $this->options[$property]; 
-		if($property == 'isLastPage') return $this->isLastPage; 
+	public function __get($name) {
+		if(isset($this->options[$name])) return $this->options[$name]; 
+		if($name === 'isLastPage') return $this->isLastPage; 
 		return null;
 	}
 
@@ -677,9 +678,8 @@ class MarkupPagerNav extends Wire implements Module {
 	 */
 	protected function updateConfigVars($nextURL, $prevURL) {
 
-		/** @var Config $config */
-		$config = $this->wire('config');
-		$httpRoot = $this->wire('input')->httpHostUrl();
+		$config = $this->wire()->config;
+		$httpRoot = $this->wire()->input->httpHostUrl();
 		$pagerHeadTags = '';
 
 		if($nextURL) {
@@ -705,4 +705,3 @@ class MarkupPagerNav extends Wire implements Module {
 	public function ___uninstall() { }
 
 }
-

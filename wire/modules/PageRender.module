@@ -252,7 +252,6 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ___clearCacheFilePages(PageArray $items, Page $page) {
-		if($page) {}
 		foreach($items as $p) {
 			if(((int) $p->template->cache_time) < 1) continue;
 			$cf = $this->getCacheFile($p);
@@ -357,7 +356,6 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function ___saveCacheFileReady(Page $page, $data) {
-		if($page) {} // ignore
 		return $data;
 	}
 
@@ -570,6 +568,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			// own additional variables in it if they want to
 			$output->set('options', $options);
 
+			/** @var WireProfilerInterface $profiler */
 			$profiler = $this->wire('profiler');
 			$profilerEvent = $profiler ? $profiler->start($page->path, $this, array('page' => $page)) : null;
 			$data = $output->render();
