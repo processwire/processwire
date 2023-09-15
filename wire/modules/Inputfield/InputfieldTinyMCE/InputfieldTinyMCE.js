@@ -342,18 +342,16 @@ var InputfieldTinyMCE = {
 		
 		if(!$inputfield.length) $inputfield = $editor.closest('.Inputfield');
 		
-		editor.on('Dirty', function() {
-			$inputfield.trigger('change');
-			// t.log('event Dirty');
-		});
-	
-		editor.on('input', function() {
+		function changed() {
 			if(inputTimeout) clearTimeout(inputTimeout);
 			inputTimeout = setTimeout(function() {
 				$inputfield.trigger('change');
-				// t.log('event Input');
-			}, 500); 
-		});
+			}, 500);
+		}
+		
+		editor.on('Dirty', function() { changed() });
+		editor.on('SetContent', function() { changed() });
+		editor.on('input', function() { changed() });
 		
 		// for image resizes
 		if(features.indexOf('imgResize') > -1) {
@@ -361,6 +359,7 @@ var InputfieldTinyMCE = {
 				// @todo account for case where image in figure is resized, and figure needs its width updated with the image
 				if(e.target.nodeName === 'IMG') {
 					t.imageResized(editor, e.target, e.width);
+					changed();
 				}
 			});
 		}
@@ -372,9 +371,12 @@ var InputfieldTinyMCE = {
 		editor.on('ExecCommand', function(e, f) {
 			if(e.command === 'mceFocus') return;
 			t.log('command: ' + e.command, e);
-			if(e.command === 'mceToggleFormat' && e.value && e.value.indexOf('align') === 0) {
-				var editor = this;
-				t.elementAligned(editor);
+			if(e.command === 'mceToggleFormat') { 
+				if(e.value && e.value.indexOf('align') === 0) {
+					var editor = this;
+					t.elementAligned(editor);
+				}
+				changed();
 			}
 		});
 		
