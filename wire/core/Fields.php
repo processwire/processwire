@@ -658,6 +658,7 @@ class Fields extends WireSaveableItems {
 			$field2->flags = 0; // intentional overwrite after above line
 		}
 		$field2->name = $field2->name . "_PWTMP";
+		$field2->prevFieldtype = $field1->type;
 		$field2->type->createField($field2); 
 		$field1->type = $field1->prevFieldtype;
 

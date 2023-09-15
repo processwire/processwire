@@ -1073,7 +1073,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$schema['keys']['created'] = 'index (created)';
 		$schema['keys']['filesize'] = 'index (filesize)'; // 3.0.154+
 		
-		if($field->id) {
+		if($field->id && !$field->prevFieldtype) {
 			if($field->flags & Field::flagFieldgroupContext) {
 				$field = $this->wire('fields')->get($field->name);
 			}
