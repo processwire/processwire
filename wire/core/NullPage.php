@@ -99,6 +99,14 @@ class NullPage extends Page implements WireNull {
 
 	/**
 	 * #pw-internal
+	 *
+	 * @return bool
+	 *
+	 */
+	public function isNew() { return false; }
+
+	/**
+	 * #pw-internal
 	 * 
 	 * @return null
 	 * 

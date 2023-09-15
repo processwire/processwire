@@ -447,9 +447,9 @@ class PagesEditor extends Wire {
 		$language = null;
 
 		// if language support active, switch to default language so that saved fields and hooks don't need to be aware of language
-		if($languages && $page->id != $user->id) {
-			$language = $user->language && $user->language->id ? $user->language : null;
-			if($language) $user->language = $languages->getDefault();
+		if($languages && $page->id != $user->id && "$user->language") {
+			$language = $user->language;
+			$user->setLanguage($languages->getDefault());
 		}
 
 		$reason = '';
@@ -457,8 +457,8 @@ class PagesEditor extends Wire {
 		if($isNew) $this->pages->setupNew($page);
 
 		if(!$this->isSaveable($page, $reason, '', $options)) {
-			if($language) $user->language = $language;
-			throw new WireException("Can’t save page {$page->id}: {$page->path}: $reason");
+			if($language) $user->setLanguage($language);
+			throw new WireException(rtrim("Can’t save page (id=$page->id): $page->path", ": ") . ": $reason");
 		}
 
 		if($page->hasStatus(Page::statusUnpublished) && $page->template->noUnpublish) {
@@ -476,7 +476,7 @@ class PagesEditor extends Wire {
 		if($options['adjustName']) $this->pages->names()->checkNameConflicts($page);
 		if(!$this->savePageQuery($page, $options)) return false;
 		$result = $this->savePageFinish($page, $isNew, $options);
-		if($language) $user->language = $language; // restore language
+		if($language) $user->setLanguage($language); // restore language
 		
 		return $result;
 	}
