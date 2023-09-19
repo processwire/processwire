@@ -626,15 +626,24 @@ class PagesParents extends Wire {
 		foreach($ids as $id) {
 			foreach($newParentIds as $parentId) {
 				if($id === $parentId) continue;
-				$inserts["$id,$parentId"] = array('pages_id' => $id, 'parents_id' => (int) $parentId);
+				$inserts[] = "$id,$parentId";
+			}
+		}
+		
+		// redundancy to capture specific missing parent situations
+		foreach($newParent->parents() as $parent) {
+			if($parent->id < 2) continue;
+			$inserts[] = "$newParent->id,$parent->id";
+			if($parent->parent_id > 1) {
+				$grandParent = $parent->parent();
+				$inserts[] = "$parent->id,$grandParent->id";
 			}
 		}
 
-		if($numChildren) {
-			// if page has children also add it to the inserts list
-			$inserts["$page->id,$newParent->id"] = array('pages_id' => $page->id, 'parents_id' => $newParent->id);
-		}
+		// if page has children also add it to the inserts list
+		if($numChildren) $inserts[] = "$page->id,$newParent->id";
 
+		// delete old parent IDs
 		if(count($oldParentIds) && count($ids)) {
 			$idStr = implode(',', $ids);
 			$oldParentIds = $this->wire()->sanitizer->intArray($oldParentIds);
@@ -649,8 +658,9 @@ class PagesParents extends Wire {
 		$query = $database->prepare($sql);
 		
 		foreach($inserts as $insert) {
-			$query->bindValue(':pages_id', $insert['pages_id'], \PDO::PARAM_INT);
-			$query->bindValue(':parents_id', $insert['parents_id'], \PDO::PARAM_INT); 
+			list($id, $parentId) = explode(',', $insert, 2);
+			$query->bindValue(':pages_id', $id, \PDO::PARAM_INT);
+			$query->bindValue(':parents_id', $parentId, \PDO::PARAM_INT); 
 			try {
 				if($query->execute()) $numRows++;
 			} catch(\Exception $e) {
