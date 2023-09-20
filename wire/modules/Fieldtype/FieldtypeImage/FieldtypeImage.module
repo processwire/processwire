@@ -160,26 +160,25 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 	
 		/** @var Pageimage $pagefile */
 		$pagefile = parent::wakeupFile($page, $field, $pagefiles, $a); 
+		$info = false;
 		
 		if(!empty($a['width'])) {
 			// dimension info already present in DB: populate to Pageimage object
-			/*
-			if($a['width'] < 0) $a['width'] = abs($a['width']) . '%';
-			if($a['height'] < 0) $a['height'] = abs($a['height']) . '%';
-			$pagefile->setImageInfo(array('width' => $a['width'], 'height' => $a['height']));
-			*/
+			$info = array('width' => (int) $a['width'], 'height' => (int) $a['height']);
 		} else if(self::autoUpdateOnWakeup && (((int) $field->get('fileSchema')) & self::fileSchemaDimensions) && $pagefile->width()) {
 			// dimension info not yet in DB: detect and populate in DB
 			list($width, $height, $ratio) = array($pagefile->width(), $pagefile->height(), $pagefile->ratio);
 			if(strpos($width, '%')) $width = (-1 * (int) rtrim($width, '%'));
 			if(strpos($height, '%')) $height = (-1 * (int) rtrim($height, '%'));
-			$this->saveFileCols($page, $field, $pagefile, array(
-				'width' => $width,
-				'height' => $height,
-				'ratio' => $ratio,
-			));
+			$info = array('width' => $width, 'height' => $height, 'ratio' => $ratio);
+			$this->saveFileCols($page, $field, $pagefile, $info);
 		}
 		
+		if($info) {
+			unset($info['ratio']); // ratio not stored in runtime image info
+			$pagefile->setImageInfo($info);
+		}
+
 		return $pagefile;
 	}
 
@@ -337,4 +336,3 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 
 
 }
-
