@@ -942,6 +942,23 @@ $focusPointCircleSize: 40px;
 	white-space: nowrap;
 }
 
+.InputfieldImageList {
+	// for .svg images
+	.gridImage__overflow.landscape {
+		img { height: 100%; }
+	}
+	.gridImage__overflow.portrait {
+		img { width: 100%; }
+	}
+}
+
+.InputfieldImageList[data-ragged="1"] {
+	// for .svg images
+	.gridImage__overflow.portrait {
+		img { width: auto; height: 100%; }
+	}
+}
+
 /* todo: 3.0.190 improves touch support but needs further testing
 .gridImage__edit { display:block !important; }
 .gridImage__edit span { display:none; }

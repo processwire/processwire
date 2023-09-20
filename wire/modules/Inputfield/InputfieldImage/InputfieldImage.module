@@ -59,7 +59,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		return array(
 			'title' => __('Images', __FILE__), // Module Title
 			'summary' => __('One or more image uploads (sortable)', __FILE__), // Module Summary
-			'version' => 126,
+			'version' => 127,
 			'permanent' => true,
 		);
 	}
@@ -658,9 +658,13 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		foreach($pagefile->extras() as $name => $extra) {
 			if($extra->exists()) $fileStats .= " &bull; $extra->filesizeStr $name ($extra->savingsPct)";
 		}
-		
+
+		$class = 'gridImage__overflow';
+		if($pagefile->ext() === 'svg') {
+			$class .= ' ' . ($pagefile->ratio < 1 ? 'portrait' : 'landscape');
+		}
 		$out = $this->getTooltip($pagefile) . "
-			<div class='gridImage__overflow'>
+			<div class='$class'>
 				$thumb[markup]
 			</div>
 		";
