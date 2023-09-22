@@ -399,7 +399,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$this->inspectionResult = $inspectionResult;
 
 		// filling all options with global custom values from config.php
-		$options = array_merge($this->wire('config')->imageSizerOptions, $options);
+		$options = array_merge($this->wire()->config->imageSizerOptions, $options);
 		$this->setOptions($options);
 		$this->loadImageInfo($filename, false);
 	}
@@ -521,7 +521,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		if(is_callable("$className::getModuleInfo")) {
 			$moduleInfo = $className::getModuleInfo();
 		} else {
-			$moduleInfo = $this->wire('modules')->getModuleInfoVerbose($className);
+			$moduleInfo = $this->wire()->modules->getModuleInfoVerbose($className);
 		}
 
 		if(!is_array($moduleInfo)) $moduleInfo = array();
@@ -635,7 +635,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 */
 	public function writeBackIPTC($filename, $includeCustomTags = false) {
-		if($this->wire('config')->debug) {
+		if($this->wire()->config->debug) {
 			// add a timestamp and the name of the image sizer engine to the IPTC tag number 217
 			$entry = $this->className() . '-' . date('Ymd:His');
 			if(!$this->iptcRaw) $this->iptcRaw = array();
@@ -648,9 +648,10 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$dest = preg_replace('/\.' . $extension . '$/', '_tmp.' . $extension, $filename);
 		if(strlen($content) == @file_put_contents($dest, $content, \LOCK_EX)) {
 			// on success we replace the file
-			$this->wire('files')->unlink($filename);
-			$this->wire('files')->rename($dest, $filename);
-			$this->wire('files')->chmod($filename);
+			$files = $this->wire()->files;
+			$files->unlink($filename);
+			$files->rename($dest, $filename);
+			$files->chmod($filename);
 			return true;
 		} else {
 			// it was created a temp diskfile but not with all data in it
@@ -1460,7 +1461,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	/**
 	 * Return the image type constant
 	 *
-	 * @return string
+	 * @return string|null
 	 *
 	 */
 	public function getImageType() {
@@ -1730,15 +1731,17 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			$this->finalWidth, $this->finalHeight)) {
 			return false; // fallback or failed
 		}
+		
+		$files = $this->wire()->files;
 
 		if($this->webpOnly) {
-			$this->wire('files')->unlink($this->tmpFile);
+			$files->unlink($this->tmpFile);
 		} else {
 			// all went well, copy back the temp file,
 			if(!@copy($this->tmpFile, $this->filename)) return false; // fallback or failed 
-			$this->wire('files')->chmod($this->filename);
+			$files->chmod($this->filename);
 			// remove the temp file
-			$this->wire('files')->unlink($this->tmpFile);
+			$files->unlink($this->tmpFile);
 			// post processing: IPTC, setModified and reload ImageInfo
 			$this->writeBackIPTC($this->filename, false);
 		}
@@ -1758,6 +1761,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 */
 	public function rotate($degrees, $dstFilename = '') {
 
+		$files = $this->wire()->files;
 		$degrees = (int) $degrees;
 		$srcFilename = $this->filename;
 		
@@ -1767,7 +1771,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		if($degrees < -360) $degrees = $degrees - 360;
 
 		if($degrees == 0 || $degrees == 360 || $degrees == -360) {
-			if($dstFilename != $this->filename) wireCopy($this->filename, $dstFilename);
+			if($dstFilename != $this->filename) $files->copy($this->filename, $dstFilename);
 			return true;
 		}
 
@@ -1787,13 +1791,13 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		if($result) {
 			// success
 			if($tmpFilename != $dstFilename) {
-				if(is_file($dstFilename)) $this->wire('files')->unlink($dstFilename);
-				$this->wire('files')->rename($tmpFilename, $dstFilename);
+				if(is_file($dstFilename)) $files->unlink($dstFilename);
+				$files->rename($tmpFilename, $dstFilename);
 			}
-			$this->wire('files')->chmod($dstFilename);
+			$files->chmod($dstFilename);
 		} else {
 			// fail
-			if(is_file($tmpFilename)) $this->wire('files')->unlink($tmpFilename);	
+			if(is_file($tmpFilename)) $files->unlink($tmpFilename);	
 		}
 		
 		return $result;
@@ -2076,7 +2080,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
 		
-		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f = $inputfields->InputfieldInteger;
 		$f->attr('name', 'enginePriority');
 		$f->label = $this->_('Engine priority');
 		$f->description = $this->_('This determines what order this engine is tried in relation to other ImageSizerEngine modules.');
@@ -2086,7 +2090,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$f->icon = 'sort-numeric-asc';
 		$inputfields->add($f);
 		
-		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f = $inputfields->InputfieldRadios;
 		$f->attr('name', 'sharpening'); 
 		$f->label = $this->_('Sharpening');
 		$f->addOption('none', $this->_('None'));
@@ -2098,7 +2102,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$f->icon = 'image';
 		$inputfields->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f = $inputfields->InputfieldInteger;
 		$f->attr('name', 'quality');
 		$f->label = $this->_('Quality');
 		$f->description = $this->_('Default quality setting from 1 to 100 where 1 is lowest quality, and 100 is highest.');

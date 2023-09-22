@@ -38,7 +38,7 @@
  * Typically a Pagefiles object will be associated with a specific field attached to a Page. 
  * There may be multiple instances of Pagefiles attached to a given Page (depending on what fields are in it's fieldgroup).
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -304,13 +304,13 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	/**
 	 * Get for direct access to properties
 	 * 
-	 * @param int|string $property
+	 * @param int|string $name
 	 * @return bool|mixed|Page|Wire|WireData
 	 * 
 	 */
-	public function __get($property) {
-		if(in_array($property, array('page', 'field', 'url', 'path'))) return $this->get($property); 
-		return parent::__get($property); 
+	public function __get($name) {
+		if(in_array($name, array('page', 'field', 'url', 'path'))) return $this->get($name); 
+		return parent::__get($name); 
 	}
 
 	/**
@@ -375,7 +375,9 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 */
 	public function hookPageSave() {
 		
-		if($this->page && $this->field && !$this->page->isChanged($this->field->name)) return $this;
+		if($this->page && $this->field) {
+			if(!$this->page->isChanged($this->field->name)) return $this;
+		}
 		
 		$this->page->filesManager()->uncache();
 		
@@ -780,12 +782,13 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		if(!is_bool($set)) { 
 			// temp status is not being set
 			if(!$isTemp) return false; // if not a temp file, we can exit now
-			if(!$checkDeletable) return $isTemp; // if not checking deletable, we can exit now
+			if(!$checkDeletable) return true; // if not checking deletable, we can exit now
 		}
 
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
+		$session = $this->wire()->session;
+		
 		$now = time();
-		$session = $this->wire('session');
 		$pageID = $this->page ? $this->page->id : 0;
 		$fieldID = $this->field ? $this->field->id : 0;
 		$sessionKey = "tempFiles_{$pageID}_{$fieldID}";
@@ -806,8 +809,11 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 				unset($tempFiles[$pagefile->basename]); 	
 				// remove file from session - note that this means a 'deletable' check can only be used once, for newly uploaded files
 				// as it is assumed you will be removing the file as a result of this method call
-				if(count($tempFiles)) $session->set($this, $sessionKey, $tempFiles); 
-					else $session->remove($this, $sessionKey); 
+				if(count($tempFiles)) {
+					$session->set($this, $sessionKey, $tempFiles);
+				} else {
+					$session->remove($this, $sessionKey);
+				}
 			}
 		}
 
@@ -867,7 +873,11 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		}
 		if(count($removed) && $this->page && $this->field) {
 			$this->page->save($this->field->name, array('quiet' => true)); 
-			$this->message("Removed '{$this->field->name}' temp file(s) for page {$this->page->path} - " . implode(', ', $removed), Notice::debug | Notice::log); 
+			$this->message(
+				"Removed '{$this->field->name}' temp file(s) for page {$this->page->path} - " . 
+				implode(', ', $removed), 
+				Notice::debug | Notice::log
+			); 
 		}
 		return count($removed); 
 	}

@@ -377,7 +377,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 		}
 
 		// write to file(s)
-		if(file_exists($dstFilename)) $this->wire('files')->unlink($dstFilename);
+		if(file_exists($dstFilename)) $this->wire()->files->unlink($dstFilename);
 		
 		$result = null; // null=not yet known
 		
@@ -457,7 +457,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 		if(!function_exists('imagewebp')) return false;
 		$path_parts = pathinfo($filename);
 		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
-		if(file_exists($webpFilename)) $this->wire('files')->unlink($webpFilename);
+		if(file_exists($webpFilename)) $this->wire()->files->unlink($webpFilename);
 		return imagewebp($im, $webpFilename, $quality);
 	}
 	

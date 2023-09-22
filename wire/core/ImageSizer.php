@@ -95,6 +95,7 @@ class ImageSizer extends Wire {
 	 *
 	 */
 	public function __construct($filename = '', $options = array()) {
+		parent::__construct();
 		if(!empty($options)) $this->setOptions($options); 
 		if(!empty($filename)) $this->setFilename($filename);
 	}
@@ -114,7 +115,7 @@ class ImageSizer extends Wire {
 		
 		self::$knownEngines = array();
 		
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
 		$engines = $modules->findByPrefix('ImageSizerEngine');
 		$numEngines = count($engines);
 		
@@ -228,7 +229,6 @@ class ImageSizer extends Wire {
 			$e = $this->getEngine($engineName);
 			if(!$e) continue;
 			
-			/** @var ImageSizerEngine $e */
 			$e->prepare($filename, $options, $inspectionResult);	
 			$supported = $e->supported();
 			
@@ -430,7 +430,7 @@ class ImageSizer extends Wire {
 				$engineClass = __NAMESPACE__ . "\\$engineName";
 				$engine = $this->wire(new $engineClass());
 			} else {
-				$engine = $this->wire('modules')->get($engineName);
+				$engine = $this->wire()->modules->get($engineName);
 			}
 			return $engine;
 		}
@@ -452,7 +452,7 @@ class ImageSizer extends Wire {
 		return $this->engine;
 	}
 	
-	public function __get($key) { return $this->getEngine()->__get($key); }
+	public function __get($name) { return $this->getEngine()->__get($name); }
 
 	/**
 	 * ImageInformation from Image Inspector in short form or full RawInfoData
@@ -607,7 +607,7 @@ class ImageSizer extends Wire {
 		$count = 0;
 		while(!feof($fh) && $count < 2) {
 			$chunk = fread($fh, 1024 * 100); //read 100kb at a time
-			$count += preg_match_all('#\x00\x21\xF9\x04.{4}\x00[\x2C\x21]#s', $chunk, $matches);
+			$count += preg_match_all('#\x00\x21\xF9\x04.{4}\x00[\x2C\x21]#s', $chunk);
 		}
 		fclose($fh);
 		return $count > 1;
@@ -618,7 +618,7 @@ class ImageSizer extends Wire {
 	 *
 	 * @param mixed $image Pageimage or filename
 	 *
-	 * @return mixed|null|bool
+	 * @return null|bool
 	 *
 	 */
 	static public function imageResetIPTC($image) {

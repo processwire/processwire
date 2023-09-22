@@ -213,8 +213,7 @@ class WireShutdown extends Wire {
 	 * 
 	 */
 	protected function getWireInput() {
-		/** @var WireInput $input */
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
 		if($input) return $input;
 		$input = $this->wire(new WireInput());
 		return $input;
@@ -228,8 +227,7 @@ class WireShutdown extends Wire {
 	 */
 	protected function getCurrentUrl() {
 		
-		/** @var Page|null $page */
-		$page = $this->wire('page');
+		$page = $this->wire()->page;
 		$input = $this->getWireInput();
 		$http = isset($_SERVER['HTTP_HOST']) || isset($_SERVER['REQUEST_URI']); 
 		
@@ -552,9 +550,12 @@ class WireShutdown extends Wire {
 		if($useHTML && $config->ajax) $useHTML = false;
 
 		// include IP address is user name if configured to do so
-		if($config->logIP && $this->wire('session')) {
-			$ip = $this->wire('session')->getIP();
-			if(strlen($ip)) $name = "$name ($ip)";
+		if($config->logIP) { 
+			$session = $this->wire()->session;
+			if($session) {
+				$ip = $session->getIP();
+				if(strlen($ip)) $name = "$name ($ip)";
+			}
 		}
 
 		// save to errors.txt log file
@@ -781,7 +782,7 @@ class WireShutdown extends Wire {
 	public function shutdownExternal() {
 		if(error_get_last()) return;
 		/** @var ProcessPageView $process */
-		$process = $this->wire('process');
+		$process = $this->wire()->process;
 		if($process == 'ProcessPageView') $process->finished();
 	}
 }

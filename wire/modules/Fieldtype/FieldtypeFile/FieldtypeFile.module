@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property array $allowFieldtypes Allowed Fieldtype types for custom fields
@@ -407,7 +407,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$isChanged = $pagefile->isChanged();
 		
 		if($isNew) {
-			$pagefile->createdUser = $this->wire('user');
+			$pagefile->createdUser = $this->wire()->user;
 			if(!$pagefile->isTemp()) $pagefile->created = time();
 		}
 		
@@ -415,7 +415,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			$changes = array_flip($pagefile->getChanges());
 			unset($changes['hash'], $changes['sort'], $changes['modified'], $changes['modified_users_id']); 
 			if($isNew || count($changes)) {
-				$pagefile->modifiedUser = $this->wire('user');
+				$pagefile->modifiedUser = $this->wire()->user;
 				if(!$pagefile->isTemp()) $pagefile->modified = time();
 			}
 		}
@@ -893,7 +893,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				} else if(ctype_digit("$value")) {
 					$value = (int) $value;
 				} else {
-					$value = $this->wire('users')->get('name=' . $this->wire('sanitizer')->pageName($value))->id;
+					$value = $this->wire()->users->get('name=' . $this->wire()->sanitizer->pageName($value))->id;
 					if(!$value) {
 						$operator = '=';
 						$value = -1;
@@ -959,8 +959,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	protected function getMatchQuerySubfield($query, &$subfield, &$operator, &$value) {
 		
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		$selector = $query->selector;
 		$property = '';
 
@@ -970,7 +969,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			while(count($parts) > 2) $property = array_pop($parts);
 		}
 
-		$field = $this->wire('fields')->get($subfield);
+		$field = $this->wire()->fields->get($subfield);
 		$fileField = $query->field;
 		
 		if($fileField && !$fileField->type instanceof FieldtypeFile) $fileField = null;
@@ -986,7 +985,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				throw new PageFinderSyntaxException("Property '$property' not supported in field '" . $selector->field() . "'");
 			} else if(!ctype_digit("$value") && $sanitizer->pagePathName($value) === $value) {
 				// page path to ID
-				$p = $this->wire('pages')->get($value);
+				$p = $this->wire()->pages->get($value);
 				if($p->id && $p->viewable(false)) $value = $p->id;
 			}
 		}
@@ -1055,7 +1054,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	public function getDatabaseSchema(Field $field) {
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$schema = parent::getDatabaseSchema($field);
 		$maxLen = $database->getMaxIndexLength();
 
@@ -1075,7 +1074,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		
 		if($field->id && !$field->prevFieldtype) {
 			if($field->flags & Field::flagFieldgroupContext) {
-				$field = $this->wire('fields')->get($field->name);
+				$field = $this->wire()->fields->get($field->name);
 			}
 			$fileSchema1 = (int) $field->get('fileSchema'); 
 			$fileSchema2 = $this->updateDatabaseSchema($field, $schema, $fileSchema1);
@@ -1102,10 +1101,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	protected function updateDatabaseSchema(Field $field, array &$schema, $fileSchema) {
 
 		$contextField = $field; 
-		if($field->flags & Field::flagFieldgroupContext) $field = $this->wire('fields')->get($field->name);
+		if($field->flags & Field::flagFieldgroupContext) $field = $this->wire()->fields->get($field->name);
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->table);
 
 		$hasFilesize = $fileSchema & self::fileSchemaFilesize;
@@ -1212,8 +1210,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	protected function addColumn(Field $field, $column, array &$schema) {
 		
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		
 		if($database->columnExists($field->table, $column)) return true;
 		
@@ -1499,7 +1496,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	public function saveFile(Page $page, Field $field, Pagefile $pagefile, array $columns = array()) {
 		
 		$item = $this->sleepFile($page, $field, $pagefile);
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$sets = array();
 		$binds = array(':pages_id' => $page->id);

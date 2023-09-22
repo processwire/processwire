@@ -6,7 +6,7 @@
  * A WireData object that maintains its data in a database table rather than just in memory.
  * An example of usage is the `$page->meta()` method.
  * 
- * ProcessWire 3.x, Copyright 2019 
+ * ProcessWire 3.x, Copyright 2023
  * https://processwire.com
  *
  */
@@ -215,7 +215,7 @@ class WireDataDB extends WireData implements \Countable {
 		$sql =
 			"INSERT INTO `$table` (source_id, name, data) VALUES(:source_id, :name, :data) " .
 			"ON DUPLICATE KEY UPDATE source_id=VALUES(source_id), name=VALUES(name), data=VALUES(data)";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		$query->bindValue(':name', $name);
 		$query->bindValue(':data', $data);

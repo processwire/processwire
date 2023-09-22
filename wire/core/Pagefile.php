@@ -12,7 +12,7 @@
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read string $url URL to the file on the server.
@@ -357,7 +357,7 @@ class Pagefile extends WireData implements WireArrayItem {
 		$key = $type === 'created' ? '_createdUser' : '_modifiedUser';
 		if(!$this->$key) {
 			$id = (int) parent::get($type . '_users_id');
-			$this->$key = $id ? $this->wire('users')->get($id) : new NullPage(); 
+			$this->$key = ($id ? $this->wire()->users->get($id) : new NullPage()); 
 		}
 		return $this->$key;
 	}
@@ -577,7 +577,7 @@ class Pagefile extends WireData implements WireArrayItem {
 
 		if(is_null($language)) {	
 			// return description for current user language, or inherit from default if not available
-			$user = $this->wire('user'); 
+			$user = $this->wire()->user; 
 			$value = null;
 			if($user->language && $user->language->id) {
 				$value = parent::get("description{$user->language}");
