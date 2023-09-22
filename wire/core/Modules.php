@@ -1233,12 +1233,14 @@ class Modules extends WireArray {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param string|int|Module $name
+	 * @param string|Module $name
 	 * @param int|null|false $setID Optionally set module ID or false to unset
 	 * @return int
 	 *
 	 */
 	public function moduleID($name, $setID = null) {
+		if($name instanceof Module) $name = $name->className();
+		if(strpos("$name", '\\') !== false) $name = wireClassName($name, false);
 		if($setID !== null) {
 			if($setID === false) {
 				unset($this->moduleIDs[$name]);
@@ -1269,7 +1271,8 @@ class Modules extends WireArray {
 			if($setName === null) return $name;
 			$id = $this->getModuleID($name);
 		} else if(!ctype_digit("$id")) {
-			if(is_string($id)) return $id;
+			if(strpos("$id", '\\') !== false) $id = wireClassName($id, false);
+			if($setName === null && is_string($id)) return $id;
 			$id = $this->getModuleID($id);
 		}
 		$id = (int) $id;
@@ -1291,23 +1294,17 @@ class Modules extends WireArray {
 		
 		$id = 0;
 		
-		if(ctype_digit("$class")) {
-			return (int) $class;
-		} else if(isset($this->moduleIDs["$class"])) {
-			return (int) $this->moduleIDs["$class"];
-		}
-
+		if(ctype_digit("$class")) return (int) $class;
+		if(isset($this->moduleIDs["$class"])) return (int) $this->moduleIDs["$class"];
+		
 		if(is_object($class)) {
-			if($class instanceof Module) {
-				$class = $this->getModuleClass($class);
-				if(isset($this->moduleIDs[$class])) {
-					return (int) $this->moduleIDs[$class];
-				}
-			} else {
-				// Class is not a module
-				return $id; 
-			}
+			if(!$class instanceof Module) return 0; // class is not a  module
+			$class = $this->getModuleClass($class);
+		} else if(strpos("$class", '\\') !== false) {
+			$class = wireClassName($class, false);
 		}
+		
+		if(isset($this->moduleIDs["$class"])) return (int) $this->moduleIDs["$class"];
 
 		foreach($this->info->moduleInfoCache as $key => $info) {	
 			if(is_string($info)) {
