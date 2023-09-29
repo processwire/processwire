@@ -610,7 +610,7 @@ var InputfieldSelector = {
 					si.checkbox.hide();
 				}
 			}
-			if(s.field.indexOf('.') != s.field.lastIndexOf('.')) {
+			if(s.field.indexOf('.') != s.field.lastIndexOf('.') && s.field.indexOf('|') < 0) {
 				// convert field.subfield.id to just field.subfield
 				s.field = s.field.substring(0, s.field.lastIndexOf('.')); 
 			}
