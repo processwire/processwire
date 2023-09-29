@@ -33,7 +33,7 @@
  * @property-read array $arrayValue
  * @property string|null $pageSelector
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -45,7 +45,7 @@ class InputfieldTextTags extends Inputfield implements
 		return array(
 			'title' => __('Text Tags', __FILE__), // Module Title
 			'summary' => __('Enables input of user entered tags or selection of predefined tags.', __FILE__), // Module Summary
-			'version' => 5,
+			'version' => 6,
 			'icon' => 'tags',
 		);
 	}
@@ -563,6 +563,7 @@ class InputfieldTextTags extends Inputfield implements
 			'delimiter' => $this->delimiter(),
 			'maxItems' => $this->maxItems,
 			'tagsUrl' => $tagsUrl,
+			'addLabel' => $this->_('RyAdd'), // Label that appears when adding new tag (the "Add" in "Add [tag] …")
 		);
 
 		if($this->hasField) {

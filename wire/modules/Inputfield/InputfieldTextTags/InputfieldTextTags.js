@@ -23,6 +23,23 @@ function InputfieldTextTags($parent) {
 		}
 	};
 
+	// get the 'render' options for selectize
+	function getRenderOptions(addLabel) {
+		return {
+			item: function(item, escape) {
+				if(typeof item.label === "undefined" || !item.label.length) item.label = item.value;
+				return '<div>' + escape(item.label) + '</div>';
+			},
+			option: function(item, escape) {
+				if(typeof item.label === "undefined" || !item.label.length) item.label = item.value;
+				return '<div>' + escape(item.label) + '</div>';
+			},
+			option_create: function(data, escape) {
+				return '<div class="create">' + addLabel + ' <strong>' + escape(data.input) + '</strong>&hellip;</div>';
+			}
+		}
+	}
+	
 	// initialize input where all tags are input by the user, there are no predefined selectable tags
 	function initInput($input) {
 		var o = JSON.parse($input.attr('data-opts'));
@@ -33,6 +50,7 @@ function InputfieldTextTags($parent) {
 		options.persist = false;
 		options.maxItems = (o.maxItems > 0 ? o.maxItems : null);
 		options.plugins = (o.maxItems === 1 ? pluginsSingle : pluginsMulti);
+		options.render = getRenderOptions(o.addLabel);
 		$input.selectize(options);
 	}
 
@@ -61,7 +79,7 @@ function InputfieldTextTags($parent) {
 			valueField: 'value',
 			labelField: 'label',
 			searchField: [ 'value', 'label' ],
-			options: tagsList,
+			'options': tagsList,
 			createFilter: function(input) {
 				if(o.allowUserTags) return true;
 				var allow = false;
@@ -73,16 +91,7 @@ function InputfieldTextTags($parent) {
 				}
 				return allow;
 			},
-			render: {
-				item: function(item, escape) {
-					if(typeof item.label === "undefined" || !item.label.length) item.label = item.value;
-					return '<div>' + escape(item.label) + '</div>';
-				},
-				option: function(item, escape) {
-					if(typeof item.label === "undefined" || !item.label.length) item.label = item.value;
-					return '<div>' + escape(item.label) + '</div>';
-				}
-			}
+			render: getRenderOptions(o.addLabel)
 			/*
 			onDropdownOpen: function($dropdown) {
 				$dropdown.closest('li, .InputfieldImageEdit').css('z-index', 100);
