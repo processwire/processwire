@@ -70,7 +70,7 @@ class InputfieldInteger extends Inputfield {
 		} else {
 			// input[type=number] unset any that aren't applicable
 			foreach(array('min', 'max', 'step') as $name) {
-				if(!strlen((string) $attrs[$name])) unset($attrs[$name]);
+				if(isset($attrs[$name]) && !strlen((string) $attrs[$name])) unset($attrs[$name]);
 			}
 		}
 
