@@ -7,7 +7,7 @@
  * #pw-body For full details on all methods available in a Fieldgroup, be sure to also see the `WireArray` class.
  * #pw-var $fieldgroups
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @method Fieldgroup clone(Saveable $item, $name = '')
@@ -349,19 +349,46 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 *
 	 * @param Saveable $item Item to clone
 	 * @param string $name
-	 * @return bool|Saveable $item Returns the new clone on success, or false on failure
-	 * @return Saveable|Fieldgroup
+	 * @return Fieldgroup|false $item Returns the new clone on success, or false on failure
 	 *
 	 */
 	public function ___clone(Saveable $item, $name = '') {
-		return parent::___clone($item, $name);
-		// @TODO clone the field context data
-		/*
-		$id = $item->id; 
-		$item = parent::___clone($item);
-		if(!$item) return false;
-		return $item; 	
-		*/
+		if(!$item instanceof Fieldgroup) return false;
+		
+		$database = $this->wire()->database;
+		
+		/** @var Fieldgroup|false $fieldgroup */
+		$fieldgroup = parent::___clone($item, $name);
+		if(!$fieldgroup) return false;
+		
+		$sql = 
+			'SELECT fields_id, sort, data FROM fieldgroups_fields ' . 
+			'WHERE fieldgroups_id=:fieldgroups_id ' . 
+			'AND data IS NOT NULL';
+		
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':fieldgroups_id', $item->id, \PDO::PARAM_INT);
+		$query->execute();
+		
+		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+		$query->closeCursor();
+		
+		$sql = 
+			'UPDATE fieldgroups_fields SET data=:data ' . 
+			'WHERE fieldgroups_id=:fieldgroups_id ' . 
+			'AND fields_id=:fields_id AND sort=:sort';
+		
+		$query = $database->prepare($sql);
+		
+		foreach($rows as $row) {
+			$query->bindValue(':data', $row['data']); 
+			$query->bindValue(':fieldgroups_id', (int) $fieldgroup->id, \PDO::PARAM_INT);
+			$query->bindValue(':fields_id', (int) $row['fields_id'], \PDO::PARAM_INT);
+			$query->bindValue(':sort', (int) $row['sort'], \PDO::PARAM_INT);
+			$query->execute();
+		}
+		
+		return $fieldgroup;
 	}
 
 	/**
@@ -619,4 +646,3 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 */
 	public function ___fieldRemoved(Fieldgroup $fieldgroup, Field $field) { }
 }
-
