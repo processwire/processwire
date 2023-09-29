@@ -1337,11 +1337,15 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public function isEmptyValue(Field $field, $value) {
 		if($value instanceof Selector && $value->field === $field->name) {
 			// PageFinder is asking if we want to handle this field/value match internally
-			if($value->operator === '!=' && !empty("$value->value") && !ctype_digit("$value->value")) {
-				// if a page name (rather than id) is specified with a `!=` operator
-				// then tell PageFinder that we handle this unique match condition internally
-				// since the page name has to be converted to page ID by getMatchQuery()
-				return true;
+			if($value->operator === '!=') {
+				$v = $value->value;
+				if(is_array($v)) $v = implode('', $v);
+				if(!empty("$v") && !ctype_digit("$v")) {
+					// if a page name (rather than id) is specified with a `!=` operator
+					// then tell PageFinder that we handle this unique match condition internally
+					// since the page name has to be converted to page ID by getMatchQuery()
+					return true;
+				}
 			}
 		}
 		return parent::isEmptyValue($field, $value);
