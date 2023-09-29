@@ -290,7 +290,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		if($this->parent_id) {
 			if($selectorLength) {
 				// if a selector was specified, AND a parent, then we'll use the parent as a root
-				$selector .= 'has_parent=' . (int) $this->parent_id;
+				$selector .= ',has_parent=' . (int) $this->parent_id;
 			} else {
 				// otherwise matches must be direct children of the parent
 				$selector = 'parent_id=' . (int) $this->parent_id; 
