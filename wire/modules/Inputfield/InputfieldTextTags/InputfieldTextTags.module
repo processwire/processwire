@@ -563,7 +563,7 @@ class InputfieldTextTags extends Inputfield implements
 			'delimiter' => $this->delimiter(),
 			'maxItems' => $this->maxItems,
 			'tagsUrl' => $tagsUrl,
-			'addLabel' => $this->_('RyAdd'), // Label that appears when adding new tag (the "Add" in "Add [tag] …")
+			'addLabel' => $this->_('Add'), // Label that appears when adding new tag (the "Add" in "Add [tag] …")
 		);
 
 		if($this->hasField) {
