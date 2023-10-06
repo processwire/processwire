@@ -1224,6 +1224,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					$pagefile = $this->processInputAddFile($filename); 
 					if($pagefile && isset($originalFilenames[$filename]) && $originalFilenames[$filename] != $filename) {
 						$pagefile->filedata('uploadName', $originalFilenames[$filename]);
+					} else if($pagefile->filedata('uploadName')) {
+						$pagefile->filedata('uploadName', ''); // clear out previous
 					}
 					$changed = true; 
 				}
