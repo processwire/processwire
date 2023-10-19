@@ -3,10 +3,10 @@
 /**
  * Inputfield for floating point numbers
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
- * @property int $precision Decimals precision (or -1 to disable rounding in 3.0.193+)
+ * @property int|null|string $precision Decimals precision (or -1 to disable rounding in 3.0.193+)
  * @property int $digits Total digits, for when used in decimal mode (default=0)
  * @property string $inputType Input type to use, one of "text" or "number"
  * @property int|float $min
@@ -98,7 +98,7 @@ class InputfieldFloat extends InputfieldInteger {
 	 * Typecast value to float, override from InputfieldInteger
 	 *
 	 * @param string|int|float $value
-	 * @return int
+	 * @return float
 	 *
 	 */
 	protected function typeValue($value) {
@@ -140,7 +140,9 @@ class InputfieldFloat extends InputfieldInteger {
 			}
 			if(empty($attributes['step']) || $attributes['step'] === 'any') {
 				$precision = (int) $this->precision;
-				if($precision < 1 && $value !== null) $precision = $this->getPrecision($value);
+				if($precision === 0 && $value !== null) {
+					$precision = $this->getPrecision($value);
+				}
 				if($precision > 0) {
 					$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
 				}
@@ -188,8 +190,7 @@ class InputfieldFloat extends InputfieldInteger {
 		$inputfields = parent::getConfigInputfields();
 		if($this->hasFieldtype === false) {
 			// when used without FieldtypeFloat
-			/** @var InputfieldInteger $f */
-			$f = $this->wire()->modules->get('InputfieldInteger');
+			$f = $inputfields->InputfieldInteger;
 			$f->attr('name', 'precision');
 			$f->label = $this->_('Number of decimal digits to round to');
 			$f->description = $this->_('Or use a negative number like `-1` to disable rounding.');

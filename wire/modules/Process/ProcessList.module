@@ -66,8 +66,7 @@ class ProcessList extends Process {
 					$icon = $child->get('page_icon');
 					if(!$icon) $icon = $info['icon'];
 					if($icon) {
-						if(strpos($icon, 'fa-') === 0) list(,$icon) = explode('-', 2);
-						$icon = "<i style='float: right;' class='fa fa-3x fa-fw fa-$icon ui-priority-secondary'></i> ";
+						$icon = wireIconMarkup("$icon 3x fw ui-priority-secondary style='float:right'"); 
 					}
 				}
 				
@@ -113,4 +112,3 @@ class ProcessList extends Process {
 		return $out; 
 	}
 }
-

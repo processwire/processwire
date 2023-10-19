@@ -90,7 +90,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @link https://processwire.com/api/variables/sanitizer/ Offical $sanitizer API variable Documentation
@@ -1082,7 +1082,17 @@ class Sanitizer extends Wire {
 	 * Name filter for ProcessWire filenames (basenames only, not paths)
 	 * 
 	 * This sanitizes a filename to be consistent with the name format in ProcessWire, 
-	 * ASCII-alphanumeric, hyphens, underscores and periods.
+	 * ASCII-alphanumeric (a-z A-Z 0-9), hyphens, underscores and periods. Note that 
+	 * filenames may contain mixed case (a-z A-Z) so if you require lowercase then
+	 * run the return value through a `strtolower()` function. 
+	 * 
+	 * ~~~~~
+	 * // outputs: FileName.jpg
+	 * echo $sanitizer->filename('©®™FileName.jpg');
+	 * 
+	 * // outputs: c_r_tmfilename.jpg
+	 * echo strtolower($sanitizer->filename('©®™filename.jpg', Sanitizer::translate));
+	 * ~~~~~
 	 * 
 	 * #pw-group-strings
 	 * #pw-group-files
@@ -1102,9 +1112,10 @@ class Sanitizer extends Wire {
 		
 		if(strlen($value) > $maxLength) {
 			// truncate, while keeping extension in tact
+			$tt = $this->getTextTools();
 			$pathinfo = pathinfo($value);
-			$extLen = strlen($pathinfo['extension']) + 1; // +1 includes period
-			$basename = substr($pathinfo['filename'], 0, $maxLength - $extLen);
+			$extLen = $tt->strlen($pathinfo['extension']) + 1; // +1 includes period
+			$basename = $tt->substr($pathinfo['filename'], 0, $maxLength - $extLen);
 			$value = "$basename.$pathinfo[extension]";
 		}
 		
