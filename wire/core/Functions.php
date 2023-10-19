@@ -592,39 +592,90 @@ function wireDate($format = '', $ts = null) {
 
 /**
  * Render markup for a system icon
- * 
+ *
  * It is NOT necessary to specify an icon prefix like “fa-” with the icon name.
+ * 
+ * Modifiers recognized in the class attribute:
+ * lg, fw, 2x, 3x, 4x, 5x, spin, spinner, li, border, inverse,
+ * rotate-90, rotate-180, rotate-270, flip-horizontal, flip-vertical,
+ * stack, stack-1x, stack-2x
  * 
  * ~~~~~
  * // Outputs: "<i class='fa fa-home'></i>"
- * echo wireIconMarkup('home'); 
+ * echo wireIconMarkup('home');
+ * 
+ * // Outputs: "<i class='fa fa-home fa-fw fa-lg my-class'></i>"
+ * echo wireIconMarkup('home', 'fw lg my-class');
+ * 
+ * // Outputs "<i class='fa fa-home fa-fw' id='root-icon'></i>" (3.0.229+ only)
+ * echo wireIconMarkup('home', 'fw id=root-icon');
+ * echo wireIconMarkup('home fw id=root-icon'); // same as above
  * ~~~~~
  * 
  * #pw-group-markup
  * 
- * @param string $icon Icon name (currently a font-awesome icon name, but support for more in future)
- * @param string $class Additional attributes for class (example: "fw" for fixed width)
+ * @param string $icon Icon name (currently a font-awesome icon name)
+ * @param string $class Any of the following: 
+ *  - Additional attributes for class (example: "fw" for fixed width)
+ *  - Your own custom class(es) separated by spaces
+ *  - Any additional attributes in format `key="val" key='val' or key=val` string (3.0.229+)
+ *  - An optional trailing space to append an `&nbsp;` to the return icon markup (3.0.229+)
+ *  - Any of the above may also be specified in the $icon argument in 3.0.229+. 
  * @return string
  * 
  */
 function wireIconMarkup($icon, $class = '') {
+	static $modifiers = null;
+	$sanitizer = wire()->sanitizer;
+	$attrs = array();
+	$append = '';
+	if($modifiers === null) $modifiers = array_flip(array(
+		'lg', 'fw', '2x', '3x', '4x', '5x', 
+		'spin', 'spinner', 'li', 'border', 'inverse', 
+		'rotate-90', 'rotate-180', 'rotate-270', 
+		'flip-horizontal', 'flip-vertical', 
+		'stack', 'stack-1x', 'stack-2x', 
+	));
 	if(empty($icon)) return '';
-	if(strpos($icon, 'icon-') === 0) $icon = str_replace('icon-', 'fa-', $icon); 
-	if(strpos($icon, 'fa-') !== 0) $icon = "fa-$icon";
-	if($class) {
-		$modifiers = array(
-			'lg', 'fw', '2x', '3x', '4x', '5x', 'spin', 'spinner', 'li', 'border',
-			'rotate-90', 'rotate-180', 'rotate-270', 'flip-horizontal', 'flip-vertical',
-			'stack', 'stack-1x', 'stack-2x', 'inverse',
-		);
-		$classes = explode(' ', $class); 
-		foreach($classes as $key => $modifier) {
-			if(in_array($modifier, $modifiers)) $classes[$key] = "fa-$modifier";	
+	if(strpos($icon, ' ')) {
+		// class or extras specified in $icon rather than $class
+		list($icon, $extra) = explode(' ', $icon, 2);
+		$class = trim("$class $extra");
+	}
+	if(strpos($icon, 'icon-') === 0) {
+		list(,$icon) = explode('icon-', $icon, 2);
+		$icon = "fa-$icon";
+	} else if(strpos($icon, 'fa-') !== 0) {
+		$icon = "fa-$icon";
+	}
+	if($class !== '') {
+		$classes = array();
+		if(rtrim($class) !== $class) $append = '&nbsp;';
+		if(strpos($class, '=')) {
+			$re = '/\b([-_a-z\d]+)=("[^"]*"|\'[^\']*\'|[-_a-z\d]+)\s*/i';
+			if(preg_match_all($re, $class, $matches)) {
+				foreach($matches[1] as $key => $attrName) {
+					$attrVal = trim($matches[2][$key], "\"'");
+					$attrVal = $sanitizer->entities($attrVal);
+					$attrs[$attrName] = "$attrName='$attrVal'";
+					$class = str_replace($matches[0][$key], ' ', $class);
+				}
+				$class = trim($class);
+			}
+		}
+		if(isset($attrs['class'])) {
+			$class = trim("$class $attrs[class]"); 
+			unset($attrs['class']); 
+		}
+		foreach(explode(' ', $class) as $c) {
+			if(empty($c)) continue;
+			$classes[] = isset($modifiers[$c]) ? "fa-$c" : $c;
 		}
 		$class = implode(' ', $classes);
 	}
-	$class = trim("fa $icon $class"); 
-	return "<i class='$class'></i>";
+	$class = $sanitizer->entities(trim("fa $icon $class"));
+	$attrs['class'] = "class='$class'";
+	return "<i " . implode(' ', $attrs) . "></i>$append";
 }
 
 /**
@@ -1392,5 +1443,3 @@ function PageArray($items = array()) {
 	$pa = PageArray::newInstance($items);
 	return $pa;
 }
-
-
