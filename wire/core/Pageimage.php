@@ -1709,17 +1709,26 @@ class Pageimage extends Pagefile {
 	/**
 	 * Get WebP "extra" version of this Pageimage
 	 *
+	 * @param array $webpOptions Optionally override certain defaults from `$config->webpOptions` (requires 3.0.229+):
+	 *  - `useSrcUrlOnSize` (bool): Fallback to source file URL when webp file is larger than source? (default=true)
+	 *  - `useSrcUrlOnFail` (bool): Fallback to source file URL when webp file fails for some reason? (default=true)
+	 *  - `quality' (int): Quality setting of 1-100 where higher is better but larger in file size (default=90)
+	 *     Note that his quality setting is only used if the .webp file does not already exist. 
 	 * @return PagefileExtra
 	 * @since 3.0.132
 	 *
 	 */
-	public function webp() {
+	public function webp(array $webpOptions = array()) {
 		$webp = $this->extras('webp');
 		if(!$webp) {
 			$webp = new PagefileExtra($this, 'webp');
-			$webp->setArray($this->wire()->config->webpOptions);
+			$webpOptions = array_merge($this->wire()->config->webpOptions, $webpOptions);
+			$webp->setArray($webpOptions);
 			$this->extras('webp', $webp);
 			$webp->addHookAfter('create', $this, 'hookWebpCreate'); 
+		} else if(count($webpOptions)) {
+			/** @var PagefileExtra $webp */
+			$webp->setArray($webpOptions);
 		}
 		return $webp;
 	}
@@ -1754,6 +1763,8 @@ class Pageimage extends Pagefile {
 			$width = $this->width;
 			$height = 0;
 		}
+		$quality = (int) $webp->get('quality');
+		if($quality > 0) $options['webpQuality'] = $quality;
 		$options['webpAdd'] = true;
 		try {
 			$original->size($width, $height, $options);
