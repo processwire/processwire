@@ -69,8 +69,9 @@ class ProcessLogger extends Process {
 	}
 
 	public function ___execute() {
+		$log = $this->wire()->log;
 		/** @var MarkupAdminDataTable $table */
-		$table = $this->wire('modules')->get('MarkupAdminDataTable'); 
+		$table = $this->wire()->modules->get('MarkupAdminDataTable'); 
 		$table->setEncodeEntities(false);
 		$table->headerRow(array(
 			$this->_x('Name', 'th'),
@@ -78,24 +79,25 @@ class ProcessLogger extends Process {
 			$this->_x('Entries', 'th'), 
 			$this->_x('Size', 'th'),
 		));
-		$logs = $this->wire()->log->getLogs();
-		foreach($logs as $log) {
-			$logName = $log['name'];
+		$logInfos = $log->getLogs(true);
+		foreach($logInfos as $logInfo) {
+			$logName = $logInfo['name'];
 			if(ctype_digit($logName)) $logName = " $logName";
 			$table->row(array(
-				$logName => "./view/$log[name]/", 
-				"<span style='font-size: 0;'>$log[modified] </span>" . wireRelativeTimeStr($log['modified']),
-				$this->wire()->log->getTotalEntries($log['name']),
-				"<span style='font-size: 0;'>$log[size] </span>" . wireBytesStr($log['size'])
+				$logName => "./view/$logInfo[name]/", 
+				"<span style='font-size: 0;'>$logInfo[modified] </span>" . wireRelativeTimeStr($logInfo['modified']),
+				$log->getTotalEntries($logInfo['name']),
+				"<span style='font-size: 0;'>$logInfo[size] </span>" . wireBytesStr($logInfo['size'])
 			));
 		}
-		$cnt = count($logs); 
+		$cnt = count($logInfos); 
+		$icon = wireIconMarkup('tree', 'fw lg'); 
 		$out = 
-			"<h2><i class='fa fa-lg fa-fw fa-tree'></i> " . sprintf($this->_n('%d log', '%d logs', $cnt), $cnt) . "</h2>" . 
+			"<h2>" . $icon . sprintf($this->_n('%d log', '%d logs', $cnt), $cnt) . "</h2>" . 
 			$table->render() . 
 			"<p>" . 
 			"<span class='detail'>" . $this->_('Create or add to log file from the API:') . "</span><br />" . 
-			"<code class='notes'>wire('log')->save('name', 'entry text');</code>" . 
+			"<code class='notes'>wire()->log->save('name', 'entry text');</code>" . 
 			"</p>";
 				
 		return $out; 
@@ -382,6 +384,8 @@ class ProcessLogger extends Process {
 		} else {
 			$table->headerRow($headers);
 		}
+		
+		$leafIcon = wireIconMarkup('leaf', 'ProcessLogNew');
 
 		foreach($items as $entry) {
 			
@@ -390,7 +394,7 @@ class ProcessLogger extends Process {
 			
 			if($time && $ts > $time) {
 				// highlight new items
-				$date = "<i class='fa fa-leaf ProcessLogNew'></i> $date";
+				$date = $leafIcon . $date;
 			}
 			
 			if(strpos($entry['text'], '&') !== false) {
@@ -450,14 +454,15 @@ class ProcessLogger extends Process {
 			$pagerOut = '';
 		}
 		
-		$pageNum = $this->wire('input')->pageNum();
+		$pageNum = $this->wire()->input->pageNum();
 		$time = time();
+		$spinner = wireIconMarkup('tree', "fw lf $iconClass id='ProcessLogPage'"); 
 		
 		$out = 
 			"<div id='ProcessLogPage' data-page='$pageNum' data-time='$time'>" .
 			$pagerOut .
 			"<h2 id='ProcessLogHeadline'>" . 
-			"<i id='ProcessLogSpinner' class='fa fa-fw fa-lg fa-tree $iconClass'></i> $pagerHeadline " . 
+			"$spinner $pagerHeadline " . 
 			"<small class='notes'></small></h2>" .
 			$table->render() .
 			"<div class='ui-helper-clearfix'>$pagerOut</div>" . 
