@@ -229,7 +229,7 @@ var Inputfields = {
 			$toggleIcon.toggleClass($toggleIcon.attr('data-to')); // data-to=classes to toggle
 			$inputfield.removeClass('InputfieldStateToggling');
 			Inputfields.redraw($inputfield, 500); 
-			// setTimeout('InputfieldColumnWidths()', 500);
+			// setTimeout(InputfieldColumnWidths, 500);
 			completed();
 		}
 
@@ -2408,8 +2408,8 @@ jQuery(document).ready(function($) {
 	var windowResized = function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
-		setTimeout('InputfieldWindowResizeActions1()', 1000);
-		setTimeout('InputfieldWindowResizeActions2()', 2000); 	
+		setTimeout(InputfieldWindowResizeActions1, 1000);
+		setTimeout(InputfieldWindowResizeActions2, 2000); 	
 	};
 
 	$(window).on('resize', windowResized);
@@ -2417,8 +2417,8 @@ jQuery(document).ready(function($) {
 	$("ul.WireTabs > li > a").on('click', function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
-		setTimeout('InputfieldWindowResizeActions1()', 250);
-		setTimeout('InputfieldWindowResizeActions2()', 500);
+		setTimeout(InputfieldWindowResizeActions1, 250);
+		setTimeout(InputfieldWindowResizeActions2, 500);
 		return true;
 	}); 
 	
