@@ -597,6 +597,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			}
 		}
 		
+		$basename = strtolower($basename);
 		if(!ctype_alnum(ltrim($ext, '.'))) $ext = preg_replace('/[^a-z0-9.]/', '_', $ext); 
 		if(!$allowDots && strpos($basename, '.') !== false) $basename = str_replace('.', '_', $basename); 
 		$basename .= $ext;
