@@ -176,7 +176,15 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 		
 		if($info) {
 			unset($info['ratio']); // ratio not stored in runtime image info
-			$pagefile->setImageInfo($info);
+			$w = isset($info['width']) ? (int) $info['width'] : 0;
+			$h = isset($info['height']) ? (int) $info['height'] : 0;
+			if($w === -100 && $h === -100) {
+				// we were previously unable to determine width and height
+				// so do not populate the cached values, forcing it to re-check
+				// this only occurs on SVG files
+			} else {
+				$pagefile->setImageInfo($info);
+			}
 		}
 
 		return $pagefile;
