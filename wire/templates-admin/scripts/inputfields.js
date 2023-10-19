@@ -2408,8 +2408,8 @@ jQuery(document).ready(function($) {
 	var windowResized = function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
-		setTimeout('InputfieldWindowResizeActions1()', 1000);
-		setTimeout('InputfieldWindowResizeActions2()', 2000); 	
+		setTimeout(InputfieldWindowResizeActions1, 1000);
+		setTimeout(InputfieldWindowResizeActions2, 2000); 	
 	};
 
 	$(window).on('resize', windowResized);
@@ -2417,8 +2417,8 @@ jQuery(document).ready(function($) {
 	$("ul.WireTabs > li > a").on('click', function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
-		setTimeout('InputfieldWindowResizeActions1()', 250);
-		setTimeout('InputfieldWindowResizeActions2()', 500);
+		setTimeout(InputfieldWindowResizeActions1, 250);
+		setTimeout(InputfieldWindowResizeActions2, 500);
 		return true;
 	}); 
 	
