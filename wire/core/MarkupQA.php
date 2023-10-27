@@ -509,7 +509,6 @@ class MarkupQA extends Wire {
 		$replacements = array();
 		$languages = $this->wire()->languages;
 		$config = $this->wire()->config;
-		$pages = $this->wire()->pages;
 		$rootURL = $config->urls->root;
 		$adminURL = $config->urls->admin;
 		$adminPath = $rootURL === '/' ? $adminURL : str_replace($rootURL, '/', $adminURL);
@@ -542,10 +541,8 @@ class MarkupQA extends Wire {
 			} else {
 				$language = null;
 			}
-			
-			$livePath = $pages->getPath($pageID, array(
-				'language' => $language
-			));
+		
+			$livePath = $this->getPagePathFromId($pageID, $language);
 			
 			if($urlSegmentStr) {
 				$livePath = rtrim($livePath, '/') . "/$urlSegmentStr";
@@ -1024,6 +1021,70 @@ class MarkupQA extends Wire {
 	 */
 	public function setVerbose($verbose) {
 		$this->settings['verbose'] = $verbose ? true : false;
+	}
+
+	/**
+	 * Given page ID return the path to it
+	 * 
+	 * @param int $pageID
+	 * @param Language|null $language
+	 * @return string
+	 * @since 3.0.330
+	 * 
+	 */
+	protected function getPagePathFromId($pageID, $language = null) {
+		
+		$pages = $this->wire()->pages;
+		$path = null;
+		
+		if($this->isPagePathHooked()) {
+			$this->warning("page path is hooked"); 
+			$page = $pages->get($pageID);
+			if($page->id) {
+				if($language && $language->id) {
+					$languages = $this->wire()->languages;
+					$languages->setLanguage($language);
+					$path = $page->path();
+					$languages->unsetLanguage();
+				} else {
+					$path = $page->path();
+				}
+			}
+		}
+		
+		if($path === null) {
+			$path = $pages->getPath($pageID, array(
+				'language' => $language
+			));
+		}
+		
+		return $path;
+	}
+
+	/**
+	 * Is the Page::path method hooked in a manner that might affect MarkupQA? 
+	 * 
+	 * @return bool
+	 * @since 3.0.330
+	 * 
+	 */
+	protected function isPagePathHooked() {
+		$config = $this->wire()->config;
+		$property = '_MarkupQA_pagePathHooked';
+		$hooked = $config->get($property);
+		if($hooked !== null) return $hooked;
+		$hooks = $this->wire()->hooks;
+		$hooked = $hooks->isHooked('Page::path()');
+		if($hooked) {
+			// only consider Page::path hooked if something other than LanguageSupportPageNames hooks it
+			$hookItems = $hooks->getHooks($this->page, 'path', WireHooks::getHooksStatic);
+			foreach($hookItems as $key => $hook) {
+				if(((string) $hook['toObject']) === 'LanguageSupportPageNames') unset($hookItems[$key]);
+			}
+			$hooked = count($hookItems) > 0;
+		}
+		$config->setQuietly($property, $hooked);
+		return $hooked;
 	}
 
 }
