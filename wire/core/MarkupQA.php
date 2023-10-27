@@ -1029,7 +1029,7 @@ class MarkupQA extends Wire {
 	 * @param int $pageID
 	 * @param Language|null $language
 	 * @return string
-	 * @since 3.0.330
+	 * @since 3.0.231
 	 * 
 	 */
 	protected function getPagePathFromId($pageID, $language = null) {
@@ -1065,7 +1065,7 @@ class MarkupQA extends Wire {
 	 * Is the Page::path method hooked in a manner that might affect MarkupQA? 
 	 * 
 	 * @return bool
-	 * @since 3.0.330
+	 * @since 3.0.231
 	 * 
 	 */
 	protected function isPagePathHooked() {

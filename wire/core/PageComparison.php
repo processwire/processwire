@@ -318,6 +318,7 @@ class PageComparison {
 	 * @param Page $page
 	 * @param Selector $selector
 	 * @return bool
+	 * @since 3.0.231
 	 * 
 	 */
 	protected function selectorMatches(Page $page, Selector $selector) {
@@ -337,6 +338,7 @@ class PageComparison {
 	 * @param Selector $selector
 	 * @param string $property
 	 * @return bool
+	 * @since 3.0.231
 	 *
 	 */
 	protected function selectorMatchesProperty(Page $page, Selector $selector, $property) {
