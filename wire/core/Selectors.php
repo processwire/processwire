@@ -771,38 +771,99 @@ class Selectors extends WireArray {
 	 * @param Wire $item
 	 * @return bool
 	 * 
-	 */
+	 */ 
 	public function matches(Wire $item) {
-		
-		// if item provides it's own matches function, then let it have control
+
+		// if item provides it's own matches function (like Page), then let it have control
 		if($item instanceof WireMatchable) return $item->matches($this);
-	
+
+		$orGroups = array();
 		$matches = true;
+
 		foreach($this as $selector) {
-			$value = array();
-			foreach($selector->fields as $property) {
-				if(strpos($property, '.') && $item instanceof WireData) {
-					$value[] =  $item->getDot($property);
-				} else {
-					$value[] = (string) $item->$property;
-				}
-			}
-			if(!$selector->matches($value)) {
-				$matches = false;
-				// attempt any alternate operators, if present
-				foreach($selector->altOperators as $altOperator) {
-					$altSelector = self::getSelectorByOperator($altOperator); 
-					if(!$altSelector) continue;
-					$this->wire($altSelector);
-					$selector->copyTo($altSelector);
-					$matches = $altSelector->matches($value);
-					if($matches) break;
-				}
-				// if neither selector nor altSelectors match then stop
+			if($selector->quote === '(' && self::stringHasOperator($selector->value())) {
+				$name = $selector->field();
+				if(!isset($orGroups[$name])) $orGroups[$name] = array();
+				$orGroups[$name][] = $selector->value;
+			} else {
+				$matches = $this->matchesSelector($selector, $item);
 				if(!$matches) break;
 			}
 		}
+
+		if($matches && count($orGroups)) {
+			$matches = $this->matchesOrGroups($orGroups, $item);
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * Does the given Wire match these Selector (single)?
+	 *
+	 * @param Selector $selector
+	 * @param Wire $item
+	 * @return bool
+	 * @since 3.0.330
+	 *
+	 */
+	protected function matchesSelector(Selector $selector, Wire $item) {
+		$value = array();
 		
+		foreach($selector->fields as $property) {
+			if(strpos($property, '.') && $item instanceof WireData) {
+				$v = $item->getDot($property);
+			} else {
+				$v = $item->$property;
+			}
+			if(is_array($v)) {
+				$value = array_merge($value, $v);
+			} else {
+				$value[] = (string) $v;
+			}
+		}
+	
+		$matches = $selector->matches($value);
+		if($matches) return true;
+		
+		// attempt any alternate operators, if present
+		foreach($selector->altOperators as $altOperator) {
+			$altSelector = self::getSelectorByOperator($altOperator);
+			if(!$altSelector) continue;
+			$this->wire($altSelector);
+			$selector->copyTo($altSelector);
+			$matches = $altSelector->matches($value);
+			if($matches) break;
+		}
+
+		return $matches;
+	}
+	
+	/**
+	 * Do the given OR-groups match the given Wire?
+	 *
+	 * @param array|string[]|array[] $orGroups
+	 * @param Wire $item
+	 * @return bool
+	 * @since 3.0.330
+	 *
+	 */
+	protected function matchesOrGroups(array $orGroups, Wire $item) {
+		$matches = true;
+		foreach($orGroups as $selectorStrings) {
+			$orGroupMatches = false;
+			foreach($selectorStrings as $s) {
+				/** @var Selectors $orGroupSelectors */
+				$orGroupSelectors = $this->wire(new Selectors($s));
+				if(!$orGroupSelectors->matches($item)) continue;
+				$orGroupMatches = true;
+				break;
+			}
+			if(!$orGroupMatches) {
+				$matches = false;
+				break;
+			}
+		}
 		return $matches;
 	}
 
