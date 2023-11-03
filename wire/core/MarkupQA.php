@@ -1038,7 +1038,6 @@ class MarkupQA extends Wire {
 		$path = null;
 		
 		if($this->isPagePathHooked()) {
-			$this->warning("page path is hooked"); 
 			$page = $pages->get($pageID);
 			if($page->id) {
 				if($language && $language->id) {

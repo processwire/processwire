@@ -95,7 +95,7 @@ function _checkForTwoFactorAuth(Session $session) {
  */
 function _checkForMaxInputVars(WireInput $input) {
 	$max = (int) ini_get('max_input_vars');
-	if($max && count($_POST) >= $max) {
+	if($max && count($_POST, COUNT_RECURSIVE) >= $max) {
 		$input->error(sprintf(__('You have reached PHP’s “max_input_vars” setting of %d — please increase it.'), $max)); 
 	}
 }
@@ -238,4 +238,3 @@ if($controller && $controller->isAjax()) {
 	$session->removeNotices();
 	if($content) {} // ignore
 }
-
