@@ -126,6 +126,12 @@ class InputfieldText extends Inputfield {
 		return $out; 
 	}
 
+	public function ___renderValue() {
+		$value = (string) $this->val();
+		if(!strlen($value)) return '';
+		return '<p>' . $this->wire()->sanitizer->entities($value) . '</p>';
+	}
+
 	/**
 	 * Get all attributes in an associative array
 	 * 

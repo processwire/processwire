@@ -737,7 +737,6 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	public function ___renderValue() {
 		
 		$out = '';
-		$sanitizer = $this->wire()->sanitizer;
 		
 		foreach($this->options as $value => $label) {
 			
@@ -752,14 +751,25 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 			} else {
 				if($this->isOptionSelected($value)) $o = $label;
 			}
-			
+		
 			if(strlen($o)) {
-				$out .= "<li>" . $sanitizer->entities($o) . "</li>";
+				$o = $this->entityEncode($o, true);
+				if($this instanceof InputfieldHasArrayValue) {
+					$out .= "<li>$o</li>";
+				} else {
+					$out = $o; 
+				}
 			}
 		}
 	
 		if(strlen($out)) {
-			$out = "<ul class='pw-bullets'>$out</ul>";
+			if($this instanceof InputfieldHasArrayValue) {
+				$out = "<ul class='pw-bullets'>$out</ul>";
+			} else {
+				$out = "<p>$out</p>";
+			}
+		} else {
+			bd($this->options);
 		}
 		
 		return $out; 

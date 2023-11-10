@@ -1,17 +1,20 @@
 <?php namespace ProcessWire;
 
+require_once(__DIR__ . '/InputfieldPageListSelectCommon.php');
+
 /**
  * ProcessWire Page List Select Multiple Inputfield module
  *
  * A Page List Selector for selecting multiple pages
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $removeLabel
  * @property string $moreLabel
  * @property string $unselectLabel
  * @property string $selectLabel
+ * @property string $selectedLabel
  * @property string $cancelLabel
  * @property string $startLabel
  * @property string $labelFieldName
@@ -22,6 +25,8 @@
 
 class InputfieldPageListSelectMultiple extends Inputfield 
 	implements InputfieldHasArrayValue, InputfieldPageListSelection, InputfieldHasSortableValue {
+
+	use InputfieldPageListSelectCommon;
 
 	public static function getModuleInfo() {
 		return array(
@@ -38,47 +43,53 @@ class InputfieldPageListSelectMultiple extends Inputfield
 		$this->set('parent_id', 0); 
 		$this->set('labelFieldName', 'title');
 		$this->set('startLabel', $this->_('Add'));
-		$this->set('cancelLabel', $this->_('Cancel'));
+		$this->set('cancelLabel', $this->_('Close'));
 		$this->set('selectLabel', $this->_('Select'));
+		$this->set('selectedLabel', $this->_('Selected'));
 		$this->set('unselectLabel', $this->_('Unselect'));
 		$this->set('moreLabel', $this->_('More'));
 		$this->set('removeLabel', $this->_('Remove'));
 	}
 
+	/**
+	 * @param string $label Entity encoded label text
+	 * @param int $value
+	 * @param string $class
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
 	protected function renderListItem($label, $value, $class = '') {
 		if($class) $class = " $class";
+		$sanitizer = $this->wire()->sanitizer;
+		$sortIcon = wireIconMarkup('arrows itemSort');
+		$trashIcon = wireIconMarkup('trash');
+		$trashLabel = $sanitizer->entities1($this->removeLabel);
 		$out = 	
 			"<li class='ui-state-default$class'>" . 
-			// "<span class='ui-icon ui-icon-arrowthick-2-n-s'></span>" . 
-			"<i class='itemSort fa fa-arrows'></i> " . 
-			"<span class='itemValue'>$value</span>" .
-			"<span class='itemLabel'>$label</span> " . 
-			"<a class='itemRemove' title='$this->removeLabel' href='#'><i class='fa fa-trash'></i></a>" . 
+				"$sortIcon " . 
+				"<span class='itemValue'>$value</span>" .
+				"<span class='itemLabel'>$label</span> " . 
+				"<a class='itemRemove' title='$trashLabel' href='#'>$trashIcon</a>" . 
 			"</li>";
 		return $out; 
 	}
-	
+
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
-		static $process = null;
-		if(is_null($process)) {
-			/** @var ProcessPageList $process */
-			$process = $this->wire('modules')->get('ProcessPageList'); // prerequisite module
-			$process->setPageLabelField($this->attr('name'), $this->labelFieldName);
-			$process->renderReady();
-		}
+		$this->pageListReady($this->attr('name'), $this->labelFieldName);
 		return parent::renderReady($parent, $renderValueMode);
 	}
-
+	
 	public function ___render() {
+		
+		$pages = $this->wire()->pages;
 
-		if(!strlen($this->parent_id)) {
-			return "<p class='error'>" . $this->_('Unable to render this field due to missing parent page in field settings.') . '</p>';
-		}
+		if(!strlen("$this->parent_id")) return $this->renderParentError();
 
 		$out = "<ol id='{$this->id}_items'>" . $this->renderListItem("Label", "1", "itemTemplate"); 
 
 		foreach($this->value as $page_id) {
-			$page = $this->pages->get((int) $page_id); 
+			$page = $pages->get((int) $page_id); 
 			if(!$page || !$page->id) continue; 
 			$label = $page->getText($this->labelFieldName, true, true);
 			if(!strlen($label)) $label = $page->name;
@@ -94,18 +105,23 @@ class InputfieldPageListSelectMultiple extends Inputfield
 		$attrs['data-root'] = $this->parent_id; // rootPageID
 		$attrs['data-href'] = "#wrap_{$this->id}"; // selectSelectHref
 		$attrs['data-start'] = $this->startLabel; // selectStartLabel
-		$attrs['data-cancel'] = $this->_('Close'); // $this->cancelLabel; // selectCancelLabel
+		$attrs['data-cancel'] = $this->cancelLabel; // selectCancelLabel
 		$attrs['data-select'] = $this->selectLabel; // selectSelectLabel
-		$attrs['data-selected'] = $this->_('Selected'); 
+		$attrs['data-selected'] = $this->selectedLabel;
 		$attrs['data-unselect'] = $this->unselectLabel; // selectUnselectLabel
 		$attrs['data-more'] = $this->moreLabel; // moreLabel
 		$attrs['data-labelName'] = $this->attr('name');
 	
 		$attrStr = $this->getAttributesString($attrs);
 		$attrStr = "value='" . implode(',', $this->value) . "' $attrStr";
+		
 		$out .=	"<input type='text' $attrStr />";
 
 		return $out; 
+	}
+
+	public function ___renderValue() {
+		return $this->renderMarkupValue($this->val());
 	}
 
 	/**
