@@ -1385,6 +1385,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					if(!$label) $label = $template->label ? $template->label : $template->name;
 					$field->addOption($template->id, $label);
 				}
+			} else {
+				$template = $this->page->template;
+				$field->addOption($template->id, $template->getLabel());
 			}
 		} else {
 			/** @var InputfieldMarkup $field */
