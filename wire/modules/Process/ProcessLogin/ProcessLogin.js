@@ -13,8 +13,13 @@ $(document).ready(function() {
 	}
 	$("#login_hidpi").val(hidpi ? 1 : 0);
 
-	var startTime = parseInt($('#login_start').val()); // GMT/UTC
-	var maxSeconds = 300; // max age for login form before refreshing it (300=5min)
+	var maxSeconds = 300, // max age for login form before refreshing it (300=5min)
+		queryMatch = location.search.toString().match(/[?&]r=(\d+)/), // match from query string
+		queryTime = (queryMatch ? parseInt(queryMatch[1]) : 0), // query string time ?r=123456789
+		clientTime = Math.floor(new Date().getTime() / 1000), // client UTC time
+		serverTime = parseInt($('#login_start').val()), // server UTC time
+		requestTime = (queryTime > serverTime ? queryTime : serverTime), // request time 
+		startTime = (requestTime > clientTime ? clientTime : requestTime); // determined start time
 	
 	// force refresh of login form if 5 minutes go by without activity
 	var watchTime = function() {
