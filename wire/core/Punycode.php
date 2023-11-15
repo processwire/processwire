@@ -72,13 +72,26 @@ class Punycode {
 	protected $encoding;
 
 	/**
+	 * PHP mb string functions supported?
+	 * 
+	 * @var bool 
+	 * 
+	 */
+	protected $mb = false;
+
+	/**
 	 * Constructor
 	 *
 	 * @param string $encoding Character encoding
 	 */
 	public function __construct($encoding = 'UTF-8') {
 		$this->encoding = $encoding;
+		$this->mb = function_exists("mb_internal_encoding");
 	}
+	
+	public function strtolower($str) { return $this->mb ? mb_strtolower($str, $this->encoding) : strtolower($str); }
+	public function strlen($str) { return $this->mb ? mb_strlen($str, $this->encoding) : strlen($str); }
+	public function substr($str, $a, $b) { return $this->mb ? mb_substr($str, $a, $b, $this->encoding) : substr($str, $a, $b); }
 
 	/**
 	 * Encode a domain to its Punycode version
@@ -88,7 +101,7 @@ class Punycode {
 	 * @return string Punycode representation in ASCII
 	 */
 	public function encode($input) {
-		$input = mb_strtolower($input, $this->encoding);
+		$input = $this->strtolower($input);
 		$parts = explode('.', $input);
 		foreach($parts as &$part) {
 			$part = $this->encodePart($part);
@@ -122,7 +135,7 @@ class Punycode {
 		$codePoints['nonBasic'] = array_unique($codePoints['nonBasic']);
 		sort($codePoints['nonBasic']);
 		$i = 0;
-		$length = mb_strlen($input, $this->encoding);
+		$length = $this->strlen($input);
 		while($h < $length) {
 			$m = $codePoints['nonBasic'][$i++];
 			$delta = $delta + ($m - $n) * ($h + 1);
@@ -209,9 +222,9 @@ class Punycode {
 			$bias = $this->adapt($i - $oldi, ++$outputLength, ($oldi === 0));
 			$n = $n + (int) ($i / $outputLength);
 			$i = $i % ($outputLength);
-			$output = mb_substr($output, 0, $i, $this->encoding) . 
+			$output = $this->substr($output, 0, $i) . 
 				$this->codePointToChar($n) . 
-				mb_substr($output, $i, $outputLength - 1, $this->encoding);
+				$this->substr($output, $i, $outputLength - 1);
 			$i++;
 		}
 		return $output;
@@ -272,9 +285,9 @@ class Punycode {
 			'basic' => array(),
 			'nonBasic' => array(),
 		);
-		$length = mb_strlen($input, $this->encoding);
+		$length = $this->strlen($input);
 		for($i = 0; $i < $length; $i++) {
-			$char = mb_substr($input, $i, 1, $this->encoding);
+			$char = $this->substr($input, $i, 1);
 			$code = $this->charToCodePoint($char);
 			if($code < 128) {
 				$codePoints['all'][] = $codePoints['basic'][] = $code;
