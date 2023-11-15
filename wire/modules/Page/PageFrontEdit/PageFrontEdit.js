@@ -380,6 +380,43 @@ function PageFrontEditInit($) {
 	}
 	
 	/**
+	 * Paste event 
+	 * 
+	 * @param e
+	 */
+	function pasteEvent(e) {
+		
+		// only intercept pasting to frontend editable text fields
+		if(!document.activeElement.isContentEditable) return;
+		
+		var wrap = $(document.activeElement).closest('.pw-edit');
+		if(!wrap.length) return;
+		
+		var usePlainText = false;
+		var plainTextTypes = [ 'Text', 'Textarea', 'PageTitle', 'Email', 'Float', 'Integer', 'URL' ];
+		
+		for(var n = 0; n < plainTextTypes.length; n++) {
+			usePlainText = wrap.hasClass('pw-edit-Inputfield' + plainTextTypes[n]);
+			if(usePlainText) break;
+		}
+	
+		if(usePlainText) {
+			// Prevent the default paste action
+			e.preventDefault();
+			
+			// Get the clipboard data as plain text
+			var clipboardData = (e.originalEvent || e).clipboardData;
+			var pastedText = clipboardData.getData('text/plain');
+			
+			// Convert any markup in the pasted text to entity-encoded plain text
+			var plainText = $('<textarea />').text(pastedText).html();
+			
+			// Insert the plain text into the contenteditable element or textarea
+			document.execCommand('insertHTML', false, plainText);
+		}
+	}
+	
+	/**
 	 * Initialize PageFrontEdit
 	 * 
 	 */
@@ -452,6 +489,8 @@ function PageFrontEditInit($) {
 				inlineSaveClickEvent();
 			}, 250); 
 		});
+		
+		document.addEventListener('paste', pasteEvent);
 	}
 	
 	init();
