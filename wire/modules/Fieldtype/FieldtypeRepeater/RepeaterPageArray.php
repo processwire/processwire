@@ -164,6 +164,8 @@ class RepeaterPageArray extends PageArray {
 		$page->sort = $this->count();
 
 		if($of) $this->forPage->of(true);
+		
+		$this->forPage->trackChange($this->field->name);
 
 		return $page;
 	}
@@ -238,4 +240,3 @@ class RepeaterPageArray extends PageArray {
 	}
 	
 }
-
