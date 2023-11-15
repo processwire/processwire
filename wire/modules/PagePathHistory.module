@@ -891,6 +891,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				if($language->isDefault()) continue;
 				$namePrevious = $page->get("-name$language");
 				if(!$namePrevious && !$parentPrevious) continue;
+				if(!$namePrevious) $namePrevious = $page->get("name$language");
 				if(!$namePrevious) $namePrevious = $page->name;
 				$languages->setLanguage($language);
 				$pathPrevious = $parentPrevious ? $parentPrevious->path() : $page->parent()->path();
