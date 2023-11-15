@@ -1004,6 +1004,7 @@ class ProcessCommentsManager extends Process {
 		
 		$classes = array(
 			'input' => 'CommentInput',
+			'select' => '', 
 			'textarea' => '',
 			'radio' => '',
 			'checkbox' => '',
@@ -1666,4 +1667,3 @@ class ProcessCommentsManager extends Process {
 
 
 }
-
