@@ -747,6 +747,21 @@ class InputfieldTextTags extends Inputfield implements
 	}
 
 	/**
+	 * Add multiple selectable options
+	 * 
+	 * @param array $options
+	 * @return self
+	 * @since 3.0.131
+	 * 
+	 */
+	public function addOptions(array $options) {
+		foreach($options as $value => $label) {
+			$this->addTag($value, $label);
+		}
+		return $this;
+	}
+
+	/**
 	 * Add selectable option with label, optionally for specific language
 	 *
 	 * For InputfieldHasSelectableOptions interface
