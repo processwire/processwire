@@ -673,6 +673,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$clonePage = null;
 		$cloneToParent = null;
 		$readyPage = null;
+		$version = (int) ((string) $this->page->get("_repeater_version|_version"));
 	
 		if($cloneItemID) {
 			foreach($value as $item) {
@@ -683,6 +684,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			}
 			if($cloneToParentID && $cloneToParentID != $this->page->id) {
 				$cloneToParent = $this->wire()->pages->get((int) $cloneToParentID);
+				if($version) $cloneToParent->setQuietly("_repeater_version", $version);
 				if($cloneToParent->id && $cloneToParent->hasField($this->field) && $cloneToParent->editable($this->field)) {
 					// ok
 					$fieldtype = $this->field->type; /** @var FieldtypeRepeater $fieldtype */
@@ -710,8 +712,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$notIDs = $this->wire()->sanitizer->intArray(explode(',', trim((string) $this->wire()->input->get('repeater_not'), ',')));
 			$readyPage = $this->getNextReadyPage($notIDs);
 			$readyPage->removeStatus(Page::statusHidden);
-		} 
-	
+		}
+		
+		if($version) $readyPage->set('_repeater_version', $version);
+
 		if($readyPage) {
 			// ensure editing page doesn't get saved (just in case) since we're removing all items
 			$this->page->addStatus(Page::statusCorrupted);
@@ -820,6 +824,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 
 		$this->wire()->config->js('InputfieldRepeater', array(
 			'editorUrl' => $editorUrl,
+			'pageVersion' => (int) ((string) $this->page->get('_version')), 
 			'labels' => array(
 				'remove' => $this->_x('Click to delete this item, or double-click to delete all', 'repeater-item-action'),
 				'removeAll' => $this->_x('Delete all items?', 'repeater-item-action'),

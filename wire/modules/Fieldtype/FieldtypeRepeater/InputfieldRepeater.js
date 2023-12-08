@@ -44,6 +44,13 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	var insertTimeout = null;
+	
+	/**
+	 * Page version, if PagesVersions active
+	 * 
+	 * @type {number}
+	 */
+	var pageVersion = 0;
 
 	
 	/*** EVENTS ********************************************************************************************/
@@ -363,6 +370,7 @@ function InputfieldRepeater($) {
 		
 		if($repeater.hasClass('InputfieldRenderValueMode')) ajaxURL += '&inrvm=1';
 		if($repeater.hasClass('InputfieldNoDraft')) ajaxURL += '&nodraft=1';	
+		if(pageVersion) ajaxURL += '&version=' + pageVersion;
 
 		$spinner.removeClass('fa-arrows').addClass('fa-spin fa-spinner');
 		repeaterID = repeaterID.replace(/_repeater\d+$/, '').replace('_LPID' + pageID, '');
@@ -486,6 +494,8 @@ function InputfieldRepeater($) {
 		var fieldName = getRepeaterFieldName($inputfieldRepeater);
 		var $spinner = $addLink.parent().find('.InputfieldRepeaterSpinner');
 		var ajaxURL = ProcessWire.config.InputfieldRepeater.editorUrl + '?id=' + pageID + '&field=' + fieldName;
+		
+		if(pageVersion) ajaxURL += '&version=' + pageVersion;
 
 		$spinner.removeClass($spinner.attr('data-off')).addClass($spinner.attr('data-on'));
 
@@ -1575,6 +1585,10 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	function init() {
+		
+		if(typeof ProcessWire.config.PagesVersions !== 'undefined') {
+			pageVersion = ProcessWire.config.PagesVersions.version;
+		}
 		
 		$('.InputfieldRepeater').each(function() {
 			initRepeater($(this));

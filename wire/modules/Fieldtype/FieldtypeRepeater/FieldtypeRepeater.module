@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @todo: automatic sorting.
@@ -27,7 +27,7 @@
  *
  */
 
-class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
+class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, FieldtypeDoesVersions {
 
 	public static function getModuleInfo() {
 		return array(
@@ -857,7 +857,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		if(is_array($value) && !empty($value['parent_id'])) {
 			// this is what we get if there was a record in the DB and the parent has been setup
-			$parent_id = (int) $value['parent_id'];
+			$parent_id = (int) ((string) $value['parent_id']);
 
 		} else if(empty($value['data']) && empty($value['parent_id']) && $this->useLazyParents($field)) {
 			// no record in the DB yet and parent will not be created till needed
@@ -988,34 +988,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
-		
-		$a = array();
-		if(!WireArray::iterable($value)) return $a;
-	
-		if(!empty($options['minimal']) || !empty($options['FieldtypeRepeater']['minimal'])) {
-			// minimal export option includes only fields data
-			
-			foreach($value as $p) {
-				/** @var Page $p */
-				if($p->isUnpublished()) continue;
-				$v = array(); 
-				foreach($p->template->fieldgroup as $f) {
-					/** @var Field $f */
-					if(!$p->hasField($f)) continue;
-					$fieldtype = $f->type; /** @var Fieldtype $fieldtype */
-					$v[$f->name] = $fieldtype->exportValue($p, $f, $p->getUnformatted($f->name), $options);
-				}
-				$a[$p->name] = $v;
-			}
-			
-		} else {
-			// regular export
-			/** @var PagesExportImport $exporter */
-			$exporter = $this->wire(new PagesExportImport());
-			$a = $exporter->pagesToArray($value, $options);
-		}
-		
-		return $a;
+		return $this->porter()->exportValue($page, $field, $value, $options);
 	}
 
 	/**
@@ -1030,136 +1003,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
-		
-		if(empty($value['type']) || $value['type'] != 'ProcessWire:PageArray') {
-			throw new WireException("$field->name: Invalid repeater importValue() \$value argument"); 
-		}
-		
-		if(!$page->id) {
-			$page->trackChange($field->name); 
-			throw new WireException("$field->name: Repeater will import after page is created");
-		}
-		
-		$repeaterParent = $this->getRepeaterPageParent($page, $field);
-		$repeaterTemplate = $this->getRepeaterTemplate($field);
-		$repeaterPageClass = $this->getPageClass();
-		$repeaterPageArrayClass = $this->getPageArrayClass();
-		$parentPath = $repeaterParent->path();
-		$commit = isset($options['commit']) ? (bool) $options['commit'] : true;
-		$messages = array();
-		$numAdded = 0;
-		$changesByField = array();
-		$numUpdated = 0;
-		$numDeleted = 0;
-		$itemsAdded = array();
-		$itemsDeleted = array();
-		$importItemNames = array();
-		$existingValue = $page->get($field->name); 
-		
-		if(!$existingValue instanceof PageArray) { // i.e. FieldsetPage
-			$existingValue = $existingValue->id ? array($existingValue) : array();
-		}
-		
-		$pages = $this->wire()->pages;
-		
-		// update paths for local
-		foreach($value['pages'] as $key => $item) {
-			$name = $item['settings']['name'];
-			if(strpos($name, self::repeaterPageNamePrefix) === 0 && count($value['pages']) == 1) {
-				$name = self::repeaterPageNamePrefix . $page->id;  // i.e. FieldsetPage	
-				$value['pages'][$key]['settings']['name'] = $name;
-			}
-			$path = $parentPath . $name . '/';
-			$importItemNames[$name] = $name;
-			$value['pages'][$key]['path'] = $path;
-			$p = $pages->get($path); 
-			if($p->id) continue; // already exists
-			
-			// from this point forward, it is assumed we are creating a new repeater item
-			$numAdded++;
-			$page->trackChange($field->name); 
-			
-			if($commit) {
-				// create new repeater item, ready to be populated
-				/** @var RepeaterPage $p */
-				$p = $this->wire(new $repeaterPageClass());
-				if($repeaterParent->id) $p->parent = $repeaterParent;
-				$p->template = $repeaterTemplate;
-				$p->name = $name;
-				$p->setForPage($page);
-				$p->setForField($field);
-				$p->save();
-				$itemsAdded[$p->id] = $p;
-				if($p->name != $name) $importItemNames[$p->name] = $p->name;
-			}
-		}
-
-		if($page->get('_importType') == 'update') {
-			foreach($existingValue as $p) {
-				if(!isset($importItemNames[$p->name])) {
-					$itemsDeleted[] = $p;
-					$numDeleted++;
-				}
-			}
-		}
-	
-		/** @var RepeaterPageArray $pageArray */
-		$pageArray = $this->wire(new $repeaterPageArrayClass($page, $field));
-		
-		$importOptions = array(
-			'commit' => $commit, 
-			'create' => true, 
-			'update' => true, 
-			'delete' => true, // @todo 
-			'pageArray' => $pageArray
-		);
-		
-		/** @var PagesExportImport $importer */
-		$importer = $this->wire(new PagesExportImport()); 
-		$pageArray = $importer->arrayToPages($value, $importOptions); 	
-		
-		foreach($pageArray as $p) {
-			$changes = $p->get('_importChanges'); 
-			if(!count($changes)) continue;
-			if(isset($itemsAdded[$p->id]) || !$p->id) continue;
-			$numUpdated++;
-			foreach($changes as $fieldName) {
-				if(!isset($changesByField[$fieldName])) $changesByField[$fieldName] = 0;
-				$changesByField[$fieldName]++;
-			}
-			$this->wire()->notices->move($p, $pageArray, array('prefix' => "$field->name (id=$p->id): ")); 
-		}
-		
-		if($numDeleted && $commit) {
-			foreach($itemsDeleted as $p) {
-				$pages->delete($p); 
-			}
-		}
-		
-		if($numUpdated) {
-			$updateCounts = array();
-			foreach($changesByField as $fieldName => $count) {
-				$updateCounts[] = "$fieldName ($count)";	
-			}
-			$messages[] = "$numUpdated page(s) updated – " . implode(', ', $updateCounts);
-		}
-		
-		if($numAdded) $messages[] = "$numAdded new page(s) added";
-		if($numDeleted) $messages[] = "$numDeleted page(s) DELETED";
-		
-		foreach($messages as $message) {
-			$pageArray->message("$field->name: $message");
-		}
-		
-		$pageArray->resetTrackChanges();
-		
-		$totalChanges = $numUpdated + $numAdded + $numDeleted;
-		if(!$totalChanges) {
-			// prevent it from being counted as a change when import code sets the value back to the page
-			$page->setQuietly($field->name, $pageArray);
-		}
-	
-		return $pageArray;
+		return $this->porter()->importValue($page, $field, $value, $options);
 	}
 
 	/**
@@ -1223,6 +1067,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		$repeaterParent = $this->getRepeaterParent($field);
 		$parentName = self::repeaterPageNamePrefix . $page->id; // for-page-123
+		$version = $this->getPageVersionNum($page);
+		
+		if($version) $parentName .= "-v$version"; // for-page-123-v1
+		
 		$parent = $repeaterParent->child("name=$parentName, include=all");
 		
 		if($parent->id || !$create) return $parent;
@@ -1230,7 +1078,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$parent = $this->wire()->pages->newPage($repeaterParent->template);
 		$parent->parent = $repeaterParent; 
 		$parent->name = $parentName;
-		$parent->title = $page->name;
+		$parent->title = $page->name . ($version ? " v$version" : "");
 		$parent->addStatus(Page::statusSystem);
 
 		// exit early if a field is in the process of being deleted
@@ -1383,6 +1231,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$this->bd("Created '$field' template: $template", __FUNCTION__);
 
 		return $template; 
+	}
+
+	/**
+	 * #pw-internal
+	 * 
+	 * @param Field $field
+	 * @return Template
+	 * 
+	 */
+	public function _getRepeaterTemplate(Field $field) {
+		return $this->getRepeaterTemplate($field);
 	}
 
 	/**
@@ -1790,7 +1649,14 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$pages->delete($p, $saveOptions);
 		}
 
-		$result = parent::___savePageField($page, $field);
+		$version = $this->getPageVersionNum($page);
+		$pagesVersions = $version ? $this->wire('pagesVersions') : null;
+		if($version && $pagesVersions) {
+			/** @var PagesVersions $pagesVersions */
+			$result = $pagesVersions->savePageFieldVersion($page, $field, $version);
+		} else {
+			$result = parent::___savePageField($page, $field);
+		}
 		
 		// ensure that any of our cloned page replacements (removes) don't get recorded any follow-up saves
 		$value->resetTrackChanges();
@@ -1972,26 +1838,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function ___exportConfigData(Field $field, array $data) {
-
 		$data = parent::___exportConfigData($field, $data);
-
-		$template = $this->wire()->templates->get((int) $data['template_id']);
-
-		$data['template_id'] = 0;
-		$data['parent_id'] = 0;
-		$data['repeaterFields'] = array();
-		$data['fieldContexts'] = array();
-
-		$a = $field->get('repeaterFields');
-		if(!is_array($a)) $a = array();
-
-		foreach($a as $fid) {
-			$f = $this->wire()->fields->get((int) $fid);
-			if(!$f) continue;
-			$data['repeaterFields'][] = $f->name;
-			$data['fieldContexts'][$f->name] = $template->fieldgroup->getFieldContextArray($f->id);
-		}
-
+		$data = $this->porter()->exportConfigData($field, $data);
 		return $data;
 	}
 
@@ -2012,60 +1860,16 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function ___importConfigData(Field $field, array $data) {
 
 		if(!$field->type instanceof FieldtypeRepeater) return $data;
-
-		$fields = $this->wire()->fields;
-
+		
 		$errors = array();
-		$repeaterFields = array();
-		$saveFieldgroup = false;
-		$saveFieldgroupContext = false;
-		$template = $field->id ? $this->getRepeaterTemplate($field) : null;
-
-		if(!empty($data['repeaterFields'])) {
-			foreach($data['repeaterFields'] as $name) {
-				$f = $fields->get($name);
-				if(!$f instanceof Field) {
-					$errors[] = "Unable to locate field to add to repeater: $name";
-					continue;
-				}
-				$repeaterFields[] = $f->id;
-			}
-			$data['repeaterFields'] = $repeaterFields;
-		}
-
-		if($template && !empty($data['fieldContexts'])) {
-			foreach($data['fieldContexts'] as $name => $contextData) {
-				$f = $fields->get($name);
-				if(!$f instanceof Field) continue;
-				if($template->fieldgroup->hasField($f)) {
-					$f = $template->fieldgroup->getFieldContext($f->name);
-				}
-				$template->fieldgroup->add($f);
-				$saveFieldgroup = true;
-				if(!empty($contextData)) {
-					$template->fieldgroup->setFieldContextArray($f->id, $contextData);
-					$saveFieldgroupContext = true;
-				}
-			}
-		}
-
-		if($template) {
-			if($saveFieldgroupContext) {
-				$template->fieldgroup->saveContext();
-			}
-			if($saveFieldgroup) {
-				$template->fieldgroup->save();
-			}
-		}
-
-		unset($data['fieldContexts']);
-
+		$data = $this->porter()->importConfigData($field, $data, $errors);
 		$data = parent::___importConfigData($field, $data);
 
 		if(count($errors)) {
+			if(!isset($data['errors'])) $data['errors'] = array();
 			$data['errors'] = array_merge($data['errors'], array('repeaterFields' => $errors));
 		}
-
+		
 		return $data;
 	}
 
@@ -2387,6 +2191,201 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$pages->delete($page); 
 			$this->message("Removed page {$page->path}", Notice::debug); 
 		}
+	}
+
+	/**
+	 * @return FieldtypeRepeaterPorter
+	 * 
+	 */
+	public function porter() {
+		require_once(__DIR__ . '/FieldtypeRepeaterPorter.php');
+		return $this->wire(new FieldtypeRepeaterPorter());
+	}
+
+	/**
+	 * @param Page $page
+	 * @return int
+	 * 
+	 */
+	protected function getPageVersionNum(Page $page) {
+		return (int) ((string) $page->get('_repeater_version|_version')); 
+	}
+		
+	/**
+	 * Get the value for given page, field and version
+	 * 
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return mixed
+	 *
+	 */
+	public function getPageFieldVersion(Page $page, Field $field, $version) {
+		$page->setQuietly('_repeater_version', $version);
+		/** @var PagesVersions $pagesVersions */
+		$pagesVersions = $this->wire('pagesVersions');
+		$value = $pagesVersions ? $pagesVersions->getPageFieldVersion($page, $field, $version) : null;
+		// $value['parent_id'] = $this->getRepeaterPageParent($page, $field);
+		// value = $this->wakeupValue($page, $field, $value);
+		// $page->__unset('_repeater_version');
+		return $value;
+	}
+
+	/**
+	 * Save version of given page field
+	 * 
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 *
+	 */
+	public function savePageFieldVersion(Page $page, Field $field, $version) {
+
+		$value = $page->get($field->name); /** @var RepeaterPageArray $value */
+		$page = clone $page;	
+		$page->setQuietly('_repeater_version', $version);
+		
+		$parent = $this->getRepeaterPageParent($page, $field, false);
+		
+		if(!$parent || !$parent->id) {
+			// setup new version
+			$pages = $this->wire()->pages;
+			$parent = $this->getRepeaterPageParent($page, $field, true); // create
+			$cloneOptions = array('uncacheAll' => false);
+			$valueClass = $value->className(true);
+			$valueCopy = new $valueClass($parent, $field);
+			$this->wire($valueCopy);
+			foreach($value as $item) {
+				/** @var RepeaterPage $item */
+				$itemCopy = $pages->clone($item, $parent, false, $cloneOptions);
+				$this->bd("Cloned repeater item $item->name to parent $parent->name"); 
+				$valueCopy->add($itemCopy);
+			}
+			$valueCopy->resetTrackChanges();
+			$page->set($field->name, $valueCopy);
+		}
+
+		$result = $this->savePageField($page, $field);
+		
+		return $result;
+	}
+
+	/**
+	 * Restore version of given page field
+	 * 
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 *
+	 */
+	public function restorePageFieldVersion(Page $page, Field $field, $version) {
+		if(!$version) return false;
+		
+		$pages = $this->wire()->pages;
+		
+		/** @var PagesVersions $pagesVersions */
+		$pagesVersions = $this->wire('pagesVersions'); 
+		if(!$pagesVersions) return false;
+		
+		$pageVersionNum = $this->getPageVersionNum($page);
+		
+		if($pageVersionNum) {
+			$livePage = $pages->getFresh($page->id);
+			if($pageVersionNum == $version) {
+				$versionPage = $page;
+			} else {
+				$versionPage = $pagesVersions->getPageVersion($page, $version);
+			}
+		} else {
+			$versionPage = $pagesVersions->getPageVersion($page, $version);
+			$livePage = $page;
+		}
+		
+		$versionRepeaterParent = $this->getRepeaterPageParent($versionPage, $field, false);
+		$liveRepeaterParent = $this->getRepeaterPageParent($livePage, $field, false);
+		
+		if(!$versionRepeaterParent) {
+			$this->error(
+				"Version repeater parent not found for " . 
+				"page $page field $field version $version"
+			); 
+			return false;
+		}
+		
+		if($liveRepeaterParent->id) {
+			$this->deleteRepeaterPage($liveRepeaterParent, null, true);
+		}
+	
+		list($name,) = explode("-v$version", $versionRepeaterParent->name, 2);
+		$versionRepeaterParent->addStatus(Page::statusSystemOverride);
+		$versionRepeaterParent->removeStatus(Page::statusSystem);
+		$versionRepeaterParent->name = $name;
+		$versionRepeaterParent->save();
+		$pages->editor()->addStatus($versionRepeaterParent, Page::statusSystem); 
+		
+		$itemIDs = array();
+		
+		foreach($versionRepeaterParent->children('include=all') as $item) {
+			/** @var RepeaterPage $item */
+			if($item->isHidden() || $item->isUnpublished()) continue;
+			$itemIDs[] = $item->id;
+		}
+	
+		$table = $field->getTable();
+		$sql = 
+			"UPDATE $table SET data=:data, count=:count, parent_id=:parent_id " . 
+			"WHERE pages_id=:pages_id";
+		
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':data', implode(',', $itemIDs)); 
+		$query->bindValue(':count', count($itemIDs)); 
+		$query->bindValue(':parent_id', $versionRepeaterParent->id, \PDO::PARAM_INT);
+		$query->bindValue(':pages_id', $versionPage->id, \PDO::PARAM_INT);
+		$query->execute();
+		
+		$page->offsetUnset($field->name);
+		
+		return true;
+	}
+
+	/**
+	 * Delete version
+	 * 
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 *
+	 */
+	public function deletePageFieldVersion(Page $page, Field $field, $version) {
+		if(!$version) return false;
+		
+		/** @var PagesVersions $pagesVersions */
+		$pagesVersions = $this->wire('pagesVersions');
+		if(!$pagesVersions) return false;
+
+		if($this->getPageVersionNum($page) == $version) {
+			$versionPage = $page;
+		} else {
+			$versionPage = $pagesVersions->getPageVersion($page, $version);
+		}
+
+		if(!$versionPage->id) return false;
+		
+		$versionRepeaterParent = $this->getRepeaterPageParent($versionPage, $field, false);
+		if(!$versionRepeaterParent->id) return false;
+		
+		return $this->deleteRepeaterPage($versionRepeaterParent, null, true) > 0;
 	}
 
 }
