@@ -591,9 +591,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function renderEdit() {
 
 		$config = $this->config;
-		$class = '';
 		$numFields = count($this->fields);
-		$out = "<p id='PageIDIndicator' class='$class'>{$this->page->id}</p>";
+		$out = ''; 
 	
 		$description = $this->form->getSetting('description');
 		if($description) { 
@@ -638,6 +637,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		$func = 'initPageEditForm();'; // to prevent IDE from flagging as unknown function
 		$out .= "<scr" . "ipt>$func</script>"; // ends up being slightly faster than ready() (or at least appears that way)
+		$out .= "<div id='PageIDIndicator' class=''>{$this->page->id}</div>";
 		
 		return $out; 
 	}
