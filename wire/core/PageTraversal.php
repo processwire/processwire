@@ -881,6 +881,9 @@ class PageTraversal {
 			}
 			if($language && $language->id) $url .= "&language=$language->id";
 		}
+		
+		$version = (int) ((string) $page->get('_version|_repeater_version'));
+		if($version) $url .= "&version=$version";
 
 		$append = $page->wire()->session->getFor($page, 'appendEditUrl');
 

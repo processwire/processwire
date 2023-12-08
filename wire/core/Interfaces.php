@@ -237,6 +237,58 @@ interface FieldtypeHasPageimages {
 }
 
 /**
+ * Indicates Fieldtype has version support and manages its own versions
+ * 
+ */
+interface FieldtypeDoesVersions {
+	
+	/**
+	 * Get the value for given page, field and version
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return mixed
+	 * 
+	 */
+	public function getPageFieldVersion(Page $page, Field $field, $version);
+
+	/**
+	 * Save version of given page field
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * 
+	 */
+	public function savePageFieldVersion(Page $page, Field $field, $version);
+
+	/**
+	 * Restore version of given page field to live page
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 *
+	 */
+	public function restorePageFieldVersion(Page $page, Field $field, $version);
+
+	/**
+	 * Delete version
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * 
+	 */
+	public function deletePageFieldVersion(Page $page, Field $field, $version);
+}
+
+
+/**
  * Indicates that an Inputfield provides tree selection capabilities
  *
  * In such Inputfields a parent_id refers to the root of the tree rather than an immediate parent.
