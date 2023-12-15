@@ -694,6 +694,9 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$file = basename($file); 
 		$id = isset($parts['id']) ? (int) $parts['id'] : $this->page->id; 
 		
+		$version = isset($parts['version']) ? (int) $parts['version'] : (int) $input->get('version');
+		if($version > 0) $parts['version'] = $version;
+		
 		if(!isset($parts['modal'])) $parts['modal'] = 1;
 		if(!isset($parts['edit_page_id']) && $this->editorPage) $parts['edit_page_id'] = $this->editorPage->id; 
 		if(!isset($parts['hidpi'])) $parts['hidpi'] = (int) $this->hidpi; 

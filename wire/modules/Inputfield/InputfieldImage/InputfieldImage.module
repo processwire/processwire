@@ -1138,11 +1138,15 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * 
 	 */
 	protected function getVariationUrl($pagefile, $id) {
+		$page = $pagefile->page;
+		$pageId = $page->id;
+		$version = (int) ((string) $page->get('_version'));
 		return $this->wire()->config->urls->admin . "page/image/variations/" . 
-			"?id={$pagefile->page->id}" . 
+			"?id=$pageId" . 
 			"&file=$pagefile->name" . 
 			"&modal=1" . 
-			"&varcnt=varcnt_$id";
+			"&varcnt=varcnt_$id" . 
+			"&version=$version";
 	}
 
 	/**
@@ -1166,11 +1170,13 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 */
 	protected function getEditUrl(Pagefile $pagefile, $pageID) {
 		$name = $this->editFieldName ? $this->editFieldName : $this->name;
+		$version = (int) ((string) $pagefile->page->get('_version'));
 		return $this->wire()->config->urls->admin . "page/image/edit/" . 
 			"?id=$pageID" . 
 			"&file=$pageID,$pagefile->name" . 
 			"&rte=0" . 
-			"&field=$name";
+			"&field=$name" . 
+			"&version=$version";
 	}
 
 	/**
