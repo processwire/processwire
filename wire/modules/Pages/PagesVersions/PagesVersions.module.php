@@ -5,7 +5,11 @@
  * 
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
+ * 
+ * #pw-summary Provides a version control API for pages in ProcessWire.
+ * #pw-var $pagesVersions
  *
+ * #pw-body =
  * ~~~~~
  * // Note: API provided by $pagesVersions API variable
  * // present with PagesVersions module is installed.
@@ -29,11 +33,12 @@
  * // Delete page version
  * $pagesVersions->deletePageVersion($pageV2);
  * ~~~~~
+ * #pw-body
  * 
  * HOOKABLE METHODS
  * ----------------
  * @method bool allowPageVersions(Page $page)
- * @method bool useTempVersionToRestore(Page $page)
+ * @method bool useTempVersionToRestore(Page $page) #pw-internal
  * 
  * @todo test change of template in version
  * 
@@ -42,6 +47,8 @@ class PagesVersions extends Wire implements Module {
 	
 	/**
 	 * Module information
+	 * 
+	 * #pw-internal
 	 *
 	 * @return array
 	 *
@@ -49,7 +56,7 @@ class PagesVersions extends Wire implements Module {
 	public static function getModuleInfo() {
 		return [
 			'title' => 'Pages Versions',
-			'summary' => 'Version control API for pages',
+			'summary' => 'Provides a version control API for pages in ProcessWire.',
 			'version' => 1,
 			'icon' => self::iconName, 
 			'autoload' => true, 
@@ -74,6 +81,8 @@ class PagesVersions extends Wire implements Module {
 	 * $page = $pages->get(1234); 
 	 * $pageV2 = $pagesVersions->getPageVersion($page, 2);
 	 * ~~~~~
+	 * 
+	 * #pw-group-getting
 	 *
 	 * @param Page $page Page that version is for
 	 * @param int $version Version number to get
@@ -98,6 +107,8 @@ class PagesVersions extends Wire implements Module {
 	 *
 	 * This is similar to the `getPageVersion()` method except that it populates
 	 * the given `$page` rather than populating and returning a cloned copy of it.
+	 * 
+	 * #pw-group-getting
 	 *
 	 * @param Page $page
 	 * @param int|string|PageVersionInfo $version
@@ -193,6 +204,8 @@ class PagesVersions extends Wire implements Module {
 	 *   echo $p->get('_version')->version; // i.e. 2, 3, 4, etc. 
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-getting
 	 *
 	 * @param Page $page
 	 * @param array $options 
@@ -283,6 +296,8 @@ class PagesVersions extends Wire implements Module {
 	 * }
 	 * ~~~~~
 	 * 
+	 * #pw-group-getting
+	 * 
 	 * @param Page $page
 	 * @param array $options
 	 *  - `sort`: Sort by property, one of: 'created', '-created', 'version', '-version' (default='-created')
@@ -296,6 +311,8 @@ class PagesVersions extends Wire implements Module {
 	
 	/**
 	 * Get all pages that have 1 or more versions available
+	 * 
+	 * #pw-group-getting
 	 *
 	 * @return PageArray
 	 * @throws WireException
@@ -316,6 +333,8 @@ class PagesVersions extends Wire implements Module {
 
 	/**
 	 * Does page have the given version?
+	 * 
+	 * #pw-group-getting
 	 * 
 	 * @param Page $page
 	 * @param int|string|PageVersionInfo $version Version number or omit to return quantity of versions
@@ -353,7 +372,9 @@ class PagesVersions extends Wire implements Module {
 	 * Return quantity of versions available for given page
 	 * 
 	 * This is the same as calling the `hasPageVersion()` method 
-	 * with $version argument omitted. 
+	 * with $version argument omitted.
+	 * 
+	 * #pw-group-getting
 	 * 
 	 * @param Page $page
 	 * @return int
@@ -379,6 +400,8 @@ class PagesVersions extends Wire implements Module {
 	 * $version = $pagesVersions->addPageVersion($page); 
 	 * echo "Added version $version for page $page";
 	 * ~~~~~
+	 * 
+	 * #pw-group-saving
 	 * 
 	 * @param Page $page
 	 * @param array $options
@@ -423,6 +446,8 @@ class PagesVersions extends Wire implements Module {
 
 	/**
 	 * Save a page version
+	 * 
+	 * #pw-group-saving
 	 *
 	 * @param Page $page
 	 * @param int|PageVersionInfo $version Version number or PageVersionInfo
@@ -541,6 +566,8 @@ class PagesVersions extends Wire implements Module {
 	 * $pageV2 = $pagesVersions->getPageVersion($page, 2);
 	 * $pagesVersions->deletePageVersion($pageV2);
 	 * ~~~~~~
+	 * 
+	 * #pw-group-deleting
 	 *
 	 * @param Page $page Page to delete version from, or page having the version you want to delete.
 	 * @param int $version Version number to delete or omit if given $page is the version you want to delete.
@@ -582,6 +609,8 @@ class PagesVersions extends Wire implements Module {
 
 	/**
 	 * Delete all versions for given page
+	 * 
+	 * #pw-group-deleting
 	 *
 	 * @param Page $page
 	 * @return int Number of versions deleted
@@ -598,6 +627,8 @@ class PagesVersions extends Wire implements Module {
 
 	/**
 	 * Delete all versions across all pages
+	 * 
+	 * #pw-group-deleting
 	 * 
 	 * @param bool $areYouSure Specify true to indicate you are sure you want to do this
 	 * @return int Quantity of versions deleted
@@ -632,6 +663,8 @@ class PagesVersions extends Wire implements Module {
 	 * $pageV2 = $pagesVersions->getPageVersion($page, 2);
 	 * $pagesVersions->restore($pageV2);
 	 * ~~~~~
+	 * 
+	 * #pw-group-saving
 	 *
 	 * @param Page $page Page to restore version to or a page that was loaded as a version.
 	 * @param int $version Version number to restore. Can be omitted if given $page is already a version.
@@ -1028,7 +1061,7 @@ class PagesVersions extends Wire implements Module {
 	/**
 	 * Get the version number of given page or 0 if not versioned
 	 *
-	 * #pw-internal
+	 * #pw-group-utility
 	 *
 	 * @param Page $page
 	 * @param int|string|PageVersionInfo Optional version argument to use, if omitted it pulls from $page
@@ -1094,6 +1127,8 @@ class PagesVersions extends Wire implements Module {
 	/**
 	 * Get fields where versions are not supported
 	 * 
+	 * #pw-group-utility
+	 * 
 	 * @param Page|null $page Page to limit check to or omit for all fields
 	 * @return Field[] Returned array of Field objects is indexed by Field name
 	 * 
@@ -1149,6 +1184,7 @@ class PagesVersions extends Wire implements Module {
 	 * Is given page allowed to have versions?
 	 * 
 	 * #pw-hooker
+	 * #pw-group-utility
 	 *
 	 * @param Page $page
 	 * @return bool
@@ -1163,7 +1199,7 @@ class PagesVersions extends Wire implements Module {
 	/**
 	 * Get next available version number for given page
 	 *
-	 * #pw-internal
+	 * #pw-group-utility
 	 *
 	 * @param Page $page
 	 * @return int
@@ -1199,7 +1235,6 @@ class PagesVersions extends Wire implements Module {
 		if(!$fieldtype) return false;
 		return $fieldtype->versions()->hasNestedRepeaterFields($page);
 	}
-
 
 	/********************************************************************************
 	 * HOOKS
