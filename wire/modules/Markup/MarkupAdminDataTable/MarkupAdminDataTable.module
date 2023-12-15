@@ -65,6 +65,8 @@ class MarkupAdminDataTable extends ModuleJS {
 	
 	protected $colsNotSortable = array();
 	
+	protected $removeClasses = array();
+	
 	/**
 	 * Initialize module and default settings
 	 * 
@@ -260,6 +262,14 @@ class MarkupAdminDataTable extends ModuleJS {
 		$out = '';
 		$maxCols = 0;
 		$id = $this->id ? $this->id : "AdminDataTable" . (++self::$instanceCnt);
+		
+		if(count($this->removeClasses)) {
+			$tableClasses = explode(' ', $tableClass);
+			foreach($tableClasses as $key => $cls) {
+				if(in_array($cls, $this->removeClasses)) unset($tableClasses[$key]);
+			}
+			$tableClass = implode(' ', $tableClasses);
+		}
 
 		if(count($this->rows)) { 
 			$out = "\n<table id='$id' class='$tableClass'>";
@@ -372,6 +382,18 @@ class MarkupAdminDataTable extends ModuleJS {
 	 */
 	public function addClass($class) {
 		$this->class = trim($this->class . " " . $this->encode($class)); 
+	}
+	
+	/**
+	 * Remove a class from the table
+	 *
+	 * @param string $class
+	 * @since 3.0.232
+	 *
+	 */
+	public function removeClass($class) {
+		$classes = strrpos($class, ' ') ? explode(' ', $class) : array($class);
+		$this->removeClasses = array_merge($this->removeClasses, $classes);
 	}
 
 	/**
