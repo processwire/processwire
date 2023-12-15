@@ -268,6 +268,8 @@ class MarkupFieldtype extends WireData implements Module {
 	protected function valueToString($value, $encode = true) {
 		if($value instanceof Pagefiles || $value instanceof Pagefile) {
 			return $this->objectToString($value);
+		} else if(wireInstanceOf($value, 'RepeaterPageArray')) {
+			return $this->objectToString($value);
 		} else if(WireArray::iterable($value)) {
 			return $this->arrayToString($value);
 		} else if(is_object($value)) {
@@ -303,11 +305,16 @@ class MarkupFieldtype extends WireData implements Module {
 	 * 
 	 */
 	protected function objectToString($value) {
-		if($value instanceof WireArray) { 
+		if($value instanceof WireArray) {
 			if(!$value->count()) return '';
+			if(wireInstanceOf($value, 'RepeaterPageArray')) {
+				return $this->renderInputfieldValue($value);
+			}
 		}
 		if($value instanceof Page) {
-			if($value->viewable()) {
+			if(wireInstanceOf($value, 'FieldsetPage')) {
+				return $this->renderInputfieldValue($value);
+			} else if($value->viewable()) {
 				return "<a href='$value->url'>" . $value->get('title|name') . "</a>";
 			} else {
 				return $value->get('title|name');
@@ -385,7 +392,7 @@ class MarkupFieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function __toString() {
-		return $this->render();
+		return (string) $this->render();
 	}
 	
 	public function setPage(Page $page) { $this->_page = $page;  }
