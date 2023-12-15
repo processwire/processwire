@@ -353,7 +353,7 @@ class PagesEditor extends Wire {
 				if(!$parent->id) $parent = $this->pages->get("include=all, template=$idStr");
 			}
 
-			if($parent->id) $page->parent = $parent;
+			if($parent && $parent->id) $page->parent = $parent;
 		}
 
 		// assign page name
