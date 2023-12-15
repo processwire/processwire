@@ -14,7 +14,7 @@ require_once(dirname(__FILE__) . '/FieldtypeRepeater.module');
  *
  */
 
-class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableModule {
+class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableModule, FieldtypeDoesVersions {
 
 	public static function getModuleInfo() {
 		return array(
@@ -498,5 +498,104 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 		$template->pageLabelField = 'for_page_path';
 	}
 
-}
+	/*************************************************************************
+	 * VERSION SUPPORT
+	 * 
+	 */
 
+	/**
+	 * @var PagesVersions|null 
+	 * 
+	 */
+	protected $pagesVersions = null;
+
+	/**
+	 * Get PagesVersions instance
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return PagesVersions
+	 * @throws WireException
+	 * 
+	 */
+	public function pagesVersions() {
+		if($this->pagesVersions === null) $this->pagesVersions = $this->wire('pagesVersions');
+		if(!$this->pagesVersions) throw new WireException("PagesVersions module is not installed");
+		return $this->pagesVersions;
+	}
+
+	/**
+	 * Get the value for given page, field and version
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return FieldsetPage|null
+	 * @since 3.0.132
+	 *
+	 */
+	public function getPageFieldVersion(Page $page, Field $field, $version) {
+		$value = $page->get($field->name);
+		if(!$value instanceof FieldsetPage) return null;
+		$item = $this->pagesVersions()->getPageVersion($value, $version);
+		if(!$item) $item = $value;
+		return $item;
+	}
+
+	/**
+	 * Save version of given page field
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * @since 3.0.132
+	 *
+	 */
+	public function savePageFieldVersion(Page $page, Field $field, $version) {
+		$value = $page->get($field->name);
+		if(!$value instanceof FieldsetPage) return false;
+		return $this->pagesVersions()->savePageVersion($value, $version);
+	}
+
+	/**
+	 * Restore version of given page field
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * @since 3.0.132
+	 *
+	 */
+	public function restorePageFieldVersion(Page $page, Field $field, $version) {
+		$value = $page->get($field->name);
+		if(!$value instanceof FieldsetPage) return false;
+		return $this->pagesVersions()->restorePageVersion($value, $version);
+	}
+
+	/**
+	 * Delete version
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * @since 3.0.132
+	 *
+	 */
+	public function deletePageFieldVersion(Page $page, Field $field, $version) {
+		$value = $page->get($field->name);
+		if(!$value instanceof FieldsetPage) return false;
+		return $this->pagesVersions()->deletePageVersion($value, $version);
+	}
+
+}
