@@ -242,6 +242,12 @@ var InputfieldTinyMCE = {
 			'&width=' + width + 
 			'&hidpi=' + hidpi + 
 			'&file=' + src; 
+	
+		if(typeof ProcessWire.config.PagesVersions !== 'undefined') {
+			if(ProcessWire.config.PagesVersions.page == $('#Inputfield_id').val()) {
+				url += '&version=' + ProcessWire.config.PagesVersions.version;
+			}
+		}
 		
 		t.log('Resizing image to width=' + width, url); 
 		

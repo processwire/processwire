@@ -180,6 +180,14 @@
 
 		var modalUri = ProcessWire.config.urls.admin + 'page/image/';
 		var queryString = '?id=' + page_id + '&edit_page_id=' + edit_page_id + '&modal=1';
+		var version = 0;
+		
+		if(typeof ProcessWire.config.PagesVersions !== 'undefined') {
+			if(ProcessWire.config.PagesVersions.page == page_id) {
+				version = ProcessWire.config.PagesVersions.version;	
+				queryString += '&version=' + version;
+			}
+		}
 
 		if(file.length) queryString += "&file=" + file; 
 		if(imgWidth) queryString += "&width=" + imgWidth; 
@@ -320,7 +328,8 @@
 								'&file=' + file + 
 								'&width=' + width + 
 								'&height=' + height + 
-								'&hidpi=' + hidpi;
+								'&hidpi=' + hidpi + 
+								'&version=' + version;
 							
 							if(rotate) resizeURL += '&rotate=' + rotate; 
 							if($img.hasClass('flip_horizontal')) resizeURL += '&flip=h';
@@ -339,7 +348,7 @@
 						click: function() {
 							var $i = $iframe.contents();
 							var page_id = jQuery("#page_id", $i).val();
-							$iframe.attr('src', modalUri + '?id=' + page_id + '&modal=1'); 
+							$iframe.attr('src', modalUri + '?id=' + page_id + '&modal=1&version=' + version); 
 							$iframe.setButtons({}); 
 						}
 					}, {

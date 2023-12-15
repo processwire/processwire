@@ -126,6 +126,7 @@ function pwTinyMCE_image(editor) {
 		var imagePageId = $('#page_id', $i).val();
 		var hidpi = $("#selected_image_hidpi", $i).is(":checked") ? 1 : 0;
 		var rotate = parseInt($("#selected_image_rotate", $i).val());
+		var version = 0;
 		
 		$iframe.dialog('disable');
 		$iframe.setTitle(labels.savingImage); // Saving Image
@@ -136,12 +137,19 @@ function pwTinyMCE_image(editor) {
 		
 		file = file.substring(file.lastIndexOf('/')+1);
 		
+		if(typeof ProcessWire.config.PagesVersions !== 'undefined') {
+			if(ProcessWire.config.PagesVersions.page == imagePageId) {
+				version = ProcessWire.config.PagesVersions.version;
+			}
+		}
+		
 		var resizeUrl = modalUrl + 'resize' +
 			'?id=' + imagePageId +
 			'&file=' + file +
 			'&width=' + width +
 			'&height=' + height +
-			'&hidpi=' + hidpi;
+			'&hidpi=' + hidpi + 
+			'&version=' + version;
 		
 		if(rotate) resizeUrl += '&rotate=' + rotate;
 		
@@ -185,7 +193,13 @@ function pwTinyMCE_image(editor) {
 				click: function() {
 					var $i = $iframe.contents();
 					var imagePageId = $('#page_id', $i).val();
-					$iframe.attr('src', modalUrl + '?id=' + imagePageId + '&modal=1');
+					var version = 0;
+					if(typeof ProcessWire.config.PagesVersions !== 'undefined') {
+						if(ProcessWire.config.PagesVersions.page == imagePageId) {
+							version = ProcessWire.config.PagesVersions.version;
+						}
+					}
+					$iframe.attr('src', modalUrl + '?id=' + imagePageId + '&modal=1&version=' + version);
 					$iframe.setButtons({});
 				}
 			} ];
@@ -281,6 +295,12 @@ function pwTinyMCE_image(editor) {
 		if(imgLink && imgLink.length) queryString += "&link=" + encodeURIComponent(imgLink);
 		
 		queryString += ('&winwidth=' + ($(window).width() - 30));
+		
+		if(typeof ProcessWire.config.PagesVersions !== 'undefined') {
+			if(ProcessWire.config.PagesVersions.page == pageId) {
+				queryString += '&version=' + ProcessWire.config.PagesVersions.version;
+			}
+		}
 		
 		return queryString;
 	} 
