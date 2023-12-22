@@ -1712,13 +1712,8 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 *
 	 */
 	public function getFiles(Page $page, Field $field) {
-		$value = $page->get($field->name); 
-		if($value instanceof Pagefile) {
-			return array($value->filename());
-		}
-		if($value instanceof Pagefiles && $value->count()) {
-			return $value->explode('filename');
-		}
+		$value = $page->get($field->name);
+		if($value instanceof Pageimages || $value instanceof Pageimage) return $value->getFiles();
 		return array();
 	}
 	

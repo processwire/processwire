@@ -991,6 +991,22 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	}
 
 	/**
+	 * Get all filenames associated with this Pagefiles object
+	 *
+	 * @return array
+	 * @since 3.0.233
+	 *
+	 */
+	public function getFiles() {
+		$filenames = array();
+		foreach($this as $pagefile) {
+			/** @var Pagefile $pagefile */
+			$filenames = array_merge($filenames, $pagefile->getFiles());
+		}
+		return $filenames;
+	}
+
+	/**
 	 * Debug info
 	 * 
 	 * @return array

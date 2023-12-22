@@ -1459,6 +1459,23 @@ class Pagefile extends WireData implements WireArrayItem {
 		
 		return true;
 	}
+	
+	/**
+	 * Get all filenames associated with this file
+	 *
+	 * @return array
+	 *  @since 3.0.233
+	 *
+	 */
+	public function getFiles() {
+		$filename = $this->filename();
+		$filenames = array($filename);
+		foreach($this->extras() as $extra) {
+			if($extra->exists()) $filenames[] = $extra->filename();
+		}
+		return $filenames;
+	}
+
 
 	/**
 	 * Ensures that isset() and empty() work for dynamic class properties

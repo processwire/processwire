@@ -1853,6 +1853,28 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
+	 * Get all filenames associated with this image
+	 * 
+	 * @return array
+	 * @since 3.0.233
+	 * 
+	 */
+	public function getFiles() {
+		$filenames = parent::getFiles();
+		foreach($this->extras() as $extra) {
+			if($extra->exists()) $filenames[] = $extra->filename();
+		}
+		foreach($this->getVariations() as $pagefile) {
+			/** @var Pagefile $pagefile */
+			$filenames[] = $pagefile->filename();
+			foreach($pagefile->extras() as $extra) {
+				if($extra->exists()) $filenames[] = $extra->filename();
+			}
+		}
+		return $filenames;
+	}
+
+	/**
 	 * Basic debug info
 	 * 
 	 * @return array

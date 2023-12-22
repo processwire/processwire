@@ -248,28 +248,7 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 	 *
 	 */
 	public function getFiles(Page $page, Field $field) {
-		
-		$value = $page->get($field->name);
-		$files = array();
-		
-		if($value instanceof Pageimage) {
-			$value = array($value);
-		} else if(!$value instanceof Pageimages) {
-			return array();
-		}
-		
-		foreach($value as $pageimage) {
-			/** @var Pageimage $pageimage */
-			$file = $pageimage->filename();
-			$path = dirname($file) . '/';
-			$files[] = $file;
-			$variations = $pageimage->getVariations(array('info' => true, 'verbose' => false));
-			foreach($variations as $basename) {
-				$files[] = $path . $basename;
-			}
-		}
-		
-		return $files;
+		return parent::getFiles($page, $field);
 	}
 
 	/**
