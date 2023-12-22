@@ -3,25 +3,30 @@
 /**
  * Page Version Info
  * 
- * For pages that are a version, this class represents 
- * the `_version` property of the page.
+ * For pages that are a version, this class represents the `_version` 
+ * property of the page. It is also used as the return value for some
+ * methods in the PagesVersions class to return version information.
+ 
  * 
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
- * @property int $version
- * @property string $description
- * @property int $created
- * @property int $modified
- * @property int $pages_id
- * @property Page $page
- * @property int $created_users_id
- * @property int $modified_users_id
- * @property-read User|NullPage $createdUser
- * @property-read User|NullPage $modifiedUser
- * @property-read string $createdStr
- * @property-read string $modifiedStr
- * @property string $action
+ * @property int $version Version number
+ * @property string $description Version description (not entity encoded)
+ * @property-read string $descriptionHtml Version description entity encoded for output in HTML
+ * @property int $created Date/time created (unix timestamp)
+ * @property-read string $createdStr Date/time created (YYYY-MM-DD HH:MM:SS)
+ * @property int $modified Date/time last modified (unix timestamp)
+ * @property-read string $modifiedStr Date/time last modified (YYYY-MM-DD HH:MM:SS)
+ * @property int $pages_id ID of page this version is for
+ * @property Page $page Page this version is for
+ * @property int $created_users_id ID of user that created this version
+ * @property-read User|NullPage $createdUser User that created this version
+ * @property int $modified_users_id ID of user that last modified this version
+ * @property-read User|NullPage $modifiedUser User that last modified this version
+ * @property array $properties Native page properties array in format [ property => value ]
+ * @property-read array $fieldNames Names of fields in this version 
+ * @property string $action Populated with action name if info is being used for an action
  *
  */
 class PageVersionInfo extends WireData {
@@ -52,6 +57,7 @@ class PageVersionInfo extends WireData {
 			'created_users_id' => 0,
 			'modified_users_id' => 0,
 			'pages_id' => 0, 
+			'properties' => [], 
 			'action' => '',
 		];
 		parent::setArray(array_merge($defaults, $data));
@@ -98,6 +104,8 @@ class PageVersionInfo extends WireData {
 			case 'modifiedUser': return $this->getModifiedUser();
 			case 'createdStr': return $this->created > 0 ? date('Y-m-d H:i:s', $this->created) : '';
 			case 'modifiedStr': return $this->modified > 0 ? date('Y-m-d H:i:s', $this->modified) : '';
+			case 'fieldNames': return $this->getFieldNames();
+			case 'descriptionHtml': return $this->wire()->sanitizer->entities(parent::get('description'));
 		}
 		return parent::get($key);
 	}
@@ -148,6 +156,47 @@ class PageVersionInfo extends WireData {
 	public function getModifiedUser() {
 		$id = $this->modified_users_id;
 		return $id ? $this->wire()->users->get($id) : $this->getCreatedUser();
+	}
+
+	/**
+	 * Get native property names in this version
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string[]
+	 * 
+	 */
+	public function getPropertyNames() {
+		return array_keys($this->properties);
+	}
+
+	/**
+	 * Get field names in this version
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string[]
+	 * 
+	 */
+	public function getFieldNames() {
+		$a = parent::get('fieldNames');
+		if(!empty($a)) return $a; 
+		$a = $this->wire()->pagesVersions->getPageVersionFields($this->pages_id, $this->version);
+		$a = array_keys($a);
+		parent::set('fieldNames', $a);
+		return $a;
+	}
+
+	/**
+	 * Get field and property names in this version
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string[]
+	 * 
+	 */
+	public function getNames() {
+		return array_merge($this->getPropertyNames(), $this->getFieldNames());
 	}
 
 	/**

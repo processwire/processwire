@@ -57,7 +57,7 @@ class PagesVersions extends Wire implements Module {
 		return [
 			'title' => 'Pages Versions',
 			'summary' => 'Provides a version control API for pages in ProcessWire.',
-			'version' => 1,
+			'version' => 2,
 			'icon' => self::iconName, 
 			'autoload' => true, 
 			'author' => 'Ryan Cramer',
@@ -86,6 +86,8 @@ class PagesVersions extends Wire implements Module {
 	 *
 	 * @param Page $page Page that version is for
 	 * @param int $version Version number to get
+	 * @param array $options
+	 *  - `names` (array): Optionally load only these field/property names from version.
 	 * @return Page|NullPage 
 	 *  - Returned page is a clone/copy of the given page updated for version data.
 	 *  - Returns a `NullPage` if requested version is not found or not allowed.
@@ -120,13 +122,13 @@ class PagesVersions extends Wire implements Module {
 	public function loadPageVersion(Page $page, $version, array $options = []) {
 
 		$defaults = [
-			'names' => [], // Optionally load only these field/property names from version.
+			'names' => [],
 		];
 
 		$database = $this->wire()->database;
 		$table = self::versionsTable;
 		$options = array_merge($defaults, $options);
-		$filter = count($options['names']) > 0;
+		$partial = count($options['names']) > 0;
 		$version = $this->pageVersionNumber($page, $version);
 		$of = $page->of();
 		
@@ -166,23 +168,26 @@ class PagesVersions extends Wire implements Module {
 
 		if(is_array($data)) {
 			foreach($data as $name => $value) {
-				if($filter && !in_array($name, $options['names'])) continue;
+				if($partial && !in_array($name, $options['names'])) continue;
 				$page->set($name, $value);
 			}
 		}
 
 		foreach($page->template->fieldgroup as $field) {
 			/** @var Field $field */
-			if($filter && !in_array($field->name, $options['names'])) continue;
+			if($partial && !in_array($field->name, $options['names'])) continue;
+			
 			$allow = $this->allowFieldVersions($field);
 			if(!$allow) continue;
+			
 			if($allow instanceof FieldtypeDoesVersions) {
 				$value = $allow->getPageFieldVersion($page, $field, $version);
 			} else {
 				$value = $this->getPageFieldVersion($page, $field, $version);
 			}
+			
 			if($value === null) {
-				// @todo set to blankValue or leave as-is?
+				// value is not present in version
 			} else {
 				$page->set($field->name, $value);
 			}
@@ -209,8 +214,9 @@ class PagesVersions extends Wire implements Module {
 	 *
 	 * @param Page $page
 	 * @param array $options 
-	 *  - `getInfo`: Specify true to instead get PageVersionInfo objects (default=false)
-	 *  - `sort`: Sort by property, one of: 'created', '-created', 'version', '-version' (default='-created')
+	 *  - `getInfo` (bool): Specify true to instead get PageVersionInfo objects (default=false)
+	 *  - `sort` (string): Sort by property, one of: 'created', '-created', 'version', '-version' (default='-created')
+	 *  - `version` (array): Limit to this version number, for internal use (default=0) 
 	 * @return PageVersionInfo[]|Page[] 
 	 *  - Returns Array of `Page` objects or array of `PageVersionInfo` objects if `getInfo` requested. 
 	 *  - When returning pages, version info is in `$page->_version` value of each page, 
@@ -223,6 +229,7 @@ class PagesVersions extends Wire implements Module {
 		$defaults = [
 			'getInfo' => false, 
 			'sort' => '-created',
+			'version' => 0, 
 		];
 		
 		$sorts = [
@@ -245,18 +252,22 @@ class PagesVersions extends Wire implements Module {
 
 		$sql =
 			"SELECT version, description, created, modified, " . 
-			"created_users_id, modified_users_id " . 
+			"created_users_id, modified_users_id, data " . 
 			"FROM $table " .
-			"WHERE pages_id=:pages_id " .
-			"ORDER BY " . $sorts[$options['sort']];
+			"WHERE pages_id=:pages_id " . ($options['version'] ? "AND version=:version " : "") . 
+			($options['version'] ? "LIMIT 1" : "ORDER BY " . $sorts[$options['sort']]);
 
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		if($options['version']) $query->bindValue(':version', (int) $options['version'], \PDO::PARAM_INT);
 		$query->execute();
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$properties = json_decode($row['data'], true);
+			unset($row['data']); 
 			$info = new PageVersionInfo($row);
 			$info->set('pages_id', $page->id);
+			$info->set('properties', $properties);
 			$rows[] = $this->wire($info);
 		}
 
@@ -284,15 +295,48 @@ class PagesVersions extends Wire implements Module {
 	}
 
 	/**
+	 * Get info for given page and version
+	 * 
+	 * ~~~~~
+	 * // get info for version 2
+	 * $info = $pagesVersions->getPageVersionInfo($page, 2);
+	 * if($info) {
+	 *   echo "Version: $info->version <br />";
+	 *   echo "Created: $info->createdStr by {$info->createdUser->name} <br />";
+	 *   echo "Description: $info->descriptionHtml";
+	 * } else {
+	 *   echo "Version does not exist";
+	 * }
+	 * ~~~~~
+	 * 
+	 * #pw-group-info
+	 *
+	 * @param Page $page
+	 * @param int $version
+	 * @return PageVersionInfo|null
+	 * 
+	 */
+	public function getPageVersionInfo(Page $page, $version) {
+		$options = [
+			'getInfo' => true, 
+			'version' => $version,
+		];
+		$a = $this->getPageVersions($page, $options);
+		return count($a) ? reset($a) : null;
+	}
+
+	/**
 	 * Get just PageVersionInfo objects for all versions of given page
 	 * 
-	 * This is the same as using the getPageVersions() method with the `getInfo` option. 
+	 * This is the same as using the getPageVersions() method with the `getInfo` option.
+	 * 
+	 * #pw-group-info
 	 * 
 	 * ~~~~~
 	 * $page = $pages->get(1234);
 	 * $infos = $pagesVersions->getPageVersionInfos($page); 
 	 * foreach($infos as $info) {
-	 *   echo $info->version; // i.e. 2, 3, 4, etc.
+	 *   echo "<li>$info->version: $descriptionHtml</li>"; // i.e. "2: Hello world"
 	 * }
 	 * ~~~~~
 	 * 
@@ -308,14 +352,13 @@ class PagesVersions extends Wire implements Module {
 		$options['getInfo'] = true;
 		return $this->getPageVersions($page, $options);
 	}
-	
+
 	/**
 	 * Get all pages that have 1 or more versions available
 	 * 
 	 * #pw-group-getting
 	 *
 	 * @return PageArray
-	 * @throws WireException
 	 *
 	 */
 	public function getAllPagesWithVersions() {
@@ -334,7 +377,7 @@ class PagesVersions extends Wire implements Module {
 	/**
 	 * Does page have the given version?
 	 * 
-	 * #pw-group-getting
+	 * #pw-group-info
 	 * 
 	 * @param Page $page
 	 * @param int|string|PageVersionInfo $version Version number or omit to return quantity of versions
@@ -374,7 +417,7 @@ class PagesVersions extends Wire implements Module {
 	 * This is the same as calling the `hasPageVersion()` method 
 	 * with $version argument omitted.
 	 * 
-	 * #pw-group-getting
+	 * #pw-group-info
 	 * 
 	 * @param Page $page
 	 * @return int
@@ -405,7 +448,8 @@ class PagesVersions extends Wire implements Module {
 	 * 
 	 * @param Page $page
 	 * @param array $options
-	 *  - `description` (string) Optional text description for version
+	 *  - `description` (string): Optional text description for version.
+	 *  - `names` (array): Names of fields/properties to include in the version or omit for all.
 	 * @return int Version number or 0 if no version created
 	 * @throws WireException|\PDOException
 	 * 
@@ -414,6 +458,7 @@ class PagesVersions extends Wire implements Module {
 		
 		$defaults = [
 			'description' => '', 
+			'names' => [], 
 			'retry' => 10, // max times to retry
 		];
 
@@ -457,14 +502,8 @@ class PagesVersions extends Wire implements Module {
 	 *    the `addPageVersion()` method and returns the added version number. 
 	 * @param array $options
 	 *  - `description` (string): Optional text description for version (default='')
-	 *  - `returnVersion` (bool): Return the version number on success? (default=false)
-	 *  - `returnNames` (bool): Return names of properties/fields that were saved (default=false)
 	 *  - `update` (bool): Update version if it already exists (default=true)
-	 * @return bool|int|array Boolean true, version number, or array of property/field names
-	 *  - Returns boolean true when version is saved or false when no version is saved. 
-	 *  - Returns integer version number when no version specified in arguments and new version added,
-	 *  - Returns integer version number when the `returnVersion` option is true. 
-	 *  - Returns array of field names in the version when the `returnNames` option is true. 
+	 * @return int|array Returns version number saved or added or 0 on fail
 	 * @throws WireException|\PDOException
 	 *
 	 */
@@ -472,30 +511,30 @@ class PagesVersions extends Wire implements Module {
 
 		$defaults = [
 			'description' => null, 
-			'names' => [], // save only these field/property names, internal use only
+			'names' => [],
 			'copyFiles' => true, // make a copy of the page’s files? internal use only
-			'returnVersion' => false, 
-			'returnNames' => false, 
+			'returnNames' => false,  // undocumented option, internal use only
 			'update' => true,
 		];
 
 		$options = array_merge($defaults, $options);
 		$database = $this->wire()->database;
-		$filter = !empty($options['names']);
+		$copyFilesByField = false;
+		$partial = !empty($options['names']);
 		$table = self::versionsTable;
 		$date = date('Y-m-d H:i:s');
 		$user = $this->wire()->user;
 		$of = $page->of();
 
-		if(!$this->allowPageVersions($page)) return false;
+		if(!$this->allowPageVersions($page)) return 0;
 		if($of) $page->of(false);
 		if(!is_int($version)) $version = $this->pageVersionNumber($page, $version);
 		if($version < 1) $version = $this->pageVersionNumber($page);
 		
 		if(!$version) {
-			$result = $this->addPageVersion($page);
+			$version = $this->addPageVersion($page, $options);
 			if($of) $page->of(true);
-			return $result;
+			return $version;
 		}
 		
 		$sql =
@@ -526,32 +565,57 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':description', (string) $options['description']);
 		$query->bindValue(':data', json_encode($data));
 		$query->execute();
-		
-		if($options['copyFiles']) {
+
+		if(!$options['copyFiles']) {
+			// files will be excluded from the data
+			
+		} else if($partial) {
+			// if only saving some fields in the version then copy by field
+			if($this->pagesVersionsFiles->useFilesByField($page, $options['names'])) {
+				$copyFilesByField = true;
+			} else {
+				// page does not support partial version
+				$this->pageError($page, $this->_('Partial version not supported (file fields), saved full version'));
+				$partial = false;
+			}
+			
+		} else if($this->pagesVersionsFiles->useFilesByField($page)) {
+			// page and all its fields support copying files by field
+			$copyFilesByField = true;
+		} 
+	
+		if(!$copyFilesByField) {
+			// copy all files in directory (fallback)
 			$this->pagesVersionsFiles->copyPageVersionFiles($page, $version);
 		}
 
 		foreach($page->fieldgroup as $field) {
+			
 			/** @var Field $field */
-			if($filter && !in_array($field->name, $options['names'])) continue;
+			if($partial && !in_array($field->name, $options['names'])) continue;
+			
 			$allow = $this->allowFieldVersions($field);
+			
 			if($allow instanceof FieldtypeDoesVersions) {
 				$added = $allow->savePageFieldVersion($page, $field, $version);
+				
 			} else if($allow === true) {
 				$added = $this->savePageFieldVersion($page, $field, $version);
+				if($added && $copyFilesByField && $this->pagesVersionsFiles->fieldSupportsFiles($field)) {
+					$this->pagesVersionsFiles->copyPageFieldVersionFiles($page, $field, $version);
+				}
+				
 			} else {
 				// field excluded from version
 				$added = false;
 			}
+			
 			if($added) $names[] = $field->name;
 		}
 		
 		if($of) $page->of(true);
 		
-		if($options['returnVersion']) return $version;
-		if($options['returnNames']) return $names;
-
-		return true;
+		return ($options['returnNames'] ? $names : $version);
 	}
 
 	/**
@@ -669,6 +733,7 @@ class PagesVersions extends Wire implements Module {
 	 * @param Page $page Page to restore version to or a page that was loaded as a version.
 	 * @param int $version Version number to restore. Can be omitted if given $page is already a version.
 	 * @param array $options
+	 *  - `names` (array): Names of fields/properties to restore or omit for all (default=[])
 	 *  - `useTempVersion` (bool): Create a temporary version and restore from that? (default=auto-detect).
 	 *     This is necessary for some Fieldtypes like nested repeaters. Use of it is auto-detected so 
 	 *     it is not necessary to specify this when using the public API.
@@ -679,6 +744,7 @@ class PagesVersions extends Wire implements Module {
 	public function restorePageVersion(Page $page, $version = 0, array $options = []) {
 		
 		$defaults = [
+			'names' => [], 
 			'useTempVersion' => null, 
 		];
 
@@ -686,18 +752,29 @@ class PagesVersions extends Wire implements Module {
 		$version = (int) "$version";
 		$pageVersion = $this->pageVersionNumber($page);
 		$useTempVersion = $options['useTempVersion'];
+		$partialRestore = count($options['names']) > 0; 
 		$of = $page->of();
-
+		
 		if($version < 1) $version = $pageVersion;
 		
 		if($version < 1) {
-			return $this->pageError($page, $this->_('Cannot restore unknown version'));
+			return $this->pageError($page, 
+				sprintf($this->_('Cannot restore unknown version %s'), "$version")
+			);
 		}
 		
 		if(!$this->allowPageVersions($page)) {
-			return $this->pageError($page, $this->_('Restore failed, page does not allow versions'));
+			return $this->pageError($page, 
+				$this->_('Restore failed, page does not allow versions')
+			);
 		}
 		
+		if($partialRestore && !$this->pageSupportsPartialVersion($page, $options['names'])) {
+			return $this->pageError($page,
+				$this->_('One or more fields requested does not support partial restore.')
+			);
+		}
+
 		if($pageVersion) {
 			// given page is the one to restore
 			$versionPage = $page;
@@ -722,14 +799,32 @@ class PagesVersions extends Wire implements Module {
 				$version = $useTempVersion;
 			}
 		}
-		
+	
+		// this action is looked for in the Pages::saveReady hook
 		$this->pageVersionInfo($versionPage, 'action', PageVersionInfo::actionRestore);
-		$this->pagesVersionsFiles->restorePageVersionFiles($page, $version);
+		
+		if(!$partialRestore) {
+			// restore all files
+			$this->pagesVersionsFiles->restorePageVersionFiles($page, $version);
+		}
 
 		foreach($page->fieldgroup as $field) {
+			/** @var Field $field */
 			$allow = $this->allowFieldVersions($field);
-			if($allow instanceof FieldtypeDoesVersions) {
+			
+			if(!$allow) {
+				// field not allowed in versions
+				
+			} else if($partialRestore && !in_array($field->name, $options['names'])) {
+				// partial restore does not include this field
+				
+			} else if($allow instanceof FieldtypeDoesVersions) {
+				// fieldtype handles its own version restore
 				$allow->restorePageFieldVersion($page, $field, $version);
+				
+			} else if($partialRestore && $this->pagesVersionsFiles->fieldSupportsFiles($field)) {
+				// restore just files for a particular file field
+				$this->pagesVersionsFiles->restorePageFieldVersionFiles($versionPage, $field, $version);
 			}
 		}
 
@@ -765,11 +860,18 @@ class PagesVersions extends Wire implements Module {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param int $version
+	 * @param array $options
+	 *  - `getRaw` (bool): Get raw data rather than page-ready value? (default=false)
 	 * @return mixed|null Returns null if version data for field not available, field value otherwise
 	 *
 	 */
-	public function getPageFieldVersion(Page $page, Field $field, $version) {
+	public function getPageFieldVersion(Page $page, Field $field, $version, array $options = []) {
+		
+		$defaults = [
+			'getRaw' => false, 
+		];
 
+		$options = array_merge($defaults, $options);
 		$database = $this->wire()->database;
 		$table = self::valuesTable;
 		$version = (int) "$version";
@@ -792,7 +894,9 @@ class PagesVersions extends Wire implements Module {
 					$value = $value['data'];
 				}
 			}
-			$value = $field->type->wakeupValue($page, $field, $value);
+			if(!$options['getRaw']) {
+				$value = $field->type->wakeupValue($page, $field, $value);
+			}
 		} else {
 			$value = null;
 		}
@@ -817,7 +921,7 @@ class PagesVersions extends Wire implements Module {
 
 		$database = $this->wire()->database;
 		$names = isset($options['names']) ? $options['names'] : [];
-		$filter = !empty($names);
+		$partial = !empty($names);
 
 		$sql = "SELECT * FROM pages WHERE id=:id";
 		$query = $database->prepare($sql);
@@ -827,10 +931,9 @@ class PagesVersions extends Wire implements Module {
 		$query->closeCursor();
 		unset($data['id']);
 
-		if($filter) {
+		if($partial) {
 			foreach($data as $name => $value) {
-				if(in_array($name, $names)) continue;
-				unset($data[$name]);
+				if(!in_array($name, $names)) unset($data[$name]);
 			}
 		}
 
@@ -983,6 +1086,9 @@ class PagesVersions extends Wire implements Module {
 
 	/**
 	 * Delete a page field version
+	 * 
+	 * This should not be called independently of deletePageVersion() as this 
+	 * method does not delete any files connected to the version.
 	 * 
 	 * @param Page $page
 	 * @param Field $field
@@ -1195,6 +1301,37 @@ class PagesVersions extends Wire implements Module {
 		if(wireInstanceOf($page, $disallows)) return false;
 		return true;
 	}
+	
+	/**
+	 * Get the fields included with given page version
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page|int $page
+	 * @param int $version
+	 * @return Field[] Array of field objects indexed by field name
+	 *
+	 */
+	public function getPageVersionFields($page, $version) {
+		$pageId = (int) "$page";
+		$fields = $this->wire()->fields;
+		$versionFields = [];
+		$table = self::valuesTable;
+		$sql = "SELECT field_id FROM $table WHERE pages_id=:pages_id AND version=:version";
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':pages_id', $pageId, \PDO::PARAM_INT);
+		$query->bindValue(':version', (int) $version, \PDO::PARAM_INT);
+		$query->execute();
+		while($row = $query->fetch(\PDO::FETCH_NUM)) {
+			$fieldId = (int) $row[0];
+			$field = $fields->get($fieldId);
+			if(!$field) continue;
+			$versionFields[$field->name] = $field;
+		}
+		$query->closeCursor();
+		return $versionFields;
+	}
+
 
 	/**
 	 * Get next available version number for given page
@@ -1236,6 +1373,26 @@ class PagesVersions extends Wire implements Module {
 		return $fieldtype->versions()->hasNestedRepeaterFields($page);
 	}
 
+	/**
+	 * Does given page support partial version save and restore?
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param array $names Optionally limit check to these field names
+	 * @return bool
+	 * 
+	 */
+	public function pageSupportsPartialVersion(Page $page, array $names = []) {
+		$fileFields = $this->pagesVersionsFiles->getFileFields($page, [ 'names' => $names ]);
+		if(!count($fileFields)) {
+			return true;
+		} else if($this->pagesVersionsFiles->useFilesByField($page, $names)) {
+			return true;
+		}
+		return false;
+	}
+
 	/********************************************************************************
 	 * HOOKS
 	 *
@@ -1271,7 +1428,7 @@ class PagesVersions extends Wire implements Module {
 		}
 		
 		$event->replace = true;
-		$event->return = $this->savePageVersion($page, $info->version, $options);
+		$event->return = (bool) $this->savePageVersion($page, $info->version, $options);
 		$this->pagesVersionsFiles->hookBeforePagesSave($page);
 	}
 
