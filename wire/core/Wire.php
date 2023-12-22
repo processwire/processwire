@@ -1758,7 +1758,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * @param string|object $name Name of API variable to retrieve, set, or omit to retrieve the master ProcessWire object.
 	 * @param null|mixed $value Value to set if using this as a setter, otherwise omit.
 	 * @param bool $lock When using as a setter, specify true if you want to lock the value from future changes (default=false).
-	 * @return ProcessWire|Wire|Session|Page|Pages|Modules|User|Users|Roles|Permissions|Templates|Fields|Fieldtypes|Sanitizer|Config|Notices|WireDatabasePDO|WireHooks|WireDateTime|WireFileTools|WireMailTools|WireInput|string|mixed
+	 * @return ProcessWire|Wire|Session|Page|Pages|Modules|User|Users|Roles|Permissions|Templates|Fields|Fieldtypes|Sanitizer|Config|Notices|WireDatabasePDO|WireHooks|WireDateTime|WireFileTools|WireMailTools|WireInput|PagesVersions|string|mixed
 	 * @throws WireException
 	 *
 	 *
@@ -1912,4 +1912,3 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 
 
 }
-

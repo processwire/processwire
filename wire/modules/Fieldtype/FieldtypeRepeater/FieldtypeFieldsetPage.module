@@ -559,7 +559,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	public function savePageFieldVersion(Page $page, Field $field, $version) {
 		$value = $page->get($field->name);
 		if(!$value instanceof FieldsetPage) return false;
-		return $this->pagesVersions()->savePageVersion($value, $version);
+		return (bool) $this->pagesVersions()->savePageVersion($value, $version);
 	}
 
 	/**

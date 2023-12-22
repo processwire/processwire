@@ -769,7 +769,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 				$out = "<p>$out</p>";
 			}
 		} else {
-			bd($this->options);
+			// bd($this->options);
 		}
 		
 		return $out; 
