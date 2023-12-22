@@ -13,6 +13,17 @@ function InputfieldPageTableDialog() {
 				var ajaxURL = $container.attr('data-url') + '&InputfieldPageTableAdd=' + dialogPageID;
 				var sort = $container.siblings(".InputfieldPageTableSort").val();
 				if(typeof sort != "undefined" && sort.length) ajaxURL += '&InputfieldPageTableSort=' + sort.replace(/\|/g, ',');
+				// --------------
+				// Support for InputfieldPageTable outside of FieldtypePageTable via @MarkE
+				// https://processwire.com/talk/topic/29301-odd-pagetable-behaviour-in-process-module/
+				let regexp = new RegExp('[?&]id=([^&#]*)', 'i');
+				let matches = regexp.exec(ajaxURL);
+				let id = matches ? parseInt(matches[1]) : 0;
+				if(id === 0) {
+					window.location.reload();
+					return;
+				}
+				// --------------
 				$.get(ajaxURL, function(data) {
 					$container.html(data);
 					$container.find(".Inputfield").trigger('reloaded', ['InputfieldPageTable']);

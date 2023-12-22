@@ -12,7 +12,7 @@
  *
  */
 
-class FieldtypePageTable extends FieldtypeMulti implements Module {
+class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoesVersions {
 
 	public static function getModuleInfo() {
 		return array(
@@ -36,6 +36,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$pages->addHookAfter('unpublished', $this, 'hookPagesUnpublished');
 		$pages->addHookAfter('published', $this, 'hookPagesPublished'); 
 		$pages->addHookAfter('cloned', $this, 'hookPagesCloned'); 
+		$this->addHookAfter('ProcessWire::ready', $this, 'hookAfterReady'); 
 		parent::init();
 	}
 
@@ -268,8 +269,10 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 * 
 	 * Note that additional conditions are required and checked for by InputfieldPageTableAjax class. 
 	 * 
+	 * @param HookEvent $event
+	 * 
 	 */
-	public function ready() {
+	public function hookAfterReady(HookEvent $event) {
 		$config = $this->wire()->config;
 		if(	$config->ajax && 
 			$this->wire()->input->get('InputfieldPageTableField') && 
@@ -369,10 +372,10 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	protected function isValidItem(Page $page, Field $field, Page $item) {
 		$template_id = $field->get('template_id'); 
 		if(is_array($template_id)) {
-			if(in_array($item->template->id, $template_id)) return true; 
+			if(in_array($item->templates_id, $template_id)) return true; 
 		} else {
 			// old style for backwards compatibility
-			if($template_id == $item->template->id) return true; 
+			if($template_id == $item->templates_id) return true; 
 		}
 		return false; 
 	}
@@ -711,6 +714,125 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		
 		return $inputfields;
 	}
+	
+	/*************************************************************************
+	 * VERSION SUPPORT
+	 *
+	 */
+
+	/**
+	 * @var PagesVersions|null
+	 *
+	 */
+	protected $pagesVersions = null;
+
+	/**
+	 * Get PagesVersions instance
+	 *
+	 * #pw-internal
+	 *
+	 * @return PagesVersions
+	 * @throws WireException
+	 *
+	 */
+	public function pagesVersions() {
+		if($this->pagesVersions === null) $this->pagesVersions = $this->wire('pagesVersions');
+		if(!$this->pagesVersions) throw new WireException("PagesVersions module is not installed");
+		return $this->pagesVersions;
+	}
+
+	/**
+	 * Get the value for given page, field and version
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return PageArray|null
+	 * @since 3.0.132
+	 *
+	 */
+	public function getPageFieldVersion(Page $page, Field $field, $version) {
+		$pagesVersions = $this->pagesVersions();
+		$value = $page->get($field->name);
+		if(!$value instanceof PageArray) return null;
+		$versionValue = $this->getBlankValue($page, $field); 
+		
+		foreach($value as $item) {
+			$versionItem = $pagesVersions->getPageVersion($item, $version);
+			$versionValue->add($versionItem);
+		}
+		$versionValue->resetTrackChanges();
+		return $versionValue;
+	}
+
+	/**
+	 * Save version of given page field
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * @since 3.0.132
+	 *
+	 */
+	public function savePageFieldVersion(Page $page, Field $field, $version) {
+		$pagesVersions = $this->pagesVersions();
+		$value = $page->get($field->name);
+		if(!$value instanceof PageArray) return false;
+		foreach($value as $item) {
+			$pagesVersions->savePageVersion($item, $version);
+		}
+		return $pagesVersions->savePageFieldVersion($page, $field, $version);
+	}
+
+	/**
+	 * Restore version of given page field
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * @since 3.0.132
+	 *
+	 */
+	public function restorePageFieldVersion(Page $page, Field $field, $version) {
+		$pagesVersions = $this->pagesVersions();
+		$value = $page->get($field->name);
+		if(!$value instanceof PageArray) return false;
+		foreach($value as $item) {
+			$pagesVersions->restorePageVersion($item, $version);
+		}
+		return true;
+	}
+
+	/**
+	 * Delete version
+	 *
+	 * #pw-internal for FieldtypeDoesVersions interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $version
+	 * @return bool
+	 * @since 3.0.132
+	 *
+	 */
+	public function deletePageFieldVersion(Page $page, Field $field, $version) {
+		$pagesVersions = $this->pagesVersions();
+		$value = $page->get($field->name);
+		if(!$value instanceof PageArray) return false;
+		foreach($value as $item) {
+			$pagesVersions->deletePageVersion($item, $version);
+		}
+		return true;
+	}
+
 }
 
 require_once(__DIR__ . '/PageTableField.php');

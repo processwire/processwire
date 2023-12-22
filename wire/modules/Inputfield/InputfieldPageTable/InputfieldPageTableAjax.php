@@ -28,6 +28,7 @@ class InputfieldPageTableAjax extends Wire {
 	 * 
 	 */
 	public function __construct() {
+		parent::__construct();
 		$this->checkAjax();
 	}
 
@@ -39,6 +40,9 @@ class InputfieldPageTableAjax extends Wire {
 
 		$pages = $this->wire()->pages;
 		$input = $this->wire()->input; 
+		$version = (int) $input->get('version');
+		$pagesVersions = $version > 0 ? $this->wire()->pagesVersions : 0;
+		$process = $this->wire()->page->process;
 		
 		$fieldName = $input->get('InputfieldPageTableField'); 
 		if(!$fieldName) return;
@@ -55,6 +59,7 @@ class InputfieldPageTableAjax extends Wire {
 		$page = $pages->get($pageID); 
 		if(!$page->id) return;
 		if(!$page->editable($field->name)) return;
+		if($pagesVersions && $process == 'ProcessPageEdit') $pagesVersions->loadPageVersion($page, $version); 
 		
 		$page->of(false);
 		$page->get($field->name); // preload, fixes issue #518 with formatted version getting loaded when it shouldn't

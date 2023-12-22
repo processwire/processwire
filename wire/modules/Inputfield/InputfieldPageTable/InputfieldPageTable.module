@@ -154,26 +154,37 @@ class InputfieldPageTable extends Inputfield {
 		$editID = (int) $input->get('id');
 		if(!$editID && $process instanceof WirePageEditor) $editID = $process->getPage()->id;
 		$parentID = $this->parent_id ? $this->parent_id : $editID;
+		$version = $this->version();
 
 		// render the 'Add New' buttons for each template
 		$btn = '';
-		foreach($this->rowTemplates as $template) {
-			/** @var Template $template */
-			/** @var InputfieldButton $button */
-			$button = $modules->get('InputfieldButton'); 
-			$button->icon = 'plus-circle';
-			$button->value = count($this->rowTemplates) == 1 ? $this->_x('Add New', 'button') : $template->getLabel(); 
-	
-			$url = $config->urls->admin . "page/add/?modal=1&template_id=$template->id&parent_id=$parentID&context=PageTable";
-			if($this->nameFormat) $url .= "&name_format=" . $sanitizer->entities($this->nameFormat);
-			$btn .= "<span class='InputfieldPageTableAdd' data-url='$url'>" . $button->render() . "</span>";
+		if($version) {
+			$out .= "<span class='detail'>" . $this->_('Items can be added or deleted when editing the live version only.') . "</span>";
+		} else {
+			foreach($this->rowTemplates as $template) {
+				/** @var Template $template */
+				/** @var InputfieldButton $button */
+				$button = $modules->get('InputfieldButton');
+				$button->icon = 'plus-circle';
+				$button->value = count($this->rowTemplates) == 1 ? $this->_x('Add New', 'button') : $template->getLabel();
+
+				$url = $config->urls->admin . "page/add/" .
+					"?modal=1&template_id=$template->id&parent_id=$parentID" .
+					"&context=PageTable&version=$version";
+				if($this->nameFormat) {
+					$url .= "&name_format=" . $sanitizer->entities($this->nameFormat);
+				}
+				$btn .= "<span class='InputfieldPageTableAdd' data-url='$url'>" . $button->render() . "</span>";
+			}
 		}
 		
+
 		if(count($this->rowTemplates) > 1) $btn = "<small>$btn</small>";
 		$out .= "<div class='InputfieldPageTableButtons ui-helper-clearfix'>$btn</div>";
+		
 
 		if(!$input->get('InputfieldPageTableField')) {
-			$url = "./?id=$editID&InputfieldPageTableField=$this->name"; 
+			$url = "./?id=$editID&InputfieldPageTableField=$this->name&version=$version"; 
 			$out = "<div class='InputfieldPageTableContainer' data-url='$url' data-noclose='$this->noclose'>$out</div>";
 			// input for sorting purposes
 			$value = $sanitizer->entities($this->attr('value')); 
@@ -181,7 +192,7 @@ class InputfieldPageTable extends Inputfield {
 			$out .= "<input type='hidden' name='$name' class='InputfieldPageTableSort' value='$value' />";
 			$out .= "<input type='hidden' name='{$name}__delete' class='InputfieldPageTableDelete' value='' />";
 			
-			if($this->orphans && count($this->orphans)) {
+			if($this->orphans && count($this->orphans) && !$version) {
 				$out .= "<p class='InputfieldPageTableOrphans'>";
 				$out .= "<span>" . $this->_('Children were found that may be added to this table. Check the box next to any you would like to add.') . "</span> ";
 				if(count($this->orphans) > 1) {
@@ -190,12 +201,16 @@ class InputfieldPageTable extends Inputfield {
 				foreach($this->orphans as $item) {
 					$label = $item->title;
 					if(!strlen($label)) $label = $item->name; 
-					$out .= "<label><input type='checkbox' name='{$this->name}__add_orphan[]' value='$item->id' /> <span class='detail'>$label</span></label>";
+					$out .= 
+						"&nbsp; <label>" . 
+						"<input type='checkbox' class='uk-checkbox' name='{$this->name}__add_orphan[]' value='$item->id' /> " . 
+						"<span class='detail'>$label</span>" . 
+						"</label> &nbsp; ";
 				}
 				$out .= "</p>";
 			}
 		}
-
+		
 		return $out; 
 	}
 
@@ -372,7 +387,7 @@ class InputfieldPageTable extends Inputfield {
 		// append a delete column/link
 		if(!$this->renderValueMode) {
 			$a = "<a class='InputfieldPageTableDelete' href='#'>" . wireIconMarkup('trash-o') . "</a>";
-			if(!$item->deletable()) $a = "&nbsp;";
+			if(!$item->deletable() || $this->version()) $a = "&nbsp;";
 			$out .= "<td>$a</td>";
 		}
 
@@ -473,7 +488,9 @@ class InputfieldPageTable extends Inputfield {
 	 * 
 	 */
 	protected function getItemEditURL(Page $item) {
-		return $this->wire()->config->urls->admin . "page/edit/?id=$item->id&modal=1&context=PageTable";
+		return 
+			$this->wire()->config->urls->admin . "page/edit/?id=$item->id" . 
+			"&modal=1&context=PageTable&version=" . $this->version();
 	}
 
 	/**
@@ -634,6 +651,19 @@ class InputfieldPageTable extends Inputfield {
 	public function setOrphans(PageArray $orphans) {
 		$this->orphans = $orphans;
 	}
+
+	/**
+	 * @return int
+	 *
+	 */
+	public function version() {
+		if($this->version !== null) return $this->version;
+		$page = $this->hasPage;
+		$this->version = $page ? (int) ((string) $page->get('_version')) : 0;
+		return $this->version;
+	}
+	
+	protected $version = null;
 
 	/**
 	 * Determine a default set of columns for the PageTable based on the fields defined in the defined template
