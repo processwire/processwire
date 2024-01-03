@@ -1364,7 +1364,7 @@ class ModulesInfo extends ModulesClass {
 	 *
 	 */
 	public function getNamespacePath($namespace) {
-		if($namespace === 'ProcessWire') return "ProcessWire\\";
+		if($namespace === 'ProcessWire') return false; // not unique module namespace
 		if(is_null($this->moduleNamespaceCache)) $this->getNamespaces();
 		$namespace = "\\" . trim($namespace, "\\") . "\\";
 		return isset($this->moduleNamespaceCache[$namespace]) ? $this->moduleNamespaceCache[$namespace] : false;
