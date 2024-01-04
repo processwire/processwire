@@ -381,10 +381,10 @@ var InputfieldPageAutocomplete = {
 	
 		$children.each(function() {
 			var v = parseInt($(this).children('.itemValue').text());
-			if(v > 0) {
-				value += ',' + v; 
-			} else if(v < 0) {
-				value += ',' + v; 
+			if(v === 0) return;
+			if(value.length) value += ',';
+			value += v;
+			if(v < 0) {
 				addValue += $(this).children('.itemLabel').text() + "\n";
 			}
 		}); 
