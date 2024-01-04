@@ -33,7 +33,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 33,
+			'version' => 34,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
 		); 
@@ -59,7 +59,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * Increment on core less file changes that will also require a recompile of /site/assets/admin.css
 	 * 
 	 */
-	const requireCssVersion = 1;
+	const requireCssVersion = 2;
 
 	/**
 	 * Default logo image file (relative to this dir)

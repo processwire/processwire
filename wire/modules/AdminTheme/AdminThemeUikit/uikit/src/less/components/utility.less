@@ -10,6 +10,7 @@
 //                  `uk-inline-*`
 //                  `uk-responsive-*`
 //                  `uk-preserve-width`
+//                  `uk-object-*`
 //                  `uk-border-*`
 //                  `uk-box-shadow-*`
 //                  `uk-box-shadow-bottom`
@@ -40,6 +41,7 @@
 @box-shadow-duration:                           0.1s;
 
 @box-shadow-bottom-height:                      30px;
+@box-shadow-bottom-bottom:                      -@box-shadow-bottom-height;
 @box-shadow-bottom-border-radius:               100%;
 @box-shadow-bottom-background:                  #444;
 @box-shadow-bottom-blur:                        20px;
@@ -49,8 +51,8 @@
 
 @logo-font-size:                                @global-large-font-size;
 @logo-font-family:                              @global-font-family;
-@logo-color:                                    @global-color;
-@logo-hover-color:                              @global-color;
+@logo-color:                                    @global-emphasis-color;
+@logo-hover-color:                              @global-emphasis-color;
 
 @dragover-box-shadow:                           0 0 20px rgba(100,100,100,0.3);
 
@@ -85,9 +87,8 @@
     padding: @panel-scrollable-padding;
     border: @panel-scrollable-border-width solid @panel-scrollable-border;
     overflow: auto;
-    -webkit-overflow-scrolling: touch;
     resize: both;
-    .hook-panel-scrollable;
+    .hook-panel-scrollable();
 }
 
 
@@ -135,21 +136,25 @@
 
 /*
  * Enable scrollbars if content is clipped
- * Note: Firefox ignores `padding-bottom` for the scrollable overflow https://bugzilla.mozilla.org/show_bug.cgi?id=748518
  */
 
-.uk-overflow-auto {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-}
+.uk-overflow-auto { overflow: auto; }
 
 .uk-overflow-auto > :last-child { margin-bottom: 0; }
+
+
+/* Box Sizing
+ ========================================================================== */
+
+.uk-box-sizing-content { box-sizing: content-box; }
+.uk-box-sizing-border { box-sizing: border-box; }
 
 
 /* Resize
  ========================================================================== */
 
 .uk-resize { resize: both; }
+.uk-resize-horizontal { resize: horizontal; }
 .uk-resize-vertical { resize: vertical; }
 
 
@@ -242,6 +247,37 @@
     max-width: none;
 }
 
+/*
+ * Fix initial iframe width. Without the viewport is expanded on iOS devices
+ */
+
+[uk-responsive],
+[data-uk-responsive] { max-width: 100%; }
+
+
+/* Object
+ ========================================================================== */
+
+.uk-object-cover { object-fit: cover; }
+.uk-object-contain { object-fit: contain; }
+.uk-object-fill { object-fit: fill; }
+.uk-object-none { object-fit: none; }
+.uk-object-scale-down { object-fit: scale-down; }
+
+/*
+ * Position
+ */
+
+.uk-object-top-left { object-position: 0 0; }
+.uk-object-top-center { object-position: 50% 0; }
+.uk-object-top-right { object-position: 100% 0; }
+.uk-object-center-left { object-position: 0 50%; }
+.uk-object-center-center { object-position: 50% 50%; }
+.uk-object-center-right { object-position: 100% 50%; }
+.uk-object-bottom-left { object-position: 0 100%; }
+.uk-object-bottom-center { object-position: 50% 100%; }
+.uk-object-bottom-right { object-position: 100% 100%; }
+
 
 /* Border
  ========================================================================== */
@@ -287,7 +323,7 @@
  */
 
 @supports (filter: blur(0)) {
- 
+
     .uk-box-shadow-bottom {
         display: inline-block;
         position: relative;
@@ -297,10 +333,10 @@
     }
 
     .uk-box-shadow-bottom::after {
-        content: '';
+        content: "";
         /* 1 */
         position: absolute;
-        bottom: -@box-shadow-bottom-height;
+        bottom: @box-shadow-bottom-bottom;
         left: 0;
         right: 0;
         z-index: -1;
@@ -311,7 +347,7 @@
         filter: blur(@box-shadow-bottom-blur);
         /* 3 */
         will-change: filter;
-        .hook-box-shadow-bottom;
+        .hook-box-shadow-bottom();
     }
 
 }
@@ -325,8 +361,6 @@
  *    https://bugzilla.mozilla.org/show_bug.cgi?id=214004
  * 2. In Firefox, a floating `::first-letter` doesn't have a line box and there for no `line-height`
  *    https://bugzilla.mozilla.org/show_bug.cgi?id=317933
- * 3. Caused by 1.: Edge creates two nested `::first-letter` containers, one for each selector
- *    This doubles the `font-size` exponential when using the `em` unit.
  */
 
 .uk-dropcap::first-letter,
@@ -337,7 +371,7 @@
     float: left;
     font-size: @dropcap-font-size;
     line-height: 1;
-    .hook-dropcap;
+    .hook-dropcap();
 }
 
 /* 2 */
@@ -348,39 +382,41 @@
 
 }
 
-/* 3 */
-@supports (-ms-ime-align: auto) {
-
-  .uk-dropcap > p:first-of-type::first-letter { font-size: 1em; }
-
-}
-
 
 /* Logo
  ========================================================================== */
 
 /*
- * 1. Required for `a`
+ * 1. Style
+ * 2. Required for `a`
+ * 3. Behave like image but can be overridden through flex utility classes
  */
 
 .uk-logo {
+    /* 1 */
     font-size: @logo-font-size;
     font-family: @logo-font-family;
     color: @logo-color;
-    /* 1 */
+    /* 2 */
     text-decoration: none;
-    .hook-logo;
+    .hook-logo();
 }
 
-/* Hover + Focus */
-.uk-logo:hover,
-.uk-logo:focus {
+/* 3 */
+:where(.uk-logo) {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Hover */
+.uk-logo:hover {
     color: @logo-hover-color;
-    outline: none;
     /* 1 */
     text-decoration: none;
-    .hook-logo-hover;
+    .hook-logo-hover();
 }
+
+.uk-logo :where(img, svg, video) { display: block; }
 
 .uk-logo-inverse { display: none; }
 
@@ -459,7 +495,7 @@
 // Hooks
 // ========================================================================
 
-.hook-utility-misc;
+.hook-utility-misc();
 
 .hook-panel-scrollable() {}
 .hook-box-shadow-bottom() {}
@@ -472,29 +508,29 @@
 // Inverse
 // ========================================================================
 
-@inverse-logo-color:                           @inverse-global-color;
-@inverse-logo-hover-color:                     @inverse-global-color;
+@inverse-logo-color:                           @inverse-global-emphasis-color;
+@inverse-logo-hover-color:                     @inverse-global-emphasis-color;
 
 .hook-inverse() {
 
     .uk-dropcap::first-letter,
     .uk-dropcap p:first-of-type::first-letter {
-        .hook-inverse-dropcap;
+        .hook-inverse-dropcap();
     }
 
     .uk-logo {
         color: @inverse-logo-color;
-        .hook-inverse-logo;
+        .hook-inverse-logo();
     }
 
-    .uk-logo:hover,
-    .uk-logo:focus {
+    .uk-logo:hover {
         color: @inverse-logo-hover-color;
-        .hook-inverse-logo-hover;
+        .hook-inverse-logo-hover();
     }
 
-    .uk-logo > :not(.uk-logo-inverse):not(:only-of-type) { display: none; }
-    .uk-logo-inverse { display: inline; }
+    .uk-logo > picture:not(:only-of-type) > :not(.uk-logo-inverse),
+    .uk-logo > :not(picture):not(.uk-logo-inverse):not(:only-of-type) { display: none; }
+    .uk-logo-inverse { display: block; }
 
 }
 

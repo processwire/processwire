@@ -34,7 +34,7 @@
 @form-success-border:                           @global-success-background;
 
 @form-blank-focus-border:                       @global-border;
-@form-blank-focus-border-style:                 dashed;
+@form-blank-focus-border-style:                 solid;
 
 @form-radio-border-width:                       @global-border-width;
 @form-radio-border:                             darken(@global-border, 10%);
@@ -123,6 +123,12 @@
 .hook-form-horizontal-label() {}
 
 
+// Icon
+// ========================================================================
+
+.hook-form-icon() {}
+
+
 // Miscellaneous
 // ========================================================================
 
@@ -140,7 +146,9 @@
 .hook-inverse-form-radio() { border-color: @inverse-global-border; }
 .hook-inverse-form-radio-focus() { border-color: @inverse-global-color; }
 
-.hook-inverse-form-radio-checked() { border-color: @inverse-global-color; }
+.hook-inverse-form-radio-checked() { border-color: @inverse-global-primary-background; }
 .hook-inverse-form-radio-checked-focus() {}
 
 .hook-inverse-form-label() { color: @inverse-form-label-color; }
+
+.hook-inverse-form-icon() {}

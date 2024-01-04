@@ -40,15 +40,21 @@
 
 @modal-container-width:                         1200px;
 
-@modal-body-padding-horizontal:                 @global-gutter;
-@modal-body-padding-vertical:                   @global-gutter;
+@modal-body-padding-horizontal:                 20px;
+@modal-body-padding-vertical:                   20px;
+@modal-body-padding-horizontal-s:               @global-gutter;
+@modal-body-padding-vertical-s:                 @global-gutter;
 
-@modal-header-padding-horizontal:               @global-gutter;
+@modal-header-padding-horizontal:               20px;
 @modal-header-padding-vertical:                 (@modal-header-padding-horizontal / 2);
+@modal-header-padding-horizontal-s:             @global-gutter;
+@modal-header-padding-vertical-s:               (@modal-header-padding-horizontal-s / 2);
 @modal-header-background:                       @global-muted-background;
 
-@modal-footer-padding-horizontal:               @global-gutter;
+@modal-footer-padding-horizontal:               20px;
 @modal-footer-padding-vertical:                 (@modal-footer-padding-horizontal / 2);
+@modal-footer-padding-horizontal-s:             @global-gutter;
+@modal-footer-padding-vertical-s:               (@modal-footer-padding-horizontal-s / 2);
 @modal-footer-background:                       @global-muted-background;
 
 @modal-title-font-size:                         @global-xlarge-font-size;
@@ -88,7 +94,6 @@
     z-index: @modal-z-index;
     /* 3 */
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
     /* 4 */
     padding: @modal-padding-vertical @modal-padding-horizontal;
     /* 5 */
@@ -96,7 +101,7 @@
     /* 6 */
     opacity: 0;
     transition: opacity 0.15s linear;
-    .hook-modal;
+    .hook-modal();
 }
 
 /* Phone landscape and bigger */
@@ -139,8 +144,7 @@
 /*
  * 1. Create position context for spinner and close button
  * 2. Dimensions
- * 3. Fix `max-width: 100%` not working in combination with flex and responsive images in IE11
- *    `!important` needed to overwrite `uk-width-auto`. See `#modal-media-image` in tests
+ * 3. `!important` is needed to overwrite `uk-width-auto`. See `#modal-media-image` in tests
  * 4. Style
  * 5. Slide-in transition
  */
@@ -153,7 +157,7 @@
     margin: 0 auto;
     width: @modal-dialog-width;
     /* 3 */
-    max-width: ~'calc(100% - 0.01px)' !important;
+    max-width: 100% !important;
     /* 4 */
     background: @modal-dialog-background;
     /* 5 */
@@ -161,7 +165,7 @@
     transform: translateY(-100px);
     transition: 0.3s linear;
     transition-property: opacity, transform;
-    .hook-modal-dialog;
+    .hook-modal-dialog();
 }
 
 /*
@@ -202,7 +206,7 @@
     width: 100%;
     max-width: 100%;
     transform: translateY(0);
-    .hook-modal-full;
+    .hook-modal-full();
 }
 
 
@@ -212,21 +216,30 @@
 .uk-modal-body {
     display: flow-root;
     padding: @modal-body-padding-vertical @modal-body-padding-horizontal;
-    .hook-modal-body;
+    .hook-modal-body();
 }
 
 .uk-modal-header {
     display: flow-root;
     padding: @modal-header-padding-vertical @modal-header-padding-horizontal;
     background: @modal-header-background;
-    .hook-modal-header;
+    .hook-modal-header();
 }
 
 .uk-modal-footer {
     display: flow-root;
     padding: @modal-footer-padding-vertical @modal-footer-padding-horizontal;
     background: @modal-footer-background;
-    .hook-modal-footer;
+    .hook-modal-footer();
+}
+
+/* Phone landscape and bigger */
+@media (min-width: @breakpoint-small) {
+
+    .uk-modal-body { padding: @modal-body-padding-vertical-s @modal-body-padding-horizontal-s; }
+    .uk-modal-header { padding: @modal-header-padding-vertical-s @modal-header-padding-horizontal-s; }
+    .uk-modal-footer { padding: @modal-footer-padding-vertical-s @modal-footer-padding-horizontal-s; }
+
 }
 
 /*
@@ -244,7 +257,7 @@
 .uk-modal-title {
     font-size: @modal-title-font-size;
     line-height: @modal-title-line-height;
-    .hook-modal-title;
+    .hook-modal-title();
 }
 
 
@@ -258,7 +271,7 @@
     top: @modal-close-position;
     right: @modal-close-position;
     padding: @modal-close-padding;
-    .hook-modal-close;
+    .hook-modal-close();
 }
 
 /*
@@ -272,7 +285,7 @@
  */
 
 [class*='uk-modal-close-']:hover {
-    .hook-modal-close-hover;
+    .hook-modal-close-hover();
 }
 
 /*
@@ -280,11 +293,11 @@
  */
 
 .uk-modal-close-default {
-    .hook-modal-close-default;
+    .hook-modal-close-default();
 }
 
 .uk-modal-close-default:hover {
-    .hook-modal-close-default-hover;
+    .hook-modal-close-default-hover();
 }
 
 /*
@@ -298,12 +311,12 @@
     right: -@modal-close-padding;
     transform: translate(0, -(@modal-close-outside-translate));
     color: @modal-close-outside-color;
-    .hook-modal-close-outside;
+    .hook-modal-close-outside();
 }
 
 .uk-modal-close-outside:hover {
     color: @modal-close-outside-hover-color;
-    .hook-modal-close-outside-hover;
+    .hook-modal-close-outside-hover();
 }
 
 /* Tablet landscape and bigger */
@@ -322,18 +335,18 @@
  */
 
 .uk-modal-close-full {
-    .hook-modal-close-full;
+    .hook-modal-close-full();
 }
 
 .uk-modal-close-full:hover {
-    .hook-modal-close-full-hover;
+    .hook-modal-close-full-hover();
 }
 
 
 // Hooks
 // ========================================================================
 
-.hook-modal-misc;
+.hook-modal-misc();
 
 .hook-modal() {}
 .hook-modal-dialog() {}
