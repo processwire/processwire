@@ -223,7 +223,7 @@ class SelectableOptionArray extends WireArray {
 		foreach($this as $option) {
 			/** @var SelectableOption $option */
 			$v = $option->getProperty($property);
-			if($v !== $value) continue;
+			if("$v" !== "$value") continue;
 			$match = $option;
 			break;
 		}
