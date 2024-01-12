@@ -34,7 +34,7 @@ class FieldtypeRepeaterVersions extends Wire {
 	 * @param Field|null $field
 	 * @param bool $verify Specify true to also verify actual nested repeater items are present
 	 * @return bool
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function hasNestedRepeaterFields($page, Field $field = null, $verify = false) {

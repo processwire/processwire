@@ -750,7 +750,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * @param Field $field
 	 * @param int $version
 	 * @return PageArray|null
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function getPageFieldVersion(Page $page, Field $field, $version) {
@@ -776,7 +776,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * @param Field $field
 	 * @param int $version
 	 * @return bool
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function savePageFieldVersion(Page $page, Field $field, $version) {
@@ -798,7 +798,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * @param Field $field
 	 * @param int $version
 	 * @return bool
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function restorePageFieldVersion(Page $page, Field $field, $version) {
@@ -820,7 +820,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * @param Field $field
 	 * @param int $version
 	 * @return bool
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function deletePageFieldVersion(Page $page, Field $field, $version) {
