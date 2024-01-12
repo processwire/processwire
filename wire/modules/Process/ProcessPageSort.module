@@ -9,7 +9,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -22,12 +22,15 @@ class ProcessPageSort extends Process {
 	protected $move_id = 0; 
 	protected $user; 
 	protected $isMoved = false;
+	protected $isTrashed = false;
+	protected $isRestored = false;
+	protected $isSorted = 0;
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Page Sort and Move', __FILE__), // getModuleInfo title
 			'summary' => __('Handles page sorting and moving for PageList', __FILE__), // getModuleInfo summary
-			'version' => 100, 
+			'version' => 101, 
 			'permanent' => true, 
 			'permission' => 'page-edit',
 		); 
@@ -54,7 +57,7 @@ class ProcessPageSort extends Process {
 		$pages = $this->wire()->pages;
 		$sort = $input->post('sort');
 
-		if($this->config->demo) {
+		if($this->wire()->config->demo) {
 			throw new WireException($this->_("Your change was not saved because this site is in demo mode"));
 		}
 		
@@ -62,7 +65,7 @@ class ProcessPageSort extends Process {
 			throw new WireException($this->_("This Process is only accessible via POST"));
 		}
 		
-		$this->session->CSRF->validate(); // throws exception if invalid
+		$this->wire()->session->CSRF->validate(); // throws exception if invalid
 		$this->user = $this->wire()->user; 
 		$this->ids = array();
 		$ids = explode(',', $sort); 
@@ -75,10 +78,20 @@ class ProcessPageSort extends Process {
 			
 		$parentPage = $pages->get($this->parent_id);
 		$movePage = $pages->get($this->move_id); 
+		
 		if($movePage->id < 2 || !$parentPage->id) return;
 
 		$this->movePage($movePage, $parentPage); 
 		$this->sortPages($movePage, $parentPage); 
+		
+		if($this->isMoved || $this->isSorted) {
+			if($this->isRestored) {
+				// update page name to match manual drag/drop sort out of trash
+				$movePage->name = preg_replace('/^(\d+\.\d+)\.\d+_/', '$1.' . $movePage->sort . '_', $movePage->name);
+				$movePage->sortPrevious = null;
+			}
+			$this->save($movePage, $parentPage);
+		}
 	}	
 
 	/**
@@ -103,9 +116,14 @@ class ProcessPageSort extends Process {
 		$page->setOutputFormatting(false); 
 		$page->resetTrackChanges(true); 
 		$page->parent = $parent; 
-		$page->save();
 		$this->message("Moved page $page to parent $parent"); 
 		$this->isMoved = true;
+		
+		if($parent->isTrash()) {
+			$this->isTrashed = true;
+		} else if($page->parentPrevious && $page->parentPrevious->isTrash()) {
+			$this->isRestored = true;
+		}
 	}
 
 	/**
@@ -169,16 +187,31 @@ class ProcessPageSort extends Process {
 			if($page->id == $id) $pageSort = $sort; 
 		}
 	
-		// trigger hooks
-		$page->set('sort', $pageSort);
-		$page->trackChange('sort');
-		$page->save();
-		$parent->trackChange('children');
-		$parent->save();
-		$this->wire()->pages->sorted($page, false, $changes);
+		if($page->sort != $pageSort) {
+			$changes++;
+			$page->set('sort', $pageSort);
+		}
+		
+		if($changes) {
+			$page->trackChange('sort');
+			$this->message("Updated sort for $changes pages", Notice::log);
+			$this->isSorted = $changes;
+		}
+	}
 
-		if($changes) $this->message("Updated sort for $changes pages", Notice::log); 
+	/**
+	 * @param Page $page
+	 * @param Page $parent
+	 * @throws WireException
+	 * 
+	 */
+	protected function save(Page $page, Page $parent) {
+		$page->save();
+		if($this->isSorted) {
+			$parent->trackChange('children');
+			$parent->save();
+			$this->wire()->pages->sorted($page, false, $this->isSorted);
+		}
 	}
 	
 }
-
