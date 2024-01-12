@@ -3157,19 +3157,30 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	 */
 	protected function importFieldgroup(Fieldgroup $fieldgroup, Template $template) {
 		$total = 0;
+		$hasContext = false;
+		$templateFieldgroup = $template->fieldgroup;
 		foreach($fieldgroup as $field) {
 			/** @var Field $field */
 			// if template already has the field, leave it, unless it's a closing fieldset.
 			// necessary because the fieldAdded hook may automatically add a closing fieldset, 
 			// so this prevents things from getting out of order. 
-			if(!$template->fieldgroup->has($field) || $field->type instanceof FieldtypeFieldsetClose) {
+			if(!$templateFieldgroup->has($field) || $field->type instanceof FieldtypeFieldsetClose) {
 				$total++;
-				$template->fieldgroup->add($field); 
+				$templateFieldgroup->add($field); 
 				$this->fieldAdded($field, $template); 
 			}
+			$contextData = $fieldgroup->getFieldContextArray($field->id);
+			if(!empty($contextData)) {
+				$templateFieldgroup->setFieldContextArray($field->id, $contextData);
+				$hasContext = true;
+			}
+		}
+		if($hasContext) {
+			$templateFieldgroup->save();
+			$templateFieldgroup->saveContext();
 		}
 
-		$this->message(sprintf($this->_('Duplicated fields from "%1$s" to "%2$s"'), $fieldgroup, $template->fieldgroup)); 
+		$this->message(sprintf($this->_('Duplicated fields from "%1$s" to "%2$s"'), $fieldgroup, $templateFieldgroup)); 
 	}
 
 	/**
