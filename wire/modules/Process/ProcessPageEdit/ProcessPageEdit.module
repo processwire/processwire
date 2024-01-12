@@ -2157,20 +2157,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 						}
 					}
 				
-					$restored = false;
 					if($input->post('restore_page') && $page->isTrash() && $page->restorable()) {
 						if($formErrors) {
 							$this->warning($this->_('Page cannot be restored while errors are present'));
 						} else if($pages->restore($page, false)) {
 							$message = sprintf($this->_('Restored Page: %s'), '{path}') . $numChanges; 
-							$restored = true;
 						} else {
 							$this->warning($this->_('Error restoring page'));
 						}
 					}
 
 					$pages->save($page, $options);
-					if($restored) $pages->restored($page);
 					$message = str_replace('{path}', $page->path, $message);
 					$this->message($message);
 

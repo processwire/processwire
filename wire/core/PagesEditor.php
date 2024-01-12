@@ -5,7 +5,7 @@
  * 
  * Implements page manipulation methods of the $pages API variable
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  */ 
@@ -424,6 +424,9 @@ class PagesEditor extends Wire {
 	 * 	- `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false)
 	 *  - `noHooks` (boolean): Prevent before/after save hooks from being called (default=false)
 	 *  - `noFields` (boolean): Bypass saving of custom fields (default=false)
+	 *  - `caller` (string): Optional name of calling function (i.e. 'pages.trash'), for internal use (default='') 3.0.235+
+	 *  - `callback` (string|callable): Hook method name from $pages or callable to trigger after save. 
+	 *     It receives a single $page argument. For internal use. (default='') 3.0.235+
 	 * @return bool True on success, false on failure
 	 * @throws WireException
 	 *
@@ -438,6 +441,8 @@ class PagesEditor extends Wire {
 			'ignoreFamily' => false,
 			'noHooks' => false, 
 			'noFields' => false, 
+			'caller' => '', 
+			'callback' => '',
 		);
 
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
@@ -445,6 +450,10 @@ class PagesEditor extends Wire {
 		$user = $this->wire()->user;
 		$languages = $this->wire()->languages;
 		$language = null;
+		$parentPrevious = $page->parentPrevious;
+		$caller = $options['caller'];
+		$callback = $options['callback'];
+		$useHooks = empty($options['noHooks']);
 
 		// if language support active, switch to default language so that saved fields and hooks don't need to be aware of language
 		if($languages && $page->id != $user->id && "$user->language") {
@@ -465,18 +474,34 @@ class PagesEditor extends Wire {
 			$page->removeStatus(Page::statusUnpublished);
 		}
 
-		if($page->parentPrevious && !$isNew) {
-			if($page->isTrash() && !$page->parentPrevious->isTrash()) {
-				$this->pages->trash($page, false);
-			} else if($page->parentPrevious->isTrash() && !$page->parent->isTrash()) {
-				$this->pages->restore($page, false);
+		if($parentPrevious && !$isNew) {
+			if($useHooks) $this->pages->moveReady($page);
+			if($caller !== 'pages.trash' && $caller !== 'pages.restore') {
+				if($page->isTrash() && !$parentPrevious->isTrash()) {
+					if($this->pages->trash($page, false)) $callback = 'trashed';
+				} else if($parentPrevious->isTrash() && !$page->parent->isTrash()) {
+					if($this->pages->restore($page, false)) $callback = 'restored';
+				}
 			}
 		}
 
 		if($options['adjustName']) $this->pages->names()->checkNameConflicts($page);
-		if(!$this->savePageQuery($page, $options)) return false;
-		$result = $this->savePageFinish($page, $isNew, $options);
+		
+		if($page->namePrevious && !$isNew && $page->namePrevious != $page->name) {
+			if($useHooks) $this->pages->renameReady($page);
+		}
+
+		$result = $this->savePageQuery($page, $options);
+		if($result) $result = $this->savePageFinish($page, $isNew, $options);
 		if($language) $user->setLanguage($language); // restore language
+		
+		if($result && !empty($callback) && $useHooks) {
+			if(is_string($callback) && ctype_alnum($callback)) {
+				$this->pages->$callback($page); // hook method name in $pages
+			} else if(is_callable($callback)) {
+				$callback($page); // user defined callback
+			}
+		}
 		
 		return $result;
 	}

@@ -8,7 +8,7 @@
  *
  * This is the most used object in the ProcessWire API. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
@@ -62,10 +62,12 @@
  * @method saveReady(Page $page) Hook called just before a page is saved. 
  * @method saved(Page $page, array $changes = array(), $values = array()) Hook called after a page is successfully saved. 
  * @method added(Page $page) Hook called when a new page has been added. 
+ * @method moveReady(Page $page) Hook called when a page is about to be moved to another parent. 
  * @method moved(Page $page) Hook called when a page has been moved from one parent to another. 
  * @method templateChanged(Page $page) Hook called when a page template has been changed. 
  * @method trashReady(Page $page) Hook called when a page is about to be moved to the trash.
  * @method trashed(Page $page) Hook called when a page has been moved to the trash. 
+ * @method restoreReady(Page $page) Hook called when a page is about to be restored out of the trash.
  * @method restored(Page $page) Hook called when a page has been moved OUT of the trash. 
  * @method deleteReady(Page $page, array $options) Hook called just before a page is deleted. 
  * @method deleted(Page $page, array $options) Hook called after a page has been deleted. 
@@ -73,6 +75,7 @@
  * @method deletedBranch(Page $page, array $options, $numDeleted) Hook called after branch of pages deleted, on initiating page only.
  * @method cloneReady(Page $page, Page $copy) Hook called just before a page is cloned. 
  * @method cloned(Page $page, Page $copy) Hook called after a page has been successfully cloned. 
+ * @method renameReady(Page $page) Hook called when a page is about to be renamed. 
  * @method renamed(Page $page) Hook called after a page has been successfully renamed. 
  * @method sorted(Page $page, $children = false, $total = 0) Hook called after $page has been sorted.
  * @method statusChangeReady(Page $page) Hook called when a page's status has changed and is about to be saved.
@@ -2199,6 +2202,20 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Hook called when a page is about to be moved to another parent
+	 *
+	 * Note the previous parent is accessible in the `$page->parentPrevious` property.
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page Page that is about to be moved. 
+	 * @since 3.0.235
+	 *
+	 */
+	public function ___moveReady(Page $page) {
+	}
+
+	/**
 	 * Hook called when a page has been moved from one parent to another
 	 *
 	 * Note the previous parent is accessible in the `$page->parentPrevious` property.
@@ -2257,6 +2274,18 @@ class Pages extends Wire {
 	 */
 	public function ___trashed(Page $page) { 
 		$this->log("Trashed page", $page);
+	}
+	
+	/**
+	 * Hook called when a page is about to be moved OUT of the trash (restored)
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page Page that is about to be restored
+	 * @since 3.0.235
+	 *
+	 */
+	public function ___restoreReady(Page $page) {
 	}
 
 	/**
@@ -2386,6 +2415,29 @@ class Pages extends Wire {
 	 */
 	public function ___cloned(Page $page, Page $copy) { 
 		$this->log("Cloned page to $copy->path", $page); 
+	}
+	
+	/**
+	 * Hook called when a page is about to be renamed i.e. had its name field change)
+	 *
+	 * The previous name can be accessed at `$page->namePrevious`.
+	 * The new name can be accessed at `$page->name`.
+	 *
+	 * This hook is only called when a page's name changes. It is not called when
+	 * a page is moved unless the name was changed at the same time.
+	 *
+	 * **Multi-language note:**
+	 * Also note this hook may be called if a page's multi-language name changes.
+	 * In those cases the language-specific name is stored in "name123" while the
+	 * previous value is stored in "-name123" (where 123 is the language ID).
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page The $page that was renamed
+	 * @since 3.0.235
+	 *
+	 */
+	public function ___renameReady(Page $page) {
 	}
 
 	/**

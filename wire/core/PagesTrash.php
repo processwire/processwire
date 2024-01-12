@@ -5,7 +5,7 @@
  *
  * Implements page trash/restore/empty methods of the $pages API variable
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -17,6 +17,14 @@ class PagesTrash extends Wire {
 	 * 
 	 */
 	protected $pages;
+
+	/**
+	 * Last action, i.e. "restore:1234"
+	 * 
+	 * @var int 
+	 * 
+	 */
+	protected $lastAction = '';
 
 	/**
 	 * Construct
@@ -41,17 +49,18 @@ class PagesTrash extends Wire {
 	 *
 	 */
 	public function trash(Page $page, $save = true) {
-		
+
 		if(!$this->pages->isDeleteable($page) || $page->template->noTrash) {
 			throw new WireException("This page (id=$page->id) may not be placed in the trash");
 		}
 		
-		$trash = $this->pages->get($this->config->trashPageID);
+		$trash = $this->pages->get($this->wire()->config->trashPageID);
+		
 		if(!$trash->id) {
 			throw new WireException("Unable to load trash page defined by config::trashPageID");
 		}
 		
-		$this->pages->trashReady($page);
+		if($this->lastAction != "trash:$page") $this->pages->trashReady($page);
 		
 		$page->addStatus(Page::statusTrash);
 		
@@ -70,10 +79,10 @@ class PagesTrash extends Wire {
 			// make the name unique when in trash, to avoid namespace collision and maintain parent restore info
 			$name = $page->id;
 			if($parentPrevious && $parentPrevious->id) {
-				$name .= "." . $parentPrevious->id;
-				$name .= "." . $page->sort;
+				$sort = $page->get('sortPrevious|sort');
+				$name .= ".$parentPrevious->id.$sort";
 			}
-			$page->name = ($name . "_" . $page->name);
+			$page->name = ($name . '_' . $page->name);
 		
 			// do the same for other languages, if present
 			$languages = $this->wire()->languages;
@@ -87,9 +96,13 @@ class PagesTrash extends Wire {
 			}
 		}
 		
-		if($save) $this->pages->save($page);
+		$this->lastAction = "trash:$page";
+		
+		if($save) {
+			$this->pages->save($page, array('caller' => 'pages.trash', 'callback' => 'trashed'));
+		}
+		
 		$this->pages->editor()->savePageStatus($page->id, Page::statusTrash, true, false);
-		if($save) $this->pages->trashed($page);
 		$this->pages->debugLog('trash', $page, true);
 		
 		return true;
@@ -107,22 +120,28 @@ class PagesTrash extends Wire {
 	 *
 	 */
 	public function restore(Page $page, $save = true) {
+	
 		$info = $this->getRestoreInfo($page, true);
 
 		if($info['restorable']) {
 			// we detected original parent
-			if($save) $page->save();
+			if($this->lastAction !== "restore:$page") $this->pages->restoreReady($page);
 			
 		} else if(!$page->parent->isTrash()) {
 			// page has had new parent already set
+			if($this->lastAction !== "restore:$page") $this->pages->restoreReady($page);
 			$page->removeStatus(Page::statusTrash);
-			if($save) $page->save();
 			$this->pages->editor()->savePageStatus($page->id, Page::statusTrash, true, true);
-			if($save) $this->pages->restored($page);
 			$this->pages->debugLog('restore', $page, true);
 		} else {
 			// page is in trash and we cannot detect new parent
 			return false;
+		}
+		
+		$this->lastAction = "restore:$page";
+		
+		if($save) {
+			$this->pages->save($page, array('caller' => 'pages.restore', 'callback' => 'restored'));
 		}
 		
 		return true;
@@ -221,6 +240,7 @@ class PagesTrash extends Wire {
 		
 		if($populateToPage) {
 			$page->name = $name;
+			$page->removeStatus(Page::statusTrash);
 			if($newParent) {
 				$page->sort = $sort;
 				$page->parent = $newParent;
