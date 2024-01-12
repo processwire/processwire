@@ -2,7 +2,7 @@
 if(!defined("PROCESSWIRE_INSTALL")) die(); 
 ?>
 
-				<?php if($formAction) echo "</form>"; ?>
+				<?php if(!empty($formAction)) echo "</form>"; ?>
 			</div>				
 		</div>
 	</main>
@@ -10,7 +10,7 @@ if(!defined("PROCESSWIRE_INSTALL")) die();
 	<!-- FOOTER -->
 	<footer id='pw-footer' class='uk-margin'>
 		<div class='pw-container uk-container uk-container-center'>
-			<p>ProcessWire 3.x &copy; 2023</p>
+			<p>ProcessWire 3.x &copy; 2024</p>
 		</div>
 	</footer>
 
