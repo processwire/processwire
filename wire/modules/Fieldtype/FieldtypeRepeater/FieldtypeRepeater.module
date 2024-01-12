@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * @todo: automatic sorting.
@@ -33,7 +33,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Maintains a collection of fields that are repeated for any number of times.', __FILE__), // Module Summary
-			'version' => 112,
+			'version' => 113,
 			'autoload' => true,
 			'installs' => 'InputfieldRepeater'
 		);
@@ -815,7 +815,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	public function getBlankRepeaterPage(Page $page, Field $field) {
 		if($this->deletePageField === $field->get('parent_id')) $this->deletePageField = 0;
 		$parent = $this->getRepeaterPageParent($page, $field); 
-		$class = $this->getPageClass();
+		$class = $this->getCustomPageClass($field);
 		/** @var RepeaterPage $readyPage */
 		$readyPage = $this->wire(new $class());
 		$readyPage->template = $this->getRepeaterTemplate($field);
@@ -906,7 +906,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 				'cache' => false, 
 				'parent_id' => $parent_id, 
 				'template' => $template,
-				'pageClass' => $this->getPageClass(),
+				'pageClass' => $this->getCustomPageClass($field),
 				'pageArray' => $pageArray, 
 			)
 		);
@@ -2201,9 +2201,130 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		require_once(__DIR__ . '/FieldtypeRepeaterPorter.php');
 		return $this->wire(new FieldtypeRepeaterPorter());
 	}
+	
+	/*************************************************************************
+	 * CUSTOM REPEATER PAGE CLASSES
+	 *
+	 */
+
+	/**
+	 * Cache for getCustomPageClass method
+	 *
+	 * @var array
+	 *
+	 */
+	protected $customPageClasses = array();
+
+	/**
+	 * Get custom RepeaterPage class for given repeater field
+	 *
+	 * To use for field named "hello_world" add file:
+	 * /site/classes/HelloWorldRepeaterPage.php
+	 * with the following contents (after opening PHP tag):
+	 * ~~~~~
+	 * namespace ProcessWire
+	 * class HelloWorldRepeaterPage extends RepeaterPage {
+	 *   // whatever you want here
+	 * }
+	 * ~~~~~
+	 * If using RepeaterMatrix then file would be:
+	 * /site/classes/HelloWorldRepeaterMatrixPage.php
+	 * and contents would be:
+	 * ~~~~~
+	 * namespace ProcessWire;
+	 * class HelloWorldRepeaterMatrixPage extends RepeaterMatrixPage {
+	 *   // whatever you want here
+	 * }
+	 * ~~~~~
+	 * If using FieldsetPage then file would be:
+	 * /site/classes/HelloWorldFieldsetPage.php
+	 * and contents would be:
+	 * ~~~~~
+	 * namespace ProcessWire;
+	 * class HelloWorldFieldsetPage extends FieldsetPage {
+	 *   // whatever you want here
+	 * }
+	 * ~~~~~
+	 *
+	 * @param Field $field
+	 * @return string
+	 * @since 3.0.235
+	 *
+	 */
+	public function getCustomPageClass(Field $field) {
+		if(isset($this->customPageClasses[$field->id])) {
+			return $this->customPageClasses[$field->id];
+		}
+		$nsBaseClass = $this->getPageClass();
+		$baseClass = wireClassName($nsBaseClass);
+		$name = ucfirst($field->name);
+		if(strpos($name, '_')) {
+			list($a, $name) = array(explode('_', $name), '');
+			foreach($a as $v) $name .= ucfirst($v);
+		}
+		$customClass = $name . $baseClass;
+		$nsCustomClass = __NAMESPACE__ . "\\$customClass";
+		$path = $this->wire()->config->paths->classes;
+		$customFile = $path . $customClass . '.php';
+		if(file_exists($customFile)) include_once($customFile);
+		$nsClass = class_exists($nsCustomClass) ? $nsCustomClass : $nsBaseClass;
+		if($nsClass !== $nsBaseClass && !wireInstanceOf($nsClass, $nsBaseClass)) $nsClass = $nsBaseClass;
+		$this->customPageClasses[$field->id] = $nsClass;
+		return $nsClass;
+	}
+
+	/**
+	 * Set custom RepeaterPage class for given field
+	 * 
+	 * If using class names/files as described in the getCustomPageClass()
+	 * method, then you DO NOT need to call this, as it can figure those out
+	 * automatically. Use this method only if you want to devise your own 
+	 * custom page class(es) that use a different naming scheme or are located
+	 * somewhere other than /site/classes/.
+	 * 
+	 * ~~~~~
+	 * // example demonsrated in /site/ready.php
+	 * class MyCustomClass extends RepeaterPage {}
+	 * $field = $fields->get('repeater_field_name');
+	 * $field->type->setCustomPageClass($field, 'MyCustomClass'); 
+	 * ~~~~~
+	 *
+	 * @param Field $field Field that custom class will be for.
+	 * @param string $class If given class has no namespace then ProcessWire namespace assumed.
+	 * @throws WireException If given class cannot be loaded or does not extend the base class.
+	 * @since 3.0.235
+	 *
+	 */
+	public function setCustomPageClass(Field $field, $class) {
+		if(empty($class)) {
+			unset($this->customPageClasses[$field->id]);
+			return;
+		}
+		$baseClass = $this->getPageClass();
+		if(strpos($class, "\\") === false) {
+			$nsClass = __NAMESPACE__ . "\\$class";
+		} else {
+			$nsClass = $class;
+			$class = wireClassName($class);
+		}
+		if(!class_exists($nsClass)) {
+			if(strpos($class, "\\") === false) {
+				$file = $this->wire()->config->paths->classes . "$class.php";
+				if(file_exists($file)) include_once($file);
+			}
+			if(!class_exists($nsClass)) {
+				throw new WireException("Cannot find custom class: $nsClass");
+			}
+		}
+		if(!wireInstanceOf($nsClass, $baseClass)) {
+			throw new WireException("Class $nsClass does not extend $baseClass");
+		}
+		$this->customPageClasses[$field->id] = $nsClass;
+	}
 
 	/*************************************************************************
 	 * VERSION SUPPORT
+	 * 
 	 */
 	
 	protected $versions = null;
@@ -2212,8 +2333,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * #pw-internal
 	 * 
 	 * @return FieldtypeRepeaterVersions
-	 * @since 3.0.132
-	 * 
+	 * @since 3.0.232
 	 * 
 	 */
 	public function versions() {
@@ -2231,7 +2351,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * 
 	 * @param Page $page
 	 * @return int
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function getPageVersionNum(Page $page) {
@@ -2247,7 +2367,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * @param Field $field
 	 * @param int $version
 	 * @return mixed
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function getPageFieldVersion(Page $page, Field $field, $version) {
@@ -2263,7 +2383,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * @param Field $field
 	 * @param int $version
 	 * @return bool
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function savePageFieldVersion(Page $page, Field $field, $version) {
@@ -2279,7 +2399,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * @param Field $field
 	 * @param int $version
 	 * @return bool
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function restorePageFieldVersion(Page $page, Field $field, $version) {
@@ -2295,7 +2415,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * @param Field $field
 	 * @param int $version
 	 * @return bool
-	 * @since 3.0.132
+	 * @since 3.0.232
 	 *
 	 */
 	public function deletePageFieldVersion(Page $page, Field $field, $version) {
