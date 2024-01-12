@@ -199,12 +199,12 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$setups['single'] = array(
 			'title' => $this->_('Single file'),
 			'maxFiles' => 1,
-			'textformatters' => 'TextformatterEntities',
+			'textformatters' => [ 'TextformatterEntities' ],
 		);
 		$setups['multiple'] = array(
 			'title' => $this->_('Multiple files'), 
 			'maxFiles' => 0,
-			'textformatters' => 'TextformatterEntities',
+			'textformatters' => [ 'TextformatterEntities' ],
 		);	
 		return $setups;
 	}
