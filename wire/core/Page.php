@@ -70,6 +70,7 @@
  * @property bool $hasFiles Does this page have one or more files in its files path? #pw-group-files
  * @property bool $outputFormatting Whether output formatting is enabled or not. #pw-advanced
  * @property int $sort Sort order of this page relative to siblings (applicable when manual sorting is used). #pw-group-system
+ * @property int|null $sortPrevious Previous sort order, if changed (3.0.235+) #pw-group-system
  * @property int $index Index of this page relative to its siblings, regardless of sort (starting from 0). #pw-group-traversal
  * @property string $sortfield Field that a page is sorted by relative to its siblings (default="sort", which means drag/drop manual) #pw-group-system
  * @property null|array _statusCorruptedFields Field names that caused the page to have Page::statusCorrupted status. #pw-internal
@@ -377,7 +378,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @var string
 	 *
 	 */
-	private $namePrevious; 
+	private $namePrevious;
+
+	/**
+	 * The previous sort value used by page, if changed during runtime.
+	 * 
+	 * @var int
+	 * 
+	 */
+	private $sortPrevious;
 
 	/**
 	 * The previous status used by this page, if it changed during runtime.
@@ -601,6 +610,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$this->parentPrevious = null;
 		$this->templatePrevious = null;
 		$this->statusPrevious = null;
+		$this->sortPrevious = null;
 	}
 
 	/**
@@ -700,7 +710,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$this->setStatus($value); 
 				break;
 			case 'statusPrevious':
-				$this->statusPrevious = is_null($value) ? null : (int) $value; 
+			case 'sortPrevious':	
+				$this->$key = is_null($value) ? null : (int) $value; 
 				break;
 			case 'name':
 				$this->setName($value);
@@ -4040,6 +4051,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$this->namePrevious = $old;
 			} else if($what === 'status' && $old !== null) {
 				$this->statusPrevious = (int) $old;
+			} else if($what === 'sort' && $old !== null && $this->sortPrevious === null) {
+				$this->sortPrevious = (int) $old;
 			}
 		}
 		return parent::trackChange($what, $old, $new);

@@ -137,6 +137,7 @@ abstract class PageProperties {
 		'rootParent' => 'm',
 		'siblings' => 'm',
 		'sort' => 's',
+		'sortPrevious' => 'p',
 		'sortable' => 'm',
 		'sortfield' => 's',
 		'status' => 's',
