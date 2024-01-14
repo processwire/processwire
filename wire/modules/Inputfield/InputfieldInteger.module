@@ -160,16 +160,14 @@ class InputfieldInteger extends Inputfield {
 		if($key === 'value') {
 			$value = $this->sanitizeValue($value); 
 			if(strlen("$value") && !$this->isInRange($value)) {
-				if($value) {
-					// apply the following only for non-zero values
-					$min = (string) $this->attr('min');
-					$max = (string) $this->attr('max');
-					$any = $this->_('any'); // referring to “any” minimum or maximum number
-					if(!strlen("$min")) $min = $any;
-					if(!strlen("$max")) $max = $any;
-					$this->error(sprintf($this->_('Specified value %3$s removed because it is out of bounds (min=%1$s, max=%2$s)'), $min, $max, $value));
-				}
-				$value = $this->val(); // restore previous value
+				// apply the following only for non-zero values
+				$min = (string) $this->attr('min');
+				$max = (string) $this->attr('max');
+				$any = $this->_('any'); // referring to “any” minimum or maximum number
+				if(!strlen("$min")) $min = $any;
+				if(!strlen("$max")) $max = $any;
+				$this->error(sprintf($this->_('Specified value %3$s removed because it is out of bounds (min=%1$s, max=%2$s)'), $min, $max, $value));
+				$value = $this->val();
 			}
 		} else if($key === 'min' || $key === 'max') {
 			if(strlen("$value")) {
