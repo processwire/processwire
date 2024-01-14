@@ -160,12 +160,15 @@ class InputfieldInteger extends Inputfield {
 		if($key === 'value') {
 			$value = $this->sanitizeValue($value); 
 			if(strlen("$value") && !$this->isInRange($value)) {
-				$min = $this->attr('min');
-				$max = $this->attr('max'); 
-				$any = $this->_('any'); // referring to “any” minimum or maximum number
-				if(!strlen("$min")) $min = $any;
-				if(!strlen("$max")) $max = $any;
-				$this->error(sprintf($this->_('Specified value %3$s removed because it is out of bounds (min=%1$s, max=%2$s)'), $min, $max, $value));
+				if($value) {
+					// apply the following only for non-zero values
+					$min = (string) $this->attr('min');
+					$max = (string) $this->attr('max');
+					$any = $this->_('any'); // referring to “any” minimum or maximum number
+					if(!strlen("$min")) $min = $any;
+					if(!strlen("$max")) $max = $any;
+					$this->error(sprintf($this->_('Specified value %3$s removed because it is out of bounds (min=%1$s, max=%2$s)'), $min, $max, $value));
+				}
 				$value = $this->val(); // restore previous value
 			}
 		} else if($key === 'min' || $key === 'max') {
@@ -232,6 +235,7 @@ class InputfieldInteger extends Inputfield {
 		$f->columnWidth = 50;
 		$inputfields->add($f);
 
+		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'max');
 		$f->attr('value', $this->attr('max')); 
@@ -241,6 +245,7 @@ class InputfieldInteger extends Inputfield {
 		$inputfields->add($f);
 	
 		if($this->hasFieldtype === false) {
+			/** @var InputfieldText $f */
 			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'initValue');
 			$f->attr('value', $this->initValue);
