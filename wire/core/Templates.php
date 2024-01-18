@@ -872,11 +872,24 @@ class Templates extends WireSaveableItems {
 
 		// determine if custom class available (3.0.152+)
 		if($usePageClasses) {
-			// generate a CamelCase name + 'Page' from template name, i.e. 'blog-post' => 'BlogPostPage'
-			$className = ucwords(str_replace(array('-', '_', '.'), ' ', $template->name));
-			$className = __NAMESPACE__ . "\\" . str_replace(' ', '', $className) . 'Page';
-			if(class_exists($className) && wireInstanceOf($className, $corePageClass)) {
-				$pageClass = $className;
+			$customPageClass = '';
+			// repeaters support a field-name based name strategy
+			/** @var RepeaterField $field */
+			if(strpos($template->name, 'repeater_') === 0) {
+				$field = $this->wire()->fields->get(ltrim(strstr($template->name, '_'), '_')); 
+				if($field && wireInstanceOf($field->type, 'FieldtypeRepeater')) {
+					$customPageClass = $field->type->getCustomPageClass($field);
+				}
+			}
+			if($customPageClass) {
+				$pageClass = $customPageClass;
+			} else {
+				// generate a CamelCase name + 'Page' from template name, i.e. 'blog-post' => 'BlogPostPage'
+				$className = ucwords(str_replace(array('-', '_', '.'), ' ', $template->name));
+				$className = __NAMESPACE__ . "\\" . str_replace(' ', '', $className) . 'Page';
+				if(class_exists($className) && wireInstanceOf($className, $corePageClass)) {
+					$pageClass = $className;
+				}
 			}
 		}
 
@@ -1155,4 +1168,3 @@ class Templates extends WireSaveableItems {
 	 */
 	
 }
-
