@@ -2217,38 +2217,45 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 
 	/**
 	 * Get custom RepeaterPage class for given repeater field
+	 * 
+	 * This method returns a custom `RepeaterPage` class that lives in the
+	 * /site/classes directory, or it returns a class previously defined
+	 * by a call to `FieldtypeRepeater::setCustomPageClass()`. It is 
+	 * unlikely you will ever need to call this method, as it is used
+	 * internally. But the examples included here describe how to create
+	 * and define the custom repeater page class files that this method
+	 * would look for. 
 	 *
-	 * To use for field named "hello_world" add file:
-	 * /site/classes/HelloWorldRepeaterPage.php
-	 * with the following contents (after opening PHP tag):
 	 * ~~~~~
-	 * namespace ProcessWire
+	 * // To use for field named "hello_world" add file:
+	 * // site/classes/HelloWorldRepeaterPage.php
+	 * // with the following contents (after opening PHP tag):
+	 * namespace ProcessWire;
 	 * class HelloWorldRepeaterPage extends RepeaterPage {
 	 *   // whatever you want here
 	 * }
-	 * ~~~~~
-	 * If using RepeaterMatrix then file would be:
-	 * /site/classes/HelloWorldRepeaterMatrixPage.php
-	 * and contents would be:
-	 * ~~~~~
+	 * 
+	 * // If using RepeaterMatrix then file would be:
+	 * // site/classes/HelloWorldRepeaterMatrixPage.php
+	 * // and contents would be:
 	 * namespace ProcessWire;
 	 * class HelloWorldRepeaterMatrixPage extends RepeaterMatrixPage {
 	 *   // whatever you want here
 	 * }
-	 * ~~~~~
-	 * If using FieldsetPage then file would be:
-	 * /site/classes/HelloWorldFieldsetPage.php
-	 * and contents would be:
-	 * ~~~~~
+	 * 
+	 * // If using FieldsetPage then file would be:
+	 * // site/classes/HelloWorldFieldsetPage.php
+	 * // and contents would be:
 	 * namespace ProcessWire;
 	 * class HelloWorldFieldsetPage extends FieldsetPage {
 	 *   // whatever you want here
 	 * }
 	 * ~~~~~
 	 *
-	 * @param Field $field
-	 * @return string
+	 * @param Field $field Your Repeater, RepeaterMatrix or FieldsetPage field
+	 * @return string Returns the custom page class (with namespace)
 	 * @since 3.0.235
+	 * @see FieldtypeRepeater::setCustomPageClass()
 	 *
 	 */
 	public function getCustomPageClass(Field $field) {
@@ -2276,7 +2283,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	/**
 	 * Set custom RepeaterPage class for given field
 	 * 
-	 * If using class names/files as described in the getCustomPageClass()
+	 * If using class names/files as described in the `FieldtypeRepeater::getCustomPageClass()`
 	 * method, then you DO NOT need to call this, as it can figure those out
 	 * automatically. Use this method only if you want to devise your own 
 	 * custom page class(es) that use a different naming scheme or are located
@@ -2289,10 +2296,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * $field->type->setCustomPageClass($field, 'MyCustomClass'); 
 	 * ~~~~~
 	 *
-	 * @param Field $field Field that custom class will be for.
+	 * @param Field $field Field that custom page class will be for.
 	 * @param string $class If given class has no namespace then ProcessWire namespace assumed.
 	 * @throws WireException If given class cannot be loaded or does not extend the base class.
 	 * @since 3.0.235
+	 * @see FieldtypeRepeater::getCustomPageClass()
 	 *
 	 */
 	public function setCustomPageClass(Field $field, $class) {
