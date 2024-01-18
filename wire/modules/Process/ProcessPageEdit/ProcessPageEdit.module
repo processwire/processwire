@@ -1794,9 +1794,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field->attr('id+name', 'ProcessPageEditInfo'); 
 		$field->label = $this->_('Info'); // Settings: Info field label
 		$field->icon = 'info-circle';
-		if($this->config->advanced) $field->notes = "Object type: " . $page->className();
-		$field->value = $info; 
-		
+		$field->value = $info;
+
+		list($ns, $pageClass) = explode("\\", get_class($this->page), 2);
+		if($ns !== 'ProcessWire') $pageClass = "$ns\\$pageClass";
+		if($pageClass !== 'Page' || $this->config->debug || $this->config->advanced) {
+			$field->detail = sprintf($this->_('Page object class: %s'), $pageClass);
+		}
+
 		return $field; 
 	}
 
