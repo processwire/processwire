@@ -80,7 +80,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 234;
+	const versionRevision = 235;
 
 	/**
 	 * Version suffix string (when applicable)
