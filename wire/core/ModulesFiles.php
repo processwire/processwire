@@ -430,6 +430,7 @@ class ModulesFiles extends ModulesClass {
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 
 			$class = $row['class'];
+			if(strpos($class, '.') === 0) continue;
 
 			$file = $this->getModuleFile($class, array('fast' => true));
 
