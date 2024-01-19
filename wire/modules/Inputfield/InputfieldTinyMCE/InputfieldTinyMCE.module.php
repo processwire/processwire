@@ -3,10 +3,10 @@
 /**
  * InputfieldTinyMCE
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
- * TinyMCE 6.x, Copyright (c) 2022 Ephox Corporation DBA Tiny Technologies, Inc.
+ * TinyMCE 6.x, Copyright (c) 2023 Ephox Corporation DBA Tiny Technologies, Inc.
  * https://www.tiny.cloud/docs/tinymce/6/
  *
  * TinyMCE settings (these are also Field settings)
@@ -74,7 +74,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 		return array(
 			'title' => 'TinyMCE',
 			'summary' => 'TinyMCE rich text editor version ' . self::mceVersion . '.',
-			'version' => 616,
+			'version' => 617,
 			'icon' => 'keyboard-o',
 			'requires' => 'ProcessWire>=3.0.200, MarkupHTMLPurifier',
 		);
@@ -84,7 +84,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 	 * TinyMCE version
 	 * 
 	 */
-	const mceVersion = '6.4.1';
+	const mceVersion = '6.8.2';
 	
 	const toggleCleanDiv = 2; // remove <div>s
 	const toggleCleanP = 4; // remove empty <p> tags	
