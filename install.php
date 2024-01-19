@@ -11,7 +11,7 @@
  * If that file exists, the installer will not run. So if you need to re-run this installer for any
  * reason, then you'll want to delete that file. This was implemented just in case someone doesn't delete the installer.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo 3.0.190: provide option for command-line options to install
@@ -402,11 +402,15 @@ class Installer {
 				$this->warn("Consider making directory $d writable, at least during development."); 
 			}
 		}
-		
-		if(is_writable("./site/config.php")) {
-			$this->ok("/site/config.php is writable");
+	
+		if(file_exists("./site/config.php")) {
+			if(is_writable("./site/config.php")) {
+				$this->ok("/site/config.php is writable");
+			} else {
+				$this->err("/site/config.php must be writable during installation. Please adjust the server permissions before continuing.");
+			}
 		} else {
-			$this->err("/site/config.php must be writable. Please adjust the server permissions before continuing.");
+			$this->err("Site profile is missing a /site/config.php file.");
 		}
 		
 		if(!is_file("./.htaccess") || !is_readable("./.htaccess")) {
@@ -475,6 +479,8 @@ class Installer {
 		if(!isset($values['dbUser'])) $values['dbUser'] = ini_get("mysqli.default_user"); 
 		if(!isset($values['dbPass'])) $values['dbPass'] = ini_get("mysqli.default_pw");
 		if(!isset($values['dbEngine'])) $values['dbEngine'] = 'MyISAM';
+		if(!isset($values['dbSocket'])) $values['dbSocket'] = ini_get("mysqli.default_socket");
+		if(!isset($values['dbCon'])) $values['dbCon'] = 'Hostname';
 
 		if(!$values['dbHost']) $values['dbHost'] = 'localhost';
 		if(!$values['dbPort']) $values['dbPort'] = 3306;
@@ -492,13 +498,38 @@ class Installer {
 		
 		$this->input('dbName', 'DB Name', $values['dbName']); 
 		$this->input('dbUser', 'DB User', $values['dbUser']);
-		$this->input('dbPass', 'DB Pass', $values['dbPass'], array('type' => 'password', 'required' => false)); 
-		$this->input('dbHost', 'DB Host', $values['dbHost']); 
+		$this->input('dbPass', 'DB Pass', $values['dbPass'], array('type' => 'password', 'required' => false));
+		$this->select('dbCon', 'Connection', $values['dbCon'], array('Hostname', 'Socket'));
+		$this->clear();
+		
+		$this->input('dbHost', 'DB Host', $values['dbHost']);
 		$this->input('dbPort', 'DB Port', $values['dbPort']);
+		$this->input('dbSocket', 'DB Socket', $values['dbSocket'], array('width' => 300));
 	
 		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8', 'utf8mb4'));
 		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('MyISAM', 'InnoDB'));
 		$this->clear();
+	
+		// automatic required states for host, port and socket
+		echo "
+			<script>
+				jQuery(document).ready(function($) {
+					let ho = $('input[name=dbHost]'), po = $('input[name=dbPort]'), 
+						so = $('input[name=dbSocket]'), co = $('select[name=dbCon]');
+					co.on('change', function() {
+						if(co.val() === 'Hostname') {
+							ho.prop('required', true).closest('p').show();
+							po.prop('required', true).closest('p').show();
+							so.prop('required', false).closest('p').hide();
+						} else {
+							ho.prop('required', false).closest('p').hide();
+							po.prop('required', false).closest('p').hide();
+							so.prop('required', true).closest('p').show();
+						}
+					}).change();
+				});
+			</script>
+		";
 	
 		$this->p(
 			"The DB Charset option “utf8mb4” may not be compatible with all 3rd party modules.<br />" . 
@@ -666,27 +697,37 @@ class Installer {
 		$values['debugMode'] = $this->post('debugMode', 'int');
 
 		// db configuration
-		$fields = array('dbUser', 'dbName', 'dbPass', 'dbHost', 'dbPort', 'dbEngine', 'dbCharset');
+		$fields = array('dbUser', 'dbName', 'dbPass', 'dbHost', 'dbPort', 'dbSocket', 'dbEngine', 'dbCharset', 'dbCon');
 		
 		foreach($fields as $field) {
 			$value = $this->post($field, 'string');
 			$value = substr($value, 0, 255); 
 			if(strpos($value, "'") !== false) $value = str_replace("'", "\\" . "'", $value); // allow for single quotes (i.e. dbPass)
+			if($field != 'dbPass') $value = str_replace(array(';', '..', '=', '<', '>', '&', '"', "\t", "\n", "\r"), '', $value);
 			$values[$field] = trim($value); 
 		}
 	
 		$values['dbCharset'] = ($values['dbCharset'] === 'utf8mb4' ? 'utf8mb4' : 'utf8'); 
-		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM'); 
+		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM');
 
-		if(!$values['dbUser'] || !$values['dbName'] || !$values['dbPort']) {
+		if(empty($values['dbUser']) || empty($values['dbName'])) {
+			$this->alertErr("Missing database user and/or name");
 			
-			$this->alertErr("Missing database configuration fields"); 
+		} else if($values['dbCon'] === 'Socket' && empty($values['dbSocket'])) {
+			$this->alertErr("Missing database socket");
+			
+		} else if($values['dbCon'] === 'Hostname' && (empty($values['dbHost']) || empty($values['dbPort']))) {
+			$this->alertErr("Missing database host and/or port");
 			
 		} else {
 	
 			error_reporting(0); 
-			
-			$dsn = "mysql:dbname=$values[dbName];host=$values[dbHost];port=$values[dbPort]";
+		
+			if($values['dbCon'] === 'Socket') {
+				$dsn = "mysql:unix_socket=$values[dbSocket];dbname=$values[dbName]";
+			} else {
+				$dsn = "mysql:dbname=$values[dbName];host=$values[dbHost];port=$values[dbPort]";
+			}
 			$driver_options = array(
 				\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'",
 				\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
@@ -843,15 +884,25 @@ class Installer {
 			"\n/**" . 
 			"\n * Installer: Database Configuration" . 
 			"\n * " . 
-			"\n */" . 
+			"\n */";
+
+		if($values['dbCon'] === 'Socket') {
+			$cfg .= "\n\$config->dbSocket = '$values[dbSocket]';";
+		}
+		
+		$cfg .= 
 			"\n\$config->dbHost = '$values[dbHost]';" . 
 			"\n\$config->dbName = '$values[dbName]';" . 
 			"\n\$config->dbUser = '$values[dbUser]';" . 
 			"\n\$config->dbPass = '$values[dbPass]';" . 
 			"\n\$config->dbPort = '$values[dbPort]';";
 		
-		if(!empty($values['dbCharset']) && strtolower($values['dbCharset']) != 'utf8') $cfg .= "\n\$config->dbCharset = '$values[dbCharset]';";
-		if(!empty($values['dbEngine']) && $values['dbEngine'] == 'InnoDB') $cfg .= "\n\$config->dbEngine = 'InnoDB';";
+		if(!empty($values['dbCharset']) && strtolower($values['dbCharset']) != 'utf8') {
+			$cfg .= "\n\$config->dbCharset = '$values[dbCharset]';";
+		}
+		if(!empty($values['dbEngine']) && $values['dbEngine'] == 'InnoDB') {
+			$cfg .= "\n\$config->dbEngine = 'InnoDB';";
+		}
 		
 		$cfg .= 
 			"\n" . 
@@ -927,7 +978,10 @@ class Installer {
 			"\n */" .
 			"\n\$config->debug = " . ($values['debugMode'] ? 'true;' : 'false;') . 
 			"\n\n";
-		
+
+		$s = is_file("./site/config.php") ? file_get_contents("./site/config.php") : '';
+		if(strpos($s, '<' . '?php') === false) $cfg = '<' . "?php namespace ProcessWire;\n\n" . $cfg; 
+			
 		if(($fp = fopen("./site/config.php", "a")) && fwrite($fp, $cfg)) {
 			fclose($fp); 
 			$this->alertOk("Saved configuration to ./site/config.php"); 
@@ -2005,4 +2059,3 @@ if(!Installer::TEST_MODE && is_file("./site/assets/installed.php")) die("This in
 error_reporting(E_ALL | E_STRICT); 
 $installer = new Installer();
 $installer->execute();
-
