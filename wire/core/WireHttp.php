@@ -2089,6 +2089,8 @@ class WireHttp extends Wire {
 	/**
 	 * Set the number of seconds till connection times out 
 	 * 
+	 * Note that the default timeout for http requests is 4.5 seconds
+	 * 
 	 * #pw-group-settings
 	 * 
 	 * @param int|float $seconds
