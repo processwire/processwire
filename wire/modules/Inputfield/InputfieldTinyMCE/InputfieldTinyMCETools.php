@@ -162,23 +162,39 @@ class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
 		// convert <div> to paragraphs
 		$toggles = $this->inputfield->toggles;
 		if(!is_array($toggles)) return $value;
-
-		if(in_array(InputfieldTinyMCE::toggleCleanDiv, $toggles) && strpos($value, '<div') !== false) {
-			$value = preg_replace('{\s*(</?)div[^><]*>\s*}is', '$1' . 'p>', $value);
-			while(strpos($value, '<p><p>') !== false) {
-				$value = str_replace(array('<p><p>', '</p></p>'), array('<p>', '</p>'), $value);
+		
+		foreach($toggles as $toggle) {
+			switch($toggle) {
+				case InputfieldTinyMCE::toggleCleanDiv: 
+					// convert <div> to <p>
+					if(strpos($value, '<div') !== false) {
+						$value = preg_replace('{\s*(</?)div[^><]*>\s*}is', '$1' . 'p>', $value);
+						while(strpos($value, '<p><p>') !== false) {
+							$value = str_replace(array('<p><p>', '</p></p>'), array('<p>', '</p>'), $value);
+						}
+					}
+					break;
+				case InputfieldTinyMCE::toggleCleanP:
+					// remove empty paragraphs
+					$value = str_replace(array('<p><br /></p>', '<p>&nbsp;</p>', "<p>\xc2\xa0</p>", '<p></p>', '<p> </p>'), '', $value);
+					break;
+				case InputfieldTinyMCE::toggleCleanNbsp:
+					// convert non-breaking space to regular space
+					$value = str_ireplace('&nbsp;', ' ', $value);
+					$value = str_replace("\xc2\xa0",' ', $value);
+					break;
+				case InputfieldTinyMCE::toggleRemoveStyles:
+					// remove all style attributes
+					if(strpos($value, 'style=')) {
+						if(preg_match_all('!(<.+?)\sstyle=(["\']).*?\2!i', $value, $matches)) {
+							foreach($matches[0] as $key => $fullMatch) {
+								$startMatch = $matches[1][$key];
+								$value = str_replace($fullMatch, $startMatch, $value);
+							}
+						}
+					}
+					break;
 			}
-		}
-
-		// remove gratuitous whitespace
-		if(in_array(InputfieldTinyMCE::toggleCleanP, $toggles)) {
-			$value = str_replace(array('<p><br /></p>', '<p>&nbsp;</p>', "<p>\xc2\xa0</p>", '<p></p>', '<p> </p>'), '', $value);
-		}
-
-		// convert non-breaking space to regular space
-		if(in_array(InputfieldTinyMCE::toggleCleanNbsp, $toggles)) {
-			$value = str_ireplace('&nbsp;', ' ', $value);
-			$value = str_replace("\xc2\xa0",' ', $value);
 		}
 
 		return $value;

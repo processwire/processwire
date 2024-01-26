@@ -598,7 +598,7 @@ var InputfieldTinyMCE = {
 	
 		var t = InputfieldTinyMCE;
 		var allow = ',' + ProcessWire.config.InputfieldTinyMCE.pasteFilter + ',';
-		var regexTag = /<([a-z0-9]+)([^>]*)>/gi;
+		var regexTag = /<([a-z0-9:!\[\]]+)([^>]*)>/gi;
 		var regexAttr = /([-_a-z0-9]+)=["']([^"']*)["']/gi;
 		var html = args.content;
 		var matchTag, matchAttr;
@@ -607,13 +607,30 @@ var InputfieldTinyMCE = {
 		var replaces = [];
 		var startLength = html.length;
 		
+		allow = allow.toLowerCase();
+		
+		/*
+		 * HTML for testing MS word paste	
+		msWordHtml = 
+			"<p className=MsoNormal>This is <b>bold</b> text. <o:p></o:p></p>\n\n" + 
+			"<h2>This is headline 2. <o:p></o:p></h2>\n\n" + 
+			"<p className=MsoNormal>This is <I>italic</I> text<o:p></o:p></p>\n\n" + 
+			"<p className=MsoListParagraphCxSpFirst style='text-indent:-.25in;mso-list:10 level1 lfo1'>" + 
+			"<![if !supportsLists]><span style='iso-bidi-font-family:Aptos;mso-bidi-theme-font:minor-latin'>" + 
+			"<span style='so-list:Ignore'>1.<span style='font:7.0pt \"Times New Roman\"'>" +
+			"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span></span><![endif]>One <o:p></o:p></p>";
+		html = msWordHtml;
+		*/
+		
+		startLength = html.length;
+		
 		if(args.internal) {
 			t.log('Skipping pasteFilter for interal copy/paste'); 
 			return; // skip filtering for internal copy/paste operations
 		}
 		
 		if(allow === ',text,') {
-			t.log('Skipping pasteFilter since paste_as_text settingw will be used'); 
+			t.log('Skipping pasteFilter since paste_as_text settings will be used'); 
 			return; // will be processed by paste_as_text setting
 		}
 		
@@ -621,17 +638,19 @@ var InputfieldTinyMCE = {
 			
 			var tagOpen = matchTag[0]; // i.e. <strong>, <img src="..">, <h2>, etc.
 			var tagName = matchTag[1]; // i.e. 'strong', 'img', 'h2', etc.
+			var tagNameLower = tagName.toLowerCase();
 			var tagClose = '</' + tagName + '>'; // i.e. </strong>, </h2>
 			var tagAttrs = matchTag[2]; // i.e. 'src="a.jpg" alt="alt"'
 			var allowAttrs = false;
 	
 			// first see if we can match a tag replacement		
-			var find = ',' + tagName + '='; // i.e. ',b=strong'
-			var pos = allow.indexOf(find);
+			var findTagEqual = ',' + tagNameLower + '='; // i.e. ',b=strong'
+			var findTagAttr = ',' + tagNameLower + '['; // i.e. ',b[...]'
+			var findTagOnly = ',' + tagNameLower + ','; // i.e. ,b
+			var posTagEqual = allow.indexOf(findTagEqual);
 			
-			if(pos > -1) {
-				// tag replacement
-				var rule = allow.substring(pos + 1); // i.e. b=strong,and,more
+			if(posTagEqual > -1) {
+				var rule = allow.substring(posTagEqual + 1); // i.e. b=strong,and,more
 				rule = rule.substring(0, rule.indexOf(',')); // i.e. b=strong
 				rule = rule.split('=');
 				var replaceTag = rule[1];
@@ -640,12 +659,12 @@ var InputfieldTinyMCE = {
 				finds.push(tagClose);
 				replaces.push('</' + replaceTag + '>');
 			}
-		
-			if(allow.indexOf(',' + tagName + '[') > -1) {
+	
+			if(allow.indexOf(findTagAttr) > -1) {
 				// tag appears in whitelist with attributes
 				allowAttrs = true;
-			} else if(allow.indexOf(',' + tagName + ',') === -1) {
-				// tag does not appear in whitelist
+			} else if(posTagEqual === -1 && allow.indexOf(findTagOnly) === -1) {
+				// tag does not appear in whitelist at all
 				removals.push(tagOpen);
 				removals.push(tagClose);
 				continue;

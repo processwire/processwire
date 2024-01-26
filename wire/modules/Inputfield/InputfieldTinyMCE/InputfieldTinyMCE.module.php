@@ -74,7 +74,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 		return array(
 			'title' => 'TinyMCE',
 			'summary' => 'TinyMCE rich text editor version ' . self::mceVersion . '.',
-			'version' => 617,
+			'version' => 618,
 			'icon' => 'keyboard-o',
 			'requires' => 'ProcessWire>=3.0.200, MarkupHTMLPurifier',
 		);
@@ -89,6 +89,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 	const toggleCleanDiv = 2; // remove <div>s
 	const toggleCleanP = 4; // remove empty <p> tags	
 	const toggleCleanNbsp = 8; // remove &nbsp; entities
+	const toggleRemoveStyles = 16; // remove all style attributes
 	
 	/**
 	 * Default configuration for filtered paste

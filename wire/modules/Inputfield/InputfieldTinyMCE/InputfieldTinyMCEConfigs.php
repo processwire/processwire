@@ -711,6 +711,7 @@ class InputfieldTinyMCEConfigs extends InputfieldTinyMCEClass {
 		$f->addOption(InputfieldTinyMCE::toggleCleanDiv, $this->_('Convert `<div>` tags to `<p>` tags on save?'));
 		$f->addOption(InputfieldTinyMCE::toggleCleanP, $this->_('Remove empty `<p>` tags on save?'));
 		$f->addOption(InputfieldTinyMCE::toggleCleanNbsp, $this->_('Remove non-breaking spaces on save?'));
+		$f->addOption(InputfieldTinyMCE::toggleRemoveStyles, $this->_('Remove `style` attributes from all elements'));
 		$f->attr('value', $this->inputfield->toggles);
 		$f->collapsed = Inputfield::collapsedYes;
 		$f->themeOffset = 1;
