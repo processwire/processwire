@@ -1021,7 +1021,16 @@ class PageValues extends Wire {
 	public function setFieldValue(Page $page, $key, $value, $load = true) {
 
 		if(!$page->template()) {
-			throw new WireException("You must assign a template to the page before setting field values ($key)");
+			$config = $page->wire()->config;
+			$name = strpos($key, '__') ? substr($key, 0, strpos($key, '__')) : $key;
+			$error = "You must assign a template to page $page before setting '$name' field.";
+			if($config->debug) {
+				// allow page to proceed in debug mode so that it's possible to delete it if needed
+				$page->error($error);
+				$page->template($page->wire()->pages->get($config->http404PageID)->template);
+			} else {
+				throw new WireException($error);
+			}
 		}
 		
 		$isLoaded = $page->isLoaded();
