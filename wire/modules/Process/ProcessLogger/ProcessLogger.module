@@ -87,7 +87,7 @@ class ProcessLogger extends Process {
 				$logName => "./view/$logInfo[name]/", 
 				"<span style='font-size: 0;'>$logInfo[modified] </span>" . wireRelativeTimeStr($logInfo['modified']),
 				$log->getTotalEntries($logInfo['name']),
-				"<span style='font-size: 0;'>$logInfo[size] </span>" . wireBytesStr($logInfo['size'])
+				"<span style='font-size: 0;'>$logInfo[size]_</span>" . wireBytesStr($logInfo['size'])
 			));
 		}
 		$cnt = count($logInfos); 
