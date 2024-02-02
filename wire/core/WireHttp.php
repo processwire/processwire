@@ -76,7 +76,17 @@ class WireHttp extends Wire {
 	 * HTTP methods we are allowed to use
 	 *
 	 */
-	protected $allowHttpMethods = array('GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'PATCH'); 
+	protected $allowHttpMethods = array(
+		'GET', 
+		'POST', 
+		'PUT', 
+		'DELETE', 
+		'HEAD', 
+		'PATCH', 
+		'OPTIONS',
+		'TRACE',
+		'CONNECT'
+	); 
 
 	/**
 	 * Headers to include in the request
