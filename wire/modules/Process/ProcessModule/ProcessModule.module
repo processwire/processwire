@@ -11,7 +11,7 @@
  * This version also lifts several pieces of code from Soma's Modules Manager
  * specific to the parts involved with downloading modules from the directory.
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for module configuration inputfields with useLanguages option
@@ -32,7 +32,7 @@ class ProcessModule extends Process {
 		return array(
 			'title' => __('Modules', __FILE__), // getModuleInfo title          
 			'summary' => __('List, edit or install/uninstall modules', __FILE__), // getModuleInfo summary
-			'version' => 120, 
+			'version' => 121, 
 			'permanent' => true, 
 			'permission' => 'module-admin', 
 			'useNavJSON' => true,
@@ -127,6 +127,18 @@ class ProcessModule extends Process {
 	 *
 	 */
 	protected $installer = null;
+
+	/**
+	 * Files support for viewing
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $readmeFiles = array(
+		'readme' => 'README.md',
+		'changelog' => 'CHANGELOG.md',
+		'license' => 'LICENSE.md'
+	);
 
 	/**
 	 * Construct
@@ -1401,6 +1413,7 @@ class ProcessModule extends Process {
 		$session = $this->wire()->session;
 		$modules = $this->wire()->modules;
 		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
 
 		$moduleName = $input->post('name');
 		if($moduleName === null) $moduleName = $input->get('name');
@@ -1410,7 +1423,7 @@ class ProcessModule extends Process {
 
 		if(!$moduleName || empty($info)) {
 			$session->message($this->_("No module specified")); 
-			$session->redirect('./'); 
+			$session->redirect($config->urls->admin . 'module/'); 
 		}
 		
 		if($input->get('edit_raw')) return $this->renderEditRaw($moduleName);
@@ -1967,6 +1980,22 @@ class ProcessModule extends Process {
 			));
 		}
 
+		$readmePath = $config->paths($moduleName);
+		$supportFiles = [];
+		foreach($this->readmeFiles as $readmeType => $basename) {
+			$readmeFile = $readmePath . $basename;
+			if(!file_exists($readmeFile)) continue;
+			$icon = wireIconMarkup('file-text-o');
+			$readmeUrl = str_replace('/edit', '/readme', $modules->getModuleEditUrl($moduleName));
+			$supportFiles[$readmeType] = "<a class='pw-modal' href='$readmeUrl&amp;type=$readmeType'>$icon $basename</a>";
+		}
+		
+		if(count($supportFiles)) {
+			$table->row(array(
+				$sanitizer->entities1($this->_('Support files')), 
+				implode('<br />', $supportFiles)
+			));
+		}
 
 		/** @var InputfieldMarkup $field */
 		$field = $modules->get("InputfieldMarkup"); 
@@ -2000,6 +2029,44 @@ class ProcessModule extends Process {
 			$when = "<span class='detail'>$when</span>";
 			$out .= "$when" . ($hook['options']['fromClass'] ? $hook['options']['fromClass'] . '::' : '') . "$hook[method]$suffix";
 		}
+		return $out;
+	}
+
+	/**
+	 * Execute view of supported README type markdown file
+	 * 
+	 * @return string
+	 * @since 3.0.236
+	 * 
+	 */
+	public function ___executeReadme() {
+		
+		$files = $this->wire()->files;
+		$input = $this->wire()->input;
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		
+		$moduleName = $input->get->fieldName('name');
+		$name = basename(strtolower($input->get->fieldName('type')), '.md');
+		$path = $this->wire()->config->paths($moduleName);
+		
+		if(empty($moduleName) || !$modules->isInstalled($moduleName)) throw new WireException('Unknown module');	
+		if(empty($name) || empty($path) || !isset($this->readmeFiles[$name])) throw new WireException("Unknown or unsupported file");
+		
+		$fileName = $path . $this->readmeFiles[$name];
+		if(!$files->exists($fileName)) throw new WireException("File not found");
+		
+		/** @var TextformatterMarkdownExtra $markdown */
+		$markdown = $modules->get('TextformatterMarkdownExtra');
+		if(!$markdown) throw new WireException('Cannot find Markdown module');
+		
+		$out = $files->fileGetContents($fileName);
+		$out = $markdown->markdownSafe($out);
+		$out = $sanitizer->purify($out);
+		
+		$this->headline($this->readmeFiles[$name]);
+		$this->browserTitle("$moduleName - " . $this->readmeFiles[$name]); 
+		
 		return $out;
 	}
 	
