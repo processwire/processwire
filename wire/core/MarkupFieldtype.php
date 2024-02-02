@@ -266,13 +266,14 @@ class MarkupFieldtype extends WireData implements Module {
 	 * 
 	 */	
 	protected function valueToString($value, $encode = true) {
-		if($value instanceof Pagefiles || $value instanceof Pagefile) {
+		$isObject = is_object($value);
+		if($isObject && ($value instanceof Pagefiles || $value instanceof Pagefile)) {
 			return $this->objectToString($value);
-		} else if(wireInstanceOf($value, 'RepeaterPageArray')) {
+		} else if($isObject && wireInstanceOf($value, 'RepeaterPageArray')) {
 			return $this->objectToString($value);
 		} else if(WireArray::iterable($value)) {
 			return $this->arrayToString($value);
-		} else if(is_object($value)) {
+		} else if($isObject) {
 			return $this->objectToString($value);
 		} else {
 			return $encode ? $this->wire()->sanitizer->entities1($value) : $value;
