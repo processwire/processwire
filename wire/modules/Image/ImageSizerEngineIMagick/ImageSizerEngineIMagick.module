@@ -4,6 +4,8 @@
  * ImageSizer Engine IMagick by Horst
  * 
  * @todo some class properties need phpdoc
+ * 
+ * @method imSaveReady($im, $filename) 
  *
  */
 class ImageSizerEngineIMagick extends ImageSizerEngine {
@@ -395,7 +397,13 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		}
 
 		$this->im->setImageDepth(($this->imageDepth > 8 ? 8 : $this->imageDepth));
-	
+
+		$imClone = null;
+		if($this->wire()->hooks->isHooked('ImageSizerEngineIMagick::imSaveReady()')) {
+			$imClone = clone $this->im; // make a copy before compressions take effect
+			$this->imSaveReady($imClone, $srcFilename);
+		}
+		
 		// determine whether webp should be created as well (or on its own)
 		$webpOnly = $this->webpOnly && $this->supported('webp');
 		$webpAdd = $webpOnly || ($this->webpAdd && $this->supported('webp'));
@@ -404,7 +412,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			// only a webp file will be created
 			$this->imWebp = $this->im;
 		} else {
-			if($webpAdd) $this->imWebp = clone $this->im; // make a copy before compressions take effect
+			if($webpAdd) $this->imWebp = $imClone ?: clone $this->im; // make a copy before compressions take effect
 			$this->im->setImageFormat($this->imageFormat);
 			$this->im->setImageType($this->imageType);
 			if(in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
@@ -458,6 +466,16 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		
 		return $return;
 	}
+
+	/**
+	 * Called before saving of image
+	 *
+	 * @param resource $im
+	 * @param string $filename Source filename
+	 * @since 3.0.236
+	 *
+	 */
+	protected function ___imSaveReady($im, $filename) { }
 	
 	/**
 	 * Process rotate of an image
