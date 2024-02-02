@@ -8,7 +8,7 @@
  * Sublcasses will want to override the render method, but it's not necessary to override processInput().
  * Subclasses that select multiple values should implement the InputfieldHasArrayValue interface.
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * @property string|int $defaultValue
@@ -40,6 +40,16 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	protected $optionLanguageLabels = array();
 
 	/**
+	 * Option separator values
+	 * 
+	 * This is so we can validate whether a value is a separator or intentional dashes/hyphens value.
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $optionHrs = array();
+
+	/**
 	 * Return information about this module
 	 *
 	 */
@@ -47,7 +57,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 		return array(
 			'title' => __('Select', __FILE__), // Module Title
 			'summary' => __('Selection of a single value from a select pulldown', __FILE__), // Module Summary
-			'version' => 102,
+			'version' => 103,
 			'permanent' => true, 
 		);
 	}
@@ -67,6 +77,8 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 *
 	 * If you want to add an optgroup, use the $value param as the label, and the label param as an array of options. 
 	 * Note that optgroups may not be applicable to other Inputfields that descend from InputfieldSelect.
+	 * 
+	 * If you want to add an option separator (rather than an option value) use `addOption('---');` (3.0.236+)
 	 *
 	 * @param string $value Value that the option submits (or label of optgroup, if specifying an optgroup)
 	 * @param string $label|array Optional label associated with the value (if null, value will be used as the label), or array of optgroup options [value=>label]
@@ -76,6 +88,11 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 */
 	public function addOption($value, $label = null, array $attributes = null) {
 		if(is_null($label) || (is_string($label) && !strlen($label))) $label = $value; 
+		if($value === $label && strpos($value, '-') === 0 && trim($value, '-') === '') {
+			while(isset($this->options[$value])) $value .= '-';
+			$this->optionHrs[$value] = $value;
+			$label = '-';
+		}
 		if(isset($this->options[$value])) unset($this->options[$value]); 
 		$this->options[$value] = $label; 	
 		if(!is_null($attributes)) $this->optionAttributes[$value] = $attributes; 
@@ -445,6 +462,10 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 		if(is_null($options)) $options = $this->options; 
 		$is = false;
 		
+		if(strpos("$value", '-') === 0 && isset($this->optionHrs[$value])) {
+			return false;
+		}
+		
 		foreach($options as $key => $option) {
 			if(is_array($option)) {
 				// fieldgroup
@@ -642,6 +663,11 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 				continue; 
 			}
 
+			if($label === '-' && strpos($value, '-') === 0 && trim($value, '-') === '') {
+				$out .= '<hr>';
+				continue;
+			}
+			
 			$selected = $this->isOptionSelected($value) ? " selected='selected'" : '';
 			$attrs = $this->getOptionAttributes($value);
 			unset($attrs['selected'], $attrs['checked'], $attrs['value']);
@@ -975,6 +1001,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 
 		// the following configuration specific to non-Fieldtype use of single/multi-selects
 		$isInputfieldSelect = $this->className() == 'InputfieldSelect';
+		$isInputfieldSelects = $this->className() == 'InputfieldSelect' || $this->className() === 'InputfieldSelectMultiple';
 		$languages = $this->wire()->languages;
 
 		/** @var InputfieldTextarea $f */
@@ -1009,7 +1036,8 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 			'• ' . $this->_('To keep a separate value and label, separate them with an equals sign. Example: value=My Option') . " \n"  . 
 			($isInputfieldSelect ? '• ' . $this->_('To precede your list with a blank option, enter just a equals sign "=" as the first option.') . "\n" : '') .
 			'• ' . $this->_('To make an option selected, precede it with a plus sign. Example: +My Option') . 
-			($isInputfieldSelect ? "\n• " . $this->_('To create an optgroup (option group) indent the options in the group with 3 or more spaces.') : ''); 
+			($isInputfieldSelects ? "\n• " . $this->_('To create an optgroup (option group) indent the options in the group with 3 or more spaces.') : '') . 
+			($isInputfieldSelects ? "\n• " . $this->_('To add a horizontal rule, specify 3 or more dashes/hyphens on one line with nothing else. Example: ---') : '');
 		if($languages) $f->notes .= " \n\n**" . $this->_('Multi-language instructions:') . "**\n" .
 			'• ' . $this->_('We recommend using using `value=label`, where `value` is the same across languages and `label` is translated.') . " \n" . 
 			'• ' . $this->_('First define your default language options, and then copy/paste into the other languages and translate labels.') . " \n" . 
