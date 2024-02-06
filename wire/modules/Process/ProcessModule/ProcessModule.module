@@ -135,9 +135,12 @@ class ProcessModule extends Process {
 	 * 
 	 */
 	protected $readmeFiles = array(
-		'readme' => 'README.md',
-		'changelog' => 'CHANGELOG.md',
-		'license' => 'LICENSE.md'
+		'readme.md' => 'README.md',
+		'readme.txt' => 'README.txt',
+		'changelog.md' => 'CHANGELOG.md',
+		'changelog.txt' => 'CHANGELOG.txt',
+		'license.md' => 'LICENSE.md',
+		'license.txt' => 'LICENSE.txt'
 	);
 
 	/**
@@ -1982,6 +1985,26 @@ class ProcessModule extends Process {
 
 		$readmePath = $config->paths($moduleName);
 		$supportFiles = [];
+		$readmeNowFile = $readmePath . "$moduleName.README.md";
+		
+		if(file_exists($readmeNowFile)) {
+			$f = $form->InputfieldMarkup;
+			$f->attr('id+name', '_readmeNow');
+			$f->attr('title', basename($readmeNowFile));
+			$f->label = basename($readmeNowFile);
+			$f->themeOffset = 1;
+			$readmeNow = $this->renderReadme($moduleName, $readmeNowFile);
+			if(!empty($readmeNow)) {
+				if(preg_match('!\s*<h1>(.+?)</h1>!i', $readmeNow, $matches)) {
+					$f->label = $sanitizer->unentities($matches[1]);
+					$readmeNow = str_replace($matches[0], '', $readmeNow);
+				}
+				$f->val($readmeNow);
+				$f->icon = !empty($moduleInfo['icon']) ? $moduleInfo['icon'] : 'file-text-o';
+				$form->prepend($f);
+			}
+		}
+		
 		foreach($this->readmeFiles as $readmeType => $basename) {
 			$readmeFile = $readmePath . $basename;
 			if(!file_exists($readmeFile)) continue;
@@ -2003,12 +2026,14 @@ class ProcessModule extends Process {
 		$field->attr('value', $table->render()); 
 		$field->label = $this->labels['module_information'];
 		$field->icon = 'info-circle';
+		$field->themeOffset = 1;
 		if($config->advanced) {
 			$field->appendMarkup .= "<p class='detail' style='text-align:right'>* " . $this->_('Options available in advanced mode only.') . "</p>";
 		}
 		if($collapseInfo) $field->collapsed = Inputfield::collapsedYes;
-		$form->prepend($field); 
+		$form->prepend($field);
 		
+
 		$out .= $form->render();
 
 		return $out; 
@@ -2033,7 +2058,7 @@ class ProcessModule extends Process {
 	}
 
 	/**
-	 * Execute view of supported README type markdown file
+	 * Execute view of supported README type markdown or txt file
 	 * 
 	 * @return string
 	 * @since 3.0.236
@@ -2041,32 +2066,93 @@ class ProcessModule extends Process {
 	 */
 	public function ___executeReadme() {
 		
-		$files = $this->wire()->files;
 		$input = $this->wire()->input;
-		$sanitizer = $this->wire()->sanitizer;
 		$modules = $this->wire()->modules;
 		
 		$moduleName = $input->get->fieldName('name');
-		$name = basename(strtolower($input->get->fieldName('type')), '.md');
-		$path = $this->wire()->config->paths($moduleName);
+		$name = basename(strtolower($input->get->name('type')));
 		
 		if(empty($moduleName) || !$modules->isInstalled($moduleName)) throw new WireException('Unknown module');	
-		if(empty($name) || empty($path) || !isset($this->readmeFiles[$name])) throw new WireException("Unknown or unsupported file");
-		
-		$fileName = $path . $this->readmeFiles[$name];
-		if(!$files->exists($fileName)) throw new WireException("File not found");
-		
-		/** @var TextformatterMarkdownExtra $markdown */
-		$markdown = $modules->get('TextformatterMarkdownExtra');
-		if(!$markdown) throw new WireException('Cannot find Markdown module');
-		
-		$out = $files->fileGetContents($fileName);
-		$out = $markdown->markdownSafe($out);
-		$out = $sanitizer->purify($out);
+		if(empty($name) || !isset($this->readmeFiles[$name])) throw new WireException("Unknown or unsupported file");
+	
+		$out = $this->renderReadme($moduleName, $this->readmeFiles[$name]);
+		if(empty($out)) wire404();
 		
 		$this->headline($this->readmeFiles[$name]);
 		$this->browserTitle("$moduleName - " . $this->readmeFiles[$name]); 
 		
+		return $out;
+	}
+
+	/**
+	 * Render a readme file 
+	 * 
+	 * @param string $moduleName Module name
+	 * @param string $readmeFile File basename
+	 * @return string|false
+	 * 
+	 */
+	protected function renderReadme($moduleName, $readmeFile) {
+		
+		$files = $this->wire()->files;
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+	
+		$readmeFile = basename($readmeFile);
+		$path = $config->paths($moduleName);
+		if(empty($path) || strlen($readmeFile) < 4) return false;
+		
+		$fileName = $path . $readmeFile;
+		if(!$files->exists($fileName)) return false;
+		
+		$ext = pathinfo($fileName, PATHINFO_EXTENSION);
+		$out = $files->fileGetContents($fileName);
+	
+		// allow for {MODULE_INFO.PROPERTY} to be replaced with actual module info value
+		if(stripos($out, '{MODULE_INFO.') !== false) {
+			$moduleInfo = $modules->getModuleInfoVerbose($moduleName);
+			foreach($moduleInfo as $key => $value) {
+				$find = "{MODULE_INFO.$key}";
+				if(stripos($out, $find) === false) continue;
+				$out = str_ireplace($find, (string) $value, $out);
+			}
+		}
+		
+		if($ext !== 'md') return '<pre>' . $sanitizer->entities($out) . '</pre>';
+
+		/** @var TextformatterMarkdownExtra $md*/
+		$md = $modules->get('TextformatterMarkdownExtra');
+		$out = $sanitizer->purify($md->markdownSafe($out));
+	
+		// if there are no <img> or <a> tags then we are finished
+		if(strpos($out, '<img') === false && !strpos($out, '</a>')) return $out;
+		
+		$moduleUrl = $config->urls($moduleName);
+		$readmeUrl = str_replace('/edit', '/readme', $modules->getModuleEditUrl($moduleName));
+
+		// make <img src=...> and <a href=...> attributes relative to module's URL, so that
+		// src="file.jpg" converts to src="/site/modules/ModuleName/file.jpg"
+		if(preg_match_all('!<(?:a|img)\s[^<>]*?(?:src|href)=["\']([^/#][^"\']+)["\']!', $out, $matches)) {
+			foreach($matches[0] as $key => $tagOld) {
+				$valOld = $matches[1][$key];
+				if(strpos($valOld, '//') !== false) continue;
+				$valNew = $moduleUrl . ltrim($valOld, './'); 
+				$tagNew = str_replace($valOld, $valNew, $tagOld);
+				$out = str_replace($tagOld, $tagNew, $out);
+			}
+		}
+		
+		// if there's a link to a supported README file, then update it to use our viewer
+		foreach($this->readmeFiles as $type => $readmeFile) {
+			$href = 'href="' . $moduleUrl . $readmeFile . '"';
+			if(strpos($out, $href) === false) continue;
+			$out = str_replace($href, "class=\"pw-modal\" href=\"$readmeUrl&amp;type=$type\"", $out);
+		}
+		
+		// make any links open in blank target 
+		$out = str_replace('<a ', '<a target="_blank"', $out);
+			
 		return $out;
 	}
 	
