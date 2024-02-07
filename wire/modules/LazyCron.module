@@ -64,7 +64,7 @@
  * every4Weeks
  * 
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -75,7 +75,7 @@ class LazyCron extends WireData implements Module {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Lazy Cron', 
-			'version' => 103, 
+			'version' => 104, 
 			'summary' => 
 				"Provides hooks that are automatically executed at various intervals. " . 
 				"It is called 'lazy' because it's triggered by a pageview, so the interval " . 
@@ -248,6 +248,60 @@ class LazyCron extends WireData implements Module {
 	public function hookFatalError(HookEvent $e) {
 		$this->removeLockfile();
 		$e->removeHook(null); // remove self
+	}
+
+	/**
+	 * Get hookable time functions that are allowed, indexed by number of seconds they use
+	 * 
+	 * @return string[]
+	 * @since 3.0.136
+	 * 
+	 */
+	public function getTimeFuncs() {
+		return $this->timeFuncs; 
+	}
+
+	/**
+	 * Get name of time function to hook for given number of seconds
+	 * 
+	 * Returns the time function name that most closely matches given number of seconds. 
+	 * 
+	 * @param int $seconds Number of seconds
+	 * @return string Name of time function to hook
+	 * @since 3.0.136
+	 * 
+	 */
+	public function getTimeFuncName($seconds) {
+		$nLast = 0;
+		$timeFunc = '';
+		$lastFuncName = '';
+		foreach($this->timeFuncs as $n => $funcName) {
+			$timeFunc = $funcName;
+			$diff = ($n - $nLast) / 2;
+			if($n - $diff > $seconds) {
+				$timeFunc = $lastFuncName;
+				break;
+			} else if($n >= $seconds) {
+				break;
+			}
+			$nLast = $n;
+			$lastFuncName = $funcName;
+		}
+		return $timeFunc;
+	}
+
+	/**
+	 * Get number of seconds for given time function name or 0 if not found
+	 * 
+	 * 
+	 * @param string $timeFuncName This is case sensitive, so you must use `everyDay`, `every30Minutes`, etc.
+	 * @return int Number of seconds associated with time function name. 
+	 * @since 3.0.136
+	 * 
+	 * 
+	 */
+	public function getTimeFuncSeconds($timeFuncName) {
+		return (int) array_search($timeFuncName, $this->timeFuncs);
 	}
 
 	/**
