@@ -379,13 +379,15 @@ class Languages extends PagesType {
 	 *   method may be preferable in some contexts, depending on how your IDE understands API calls. 
 	 * 
 	 * @param string|int $name Specify language name (or ID) to get a specific language, or omit to get current language
-	 * @return Language|NullPage|null
+	 * @return Language|null
 	 * @since 3.0.127 
 	 * 
 	 */
 	public function getLanguage($name = '') {
-		if($name !== '') return ($name instanceof Language ? $name : $this->get($name));
-		return $this->wire()->user->language;
+		if(empty($name)) return $this->wire()->user->language;
+		if($name instanceof Language) return $name; 
+		$language = parent::get($name);
+		return ($language instanceof Language ? $language : null);
 	}
 
 	/**

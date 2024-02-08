@@ -5,7 +5,7 @@
  *
  * This module is the front door to all the other language modules and files. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $languagesPageID
@@ -24,7 +24,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	static public function getModuleInfo() {
 		return array(
 			'title' => 'Languages Support',
-			'version' => 103,
+			'version' => 104,
 			'summary' => 'ProcessWire multi-language support.',
 			'author' => 'Ryan Cramer',
 			'autoload' => true,
@@ -210,8 +210,9 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$pages->addHook('added', $this, 'hookPageAdded'); 
 		$pages->addHook('deleteReady', $this, 'hookPageDeleteReady'); 
 		$this->addHook('Page::setLanguageValue', $this, 'hookPageSetLanguageValue');
-		$this->addHook('Page::getLanguageValue', $this, 'hookPageGetLanguageValue'); 
-		
+		$this->addHook('Page::setLanguageValues', $this, 'hookPageSetLanguageValues');
+		$this->addHook('Page::getLanguageValue', $this, 'hookPageGetLanguageValue');
+		$this->addHook('Page::getLanguageValues', $this, 'hookPageGetLanguageValues');
 
 		if($modules->isInstalled('LanguageSupportFields')) {
 			$this->LanguageSupportFields = $modules->get('LanguageSupportFields'); 
@@ -768,42 +769,44 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 			throw new WireException('Unknown language set to Page::setLanguageValue');
 		}
 		
-		if($field === 'name' || $field === 'status') {
-			// set page name or status
-			if($languages && !$languages->hasPageNames()) {
-				throw new WireException("Please install LanguageSupportPageNames module before attempting to set multi-language names/paths/status/URLs."); 
-			}
-			if($language->isDefault()) {
-				$page->set($field, $value); 
-			} else {
-				$page->set("$field$language->id", $value); 
-			}
-			
-		} else {
-			
-			if(is_object($field)) $field = $field->name;
-			$previousValue = $page->get($field);
+		$this->setPageLanguageValue($page, $language, $field, $value);
+	}
 
-			if($previousValue instanceof LanguagesValueInterface) {
-				// utilize existing set methods available in LanguagesValueInterface (which might be slightly quicker than the else condition method
-				if($value instanceof LanguagesValueInterface) {
-					// if given a LanguagesPageFieldValue, then just set it to the page
-					$page->set($field, $value); 
-				} else {
-					// otherwise use existing setLanguageValue method provided by LanguagesValueInterface
-					$previousValue->setLanguageValue($language->id, $value); 	
-				}
-				
+	/**
+	 * Hook to set implement Page::setLanguageValues() - set multiple language values at once
+	 * 
+	 * @param HookEvent $event
+	 * @throws WireException
+	 * @since 3.0.236
+	 * 
+	 */
+	public function hookPageSetLanguageValues(HookEvent $event) {
+		$page = $event->object; /** @var Page $page */
+		$field = $event->arguments(0);
+		$values = $event->arguments(1);
+		
+		if($field instanceof Field) $field = $field->name;
+		
+		if(!is_array($values)) {
+			throw new WireException(
+				'Page::setLanguageValues($field, $values) requires an array $values ' . 
+				'argument in format [ lang_name_or_id => value, … ];'
+			);
+		}
+
+		foreach($this->wire()->languages as $language) {
+			if(isset($values[$language->id])) {
+				// value provided with language ID
+				$value = $values[$language->id];
+			} else if(isset($values[$language->name])) {
+				// value provided with language name
+				$value = $values[$language->name];
 			} else {
-				// temporarily set user's language to field language, set the field value, then set user's language back	
-				// we don't know what exactly $field might be, whether custom field or some other field, but we'll set it anyway
-				$user = $this->wire()->user; 
-				$userLanguage = $user->language->id != $language->id ? $user->language : null; 
-				if($userLanguage) $user->language = $language; 
-				$page->set($field, $value); 
-				if($userLanguage) $user->language = $userLanguage; 
+				// value not provided for this language
+				continue;
 			}
-		}	
+			$this->setPageLanguageValue($page, $language, $field, $value);
+		}
 	}
 
 	/**
@@ -822,8 +825,9 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	public function hookPageGetLanguageValue(HookEvent $event) {
 	
 		$page = $event->object; /** @var Page $page */
-		$language = $event->arguments(0); /** @var Language $language */
+		$language = $event->arguments(0); /** @var Language|string|int $language */
 		$field = $event->arguments(1); /** @var string|Field $field */
+		$lang = $language;
 		
 		if(!is_object($language)) {
 			if(ctype_digit("$language")) $language = (int) $language;
@@ -831,37 +835,179 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		}
 		
 		if(!$language instanceof Language) {
-			throw new WireException('Unknown language sent to Page::getLanguageValue');
+			throw new WireException("Unknown language '$lang' sent to Page::getLanguageValue");
 		}
 		
+		$event->return = $this->getPageLanguageValue($page, $language, $field);
+	}
+
+	/**
+	 * Implementation for Page::getLanguageValues($field, [ languages ])
+	 * 
+	 * If the languages argument is omitted, values for all languages are returned. 
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPageGetLanguageValues(HookEvent $event) {
+		$page = $event->object; /** @var Page $page */
+		$field = $event->arguments(0); /** @var Field|string $field */
+		$langs = $event->arguments(1); /** @var null|Language[]|string[]|int[] $languages */
+		$languages = $this->wire()->languages; /** @var Languages $languages */
+		$values = array();
+		
+		if(is_array($field) && $langs && !is_array($langs)) {
+			// allow for arguments in wrong order
+			list($langs, $field) = array($field, $langs);
+		}
+	
+		if($langs && !WireArray::iterable($langs)) $langs = null;
+		if(empty($langs)) $langs = $this->wire()->languages;
+		
+		foreach($langs as $language) {
+			if(!$language instanceof Language) {
+				$language = $languages->getLanguage($language);
+				if(!$language) continue;
+			}
+			$values[$language->name] = $this->getPageLanguageValue($page, $language, $field);
+		}
+		
+		$event->return = $values;
+	}
+	
+	/**
+	 * Get page value in given language
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 * @param Language $language
+	 * @param Field|string $field
+	 * @return mixed
+	 * @since 3.0.236
+	 *
+	 */
+	public function getPageLanguageValue(Page $page, Language $language, $field) {
 		if($field === 'name') {
 			// get a page name 
+			$value = $page->get($language->isDefault() ? "name" : "name$language->id");
+
+		} else if($field === 'status') {
+			// get page status
+			$value = $page->get($language->isDefault() ? "status" : "status$language->id");
+
+		} else if($field === '_languageStatus') {
 			if($language->isDefault()) {
-				$value = $page->name; 
+				$value = !$page->isUnpublished();
 			} else {
-				$value = $page->get("name$language->id"); 
+				$value = (bool) $page->get("status$language->id");
 			}
-			
+
 		} else {
-			
+
 			if(is_object($field)) $field = $field->name;
 			$value = $page->get($field);
 
 			if($value instanceof LanguagesValueInterface) {
-				$value = $value->getLanguageValue($language->id); 
-				
+				$value = $value->getLanguageValue($language->id);
+
 			} else {
 				// temporarily set user's language to field language, get the field value, then set user's language back	
 				$user = $this->wire()->user;
 				$userLanguage = $user->language->id != $language->id ? $user->language : null;
 				if($userLanguage) $user->language = $language;
-				$value = $page->get($field); 
+				$value = $page->get($field);
 				if($userLanguage) $user->language = $userLanguage;
 			}
 		}
-		
-		$event->return = $value; 
+
+		return $value;
 	}
+
+
+	/**
+	 * Set page value in given language
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 * @param Language $language
+	 * @param string|Field $field
+	 * @param mixed $value
+	 * @throws WireException
+	 * @since 3.0.236
+	 *
+	 */
+	public function setPageLanguageValue(Page $page, $language, $field, $value) {
+
+		if($field instanceof Field) {
+			$field = $field->name;
+
+		} else if($field === 'status') {
+			// Set status (requires LanguageSupportPageNames)
+			if(is_bool($value)) {
+				$field = '_languageStatus';
+			} else if($language->isDefault()) {
+				$page->set('status', $value);
+				return;
+			} else {
+				$page->set("status$language->id", $value ? 1 : 0);
+				return;
+			}
+		}
+
+		if($field === '_languageStatus') {
+			// Set active status (requires LanguageSupportPageNames)
+			if($language->isDefault()) {
+				if($value) {
+					if($page->isUnpublished()) $page->removeStatus(Page::statusUnpublished);
+				} else {
+					if(!$page->isUnpublished()) $page->addStatus(Page::statusUnpublished);
+				}
+			} else {
+				$page->set("status$language->id", $value ? 1 : 0);
+			}
+			return;
+		}
+
+		if($field === 'name') {
+			// Set name (requires LanguageSupportPageNames)
+			if($language->isDefault()) {
+				$page->set('name', $value);
+			} else {
+				$value = $this->wire()->sanitizer->pageNameUTF8($value);
+				$page->set("name$language->id", $value);
+			}
+			return;
+		}
+
+		if(empty($field) || !is_string($field)) {
+			throw new WireException('Page::setLanguageValue($field, …) requires a valid field/property');
+		}
+
+		$previousValue = $page->get($field);
+
+		if($previousValue instanceof LanguagesValueInterface) {
+			// utilize existing set methods available in LanguagesValueInterface
+			if($value instanceof LanguagesValueInterface) {
+				// if given a LanguagesPageFieldValue, then just set it to the page
+				$page->set($field, $value);
+			} else {
+				// otherwise use existing setLanguageValue method provided by LanguagesValueInterface
+				$previousValue->setLanguageValue($language->id, $value);
+			}
+			return;
+		}
+
+		// temporarily set user's language to field language, set the field value, then set user's language back	
+		// we don't know what exactly $field might be, whether custom field or some other field, but we'll set it anyway
+		$user = $this->wire()->user;
+		$userLanguage = $user->language->id != $language->id ? $user->language : null;
+		if($userLanguage) $user->language = $language;
+		$page->set($field, $value);
+		if($userLanguage) $user->language = $userLanguage;
+	}
+
 
 	/**
 	 * Module configuration screen

@@ -172,6 +172,36 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	}
 
 	/**
+	 * Set multiple language values at once
+	 * 
+	 * ~~~~~
+	 * $page->title->setLanguageValues([
+	 *  'default' => 'Hello world',
+	 *  'es' => 'Hola Mundo',
+	 *  'fr' => 'Hei maailma',
+	 * ]);
+	 * ~~~~~
+	 * 
+	 * @param array $values Associative array of values where keys are language names or IDs.
+	 * @param bool $reset Reset any languages not specified to blank? (default=false)
+	 * @return self
+	 * @since 3.0.236
+	 * 
+	 */
+	public function setLanguageValues(array $values, $reset = false) {
+		foreach($this->wire()->languages as $language) {
+			if(isset($values[$language->id])) {
+				$this->setLanguageValue($language->id, $values[$language->id]);
+			} else if(isset($values[$language->name])) {
+				$this->setLanguageValue($language->id, $values[$language->name]);
+			} else if($reset) {
+				$this->setLanguageValue($language->id, '');
+			}
+		}
+		return $this;
+	}
+
+	/**
 	 * Grab language values from Inputfield and populate to this object
 	 *
 	 * @param Inputfield $inputfield

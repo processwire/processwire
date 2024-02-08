@@ -3,7 +3,7 @@
 /**
  * Multi-language support page names module
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $moduleVersion
@@ -24,7 +24,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	static public function getModuleInfo() {
 		return array(
 			'title' => 'Languages Support - Page Names',
-			'version' => 13,
+			'version' => 14,
 			'summary' => 'Required to use multi-language page names.',
 			'author' => 'Ryan Cramer',
 			'autoload' => true,
@@ -161,6 +161,10 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$this->addHook('Page::localUrl', $this, 'hookPageLocalUrl');
 		$this->addHook('Page::localHttpUrl', $this, 'hookPageLocalHttpUrl'); 
 		$this->addHook('Page::localPath', $this, 'hookPageLocalPath');
+		$this->addHookMethod('Page::setLanguageStatus', $this, 'hookPageSetLanguageStatus');
+		$this->addHookMethod('Page::getLanguageStatus', $this, 'hookPageGetLanguageStatus');
+		$this->addHookMethod('Page::setLanguageName', $this, 'hookPageSetLanguageName');
+		$this->addHookMethod('Page::getLanguageName', $this, 'hookPageGetLanguageName');
 
 		// bypass means the request was to something in /site/*/ that has no possibilty of language support
 		// note that the hooks above are added before this so that 404s can still be handled properly
@@ -1208,12 +1212,13 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$user = $this->wire()->user;
 		$config = $this->wire()->config;
 		$sanitizer = $this->wire()->sanitizer;
+		$languages = $this->wire()->languages;
 		$userTrackChanges = $user->trackChanges();
 		$userLanguage = $user->language;
 		
 		if($userTrackChanges) $user->setTrackChanges(false); 
 		
-		foreach($this->wire()->languages as $language) {
+		foreach($languages as $language) {
 			/** @var Language $language */
 			if($language->isDefault()) continue; 
 			$user->setLanguage($language); 
@@ -1236,6 +1241,21 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		// restore user to previous state
 		$user->setLanguage($userLanguage); 
 		if($userTrackChanges) $user->setTrackChanges(true); 
+		
+		/*
+		$parent = $page->parent;
+		$template = $page->template;
+		if($parent && $template && !$template->noLang) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$key = "status$language";
+				$parentStatus = $parent->get($key);
+				if($parentStatus === null) continue;
+				$status = $page->get($key);
+				if($status === null) $page->set($key, $parentStatus);
+			}
+		}
+		*/
 	}
 
 	/**
@@ -1265,6 +1285,145 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			}
 			// trigger renamed hook if one of the language names changed
 			if($renamed) $this->wire()->pages->renamed($page);
+		}
+	}
+
+	/**
+	 * Set which languages are active for page
+	 * 
+	 * Languages not indicated in given array are ignored. 
+	 * Note that if you set [ 'default' => false ] then page is not pubicly viewable in any language.
+	 * 
+	 * ~~~~~
+	 * // Set one
+	 * $page->setLanguageStatus('es', true);
+	 * 
+	 * // Set multiple
+	 * $page->setLanguageStatus([
+	 *   'default' => true, 
+	 *   'es' => true, 
+	 *   'fr' => false, 
+	 * ]);
+	 * ~~~~~
+	 * 
+	 * @param HookEvent $event
+	 * @throws WireException
+	 * @since 3.0.236
+	 * 
+	 */
+	public function hookPageSetLanguageStatus(HookEvent $event) {
+		$page = $event->object; /** @var Page $page */
+		$value = $event->arguments(0);
+		if(is_string($value) || $value instanceof Language) {
+			// setting a single language status
+			// $page->setLanguageStatus('es', true);
+			list($lang, $value) = array($value, $event->arguments(1)); 
+			if($value === null) throw new WireException("Invalid Page::setLanguageStatus() call");
+			$page->setLanguageValue($lang, '_languageStatus', (bool) $value);
+		} else if(WireArray::iterable($value)) {
+			// setting status for multiple languges
+			// $page->setLanguageStatus([ 'es' => true, 'br' => false ]); 
+			$page->setLanguageValues('_languageStatus', $value);
+		} else {
+			// invalid call but non-fatal
+		}
+		$event->return = $page;
+	}
+
+	/**
+	 * Get languages that page is active in 
+	 * 
+	 * ~~~~~
+	 * // returns array of booleans indexed by language name for all languages
+	 * $a = $page->getLanguageStatus(); 
+	 * 
+	 * // returns boolean for status of language 'es'
+	 * $b = $page->getLanguageStatus('es'); 
+	 * 
+	 * // returns array of [ 'es' => true, 'br' => false ]
+	 * $a = $page->getLanguageStatus([ 'es', 'br' ]);
+	 * ~~~~~
+	 * 
+	 * Note if default language is false, then page is not publicly viewable in any language. 
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPageGetLanguageStatus(HookEvent $event) {
+		$page = $event->object; /** @var Page $page */
+		$value = $event->arguments(0);
+		if(is_string($value) || $value instanceof Language) {
+			// get status for one language
+			// $page->getLanguageStatus('es'); to return boolean
+			$event->return = $page->getLanguageValue($value, '_languageStatus');
+		} else if(empty($value) || WireArray::iterable($value)) {
+			// get status for multiple languages
+			// $page->getLanguageStatus([ 'es', 'br' ]); or $page->getLangugeStatus() to return array
+			$event->return = $page->getLanguageValues('_languageStatus', $value);
+		} else {
+			$event->return = false;
+		}
+	}
+
+	/**
+	 * Set page name by language, implementation for Page::setLanguageName()
+	 * 
+	 * ~~~~~
+	 * // Set page name for one language
+	 * $page->setLanguageName('es', 'hola');
+	 * 
+	 * // Set page name for multiple languages
+	 * $page->setLanguageName([ 'es' => 'hola', 'default' => 'hello' ]); 
+	 * ~~~~~
+	 * 
+	 * @param HookEvent $event
+	 * @since 3.0.236
+	 * 
+	 */
+	public function hookPageSetLanguageName(HookEvent $event) {
+		$page = $event->object; /** @var Page $page */
+		$value = $event->arguments(0);
+		if(is_array($value)) {
+			// $page->setLanguageName([ 'es' => 'hola', 'default' => hello' ]); 
+			$page->setLanguageValues('name', $value);
+		} else if($value) {
+			// $page->setLanguageName('es', 'hola');
+			$lang = $value;
+			$value = $event->arguments(1);
+			if(is_string($value)) $page->setLanguageValue($lang, 'name', $value);
+		}
+		$event->return = $page;
+	}
+
+	/**
+	 * Get name for language or languages, implementation for Page::getLanguageName()
+	 * 
+	 * ~~~~~
+	 * // get name for one language, returns 'hola'
+	 * $name = $page->getLanguageName('es'); 
+	 * 
+	 * // get name for multiple languages, returns [ 'es' => 'hola', 'default' => 'hello' ];
+	 * $names = $page->getLanguageName([ 'es', 'default' ]); 
+	 * 
+	 * // get names for all languages, returns array of booleans indexed by language name
+	 * $names = $page->getLanguageName();
+	 * ~~~~~
+	 *
+	 * @param HookEvent $event
+	 * @since 3.0.236
+	 *
+	 */
+	public function hookPageGetLanguageName(HookEvent $event) {
+		$page = $event->object; /** @var Page $page */
+		$lang = $event->arguments(0); /** @var array|Language|string $lang */
+		if($lang && (is_string($lang) || $lang instanceof Language)) {
+			// $page->getLanguageName('es'); to return string
+			$event->return = $page->getLanguageValue($lang, 'name');
+		} else if(WireArray::iterable($lang) || empty($lang)) {
+			// $page->getLanguageName([ 'es', 'br' ]); or $page->getLanguageName(); to return array
+			$event->return = $page->getLanguageValues('name', $lang);
+		} else {
+			$event->return = array();
 		}
 	}
 
