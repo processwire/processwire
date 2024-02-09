@@ -123,6 +123,12 @@ class FieldtypeTextareaHelper extends Wire {
 			$this->_('Remove images from markup that user does not have view access to') .
 			'[/span]'
 		);
+		$f->addOption(FieldtypeTextarea::htmlImageLoadingLazy,
+			$this->_('Image lazy loading:') . ' ' .
+			'[span.description]' .
+			$this->_('Populate loading="lazy" attribute to img tags at runtime, when page output formatting on') .
+			'[/span]'
+		);
 		$value = $field->get('htmlOptions');
 		if(!is_array($value)) $value = array();
 		if($field->get('contentType') == FieldtypeTextarea::contentTypeImageHTML) {

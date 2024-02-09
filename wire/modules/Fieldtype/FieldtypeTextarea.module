@@ -79,6 +79,12 @@ class FieldtypeTextarea extends FieldtypeText {
 	const htmlImageRemoveNoAccess = 16;
 
 	/**
+	 * HTML options: Update <img> tags to be <img loading='lazy'>
+	 *
+	 */
+	const htmlImageLoadingLazy = 32;
+
+	/**
 	 * Instance of MarkupQA 
 	 * 
 	 * @var MarkupQA
@@ -113,6 +119,14 @@ class FieldtypeTextarea extends FieldtypeText {
 	
 	public function ___formatValue(Page $page, Field $field, $value) {
 		$value = parent::___formatValue($page, $field, $value);
+		if($field->get('contentType') >= self::contentTypeHTML) {
+			$htmlOptions = $field->get('htmlOptions');
+			if($htmlOptions && in_array(self::htmlImageLoadingLazy, $htmlOptions)) {
+				if(strpos($value, 'loading="lazy"') === false) {
+					$value = str_replace('<img ', '<img loading="lazy" ', $value);
+				}
+			}
+		}
 		return $value; 
 	}
 
@@ -497,4 +511,3 @@ class FieldtypeTextarea extends FieldtypeText {
 	}
 
 }
-
