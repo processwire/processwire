@@ -105,7 +105,7 @@
  * 
  * Methods added by PageRender.module: 
  * -----------------------------------
- * @method string|mixed render($fieldName = '') Returns rendered page markup. If given a $fieldName argument, it behaves same as the renderField() method. #pw-group-output-rendering
+ * @method string|mixed render($arg1 = null, $arg2 = null) Returns rendered page markup. Please see the `PageRender::renderPage()` method for arguments and usage details. #pw-group-output-rendering
  * 
  * Methods added by PagePermissions.module: 
  * ----------------------------------------

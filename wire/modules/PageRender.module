@@ -382,13 +382,20 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Return a string with the rendered output of this Page from its template file
+	 * Return a string with the rendered output of this Page from its template file (other usages available as well)
 	 *
 	 * This method provides the implementation for `$page->render()` and you sould only call this method as `render()` from Page objects. 
-	 * You may optionally specify 1-2 arguments to the method. The first argument may be an array of options OR filename (string) to render. 
-	 * If specifying a filename in the first argument, you can optionally specify the $options array as the 2nd argument. 
-	 * If using the options argument, you may specify your own variables to pass along to your template file, and those values will be
-	 * available in a variable named `$options` within the scope of the template file (see examples below).
+	 * 
+	 * You may optionally specify 1-2 arguments to the method. The first argument may be any of the following: 
+	 * 
+	 * 1. An $options array with predefined options or custom variables (see available options further below). 
+	 * 2. A filename to use for render (in /site/templates/). When used, you can optionally specify the $options array as the 2nd argument.
+	 * 3. A field name to render. An optional 2nd argument can be a filename (in /site/templates/fields/) to use to render the field.
+	 *    Please see the `Page::renderField()` method for more details for this usage (you may want to use that method instead). 
+	 * 
+	 * If using the $options array argument (whether 1st or 2nd argument), you may use it to specify your own variables to pass along to your 
+	 * template file, and those values will be available in a variable named `$options` within the scope of the template file 
+	 * (see examples below).
 	 * 
 	 * In addition, the following options are present and recognized by the core:
 	 * 
@@ -401,7 +408,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 	- `appendFiles` (array): Array of additional filenames to append to output, must be relative to /site/templates/.
 	 *	- `pageStack` (array): An array of pages, when recursively rendering. Used internally. You can examine it but not change it. 
 	 * 
-	 * Note that the prepend and append options above have default values that come values configured in `$config` or the Template object. 
+	 * Note that the prepend and append options above have default values that have defaults configured in `$config` or the Template object. 
 	 *	
 	 * ~~~~~
 	 * // regular page render call
