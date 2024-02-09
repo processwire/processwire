@@ -7,7 +7,7 @@
  * Code by Ryan Cramer
  * Sponsored by Avoine
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for "custom: OR-group" option (https://processwire.com/talk/topic/13116-or-selecters-for-different-fields/)
@@ -427,6 +427,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$templatesByLabel[$label] = $template;
 			$templates[$template->id] = $label;
 		}
+		asort($templates, SORT_NATURAL | SORT_FLAG_CASE);
 		unset($templatesByLabel);
 
 		// make users selectable if there are under $maxUsers of them
@@ -718,7 +719,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				while(isset($subfields[$key])) $key .= " ";
 				$subfields[$key] = $subfield;
 			}
-			ksort($subfields);
+			ksort($subfields, SORT_NATURAL | SORT_FLAG_CASE);
 			if($this->showFieldLabels) {
 				// convert back to name-based keys
 				$_subfields = array();
@@ -926,20 +927,22 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$outSections[$optgroupName] = $out;
 			unset($out);
 		}
+
+		$customFields = array();
 		
-		if($settings['showFieldLabels']) {
-			$customFields = array();
-			foreach($settings['customFields'] as $field) {
-				/** @var Field $field */
+		foreach($settings['customFields'] as $field) {
+			/** @var Field $field */
+			if($settings['showFieldLabels']) {
 				$label = $field->getLabel();
 				while(isset($customFields[$label])) $label .= ' ';
-				$customFields[$label] = $field;
+			} else {
+				$label = $field->name;
 			}
-			ksort($customFields);
-		} else {
-			$customFields = $settings['customFields'];
+			$customFields[$label] = $field;
 		}
-	
+		
+		ksort($customFields, SORT_NATURAL | SORT_FLAG_CASE);
+
 		$templates = $this->wire()->templates;
 		
 		// build custom fields optgroup
@@ -1226,7 +1229,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 						$info['options'][$p->id] = $p->get('path');
 					}
 				}
-				asort($info['options']);
+				asort($info['options'], SORT_NATURAL | SORT_FLAG_CASE);
 				if(empty($info['options'])) unset($info['options']); 
 			}
 			$type = $info['input'];
