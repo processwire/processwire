@@ -27,6 +27,7 @@
  * 
  * @method string renderAddable()
  * @method void processInputAddPages(WireInputData $input)
+ * @method string renderPageLabel(Page $page, $allowMarkup = false)
  * 
  * @todo make findPagesCode disabled by default
  * 
@@ -36,7 +37,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page',
-			'version' => 108,
+			'version' => 109,
 			'summary' => 'Select one or more pages',
 			'permanent' => true,
 		);
@@ -586,6 +587,31 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	public function getPageLabel(Page $page, $allowMarkup = false) {
+		static $hooked = null;
+		if($hooked === null) {
+			$hooked = $this->wire()->hooks->isHooked('InputfieldPage::renderPageLabel()');
+		}
+		if($hooked) {
+			return $this->renderPageLabel($page, $allowMarkup); 
+		} else {
+			return $this->___renderPageLabel($page, $allowMarkup);
+		}
+	}
+
+	/**
+	 * Render a label for the given page
+	 * 
+	 * This is the same as `getPageLabel()` but hookable.
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param Page $page
+	 * @param bool $allowMarkup Whether or not to allow markup in the label (default=false)
+	 * @return string
+	 * @since 3.0.236
+	 *
+	 */
+	public function ___renderPageLabel(Page $page, $allowMarkup = false) {
 		$label = '';
 		if(strlen($this->labelFieldFormat) && $this->labelFieldName == '.') {
 			$label = $page->getMarkup($this->labelFieldFormat);
