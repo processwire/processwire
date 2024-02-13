@@ -137,7 +137,7 @@ var Inputfields = {
 	 * Are we currently in debug mode?
 	 * 
 	 */
-	debug: false,
+	debug: true,
 
 	/**
 	 * Are we currently processing dependencies?
@@ -1099,11 +1099,22 @@ function InputfieldDependencies($target) {
 	 * @param operator
 	 * @param value value to match for
 	 * @param conditionValue
+	 * @param $inputfield 
 	 * @return int 0=value didn't match, 1=value matched
 	 *
 	 */
-	function matchValue(field, operator, value, conditionValue) {
+	function matchValue(field, operator, value, conditionValue, $inputfield) {
 		var matched = 0;
+	
+		if(operator === '=' || operator === '!=') {
+			if($inputfield.attr('class').indexOf('InputfieldPage') > -1) {
+				// InputfieldPage, InputfieldPageListSelect, InputfieldPageAutocomplete, etc.
+				// normalizing matching of empty for blank, '', "", 0, etc.
+				// since there is no page ID=0 so all empty values can match each other
+				var v = trimValue(value.toString() + conditionValue.toString());
+				if(v === '0' || v === '') value = conditionValue = '';
+			}
+		}
 
 		switch(operator) {
 			case '=': if(value === conditionValue) matched++; break;
@@ -1369,7 +1380,7 @@ function InputfieldDependencies($target) {
 				for (var n = 0; n < values.length; n++) {
 					for (var i = 0; i < condition.values.length; i++) {
 						var v = parseValue(values[n], condition.values[i]);
-						matched += matchValue(conditionField, condition.operator, v, condition.values[i]);
+						matched += matchValue(conditionField, condition.operator, v, condition.values[i], $inputfield);
 					}
 				}
 
