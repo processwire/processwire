@@ -3,11 +3,10 @@
  *
  * Maintains a collection of fields that are repeated for any number of times.
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
-
 
 function InputfieldRepeater($) {
 
@@ -49,9 +48,17 @@ function InputfieldRepeater($) {
 	 * Page version, if PagesVersions active
 	 * 
 	 * @type {number}
+	 * 
 	 */
 	var pageVersion = 0;
-
+	
+	/**
+	 * Non-false when we are toggling family item visibility
+	 *
+	 * @type {boolean|number}
+	 *
+	 */
+	var togglingItemVisibility = false;
 	
 	/*** EVENTS ********************************************************************************************/
 
@@ -339,6 +346,51 @@ function InputfieldRepeater($) {
 		if(parseInt($loaded.val()) > 0) return; // item already loaded
 		$item.addClass('InputfieldRepeaterItemLoading');	
 	};
+	
+	/**
+	 * Toggle visibility of children/siblings
+	 * 
+	 * @param $item
+	 * @param open
+	 * 
+	 */
+	function toggleItemFamilyVisibility($item, open) {
+		var $inputfield = $item.closest('.InputfieldRepeater');
+		
+		if(!$inputfield.hasClass('InputfieldRepeaterFamilyToggle')) return;
+		if(!$inputfield.hasClass('InputfieldRepeaterDepth')) return;
+		if($inputfield.hasClass('InputfieldRepeaterAccordion')) false;
+		
+		var depth = getItemDepth($item);
+		var $nextItem = $item.next('.InputfieldRepeaterItem');
+		
+		if($nextItem.length) {
+			var nextDepth = getItemDepth($nextItem);
+			if(nextDepth > depth) {
+				// child item
+				togglingItemVisibility = nextDepth;
+				open ? Inputfields.open($nextItem) : Inputfields.close($nextItem);
+			} else if(nextDepth === depth && depth > 0 && togglingItemVisibility) {
+				// next sibling item
+				open ? Inputfields.open($nextItem) : Inputfields.close($nextItem);
+			} else {
+				// finished
+				togglingItemVisibility = false;
+			}
+		} else {
+			togglingItemVisibility = false;
+		}
+	}
+	
+	/**
+	 * Called when an item has finished opening
+	 * 
+	 * @param $item
+	 * 
+	 */
+	function itemOpenComplete($item) {
+		toggleItemFamilyVisibility($item, true);
+	}
 
 	/**
 	 * Event handler for when a repeater item is opened (primarily focused on ajax loaded items)
@@ -353,6 +405,7 @@ function InputfieldRepeater($) {
 
 		if(parseInt($loaded.val()) > 0) {
 			updateAccordion($item);
+			toggleItemFamilyVisibility($item, true);
 			return; // item already loaded
 		}
 
@@ -402,6 +455,7 @@ function InputfieldRepeater($) {
 			
 			setTimeout(function() {
 				$inputfields.find('.Inputfield').trigger('reloaded', ['InputfieldRepeaterItemEdit']);
+				itemOpenComplete($item);
 			}, 50);
 			
 			runScripts(data);	
@@ -415,6 +469,7 @@ function InputfieldRepeater($) {
 	 */
 	var eventItemClosed = function() {
 		updateState($(this));
+		toggleItemFamilyVisibility($(this), false);
 	};
 
 	/**
@@ -543,7 +598,7 @@ function InputfieldRepeater($) {
 			if(depth) setItemDepth($addItem, depth);
 			if($addItem.hasClass('InputfieldStateCollapsed')) {
 				// ok
-			} else {
+			} else if(!$inputfieldRepeater.hasClass('InputfieldRepeaterNoScroll')) {
 				$('html, body').animate({
 					scrollTop: $addItem.offset().top
 				}, 500, 'swing');
@@ -1438,6 +1493,7 @@ function InputfieldRepeater($) {
 	 * @param $item
 	 */
 	function scrollToItem($item) {
+		if($item.closest('.InputfieldRepeater').hasClass('InputfieldRepeaterNoScroll')) return;
 		$('html, body').animate({scrollTop: $item.offset().top - 10}, 250, 'swing');
 	}
 

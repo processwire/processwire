@@ -5,16 +5,18 @@
  *
  * Maintains a collection of fields that are repeated for any number of times.
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $repeaterMaxItems
  * @property int $repeaterMinItems
  * @property int $repeaterDepth
  * @property bool|int $familyFriendly
+ * @property bool|int $familyToggle
  * @property bool|int $accordionMode
  * @property bool|int $singleMode
  * @property bool|int $loudControls Always show controls regardless of hover?
+ * @property bool|int $noScroll Do not scroll to newly added items?
  * 
  * @method string renderRepeaterLabel($label, $cnt, Page $page)
  * 
@@ -103,9 +105,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->set('repeaterMinItems', 0); 
 		$this->set('repeaterDepth', 0);
 		$this->set('familyFriendly', 0); 
+		$this->set('familyToggle', 0);
 		$this->set('accordionMode', false);
 		$this->set('singleMode', false); 
 		$this->set('loudControls', false);
+		$this->set('noScroll', false);
 	}
 
 	/**
@@ -802,6 +806,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		}
 		if($this->loudControls || $this->wire()->session->get('touch')) {
 			$this->addClass('InputfieldRepeaterLoudControls', 'wrapClass');
+		}
+		if($this->noScroll) {
+			$this->addClass('InputfieldRepeaterNoScroll', 'wrapClass');
+		}
+		if($this->familyToggle) {
+			$this->addClass('InputfieldRepeaterFamilyToggle', 'wrapClass');
 		}
 		if(!empty($_COOKIE[$this->copyPasteCookieName()])) {
 			$this->addClass('InputfieldRepeaterCanPaste', 'wrapClass'); 
