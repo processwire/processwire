@@ -1359,7 +1359,8 @@ function InputfieldDependencies($target) {
 				} else if(typeof value == 'array') {
 					// array, already
 					values = value;
-				} else if(typeof value == "string" && $inputfield.hasClass('InputfieldPage') && value.indexOf(',') > -1 && value.match(/^[,0-9]+$/)) {
+				} else if(typeof value == "string" && $inputfield.attr('class').indexOf('InputfieldPage') > -1 
+					&& value.indexOf(',') > -1 && value.match(/^[,0-9]+$/)) {
 					// CSV string of page IDs
 					values = value.split(',');
 				} else {
