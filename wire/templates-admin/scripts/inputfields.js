@@ -137,7 +137,7 @@ var Inputfields = {
 	 * Are we currently in debug mode?
 	 * 
 	 */
-	debug: true,
+	debug: false,
 
 	/**
 	 * Are we currently processing dependencies?
@@ -1503,6 +1503,11 @@ function InputfieldDependencies($target) {
 			var subfield = '';
 			var fields = []; // if multiple
 			var values = [];
+	
+			// For repeaters PR #255
+			if(field.indexOf('forpage.') === 0) {
+				field = field.replace('forpage.', '').replace(/\_repeater\d+/g, '');
+			}
 
 			// detect OR selector in field
 			if(field.indexOf("|") > -1) {
