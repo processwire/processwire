@@ -1152,6 +1152,10 @@ function InputfieldDependencies($target) {
 		consoleLog('getCheckboxFieldAndValue(see-next-line, ' + conditionField + ', ' + conditionSubfield + ')');
 		consoleLog(condition)
 
+		if(conditionSubfield === '' && trimValue(condition.value) === '') {
+			conditionSubfield = 'count';
+		}
+
 		// first check if we've got a count subfield, because we'll be counting checked inputs for 
 		// those rather than checking the actual values
 
