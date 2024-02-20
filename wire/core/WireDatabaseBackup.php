@@ -49,7 +49,7 @@
  * ~~~~~
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -834,10 +834,14 @@ class WireDatabaseBackup {
 			if(in_array($table, $options['excludeExportTables'])) continue; 
 			$numTables++;
 			$columns = array();
+			$columnTypes = array();
 			$query = $database->prepare("SHOW COLUMNS FROM `$table`");
 			$query->execute();
 			/** @noinspection PhpAssignmentInConditionInspection */
-			while($row = $query->fetch(\PDO::FETCH_NUM)) $columns[] = $row[0];
+			while($row = $query->fetch(\PDO::FETCH_NUM)) {
+				$columns[] = $row[0];
+				$columnTypes[] = $row[1];
+			}
 			$query->closeCursor();
 			$columnsStr = '`' . implode('`, `', $columns) . '`';
 
@@ -862,9 +866,12 @@ class WireDatabaseBackup {
 			while($row = $query->fetch(\PDO::FETCH_NUM)) {
 				$numInserts++;
 				$out = "\nINSERT INTO `$table` ($columnsStr) VALUES(";
-				foreach($row as $value) {
+				foreach($row as $key => $value) {
+					$columnType = $columnTypes[$key];
 					if(is_null($value)) {
 						$value = 'NULL';
+					} else if(stripos($columnType, 'bit') === 0 && ctype_digit("$value")) {
+						// leave bit column value unquoted
 					} else {
 						if($hasReplace) foreach($options['findReplace'] as $find => $replace) {
 							if(strpos($value, $find)) $value = str_replace($find, $replace, $value);
