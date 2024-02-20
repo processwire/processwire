@@ -5,7 +5,7 @@ require_once(dirname(__FILE__) . '/ProcessPageListRender.php');
 /**
  * JSON implementation of the Page List rendering
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -167,7 +167,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 				if($state === 'advanced' && $config->advanced) $states[$state] = $state;
 				if($state === 'superuser' && $this->superuser) $states[$state] = $state;
 			}
-			if($states == $this->hidePagesNot) $showHidden = true;
+			if(count($states) && $states == $this->hidePagesNot) $showHidden = true;
 		}
 
 		foreach($this->children as $page) {
@@ -175,22 +175,23 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			if(!$this->superuser && !$page->listable()) continue;
 			
 			$id = $page->id;
+			
+			if(isset($this->hidePages[$id]) && $id !== $idTrash && $id !== 1) {
+				// page hidden in page tree
+				if(!$showHidden) continue;
+			}
 
 			if($id == $id404 && !$this->superuser) {
 				// allow showing 404 page, only if it's editable
-				if(!$page->editable()) continue;
-				
-			} else if(isset($this->hidePages[$id]) && $id !== $idTrash && $id !== 1) {
-				// page hidden in page tree
-				if(!$showHidden) continue;
-				
+				if($page->editable()) $extraPages[$id] = $page;
+				continue;
 			} else if(isset($this->systemIDs[$id])) {
+				// system page
 				if($this->superuser) $extraPages[$id] = $page;
 				continue;
 			}
 
-			$child = $this->renderChild($page);
-			$children[] = $child;
+			$children[] = $this->renderChild($page);
 		}
 	
 		// add in the trash page if not present and allowed
