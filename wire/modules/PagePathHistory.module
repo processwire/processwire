@@ -389,7 +389,6 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 * @param Page $page
 	 * @param string|array $path
 	 * @param array $options
-	 *
 	 * @return array
 	 * 
 	 */
@@ -459,6 +458,13 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function getVirtualHistoryParent(Page $page, $pageName, array $pagePathInfo, Page $parent, array $options) {
+
+		static $levels = array();
+		
+		// prevent duplicate recursive calls
+		$levelKey = "$page->id!$pageName";
+		if(isset($levels[$levelKey])) return array(); 
+		$levels[$levelKey] = true;
 		
 		$paths = array();
 		
@@ -479,7 +485,16 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		foreach($pageNamesDates as $name => $date) {
 
 			// iterate through all possible parent paths
-			foreach($parentPaths as $parentPathInfo) {
+			foreach($parentPaths as $parentPathKey => $parentPathInfo) {
+			
+				/*
+				 * @todo determine if this should be applied
+				if(strpos($parentPathInfo['path'], $pagePathInfo['path']) === 0) {
+					// disallow URLs where parent URL is child of page that has the parent
+					unset($parentPaths[$parentPathKey]);
+					continue;
+				}
+				*/
 
 				$parentPath = $options['verbose'] ? $parentPathInfo['path'] : $parentPathInfo;
 
@@ -518,6 +533,8 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				$paths[$path] = $pathInfo;
 			}
 		}
+		
+		unset($levels[$levelKey]); 
 		
 		return $paths;
 	}
