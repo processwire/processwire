@@ -15,7 +15,7 @@
  * afterwards when appropriate.
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo:
@@ -131,9 +131,9 @@ class PagesPathFinder extends Wire {
 	protected function init($path, array $options) {
 		
 		$this->options = array_merge($this->defaults, $options);
-		$this->verbose = $this->options['verbose'];
 		$this->methods = array();
 		$this->useLanguages = $this->options['useLanguages'] ? $this->languages(true) : array();
+		$this->verbose = $this->options['verbose'] || !empty($this->useLanguages);
 		$this->result = $this->getBlankResult(array('request' => $path));
 		$this->template = null;
 		$this->admin = null;
@@ -934,7 +934,7 @@ class PagesPathFinder extends Wire {
 
 		$result['methods'] = $this->methods;
 
-		if(!$this->verbose) unset($result['parts'], $result['methods']);
+		if(!$this->options['verbose']) unset($result['parts'], $result['methods']);
 
 		if(empty($errors)) {
 			// force errors placeholder to end if there aren’t any
