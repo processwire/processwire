@@ -1676,24 +1676,30 @@ class WireFileTools extends Wire {
 			// note: this fails for PHP files executable on their own (like shell scripts)
 			return $namespace;
 		}
-	
-		// get everything that appears before "namespace" keyword
-		$head = substr($data, 0, $namespacePos);
+
+		// find where line ends after "namespace ..." keyword
+		foreach(array("\n", "\r", ";") as $c) {
+			$eol = strpos($data, $c, $namespacePos);
+			if($eol !== false) break;
+		}
+		
+		// get everything that appears before "namespace", and after "namespace" on same line
+		$head = $eol === false ? $data : substr($data, 0, $eol);
 		$headPrev = $head;
 		
-		// declare(...); is the one statement allowed to appear before namespace in PHP files
-		if(strpos($head, 'declare')) {
-			$head = preg_replace('/declare[ ]*\(.+?\)[ ]*;\s*/s', '', $head);
+		// single line comment(s) appear before namespace
+		if(strpos($head, '//') !== false) {
+			$head = preg_replace('!//[^\r\n]*!', '', $head);
 		}
 
-		// single line comment(s) appear before namespace
-		if(strpos($head, '//') !== false) { 
-			$head = preg_replace('!//.*!', '', $head);
-		}
-		
 		// single or multi-line comments before namespace
 		if(strpos($head, '/' . '*') !== false) {
 			$head = preg_replace('!/\*.*\*/!s', '', $head);
+		}
+
+		// declare(...); is the one statement allowed to appear before namespace in PHP files
+		if(strpos($head, 'declare')) {
+			$head = preg_replace('/declare[ ]*\(.+?\)[ ]*;\s*/s', '', $head);
 		}
 		
 		// replace cleaned up head in data
