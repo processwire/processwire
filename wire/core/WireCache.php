@@ -870,7 +870,7 @@ class WireCache extends Wire {
 		if(!$forceRun) {
 			// run general maintenance only once every 10 minutes
 			$filename = $this->wire()->config->paths->cache . 'WireCache.maint';
-			if(@filemtime($filename) > (time() - 600)) return false;
+			if(file_exists($filename) && filemtime($filename) > (time() - 600)) return false;
 			touch($filename);
 		}
 
