@@ -1476,6 +1476,28 @@ class Pagefile extends WireData implements WireArrayItem {
 		return $filenames;
 	}
 
+	/**
+	 * Get or set hidden state of this file
+	 * 
+	 * Files that are hidden do not appear in the formatted field value,
+	 * but do appear in the unformatted value. 
+	 * 
+	 * @param bool|null $set
+	 * @since 3.0.237
+	 * 
+	 */
+	public function hidden($set = null) {
+		$value = (bool) $this->filedata('_hide');
+		if($set === null || $set === $value) return $value;
+		if($set === false) {
+			$this->filedata(false, '_hide');
+		} else if($set === true) {
+			$this->filedata('_hide', true);
+		} else {
+			throw new WireException('Invalid arg for Pagefile::hidden(arg)');
+		}
+		return $set;
+	}
 
 	/**
 	 * Ensures that isset() and empty() work for dynamic class properties

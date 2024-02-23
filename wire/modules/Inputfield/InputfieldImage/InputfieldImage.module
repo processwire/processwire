@@ -5,7 +5,7 @@
  *
  * Inputfield for FieldtypeImage fields
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * Accessible Properties
@@ -59,7 +59,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		return array(
 			'title' => __('Images', __FILE__), // Module Title
 			'summary' => __('One or more image uploads (sortable)', __FILE__), // Module Summary
-			'version' => 127,
+			'version' => 128,
 			'permanent' => true,
 		);
 	}
@@ -145,6 +145,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			'drag-drop-in' => $this->_('drag and drop in new images above'), 
 			'na' => $this->_('N/A'), // for JS
 			'changes' => $this->_('This images field may have unsaved changes that could be lost after this action. Please save before cropping, or double-click the button proceed anyway.'),
+			'visibility' => $this->_('Visibility'), 
+			'hidden' => $this->_('Hidden'), 
 		));
 
 		$themeDefaults = array(
@@ -325,7 +327,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	protected function renderItemWrap($out) {
 		$item = $this->currentItem;
 		$id = $item && !$this->renderValueMode ? " id='file_$item->hash'" : "";
-		return "<li$id class='ImageOuter $this->itemClass'>$out</li>";
+		$class = "ImageOuter $this->itemClass";
+		if($item->hidden()) $class .= ' InputfieldFileItemHidden';
+		return "<li$id class='$class'>$out</li>";
 	}
 
 	/**
@@ -657,6 +661,11 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		
 		foreach($pagefile->extras() as $name => $extra) {
 			if($extra->exists()) $fileStats .= " &bull; $extra->filesizeStr $name ($extra->savingsPct)";
+		}
+		
+		if($pagefile->hidden()) {
+			$fileStats .= '&nbsp; ' . wireIconMarkup('eye-slash') . ' ' .
+				$sanitizer->entities1($this->labels['hidden']);
 		}
 
 		$class = 'gridImage__overflow';
@@ -1023,15 +1032,25 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			'pas' => $this->_('Paste'),
 			'x50' => $this->_('Reduce 50%'), 
 			'bw' => $this->_('B&W'), // Black and White
-			'sep' => $this->_('Sepia'), 
+			'sep' => $this->_('Sepia'),
+			'hide' => $this->_('Hide'), 
+			'unhide' => $this->_('Unhide'),
 		);
 		
-		$actions = array(
-			'dup' => $labels['dup'],
-		);
+		$actions = array();
+		
+		if($this->maxFiles != 1) {
+			if($pagefile->hidden()) {
+				$actions['unhide'] = $labels['unhide'];
+			} else {
+				$actions['hide'] = $labels['hide'];
+			}
+		}
 		
 		if($this->maxFiles && count($pagefile->pagefiles) >= $this->maxFiles) {
-			unset($actions['dup']); 
+			// no dup action
+		} else {
+			$actions['dup'] = $labels['dup'];
 		}
 
 		if($pagefile->ext() != 'svg') {
@@ -1257,6 +1276,13 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 				count($this->getPagefileVariations($pagefile))
 			)
 		);
+
+		if($pagefile->hidden()) {
+			$data[] = array(
+				$this->labels['visibility'], 
+				wireIconMarkup('eye-slash') . ' ' . $this->labels['hidden']
+			);
+		}
 		
 		if(strlen($pagefile->description)) {
 			$data[] = array(
@@ -1411,8 +1437,14 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			// remove variations
 		} else if($action == 'rmf') {
 			// remove focus
-			$pagefile->focus(false); 
-			$success = true; 
+			$pagefile->focus(false);
+			$success = true;
+		} else if($action == 'hide') {
+			$pagefile->hidden(true);
+			$success = true;
+		} else if($action == 'unhide') {
+			$pagefile->hidden(false);
+			$success = true;
 		} else {
 			/** @var ImageSizer $sizer Image sizer actions */
 			$sizer = $this->wire(new ImageSizer($pagefile->filename()));

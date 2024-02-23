@@ -730,7 +730,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 
 		foreach($value as $pagefile) {
 			/** @var Pagefile $pagefile */
-			if($pagefile->isTemp()) $value->removeQuietly($pagefile); 
+			if($pagefile->isTemp() || $pagefile->hidden()) $value->removeQuietly($pagefile); 
 		}
 		
 		$textformatters = $field->get('textformatters'); 

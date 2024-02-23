@@ -5,7 +5,6 @@ $gridMargin: 0 0.6em 0.6em 0;
 $itemPadding: 0.4em;
 $focusPointCircleSize: 40px;
 
-
 .InputfieldImage {
 	.InputfieldHeader {
 		.InputfieldImageListToggle {
@@ -398,6 +397,16 @@ $focusPointCircleSize: 40px;
 
 		&:hover .gridImage__inner {
 			background: rgba($deleteColor, 0.3);
+		}
+	}
+	
+	&.InputfieldFileItemHidden {
+		border-style: dashed !important;
+		img {
+			opacity: 0.3;
+		}
+		.gridImage__overflow {
+			background-image: none;
 		}
 	}
 }
