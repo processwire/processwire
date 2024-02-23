@@ -1521,6 +1521,19 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(is_array($delete) && count($delete) && $hasEditPermission) {
 			$deleteUrls = array();
 			$deleteErrors = array();
+			$extras = array();
+
+			foreach($pageimage->extras() as $extra) $extras[] = $extra;
+			foreach($variations as $v) {
+				foreach($v['pageimage']->extras() as $extra) $extras[] = $extra;
+			}
+			foreach($extras as $extra) {
+				if($extra->exists()) $variations[$extra->basename()] = array(
+					'path' => $extra->filename(),
+					'url' => $extra->url()
+				);
+			}
+
 			foreach($delete as $name) {
 				if(!isset($variations[$name])) continue; 
 				$info = $variations[$name]; 
@@ -1581,7 +1594,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				'modified' => $modified,
 				'filesize' => $filesize,
 				'filesizeStr' => $filesizeStr,
-				'deletable' => false,
+				'deletable' => $hasEditPermission,
 			);
 		}
 		
@@ -1634,7 +1647,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			/** @var Pageimage $pi */
 			$pi = $info['pageimage'];
 			foreach($pi->extras() as $extra) {
-				if(!file_exists($extra->filename)) continue;
+				if(!$extra->exists()) continue;
 				$name = $extra->basename();
 				$filesize = $extra->filesize();
 				$filesizeStr = wireBytesStr($filesize);
@@ -1654,7 +1667,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					'modified' => $modified,
 					'filesize' => $filesize,
 					'filesizeStr' => $filesizeStr,
-					'deletable' => false,
+					'deletable' => $hasEditPermission,
 				);
 			}
 		}
