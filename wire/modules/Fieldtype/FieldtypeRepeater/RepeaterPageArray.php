@@ -3,11 +3,12 @@
 /**
  * ProcessWire Repeater Page Array 
  *
- * Special PageArray for use by repeaters that includes a getNewItem() method
+ * Special PageArray for use by repeaters that includes a `getNewItem()` method
+ * for adding new items to the repeater. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
- *
+ * 
  */
 
 class RepeaterPageArray extends PageArray {
@@ -23,7 +24,7 @@ class RepeaterPageArray extends PageArray {
 	/**
 	 * The repeater field (from $this->fields API var)
 	 * 
-	 * @var Field
+	 * @var RepeaterField
 	 *
 	 */
 	protected $field = null;
@@ -44,6 +45,8 @@ class RepeaterPageArray extends PageArray {
 	/**
 	 * Set parent
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param Page $parent
 	 * @deprecated use setForPage() instead
 	 * 
@@ -51,7 +54,7 @@ class RepeaterPageArray extends PageArray {
 	public function setParent(Page $parent) { $this->forPage = $parent; }
 
 	/**
-	 * Set for page
+	 * Set page this RepeaterPageArray is for
 	 *
 	 * @param Page $forPage
 	 * @since 3.0.188
@@ -62,14 +65,16 @@ class RepeaterPageArray extends PageArray {
 	/**
 	 * Get parent
 	 * 
+	 * #pw-internal
+	 * 
 	 * @return Page
-	 * @deprecated use getForPage() insteada
+	 * @deprecated use getForPage() instead
 	 * 
 	 */
 	public function getParent() { return $this->forPage; }
 
 	/**
-	 * Get for page
+	 * Get page this RepeaterPageArray is for
 	 * 
 	 * @return Page
 	 * @since 3.0.188
@@ -78,9 +83,9 @@ class RepeaterPageArray extends PageArray {
 	public function getForPage() { return $this->forPage; }
 	
 	/**
-	 * Set field
+	 * Set repeater field this RepeaterPageArray is for
 	 *
-	 * @param Field $field
+	 * @param RepeaterField $field
 	 * @since 3.0.188
 	 *
 	 */
@@ -89,15 +94,17 @@ class RepeaterPageArray extends PageArray {
 	/**
 	 * Set field (alias of setForField)
 	 * 
-	 * @param Field $field
+	 * #pw-internal
+	 * 
+	 * @param RepeaterField $field
 	 * 
 	 */
 	public function setField(Field $field) { $this->field = $field; }
 
 	/**
-	 * Get field
+	 * Get repeater field this RepeaterPageArray is for
 	 * 
-	 * @return Field
+	 * @return RepeaterField
 	 * @since 3.0.188
 	 * 
 	 */
@@ -107,6 +114,8 @@ class RepeaterPageArray extends PageArray {
 	
 	/**
 	 * Get field (alias of getForField)
+	 * 
+	 * #pw-internal
 	 *
 	 * @return Field
 	 *
@@ -116,6 +125,8 @@ class RepeaterPageArray extends PageArray {
 	/**
 	 * Alias of getNewItem() kept for backwards compatibility
 	 * 
+	 * #pw-internal
+	 * 
 	 * @return Page
 	 *
 	 */
@@ -124,20 +135,32 @@ class RepeaterPageArray extends PageArray {
 	/**
 	 * Return a new repeater item ready for use
 	 *
- 	 * If there are ready items, it will return the first ready item
-	 * Otherwise it'll create a new item
-	 *
- 	 * This method is different from FieldtypeRepeater::getBlankRepeaterPage: 
+ 	 * This method differs from `FieldtypeRepeater::getBlankRepeaterPage()` in the following ways: 
+	 * 
 	 * 1. It returns an already existing readyPage, if it exists (otherwise it creates a new page)
-	 * 2. The returned page is in a non-hidden published state, so will appear as soon as it is saved
+	 * 2. The returned page is in a non-hidden published state, so will appear as soon as it is saved.
+	 * 3. It appends the new item to this RepeaterPageArray. 
 	 *
-	 * Note that this method has no relation/similarity to the makeNew() method.
+	 * Please note: 
+	 * 
+	 * - This method has no relation/similarity to the `makeNew()` method.
+	 * - After making changes to the returned item, you must still `$item->save()` the item.
+	 * - When finished adding items you must `$page->save()` or `$page->save('repeater_field_name');` 
+	 *   the page that has this repeater field. 
+	 * - If previously added but unsaved items (aka "ready items") exist in the repeater, they will
+	 *   be recycled and returned by this method rather than creating a new item.
+	 * 
+	 * ~~~~~
+	 * $item = $page->repeater_field->getNewItem(); // get new repeater item 
+	 * $item->title = 'My new item'; // set field value(s) as needed
+	 * $item->save(); // save the item
+	 * $page->save('repeater_field'); // save the page that has the repeater
+	 * ~~~~~
 	 *
-	 * @return Page
+	 * @return RepeaterPage
 	 *
 	 */
 	public function getNewItem() {
-		/** @var FieldtypeRepeater $fieldtype */
 		$fieldtype = $this->field->type;
 		$page = null;
 		$of = $this->forPage->of(false); 
@@ -174,6 +197,8 @@ class RepeaterPageArray extends PageArray {
 	 * Creates a new blank instance of a RepeaterPageArray. For internal use. 
 	 * 
 	 * Note that this method has no relation/similarity to the getNewItem()/getNew() methods.
+	 * 
+	 * #pw-internal
 	 *
 	 * @return WireArray
 	 *
@@ -213,17 +238,21 @@ class RepeaterPageArray extends PageArray {
 	/**
 	 * Get direct property
 	 * 
-	 * @param int|string $key
+	 * #pw-internal
+	 * 
+	 * @param int|string $name
 	 * @return bool|mixed|Page|Wire|WireData
 	 * 
 	 */
-	public function __get($key) {
-		if($key === 'parent') return $this->getForPage();
-		return parent::__get($key);
+	public function __get($name) {
+		if($name === 'parent') return $this->getForPage();
+		return parent::__get($name);
 	}
 
 	/**
 	 * Debug info
+	 * 
+	 * #pw-internal
 	 * 
 	 * @return array
 	 * 

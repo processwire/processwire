@@ -39,7 +39,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		);
 	}
 	
-	const devMode = true; // display verbose TD messages
+	const devMode = false; // display verbose TD messages
 
 	const templateNamePrefix = 'repeater_';
 	const fieldPageNamePrefix = 'for-field-';
