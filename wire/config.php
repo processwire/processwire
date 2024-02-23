@@ -1405,8 +1405,8 @@ $config->moduleServiceKey = 'pw301';
  */
 $config->moduleInstall = array(
 	'directory' => 'debug', // allow install from ProcessWire modules directory? 
-	'upload' => 'debug', // allow install by module file upload?
-	'download' => 'debug', // allow install by download from URL?
+	'upload' => false, // allow install by module file upload?
+	'download' => false, // allow install by download from URL?
 );
 
 /**
