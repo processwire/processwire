@@ -609,19 +609,6 @@ var InputfieldTinyMCE = {
 		
 		allow = allow.toLowerCase();
 		
-		/*
-		 * HTML for testing MS word paste	
-		msWordHtml = 
-			"<p className=MsoNormal>This is <b>bold</b> text. <o:p></o:p></p>\n\n" + 
-			"<h2>This is headline 2. <o:p></o:p></h2>\n\n" + 
-			"<p className=MsoNormal>This is <I>italic</I> text<o:p></o:p></p>\n\n" + 
-			"<p className=MsoListParagraphCxSpFirst style='text-indent:-.25in;mso-list:10 level1 lfo1'>" + 
-			"<![if !supportsLists]><span style='iso-bidi-font-family:Aptos;mso-bidi-theme-font:minor-latin'>" + 
-			"<span style='so-list:Ignore'>1.<span style='font:7.0pt \"Times New Roman\"'>" +
-			"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span></span><![endif]>One <o:p></o:p></p>";
-		html = msWordHtml;
-		*/
-		
 		startLength = html.length;
 		
 		if(args.internal) {
@@ -728,6 +715,7 @@ var InputfieldTinyMCE = {
 		while(html.indexOf('&nbsp;') > -1) html = html.replace('&nbsp;', ' ', html);
 		
 		html = html.replaceAll(/<([-a-z0-9]+)[^>]*>\s*<\/\1>/ig, ''); // remove empty tags
+		html = html.replaceAll(/<\/p>\s*<br[/ ]*>/ig, '</p>'); // replace </p><br> with </p>
 		
 		t.log('Completed pasteFilter ' + startLength + ' => ' + html.length + ' bytes'); 
 		
