@@ -143,6 +143,7 @@ class FieldtypeToggle extends Fieldtype {
 	 */
 	public function isEmptyValue(Field $field, $value) {
 		// 0 is allowed because it represents "no/off" selection
+		if($value instanceof Selector) return true;
 		if($value === 0 || $value === "0") return false; 
 		if($value === 'unknown' || "$value" === "-1") return true;
 		$value = trim($value, '"\''); 
@@ -251,23 +252,50 @@ class FieldtypeToggle extends Fieldtype {
 	 * 
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
-		
+
+		$originalValue = strtolower("$value");
 		$value = $this->_sanitizeValue($value); // 0, 1, 2 or ''
 		$matchNull = false;
+		$matchTemplates = false;
+		$defaultOption = $query->field->get('defaultOption');
+		$defaultNo = $defaultOption === 'no';
 		
-		if($value === '' && $operator === '=') {
-			// match only no-selection
-			$matchNull = true;
-			
-		} else if($value === '' && $operator === '>') {
-			// match all except no-selection
-			$value = 0;
-			$operator = '>=';
-			
-		} else if($value !== '' && $operator === '!=') {
-			// match value as well as no-selection
-			$matchNull = true;
-		} 
+		if($value === '') {
+			// blank/null value specified
+			if($operator === '=') {
+				// match no-selection or "no"
+				$matchNull = true;
+				if($originalValue === 'unknown') {
+					// if literal string 'unknown' specified then match null but only for pages having field
+					$matchTemplates = true;
+				} else if($defaultNo) {
+					// experimental: if default is "no" then allow both "no" and null values to match
+					// $value = 0;
+				}
+				if($originalValue === '' && $this->wire()->config->installed < 1709225722) {
+					// maintain original behavior for existing installations
+					// which will match both null and "no" when value is blank string
+					$value = 0;
+				}
+			} else if(strpos($operator, '>') === 0 || $operator === '!=') {
+				// match all except no-selection
+				$value = 0;
+				$operator = '>=';
+			}
+		} else {
+			// value -1, 0, 1, or 2
+			if($operator === '<' && ((int) $value) > 0) {
+				// match less than as well as no-selection
+				$matchNull = true;
+			} else if($operator === '!=' && $value > -1) {
+				// match value as well as no-selection
+				$matchNull = true;
+			} else if($operator === '=' && ($value === 0 && $defaultNo)) {
+				// experimental: match 0 or null for templates having field when default is "no"
+				// $matchNull = true;
+				// $matchTemplates = true;
+			}
+		}
 		
 		if($value === '' && ($operator[0] === '<' || $operator[0] === '>')) {
 			throw new WireException("Operator $operator not supported here for non-value");
@@ -280,7 +308,12 @@ class FieldtypeToggle extends Fieldtype {
 			$query->leftjoin("$table AS $_table ON $_table.pages_id=pages.id");
 			$where = "$_table.pages_id IS NULL ";
 			if($value !== '') $where .= "OR $_table.data$operator" . ((int) $value);
-			$query->where(trim($where));
+			if($matchTemplates) {
+				// limit match to templates having the field 
+				$templateIds = $query->field->getTemplates()->implode(',', 'id');
+				$where = "pages.templates_id IN($templateIds) AND ($where)";
+			}
+			$query->parentQuery->where("($where)");
 		} else {
 			$query = parent::getMatchQuery($query, $table, $subfield, $operator, $value);
 		}
