@@ -2009,7 +2009,7 @@ class ProcessModule extends Process {
 			$readmeFile = $readmePath . $basename;
 			if(!file_exists($readmeFile)) continue;
 			$icon = wireIconMarkup('file-text-o');
-			$readmeUrl = str_replace('/edit', '/readme', $modules->getModuleEditUrl($moduleName));
+			$readmeUrl = str_replace(array('/edit/?', '/edit?'), '/readme/?', $modules->getModuleEditUrl($moduleName));
 			$supportFiles[$readmeType] = "<a class='pw-modal' href='$readmeUrl&amp;type=$readmeType'>$icon $basename</a>";
 		}
 		
