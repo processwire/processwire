@@ -303,7 +303,11 @@ class ProcessPageSearchLive extends Wire {
 		}
 		
 		if(empty($operator) || !in_array($operator, $this->allowOperators)) {
-			$operator = strpos($q, ' ') ? $this->multiWordOperator : $this->singleWordOperator;
+			if(in_array($property, array('id', 'status', 'templates_id', 'parent_id'))) {
+				$operator = '=';
+			} else {
+				$operator = strpos($q, ' ') ? $this->multiWordOperator : $this->singleWordOperator;
+			}
 		}
 
 		// check if type and property may be part of query: $q
@@ -363,6 +367,7 @@ class ProcessPageSearchLive extends Wire {
 		if($property && ($fields->isNative($property) || $fields->get($property)) && !in_array($lp, $this->skipProperties)) {
 			// we recognize this property as searchable, so add it to the selector
 			if($lp == 'status' && !$user->isSuperuser() && $value > Page::statusHidden) $value = Page::statusHidden;
+			if($lp == 'id' && $operator === $this->liveSearchDefaults['operator']) $operator = '=';
 			$selectors[] = $property . $operator . $value;
 		} else {
 			// we did not recognize the property, so use field(s) defined in module instead
