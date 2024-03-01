@@ -5,7 +5,7 @@
  *
  * Matches selector strings to pages
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * Hookable methods: 
@@ -1817,6 +1817,7 @@ class PageFinder extends Wire {
 				$tableAlias = $database->escapeTable($tableAlias);
 
 				$join = '';
+				$joinType = '';
 				$numEmptyValues = 0; 
 				$valueArray = $selector->values(true); 
 				$fieldtype = $field->type; 
@@ -1846,6 +1847,7 @@ class PageFinder extends Wire {
 						$q = $subqueries[$tableAlias];
 					} else {
 						$q = $this->wire(new DatabaseQuerySelect());
+						// $subqueries[$tableAlias] = $q;
 					}
 
 					/** @var PageFinderDatabaseQuerySelect $q */
@@ -1855,12 +1857,17 @@ class PageFinder extends Wire {
 					$q->set('selectors', $selectors); // original selectors (all) if required by the fieldtype
 					$q->set('parentQuery', $query);
 					$q->set('pageFinder', $this);
+					$q->set('joinType', $joinType);
 					$q->bindOption('global', true); // ensures bound value key are globally unique
 					$q->bindOption('prefix', 'pf'); // pf=PageFinder
 					
 					$q = $fieldtype->getMatchQuery($q, $tableAlias, $subfield, $selector->operator, $value);
 					$q->copyTo($query, array('select', 'join', 'leftjoin', 'orderby', 'groupby')); 
 					$q->copyBindValuesTo($query);
+					
+					if($q->joinType && $q->joinType != $joinType) {
+						$joinType = strtolower((string) $q->joinType);
+					}
 
 					if(count($q->where)) { 
 						// $and = $selector->not ? "AND NOT" : "AND";
@@ -1883,9 +1890,8 @@ class PageFinder extends Wire {
 				}
 
 				if($join) {
-					$joinType = 'join';
-
-					if(count($fields) > 1 
+					if($joinType === 'leftjoin' 
+						|| count($fields) > 1 
 						|| !empty($options['startAfterID']) || !empty($options['stopBeforeID'])
 						|| (count($valueArray) > 1 && $numEmptyValues > 0)
 						|| ($subfield == 'count' && !$this->isRepeaterFieldtype($field->type))
@@ -1893,7 +1899,7 @@ class PageFinder extends Wire {
 						|| $selector->operator == '!=') {
 						// join should instead be a leftjoin
 
-						$joinType = "leftjoin";
+						$joinType = 'leftjoin';
 
 						if($where) {
 							$whereType = $lastSelector->str == $selector->str ? "OR" : ") AND (";
@@ -1905,6 +1911,8 @@ class PageFinder extends Wire {
 							// removes condition from join, but ensures we still have a $join
 							$join = '1=1'; 
 						}
+					} else {
+						$joinType = 'join';
 					}
 
 					// we compile the joins after going through all the selectors, so that we can 
@@ -3743,5 +3751,6 @@ class PageFinder extends Wire {
  * @property Selectors $selectors Original Selectors object
  * @property DatabaseQuerySelect $parentQuery Parent database query
  * @property PageFinder $pageFinder PageFinder instance that initiated the query
+ * @property string $joinType Value 'join', 'leftjoin', or '' (if not yet known), can be overridden (3.0.237+)
  */
 abstract class PageFinderDatabaseQuerySelect extends DatabaseQuerySelect { }
