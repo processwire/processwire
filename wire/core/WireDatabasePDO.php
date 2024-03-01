@@ -593,6 +593,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		} else if(stripos($statement, 'select') === 0) {
 			// select query is always reader
 			$type = $reader;
+			// check that this is not an InnoDB 'SELECT' '… FOR UPDATE' or '… FOR SHARE' query
+			$forpos = $this->engine === 'innodb' ? strripos($query, 'for') : 0; 
+			if($forpos) {
+				$for = ltrim(strtolower(substr($query, $forpos+4, 15))); 
+				if(stripos($for, 'update') === 0 || stripos($for, 'share') === 0) {
+					$type = $writer;
+				}
+			}
 		} else if(stripos($statement, 'insert') === 0) {
 			// insert query is always writer
 			$type = $writer;
@@ -1907,4 +1915,3 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 }
-
