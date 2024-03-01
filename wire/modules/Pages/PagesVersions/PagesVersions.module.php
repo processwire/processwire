@@ -3,7 +3,7 @@
 /**
  * PagesVersions
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Provides a version control API for pages in ProcessWire.
@@ -60,6 +60,7 @@ class PagesVersions extends Wire implements Module {
 			'version' => 2,
 			'icon' => self::iconName, 
 			'autoload' => true, 
+			'singular' => true, 
 			'author' => 'Ryan Cramer',
 		];
 	}
