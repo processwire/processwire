@@ -2146,7 +2146,9 @@ class PageFinder extends Wire {
 			
 		} else if($operator === '!=' || $operator === '<>') {
 			// not equals
-			$whereType = 'AND';
+			$whereType = count($selector->fields()) > 1 && $ft->isEmptyValue($field, $value) ? 'OR' : 'AND';
+			// alternate and technically more consistent behavior, but doesn't seem useful:
+			// $whereType = count($selector->fields()) > 1 ? 'OR' : 'AND'; 
 			$zeroIsEmpty = $ft->isEmptyValue($field, "0"); 
 			$zeroIsNotEmpty = !$zeroIsEmpty;
 			$value = (string) $value;

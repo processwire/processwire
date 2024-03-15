@@ -360,8 +360,7 @@ abstract class ProcessPageListRender extends Wire {
 		}
 		
 		if(!empty($options['noTags']) && strpos($value, '<') !== false) {
-			// legacy code, appears to be impossible to reach
-			$value = strip_tags($value);
+			$value = strip_tags(str_replace('<', ' <', $value));
 		}
 
 		return $icon . trim($value);
@@ -573,4 +572,3 @@ abstract class ProcessPageListRender extends Wire {
 	}
 
 }
-
