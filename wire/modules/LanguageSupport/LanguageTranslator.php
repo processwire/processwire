@@ -300,16 +300,21 @@ class LanguageTranslator extends Wire {
 	 * @param string|object $textdomain Textdomain string, filename, or object. 
 	 * @param string $text Text in default language (EN) that needs to be converted to current language. 
 	 * @param string $context Optional context label for the text, to differentiate from others that may be the same in English, but not other languages.
- 	 * @return string Translation if available, or original EN version if translation not available.
+	 * @param array $options 3.0.237+ only
+	 *  - `getInfo` (bool): Get verbose array of info about translation? (default=false)
+	 *  - `getFalse` (bool): Return false rather than default language value if translation not found? (default=false)
+	 * @return string|array|false Translation if available, or original EN version if translation not available.
+	 *  - Returns array if options[getInfo] is true.
+	 *  - Returns false if translation not found and options[getFalse] is true.
 	 *
 	 */
-	public function getTranslation($textdomain, $text, $context = '') {
+	public function getTranslation($textdomain, $text, $context = '', array $options = array()) {
 		if($this->wire()->hooks->isHooked('LanguageTranslator::getTranslation()')) {
 			// if method has hooks, we let them run
-			return $this->__call('getTranslation', array($textdomain, $text, $context));
+			return $this->__call('getTranslation', array($textdomain, $text, $context, $options));
 		} else { 
 			// if method has no hooks, we avoid any overhead
-			return $this->___getTranslation($textdomain, $text, $context);
+			return $this->___getTranslation($textdomain, $text, $context, $options);
 		}
 	}
 
@@ -319,14 +324,36 @@ class LanguageTranslator extends Wire {
 	 * @param string|object $textdomain Textdomain string, filename, or object. 
 	 * @param string $text Text in default language (EN) that needs to be converted to current language. 
 	 * @param string $context Optional context label for the text, to differentiate from others that may be the same in English, but not other languages.
- 	 * @return string Translation if available, or original EN version if translation not available.
-	 *
+	 * @param array $options 3.0.237+ only
+	 *  - `getInfo` (bool): Get verbose array of info about translation? (default=false) 
+	 *  - `getFalse` (bool): Return false rather than default language value if translation not found? (default=false)
+ 	 * @return string|array|false Translation if available, or original EN version if translation not available. 
+	 *  - Returns array if options[getInfo] is true.
+	 *  - Returns false if translation not found and options[getFalse] is true.
 	 */
-	public function ___getTranslation($textdomain, $text, $context = '') {
+	public function ___getTranslation($textdomain, $text, $context = '', array $options = array()) {
 
 		// normalize textdomain to be a string, converting from filename or object if necessary
-		$textdomain = $this->textdomainString($textdomain); 
-		$_text = $text;
+		$_textdomain = $textdomain;
+		$textdomain = $this->textdomainString($textdomain);
+		$translated = false;
+		$info = false;
+		
+		if(!empty($options['getInfo'])) $info = array(
+			'translated' => false,
+			'request' => array(
+				'text' => $text, 
+				'file' => ltrim($_textdomain, '/\\'),
+				'textdomain' => $textdomain,
+				'context' => $context,
+			),
+			'response' => array(
+				'type' => '',
+				'text' => $text,
+				'file' => '', 
+				'textdomain' => $textdomain,
+			)
+		);
 
 		// if the text is already provided in the proper language then no reason to go further
 		// if($this->currentLanguage->id == $this->defaultLanguagePageID) return $text; 
@@ -343,7 +370,8 @@ class LanguageTranslator extends Wire {
 
 			// translation found
 			$text = $this->textdomains[$textdomain]['translations'][$hash]['text'];	
-
+			$translated = 'textdomain';
+			
 		} else if(!empty($this->parentTextdomains[$textdomain])) { 
 
 			// check parent class textdomains
@@ -351,27 +379,81 @@ class LanguageTranslator extends Wire {
 				if(!isset($this->textdomains[$td])) $this->loadTextdomain($td); 
 				if(!empty($this->textdomains[$td]['translations'][$hash]['text'])) { 
 					$text = $this->textdomains[$td]['translations'][$hash]['text'];	
+					$translated = 'parent-textdomain';
+					$textdomain = $td;
 					break;
 				}
 			}
 		}
 	
 		// see if text is available as a common translation
-		if($text === $_text && !$this->isDefaultLanguage) {
+		if(!$translated && !$this->isDefaultLanguage) {
 			$_text = $this->commonTranslation($text);
-			if(!empty($_text)) $text = $_text;
+			if(!empty($_text)) {
+				$translated = $text === $_text ? false : 'common';
+				$text = $_text;
+				if($translated && $info) $textdomain = $this->textdomainString(__FILE__);
+			}
 		}
 
-		// if text hasn't changed at this point, we'll be returning it in the provided language since we have no translation
+		if($info) {
+			if($translated) {
+				$info['translated'] = true;
+				if($info['request']['file'] === $info['request']['textdomain']) {
+					$info['request']['file'] = $this->textdomainToFilename($info['request']['file']);
+				}
+				$info['response'] = array_merge($info['response'], array(
+					'type' => $translated,
+					'text' => $text,
+					'file' => $this->textdomainToFilename($textdomain),
+					'textdomain' => $textdomain,
+				));
+			}
+			return $info;
+			
+		} else if(!$translated && !empty($options['getFalse'])) {
+			return false;
+		}
 
 		return $text;
 	}
+	
+	/**
+	 * Get verbose array of information about translation
+	 * 
+	 * @param string|object $textdomain Textdomain string, filename, or object.
+	 * @param string $text Text in default language (EN) that needs to be converted to current language.
+	 * @param string $context Optional context label for the text, to differentiate from others that may be the same in English, but not other languages.
+	 * @param array $options
+	 * @return array
+	 * @since 3.0.237
+	 * 
+	 */
+	public function getTranslationInfo($textdomain, $text, $context = '', array $options = array()) {
+		$options['verbose'] = true;
+		return $this->getTranslation($textdomain, $text, $context, $options);
+	}
 
+	/**
+	 * Get translated text or boolean false if not translated (rather than default language value)
+	 *
+	 * @param string|object $textdomain Textdomain string, filename, or object.
+	 * @param string $text Text in default language (EN) that needs to be converted to current language.
+	 * @param string $context Optional context label for the text, to differentiate from others that may be the same in English, but not other languages.
+	 * @param array $options
+	 * @return string|false
+	 * @since 3.0.237
+	 * 
+	 */
+	public function getTranslationOrFalse($textdomain, $text, $context = '', array $options = array()) {
+		$options['getFalse'] = true;
+		return $this->getTranslation($textdomain, $text, $context, $options);
+	}
 
 	/**
 	 * Return ALL translations for the given textdomain
 	 * 
-	 * @param string $textdomain
+	 * @param string|object $textdomain Textdomain string, filename, or object.
 	 * @return array
 	 *
 	 */
@@ -385,7 +467,92 @@ class LanguageTranslator extends Wire {
 
 		// return the translations array
 		return $this->textdomains[$textdomain]['translations']; 
+	}
+
+	/**
+	 * Find all translation(s) for given text 
+	 * 
+	 * Scans all textdomains to find translations. 
+	 * 
+	 * @param string $text
+	 * @param string|array $context
+	 *   - Optional context label for the text, to differentiate from others that may be the same in English, but not other languages.
+	 *   - If context is not needed you may optionally specify the $options array here. 
+	 * @param array $options
+	 *  - `getInfo` (bool): Return verbose array of information for each found translation? (default=false)
+	 *  - `limit` (int): Limit to this many results or 0 for no maximum (default=0)
+	 * @return array 
+	 *  - Returns array of strings containing translations of given text.
+	 *  - Returns array of arrays, each with verbose info, if getInfo option requested.
+	 * @since 3.0.237
+	 * 
+	 */
+	public function findTranslations($text, $context = '', array $options = array()) {
 		
+		$defaults = array(
+			'limit' => 0,
+			'getInfo' => false,
+		);
+		
+		if(is_array($context) && empty($options)) {
+			$options = $context;
+			$context = '';
+		}
+		
+		$options = array_merge($defaults, $options);
+		$hash = $this->getTextHash($text . $context);
+		$found = array();
+		
+		foreach(new \DirectoryIterator($this->path) as $file) {
+			if($file->getExtension() != 'json') continue;
+			$filename = $file->getPathname();
+			$textdomain = basename($filename, '.json');
+			if(isset($this->textdomains[$textdomain])) {
+				$data = $this->textdomains[$textdomain];
+			} else {
+				$data = json_decode(file_get_contents($filename), true);
+				if(!is_array($data)) continue;
+			}
+			if(isset($data['translations'][$hash])) {
+				$textTranslated = $data['translations'][$hash]['text'];
+				if($options['getInfo']) {
+					$found[] = array(
+						'text' => $textTranslated,
+						'file' => $data['file'],
+						'textdomain' => $data['textdomain'],
+					);
+				} else if(!isset($found[$textTranslated])) {
+					$found[$textTranslated] = $textTranslated;
+				}
+				if($options['limit'] && count($found) >= $options['limit']) break;
+			}
+		}
+	
+		return ($options['getInfo'] ? $found : array_values($found));
+	}
+
+	/**
+	 * Find a translation for given text
+	 * 
+	 * Scans all textdomains to find first translation.
+	 * 
+	 * @param string $text
+	 * @param string|array $context
+	 *   - Optional context label for the text, to differentiate from others that may be the same in English, but not other languages.
+	 *   - If context is not needed you may optionally specify the $options array here.
+	 * @param array $options
+	 *  - `getInfo` (bool): Return verbose array of information about found translation? (default=false)
+	 * @return string|array 
+	 *   - Returns string with translated text if found, or blank string if not found. 
+	 *   - Returns array of info if getInfo option requested. This array is empty if translation was not found.
+	 * @since 3.0.237
+	 * 
+	 */
+	public function findTranslation($text, $context = '', array $options = array()) {
+		$options['limit'] = 1; 
+		$found = $this->findTranslations($text, $options);
+		if(count($found)) return reset($found);
+		return empty($options['getInfo']) ? '' : array();
 	}
 
 	/**
