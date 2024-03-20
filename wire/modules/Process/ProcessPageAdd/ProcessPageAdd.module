@@ -193,6 +193,16 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 						$qs = "?parent_id=$parent->id&template_id=$template->id";
 					} else {
 						// multiple parents possible
+						$parents = $template->getParentPages(true);
+						$allowed = $user->isSuperUser();
+						if(!$allowed) {
+							foreach($parents as $parent) {
+								if($this->isAllowedParent($parent, false, $template)) {
+									$allowed = true;
+								}
+							}
+						}
+						if(!$allowed) continue;
 						$qs = "?template_id=$template->id";
 					}
 					$icon = $template->getIcon();
