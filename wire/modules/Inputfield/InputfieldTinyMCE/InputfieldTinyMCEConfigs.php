@@ -420,6 +420,9 @@ class InputfieldTinyMCEConfigs extends InputfieldTinyMCEClass {
 		$field = $this->inputfield->hasField;
 		$inContext = $field && ($field->flags & Field::flagFieldgroupContext);
 		
+		$f = $inputfields->getChildByName('requiredAttr');
+		if($f) $f->getParent()->remove($f);
+		
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset'); 
 		$fieldset->attr('name', '_tinymce'); 
