@@ -479,7 +479,7 @@ var InputfieldSelector = {
 				$value.prop('disabled', false);
 			}
 
-			if(op && op.indexOf('!') === 0 && op !== '!=') {
+			if(op && op.indexOf('!') === 0 && op !== '!=' && op != '!=""') {
 				fieldPrefix = '!';
 				op = op.substring(1);
 			}
