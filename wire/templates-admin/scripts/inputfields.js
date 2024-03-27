@@ -1511,8 +1511,17 @@ function InputfieldDependencies($target) {
 	
 			// For repeaters PR #255
 			if(field.indexOf('forpage.') === 0) {
-				field = field.replace('forpage.', '').replace(/\_repeater\d+/g, '');
-			}
+				var regex = /forpage\./g;
+				var matches = field.match(regex);
+				var repeater_parents = $fieldToShow.parent().parents('.InputfieldRepeater');
+				var repeater_reference = repeater_parents.slice(0, matches.length).last();
+				field = field.replace(regex, '').replace(/\_repeater\d+/g, '');
+				var field_wrapper = repeater_reference.siblings(".Inputfield_" + field);
+				var repeater_page_id = field_wrapper.closest('[data-page]').data('page');
+				if(repeater_page_id){
+					field = field + "_repeater" + repeater_page_id;
+				}
+			}	
 
 			// detect OR selector in field
 			if(field.indexOf("|") > -1) {
