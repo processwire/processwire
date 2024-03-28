@@ -203,9 +203,11 @@ class ModulesInstaller extends ModulesClass {
 				$permissions->save($permission);
 				if($languages) $languages->unsetDefault();
 				$this->message(sprintf($this->_('Added Permission: %s'), $permission->name));
+				if($languages) $languages->setDefault();
 			} catch(\Exception $e) {
 				if($languages) $languages->unsetDefault();
 				$error = sprintf($this->_('Error adding permission: %s'), $name);
+				if($languages) $languages->setDefault();
 				$this->trackException($e, false, $error);
 			}
 		}
