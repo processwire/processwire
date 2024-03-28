@@ -1411,6 +1411,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$success = null;
 		$showSuccess = true; 
 		$rebuildVariations = false;
+		$imageInfo = $pagefile->getImageInfo();
 		
 		if($action == 'dup') {
 			// duplicate image file
@@ -1483,6 +1484,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		if($success) {
 			$pagefile->trackChange("action-$action");
 			$this->trackChange('value');
+			$info = $pagefile->getImageInfo(true);
+			if($info != $imageInfo && $pagefile->page && $pagefile->field) {
+				$pagefile->page->trackChange($pagefile->field->name);
+			}
 		}
 		
 		if($success && $showSuccess) {
