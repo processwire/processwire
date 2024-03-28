@@ -879,7 +879,7 @@ class PageValues extends Wire {
 		$template = $page->template();
 		if(!$template) return $page->_parentGet($key);
 
-		$field = $this->getField($page, $key);
+		$field = $page->getField($key);
 		$value = $page->_parentGet($key);
 
 		if(!$field) return $value;  // likely a runtime field, not part of our data
@@ -1047,7 +1047,7 @@ class PageValues extends Wire {
 		}
 
 		// check if the given key resolves to a Field or not
-		$field = $this->getField($page, $key);
+		$field = $page->getField($key);
 		if(!$field) {
 			// not a known/saveable field, let them use it for runtime storage
 			$valPrevious = $page->_parentGet($key);
