@@ -78,10 +78,10 @@ class RepeaterPage extends Page {
 		if(strpos($parentName, $prefix) === 0) {
 			// determine owner page from parent name in format: for-page-1234
 			$forID = (int) substr($parentName, strlen($prefix));
-			$this->forPage = $this->wire('pages')->get($forID); 
+			$this->forPage = $this->wire()->pages->get($forID); 
 		} else {
 			// this probably can't occur, but here just in case
-			$this->forPage = $this->wire('pages')->newNullPage();
+			$this->forPage = $this->wire()->pages->newNullPage();
 		}
 
 		return $this->forPage;
@@ -284,4 +284,3 @@ class RepeaterPage extends Page {
 		return $p->id ? $p->getAccessTemplate($type) : parent::getAccessTemplate($type);
 	}
 }
-

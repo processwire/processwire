@@ -1369,6 +1369,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 
 		// remove unpublished and ready items that shouldn't be here
 		foreach($value as $p) {
+			$p->of(true); // ensure RepeaterPage items also formatted
 			$cnt++;
 			if($p->isHidden() || $p->isUnpublished() || ($maxItems && $cnt > $maxItems)) {
 				if(is_null($formatted)) $formatted = clone $value;
@@ -1379,6 +1380,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 				$formatted->setTrackChanges($trackChanges); 
 				$cnt--;
 			}
+		}
+		
+		if($formatted) {
+			foreach($formatted as $p) $p->of(true);
 		}
 
 		return is_null($formatted) ? $value : $formatted;

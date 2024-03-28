@@ -381,7 +381,7 @@ class Session extends Wire implements \IteratorAggregate {
 			// if valid, update last request time
 			$this->set('_user', 'ts', time());
 			
-		} else if($reason && $userID && $userID != $this->wire('config')->guestUserPageID) {
+		} else if($reason && $userID && $userID != $this->config->guestUserPageID) {
 			// otherwise log the invalid session
 			$user = $this->wire()->users->get((int) $userID);
 			if($user && $user->id) $reason = "User '$user->name' - $reason";
