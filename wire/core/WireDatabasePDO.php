@@ -818,6 +818,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function commit() {
+		if(!$this->inTransaction()) return false;
 		$this->allowReader(true);
 		return $this->pdoWriter()->commit();
 	}
@@ -832,6 +833,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function rollBack() {
+		if(!$this->inTransaction()) return false;
 		$this->allowReader(true);
 		return $this->pdoWriter()->rollBack();
 	}
