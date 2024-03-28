@@ -785,25 +785,31 @@ class PagesLoader extends Wire {
 		$options = array_merge($defaults, $options);
 		$items = $this->pages->find($selector, $options);
 		$page = $items->first();
-		
-		if($page && !$page->viewable(false)) {
+
+		if(isset($options['findAll']) && $options['findAll'] === true) {
+			// page is always allowed through when findAll=true
+		} else if(isset($options['include']) && $options['include'] === 'all') {
+			// page is always allowed through when include=all
+		} else if($page && !$page->viewable(false)) {
 			// page found but is not viewable, check if include mode was specified and would allow the page
+			$include = isset($options['include']) ? strtolower($options['include']) : null;
+			$checkAccess = true;
 			$selectors = $items->getSelectors();
 			if($selectors) {
-				$include = $selectors->getSelectorByField('include');
+				if($include === null) {
+					$include = $selectors->getSelectorByField('include');
+					if($include) $include = strtolower($include->value());
+				}
 				$checkAccess = $selectors->getSelectorByField('check_access');
 				if(!$checkAccess) $checkAccess = $selectors->getSelectorByField('checkAccess');
 				$checkAccess = $checkAccess ? (bool) $checkAccess->value() : true;
-			} else {
-				$include = null;
-				$checkAccess = true;
 			}
 			if(!$include) {
 				// there was no “include=” selector present
 				if($checkAccess === true) $page = null;
-			} else if($include->value() === 'all') {
+			} else if($include === 'all') {
 				// allow $page to pass through with include=all mode
-			} else if($include->value() === 'unpublished' && $page->hasStatus(Page::statusUnpublished) && $checkAccess) {
+			} else if($include === 'unpublished' && $page->isUnpublished() && $checkAccess) {
 				// check if user would have access without unpublished status
 				$status = $page->status;
 				$page->setQuietly('status', $status & ~Page::statusUnpublished);
