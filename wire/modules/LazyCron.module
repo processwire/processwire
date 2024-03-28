@@ -254,7 +254,7 @@ class LazyCron extends WireData implements Module {
 	 * Get hookable time functions that are allowed, indexed by number of seconds they use
 	 * 
 	 * @return string[]
-	 * @since 3.0.136
+	 * @since 3.0.236
 	 * 
 	 */
 	public function getTimeFuncs() {
@@ -268,7 +268,7 @@ class LazyCron extends WireData implements Module {
 	 * 
 	 * @param int $seconds Number of seconds
 	 * @return string Name of time function to hook
-	 * @since 3.0.136
+	 * @since 3.0.236
 	 * 
 	 */
 	public function getTimeFuncName($seconds) {
@@ -296,7 +296,7 @@ class LazyCron extends WireData implements Module {
 	 * 
 	 * @param string $timeFuncName This is case sensitive, so you must use `everyDay`, `every30Minutes`, etc.
 	 * @return int Number of seconds associated with time function name. 
-	 * @since 3.0.136
+	 * @since 3.0.236
 	 * 
 	 * 
 	 */
