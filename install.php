@@ -187,7 +187,7 @@ class Installer {
 			if($dir->isDot() || !$dir->isDir()) continue; 
 			$name = $dir->getBasename();
 			$path = rtrim($dir->getPathname(), '/') . '/';
-			if(strpos($name, 'site-') !== 0) continue;
+			if(strpos($name, 'site-') !== 0 && $name !== 'site') continue;
 			$passed = true;
 			foreach($dirTests as $test) if(!is_dir($path . $test)) $passed = false;
 			foreach($fileTests as $test) if(!file_exists($path . $test)) $passed = false; 
@@ -1250,6 +1250,7 @@ class Installer {
 		);
 		
 		foreach($this->findProfiles() as $name => $profile) {
+			if($name === 'site') continue;
 			$title = empty($profile['title']) ? $name : $profile['title'];
 			$items[$name] = array(
 				'label' => "Remove unused $title site profile (/$name/)", 
