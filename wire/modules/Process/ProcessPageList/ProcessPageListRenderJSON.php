@@ -20,6 +20,12 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 	protected $systemIDs = array();
 
 	/**
+	 * @var Role|null 
+	 * 
+	 */
+	protected $guestRole = null;
+
+	/**
 	 * Wired to ProcessWire
 	 * 
 	 */
@@ -51,11 +57,11 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		$outputFormatting = $page->outputFormatting;
 		$page->setOutputFormatting(true);
 		
-		$class = '';
 		$type = '';
 		$note = '';
 		$label = '';
 		$icons = array();
+		$class = array();
 		$id = $page->id;
 
 		if(isset($this->systemIDs[$id])) {
@@ -70,22 +76,36 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			// if label is not overridden by a language pack, make $label blank to use the page title instead
 			if(in_array($label, array('Trash', 'Admin', '404 Page Not Found'))) $label = '';
 		}
+		
+		if(!$page->template->filenameExists()) {
+			$class[] = 'PageListNoFile';
+		}
+		
+		$accessParent = $page->getAccessParent();
+		
+		if($accessParent->id) {
+			if(!$this->guestRole) $this->guestRole = $this->wire()->roles->getGuestRole();
+			$accessTemplate = $accessParent->template;
+			$accessGuest = $accessTemplate ? $accessTemplate->hasRole($this->guestRole) : false;
+			
+			if(!$accessGuest) $class[] = 'PageListNotPublic';
 
-		if($page->getAccessParent() === $page && $page->parent->id) {
-			$accessTemplate = $page->getAccessTemplate();
-			if($accessTemplate && $accessTemplate->hasRole('guest')) {
-				$accessTemplate = $page->parent->getAccessTemplate();
-				if($accessTemplate && !$accessTemplate->hasRole('guest') && !$page->isTrash()) {
-					$class .= ' PageListAccessOn';
-					$icons[] = 'key fa-flip-horizontal';
+			if($accessParent === $page && $page->parent->id) {
+				$parentAccessTemplate = $page->parent->getAccessTemplate();
+				if(!$parentAccessTemplate) {
+					// ok
+				} else if($accessGuest) {
+					if(!$parentAccessTemplate->hasRole('guest') && !$page->isTrash()) {
+						$class[] = 'PageListAccessOn';
+						$icons[] = 'key flip-horizontal';
+					}
+				} else {
+					if($parentAccessTemplate->hasRole('guest')) {
+						$class[] = 'PageListAccessOff';
+						$icons[] = 'key';
+					}
 				}
-			} else {
-				$accessTemplate = $page->parent->getAccessTemplate();
-				if($accessTemplate && $accessTemplate->hasRole('guest')) {
-					$class .= ' PageListAccessOff';
-					$icons[] = 'key';
-				}
-			}
+			} 
 		}
 
 		if($id == $config->trashPageID) {
@@ -117,10 +137,10 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			$numTotal = strpos($this->qtyType, 'total') !== false ? $page->numDescendants : $numChildren;
 		}
 		
-		if(!$label) $label = $this->getPageLabel($page);
+		if($label === '') $label = $this->getPageLabel($page);
 		
-		if(count($icons)) foreach($icons as $icon) {
-			$label .= "<i class='PageListStatusIcon fa fa-fw fa-$icon'></i>";
+		foreach($icons as $icon) {
+			$label .= wireIconMarkup("$icon fw PageListStatusIcon"); 
 		}
 
 		$a = array(
@@ -131,11 +151,11 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			'numTotal' => $numTotal, 
 			'path' => $page->template->slashUrls || $id == 1 ? $page->path() : rtrim($page->path(), '/'),
 			'template' => $page->template->name,
-			//'rm' => $this->superuser && $page->trashable(),
 			'actions' => array_values($this->getPageActions($page)),
+			//'rm' => $this->superuser && $page->trashable(),
 		);
 
-		if($class) $a['addClass'] = trim($class);
+		if(count($class)) $a['addClass'] = implode(' ', $class);
 		if($type) $a['type'] = $type;
 		if($note) $a['note'] = $note;
 
