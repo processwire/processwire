@@ -439,6 +439,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$names[] = $name; 
 			
 		} // foreach input
+		
+		if(strpos($selectors['for'], 'limit=') && $limit === $this->resultLimit) {
+			if(preg_match('/\blimit=(\d+),?/', $selectors['for'], $matches)) {
+				$limit = (int) $matches[1];
+				$selectors['for'] = str_replace($matches[0], '', $selectors['for']);
+			}
+		}
 	
 		if($start) $selectors['start'] = "start=$start";
 		$selectors['limit'] = "limit=$limit";
@@ -588,12 +595,15 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * 
 	 * @param string $name
 	 * @param string $selector
+	 * @param array $data Optional associative array of extra data to set (3.0.238+)
 	 * @return string Returns URL needed to use this selector
 	 * @since 3.0.223
 	 * 
 	 */
-	public function setForSelector($name, $selector) {
-		$this->wire()->session->setFor($this, "for_selector_$name", $selector);
+	public function setForSelector($name, $selector, array $data = array()) {
+		$session = $this->wire()->session;
+		$session->setFor($this, "for_selector_$name", $selector);
+		if(!empty($data)) $session->setFor($this, "for_data_$name", $data);
 		return $this->config->urls->admin . 'page/search/for?for_selector_name=' . urlencode($name);
 	}
 
@@ -605,12 +615,36 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * #pw-internal
 	 * 
 	 * @param string $name
-	 * @return string
+	 * @param bool $getData Get associative data array that includes 'selector' and any other data set? (3.0.238+)
+	 * @return string|array
 	 * @since 3.0.223
 	 * 
 	 */
-	public function getForSelector($name) {
-		return (string) $this->wire()->session->getFor($this, "for_selector_$name");
+	public function getForSelector($name, $getData = false) {
+		$session = $this->wire()->session;
+		$selector = (string) $session->getFor($this, "for_selector_$name");
+		if(!$getData) return $selector;
+		$data = $session->getFor($this, "for_data_$name");
+		if(!is_array($data)) $data = array();
+		$data['selector'] = $selector;
+		return $data;
+	}
+
+	/**
+	 * Clear stored selector and any data that accompanies it.
+	 * 
+	 * For executeFor() mode only.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name
+	 * @since 3.0.238
+	 * 
+	 */
+	public function clearForSelector($name) {
+		$session = $this->wire()->session;
+		$session->removeFor($this, "for_selector_$name");
+		$session->removeFor($this, "for_data_$name");
 	}
 
 	/**
