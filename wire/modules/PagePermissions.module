@@ -94,6 +94,14 @@ class PagePermissions extends WireData implements Module {
 	protected $hasOptionalPermissions = array();
 
 	/**
+	 * Runtime caches
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $caches = array();
+
+	/**
 	 * Establish permission hooks
 	 *
 	 */
@@ -1011,16 +1019,38 @@ class PagePermissions extends WireData implements Module {
 		$parent = $event->arguments(0);
 		if(!$parent instanceof Page || !$parent->id) $parent = null;
 	
-		if($page->id == 1) {
+		if($page->id == 1 || $page->isLocked()) {
 			$moveable = false;
 		} else {
 			$moveable = $page->editable('parent');
 		}
-		
-		if($moveable && $parent) {
-			$moveable = $parent->addable($page);
-		} else if($parent && $parent->isTrash() && $parent->id == $this->wire()->config->trashPageID) {
-			$moveable = $page->deletable();
+	
+		if($parent) {
+			// parent specified
+			if($moveable) {
+				$moveable = $parent->addable($page);
+			} else if($parent->isTrash() && $parent->id == $this->wire()->config->trashPageID) {
+				$moveable = $page->deletable();
+			}
+		} else if($moveable) {
+			// moveable but no parent specified
+			// check to see if there is more than one parent it can move to
+			$parentTemplates = $page->template->parentTemplates;
+			if(empty($parentTemplates)) {
+				// any parent that accepts any children is allowed
+			} else {
+				// only specific parents are allowed
+				$templatesStr = implode('|', $parentTemplates);
+				$cacheKey  = "moveable.$templatesStr";
+				if(isset($this->caches[$cacheKey])) {
+					$moveable = $this->caches[$cacheKey];
+				} else {
+					$pages = $this->wire()->pages;
+					$s = "include=unpublished, id!=$page->parent_id, templates_id=$templatesStr";
+					$moveable = $pages->count($s) > 0;
+					$this->caches[$cacheKey] = $moveable;
+				}
+			}
 		}
 		
 		$event->return = $moveable;
