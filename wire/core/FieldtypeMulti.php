@@ -866,18 +866,24 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 *
 	 */
 	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
+		$database = $this->wire()->database;
 		if($this->get('useOrderByCols')) {
 			// autojoin is not used if sorting or pagination is active
 			$orderByCols = $field->get('orderByCols');
 			if(count($orderByCols) > 0) return null;
 		}
-		$table = $this->database->escapeTable($field->table);	
-		$schema = $this->trimDatabaseSchema($this->getDatabaseSchema($field)); 
-		$fieldName = $this->database->escapeCol($field->name); 
+		$table = $database->escapeTable($field->table);	
+		$schemaAll = $this->getDatabaseSchema($field);
+		$schema = $this->trimDatabaseSchema($schemaAll); 
+		$fieldName = $database->escapeCol($field->name); 
 		$separator = self::multiValueSeparator; 
-		if($field->distinctAutojoin) $table = "DISTINCT $table";
+		$orderBy = '';
+		if($field->distinctAutojoin) {
+			if(isset($schemaAll['sort'])) $orderBy = "ORDER BY $table.sort";
+			$table = "DISTINCT $table";
+		}
 		foreach($schema as $key => $unused) {
-			$query->select("GROUP_CONCAT($table.$key SEPARATOR '$separator') AS `{$fieldName}__$key`"); // QA
+			$query->select("GROUP_CONCAT($table.$key $orderBy SEPARATOR '$separator') AS `{$fieldName}__$key`"); // QA
 		}		
 		return $query; 
 	}
@@ -1039,5 +1045,3 @@ abstract class FieldtypeMulti extends Fieldtype {
 	}
 
 }
-
-

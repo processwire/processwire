@@ -241,7 +241,8 @@ var InputfieldPageAutocomplete = {
 				// items: '.InputfieldPageListSelectMultiple ol > li',
 				axis: 'y',
 				update: function(e, data) {
-					InputfieldPageAutocomplete.rebuildInput($(this)); 
+					InputfieldPageAutocomplete.rebuildInput($(this));
+					InputfieldPageAutocomplete.triggerChange($ol)
 					$ol.trigger('sorted', [ data.item ]);
 				},
 				start: function(e, data) {

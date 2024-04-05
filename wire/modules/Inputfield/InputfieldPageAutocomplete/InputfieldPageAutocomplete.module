@@ -322,12 +322,21 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			$pps->setDisplayFormat($name, $this->labelFieldFormat, true);
 			$queryStrings[] = "format_name=$name";
 		}
+
+		// optional extra data set in session in case any hooks need it.
+		// how to retrieve when ProcessPageSearch is $this->process 
+		// $name = $input->get->fieldName('format_name');
+		// $data = $process->getForSelector($name, true);
+		$data = array(
+			'page_id' => ($this->hasPage ? $this->hasPage->id : 0), 
+			'field' => ($this->hasField ? $this->hasField->name : ''),
+		);
 		
 		$queryStrings[] = 'get=' . urlencode($this->labelFieldName);
 
 		// tell ProcessPageSearch to store this selector which we can tell it to use 
 		// by setting $_GET['for_selector_name'] = $name
-		$url = $pps->setForSelector($name, trim($selector, ', ')); 
+		$url = $pps->setForSelector($name, trim($selector, ', '), $data); 
 		if(count($queryStrings)) $url .= '&' . implode('&', $queryStrings);
 
 		// replace any pipes with encoded version
