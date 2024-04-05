@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $noticeUnknown
@@ -1408,21 +1408,51 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function buildFormParent() {
+	
+		$parents = $this->predefinedParents;
+		$useAjaxParent = !empty($this->configSettings['ajaxParent']);
+		$renderNow = $this->input->get('renderInputfieldAjax') === 'parent_id' 
+			|| !$useAjaxParent
+			|| $this->input->post('parent_id');
 
-		if(count($this->predefinedParents)) {
+		if(!count($parents) && $this->page->parent_id && $renderNow) { 
+			$template = $this->page->template;
+			$parentTemplates = $template->parentTemplates;
+			if(count($parentTemplates)) {
+				$ptStr = implode('|', $parentTemplates);
+				$s = "include=unpublished, id!=$template->id, templates_id=$ptStr";
+				$qty = $this->wire()->pages->count($s);
+				if($qty < 100) {
+					$isTrash = $this->page->isTrash();
+					$maxStatus = $isTrash ? Page::statusMax : Page::statusUnpublished;
+					$parents = $this->wire()->templates->getParentPages($template, true, $maxStatus);
+					foreach($parents as $parent) {
+						if(!$isTrash && $parent->isTrash()) $parents->remove($parent);
+					}
+					$parents->prepend($this->page->parent);
+				}
+			}
+		}
+
+		if(count($parents)) {
 			/** @var InputfieldSelect $field */
 			$field = $this->modules->get('InputfieldSelect');
-			foreach($this->predefinedParents as $p) {
-				$field->addOption($p->id, $p->path);
+			$options = array();
+			foreach($parents as $p) {
+				$label = $p->path; 
+				$options[$p->id] = $label; 
 			}
+			asort($options);
+			$field->addOptions($options);
 
 		} else {
 			/** @var InputfieldPageListSelect $field */
 			$field = $this->modules->get('InputfieldPageListSelect');
 			$field->set('parent_id', 0);
-			if(!empty($this->configSettings['ajaxParent'])) {
-				$field->collapsed = Inputfield::collapsedYesAjax;
-			}
+		}
+		
+		if(!count($this->predefinedParents) && $useAjaxParent) {
+			$field->collapsed = Inputfield::collapsedYesAjax;
 		}
 
 		$field->required = true;
