@@ -789,7 +789,7 @@ class PagesPathFinder extends Wire {
 		
 		// if there were any non-default language segments, let that dictate the language
 		if(empty($result['language']['segment'])) {
-			$useLangName = 'default';
+			$useLangName = count($result['parts']) ? 'default' : $result['language']['name'];
 			foreach($result['parts'] as $part) {
 				$langName = $part['language'];
 				if(empty($langName) || $langName === 'default') continue;
