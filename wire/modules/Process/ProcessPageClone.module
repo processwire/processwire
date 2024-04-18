@@ -6,7 +6,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * Optional GET variables: 
@@ -15,6 +15,7 @@
  * @method InputfieldForm buildForm()
  * @method string render()
  * @method void process()
+ * @method array getSuggestedNameAndTitle(Page $page) Return array with suggested 'name' and 'title' elements for given $page (3.0.238)
  *
  */
 
@@ -24,7 +25,7 @@ class ProcessPageClone extends Process {
 		return array(
 			'title' => __('Page Clone', __FILE__),
 			'summary' => __('Provides ability to clone/copy/duplicate pages in the admin. Adds a "copy" option to all applicable pages in the PageList.', __FILE__), 
-			'version' => 104, 
+			'version' => 105, 
 			'autoload' => "template=admin",  // Note: most Process modules should not be 'autoload', this is an exception.
 			'permission' => 'page-clone',
 			'permissions' => array(
@@ -162,11 +163,13 @@ class ProcessPageClone extends Process {
 	/**
 	 * Return array with suggested 'name' and 'title' elements for given $page
 	 * 
+	 * Hookable as of 3.0.238. 
+	 * 
 	 * @param Page $page
 	 * @return array
 	 * 
 	 */
-	protected function getSuggestedNameAndTitle(Page $page) {
+	protected function ___getSuggestedNameAndTitle(Page $page) {
 	
 		$pages = $this->wire()->pages;
 		
@@ -281,7 +284,7 @@ class ProcessPageClone extends Process {
 		$field->attr('name', 'clone_page_unpublished'); 
 		$field->attr('value', 1); 
 		$field->label = $this->_("Make the new page unpublished?");
-		$field->collapsed = Inputfield::collapsedYes; 
+		if($this->wire()->input->requestMethod('GET')) $field->attr('checked', 'checked');
 		$field->description = $this->_("If checked, the cloned page will be given an unpublished status so that it can't yet be seen on the front-end of your site."); 
 		$form->add($field);
 
@@ -293,7 +296,15 @@ class ProcessPageClone extends Process {
 			$field->label = $this->_("Copy children too?");
 			$field->description = $this->_("If checked, all children, grandchildren, etc., will also be cloned with this page."); 
 			$field->notes = $this->_("Warning: if there is a very large structure of pages below this, it may be time consuming or impossible to complete.");
-			$field->collapsed = Inputfield::collapsedYes; 
+			$form->add($field);
+		
+			/** @var InputfieldCheckbox $field */
+			$field = $modules->get("InputfieldCheckbox");
+			$field->attr('name', 'clone_tree_unpublished');
+			$field->attr('value', 1);
+			$field->label = $this->_("Make cloned children unpublished?");
+			$field->description = $this->_("If checked, all cloned children, grandchildren, etc., will also be unpublished.");
+			$field->showIf = 'clone_page_tree=1';
 			$form->add($field);
 		}
 
@@ -332,7 +343,7 @@ class ProcessPageClone extends Process {
 	protected function ___process() {
 
 		$page = clone $this->page; 
-		$input = $this->input; 
+		$input = $this->wire()->input; 
 		$languages = $this->wire()->languages;
 		$originalName = $page->name; 
 
@@ -342,7 +353,7 @@ class ProcessPageClone extends Process {
 		
 		$titleField = $form->get('clone_page_title');
 		$nameField = $form->get('clone_page_name');
-		$cloneTree = $input->post('clone_page_tree') && $this->user->hasPermission('page-clone-tree', $this->page);
+		$cloneTree = $input->post('clone_page_tree') && $this->wire()->user->hasPermission('page-clone-tree', $this->page);
 		
 		if($input->post('clone_page_unpublished')) {
 			$page->addStatus(Page::statusUnpublished);
@@ -361,6 +372,13 @@ class ProcessPageClone extends Process {
 		}
 
 		set_time_limit(3600);
+
+		if($cloneTree && $input->post('clone_tree_unpublished')) {
+			$this->wire()->pages->addHook('cloneReady', function(HookEvent $event) use($page) {
+				$child = $event->arguments(1); /** @var Page $child */
+				if($page->id !== $child->id) $child->addStatus(Page::statusUnpublished);
+			}); 
+		}
 		
 		$clone = $this->pages->clone($page, $page->parent, $cloneTree);
 		
@@ -508,4 +526,3 @@ class ProcessPageClone extends Process {
 	}
 
 }
-
