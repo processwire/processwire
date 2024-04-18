@@ -28,7 +28,7 @@
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string getMarkup($key = null) Render a simple/default markup value for each item #pw-internal
@@ -621,10 +621,16 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function __toString() {
-		$s = '';
-		foreach($this as $page) $s .= "$page|";
-		$s = rtrim($s, "|"); 
-		return $s; 
+		$ids = array();
+		if($this->lazyLoad) {
+			$items = $this;
+		} else {
+			$items = &$this->data;
+		}
+		foreach($items as $page) {
+			if(!$page instanceof NullPage) $ids[] = $page->id;
+		}
+		return implode('|', $ids);
 	}
 
 	/**
@@ -649,7 +655,8 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 			if($out) {
 				$out = "<ul>$out</ul>";
 				if($this->getLimit() && $this->getTotal() > $this->getLimit()) {
-					$pager = $this->wire('modules')->get('MarkupPagerNav');
+					/** @var MarkupPagerNav $pager */
+					$pager = $this->wire()->modules->get('MarkupPagerNav');
 					$out .= $pager->render($this);
 				}
 			}
@@ -729,5 +736,3 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 		}
 	}
 }
-
-
