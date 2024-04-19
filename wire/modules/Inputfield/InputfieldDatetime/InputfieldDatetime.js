@@ -20,7 +20,6 @@ function InputfieldDatetimeDatepicker($t) {
 	if(pickerVisible) {
 		// datepicker always visible (inline)
 		var $datepicker = $("<div></div>"); 
-		//$t.parent('p').after($datepicker); 
 		$t.after($datepicker); 
 	} else {
 		// datepicker doesn't appear till requested
@@ -36,9 +35,18 @@ function InputfieldDatetimeDatepicker($t) {
 		dateFormat: dateFormat,
 		gotoCurrent: true,
 		defaultDate: tsDate
-		// buttonImage: config.urls.admin_images + 'icons/calendar.gif',
-		// dateFormat: config.date_format
 	}; 
+	
+	var attrOptions = JSON.parse($t.attr('data-datepicker'));
+	
+	var customOptions = {};
+	
+	if(typeof ProcessWire.config.InputfieldDatetimeDatepickerDefaults === 'object') {
+		options = $.extend({}, ProcessWire.config.InputfieldDatetimeDatepickerDefaults, options);
+	}
+	if(typeof ProcessWire.config.InputfieldDatetimeDatepickerOptions === 'object') {
+		customOptions = ProcessWire.config.InputfieldDatetimeDatepickerOptions;
+	}
 
 	if(yearRange && yearRange.length) options.yearRange = yearRange; 
 
@@ -51,8 +59,10 @@ function InputfieldDatetimeDatepicker($t) {
 		}
 		if(timeFormat.indexOf('ss') > -1) options.showSecond = true; 
 		if(timeFormat.indexOf('m') == -1) options.showMinute = false;
+		options = $.extend(options, attrOptions, customOptions);
 		$datepicker.datetimepicker(options); 
 	} else {
+		options = $.extend(options, attrOptions, customOptions);
 		$datepicker.datepicker(options); 
 	}
 

@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * ~~~~~~
@@ -52,6 +52,13 @@
  * @property string $dateInputFormat Date input format to use, see WireDateTime::$dateFormats (default='Y-m-d')
  * @property string $timeInputFormat Time input format to use, see WireDateTime::$timeFormats (default='')
  * @property string $placeholder Placeholder attribute text
+ * @property string $showAnim Animation type (default='fade')
+ * @property bool|int $changeMonth Show a select dropdown to allow changing month? (default=true)
+ * @property bool|int $changeYear Show a select dropdown to allow changing year? (default=true)
+ * @property bool|int $showButtonPanel Show "Today" and "Done" buttons under the calendar? (default=false)
+ * @property int $numberOfMonths Number of month calendars to show together side-by-sidee (default=1)
+ * @property bool|int $showMonthAfterYear Show the month after the year? (default=false)
+ * @property bool|int $showOtherMonths Show dates in other months (non-selectable) at the start or end of the current month? (default=false)
  * 
  * Properties specific to "html" input type
  * ========================================
@@ -80,7 +87,7 @@ class InputfieldDatetime extends Inputfield {
 		return array(
 			'title' => __('Datetime', __FILE__), // Module Title
 			'summary' => __('Inputfield that accepts date and optionally time', __FILE__), // Module Summary
-			'version' => 107,
+			'version' => 108,
 			'permanent' => true,
 		);
 	}
@@ -126,7 +133,14 @@ class InputfieldDatetime extends Inputfield {
 	 * 
 	 */
 	protected $inputTypes = array();
-	
+
+	/**
+	 * jQuery UI custom datepicker options set from datepickerOptions() method
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $datepickerOptions = array();
 	
 	/**
 	 * Initialize the date/time inputfield
@@ -356,6 +370,37 @@ class InputfieldDatetime extends Inputfield {
 		return parent::setAttribute($key, $value); 
 	}
 
+	/**
+	 * Get or set jQuery UI datepicker options
+	 * 
+	 * <https://api.jqueryui.com/datepicker/>
+	 * 
+	 * ~~~~~
+	 * // set custom options
+	 * $inputfield->datepickerOptions([ 'changeMonth' => false, 'changeYear' => false ]); 
+	 * 
+	 * // set the defaults for all datepicker fields/inputs to start from
+	 * $config->js('InputfieldDatetimeDatepickerDefaults', [ 'showButtonPanel' => true ]); 
+	 * 
+	 * // override settings for all datetime fields/inputs
+	 * $config->js('InputfieldDatetimeDatepickerOptions', [ 'showAnim' => 'drop'  ]);
+	 * 
+	 * // override settings for all datetime fields/inputs (from JS)
+	 * $.extend(ProcessWire.config.InputfieldDatetimeDatepickerOptions, { 'showAnim': 'drop' }); 
+	 * 
+	 * ~~~~~
+	 * 
+	 * @param array $options
+	 * @return array
+	 * 
+	 */
+	public function datepickerOptions($options = array()) {
+		if(count($options)) {
+			$this->datepickerOptions = array_merge($this->datepickerOptions, $options);
+		}
+		return $this->datepickerOptions;
+	}
+	
 	/**
 	 * Date/time Inputfield configuration, per field
 	 *

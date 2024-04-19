@@ -44,6 +44,13 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 			'timeInputFormat' => '',
 			'timeInputSelect' => 0,
 			'yearRange' => '',
+			'showAnim' => 'fade',
+			'changeMonth' => true, 
+			'changeYear' => true,
+			'showButtonPane' => false, 
+			'numberOfMonths' => 1, 
+			'showMonthAfterYear' => false,
+			'showOtherMonths' => false, 
 		);
 		
 		if($languages) {
@@ -171,6 +178,28 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		
 		$yearRange = $sanitizer->entities($this->getSetting('yearRange'));
 		$timeInputSelect = $this->getSetting('timeInputSelect');
+	
+		$datepickerSettings = array();
+		$settingNames = array(
+			'showAnim', 'changeMonth', 'changeYear', 'showButtonPanel', 
+			'numberOfMonths', 'showMonthAfterYear', 'showOtherMonths',
+		);
+		foreach($settingNames as $name) {
+			$val = $this->inputfield->getSetting($name);
+			if($name === 'showAnim') {
+				$val = (string) $val;
+				if($val === 'none') $val = '';
+			} else if($name === 'numberOfMonths') {
+				$val = (int) $val;
+				if($val < 1) $val = 1;
+			} else {
+				$val = (bool) ((int) $val);
+			}
+			$datepickerSettings[$name] = $val;
+		}
+	
+		// merge in any custom settings 
+		$datepickerSettings = array_merge($datepickerSettings, $this->inputfield->datepickerOptions());
 
 		$out =
 			"<input " . $this->inputfield->getAttributesString($attrs) . " " .
@@ -182,6 +211,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 			"data-ts='$valueTS' " .
 			"data-ampm='$ampm' " .
 			(strlen($yearRange) ? "data-yearrange='$yearRange' " : '') .
+			"data-datepicker='" . htmlspecialchars(json_encode($datepickerSettings)) . "' " . 
 			"/>";
 
 		return $out;
@@ -392,6 +422,13 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$f->description = $this->_('The displayed width of this field (in characters).');
 		$f->columnWidth = 50;
 		$inputfields->append($f);
+
+		$fieldset = $inputfields->InputfieldFieldset;
+		$fieldset->attr('name', '_datepicker_settings');
+		$fieldset->label = $this->_('Datepicker settings');
+		$fieldset->showIf = "datepicker!=" . self::datepickerNo;
+		$inputfields->add($fieldset);
+		$module = $this->inputfield;
 		
 		/** @var InputfieldText $f */
 		$f = $modules->get("InputfieldText");
@@ -405,8 +442,64 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$f->notes = $this->_('Default is `-10:+10` which shows a year range 10 years before and after now.');
 		$f->icon = 'arrows-h';
 		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->append($f);
+		$fieldset->append($f);
 
+		$f = $inputfields->InputfieldSelect;
+		$f->attr('name', 'showAnim');
+		$f->label = $this->_('Animation type');
+		$f->addOption('none', $this->_('None'));
+		$f->addOption('fade', $this->_('Fade'));
+		$f->addOption('show', $this->_('Show'));
+		$f->addOption('clip', $this->_('Clip'));
+		$f->addOption('drop', $this->_('Drop'));
+		$f->addOption('puff', $this->_('Puff'));
+		$f->addOption('scale', $this->_('Scale'));
+		$f->addOption('slide', $this->_('Slide'));
+		$f->val($module->get('showAnim'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldInteger;
+		$f->attr('name', 'numberOfMonths');
+		$f->label = $this->_('Number of month to show side-by-side in datepicker');
+		$f->val((int) $module->get('numberOfMonths'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'changeMonth');
+		$f->label = $this->_('Render month as select rather than text?');
+		$f->val($module->get('changeMonth'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'changeYear');
+		$f->label = $this->_('Render year as select rather than text?');
+		$f->val($module->get('changeYear'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'showButtonPanel');
+		$f->label = $this->_('Display “Today” and “Done” buttons under calendar?');
+		$f->val($module->get('showButtonPane'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'showMonthAfterYear');
+		$f->label = $this->_('Show month after year?');
+		$f->val($module->get('showMonthAfterYear'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'showOtherMonths');
+		$f->label = $this->_('Show days in other months at start/end of months?');
+		$f->val($module->get('showOtherMonths'));
+		$f->columnWidth = 100;
+		$fieldset->add($f);
 	}
 
 
