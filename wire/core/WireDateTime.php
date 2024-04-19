@@ -435,13 +435,16 @@ class WireDateTime extends Wire {
 	 * Parse about any English textual datetime description into a Unix timestamp using PHP’s strtotime()
 	 * 
 	 * This function behaves the same as PHP’s version except that it optionally accepts an `$options` array 
-	 * and lets you specify the return value for empty or zeroed dates like 0000-00-00. If given a zerod date
-	 * then it returns null by default (rather than throwing an error as PHP8 does). 
+	 * and lets you specify the return value for empty or zeroed dates like 0000-00-00. If given a zero’d date
+	 * then it returns null by default (rather than throwing an error as PHP8 does). As of 3.0.238+ this method
+	 * also lets you optionally specify an input format should the given date string not be strtotime compatible.
 	 * 
 	 * @param string $str Date/time string 
-	 * @param array|int $options Options to modify behavior, or specify int for the `baseTimestamp` option. 
+	 * @param array|int $options Options to modify behavior, or specify int for the `baseTimestamp` option, or string for `inputFormat` option.
 	 *  - `emptyReturnValue` (int|null|false): Value to return for empty or zero-only date strings (default=null)
 	 *  - `baseTimestamp` (int|null): The timestamp which is used as a base for the calculation of relative dates.
+	 *  - `inputFormat` (string): Optional date format that given $str is in, if not strtotime() compatible. (3.0.238+)
+	 *  - `outputFormat` (string): Optionally return value in this date format rather than unix timestamp (3.0.238+)
 	 * @return false|int|null
 	 * @see https://www.php.net/manual/en/function.strtotime.php
 	 * @since 3.0.178
@@ -451,17 +454,110 @@ class WireDateTime extends Wire {
 		$defaults = array(
 			'emptyReturnValue' => null, 
 			'baseTimestamp' => null,
+			'inputFormat' => '',
+			'outputFormat' => '', 
 		);
 		if(is_int($options)) $defaults['baseTimestamp'] = $options; 
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		if(!empty($options['outputFormat'])) return $this->strtodate($str, $options);
 		$str = trim($str);
 		if(empty($str)) return $options['emptyReturnValue'];
 		if(strpos($str, '00') === 0) {
 			$test = trim(preg_replace('/[^\d]/', '', $str), '0');
 			if(!strlen($test)) return $options['emptyReturnValue'];
 		}
-		if($options['baseTimestamp'] === null) return strtotime($str);
-		return strtotime($str, $options['baseTimestamp']) ;
+		if($options['inputFormat']) {
+			$value = \DateTimeImmutable::createFromFormat($options['inputFormat'], $str);
+			$value = $value ? $value->getTimestamp() : false;
+		} else {
+			$value = strtotime($str, $options['baseTimestamp']) ;
+		}
+		if($value === false) $value = $options['emptyReturnValue'];
+		return $value;
+	}
+
+	/**
+	 * Parse English textual datetime description into a formatted date string, or blank if not a date
+	 * 
+	 * @param string $str Date/time string to parse
+	 * @param string|array $format Output format to use, or array for $options. 
+	 *  - Omit or boolean true for default 'Y-m-d H:i:s'.
+	 *  - Specify date format string, see [formats](https://www.php.net/manual/en/datetime.format.php).
+	 *  - Specify boolean false for unix timestamp.
+	 *  - Specify array of options.
+	 * @param array $options Can also be specified as 2nd argument. Options include:
+	 *  - `emptyReturnValue` (int|null|false): Value to return for empty or zero-only date strings (default='')
+	 *  - `baseTimestamp` (int|null): The timestamp which is used as a base for the calculation of relative dates.
+	 *  - `inputFormat` (string): Optional date format that given $str is in, if not strtotime() compatible.
+	 *  - `outputFormat` (string|bool): Format to return date string in, used only if $options specified for $format argument.
+	 *  - `format` (string|bool) Optional alias of outputFormat, used only if $options specified for $format argument.
+	 * @return string Return string, returns blank string on fail. 
+	 * @since 3.0.238
+	 * 
+	 */
+	public function strtodate($str, $format = true, array $options = array()) {
+		$defaults = array(
+			'emptyReturnValue' => '',
+			'baseTimestamp' => null,
+			'outputFormat' => 'Y-m-d H:i:s',
+			'inputFormat' => '', 
+		);
+		
+		if(is_array($format)) {
+			$options = array_merge($defaults, $format);
+			if(isset($options['format'])) $options['outputFormat'] = $options['format'];
+			$format = $options['outputFormat'];
+		} else {
+			$options = array_merge($defaults, $options);
+		}
+		
+		$is = false;
+		$str = trim((string) $str);
+		$len = strlen($str);
+		
+		if($format === true) $format = $defaults['outputFormat'];
+		
+		if(!$len || $len > 30) {
+			return $options['emptyReturnValue'];
+			
+		} else if(ctype_digit($str) && strpos($str, '0') !== 0) {
+			if($len === 1) $str = "0$str";
+			if($len === 2) {
+				$value = strtotime("20$str-01-01");
+			} else if($len === 4) {
+				$value = strtotime("$str-01-01");
+			} else {
+				// unix timestamp
+				$value = (int) $str;
+				if(is_int($options['baseTimestamp'])) $value += $options['baseTimestamp'];
+			}
+
+		} else {
+			// i.e. '+1 DAY', '10/10/2024', 'April 8 2024'
+			$chars = array('-', '/', '+', '.', ' ');
+			foreach($chars as $c) {
+				if(strpos($str, $c) !== false) $is = true;
+				if($is) break;
+			}
+			if(!$is) $is = ctype_alnum($str); // word string with 0 space, i.e. "tomorrow"
+			if(!$is) return $options['emptyReturnValue'];
+			unset($options['outputFormat']);
+			$value = $this->strtotime($str, $options);
+		}
+	
+		if($value !== $options['emptyReturnValue']) {
+			if($format === $defaults['outputFormat']) {
+				$value = date($format, $value);
+			} else if(empty($format) || $format === 'ts' || $format === 'U') {
+				// timestamp, keep as-is
+			} else {
+				$value = $this->date($format, $value);
+			}
+		}
+		
+		if(empty($value)) $value = $options['emptyReturnValue'];
+		
+		return (string) $value;
 	}
 
 	/**
@@ -1102,5 +1198,8 @@ class WireDateTime extends Wire {
 				return $this->caches[$k];
 		}
 		return array();
+	}
+
+	public function isStrtotime($str) {
 	}
 }
