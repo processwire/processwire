@@ -1934,13 +1934,15 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * 
 	 */
 	public function __toString() {
-		$s = '';
-		foreach($this as $value) {
+		$values = array();
+		foreach($this->data as $value) {
 			if(is_array($value)) $value = "array(" . count($value) . ")";
-			$s .= "$value|";
+			$value = (string) $value;
+			if(!strlen($value)) continue;
+			if(strpos($value, '|') !== false) $value = str_replace('|', ' ', $value);
+			$values[] = $value;
 		}
-		$s = rtrim($s, '|'); 
-		return $s; 
+		return implode('|', $values);
 	}
 
 	/**
