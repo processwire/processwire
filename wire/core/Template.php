@@ -59,8 +59,8 @@
  * @property string $sortfield Field that children of templates using this page should sort by (leave blank to let page decide, or specify "sort" for manual drag-n-drop). #pw-group-family
  * @property int $noChildren Set to 1 to cancel use of childTemplates. #pw-group-family
  * @property int $noParents Set to 1 to cancel use of parentTemplates, set to -1 to only allow one page using this template to exist. #pw-group-family
- * @property array $childTemplates Array of template IDs that are allowed for children. Blank array indicates "any".  #pw-group-family
- * @property array $parentTemplates Array of template IDs that are allowed for parents. Blank array indicates "any". #pw-group-family
+ * @property int[] $childTemplates Array of template IDs that are allowed for children. Blank array indicates "any".  #pw-group-family
+ * @property int[] $parentTemplates Array of template IDs that are allowed for parents. Blank array indicates "any". #pw-group-family
  * @property string $childNameFormat Name format for child pages. when specified, the page-add UI step can be skipped when adding children. Counter appended till unique. Date format assumed if any non-pageName chars present. Use 'title' to pull from title field. #pw-group-family
  * 
  * URLs
@@ -1617,5 +1617,3 @@ class Template extends WireData implements Saveable, Exportable {
 	}
 
 }
-
-

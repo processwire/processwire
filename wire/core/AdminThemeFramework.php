@@ -676,7 +676,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 		foreach($notices as $n => $notice) {
 			/** @var Notice $notice */
 
-			$text = $notice->text;
+			$text = (string) $notice->text;
 			$allowMarkup = $notice->flags & Notice::allowMarkup;
 			$groupByType = $options['groupByType'] && !($notice->flags & Notice::noGroup) && !($notice instanceof NoticeError); 
 			
