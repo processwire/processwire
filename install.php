@@ -871,6 +871,7 @@ class Installer {
 		$file = __FILE__; 
 		$time = time();
 		$host = empty($values['httpHosts']) ? '' : implode(',', $values['httpHosts']);
+		$s = is_file("./site/config.php") ? file_get_contents("./site/config.php") : '';
 
 		if(function_exists('random_bytes')) {
 			$authSalt = sha1(random_bytes(random_int(40, 128)));
@@ -904,7 +905,7 @@ class Installer {
 			$cfg .= "\n\$config->dbEngine = 'InnoDB';";
 		}
 		
-		$cfg .= 
+		if(strpos($s, '$config->userAuthSalt') === false) $cfg .= 
 			"\n" . 
 			"\n/**" . 
 			"\n * Installer: User Authentication Salt " . 
@@ -915,7 +916,10 @@ class Installer {
 			"\n * Do not change this value, or user passwords will no longer work." .
 			"\n * " . 
 			"\n */" . 
-			"\n\$config->userAuthSalt = '$authSalt'; " .
+			"\n\$config->userAuthSalt = '$authSalt'; ";
+
+		if(strpos($s, '$config->tableSalt') === false) $cfg .=
+		$cfg .= 
 			"\n" .
 			"\n/**" . 
 			"\n * Installer: Table Salt (General Purpose) " .
@@ -925,7 +929,9 @@ class Installer {
 			"\n * this value or it may break internal system comparisons that use it. " . 
 			"\n * " .
 			"\n */" . 
-			"\n\$config->tableSalt = '$tableSalt'; " .
+			"\n\$config->tableSalt = '$tableSalt'; ";
+		
+		$cfg .= 
 			"\n" . 
 			"\n/**" . 
 			"\n * Installer: File Permission Configuration" . 
@@ -939,13 +945,17 @@ class Installer {
 			"\n * " . 
 			"\n */" . 
 			"\n\$config->timezone = '$values[timezone]';" .
-			"\n" .
+			"\n";
+
+		if(strpos($s, '$config->defaultAdminTheme') === false) $cfg .=
 			"\n/**" .
 			"\n * Installer: Admin theme" .
 			"\n * " .
 			"\n */" .
 			"\n\$config->defaultAdminTheme = 'AdminThemeUikit';" .
-			"\n" . 
+			"\n";
+
+		if(strpos($s, '$config->installed ') === false) $cfg .=
 			"\n/**" .
 			"\n * Installer: Unix timestamp of date/time installed" .
 			"\n * " .
@@ -979,7 +989,6 @@ class Installer {
 			"\n\$config->debug = " . ($values['debugMode'] ? 'true;' : 'false;') . 
 			"\n\n";
 
-		$s = is_file("./site/config.php") ? file_get_contents("./site/config.php") : '';
 		if(strpos($s, '<' . '?php') === false) $cfg = '<' . "?php namespace ProcessWire;\n\n" . $cfg; 
 			
 		if(($fp = fopen("./site/config.php", "a")) && fwrite($fp, $cfg)) {
