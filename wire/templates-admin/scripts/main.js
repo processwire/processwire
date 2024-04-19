@@ -491,7 +491,7 @@ if(typeof ProcessWire != "undefined") {
 		}
 	};
 
-	ProcessWire.alert = function(message, allowMarkup) {
+	ProcessWire.alert = function(message, allowMarkup, expire) {
 		if(typeof allowMarkup == "undefined") var allowMarkup = false;
 		if(typeof vex != "undefined") {
 			if(allowMarkup) {
@@ -504,6 +504,11 @@ if(typeof ProcessWire != "undefined") {
 					message = v.value;
 				}
 				vex.dialog.alert(message);
+			}
+			if(typeof expire !== 'undefined') {
+				setTimeout(function() {
+					$('.vex-dialog-button-primary').trigger('click');
+				}, expire); 
 			}
 		} else {
 			alert(message);
