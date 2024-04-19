@@ -385,7 +385,7 @@ class InputfieldText extends Inputfield {
 
 		if($this->hasFieldtype === false) { 
 			/** @var InputfieldText $field */
-			$field = $modules->get('InputfieldText');
+			$field = $modules->get($this->className());
 			$field->setAttribute('name', 'initValue'); 
 			$field->label = $this->_('Initial Value');
 			$field->description = $this->_('Optional initial/default value pre-populated for the user.'); 

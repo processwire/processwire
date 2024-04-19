@@ -206,6 +206,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$this->addHookAfter('Inputfield::renderValue', $this, 'hookInputfieldAfterRender'); 
 		$this->addHookAfter('Inputfield::processInput', $this, 'hookInputfieldAfterProcessInput'); 
 		$this->addHookBefore('Inputfield::processInput', $this, 'hookInputfieldBeforeProcessInput'); 
+		$this->addHookMethod('Inputfield::getLanguageValue', $this, 'hookInputfieldGetLanguageValue');
+		$this->addHookMethod('Inputfield::setLanguageValue', $this, 'hookInputfieldGetLanguageValue');
 		$this->addHookAfter('Field::getInputfield', $this, 'hookFieldGetInputfield');
 		$pages->addHook('added', $this, 'hookPageAdded'); 
 		$pages->addHook('deleteReady', $this, 'hookPageDeleteReady'); 
@@ -595,6 +597,67 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$inputfield->setAttribute('value', $value);
 		$inputfield->required = $required; 
 		$inputfield->setTrackChanges(true); 
+	}
+
+	/**
+	 * Adds an Inputfield::setLanguageValue($language, $value) method
+	 * 
+	 * @param HookEvent $event
+	 * @since 3.0.238
+	 * 
+	 */
+	public function hookInputfieldSetLanguageValue(HookEvent $event) {
+		
+		/** @var Inputfield $inputfield */
+		$inputfield = $event->object; 
+		$language = $event->arguments(0);
+		$value = $event->arguments(1);
+		$valuePrevious = $inputfield->val();
+		
+		if($value === $valuePrevious) return; // nothing to do
+
+		if(!$language instanceof Language) {		
+			$language = $this->wire()->languages->get($language);
+		}
+		
+		if(!$language || !$language->id) {
+			// nothing to do
+		} else if($valuePrevious instanceof LanguagesValueInterface) {
+			$valuePrevious->setLanguageValue($language->id, $value);
+		} else if($language->isDefault()) {
+			$inputfield->val($value);
+		} else {
+			$inputfield->set("value$language", $value);
+		}
+	}
+
+	/**
+	 * Adds an Inputfield::getLanguageValue($language) method
+	 *
+	 * @param HookEvent $event
+	 * @since 3.0.238
+	 *
+	 */
+	public function hookInputfieldGetLanguageValue(HookEvent $event) {
+		
+		/** @var Inputfield $inputfield */
+		$inputfield = $event->object;
+		$language = $event->arguments(0);
+		$value = $inputfield->val();
+		
+		if(!$language instanceof Language) {
+			$language = $this->wire()->languages->get($language);
+		}
+		
+		if(!$language || !$language->id) {
+			$event->return = null;
+		} else if($value instanceof LanguagesValueInterface) {
+			$event->return = $value->getLanguageValue($language->id);
+		} else if($language->isDefault()) {
+			$event->return = $value;
+		} else {
+			$event->return = $inputfield->get("value$language"); 
+		}
 	}
 
 	/**

@@ -102,16 +102,16 @@
  * @property null|bool|Fieldtype $hasFieldtype The Fieldtype using this Inputfield, or boolean false when known not to have a Fieldtype, or null when not known. #pw-group-other
  * @property null|Field $hasField The Field object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
  * @property null|Page $hasPage The Page object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
- * @property null|Inputfield $hasInputfield If this Inputfield is owned/managed by another (other than parent/child relationship), it may be set here. 3.0.176+ #pw-group-other 
- * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior
+ * @property null|Inputfield $hasInputfield If this Inputfield is owned/managed by another (other than parent/child relationship), it may be set here. @since 3.0.176 #pw-group-other 
+ * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior #pw-group-languages
  * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label (default=true). #pw-group-output
  * @property null|bool $entityEncodeText Set to boolean false to specifically disable entity encoding for other text: description, notes, etc. (default=true). #pw-group-output
- * @property int $renderFlags Options that can be applied to render, see "render*" constants (default=0). #pw-group-output 3.0.204+
+ * @property int $renderFlags Options that can be applied to render, see "render*" constants (default=0). @since 3.0.204 #pw-group-output 
  * @property int $renderValueFlags Options that can be applied to renderValue mode, see "renderValue" constants (default=0). #pw-group-output
  * @property string $wrapClass Optional class name (CSS) to apply to the HTML element wrapping the Inputfield. #pw-group-other
  * @property string $headerClass Optional class name (CSS) to apply to the InputfieldHeader element #pw-group-other
  * @property string $contentClass Optional class name (CSS) to apply to the InputfieldContent element #pw-group-other
- * @property string $addClass Formatted class string letting you add class to any of the above (see addClass method). #pw-group-other 3.0.204+
+ * @property string $addClass Formatted class string letting you add class to any of the above (see addClass method). @since 3.0.204 #pw-group-other 
  * @property int|null $textFormat Text format to use for description/notes text in Inputfield (see textFormat constants) #pw-group-output
  * 
  * @method string|Inputfield required($required = null) Get or set required state. @since 3.0.110 #pw-group-behavior
@@ -121,7 +121,11 @@
  * @method string|Inputfield headerClass($class = null) Get header class attribute or add a class to it. @since 3.0.110 #pw-group-other
  * @method string|Inputfield contentClass($class = null) Get content class attribute or add a class to it. @since 3.0.110 #pw-group-other
  * 
- *
+ * MULTI-LANGUAGE METHODS (requires LanguageSupport module to be installed)
+ * ======================
+ * @method void setLanguageValue($language, $value) Set language value for Inputfield that supports it. Requires LanguageSupport module. $language can be Language, id (int) or name (string). @since 3.0.238 #pw-group-languages 
+ * @method string|mixed getLanguageValue($language) Get language value for Inputfield that supports it. Requires LanguageSupport module. $language can be Language, id (int) or name (string). @since 3.0.238  #pw-group-languages 
+ * 
  * HOOKABLE METHODS
  * ================
  * @method string render()
