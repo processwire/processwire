@@ -2089,6 +2089,8 @@ function InputfieldStates($target) {
 				} else if(Inputfields.toggleBehavior < 1) {
 					$header.trigger('click');
 				}
+				var $inputfield = $header.closest('.Inputfield');
+				$inputfield.trigger('opened', $inputfield);
 			}, 500);
 		}, 'html');
 		
