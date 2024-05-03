@@ -180,17 +180,24 @@ $(document).ready(function() {
 
 			var $form = $this.parents('form'); 
 			var $repeaterItem = $this.closest('.InputfieldRepeaterItem');
-			var postUrl = $repeaterItem.length ? $repeaterItem.attr('data-editUrl') : $form.attr('action');
+			var $uploadData = $this.find('.InputfieldFileUpload');
+			var postUrl = $uploadData.data('posturl');
+			
+			if($repeaterItem.length) {
+				postUrl = $repeaterItem.attr('data-editUrl');
+			} else if(!postUrl) {
+				postUrl = $form.attr('action');
+			}
+			
 			postUrl += (postUrl.indexOf('?') > -1 ? '&' : '?') + 'InputfieldFileAjax=1';
 
 			// CSRF protection
 			var $postToken = $form.find('input._post_token'); 
 			var postTokenName = $postToken.attr('name');
 			var postTokenValue = $postToken.val();
-			var $uploadData = $this.find('.InputfieldFileUpload');
 
 			var fieldName = $uploadData.data('fieldname');
-			fieldName = fieldName.slice(0,-2);
+			if(fieldName.indexOf('[') > -1) fieldName = fieldName.slice(0,-2);
 
 			var extensions = $uploadData.data('extensions').toLowerCase();
 			var maxFilesize = $uploadData.data('maxfilesize');

@@ -1636,22 +1636,16 @@ function InputfieldImage($) {
 
 			var $form = $this.parents('form');
 			var $repeaterItem = $this.closest('.InputfieldRepeaterItem');
-			var postUrl = $repeaterItem.length ? $repeaterItem.attr('data-editUrl') : $form.attr('action');
-			
-			postUrl += (postUrl.indexOf('?') > -1 ? '&' : '?') + 'InputfieldFileAjax=1';
-
-			// CSRF protection
-			var $postToken = $form.find('input._post_token');
-			var postTokenName = $postToken.attr('name');
-			var postTokenValue = $postToken.val();
+			var $uploadAttrs = $this.find('.InputfieldImageUpload');
+			var postUrl = $uploadAttrs.data('posturl');
+			var $postToken = $form.find('input._post_token'); // CSRF
+			var postTokenName = $postToken.attr('name'); // CSRF
+			var postTokenValue = $postToken.val(); // CSRF
 			var $errorParent = $this.find('.InputfieldImageErrors').first();
-			
-			var fieldName = $this.find('.InputfieldImageUpload').data('fieldname');
-			fieldName = fieldName.slice(0, -2); // trim off the trailing "[]"
-
+			var fieldName = $uploadAttrs.data('fieldname');
 			var $inputfield = $this.closest('.Inputfield.InputfieldImage');
-			var extensions = $this.find('.InputfieldImageUpload').data('extensions').toLowerCase();
-			var maxFilesize = $this.find('.InputfieldImageUpload').data('maxfilesize');
+			var extensions = $uploadAttrs.data('extensions').toLowerCase();
+			var maxFilesize = $uploadAttrs.data('maxfilesize');
 			var filesUpload = $this.find("input[type=file]").get(0);
 			var $fileList = $this.find(".gridImages");
 			var fileList = $fileList.get(0);
@@ -1660,6 +1654,16 @@ function InputfieldImage($) {
 			var maxFiles = parseInt($this.find('.InputfieldImageMaxFiles').val());
 			var resizeSettings = getClientResizeSettings($inputfield);
 			var useClientResize = resizeSettings.maxWidth > 0 || resizeSettings.maxHeight > 0 || resizeSettings.maxSize > 0;
+			
+			if($repeaterItem.length) {
+				postUrl = $repeaterItem.attr('data-editUrl');
+			} else if(!postUrl) {
+				postUrl = $form.attr('action');
+			}
+			
+			postUrl += (postUrl.indexOf('?') > -1 ? '&' : '?') + 'InputfieldFileAjax=1';
+			
+			if(fieldName.indexOf('[') > -1) fieldName = fieldName.slice(0,-2); // trim trailing []
 
 			setupDropzone($this);
 			if(maxFiles != 1) setupDropInPlace($fileList);

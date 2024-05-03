@@ -3,7 +3,7 @@
 /**
  * An Inputfield for handling file uploads
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * @property string $extensions Allowed file extensions, space separated
@@ -43,7 +43,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return array(
 			'title' => __('Files', __FILE__), // Module Title
 			'summary' => __('One or more file uploads (sortable)', __FILE__), // Module Summary
-			'version' => 128,
+			'version' => 129,
 			'permanent' => true, 
 		);
 	}
@@ -129,6 +129,17 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected $extensionsInfo = array();
+	
+	/**
+	 * Optional file_context value from query string 
+	 * 
+	 * This is added to output resulting from an ajax file upload and affects
+	 * the pagefileId used for inputs like description, tags, etc.
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $fileContext = '';
 
 	/**
 	 * Initialize the InputfieldFile
@@ -185,6 +196,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		);
 		$themeSettings = $this->wire()->config->InputfieldFile;
 		$this->themeSettings = is_array($themeSettings) ? array_merge($themeDefaults, $themeSettings) : $themeDefaults;
+	
+		if($this->isAjax && $input->requestMethod('POST')) {
+			$fileContext = $input->get('file_context');
+			if($fileContext) $fileContext = $this->wire()->sanitizer->fieldName($fileContext);
+			if($fileContext && ctype_alnum(str_replace('_', '', $fileContext))) $this->fileContext = $fileContext;
+		}
 	}
 	
 	public function get($key) {
@@ -314,7 +331,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function pagefileId(Pagefile $pagefile, $context = '') {
-		return $this->name . "_" . $context . $pagefile->hash; 
+		$id = $this->name . '_';	
+		if($this->fileContext) $id .= $this->fileContext . '_';
+		$id .= $context . $pagefile->hash;
+		return $id;
 	}
 
 	/**
@@ -626,6 +646,53 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	}
 
 	/**
+	 * Get upload data attributes
+	 * 
+	 * @return array
+	 * @since 3.0.239
+	 * 
+	 */
+	protected function getUploadAttrs() {
+		
+		$attrs = $this->getAttributes();
+		$nameAttr = rtrim($attrs['name'], '[]');
+		$extensions = $this->getAllowedExtensions();
+		$value = $this->val();
+		$dataFieldName = $nameAttr;
+
+		if($value instanceof Pagefiles || $value instanceof Pagefile) {
+			$page = $value->page;
+			$fieldName = $value->field->name;
+		} else {
+			$page = $this->hasPage;
+			$fieldName = (string) $this->hasField;
+		}
+
+		$postUrl = $page->editUrl();
+
+		if($nameAttr != $fieldName) {
+			// file context for output after upload in case upload starts from a 
+			// page that is different from the one where the the file actually lives,
+			// but file upload is posted to the correct page. this ensures the resulting
+			// output following upload is still contextual to the rendered page editor
+			$fileContext = str_replace($fieldName . '_', '', $nameAttr);
+			if(strpos($fileContext, 'repeater') === 0) {
+				// repeaters handle file context internally
+			} else {
+				$postUrl .= "&file_context=$fileContext";
+				$dataFieldName = $fieldName;
+			}
+		}
+		
+		return array(
+			'data-maxfilesize' => $this->maxFilesize, 
+			'data-extensions' => $extensions, 
+			'data-fieldname' => $dataFieldName,
+			'data-posturl' => $postUrl, 
+		);
+	}
+
+	/**
 	 * Render upload area
 	 * 
 	 * @param Pagefiles|null $value
@@ -642,20 +709,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$attrs = $this->getAttributes();
 		unset($attrs['value']); 
 		if(substr($attrs['name'], -1) != ']') $attrs['name'] .= '[]';
-
-		$extensions = $this->getAllowedExtensions();
+		
 		$formatExtensions = $this->formatExtensions();
 		$chooseLabel = $this->labels['choose-file'];
 		$dragDropLabel = $this->labels['drag-drop'];
 		$attrStr = $this->getAttributesString($attrs);
-
-		$out =
-			"<div " .
-				"data-maxfilesize='$this->maxFilesize' " .
-				"data-extensions='$extensions' " .
-				"data-fieldname='$attrs[name]' " .
-				"class='InputfieldFileUpload'>
-				";
+		$uploadAttrStr = $this->getAttributesString($this->getUploadAttrs());
+		
+		$out = "<div $uploadAttrStr class='InputfieldFileUpload'>";
 	
 		if($this->getSetting('noCustomButton')) {
 			$out .= "<input $attrStr>";

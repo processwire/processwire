@@ -59,7 +59,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		return array(
 			'title' => __('Images', __FILE__), // Module Title
 			'summary' => __('One or more image uploads (sortable)', __FILE__), // Module Summary
-			'version' => 128,
+			'version' => 129,
 			'permanent' => true,
 		);
 	}
@@ -355,14 +355,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$formatExtensions = $this->formatExtensions($extensions);
 		$chooseLabel = $this->labels['choose-file'];
 		$chooseIcon = wireIconMarkup('folder-open-o', 'fw');
-		
-		$out = 
-			"<div " . 
-			"data-maxfilesize='$this->maxFilesize' " . 
-			"data-extensions='$extensions' " . 
-			"data-fieldname='$attrs[name]' " . 
-			"class='InputfieldImageUpload'" . 
-			">";
+		$uploadAttrStr = $this->getAttributesString($this->getUploadAttrs());
+
+		$out = "<div $uploadAttrStr class='InputfieldImageUpload'>";
 		
 		$out .= "
 			<div class='InputMask ui-button ui-state-default'>
