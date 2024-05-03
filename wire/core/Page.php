@@ -2860,6 +2860,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
 	 *  - `language` (Language|bool): Optionally specify Language to start editor in, or boolean true to force current user language.
 	 *  - `find` (string): Name of field to find in the editor (3.0.151+)
+	 *  - `vars` (array): Additional variables to include in query string (3.0.239+)
 	 * @return string URL for editing this page
 	 * 
 	 */

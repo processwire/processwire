@@ -852,6 +852,7 @@ class PageTraversal {
 	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
 	 *  - `language` (Language|bool): Optionally specify Language to start editor in, or boolean true to force current user language.
 	 *  - `find` (string): Name of field to find in the editor (3.0.151+)
+	 *  - `vars` (array): Additional variables to include in query string (3.0.239+)
 	 * @return string URL for editing this page
 	 *
 	 */
@@ -862,6 +863,7 @@ class PageTraversal {
 		$https = $adminTemplate && ($adminTemplate->https > 0) && !$config->noHTTPS;
 		$url = ($https && !$config->https) ? 'https://' . $config->httpHost : '';
 		$url .= $config->urls->admin . "page/edit/?id=$page->id";
+		$optionsArray = is_array($options) ? $options : array();
 
 		if($options === true || (is_array($options) && !empty($options['http']))) {
 			if(strpos($url, '://') === false) {
@@ -872,18 +874,22 @@ class PageTraversal {
 		$languages = $page->wire()->languages;
 		if($languages) {
 			$language = $page->wire()->user->language;
-			if(empty($options['language'])) {
+			if(empty($optionsArray['language'])) {
 				if($page->wire()->page->template->id == $adminTemplate->id) $language = null;
-			} else if($options['language'] instanceof Page) {
-				$language = $options['language'];
-			} else if($options['language'] !== true) {
-				$language = $languages->get($options['language']);
+			} else if($optionsArray['language'] instanceof Page) {
+				$language = $optionsArray['language'];
+			} else if($optionsArray['language'] !== true) {
+				$language = $languages->get($optionsArray['language']);
 			}
 			if($language && $language->id) $url .= "&language=$language->id";
 		}
 		
 		$version = (int) ((string) $page->get('_version|_repeater_version'));
 		if($version) $url .= "&version=$version";
+		
+		if(!empty($optionsArray['vars'])) {
+			$url .= '&' . http_build_query($optionsArray['vars']); 
+		}
 
 		$append = $page->wire()->session->getFor($page, 'appendEditUrl');
 
