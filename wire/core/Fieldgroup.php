@@ -518,6 +518,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *  - `namespace` (string): Additional namespace for Inputfield context. 
 	 *  - `flat` (bool): Return all Inputfields in a flattened InputfieldWrapper?
 	 *  - `populate` (bool): Populate page values to Inputfields? (default=true) since 3.0.208
+	 *  - `container` (InputfieldWrapper): The InputfieldWrapper element to add fields into, or omit for new. since 3.0.239
 	 * @param string|array $fieldName Limit to a particular fieldName(s) or field IDs (optional).
 	 *  - If specifying a single field (name or ID) and it refers to a fieldset, then all fields in that fieldset will be included. 
 	 *  - If specifying an array of field names/IDs the returned InputfieldWrapper will maintain the requested order. 
@@ -536,6 +537,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 				'namespace' => $namespace,
 				'flat' => $flat, 
 				'populate' => true, // populate page values?
+				'container' => null, 
 			);
 			$options = $contextStr;
 			$options = array_merge($defaults, $options);
@@ -544,11 +546,16 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 			$namespace = $options['namespace'];
 			$populate = (bool) $options['populate'];
 			$flat = $options['flat'];
+			$container = $options['container'];
 		} else {
 			$populate = true;
+			$container = null;
+		}
+	
+		if(!$container instanceof InputfieldWrapper) {
+			$container = $this->wire(new InputfieldWrapper());
 		}
 		
-		$container = $this->wire(new InputfieldWrapper());
 		$containers = array();
 		$inFieldset = false;
 		$inHiddenFieldset = false;
@@ -777,5 +784,3 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	}
 
 }
-
-
