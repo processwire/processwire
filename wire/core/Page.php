@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -120,6 +120,7 @@
  * @method bool addable($pageToAdd = null) Returns true if the current user can add children to the page, false if not. Optionally specify the page to be added for additional access checking. #pw-group-access
  * @method bool moveable($newParent = null) Returns true if the current user can move this page. Optionally specify the new parent to check if the page is moveable to that parent. #pw-group-access
  * @method bool sortable() Returns true if the current user can change the sort order of the current page (within the same parent). #pw-group-access
+ * @method bool cloneable($recursive = null) Can current user clone this page? Specify false for $recursive argument to ignore whether children are cloneable. @since 3.0.239 #pw-group-access
  * @property bool $viewable #pw-group-access
  * @property bool $editable #pw-group-access
  * @property bool $publishable #pw-group-access
@@ -130,6 +131,7 @@
  * @property bool $moveable #pw-group-access
  * @property bool $sortable #pw-group-access
  * @property bool $listable #pw-group-access
+ * @property bool $cloneable @since 3.0.239 #pw-group-access 
  * 
  * Methods added by PagePathHistory.module (installed by default)
  * --------------------------------------------------------------

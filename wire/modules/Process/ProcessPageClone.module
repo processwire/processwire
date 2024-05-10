@@ -150,24 +150,7 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function hasPermission(Page $page) {
-		$user = $this->wire()->user; 
-		$parent = $page->parent();
-		$parentTemplate = $parent->template;
-		$pageTemplate = $page->template;
-		
-		if(!$parentTemplate) return false;
-
-		if($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID)) return false; 
-		if($parentTemplate->noChildren) return false; 
-		if($pageTemplate->noParents) return false; 
-
-		if(count($parentTemplate->childTemplates) && !in_array($pageTemplate->id, $parentTemplate->childTemplates)) return false; 
-		if(count($pageTemplate->parentTemplates) && !in_array($parentTemplate->id, $pageTemplate->parentTemplates)) return false; 
-		
-		if($user->isSuperuser()) return true; 
-		if($user->hasPermission('page-create', $page) && $user->hasPermission('page-clone', $page) && $parent->addable()) return true; 
-
-		return false; 
+		return $page->cloneable(false);
 	}
 
 	/**
@@ -378,7 +361,7 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 		
 		$titleField = $form->get('clone_page_title');
 		$nameField = $form->get('clone_page_name');
-		$cloneTree = $input->post('clone_page_tree') && $this->wire()->user->hasPermission('page-clone-tree', $this->page);
+		$cloneTree = $input->post('clone_page_tree') && $this->page->cloneable(true);
 		
 		if($input->post('clone_page_unpublished')) {
 			$page->addStatus(Page::statusUnpublished);

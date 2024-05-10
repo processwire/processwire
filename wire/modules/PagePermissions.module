@@ -116,7 +116,8 @@ class PagePermissions extends WireData implements Module {
 		$this->addHook('Page::restorable', $this, 'restorable'); 
 		$this->addHook('Page::addable', $this, 'addable'); 
 		$this->addHook('Page::moveable', $this, 'moveable'); 
-		$this->addHook('Page::sortable', $this, 'sortable'); 
+		$this->addHook('Page::sortable', $this, 'sortable');
+		$this->addHook('Page::cloneable', $this, 'cloneable');
 		// $this->addHook('Page::fieldViewable', $this, 'hookFieldViewable');
 		// $this->addHook('Page::fieldEditable', $this, 'hookFieldEditable');
 		// $this->addHook('Template::createable', $this, 'createable'); 
@@ -1106,6 +1107,69 @@ class PagePermissions extends WireData implements Module {
 
 		// if we made it here, then page is not publishable
 		$event->return = false; 
+	}
+
+	/**
+	 * Is page cloneable by current user?
+	 * 
+	 * Note: If a page has children and current user is not superuser, this method will return
+	 * true only if the user has the `page-clone-tree` permission (from ProcessPageClone module). 
+	 * 
+	 * ~~~~~
+	 * if($page->cloneable()) {
+	 *   // page is cloneable
+	 * }
+	 * if($page->cloneable(false)) {
+	 *   // page is cloneable, ignoring if recursive clone of children is allowed
+	 * }
+	 * ~~~~~
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function cloneable($event) {
+		
+		$page = $event->object; /** @var Page $page */
+		$recursive = $event->arguments(0); /** @var bool|null $recursive */
+		$user = $this->wire()->user;
+		$permissions = $this->wire()->permissions;
+		$parent = $page->parent();
+		$parentTemplate = $parent->template;
+		$pageTemplate = $page->template;
+		$event->return = false;
+
+		if(!$parentTemplate) return;
+
+		if($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID)) return;
+		if($parentTemplate->noChildren) return;
+		if($pageTemplate->noParents) return;
+
+		if(count($parentTemplate->childTemplates) && !in_array($pageTemplate->id, $parentTemplate->childTemplates)) return;
+		if(count($pageTemplate->parentTemplates) && !in_array($parentTemplate->id, $pageTemplate->parentTemplates)) return;
+
+		if($user->isSuperuser()) {
+			$event->return = true;
+			return;
+		}
+		
+		if(!$user->hasPermission('page-create', $page)) return;
+		
+		if(!$parent->addable()) return;
+		
+		if($permissions->has('page-clone')) {
+			if(!$user->hasPermission('page-clone', $page)) return;
+		}
+
+		if($recursive === false || !$page->numChildren) {
+			// call indicates they do not intend to clone children
+			// or there are no children, so no additional checks necessary	
+		} else {
+			// check that they have page-clone-tree permission IF the page has children
+			// recursive cloning is only allowed via ProcessPageClone module
+			if(!$user->hasPermission('page-clone-tree', $page)) return;
+		}
+	
+		$event->return = true;
 	}
 	
 	/**

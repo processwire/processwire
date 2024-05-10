@@ -9,7 +9,7 @@
  * Except where indicated, please treat these properties as private to the 
  * Page class. 
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -75,6 +75,7 @@ abstract class PageProperties {
 		'addable' => 'm',
 		'child' => 'm',
 		'children' => 'm',
+		'cloneable' => 'm',
 		'created' => 's',
 		'createdStr' => '',
 		'createdUser' => '',
