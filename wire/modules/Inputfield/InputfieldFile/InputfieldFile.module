@@ -668,9 +668,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$fieldName = (string) $this->hasField;
 		}
 
-		$postUrl = $page->editUrl();
+		$postUrl = $page ? $page->editUrl() : '';
 
-		if($nameAttr != $fieldName) {
+		if($nameAttr != $fieldName && $fieldName && $postUrl) {
 			// file context for output after upload in case upload starts from a 
 			// page that is different from the one where the the file actually lives,
 			// but file upload is posted to the correct page. this ensures the resulting
