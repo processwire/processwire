@@ -29,11 +29,19 @@
  * - Inputfields.columnWidth(f, w): Set the column width percent of Inputfield, where w is percent width between 1-100.
  * - Inputfields.name(f): Get the name of the given Inputfield
  * - Inputfields.label(f): Get the text label of the given Inputfield
+ * - Inputfields.label(f, 'label text'): Set the label text of the given Inputfield. (3.0.239+)
+ * - Inputfields.icon(f): Get the $icon element if present, or blank jQuery object if not. (3.0.239+)
+ * - Inputfields.icon(f, 'life-ring'): Set the icon for the given Inputfield. (3.0.239+)
  * - Inputfields.input(f): Get the input element(s) within the given Inputfield
  * - Inputfields.insertBefore(f, ff): Insert Inputfield 'f' before Inputfield 'ff'.
  * - Inputfields.insertAfter(f, ff): Insert Inputfield 'f' after Inputfield 'ff'.
  * - Inputfields.startSpinner(f): Start spinner for Inputfield.
  * - Inputfields.stopSpinner(f): Stop spinner for Inputfield. 
+ * - Inputfields.inputfield(f): Given a name, id or any element in an Inputfield, return the Inputfield object.
+ * - Inputfields.header(f): Given a name, id or any element in an Inputfield, return the InputfieldHeader object. (3.0.239+)
+ * - Inputfields.content(f): Given a name, id or any element in an Inputfield, return the InputfieldContent object. (3.0.239+)
+ * - Inputfields.addHeaderAction(f, …) Add an Inputfield header icon action. See function for details and examples. (3.0.239+)
+ * - Inputfields.getHeaderAction(name) Get a previously added Inputfield header icon action by name. (3.0.239+)
  * - Inputfields.init(target): Manually initialize all .Inputfield elements within target.
  *   Calling init() is only necessary for Inputfields not present during page load. 
  * - This file also contains lots of other functions, but they are not part of the public API. 
@@ -81,11 +89,20 @@
  * - InputfieldHeaderHidden: When paired with InputfieldHeader classs, indicate header is hidden.
  * - InputfieldStateToggle: Assigned to element that toggles open/collapsed state (typically InputfieldHeader). 
  * - InputfieldContent: Assigned to the content of the Inputfield, wraps any <input> elements. Hidden when collapsed.
- *     
+ * 
+ * Children of .InputfieldHeader elements may have these classes:
+ * - InputfieldHeaderAction: Class for header icon actions added with the Inputfields.addHeaderAction() function.
+ * - toggle-icon: Assigned to icon that also works as an .InputfieldStateToggle element.
+ * 
+ * Children of .InputfieldContent elements may often have these classes:
+ * - description: Class for description text that appears above the input element(s).
+ * - notes: Class for notes text that appears below the input element(s).
+ * - detail: Class for additional details text that appears below the input elements(s) and notes.
+ * - renderInputfieldAjax: Present in a wapping <div> when Inputfield will be ajax loaded on header click.
+ *
  * Other classes:
- * - Inputfields: Class <ul> or other element that contains .Inputfield children. 
+ * - Inputfields: Class <ul> or other element that contains .Inputfield children, typically with .InputfieldWrapper as a parent.
  * - body.InputfieldColumnWidthsInit: Class assigned to body element when column widths initialized. 
- * - i.toggle-icon: Assigned to icon that also works as an .InputfieldStateToggle element. 
  * - maxColHeightSpacer: Used internally for aligning the height of a row of columns, when applicable. 
  * 
  * EVENTS
@@ -763,21 +780,40 @@ var Inputfields = {
 	},
 
 	/**
-	 * Get header label for given Inputfield
+	 * Get or set header label for given Inputfield
 	 * 
 	 * @param $inputfield
+	 * @param string label Specify to set label value or omit to get value (3.0.239+)
 	 * @return string
 	 * 
 	 */
-	label: function($inputfield) {
+	label: function($inputfield, label) {
 		$inputfield = this.inputfield($inputfield);
 		if(!$inputfield.length) return '';
-		var label = $inputfield.attr('data-label');
-		if(typeof label != "undefined" && label && label.length) return label;
-		var $header = $inputfield.children('.InputfieldHeader');
-		if(!$header.length) return '';
-		label = $header.text();
-		if(label.length) label = label.toString().trim();
+		if(typeof label === 'undefined') {
+			// getting
+			var label = $inputfield.attr('data-label');
+			if(typeof label != "undefined" && label && label.length) return label;
+			var $header = $inputfield.children('.InputfieldHeader');
+			if(!$header.length) return '';
+			label = $header.text();
+			if(label.length) label = label.toString().trim();
+		} else {
+			// setting
+			var childNodes = $inputfield.children('.InputfieldHeader')[0].childNodes;
+			var addSpace = false;
+			for(var n = 0; n < childNodes.length; n++) {
+				var node = childNodes[n];
+				if(node.nodeType === Node.TEXT_NODE) { 
+					if(node.nodeValue.length && !node.nodeValue.trim().length) {
+						addSpace = true;
+					} else {
+						childNodes[n].nodeValue = (addSpace ? ' ' : '') + label;
+						break;
+					}
+				}
+			}
+		}
 		return label;
 	}, 
 	
@@ -851,6 +887,8 @@ var Inputfields = {
 				if(!$in.length) $in = jQuery(':input[id=' + $inputfield + ']'); 
 				if(!$in.length) $in = jQuery(':input[name="' + $inputfield + '[]"]'); // array name
 				if(!$in.length) $in = jQuery('#' + $inputfield + '.Inputfield'); 
+				if(!$in.length) $in = jQuery('#wrap_Inputfield_' + $inputfield + '.Inputfield');
+				if(!$in.length) $in = jQuery('#wrap_' + $inputfield + '.Inputfield');
 				$inputfield = $in;
 			} else {
 				$inputfield = jQuery($inputfield)
@@ -862,6 +900,68 @@ var Inputfields = {
 		}
 		return $inputfield;
 	},
+	
+	/**
+	 * Return the .InputfieldHeader element for given Inputfield (or id, name, element within)
+	 * 
+ 	 * @param $inputfield Can be .Inputfield, id, name, or any element within Inputfield
+	 * @since 3.0.239
+	 * @returns object
+	 * 
+	 */	
+	header: function($inputfield) {
+		return this.inputfield($inputfield).children('.InputfieldHeader');
+	},
+	
+	/**
+	 * Return the .InputfieldContent element for given Inputfield (or id, name, element within)
+	 *
+	 * @param $inputfield Can be .Inputfield, id, name, or any element within Inputfield
+	 * @since 3.0.239
+	 * @returns object
+	 *
+	 */
+	content: function($inputfield) {
+		this.inputfield($inputfield).children('.InputfieldContent');
+	},
+	
+	/**
+	 * Get or set Inputfield icon (fa-icon)
+	 * 
+ 	 * @param $inputfield
+	 * @param icon Specify to add or set icon, i.e. "fa-cog"
+	 * @returns object
+	 * 
+	 */	
+	icon: function($inputfield, icon) {
+		var $header = this.header($inputfield);
+		var $icon, $prevIcon, replaceElement = false;
+		
+		if($header[0].innerHTML.indexOf('<i ') === 0) {
+			$prevIcon = $header.children().eq(0);
+		} else {
+			$prevIcon = jQuery();
+		}
+		
+		// getting current icon element or blank object
+		if(typeof icon === 'undefined') return $prevIcon;
+
+		// get specified icon or create new one
+		$icon = typeof icon === 'object' ? icon : jQuery('<i />'); 
+		
+		if(typeof icon === 'string') {
+			if(icon.indexOf('fa-') !== 0) icon = 'fa-' + icon;
+			$icon.attr('class', 'fa fa-fw ' + icon); // replace class entirely
+		}
+		
+		if($prevIcon.length) {
+			$prevIcon.replaceWith($icon);
+		} else {
+			$header.prepend(' ').prepend($icon);
+		}
+		
+		return $icon;
+	}, 
 
 	/**
 	 * Execute find, focus or highlight action from URL fragment/hash
@@ -961,7 +1061,203 @@ var Inputfields = {
 	getAllInRow: function($inputfield, andHidden) {
 		if(typeof andHidden === "undefined") andHidden = false;
 		return this.getSiblingsInRow($inputfield, true, andHidden);
-	}
+	},
+	
+	/**
+	 * Add an Inputfield header icon action
+	 * 
+	 * This adds a clickable icon to the right side of the Inputfield header. 
+	 * There are two types of actions: 'click' and 'toggle'. The 'click' action 
+	 * simply executes your callback whenever it is clicked. The 'toggle' action 
+	 * has an on/off state, and you can provide callbacks and icons for either. 
+	 * This function will automatically figure out whether you want a `click`
+	 * or `toggle` action based on what you provide in the settings argument.
+	 * Below is a summary of these settings: 
+	 * 
+	 * Settings for 'click' type actions:
+	 *  - `icon` (string): Class to use for icon, i.e. 'fa-cog'. 
+	 *  - `callback` (function): Callback function when action icon is clicked.
+	 *  - `tooltip` (string): Optional tooltip to describe what the action does. 
+	 *  
+	 * Settings for 'toggle' (on/off) type actions:
+	 *  - `on` (bool): True if action is currently ON, false if not (default=false).
+	 *  - `onIcon` (string): Icon class when action is ON and clicking would toggle OFF, i.e. 'fa-toggle-off'.
+	 *  - `onCallback` (function): Callback function when action is clicked to turn ON.
+	 *  - `onTooltip` (string): Optional tooltip text for when action is ON. 
+	 *  - `offIcon` (string): Icon class when action is OFF and clicking would toggle ON, i.e. 'fa-toggle-on'.
+	 *  - `offCallback` (function): Callback function when action is clicked to turn OFF.
+	 *  - `offTooltip` (string): Optional tooltip text for when action is OFF.
+	 *  -  Note that if 'offIcon' or 'offTooltip' are omitted, they will use their 'on' equivalent.
+	 *  
+	 * Other/optional settings (applies to all types): 
+	 *  - `name` (string): Name of action using only characters [_-a-zA-Z0-9]. 
+	 *  - `overIcon` (string): Optional icon class when mouse cursor is hovering OVER the action. 
+	 *  - `overCallback` (function): Optional callback function when mouse cursor is hovering OVER the action.
+	 *  - `cursor` (function): Optional/alternate mouse cursor to show when hovering over the action. 
+	 *  - `iconTag` (string): Optionally override the default <i> tag used for the icon. You can specify this
+	 *     if you want to use a non-FontAwesome icon.
+	 *  
+	 * Examples: 
+	 * ~~~~~
+	 * // Example of adding click action to 'title' field:
+	 * Inputfields.addHeaderAction('title', {
+	 * 	 icon: 'fa-hand-stop-o',
+	 * 	 overIcon: 'fa-hand-peace-o', // optional
+	 * 	 tooltip: 'Hello world', // optional
+	 * 	 callback: function() {
+	 * 	   ProcessWire.alert('Hello World!'); 
+	 * 	 }
+	 * });
+	 * 	
+	 * // Example of adding a toggle action to 'title' field:
+	 * Inputfields.addHeaderAction('title', {
+	 *   onIcon: 'fa-toggle-on',
+	 *   onTooltip: 'Click to toggle off',
+	 *   onCallback: function() {
+	 *     ProcessWire.alert('You toggled on');
+	 *   },
+	 *   offIcon: 'fa-toggle-off',
+	 *   offTooltip: 'Click to toggle on',
+	 *   offCallback: function() {
+	 *     ProcessWire.alert('You toggled off');
+	 *   }	
+	 * });
+	 * ~~~~~
+	 * 
+	 * Note: all callback functions receive the $icon element returned by this function, 
+	 * as the first and only argument.
+	 * 
+ 	 * @param $inputfield Inputfield element, name, id, or any element within it.
+	 * @param settings Settings to define the action (required), see function notes above. 
+	 * @returns jQuery Returns the <i> icon element if you want to manipulate it further.
+	 * 
+	 */	
+	addHeaderAction: function($inputfield, settings) {
+		
+		var $ = jQuery;
+		var defaults = {
+			// for click actions:
+			icon: '',
+			callback: null, 
+			tooltip: '', 
+			// for toggle actions:
+			on: false, 
+			onIcon: '',
+			onCallback: null,
+			onTooltip: '',
+			offIcon: '',
+			offCallback: null,
+			offTooltip: '',
+			// for optional mouseover state:
+			overIcon: '',
+			overCallback: null,
+			cursor: '',
+			// other
+			name: '',
+			iconTag: '<i class="fa fa-fw"></i>',
+		};
+
+		settings = $.extend(defaults, settings);
+		
+		var $header = this.header($inputfield);
+		var $icon = $(settings.iconTag);
+		var cls, tooltip, actionType = 'click';
+		var useFA = $icon.hasClass('fa')
+		
+		function fa(cls) {
+			return (useFA && cls.indexOf('fa-') !== 0 ? 'fa-' + cls : cls);
+		}
+		
+		$icon.addClass('InputfieldHeaderAction')
+			.css({ float: 'right', lineHeight: $header.css('line-height') });
+		
+		if(settings.onIcon.length) actionType = 'toggle';
+		if(settings.name.length) $icon.addClass('InputfieldHeaderAction-' + settings.name);
+		if(settings.cursor.length) $icon.css('cursor', settings.cursor);
+		
+		if(actionType === 'toggle') {
+			if(!settings.offIcon.length) settings.offIcon= settings.onIcon;
+			if(!settings.offTooltip.length) settings.offTooltip = settings.onTooltip;
+			if(settings.on) {
+				$icon.addClass(fa(settings.onIcon)).data('on', true);
+				tooltip = settings.onTooltip;
+			} else {
+				$icon.addClass(fa(settings.offIcon)).data('on', false);
+				tooltip = settings.offTooltip;
+			}
+		} else {
+			$icon.addClass(fa(settings.icon)).data('on', true);
+			settings.onIcon = settings.icon; // for over state
+			tooltip = settings.tooltip;
+		}
+	
+		if(tooltip.length) $icon.attr('title', tooltip);
+		
+		$icon.on('click', function() {
+			if(actionType === 'toggle') {
+				if($icon.data('on')) {
+					$icon.removeClass(fa(settings.onIcon)).addClass(fa(settings.offIcon))
+					if(settings.offTooltip.length) $icon.attr('title', settings.offTooltip);
+					if(settings.offCallback) settings.offCallback($icon);
+					$icon.data('on', false);
+				} else {
+					$icon.removeClass(fa(settings.offIcon)).addClass(fa(settings.onIcon));
+					if(settings.onTooltip.length) $icon.attr('title', settings.onTooltip);
+					if(settings.onCallback) settings.onCallback($icon);
+					$icon.data('on', true);
+				}
+			} else {
+				if(settings.callback) settings.callback($icon);
+			}
+			return false;
+		});
+		
+		if(settings.overIcon.length || settings.overCallback) {
+			$icon.on('mouseover', function() {
+				if(settings.overIcon.length) {
+					var cls = $icon.data('on') ? settings.onIcon : settings.offIcon;
+					$icon.removeClass(fa(cls)).addClass(fa(settings.overIcon));
+				}
+				if(settings.overCallback) settings.overCallback($icon);
+			});
+			if(settings.overIcon.length) {
+				$icon.on('mouseout', function() {
+					var cls = $icon.data('on') ? settings.onIcon : settings.offIcon;
+					$icon.removeClass(fa(settings.overIcon)).addClass(fa(cls));
+				});
+			}
+		}
+		
+		$header.append($icon);
+
+		return $icon;
+	},
+	
+	/**
+	 * Get a previously added header action by name
+	 * 
+	 * In order to use this to retrieve a single header actino, you must have 
+	 * specified the `name` property in your settings to the addHeaderAction() call.
+	 * 
+	 * ~~~~~
+	 * // Example of get+remove header action w/name 'foo' for field 'title' 
+	 * $action = Inputfields.getHeaderAction('title', 'foo');
+	 * if($action.length) $action.remove();
+	 * ~~~~~
+	 * 
+	 * @param $inputfield Inputfield element, name, id, or any element within it.
+	 * @param string name Name of action or icon name used in action
+	 * @returns jQuery The action element (an <i> icon) or empty jQuery element if not found
+	 * 
+	 */
+	getHeaderAction: function($inputfield, name) {
+		var $header = this.header($inputfield);
+		var cls = '.InputfieldHeaderAction';
+		var $a = $header.find(cls + '-' + name);
+		if(!$a.length) $a = $header.find(cls + '.' + name);
+		if(!$a.length) $a = $header.find(cls + '.fa-' + name);
+		return $a;
+	}, 
 	
 };
 
