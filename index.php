@@ -35,6 +35,8 @@ if(false !== $composerAutoloader) {
 }
 if(!class_exists("ProcessWire\\ProcessWire", false)) require_once("$rootPath/wire/core/ProcessWire.php");
 $config = ProcessWire::buildConfig($rootPath);
+$config->paths->composer = $vendorPath;
+$config->paths->composerAutoloader = $composerAutoloader; // False if file not found
 
 if(!$config->dbName) {
 	// If ProcessWire is not installed, go to the installer
