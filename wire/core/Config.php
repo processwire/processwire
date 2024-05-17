@@ -45,7 +45,7 @@
  * @property array $imageSizerOptions Options to set image sizing defaults. Please see the /wire/config.php file for all options and defaults. #pw-group-images
  * @property array $webpOptions Options for webp images. Please see /wire/config.php for all options. #pw-group-images
  * 
- * @property bool $pagefileSecure When used, files in /site/assets/files/ will be protected with the same access as the page. Routines files through a passthrough script. #pw-group-files
+ * @property bool $pagefileSecure When used, files in /site/assets/files/ will be protected with the same access as the page. Routes files through a passthrough script. Note if applying to existing site it may not affect existing pages and file/image fields until they are accessed or saved. #pw-group-files
  * @property string $pagefileSecurePathPrefix One or more characters prefixed to the pathname of protected file dirs. This should be some prefix that the .htaccess file knows to block requests for. #pw-group-files
  * @property string $pagefileUrlPrefix Deprecated property that was a string that prefixes filenames in PW URLs, becoming a shortcut to a page’s file’s URL (do not use, here for backwards compatibility only). #pw-internal
  * 
