@@ -609,14 +609,20 @@ class TemplateFile extends WireData {
 	 * 
 	 * USAGE from template file is: return $this->halt();
 	 * 
-	 * @param bool $halt
+	 * @param bool|string $halt
+	 *  If given boolean, it will set the halt status.
+	 *  If given string, it will be output (3.0.239+)
 	 * @return $this
 	 * 
 	 */
-	protected function halt($halt = true) {
-		$this->halt = $halt ? true : false;
+	public function halt($halt = true) {
+		if(is_bool($halt)) {
+			$this->halt = $halt ? true : false;
+		} else if(is_string($halt)) {
+			$this->halt = true;
+			echo $halt;
+		}
 		return $this;
 	}
 	
 }
-
