@@ -1567,6 +1567,64 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	}
 
 	/**
+	 * Get Inputfield by Field (hasField)
+	 * 
+	 * This is useful in cases where the input name may differ from the Field name
+	 * that it represents, and you only know the field name. Applies only to 
+	 * Inputfields connected with a Page and Field (i.e. used for page editing).
+	 * 
+	 * #pw-group-retrieval-and-traversal
+	 * 
+	 * @param Field|string|int $field
+	 * @return Inputfield|InputfieldWrapper|null
+	 * @since 3.0.239
+	 * 
+	 */
+	public function getByField($field) {
+		if(!$field instanceof Field) $field = $this->wire()->fields->get($field);
+		return $this->getByProperty('hasField', $field);
+	}
+
+	/**
+	 * Get Inputfield by some other non-attribute property or setting
+	 * 
+	 * #pw-group-retrieval-and-traversal
+	 * 
+	 * @param string $property
+	 * @param mixed $value
+	 * @param bool $getAll Get array of all matching Inputfields rather than just first? (default=false)
+	 * @return Inputfield|InputfieldWrapper|null|array
+	 * @since 3.0.239
+	 * 
+	 */
+	public function getByProperty($property, $value, $getAll = false) {
+		$inputfield = null;
+		$value = (string) $value;
+		$a = array();
+		
+		foreach($this->children() as $child) {
+			/** @var Inputfield $child */
+			if((string) $child->getSetting($property) === $value) {
+				$inputfield = $child;
+			} else if($child instanceof InputfieldWrapper) {
+				if($getAll) {
+					$a = array_merge($a, $child->getByProperty($property, $value, true));
+				} else {
+					$inputfield = $child->getByProperty($property, $value);
+				}
+			}
+			if($inputfield) {
+				if($getAll) {
+					$a[] = $inputfield;
+				} else {
+					break;
+				}
+			}
+		}
+		return $getAll ? $a : $inputfield;
+	}
+
+	/**
 	 * Get value of Inputfield by name
 	 * 
 	 * This traverses all children recursively to find the requested Inputfield,
