@@ -3020,6 +3020,23 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function getInputfields($fieldName = '') {
+		if($this->wire()->hooks->isMethodHooked($this, 'getInputfields')) {
+			return $this->__call('getInputfields', array($fieldName));
+		} else {
+			return $this->___getInputfields($fieldName);
+		}
+	}
+
+	/**
+	 * Hookable version of getInputfields() method. 
+	 * 
+	 * See the getInputfields() method above for documentation details. 
+	 * 
+	 * @param string|array $fieldName
+	 * @return null|InputfieldWrapper Returns an InputfieldWrapper array of Inputfield objects, or NULL on failure.
+	 * 
+	 */
+	protected function ___getInputfields($fieldName = '') {
 		return $this->values()->getInputfields($this, $fieldName);
 	}
 
