@@ -29,7 +29,7 @@ $scripts->append($rootUrl . "wire/templates-admin/scripts/inputfields.$ext?v=$ve
 $scripts->append($rootUrl . "wire/templates-admin/scripts/main.$ext?v=$version");
 $scripts->append($themeUrl . "uikit/dist/js/uikit.min.js?v=$version");
 $scripts->append($themeUrl . "uikit/dist/js/uikit-icons.min.js?v=$version");
-$scripts->append($themeUrl . "scripts/main.js?v=$version");
+$scripts->append($themeUrl . "scripts/main.$ext?v=$version");
 
 ?>
 
