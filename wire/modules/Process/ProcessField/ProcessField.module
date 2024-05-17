@@ -2538,6 +2538,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				if(!$input->post('system')) {
 					$this->field->flags = $this->field->flags | Field::flagSystemOverride;
 					$this->field->flags = $this->field->flags & ~Field::flagSystem;
+					$this->field->flags = $this->field->flags & ~Field::flagSystemOverride;
 				} else {
 					$this->field->flags = $this->field->flags | Field::flagSystem;
 				}
