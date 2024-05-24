@@ -3,7 +3,7 @@
 /**
  * ProcessWire Inputfield - base class for Inputfield modules.
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * An Inputfield for an actual form input field widget, and this is provided as the base class
@@ -396,6 +396,14 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 */
 	protected $editable = true;
+
+	/**
+	 * Header icon definitions
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $headerActions = array();
 
 	/**
 	 * Construct the Inputfield, setting defaults for all properties
@@ -2079,6 +2087,60 @@ abstract class Inputfield extends WireData implements Module {
 	public function editable($setEditable = null) {
 		if(!is_null($setEditable)) $this->editable = (bool) $setEditable;
 		return $this->editable;
+	}
+
+	/**
+	 * Add header action
+	 *
+	 * This adds a clickable icon to the right side of the Inputfield header.
+	 * There are three types of actions: 'click', 'toggle' and 'link'. The 'click' 
+	 * action simply triggers your JS event whenever it is clicked. The 'toggle' action
+	 * has an on/off state, and you can specify the JS event to trigger for each. 
+	 * This function will automatically figure out whether you want a `click`,
+	 * `toggle` or 'link' action based on what you provide in the $settings argument.
+	 * Below is a summary of these settings:
+	 * 
+	 * Settings for 'click' or 'link' type actions:
+	 * 
+	 * - `icon` (string): Name of font-awesome icon to use.
+	 * - `tooltip` (string): Optional tooltip text to display when icon hovered. 
+	 * - `event` (string): Event name to trigger in JS when clicked ('click' actions only). 
+	 * - `href` (string): URL to open ('link' actions only). 
+	 * - `modal` (bool): Specify true to open link in modal ('link' actions only). 
+	 * 
+	 * Settings for 'toggle' (on/off) type actions: 
+	 * 
+	 * - `on` (bool): Start with the 'on' state? (default=false)
+	 * - `onIcon` (string): Name of font-awesome icon to show for on state. 
+	 * - `onEvent` (string): JS event name to trigger when toggled on. 
+	 * - `onTooltip` (string): Tooltip text to show when on icon is hovered. 
+	 * - `offIcon` (string): Name of font-awesome icon to show for off state. 
+	 * - `offEvent` (string): JS event name to trigger when toggled off. 
+	 * - `offTooltip` (string): Tooltip text to show when off icon is hovered. 
+	 * 
+	 * Other/optional settings (applies to all types): 
+	 * 
+	 * - `name` (string): Name of this action (-_a-zA-Z0-9).
+	 * - `overIcon` (string): Name of font-awesome icon to show when hovered. 
+	 * - `overEvent` (string): JS event name to trigger when mouse is over the icon.
+	 * - `cursor` (string): CSS cursor name to show when mouse is over the icon. 
+	 * - `setAll` (array): Set all of the header actions in one call, replaces any existing. 
+	 *    Note: to get all actions, call the method and omit the $settings argument. 
+	 * 
+	 * @param array $settings Specify array containing the appropriate settings above.
+	 * @return array Returns all currently added actions.
+	 * @since 3.0.240
+	 * 
+	 */
+	public function addHeaderAction(array $settings = array()) {
+		if(!empty($settings['setAll'])) {
+			if(is_array($settings['setAll'])) {
+				$this->headerActions = array_values($settings['setAll']);
+			}
+		} else {
+			$this->headerActions[] = $settings; // add new action
+		}
+		return $this->headerActions; // return all
 	}
 
 	/**

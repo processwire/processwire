@@ -3,7 +3,7 @@
 /**
  * ProcessWire InputfieldWrapper
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * About InputfieldWrapper
@@ -885,6 +885,10 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				if($toggle && strpos($toggle, 'title=') === false) {
 					$toggle = str_replace("class=", "title='" . $this->_('Toggle open/close') . "' class=", $toggle);
 				}
+				$headerActions = $inputfield->addHeaderAction();
+				if(count($headerActions)) {
+					$label .= $this->renderHeaderActions($inputfield, $headerActions);
+				}
 				if($skipLabel === Inputfield::skipLabelHeader || $quietMode) {
 					// label only shows when field is collapsed
 					$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label_hidden']); 
@@ -990,6 +994,52 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		}
 
 		return $out; 
+	}
+
+	/**
+	 * Render Inputfield header actions
+	 * 
+	 * @param Inputfield $inputfield
+	 * @param array $actions
+	 * @return string
+	 * @since 3.0.240
+	 * 
+	 */
+	protected function renderHeaderActions(Inputfield $inputfield, array $actions) {
+		$sanitizer = $this->wire()->sanitizer;
+		$out = '';
+		$modal = false;
+		foreach($actions as $a) {
+			$icon = '';
+			$type = '';
+			if(isset($a['icon'])) {
+				$icon = $a['icon'];
+				if(isset($a['href'])) {
+					$type = 'link';
+					if(!empty($a['modal'])) $modal = true;
+				} else {
+					$type = 'click';
+				}
+			} else if(isset($a['offIcon'])) {
+				$type = 'toggle';
+				if(!isset($a['onIcon'])) $a['onIcon'] = $a['offIcon'];
+			} else if(isset($a['onIcon'])) {
+				$type = 'toggle';
+				$a['offIcon'] = $a['onIcon']; 
+			}
+			if($type === 'toggle') $icon = $a['on'] ? $a['onIcon'] : $a['offIcon'];
+			if(empty($icon) || empty($type)) continue;
+			$a['type'] = $type;
+			if(strpos($icon, 'fa-') !== 0) $icon = "fa-$icon";
+			$data = $sanitizer->entities(json_encode($a));
+			$out .= "<i class='_InputfieldHeaderAction fa fa-fw $icon' data-action='$data' hidden></i>";
+		}
+		if($modal) {
+			/** @var JqueryUI $jQueryUI */
+			$jQueryUI = $this->wire()->modules->get('JqueryUI');
+			$jQueryUI->use('modal');
+		}
+		return $out;
 	}
 
 	/**

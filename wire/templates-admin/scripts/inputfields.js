@@ -1067,25 +1067,31 @@ var Inputfields = {
 	 * Add an Inputfield header icon action
 	 * 
 	 * This adds a clickable icon to the right side of the Inputfield header. 
-	 * There are two types of actions: 'click' and 'toggle'. The 'click' action 
+	 * There are three types of actions: 'click', 'toggle' and 'link'. The 'click' action 
 	 * simply executes your callback whenever it is clicked. The 'toggle' action 
 	 * has an on/off state, and you can provide callbacks and icons for either. 
-	 * This function will automatically figure out whether you want a `click`
-	 * or `toggle` action based on what you provide in the settings argument.
+	 * This function will automatically figure out whether you want a `click`,
+	 * `toggle` or 'link' action based on what you provide in the settings argument.
 	 * Below is a summary of these settings: 
 	 * 
-	 * Settings for 'click' type actions:
+	 * Settings for 'click' and 'link' type actions:
 	 *  - `icon` (string): Class to use for icon, i.e. 'fa-cog'. 
 	 *  - `callback` (function): Callback function when action icon is clicked.
-	 *  - `tooltip` (string): Optional tooltip to describe what the action does. 
-	 *  
+	 *  - `event` (string): Event name to trigger in JS when clicked ('click' actions only).
+	 *  - `tooltip` (string): Optional tooltip to describe what the action does.
+	 *  - `href` (string): URL to open ('link' actions only).
+	 *  - `modal` (bool): Specify true to make a link open in a modal window ('link' actions only). 
+	 *     (requires that /wire/modules/JqueryUI/JqueryUI/modal.js is loaded)
+	 *
 	 * Settings for 'toggle' (on/off) type actions:
 	 *  - `on` (bool): True if action is currently ON, false if not (default=false).
 	 *  - `onIcon` (string): Icon class when action is ON and clicking would toggle OFF, i.e. 'fa-toggle-off'.
 	 *  - `onCallback` (function): Callback function when action is clicked to turn ON.
+	 *  - `onEvent` (string): JS event name to trigger when toggled ON (alternative to onCallback). 
 	 *  - `onTooltip` (string): Optional tooltip text for when action is ON. 
 	 *  - `offIcon` (string): Icon class when action is OFF and clicking would toggle ON, i.e. 'fa-toggle-on'.
 	 *  - `offCallback` (function): Callback function when action is clicked to turn OFF.
+	 *  - `offEvent` (string): JS event name to trigger when toggled OFF (alternative to offCallback). 
 	 *  - `offTooltip` (string): Optional tooltip text for when action is OFF.
 	 *  -  Note that if 'offIcon' or 'offTooltip' are omitted, they will use their 'on' equivalent.
 	 *  
@@ -1140,43 +1146,60 @@ var Inputfields = {
 			icon: '',
 			callback: null, 
 			tooltip: '', 
+			event: '', 
+			// for link actions (addable from PHP side only):
+			href: '', 
+			target: '', 	
+			modal: false,
 			// for toggle actions:
 			on: false, 
 			onIcon: '',
 			onCallback: null,
 			onTooltip: '',
+			onEvent: '', 
 			offIcon: '',
 			offCallback: null,
 			offTooltip: '',
+			offEvent: '', 
 			// for optional mouseover state:
 			overIcon: '',
 			overCallback: null,
+			overEvent: '', 
 			cursor: '',
 			// other
 			name: '',
 			iconTag: '<i class="fa fa-fw"></i>',
+			// icon element if already present
+			$iconElement: null, 
 		};
 
 		settings = $.extend(defaults, settings);
 		
 		var $header = this.header($inputfield);
-		var $icon = $(settings.iconTag);
+		var $icon = settings.$iconElement ? settings.$iconElement : $(settings.iconTag);
 		var cls, tooltip, actionType = 'click';
 		var useFA = $icon.hasClass('fa')
 		
 		function fa(cls) {
 			return (useFA && cls.indexOf('fa-') !== 0 ? 'fa-' + cls : cls);
 		}
-		
-		$icon.addClass('InputfieldHeaderAction')
+	
+		$icon.addClass('InputfieldHeaderAction').removeClass('_InputfieldHeaderAction')
 			.css({ float: 'right', lineHeight: $header.css('line-height') });
 		
 		if(settings.onIcon.length) actionType = 'toggle';
+		if(settings.href.length) actionType = 'link';
 		if(settings.name.length) $icon.addClass('InputfieldHeaderAction-' + settings.name);
 		if(settings.cursor.length) $icon.css('cursor', settings.cursor);
 		
+		if(actionType === 'link') { 
+			if(!settings.tooltip.length) {
+				settings.tooltip = settings.href;
+			}
+		}
+		
 		if(actionType === 'toggle') {
-			if(!settings.offIcon.length) settings.offIcon= settings.onIcon;
+			if(!settings.offIcon.length) settings.offIcon = settings.onIcon;
 			if(!settings.offTooltip.length) settings.offTooltip = settings.onTooltip;
 			if(settings.on) {
 				$icon.addClass(fa(settings.onIcon)).data('on', true);
@@ -1194,31 +1217,41 @@ var Inputfields = {
 		if(tooltip.length) $icon.attr('title', tooltip);
 		
 		$icon.on('click', function() {
-			if(actionType === 'toggle') {
+			if(actionType === 'link') {
+				if(settings.modal) {
+					pwModalWindow(settings.href);	
+				} else {
+					window.location.href = settings.href;
+				}
+			} else if(actionType === 'toggle') {
 				if($icon.data('on')) {
 					$icon.removeClass(fa(settings.onIcon)).addClass(fa(settings.offIcon))
 					if(settings.offTooltip.length) $icon.attr('title', settings.offTooltip);
 					if(settings.offCallback) settings.offCallback($icon);
 					$icon.data('on', false);
+					if(settings.offEvent) $icon.trigger(settings.offEvent, [ $icon ]);
 				} else {
 					$icon.removeClass(fa(settings.offIcon)).addClass(fa(settings.onIcon));
 					if(settings.onTooltip.length) $icon.attr('title', settings.onTooltip);
 					if(settings.onCallback) settings.onCallback($icon);
 					$icon.data('on', true);
+					if(settings.onEvent) $icon.trigger(settings.onEvent, [ $icon ]);
 				}
 			} else {
 				if(settings.callback) settings.callback($icon);
+				if(settings.event) settings.trigger(settings.event, [ $icon ]);
 			}
 			return false;
 		});
 		
-		if(settings.overIcon.length || settings.overCallback) {
+		if(settings.overIcon.length || settings.overCallback || settings.overEvent) {
 			$icon.on('mouseover', function() {
 				if(settings.overIcon.length) {
 					var cls = $icon.data('on') ? settings.onIcon : settings.offIcon;
 					$icon.removeClass(fa(cls)).addClass(fa(settings.overIcon));
 				}
 				if(settings.overCallback) settings.overCallback($icon);
+				if(settings.overEvent) $icon.trigger(settings.overEvent, [ $icon ]);
 			});
 			if(settings.overIcon.length) {
 				$icon.on('mouseout', function() {
@@ -1227,8 +1260,9 @@ var Inputfields = {
 				});
 			}
 		}
-		
+	
 		$header.append($icon);
+		if($icon.prop('hidden')) $icon.prop('hidden', false);
 
 		return $icon;
 	},
@@ -2648,6 +2682,16 @@ function InputfieldRequirements($target) {
 	});
 }
 
+function InputfieldHeaderActions($target) {
+	jQuery('._InputfieldHeaderAction', $target).each(function() {
+		var $i = $(this);
+		var data = JSON.parse($i.attr('data-action')); 
+		data.$iconElement = $i;
+		var $inputfield = $i.closest('.Inputfield');
+		Inputfields.addHeaderAction($inputfield, data);
+	}); 
+}
+
 /**
  * Event handler called when 'reload' event is triggered on an Inputfield
  * 
@@ -2709,6 +2753,7 @@ function InputfieldsInit($target) {
 	InputfieldStates($target);
 	InputfieldDependencies($target);
 	InputfieldRequirements($target);
+	InputfieldHeaderActions($target);
 	setTimeout(function() { InputfieldColumnWidths(); }, 100);
 }
 
@@ -2740,8 +2785,10 @@ jQuery(document).ready(function($) {
 		setTimeout(InputfieldWindowResizeActions2, 500);
 		return true;
 	}); 
-	
-	InputfieldRequirements($('.InputfieldForm'));
+
+	var $form = $('.InputfieldForm');
+	InputfieldRequirements($form);
+	InputfieldHeaderActions($form);
 
 	$(document).on('reload', '.Inputfield', InputfieldReloadEvent);
 	
