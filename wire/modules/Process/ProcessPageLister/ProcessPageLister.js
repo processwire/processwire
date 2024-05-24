@@ -303,7 +303,7 @@ var ProcessLister = {
 		}, 250);
 
 		var pos = data.indexOf('ProcessListerScript');
-		if(pos) {
+		if(pos > -1) {
 			var js = data.substring(pos+21);
 			if(js != '</div>') {
 				pos = js.indexOf('</div>');
