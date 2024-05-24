@@ -476,13 +476,57 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Reset the current PDO connection(s)
+	 * 
+	 * This forces re-creation of the PDO instance(s), whether writer, reader or both. 
+	 * This may be useful to call after a "MySQL server has gone away" error to attempt
+	 * to re-establish the connection.
+	 * 
+	 * #pw-group-connection
+	 * 
+	 * @param string|null $type 
+	 *  - Specify 'writer' to reset writer instance.
+	 *  - Specify 'reader' to reset reader instance.
+	 *  - Omit or null to reset both, or whichever one is in use. 
+	 * @return self
+	 * @since 3.0.240
+	 * 
+	 */
+	public function reset($type = null) {
+		$this->close($type);
+		$this->pdo($type);
+		return $this;
+	}
+
+	/**
+	 * Close the current PDO connection(s)
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string|null $type
+	 *  - Specify 'writer' to close writer instance.
+	 *  - Specify 'reader' to close reader instance.
+	 *  - Omit or null to close both.
+	 * @return self
+	 * @since 3.0.240
+	 *
+	 */
+	public function close($type = null) {
+		if($type === 'reader' || $type === null) {
+			$this->reader['pdo'] = null;
+		}
+		if($type === 'writer' || $type === null) {
+			$this->writer['pdo'] = null;
+		}
+		return $this;
+	}
+
+	/**
 	 * Return the actual current PDO connection instance
 	 *
-	 * If connection is lost, this will restore it automatically.
+	 * #pw-internal
 	 *
-	 * #pw-group-connection
-	 *
-	 * @param string|\PDOStatement|null SQL, statement, or statement type (reader or primary) (3.0.175+)
+	 * @param string|\PDOStatement|null SQL, statement, or statement type (reader or writer) (3.0.175+)
 	 *
 	 * @return \PDO
 	 *
@@ -935,31 +979,41 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 * @param \PDOStatement $query
 	 * @param bool $throw Whether or not to throw exception on query error (default=true)
-	 * @param int $maxTries Deprecated/argument does nothing (was: “Max number of times it will attempt to retry query on error”)
+	 * @param int $maxTries Max number of times it will attempt to retry query on lost connection error
 	 * @return bool True on success, false on failure. Note if you want this, specify $throw=false in your arguments.
 	 * @throws \PDOException
 	 *
 	 */
 	public function execute(\PDOStatement $query, $throw = true, $maxTries = 3) {
+		$tries = 0;
 
-		try {
-			$result = $query->execute();
-		} catch(\PDOException $e) {
-			$result = false;
-			if($query->errorCode() == '42S22') {
-				// unknown column error
-				$errorInfo = $query->errorInfo();
-				if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
-					$this->unknownColumnError($matches[1]);
+		do {
+			$tryAgain = false;
+			try {
+				$result = $query->execute();
+			} catch(\PDOException $e) {
+				$result = false;
+				if($query->errorCode() == '42S22') {
+					// unknown column error
+					$errorInfo = $query->errorInfo();
+					if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
+						$this->unknownColumnError($matches[1]);
+					}
+				} else if($e->getCode() === 'HY000' && $tries < $maxTries) {
+					// mysql server has gone away
+					$this->reset();
+					$tryAgain = true;
+					$tries++;
+				}
+				if($tryAgain) {
+					// we will try again on next iteration
+				} else if($throw) {
+					throw $e;
+				} else {
+					$this->error($e->getMessage());
 				}
 			}
-			if($throw) {
-				throw $e;
-			} else {
-				$this->error($e->getMessage());
-			}
-			if($maxTries) {} // ignore, argument no longer used
-		}
+		} while($tryAgain);
 
 		return $result;
 	}
