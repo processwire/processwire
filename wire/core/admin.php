@@ -6,7 +6,7 @@
  * This file is designed for inclusion by /site/templates/admin.php template and all the variables 
  * it references are from your template namespace. 
  *
- * Copyright 2022 by Ryan Cramer
+ * Copyright 2024 by Ryan Cramer
  * 
  * @var Config $config
  * @var User $user
@@ -100,6 +100,24 @@ function _checkForMaxInputVars(WireInput $input) {
 	}
 }
 
+/**
+ * Setup for demo mode 
+ * 
+ * @param Page $page
+ * @param ProcessWire $wire
+ * 
+ */
+function _setupForDemoMode($page, $wire) {
+	if("$page->process" !== 'ProcessLogin') {
+		if(!empty($_POST)) $wire->error("Features that use POST variables are disabled in this demo");
+		foreach($_POST as $k => $v) unset($_POST[$k]); $_POST = array();
+		$wire->input->post->removeAll();
+		$wire->config->js('demo', true);
+	}
+	unset($_SERVER['HTTP_X_FIELDNAME'], $_SERVER['HTTP_X_FILENAME']);
+	foreach($_FILES as $k => $v) unset($_FILES[$k]); $_FILES = array();
+}
+
 // fallback theme if one not already present
 if(empty($adminTheme)) {
 	$adminTheme = $modules->get($config->defaultAdminTheme ? $config->defaultAdminTheme : 'AdminThemeUikit');
@@ -131,16 +149,12 @@ $demo = $config->demo;
 
 // enable modules to output their own ajax responses if they choose to
 if($ajax) ob_start();
+if($demo) _setupForDemoMode($page, $wire);
 
 if($page->process && $page->process != 'ProcessPageView') {
 	try {
 
-		if($demo && $page->process != 'ProcessLogin') {
-			if(count($_POST)) $wire->error("Features that use POST variables are disabled in this demo"); 
-			foreach($_POST as $k => $v) unset($_POST[$k]); 
-			foreach($_FILES as $k => $v) unset($_FILES[$k]); 
-			$input->post->removeAll();
-		} else if($input->requestMethod('POST') && $user->isLoggedin() && $user->hasPermission('page-edit')) {
+		if($input->requestMethod('POST') && $user->isLoggedin() && $user->hasPermission('page-edit')) {
 			_checkForMaxInputVars($input);
 		}
 

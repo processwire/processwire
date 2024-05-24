@@ -229,6 +229,7 @@ class WireUpload extends Wire {
 		if(!$this->initialized) $this->init();
 		if(!$this->name) throw new WireException("You must set the name for WireUpload before executing it"); 
 		if(!$this->destinationPath) throw new WireException("You must set the destination path for WireUpload before executing it");
+		if($this->wire()->config->demo) return array();
 
 		$uploadFiles = array();
 
@@ -887,5 +888,3 @@ class WireUpload extends Wire {
 		return !empty($_SERVER['HTTP_X_FILENAME']);
 	}
 }
-
-

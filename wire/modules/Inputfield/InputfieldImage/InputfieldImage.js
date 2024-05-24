@@ -39,6 +39,7 @@ function InputfieldImage($) {
 	 * @returns bool
 	 */
 	function useAjaxUpload() {
+		if(typeof ProcessWire.config.demo !== 'undefined') return false;
 		var isFileReaderSupport = window.File && window.FileList && window.FileReader;
 		var isAjaxUpload = $('.InputfieldAllowAjaxUpload').length > 0;
 		var isPageIDIndicator = $("#PageIDIndicator").length > 0;
