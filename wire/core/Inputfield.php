@@ -1467,7 +1467,11 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
-		$result = $this->wire()->modules->loadModuleFileAssets($this) > 0;
+		if($this->className() === 'InputfieldWrapper') {
+			$result = false;
+		} else {
+			$result = $this->wire()->modules->loadModuleFileAssets($this) > 0;
+		}
 		if($this->wire()->hooks->isMethodHooked($this, 'renderReadyHook')) {
 			$this->renderReadyHook($parent, $renderValueMode);
 		}

@@ -1182,7 +1182,22 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$url .= "renderInputfieldAjax=$inputfieldID";
 		$url = $sanitizer->entities($url);
 		
-		$out = "<div class='renderInputfieldAjax'><input type='hidden' value='$url' /></div>";
+		$valueInput = '';
+		$val = $inputfield->val();
+		if(!is_array($val) && !is_object($val)) {
+			$val = (string) $val;
+			if(strlen("$val") <= 1024) {
+				// keep value in hidden input so dependences can refer to it
+				$val = $sanitizer->entities("$val");
+				$valueInput = "<input type='hidden' id='$inputfieldID' value='$val' />";
+			}
+		}
+
+		$out =
+			"<div class='renderInputfieldAjax'>" .
+				"<input type='hidden' value='$url' />" .
+				$valueInput .
+			"</div>";
 		
 		if($inputfield instanceof InputfieldWrapper) {
 			// load assets they will need

@@ -182,6 +182,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$class = 'ui-autocomplete-input ' . ($this->useList ? 'has_list' : 'no_list');
 		if($this->useAndWords) $class .= " and_words";
 		if($this->allowAnyValue) $class .= " allow_any";
+		$class = trim($sanitizer->entities("$class " . $this->attr('class'))); 
 		
 		$disableChars = $this->disableChars; 
 		if($disableChars) {
