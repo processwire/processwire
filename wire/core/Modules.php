@@ -236,6 +236,9 @@ class Modules extends WireArray {
 	 */
 	public function __construct($path) {
 		parent::__construct();
+		$this->nameProperty = 'className';
+		$this->usesNumericKeys = false;
+		$this->indexedByName = true; 
 		$this->addPath($path); // paths[0] is always core modules path
 	}
 
@@ -978,7 +981,7 @@ class Modules extends WireArray {
 				$currentVersion = $class === 'PHP' ? PHP_VERSION : $this->wire()->config->version; 
 			}
 		} else {
-			$installed = parent::get($class) !== null;
+			$installed = isset($this->data[$class]); 
 			if($installed && $requiredVersion !== null) {
 				$info = $this->info->getModuleInfo($class); 
 				$currentVersion = $info['version'];
@@ -1366,26 +1369,26 @@ class Modules extends WireArray {
 			if(strpos($module, '.') !== false) {
 				$module = basename(basename($module, '.php'), '.module');
 			}
-			
-			if(array_key_exists($module, $this->moduleIDs)) {
+		
+			if(isset($this->data[$module])) {
+				$className = $module;
+			} else if(array_key_exists($module, $this->moduleIDs)) {
 				$className = $module;
 			} else if(array_key_exists($module, $this->installableFiles)) {
 				$className = $module;
 			}
 		}
 		
-		if($className) {
-			if($withNamespace) {
-				if($namespace) {
-					$className = "$namespace\\$className";
-				} else {
-					$className = $this->info->getModuleNamespace($className) . $className;
-				}
+		if(!$className) return false;
+		
+		if($withNamespace) {
+			if($namespace) {
+				$className = "$namespace\\$className";
+			} else {
+				$className = $this->info->getModuleNamespace($className) . $className;
 			}
-			return $className;
-		} 
-
-		return false; 
+		}
+		return $className;
 	}
 
 	/**

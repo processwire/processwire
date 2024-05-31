@@ -412,7 +412,7 @@ class ModulesLoader extends ModulesClass {
 			$requires = array();
 			$name = $moduleName;
 			$moduleName = $this->loadModule($path, $pathname, $requires, $installed);
-			if(!$config->paths->get($name)) $modulesFiles->setConfigPaths($name, dirname($basePath . $pathname));
+			if(!$config->paths->__isset($name)) $modulesFiles->setConfigPaths($name, dirname($basePath . $pathname));
 			if(!$moduleName) continue;
 
 			if(count($requires)) {
