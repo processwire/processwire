@@ -54,7 +54,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * This file is licensed under the MIT license
@@ -109,6 +109,14 @@ class Paths extends WireData {
 	protected $_root = '';
 
 	/**
+	 * As used by get() method
+	 * 
+	 * @var null 
+	 * 
+	 */
+	protected $_http = null;
+
+	/**
 	 * Construct the Paths
 	 *
 	 * @param string $root Path of the root that will be used as a base for stored paths.
@@ -117,6 +125,7 @@ class Paths extends WireData {
 	public function __construct($root) {
 		$this->_root = $root;
 		$this->useFuel(false);
+		parent::__construct();
 	}
 
 	/**
@@ -165,20 +174,19 @@ class Paths extends WireData {
 	 *
 	 */
 	public function get($key) {
-		static $_http = null;
 		if($key === 'root') return $this->_root;
 		$http = '';
 		$altKey = '';
 		if(is_object($key)) {
 			$key = "$key";
 		} else if(strpos($key, 'http') === 0) {
-			if(is_null($_http)) {
+			if($this->_http === null) {
 				$scheme = $this->wire()->input->scheme;
 				if(!$scheme) $scheme = 'http';
 				$httpHost = $this->wire()->config->httpHost; 
-				if($httpHost) $_http = "$scheme://$httpHost";
+				if($httpHost) $this->_http = "$scheme://$httpHost";
 			}
-			$http = $_http;
+			$http = $this->_http;
 			$key = substr($key, 4); // httpTemplates => Templates
 			$altKey = $key; // no lowercase conversion (useful for keys like module names, i.e. 'ProcessPageEdit')
 			$key[0] = strtolower($key[0]);  // first character lowercase: Templates => templates
