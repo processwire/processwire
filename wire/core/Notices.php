@@ -507,6 +507,12 @@ class NoticeWarning extends Notice {
 class Notices extends WireArray {
 	
 	const logAllNotices = false;  // for debugging/dev purposes
+	
+	public function __construct() {
+		parent::__construct();
+		$this->usesNumericKeys = true;
+		$this->indexedByName = false;
+	}
 
 	/**
 	 * Initialize Notices API var
@@ -548,8 +554,9 @@ class Notices extends WireArray {
 	 * 
 	 */
 	protected function allowNotice(Notice $item) {
-		
-		$user = $this->wire()->user;
+
+		// intentionally not using $this->wire()->user; in case this gets called early in boot
+		$user = $this->wire('user'); 
 		
 		if($item->flags & Notice::debug) {
 			if(!$this->wire()->config->debug) return false;

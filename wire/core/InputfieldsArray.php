@@ -5,12 +5,18 @@
  *
  * The default numeric indexing of a WireArray is not overridden.
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 class InputfieldsArray extends WireArray {
+	
+	public function __construct() {
+		parent::__construct();
+		$this->usesNumericKeys = true;
+		$this->indexedByName = false;
+	}
 
 	/**
 	 * Per WireArray interface, only Inputfield instances are accepted.
@@ -31,6 +37,7 @@ class InputfieldsArray extends WireArray {
 	 *
 	 */
 	public function find($selector) {
+		/** @var WireArray|InputfieldsArray $a */
 		$a = parent::find($selector);
 		foreach($this as $item) {
 			if(!$item instanceof InputfieldWrapper) continue;
@@ -42,10 +49,6 @@ class InputfieldsArray extends WireArray {
 
 	public function makeBlankItem() {
 		return null; // Inputfield is abstract, so there is nothing to return here
-	}
-
-	public function usesNumericKeys() {
-		return true;
 	}
 
 }

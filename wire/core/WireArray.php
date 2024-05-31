@@ -11,7 +11,7 @@
  *
  * @todo can we implement next() and prev() like on Page, as alias to getNext() and getPrev()?
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @method WireArray and($item)
@@ -89,11 +89,46 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	protected $sortFlags = 0; // 0 == SORT_REGULAR
 
 	/**
+	 * For WireArray that holds WireData objects, property that contains the item’s name
+	 * 
+	 * @var string
+	 * @since 3.0.240
+	 * 
+	 */	
+	protected $nameProperty = 'name';
+
+	/**
+	 * Is this WireArray indexed by the name property?
+	 * 
+	 * This will be auto-detected at runtime unless specifically set in the constructor.
+	 * 
+	 * @var bool|null Bool once known, null if not yet known
+	 * @since 3.0.240
+	 * 
+	 */
+	protected $indexedByName = null;
+
+	/**
+	 * Does this WireArray use numeric keys?
+	 * 
+	 * This will be auto-detected at runtime unless specifically set in the constructor.
+	 * 
+	 * @var bool|null
+	 * @since 3.0.240
+	 * 
+	 */
+	protected $usesNumericKeys = null;
+
+	/**
 	 * Construct
 	 * 
 	 */
 	public function __construct() {
-		if($this->className() === 'WireArray') $this->duplicateChecking = false;
+		if($this->className() === 'WireArray') {
+			$this->duplicateChecking = false;
+			$this->indexedByName = false;
+			$this->usesNumericKeys = true;
+		}
 		parent::__construct();
 	}
 
@@ -296,7 +331,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			$key = key($this->data);
 		}
 
-		$this->trackChange("add", null, $item); 
+		if($this->trackChanges) $this->trackChange("add", null, $item); 
 		$this->trackAdd($item, $key); 
 		
 		return $this;
@@ -461,7 +496,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			throw new WireException("Key '$key' is not an allowed key for " . get_class($this));
 		}
 
-		$this->trackChange($key, isset($this->data[$key]) ? $this->data[$key] : null, $value); 
+		if($this->trackChanges) $this->trackChange($key, isset($this->data[$key]) ? $this->data[$key] : null, $value); 
 		$this->data[$key] = $value; 
 		$this->trackAdd($value, $key); 
 		return $this; 
@@ -602,7 +637,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 						if(isset($this->data[$k])) {
 							$match = $this->data[$k];
 						} else if($numericKeys) {
-							$match = $this->getItemThatMatches('name', $k);
+							$match = $this->getItemThatMatches($this->nameProperty, $k);
 						}
 						if($match) break;
 					}
@@ -613,7 +648,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			// if the WireArray uses numeric keys, then it's okay to
 			// match a 'name' field if the provided key is a string
 			if($this->usesNumericKeys()) {
-				$match = $this->getItemThatMatches('name', $key);
+				$match = $this->getItemThatMatches($this->nameProperty, $key);
 			}
 		}
 		
@@ -760,7 +795,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				$match = $this->findOne($key); 
 
 			} else if($this->usesNumericKeys()) {
-				$match = $this->getItemThatMatches('name', $key); 
+				$match = $this->getItemThatMatches($this->nameProperty, $key); 
 			}
 
 		} 
@@ -997,7 +1032,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			reset($this->data);
 			$key = key($this->data);
 		}
-		$this->trackChange('prepend', null, $item); 
+		if($this->trackChanges) $this->trackChange('prepend', null, $item); 
 		$this->trackAdd($item, $key); 
 		return $this; 
 	}
@@ -1058,7 +1093,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$key = key($this->data);
 		$item = array_shift($this->data); 
 		if(is_null($item)) return null;
-		$this->trackChange('shift', $item, null);
+		if($this->trackChanges) $this->trackChange('shift', $item, null);
 		$this->trackRemove($item, $key); 
 		return $item; 
 	}
@@ -1094,7 +1129,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$key = key($this->data);
 		$item = array_pop($this->data); 
 		if(is_null($item)) return null;
-		$this->trackChange('pop', $item, null);
+		if($this->trackChanges) $this->trackChange('pop', $item, null);
 		$this->trackRemove($item, $key); 
 		return $item; 
 	}
@@ -1119,7 +1154,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			$data[$key] = $this->data[$key]; 
 		}
 		
-		$this->trackChange('shuffle', $this->data, $data); 
+		if($this->trackChanges) $this->trackChange('shuffle', $this->data, $data); 
 
 		$this->data = $data; 
 
@@ -1219,7 +1254,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(array_key_exists($key, $this->data)) {
 			$item = $this->data[$key];
 			unset($this->data[$key]); 
-			$this->trackChange("remove", $item, null); 
+			if($this->trackChanges) $this->trackChange("remove", $item, null); 
 			$this->trackRemove($item, $key); 
 		} else if(!$obj && is_string($key) && Selectors::stringHasSelector($key)) {
 			foreach($this->find($key) as $item) {
@@ -1329,6 +1364,13 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(!$isArray) $properties = explode(',', $properties);
 		
 		if(empty($properties)) return $this;
+		
+		if($propertiesStr === $this->nameProperty && $this->indexedByName) {
+			// optimization when it's a very simple sort by name
+			ksort($this->data, $this->sortFlags);
+			if($this->trackChanges) $this->trackChange("sort:$propertiesStr");
+			return $this;
+		}
 
 		// shortcut for random (only allowed as the sole sort property)
 		// no warning/error for issuing more properties though
@@ -2000,7 +2042,20 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
  	 *
 	 */
 	protected function trackAdd($item, $key) {
-		if($key) {}
+		if($key !== null && $key !== false) {
+			if($this->usesNumericKeys === null) {
+				$this->usesNumericKeys = is_int($key);
+			}
+			if($this->indexedByName === null) {
+				$this->indexedByName = false;
+				if($item instanceof WireData) {
+					$name = $item->get($this->nameProperty);
+					if($name === $key && isset($this->data[$name]) && $this->data[$name] === $item) {
+						$this->indexedByName = true;
+					}
+				}
+			}
+		}
 		if($this->trackChanges()) $this->itemsAdded[] = $item;
 		// wire this WireArray to the same instance of $item, if it isn’t already wired
 		if($this->_wire === null && $item instanceof Wire && $item->isWired()) $item->wire($this);
@@ -2118,16 +2173,29 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	protected function usesNumericKeys() {
 
-		static $testItem = null;
-		static $usesNumericKeys = null; 
+		if($this->usesNumericKeys !== null) {
+			return $this->usesNumericKeys;
+		}
+		
+		if(!empty($this->data)) {
+			reset($this->data);
+			$key = key($this->data);
+			if($key !== null) {
+				$this->usesNumericKeys = is_int($key); 
+				return $this->usesNumericKeys;
+			}
+		}
+		
+		$testItem = $this->makeBlankItem();
+		
+		if($testItem === null) {
+			$this->usesNumericKeys = true;
+		} else {
+			$key = $this->getItemKey($testItem);
+			$this->usesNumericKeys = is_int($key);
+		}
 
-		if(!is_null($usesNumericKeys)) return $usesNumericKeys; 
-		if(is_null($testItem)) $testItem = $this->makeBlankItem(); 
-		if(is_null($testItem)) return true; 
-
-		$key = $this->getItemKey($testItem); 
-		$usesNumericKeys = is_int($key) ? true : false;
-		return $usesNumericKeys; 
+		return $this->usesNumericKeys; 
 	}
 
 	/**
@@ -2552,7 +2620,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			}
 		} else {
 			// array or string or null
-			if(is_null($func)) $func = 'name';
+			if(is_null($func)) $func = $this->nameProperty;
 			$result = $this->explode($func);
 		}
 	
@@ -2658,7 +2726,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				$item = $item->debugInfoSmall();
 			} else if($item instanceof WireData) {
 				$_item = $item;
-				$item = $item->get('name');
+				$item = $item->get($this->nameProperty);
 				if(!$item) $item = $_item->get('id');
 				if(!$item) $item = $_item->className();
 			} else {

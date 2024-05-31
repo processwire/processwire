@@ -109,6 +109,8 @@ class Selectors extends WireArray {
 	 */
 	public function __construct($selector = null) {
 		parent::__construct();
+		$this->usesNumericKeys = false;
+		$this->indexedByName = false;
 		if(!is_null($selector)) $this->init($selector);
 	}
 

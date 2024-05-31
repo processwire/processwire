@@ -75,6 +75,16 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	protected $keyIndex = array();
 
 	/**
+	 * Construct
+	 *
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->indexedByName = false;
+		$this->usesNumericKeys = true;
+	}
+
+	/**
 	 * Template method that descendant classes may use to validate items added to this WireArray
 	 * 
 	 * #pw-internal
@@ -140,18 +150,6 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 			// page is not present here
 			return null;
 		}
-	}
-
-	/**
-	 * Does this PageArray use numeric keys only? (yes it does)
-	 * 
-	 * Defined here to override the slower check in WireArray
-	 * 
-	 * @return bool
-	 *
-	 */
-	protected function usesNumericKeys() {
-		return true;
 	}
 
 	/**

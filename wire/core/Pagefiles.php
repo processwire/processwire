@@ -124,6 +124,8 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	public function __construct(Page $page) {
 		$this->setPage($page); 
 		parent::__construct();
+		$this->usesNumericKeys = false;
+		$this->indexedByName = true;
 	}
 
 	/**
