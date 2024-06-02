@@ -1266,6 +1266,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if(isset($selectorInfo['input']) && $selectorInfo['input'] === 'page') {
 			if(isset($selectorInfo['subfields'][$subfield])) return true;
 			if($this->wire()->pages->loader()->isNativeColumn($subfield)) return true;
+		} else if(!empty($selectorInfo['subfields'][$subfield]['col'])) {
+			// selector info indicates specific DB col that is different from 'name'
+			return true;
 		}
 		return false;
 	}
@@ -1304,6 +1307,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$systemLabels = $this->getSystemLabels();
 		$tableFields = array();
 		$header = array();
+		$useLabels = $this->useColumnLabels;
 		
 		/** @var MarkupAdminDataTable $table */
 		$table = $modules->get('MarkupAdminDataTable');
@@ -1335,17 +1339,22 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			
 			if($subname) {
 				$subfield = $fields->get($subname);
+				$sublabel = $subname;
 
 				if($subfield) {
 					$sublabel = $subfield->getLabel();
 					$sublabel = str_replace($sep1, ' ', $sublabel);
 					if(!$sublabel) $sublabel = $subname;
-					$label .= $sep1 . $sublabel;
 					$subicon = $subfield->getIcon(true);
 					if($subicon) $icon = $subicon;
-				} else {
-					$label .= $sep1 . $subname;
+				} else if($field && $useLabels) {
+					$subinfo = $field->type->getSelectorInfo($field);
+					if(!empty($subinfo['subfields'][$subname]['label'])) {
+						$sublabel = $subinfo['subfields'][$subname]['label'];
+					}
 				}
+				
+				$label .= $sep1 . $sublabel;
 
 				if($language) {
 					$label = $this->addLanguageLabel($label, $language);
