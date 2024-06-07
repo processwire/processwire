@@ -1,0 +1,264 @@
+<?php namespace ProcessWire;
+
+/**
+ * File Manager
+ * Module to manager files and folders from the CMS backend.
+ *
+ * @author tech-c.net
+ * @license Licensed under GNU/GPL v2
+ * @link https://tech-c.net/posts/file-manager-for-processwire/
+ * @version 1.0.8
+ * 
+ * @see Forum Thread: https://processwire.com/talk/topic/25339-processfilemanager/
+ * @see Donate: https://tech-c.net/donation/
+ */
+
+class ProcessFileManager extends Process implements ConfigurableModule {
+  const PageName = 'process-file-manager';
+  const PagePermission = 'process-file-manager';
+  
+  public static function getModuleInfo() {
+    return array(
+      'title' => 'File Manager',
+      'summary' => 'Module to manager files and folders from the CMS backend.',
+      'href' => 'https://tech-c.net/posts/file-manager-for-processwire/',
+      'author' => 'tech-c.net',
+      'version' => 108,
+      'icon' => 'folder',
+      'permission' => self::PagePermission,
+      'singular' => true);
+  }
+
+  public function ___install () {
+    $pages = $this->wire('pages');
+    $info = self::getModuleInfo();
+    $p = $pages->get('template=admin, name='.self::PageName);
+    if ($p->id) {
+      $p->delete();
+      $this->message('Deleted Page: '.$p->path);
+    }
+    $page = new Page();
+    $page->template = 'admin';
+    $page->parent = $pages->get($this->config->adminRootPageID)->child('name=setup');
+    $page->title = $info['title'];
+    $page->name = self::PageName;
+    $page->process = $this;
+    $page->save();
+    $this->message('Created Page: '.$page->path);
+
+    $p = $this->wire('permissions')->get(self::PagePermission);
+    if ($p->id) {
+      $p->delete();
+      $this->message('Deleted Permission: '.self::PagePermission);
+    }
+    $permission = new Permission();
+    $permission->name = self::PagePermission;
+    $permission->title = $info['title'];
+    $permission->save();
+    $this->message('Created Permission: '.self::PagePermission);
+  }
+
+  public function ___uninstall () {
+    $pages = $this->wire('pages');
+    $moduleID = $this->wire('modules')->getModuleID($this);
+    
+    $mbPage = $pages->get('template=admin, process='.$moduleID.', name='.self::PageName);
+    if ($mbPage->id) {
+      $mbPage->delete();
+      $this->message('Deleted Page: '.$mbPage->path);
+    }
+
+    $permission = $this->wire('permissions')->get(self::PagePermission);
+    if ($permission->id){
+      $permission->delete();
+      $this->message('Deleted Permission: '.self::PagePermission);
+    }
+  }
+
+  public function init() {
+    $this->wire('modules')->get('JqueryCore');
+    $this->wire('modules')->get('JqueryUI');
+    parent::init(); 
+  }
+
+  public function ___execute($options = array()) {
+    if (!$this->wire('user')->isSuperuser() && !$this->wire('user')->hasPermission(self::PagePermission)) {
+      return $this->_('Access denied.');
+    }
+
+    $data = $this->modules->getModuleConfigData($this->className);
+    $defaults = $this->modules->get($this->className)->getDefaultData();
+    $data = array_merge($defaults, $data);
+
+    $module_url = $this->config()->urls->siteModules.$this->className;
+    $this->config()->styles->add($module_url.'/ProcessFileManager.css?v=2');
+    $this->config()->scripts->add($module_url.'/dragscroll.js');
+    $this->config()->scripts->add($module_url.'/codeeditor.js?v=2');
+    $this->config()->scripts->add($module_url.'/ace/ace.js');
+
+    require_once(__DIR__.'/filemanager.php');
+    $fm = new \ProcessFileManager\FileManager();
+    $fm->fm_self_url = $this->config->urls->admin.'setup/'.self::PageName.'/';
+    $fm->fm_datetime_format = $data['time_format'];
+    $fm->fm_datetime_zone = $data['time_zone'];
+    $fm->use_ace = $data['use_ace'];
+    $fm->fm_ace_theme = $data['ace_theme'];
+    $fm->fm_ace_keybinding = $data['ace_keybinding'];
+    $fm->fm_ace_height = $data['ace_height'];
+    if ($data['ace_behavior_pair'] == 1) {
+      $fm->fm_ace_behaviors_enabled = 'on';
+    } else {
+      $fm->fm_ace_behaviors_enabled = 'off';
+    }
+    if ($data['ace_behavior_wrap'] == 1) {
+      $fm->fm_ace_wrap_behaviors_enabled = 'on';
+    } else {
+      $fm->fm_ace_wrap_behaviors_enabled = 'off';
+    }
+    $result = $fm->show();
+
+    $result .= '<div class="fm_links">';
+      $result .= 'This module uses a modified version of <a target="_blank" href="https://github.com/alexantr/filemanager">PHP File Manager</a>, code editor <a target="_blank" href="https://ace.c9.io/">ACE</a> and <a target="_blank" href="http://github.com/asvd/dragscroll">dragscroll</a>.';
+    $result .= '</div>';
+
+    $result .= '<div class="fm_donate">';
+      $result .= '<a target="_blank" href="https://tech-c.net/donation/"><img src="'.$module_url.'/donate.png" /></a>';
+    $result .= '</div>';
+    
+    return $result;
+  }
+
+  static public function getDefaultData() {
+    return array(
+      'time_format' => 'd.m.y H:i:s',
+      'time_zone' => 'UTC',
+      'use_ace' => 1,
+      'ace_theme' => 'monokai',
+      'ace_keybinding' => 'none',
+      'ace_height' => 400,
+      'ace_behavior_pair' => 0,
+      'ace_behavior_wrap' => 0
+    );
+  }
+
+  static public function getModuleConfigInputfields(array $data) {
+    $fields = new InputfieldWrapper();
+    $modules = wire('modules');
+    $defaults = self::getDefaultData();
+    $data = array_merge($defaults, $data);
+
+    $dt = new \DateTime();
+    $field = $modules->get('InputfieldSelect');
+    $field->name = 'time_format';
+    $field->label = __('Time Format');
+    $field->description = __('Format of the displayed time.');
+    $field->required = true;
+    $field->addOptions(array(
+      'd.m.y H:i:s' => $dt->format('d.m.y H:i:s'),
+      'm/d/y h:i:s A' => $dt->format('m/d/y h:i:s A')
+    ));
+    $field->value = $data['time_format'];
+    $fields->add($field);
+
+    $timezoneIdentifiers = \DateTimeZone::listIdentifiers();
+    $utcTime = new \DateTime('now', new \DateTimeZone('UTC'));
+    $timezones = array();
+    foreach ($timezoneIdentifiers as $timezoneIdentifier) {
+      $currentTimezone = new \DateTimeZone($timezoneIdentifier);
+      $sign = ((int)$currentTimezone->getOffset($utcTime) > 0) ? '+' : '-';
+      $offset = gmdate('H:i', abs((int)$currentTimezone->getOffset($utcTime)));
+      $timezones[$timezoneIdentifier] = 'UTC '.$sign.' '.$offset.' '.str_replace('_', ' ', $timezoneIdentifier);
+    }
+
+    $field = $modules->get('InputfieldSelect');
+    $field->name = 'time_zone';
+    $field->label = __('Timezone');
+    $field->description = __('Timezone of the displayed time.');
+    $field->required = true;
+    $field->addOptions($timezones);
+    $field->value = $data['time_zone'];
+    $fields->add($field);
+
+    $field = $modules->get('InputfieldCheckbox');
+    $field->name = 'use_ace';
+    $field->label = __('Use ACE code editor');
+    $field->attr('name', 'use_ace');
+    $field->attr('checked', $data['use_ace'] ? 'checked' : '');
+    $field->label2 = __('Enable');
+    $fields->add($field);
+
+    $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(__DIR__.'/ace/', \RecursiveDirectoryIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+    $themes = array();
+    foreach ($files as $file) {
+      if (!$file->isDir()) {
+        if (substr($file->getFilename(), 0, 6) === 'theme-') {
+          $theme = substr($file->getFilename(), 6);
+          if (substr($theme, -3) === '.js') {
+            $themes[] = substr($theme, 0, -3);
+          }
+        }
+      }
+    }
+    sort($themes);
+    $field = $modules->get('InputfieldSelect');
+    $field->name = 'ace_theme';
+    $field->label = __('Editor theme');
+    $field->required = true;
+    foreach ($themes as $theme) {
+      $field->addOption($theme);
+    }
+    $field->value = $data['ace_theme'];
+    $fields->add($field);
+    
+    $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(__DIR__.'/ace/', \RecursiveDirectoryIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
+    $keybindings = array();
+    $keybindings[] = 'none';
+    foreach ($files as $file) {
+      if (!$file->isDir()) {
+        if (substr($file->getFilename(), 0, 11) === 'keybinding-') {
+          $keybinding = substr($file->getFilename(), 11);
+          if (substr($keybinding, -3) === '.js') {
+            $keybindings[] = substr($keybinding, 0, -3);
+          }
+        }
+      }
+    }
+    $field = $modules->get('InputfieldSelect');
+    $field->name = 'ace_keybinding';
+    $field->label = __('Keybinding');
+    $field->required = true;
+    foreach ($keybindings as $keybinding) {
+      $field->addOption($keybinding);
+    }
+    $field->value = $data['ace_keybinding'];
+    $fields->add($field);
+
+    $field = $modules->get('InputfieldInteger');
+    $field->name = 'ace_height';
+    $field->label = __('Editor height in px');
+    $field->inputType = 'number';
+    $field->required = true;
+    $field->value = $data['ace_height'];
+    $fields->add($field);
+
+    $field = $modules->get('InputfieldCheckbox');
+    $field->name = 'ace_behavior_pair';
+    $field->label = __('Pair');
+    $field->description = __('Auto-pairing of special characters, like quotation marks, parenthesis, or brackets.');
+    $field->attr('name', 'ace_behavior_pair');
+    $field->attr('checked', $data['ace_behavior_pair'] ? 'checked' : '');
+    $field->label2 = __('Enable');
+    $fields->add($field);
+
+    $field = $modules->get('InputfieldCheckbox');
+    $field->name = 'ace_behavior_wrap';
+    $field->label = __('Wrap');
+    $field->description = __('Wrapping the selection with characters such as brackets when such a character is typed in.');
+    $field->attr('name', 'ace_behavior_wrap');
+    $field->attr('checked', $data['ace_behavior_wrap'] ? 'checked' : '');
+    $field->label2 = __('Enable');
+    $fields->add($field);
+
+    return $fields;
+  }
+}
