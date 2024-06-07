@@ -14,42 +14,56 @@
 	
 $home = $pages->get('/'); /** @var HomePage $home */
 
-?><!DOCTYPE html>
-<html lang="en">
-	<head id="html-head">
-		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-		<title><?php echo $page->title; ?></title>
-		<link rel="stylesheet" type="text/css" href="<?php echo $config->urls->templates; ?>styles/main.css" />
-		<script src="<?php echo $config->urls->templates; ?>scripts/main.js"></script>
-	</head>
-	<body id="html-body">
+?>
+<!doctype html>
+<html class="no-js" lang="de">
 
-		<p id="topnav">
-			<?php echo $home->and($home->children)->implode(" / ", "<a href='{url}'>{title}</a>"); ?>
-		</p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><?php echo $page->title; ?></title>
+  <link rel="stylesheet" type="text/css" href="<?php echo $config->urls->templates; ?>styles/main.css" />
+  <meta name="description" content="">
+
+  <meta property="og:title" content="">
+  <meta property="og:type" content="">
+  <meta property="og:url" content="">
+  <meta property="og:image" content="">
+  <meta property="og:image:alt" content="">
+
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#fafafa">
+</head>
+
+<body id="html-body">
+    <header class="kopfzeile" aria-label="Hauptkopfzeile">
+	<div class="header-inner">
+		<h1><?php echo $page->title; ?></h1>
+	</div>
+        <nav class="hauptnavigation" aria-label="Hauptnavigation">
 		
-		<hr />
+        </nav>
+    </header>
+
+    <main id="content" class="hauptbereich" aria-label="Hauptinhalt">
+        <article class="hauptartikel" aria-label="Hauptartikel">
+            <h2><?php echo $page->title; ?></h2>
+		<?php echo $page->bodycopy; ?>
+        </article>
+    </main>
+
+	<aside id="sidebar">
 		
-		<h1 id="headline">
-			<?php if($page->parents->count()): // breadcrumbs ?>
-				<?php echo $page->parents->implode(" &gt; ", "<a href='{url}'>{title}</a>"); ?> &gt;
-			<?php endif; ?>
-			<?php echo $page->title; // headline ?>
-		</h1>
-		
-		<div id="content">
-			Default content
-		</div>
-	
-		<?php if($page->hasChildren): ?>
-		<ul> 
-			<?php echo $page->children->each("<li><a href='{url}'>{title}</a></li>"); // subnav ?>
-		</ul>	
-		<?php endif; ?>
-		
-		<?php if($page->editable()): ?>
-		<p><a href='<?php echo $page->editUrl(); ?>'>Edit this page</a></p>
-		<?php endif; ?>
-	
-	</body>
+	</aside>
+
+    <footer id="footer" class="webseitenfuss" aria-label="Fußzeile">
+        <p class="impressum">© 2024 Sozialdienstleister-Webseite. Alle Rechte vorbehalten.</p>
+    </footer>
+
+  <script src="<?php echo $config->urls->templates; ?>scripts/main.js"></script>
+</body>
 </html>
