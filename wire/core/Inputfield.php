@@ -1404,7 +1404,7 @@ abstract class Inputfield extends WireData implements Module {
 				continue;
 			}
 
-			$str .= "$attr=\"" . htmlspecialchars($value, ENT_QUOTES, "UTF-8") . '" ';
+			$str .= "$attr=\"" . htmlspecialchars("$value", ENT_QUOTES, "UTF-8") . '" ';
 		}
 
 		return trim($str); 
