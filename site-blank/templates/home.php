@@ -11,5 +11,11 @@
 ?>
 
 <div id="content">
-	Homepage content 
-</div>	
+	<article class="hauptartikel" aria-label="Hauptartikel">
+            <h2><?php echo $page->title; ?></h2>
+		<?php echo $page->bodycopy; ?>
+        </article>
+</div>
+
+<div id="sidebar">
+</div>
