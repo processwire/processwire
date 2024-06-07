@@ -995,7 +995,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			// limit is specified in both the selector and the arguments. 
 			// we don't allow specifying limit in selector if one is specified in the arguments
 			$selector = preg_replace('/[, ]*\blimit=\d+/i', '', $selector); 
-			if($limit > 0) $selector .= ", limit=" . (int) $limit; 
+			if($limit > -1) $selector .= ", limit=" . (int) $limit; 
 		}
 
 		if(stripos($selector, 'sort=') !== false) {
