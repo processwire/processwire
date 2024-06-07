@@ -50,10 +50,7 @@ $home = $pages->get('/'); /** @var HomePage $home */
     </header>
 
     <main id="content" class="hauptbereich" aria-label="Hauptinhalt">
-        <article class="hauptartikel" aria-label="Hauptartikel">
-            <h2><?php echo $page->title; ?></h2>
-		<?php echo $page->bodycopy; ?>
-        </article>
+        
     </main>
 
 	<aside id="sidebar">
