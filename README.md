@@ -1,3 +1,11 @@
+## Intro to this fork
+
+This is a fork of processwire. I only make some small changes to the blank template
+
+* change the html5 structure of the _main.php
+* make a simple css files structure
+* add a simple css reset: credit -> [Josh Comeau](https://www.joshwcomeau.com/css/custom-css-reset/)
+
 # Welcome to ProcessWire 3.x 
 
 This document is in Markdown. An HTML formatted version of this document 
