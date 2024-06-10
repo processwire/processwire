@@ -421,7 +421,7 @@ class WireDateTime extends Wire {
 			$value = $this->relativeTimeStr($ts, 1, false);
 		} else if($format == 'ts') {
 			$value = $ts;
-		} else if(strpos($format, '%') !== false && version_compare(PHP_VERSION, '8.1.0', '<')) {
+		} else if(strpos($format, '%') !== false) {
 			$value = $this->strftime($format, $ts);
 		} else {
 			$value = date($format, $ts);
