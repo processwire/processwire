@@ -115,6 +115,7 @@ var InputfieldTinyMCE = {
 	 * 
  	 */	
 	cls: {
+		main: 'InputfieldTinyMCE',
 		lazy: 'InputfieldTinyMCELazy',
 		inline: 'InputfieldTinyMCEInline',
 		normal: 'InputfieldTinyMCENormal',
@@ -794,6 +795,30 @@ var InputfieldTinyMCE = {
 				if($placeholders.length) t.initPlaceholders($placeholders);
 				if($editors.length) t.initEditors($editors);
 				 */
+			})
+			.on('saved', '.' + t.cls.main, function(e) {
+				// saved event like when triggered by LRP
+				var $t = $(this);
+				var $editors = $t.hasClass(t.cls.loaded) ? $t : $t.find('.' + t.cls.loaded);
+				if($editors.length) t.destroyEditors($editors);
+			})
+			.on('saveReady', '.' + t.cls.main, function(e) {
+				// saveReady event, such as from LRP
+				// manually dump current value to input to ensure it gets saved
+				var $editors = $(this).find('.' + t.cls.loaded);
+				$editors.each(function() {
+					var $editor = $(this);
+					if($editor.hasClass(t.cls.inline)) {
+						// inline editor, map name property to separate input[name] with Inputfield_ prefix
+						var name = 'Inputfield_' + $(this).attr('name');
+						var $input = $editor.next('input[name=' + name + ']'); 
+						$input.val($editor.html());
+					} else {
+						// regular editor
+						var editor = tinymce.get($(this).attr('id'));
+						$(this).val(editor.getContent()); 
+					}
+				}); 
 			});
 		
 		/*
