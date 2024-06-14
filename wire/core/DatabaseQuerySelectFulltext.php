@@ -245,7 +245,7 @@ class DatabaseQuerySelectFulltext extends Wire {
  	 *
 	 */
 	protected function escapeLike($str) {
-		return str_replace(array('%', '_'), array('\\%', '\\_'), $str);
+		return str_replace(array('%', '_'), array('\\%', '\\_'), "$str");
 	}
 
 	/**
@@ -258,7 +258,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *
 	 */
 	protected function escapeAgainst($str) {
-		$str = str_replace(array('@', '+', '-', '*', '~', '<', '>', '(', ')', ':', '"', '&', '|', '=', '.'), ' ', $str);
+		$str = str_replace(array('@', '+', '-', '*', '~', '<', '>', '(', ')', ':', '"', '&', '|', '=', '.'), ' ', "$str");
 		while(strpos($str, '  ')) $str = str_replace('  ', ' ', $str);
 		return $str;
 	}
@@ -270,7 +270,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function value($value) {
 		$maxLength = self::maxQueryValueLength;
-		$value = trim($value);
+		$value = trim("$value");
 		if(strlen($value) < $maxLength && strpos($value, "\n") === false && strpos($value, "\r") === false) return $value;
 		$value = $this->sanitizer->trunc($value, $maxLength); 
 		return $value;

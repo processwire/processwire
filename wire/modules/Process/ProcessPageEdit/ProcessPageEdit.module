@@ -3465,9 +3465,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function getModuleConfigInputfields(array $data) {
 	
-		$config = $this->config;
-		$pages = $this->pages;
-		$modules = $this->modules;
+		$config = $this->wire()->config;
+		$pages = $this->wire()->pages;
+		$modules = $this->wire()->modules;
 		$inputfields = new InputfieldWrapper();
 		
 		$this->wire($inputfields); 
