@@ -6,6 +6,7 @@
  * @method renderList(array $items, $prefix = 'pw-search', $class = 'list')
  * @method renderItem(array $item, $prefix = 'pw-search', $class = 'list')
  * @method string|array execute($getJSON = true)
+ * @method bool findCustom(array $data)
  * 
  * @todo support searching repeaters
  * 
@@ -148,6 +149,14 @@ class ProcessPageSearchLive extends Wire {
 	 * 
 	 */
 	protected $labels = array();
+
+	/**
+	 * Custom added search results from addSearchResult() method
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $customResults = array();
 
 	/**
 	 * Construct
@@ -549,6 +558,18 @@ class ProcessPageSearchLive extends Wire {
 				$user->language = $language;
 			}
 		}
+	
+		if($this->wire()->hooks->isMethodHooked($this, 'findCustom')) {
+			$result = $this->findCustom($liveSearch);
+			$items = $this->customResults;
+			$this->customResults = [];
+			// if findCustom returns false then it means to stop searching
+			if($result === false) {
+				// restore original language to user
+				if($userLanguage) $user->language = $userLanguage;
+				return $items;
+			}
+		}
 		
 		if($type != 'pages' && $type != 'trash') {
 			$modulesInfo = $modules->getModuleInfo('*', array('verbose' => true));
@@ -585,7 +606,7 @@ class ProcessPageSearchLive extends Wire {
 		
 			if(!in_array($thisType, $this->searchTypesOrder)) $this->searchTypesOrder[] = $thisType;
 			$order = array_search($thisType, $this->searchTypesOrder);
-			$order = $order * 100;
+			$order = $order ? $order * 100 : 99;
 			
 			$title = empty($result['title']) ? "$info[title]" : "$result[title]";
 			$n = $liveSearch['start'];
@@ -1196,6 +1217,113 @@ class ProcessPageSearchLive extends Wire {
 		$summary = empty($item['summary']) ? '' : "<br /><span class='$prefix-summary'>$item[summary]</span> ";
 		
 		return "\n\t<div class='$prefix-$class'><p><a href='$item[url]'>$title</a> $subtitle $summary</p></div>";
+	}
+
+	/**
+	 * Hookable method to find custom search results
+	 * 
+	 * ~~~~
+	 * // handle a search of "today" to find pages modified today
+	 * $wire->addHook('ProcessPageSearchLive::findCustom', function(HookEvent $event) {
+	 *   $data = $event->arguments(0); // array 
+	 *   $search = $event->object; // ProcesPageSearchLive 
+	 *   if($data['q'] === 'today') {
+	 *     $items = $event->wire()->pages->find("modified>=today, include=unpublished"); 
+	 *     foreach($items as $item) {
+	 *        $search->addSearchResult('Pages modified today', $item->title, $item->editUrl); 
+	 *     }
+	 *   }
+	 * }); 
+	 * ~~~~
+	 * 
+	 * #pw-group-custom-search
+	 * 
+	 * @param array $data Data about the search including 'type', 'operator', 'q' (query) and more. 
+	 * @return bool Optionally return false to stop search, making it use only results returned by this method.
+	 * @since 3.0.240
+	 * 
+	 */
+	protected function ___findCustom(array $data) {
+		return true;
+	}
+
+	/**
+	 * Add a custom search result
+	 * 
+	 * This is used to add search results if you hooked the findCustom() method.
+	 * See code example in findCustom() method above.
+	 * 
+	 * #pw-group-custom-search
+	 * 
+	 * @param string $group Group name for this search result
+	 * @param string $title Title/name of this search result (text that gets clicked on )
+	 * @param string $url URL to this search result
+	 * @param array $data Array of additional data
+	 * @since 3.0.240
+	 * @return true
+	 * 
+	 * 
+	 */
+	public function addResult($group, $title, $url = '', array $data = array()) {
+		$item = array_merge($this->itemTemplate, $data, array(
+			'group' => $group, 
+			'title' => $title, 
+			'url' => $url
+		));
+		$this->customResults[] = $item;
+		return true;
+	}
+
+	/**
+	 * Add multiple results at once
+	 * 
+	 * #pw-group-custom-search
+	 * 
+	 * @param string $group Group name for these search results
+	 * @param array $results Associative array where keys are URLs and values are titles/labels
+	 * @since 3.0.240
+	 * @return true
+	 * 
+	 */
+	public function addResults($group, array $results) {
+		foreach($results as $url => $title) {
+			if(!is_string($url)) $url = '';
+			$this->addResult($group, $title, $url);
+		}
+		return true;
+	}
+
+	/**
+	 * Add help examples for when the help results are displayed
+	 * 
+	 * ~~~~~
+	 * // handle a search of "today" to find pages modified today
+	 * $wire->addHook('ProcessPageSearchLive::findCustom', function(HookEvent $event) {
+	 *   $data = $event->arguments(0); // array
+	 *   $search = $event->object; // ProcesPageSearchLive
+	 *   if($data['help']) {
+	 *     return $search->addHelp('ID Search Help', [
+	 *       // example => description
+	 *       'today' => 'Finds pages that have been modified today', 
+	 *     ]);
+	 *   }
+	 *   // ...
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * #pw-group-custom-search
+	 * 
+	 * @param string $group Group name for these search results
+	 * @param array $examples Examples where keys are example queries and values are descriptions
+	 * @return true
+	 * @since 3.0.240
+	 * 
+	 */
+	public function addHelp($group, array $examples) {
+		foreach($examples as $example => $summary) {
+			$this->addResult($group, $example, '', array('subtitle' => $summary));
+		}
+		return true;
 	}
 
 }
