@@ -26,6 +26,7 @@
  * 
  * @method string ajaxAction($action)
  * @method PageArray find($selectorString, Page $page)
+ * @method array getHidePageIDs(array $a = array()) 
  * 
  * @todo Option to configure whether "Pub" action should appear for non-superusers
  *
@@ -545,6 +546,38 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Get page IDs that should be skipped in output
+	 * 
+	 * @param array $a Page IDs that should always be skipped regardless of other conditions
+	 * @return array Array of ids indexed by ids
+	 * @since 3.0.241
+	 * @todo update PageListRenderJSON to use this
+	 * 
+	 */
+	protected function ___getHidePageIDs($a = array()) {
+		
+		$config = $this->wire()->config;
+		$b = array();
+
+		if(is_array($this->hidePages)) {
+			$nots = is_array($this->hidePagesNot) ? $this->hidePagesNot : false;
+			if(!empty($nots) && (
+				(in_array('superuser', $nots) && $this->wire()->user->isSuperuser()) ||
+				(in_array('debug', $nots) && $config->debug) ||
+				(in_array('advanced', $nots) && $config->advanced))) {
+				// allow 
+			} else {
+				// disallow 
+				$a = array_merge($a, $this->hidePages);
+			}
+		}
+
+		foreach($a as $id) $b[$id] = $id; // index by ID
+		
+		return $b;
+	}
+
+	/**
 	 * Output JSON list of navigation items for this module's bookmarks
 	 * 
 	 * @param array $options
@@ -572,9 +605,8 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$items = $parentViewable ? $renderer->getChildren() : new PageArray();
 		
 		if($parentID === 1 && $parentViewable) $items->prepend($parent);
-		$skipPageIDs = array($config->trashPageID, $config->adminRootPageID);
+		$skipPageIDs = $this->getHidePageIDs(array($config->trashPageID, $config->adminRootPageID));
 		$maxLabelLength = 40;
-		
 		$data = array(
 			'url' => $urls->admin . 'page/list/navJSON/',
 			'label' => '',
@@ -587,7 +619,8 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		foreach($items as $page) {
 		
 			$id = $page->id;
-			if(in_array($id, $skipPageIDs)) continue;
+			if(isset($skipPageIDs[$id])) continue;
+			
 			$url = '';
 			$editable = false;
 			
