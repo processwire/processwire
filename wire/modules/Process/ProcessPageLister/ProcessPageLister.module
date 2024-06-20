@@ -1147,14 +1147,18 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			if(count($templates)) {
 				// user specified 1 or more templates
 				$numEditable = 0;
+				$testPage = $pages->newPage();
+				$testPage->id = 999; // required (any ID number works)
+				if($this->wire()->permissions->has('page-publish')) {
+					$testPage->addStatus(Page::statusUnpublished);
+				}
 				// determine how many templates are editable
 				if(count($parents)) {
 					foreach($templates as $template) {
-						$test = $pages->newPage($template);
-						$test->id = 999; // required (any ID number works)
+						$testPage->template = $template;
 						foreach($parents as $parent) {
-							$test->parent = $parent;
-							if($test->editable()) {
+							$testPage->parent = $parent;
+							if($testPage->editable()) {
 								$numEditable++;
 								break;
 							}
@@ -1162,9 +1166,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					}
 				} else {
 					foreach($templates as $template) {
-						$test = $pages->newPage($template);
-						$test->id = 999; // required (any ID number works)
-						if($test->editable()) $numEditable++;
+						$testPage->template = $template;
+						if($testPage->editable()) $numEditable++;
 					}
 				}
 				// if all specified templates are editable, include=unpublished is allowed
