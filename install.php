@@ -919,7 +919,6 @@ class Installer {
 			"\n\$config->userAuthSalt = '$authSalt'; ";
 
 		if(strpos($s, '$config->tableSalt') === false) $cfg .=
-		$cfg .= 
 			"\n" .
 			"\n/**" . 
 			"\n * Installer: Table Salt (General Purpose) " .
