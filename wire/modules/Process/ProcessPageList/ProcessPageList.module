@@ -560,16 +560,13 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$b = array();
 
 		if(is_array($this->hidePages)) {
-			$nots = is_array($this->hidePagesNot) ? $this->hidePagesNot : false;
-			if(!empty($nots) && (
-				(in_array('superuser', $nots) && $this->wire()->user->isSuperuser()) ||
-				(in_array('debug', $nots) && $config->debug) ||
-				(in_array('advanced', $nots) && $config->advanced))) {
-				// allow 
-			} else {
-				// disallow 
-				$a = array_merge($a, $this->hidePages);
-			}
+			$nots = is_array($this->hidePagesNot) ? $this->hidePagesNot : array();
+			$c = array();
+			if(in_array('advanced', $nots) && $config->advanced) $c[] = 'advanced';
+			if(in_array('debug', $nots) && $config->debug) $c[] = 'debug';
+			if(in_array('superuser', $nots) && $this->wire()->user->isSuperuser()) $c[] = 'superuser';
+			sort($nots);
+			if($c != $nots) $a = array_merge($a, $this->hidePages);
 		}
 
 		foreach($a as $id) $b[$id] = $id; // index by ID
