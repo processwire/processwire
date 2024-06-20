@@ -86,6 +86,7 @@ class SystemUpdaterChecks extends Wire {
 			'checkLocale',
 			'checkDebugMode',
 			'checkMemoryLimit',
+			'checkSystemTimes',
 		);
 
 		foreach($checks as $method) {
@@ -442,6 +443,51 @@ class SystemUpdaterChecks extends Wire {
 		if(isset($units[$getInUnit])) $value = round($value / $units[$getInUnit]);
 		if(strpos("$value", '.') !== false) $value = round($value, 1);
 		return $value;
+	}
+
+	/**
+	 * Check that database time and PHP time match
+	 * 
+	 * @return bool
+	 * @since 3.0.241
+	 * 
+	 */
+	public function checkSystemTimes() {
+		$query = $this->wire()->database->query("SELECT NOW()");
+		$date2 = date('Y-m-d H:i:s');
+		$date1 = $query->fetchColumn();
+		$query->closeCursor();
+		$time1 = strtotime($date1);
+		$time2 = strtotime($date2);
+		
+		$diff = 0;
+		$elapsedStr = '';
+		
+		if($time1 > $time2) {
+			$diff = $time1 - $time2;
+			$elapsedStr = $this->wire()->datetime->elapsedTimeStr($time2, $time1); 
+		} else if($time2 > $time1) {
+			$diff = $time2 - $time1;
+			$elapsedStr = $this->wire()->datetime->elapsedTimeStr($time1, $time2);
+		}
+		
+		if($diff < 3) return true;
+		
+		$this->warning(
+			sprintf($this->_('Warning, the database time differs from PHP time by %s.'), $elapsedStr) . "<br /><br />" . 
+			sprintf($this->_('%s - database time'), "<code>$date1</code>") . "<br />" . 
+			sprintf($this->_('%s - PHP time'), "<code>$date2</code>") . "<br /><br />" . 
+			sprintf(
+				$this->_('Please edit your %1$s file and update your %2$s to match that of your database.'),
+				'<code>/site/config.php</code>', '<code>$config->timezone</code>'
+			) . " " . 
+			"<a target='_blank' rel='noreferrer noopener' href='https://www.php.net/manual/en/timezones.php'>" . 
+				$this->_('See PHP timezones list') . 
+			"</a>", 
+			'markup icon-calendar-times-o'
+		);
+		
+		return false;
 	}
 	
 	/*********************************************************************************************/
