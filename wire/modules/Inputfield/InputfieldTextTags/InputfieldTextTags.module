@@ -26,6 +26,7 @@
  * @property int|bool $allowUserTags Allow user-entered tags?
  * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection?
  * @property int $maxItems Max selectable items, 0 for no limit, 1 for single-select mode, or 2+ to limit selection to that number.
+ * @property int $maxSelectedItems Alias of maxItems (as used by InputfieldPage)
  * @property bool|int $useAjax
  * @property string $delimiter One of 's' (for space ' '), 'p' (for pipe '|') or 'c' (for comma).
  * @property string $value
@@ -33,7 +34,7 @@
  * @property-read array $arrayValue
  * @property string|null $pageSelector
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -45,7 +46,7 @@ class InputfieldTextTags extends Inputfield implements
 		return array(
 			'title' => __('Text Tags', __FILE__), // Module Title
 			'summary' => __('Enables input of user entered tags or selection of predefined tags.', __FILE__), // Module Summary
-			'version' => 6,
+			'version' => 7,
 			'icon' => 'tags',
 		);
 	}
@@ -133,6 +134,8 @@ class InputfieldTextTags extends Inputfield implements
 			return $this->setTagsList($value, (int) $languageId); 
 		} else if($key === 'allowUserTags' || $key === 'closeAfterSelect' || $key === 'useAjax' || $key === 'maxItems') {
 			$value = (int) $value;
+		} else if($key === 'maxSelectedItems') { 
+			$key = 'maxItems';
 		}
 		return parent::set($key, $value);
 	}
@@ -170,9 +173,13 @@ class InputfieldTextTags extends Inputfield implements
 		if($key === 'value') {
 			if($value instanceof WireArray) {
 				$value = explode('|', (string) $value);
-			}
+			} else if($value instanceof Page) {
+				$value = $value->id ? array("$value->id") : array();
+			} 
 			if(is_array($value)) {
 				$value = $this->tagArrayToString($value);
+			} else if("$value" === "0") {
+				$value = '';
 			}
 		}
 		return parent::setAttribute($key, $value);
@@ -351,6 +358,9 @@ class InputfieldTextTags extends Inputfield implements
 					$tags[$key] = $value;
 				}
 			}
+		}
+		foreach($tags as $key => $tag) {
+			if($key === 0 && "$tag" === "0") unset($tags[$key]);
 		}
 		if(!$getArray) return $this->tagsListArrayToString($tags);
 		return $tags;
@@ -584,6 +594,19 @@ class InputfieldTextTags extends Inputfield implements
 		 
 		$out = "<input $attrStr />";
 		
+		if($config->ajax && !empty($opts['cfgName'])) {
+			// when renderReady was called during non-ajax, it may not have included the current value
+			// as would be the case when there are TextTags fields in repeaters, PageEditChildren, etc.
+			// so we add them here to the JS ProcessWire.config as part of the output
+			$script = 'script';
+			$cfgName = $opts['cfgName'];
+			$out .= "<$script>";
+			foreach($tags as $val => $label) {
+				 $out .= "ProcessWire.config." . $cfgName . "['$val'] = '$label';";
+			}
+			$out .= "</$script>";
+		}
+		
 		return $out;
 	}
 
@@ -653,6 +676,7 @@ class InputfieldTextTags extends Inputfield implements
 	 * 
 	 */
 	public function ___processInput(WireInputData $input) {
+		if($this->isPageField()) $this->prepareInputPage($input);
 		parent::___processInput($input);
 		$val = $this->val();
 		$value = $this->validateValue($val);
@@ -663,6 +687,39 @@ class InputfieldTextTags extends Inputfield implements
 			$this->addedTags = array();
 		}
 		return $this;
+	}
+
+	/**
+	 * Prepare input for processing when values are Page IDs
+	 * 
+	 * This enables it to differenate between page IDs and numeric page titles. 
+	 * 
+	 * @param WireInputData $input
+	 * 
+	 */
+	protected function prepareInputPage(WireInputData $input) {
+		
+		$val = $input->get($this->name);
+		
+		if(is_string($val) && strpos($val, '|')) {
+			$val = explode('|', $val);
+		}
+		
+		// prepend "+" to indicate it is a newly-added numeric page title
+		// like a year (i.e. "2024") and not an existing page ID
+		
+		if(is_string($val)) {
+			if(ctype_digit($val)) $val = "+$val";
+		} else if(is_array($val)) {
+			foreach($val as $k => $v) {
+				if(ctype_digit($v)) $val[$k] = "+$v";
+			}
+			$val = implode('|', $val);
+		}
+	
+		// stuff back in post vars for processing by parent::processInput
+		$input->set($this->name, $val);
+		$_POST[$this->name] = $val;
 	}
 
 	/**
@@ -707,10 +764,10 @@ class InputfieldTextTags extends Inputfield implements
 			while(count($tags) > $maxItems) array_pop($tags);
 		}
 
-		foreach(array_keys($tags) as $tag) {
+		foreach($tags as $tag => $label) {
 			if(isset($validTags[$tag])) {
 				// tag is known/valid
-			} else if($isPageField && $this->tagsUrl && ctype_digit(ltrim($tag, '_'))) {
+			} else if($isPageField && $this->tagsUrl && ctype_digit(ltrim("$tag", '_'))) {
 				// tag is page ID from ajax: will be validated by InputfieldPage
 			} else if(!$allowUserTags && ($isPageField || !$this->tagsUrl)) {
 				// user tags not allowed
@@ -718,6 +775,7 @@ class InputfieldTextTags extends Inputfield implements
 				$this->error(sprintf($this->_('Removed invalid tag value: %s'), $tag));
 			} else {
 				// newly added tag
+				if($isPageField && strpos($tag, "+") === 0) $tag = ltrim($tag, "+"); 
 				$tag = $sanitizer->text($tag);
 				$label = $tag;
 				if(strpos($tag, $delimiter) !== false) $tag = str_replace($delimiter, '-', $tag);
@@ -1004,15 +1062,14 @@ class InputfieldTextTags extends Inputfield implements
 					$f->set("value$language", $this->tagsListArrayToString($this->get("tagsList$language")));
 				}
 			}
-			$fieldset->add($f);
 		} else {
 			/** @var InputfieldHidden $f */
 			$f = $modules->get('InputfieldHidden');
 			$f->attr('name', 'tagsList');
 			$f->val('');
-			$fieldset->add($f);
 		}
-		
+		$fieldset->add($f);
+
 		if($isTextField || $isPageField) {
 			/** @var InputfieldText $f */
 			$inputName = $this->name;
@@ -1071,30 +1128,28 @@ class InputfieldTextTags extends Inputfield implements
 				$f->error($this->_('The placeholder “{q}” is required somewhere in your Ajax URL.')); 
 			}
 			$f->showIf = 'useAjax=1';
-			$fieldset->add($f);
 		} else {
 			/** @var InputfieldHidden $f */
 			$f = $modules->get('InputfieldHidden');
 			$f->attr('name', 'tagsUrl');
 			$f->val('');
-			$fieldset->add($f);
 		}
-	
+		$fieldset->add($f);
+
 		if($isTextField) {
 			/** @var InputfieldToggle $f */
 			$f = $modules->get('InputfieldToggle');
 			$f->attr('name', 'allowUserTags');
 			$f->label = $this->_('Allow user to enter their own tags?');
 			$f->val($this->allowUserTags);
-			$fieldset->add($f);
 		} else {
 			/** @var InputfieldHidden $f */
 			$f = $modules->get('InputfieldHidden');
 			$f->attr('name', 'allowUserTags');
 			$f->val('0');
-			$fieldset->add($f);
 		}
-	
+		$fieldset->add($f);
+
 		/** @var InputfieldToggle $f */
 		$f = $modules->get('InputfieldToggle');
 		$f->attr('name', 'closeAfterSelect');

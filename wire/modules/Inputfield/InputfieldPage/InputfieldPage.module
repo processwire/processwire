@@ -85,7 +85,18 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		'derefAsPage' => 0, 
 		'addable' => 0,
 		'allowUnpub' => 0, // This option configured by FieldtypePage:Advanced
-	); 
+	);
+
+	/**
+	 * Core inputfield classes that support both single and multi-selection mode
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $singleOrMultiInputfields = array(
+		'InputfieldPageAutocomplete',
+		'InputfieldTextTags',
+	);
 
 	/**
 	 * Contains true when this module is in configuration state (via it's getConfigInputfields function)
@@ -1505,7 +1516,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				$fieldset->collapsed = Inputfield::collapsedYes;
 				$inClass = $inputfield->className();
 				$fieldset->showIf = 'inputfield=' . $inClass;
-				if($inClass == 'InputfieldPageAutocomplete') $fieldset->showIf .= "|_$inClass";
+				if(in_array($inClass, $this->singleOrMultiInputfields)) {
+					$fieldset->showIf .= "|_$inClass";
+					if($inClass == 'InputfieldTextTags' && $this->derefAsPage > 0) {
+						$f = $fieldset->getChildByName('maxItems');
+						if($f) $f->val(1);
+					}
+				}
 				$inputfields->insertAfter($fieldset, $inputfieldSelection);
 			}
 		}
@@ -1547,7 +1564,9 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			} else {
 				$singles[$class] = $label;
 			}
-			if($class == 'InputfieldPageAutocomplete') $singles["_$class"] = $label;
+			if(in_array($class, $this->singleOrMultiInputfields)) {
+				$singles["_$class"] = $label . ' ' . $this->_('(single)');
+			}
 		}
 
 		return array(

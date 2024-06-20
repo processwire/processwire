@@ -61,6 +61,7 @@ function InputfieldTextTags($parent) {
 		var tags = cfgName.length ? ProcessWire.config[cfgName] : o.tags;
 		var tagsList = [];
 		var n = 0;
+		var isPageField = $select.closest('.InputfieldPage').length > 0;
 
 		for(var tag in tags) {
 			var label = tags[tag];
@@ -118,12 +119,23 @@ function InputfieldTextTags($parent) {
 						for(var n = 0; n < items.length; n++) {
 							var item = items[n];
 							if(typeof item === "object") {
+								if(typeof item.value === 'number' && isPageField) {
+									item.value = '_' + item.value.toString()
+								} 
 								if(typeof item.label === "undefined") {
 									item.label = item.value;
 									items[n] = item;
 								}
 							} else {
-								items[n] = { value: item, label: item };
+								var value, label;
+								if(isPageField && (typeof item === 'number' || item.match(/^\d+$/))) {
+									value = '_' + item;
+									label = '' + item
+								} else {
+									value = item;
+									label = item;
+								}
+								items[n] = { value: value, label: label };
 							}
 						}
 						Inputfields.stopSpinner($select);
