@@ -1336,30 +1336,30 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$sep1 = '~~';
 			$sep2 = '&nbsp;&gt; ';
 			$label = str_replace($sep1, ' ', $label);
-			
+		
 			if($subname) {
-				$subfield = $fields->get($subname);
-				$sublabel = $subname;
-
-				if($subfield) {
-					$sublabel = $subfield->getLabel();
-					$sublabel = str_replace($sep1, ' ', $sublabel);
-					if(!$sublabel) $sublabel = $subname;
-					$subicon = $subfield->getIcon(true);
-					if($subicon) $icon = $subicon;
-				} else if($field && $useLabels) {
+				$sublabel = '';
+				if($field && $useLabels) {
 					$subinfo = $field->type->getSelectorInfo($field);
 					if(!empty($subinfo['subfields'][$subname]['label'])) {
 						$sublabel = $subinfo['subfields'][$subname]['label'];
 					}
 				}
-				
-				$label .= $sep1 . $sublabel;
-
-				if($language) {
-					$label = $this->addLanguageLabel($label, $language);
+				if(!$sublabel) {
+					$subfield = $fields->get($subname);
+					if($subfield) {
+						$sublabel = $subfield->getLabel();
+						$sublabel = str_replace($sep1, ' ', $sublabel);
+						if(!$sublabel) $sublabel = $subname;
+						$subicon = $subfield->getIcon(true);
+						if($subicon) $icon = $subicon;
+					}
+					if(!$sublabel) $sublabel = $subname;
 				}
-			} else if($language) {
+				$label .= $sep1 . $sublabel;
+			}
+			
+			if($language) {
 				$label = $this->addLanguageLabel($label, $language);
 			}
 			
@@ -1456,7 +1456,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$subname = '';
 		$fullname = $name; 
 		$value = null;
-		$noEntities = false;
 		$language = $languages ? $this->identifyLanguage($name, true) : null;
 	
 		if($language && $language->id == $this->wire()->user->language->id) $language = null;
@@ -1576,7 +1575,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				} else if($v instanceof Pagefile) {
 					/** @var Pageimage $v */
 					$v = "<a target='_blank' href='$v->url'>$v->basename</a>";
-				} else if(!$noEntities) {
+				} else {
 					$v = $sanitizer->entities($v); 
 				}
 				$values[] = (string) $v;
@@ -1619,7 +1618,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$value = $t->getLabel();
 			// include template name only if it differs from template label
 			if($allowName && strtolower($t->name) != strtolower($value)) $value .= " ($t->name)";
-			if(!$noEntities) $value = $sanitizer->entities1($value);
+			$value = $sanitizer->entities1($value);
 
 		} else if($field && $field->type) {
 			if($subname == 'data') $subname = '';
@@ -1631,7 +1630,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			// other or unknown
 			if($subname == 'data') $value = (string) $value;
 			if($subname && is_object($value)) $value = $value->$subname;
-			$value = $noEntities ? $value : $sanitizer->entities($value); 
+			$value = $sanitizer->entities($value); 
 		}
 	
 		if($isFirstCol) $value = $this->buildListerTableColActions($p, $value);
