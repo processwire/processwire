@@ -707,6 +707,7 @@ class Pagefile extends WireData implements WireArrayItem {
 				$value = $this->uploadName();
 				break;
 			default:
+				if(strpos($key, '|')) return parent::get($key);
 				$value = $this->getFieldValue($key);
 		}
 		
