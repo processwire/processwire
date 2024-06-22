@@ -1300,18 +1300,14 @@ class Pageimage extends Pagefile {
 		);
 		
 		$options = array_merge($defaults, $options);
-		$adjustedWidth = $width < 1 || $this->width() <= $width ? 0 : $width;
-		$adjustedHeight = $height < 1 || $this->height() <= $height ? 0 : $height;
+		if($width  < 1) $width  = 0;
+		if($height < 1) $height = 0;
 
 		// if already within maxSize dimensions then do nothing
-		if(!$adjustedWidth && !$adjustedHeight) {
-			if($options['allowOriginal']) return $this; // image already within target
-			$adjustedWidth = $width;
-			$options['nameHeight'] = $height;
-		} else if(!$adjustedWidth) {
-			$options['nameWidth'] = $width;
-		} else if(!$adjustedHeight) {
-			$options['nameHeight'] = $height;
+		if($options['allowOriginal']
+			&& (!$width || $width >= $this->width())
+			&& (!$height || $height >= $this->height)) {
+			return $this; // image already within target
 		}
 		
 		if($this->wire()->config->installed > 1513336849) { 
@@ -1322,7 +1318,7 @@ class Pageimage extends Pagefile {
 			$options['suffix'] = $suffix;
 		}
 		
-		return $this->size($adjustedWidth, $adjustedHeight, $options);
+		return $this->size($width, $height, $options);
 	}
 
 	/**
