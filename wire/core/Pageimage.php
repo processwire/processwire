@@ -1303,12 +1303,20 @@ class Pageimage extends Pagefile {
 		if($width  < 1) $width  = 0;
 		if($height < 1) $height = 0;
 
+		//if a dimension is unconstrained, set it to the physical size to avoid problems with 0 later
+		$adjustedWidth  = (!$width  || $this->width()  <= $width)  ? $this->width()  : $width;
+		$adjustedHeight = (!$height || $this->height() <= $height) ? $this->height() : $height;
+
 		// if already within maxSize dimensions then do nothing
 		if($options['allowOriginal']
-			&& (!$width || $width >= $this->width())
-			&& (!$height || $height >= $this->height)) {
+			&& $adjustedWidth == $this->width()
+			&& $adjustedHeight == $this->height()) {
 			return $this; // image already within target
 		}
+
+		//make sure variation is always named after the requested size (0 for unconstrained)
+		$options['nameWidth'] = $width;
+		$options['nameHeight'] = $height;
 		
 		if($this->wire()->config->installed > 1513336849) { 
 			// New installations from 2017-12-15 forward use an "ms" suffix for images from maxSize() method
@@ -1318,7 +1326,7 @@ class Pageimage extends Pagefile {
 			$options['suffix'] = $suffix;
 		}
 		
-		return $this->size($width, $height, $options);
+		return $this->size($adjustedWidth, $adjustedHeight, $options);
 	}
 
 	/**
