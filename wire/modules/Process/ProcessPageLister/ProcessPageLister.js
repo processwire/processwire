@@ -6,6 +6,7 @@ var ProcessLister = {
 
 	inInit: true, // are we currently in init() method?
 	inTimeout: false, // setTimeout variable for use by clearTimeout if needed
+	inAjax: false,
 	spinner: null, // spinner that shows during ajax calls
 	numSubmits: 0, // number of times ProcessLister._submit() method called
 	results: null, // shortcut to #ProcessListerResults
@@ -97,13 +98,14 @@ var ProcessLister = {
 		}
 
 		$(document).ajaxStart(function() {
+			if(!ProcessLister.inAjax) return;
 			var $spinner = $('#_ProcessListerRefreshTab').find('i');
 			if($spinner.length) $spinner.removeClass('fa-refresh').addClass('fa-spin fa-spinner');
 		});
 		
 		$(document).ajaxStop(function() {
 			var $spinner = $('#_ProcessListerRefreshTab').find('i');
-			if($spinner.length) $spinner.fadeOut('fast', function() {
+			if($spinner.length && $spinner.hasClass('fa-spin')) $spinner.fadeOut('fast', function() {
 				$spinner.removeClass('fa-spin fa-spinner').addClass('fa-refresh').fadeIn('fast');
 			});
 		});
@@ -199,12 +201,15 @@ var ProcessLister = {
 			ProcessLister.resetTotal = false;
 		}
 
+		ProcessLister.inAjax = true;
+		
 		$.ajax({
 			url: url, 
 			type: 'POST', 
 			data: submitData, 
 			success: ProcessLister._submitSuccess, 
 			error: function(error) {
+				ProcessLister.inAjax = false;
 				ProcessLister.results.html("<p>Error retrieving results: " + error + "</p>"); 
 			}
 		}); 
@@ -219,6 +224,8 @@ var ProcessLister = {
 	 */
 	_submitSuccess: function(data) {
 		var refreshAll = true;
+		
+		ProcessLister.inAjax = false;
 		
 		if(ProcessLister.refreshRowPageIDs.length) {
 			refreshAll = false;
@@ -479,12 +486,15 @@ var ProcessLister = {
 		$actions.after("<i class='fa fa-spin fa-spinner ui-priority-secondary'></i>");
 		$actions.hide();
 		
+		ProcessLister.inAjax = true;
+		
 		$.post(href, postData, function(data) {
 			if(typeof data.page != "undefined" || data.action == 'trash') {
 				// highlight page mentioned in json return value
 				// data.page is returned by ProcessPageClone
 				ProcessLister.clickAfterRefresh = '#page' + data.page;
 				ProcessLister.resetTotal = true;
+				ProcessLister.inAjax = false;
 			} else {
 				// highlight page where action was clicked
 				ProcessLister.refreshRowPageIDs[pageID] = pageID;
