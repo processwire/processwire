@@ -897,8 +897,11 @@ class PagePermissions extends WireData implements Module {
 	/**
 	 * Can the current user add child pages to this page?
 	 *
-	 * Optionally specify the page to be added as the first argument for additional access checking.
-	 * i.e. if($page->addable($somePage))
+	 * Optionally specify the page or template to be added as the first argument for
+     * additional access checking. I.e.:
+     *     if($page->addable($somePage))
+     *     if($page->addable($someTemplate))
+     *     if($page->addable('basic-page'))
 	 * 
 	 * @param HookEvent $event
 	 *
@@ -910,7 +913,7 @@ class PagePermissions extends WireData implements Module {
 		$user = $this->wire()->user; 
 		
 		$addable = false; 
-		$addPage = null;
+		$addTemplate = null;
 		$_ADDABLE = false; // if we really mean it (as in, do not perform secondary checks)
 		$superuser = $user->isSuperuser();
 
@@ -935,18 +938,29 @@ class PagePermissions extends WireData implements Module {
 
 		// check if a $page is provided as the first argument for additional access checking
 		if($addable) {
-			$addPage = $event->arguments(0);
-			if(!$addPage instanceof Page || !$addPage->id) $addPage = null;
-			if($addPage && $addPage->template && $page->template) {
-				if(count($page->template->childTemplates) && !in_array($addPage->template->id, $page->template->childTemplates)) {
+			$addTemplate = $event->arguments(0);
+
+			if ($addTemplate instanceof Page)
+				$addTemplate = $addTemplate->template;
+			else if (is_string($addTemplate))
+				$addTemplate = $this->wire()->templates->get($addTemplate);
+
+			if(!$addTemplate instanceof Template) $addTemplate = null;
+
+			//if an invalid or non-existing argument was passed, shouldn’t this return false?
+			//if($event->arguments(0) !== null && $addTemplate === null) {
+			//	$addable = false;
+			//} else
+			if($addTemplate && $page->template) {
+				if(count($page->template->childTemplates) && !in_array($addTemplate->id, $page->template->childTemplates)) {
 					$addable = false;
 				}
 			}
 		}
 	
 		// check additional permissions if in multi-language environment
-		if($addable && !$_ADDABLE && $addPage && $this->wire()->languages) {
-			if(!$this->hasPageEditLangDefault($user, $addPage) || !$this->hasPageEditLangNone($user, $addPage)) {
+		if($addable && !$_ADDABLE && $addTemplate && $this->wire()->languages) {
+			if(!$this->hasPageEditLangDefault($user, $addTemplate) || !$this->hasPageEditLangNone($user, $addTemplate)) {
 				// if user can't edit default language, or can't edit non-multi-language fields, then deny add access
 				$addable = false;
 			}
