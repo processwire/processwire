@@ -371,9 +371,12 @@ class InputfieldDatetime extends Inputfield {
 	}
 
 	/**
-	 * Get or set jQuery UI datepicker options
+	 * Get or set jQuery UI datepicker (and timepicker) options
 	 * 
 	 * <https://api.jqueryui.com/datepicker/>
+	 * 
+	 * Can also be used with several timepicker options:
+	 * <https://trentrichardson.com/examples/timepicker/#tp-options>
 	 * 
 	 * ~~~~~
 	 * // set custom options
