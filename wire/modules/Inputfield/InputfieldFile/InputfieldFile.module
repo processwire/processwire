@@ -1291,8 +1291,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					$changed = true; 
 				}
 
-				if($this->isAjax && !$this->noAjax) foreach($ul->getErrors() as $error) { 
-					$this->ajaxResponse(true, $error); 
+				foreach($ul->getErrors() as $error) {
+					$this->error($error);
+					if($this->isAjax && !$this->noAjax)
+						$this->ajaxResponse(true, $error); 
 				}
 
 			} else if($this->maxFiles) {
