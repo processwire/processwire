@@ -1308,6 +1308,22 @@ class Installer {
 	}
 
 	/**
+	 * HEAD-request a ProcessWire-controlled url and return True on 200, False on everything else.
+	 * 
+	 * @param string $url The URL to test, relative to the installation subdirectory. Default "/".
+	 * @return bool 
+	 * 
+	 */
+	protected function isStatusOK($url = '/') {
+		$rootUrl = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+		if (substr($rootUrl, -11) === 'install.php') $rootUrl = substr($rootUrl, 0, -11);
+		$rootUrl = rtrim($rootUrl, '/');
+
+		$status = (new WireHttp())->status($rootUrl . $url);		
+		return ($status >= 200 && $status < 300);
+	}
+
+	/**
 	 * Save submitted admin account form
 	 * 
 	 * @param ProcessWire $wire
@@ -1385,6 +1401,14 @@ class Installer {
 		$this->finish($wire, $user); 
 
 		$this->sectionStart("fa-life-buoy Complete &amp; Secure Your Installation");
+		// try to access some pages and display a helpful warning on failure.
+		if (!$this->isStatusOK())
+			$this->warn("It looks like your site is not accessible yet. If this is the case, " .
+						"please see our <a target='_blank' href='https://processwire.com/docs/start/install/troubleshooting/'>Troubleshooting Installation guide</a>.");
+		else if (!$this->isStatusOK("/$adminName/"))
+			$this->warn("It looks like your admin URL at <a target='_blank' href='./$adminName/'>/$adminName/</a> is not accessible yet. If this is the case, " .
+						"please see our <a target='_blank' href='https://processwire.com/docs/start/install/troubleshooting/'>Troubleshooting Installation guide</a>."); 
+
 		$this->getRemoveableItems(false, true); 
 
 		$this->ok("Note that future runtime errors are logged to <b>/site/assets/logs/errors.txt</b> (not web accessible).");
