@@ -185,6 +185,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			if(!$user->isGuest() && $user->hasPermission('page-edit')) {
 
 				foreach($templates as $template) {
+					if($template->noShortcut) continue;
 					$parent = $template->getParentPage(true);
 					if(!$parent) continue;
 					if($parent->id) {

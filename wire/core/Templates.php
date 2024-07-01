@@ -5,7 +5,7 @@
  *
  * Manages and provides access to all the Template instances
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages and provides access to all the Templates.
@@ -693,8 +693,8 @@ class Templates extends WireSaveableItems {
 	 *
 	 * - This is based on family settings, when applicable.
 	 * - It also takes into account user access, if requested (see arg 1).
-	 * - If there is no shortcut parent, NULL is returned.
-	 * - If there are multiple possible shortcut parents, a NullPage is returned.
+	 * - If there is no defined parent, NULL is returned.
+	 * - If there are multiple defined parents, a NullPage is returned (use $getAll to get them).
 	 * 
 	 * @param Template $template
 	 * @param bool $checkAccess Whether or not to check for user access to do this (default=false).
@@ -706,84 +706,63 @@ class Templates extends WireSaveableItems {
 	public function getParentPage(Template $template, $checkAccess = false, $getAll = false) {
 		
 		$pages = $this->wire()->pages;
-		$user = $this->wire()->user;
 		
-		$foundParent = null;
-		$foundParents = $getAll ? $pages->newPageArray() : null;
-		$foundParentQty = 0;
+		$foundParents = $pages->newPageArray();
 		$maxStatus = is_int($getAll) && $getAll ? ($getAll * 2) : 0;
+		$earlyExit = false;
 
-		if($template->noShortcut || !count($template->parentTemplates)) return $foundParents;
 		if($template->noParents == -1) {
 			// only 1 page of this type allowed 
-			if($this->getNumPages($template) > 0) return $foundParents;
+			if($this->getNumPages($template) > 0) $earlyExit = true;
 		} else if($template->noParents == 1) {
-			return $foundParents; 
+			// no parents allowed
+			$earlyExit = true;
+		} else if(!count($template->parentTemplates)) {
+			// no parent templates defined
+			$earlyExit = true;
 		}
+		
+		if($earlyExit) return $getAll ? $foundParents : null;
+
+		$childTestPage = $checkAccess ? $pages->newPage($template) : null;
 
 		foreach($template->parentTemplates as $parentTemplateID) {
 
 			$parentTemplate = $this->get((int) $parentTemplateID);
-			if(!$parentTemplate) continue;
+		
+			// if parent template does not exist or not allow children, skip it
+			if(!$parentTemplate || $parentTemplate->noChildren) continue;
 
-			// if the parent template doesn't have this as an allowed child template, exclude it 
-			if($parentTemplate->noChildren) continue;
+			// if the parent template doesn't have this as an allowed child template, skip it 
 			if(!in_array($template->id, $parentTemplate->childTemplates)) continue;
 
 			// sort=status ensures that a non-hidden page is given preference to a hidden page
 			$include = $checkAccess ? "unpublished" : "all";
 			$selector = "templates_id=$parentTemplate->id, include=$include, sort=status";
+			
 			if($maxStatus) {
 				$selector .= ", status<$maxStatus";
-			} else if(!$getAll) {
+			} else if(!$getAll && !$checkAccess) {
 				$selector .= ", limit=2";
 			}
-			$parentPages = $pages->find($selector);
-			$numParentPages = count($parentPages);
-
-			// undetermined parent
-			if(!$numParentPages) continue;
-
-			if($getAll) {
-				// build list of all parents (will check access outside loop)
-				$foundParents->add($parentPages);
-				continue;
-			} else if($numParentPages > 1) {
-				// multiple possible parents, we can early-exit
-				$foundParentQty += $numParentPages;
-				break;
-			} else {
-				// one possible parent
-				$parentPage = $parentPages->first();
+			
+			foreach($pages->find($selector) as $parentPage) {
+				if($checkAccess && !$parentPage->addable($childTestPage)) continue;
+				$foundParents->add($parentPage);
+				$earlyExit = !$getAll && $foundParents->count() > 1;
+				if($earlyExit) break;
 			}
-
-			if($checkAccess) {
-				if($parentPage->id) {
-					// single defined parent
-					$p = $pages->newPage($template);
-					if(!$parentPage->addable($p)) continue;
-				} else {
-					// multiple possible parents
-					if(!$user->hasPermission('page-create', $template)) continue;
-				}
-			}
-
-			if($parentPage && $parentPage->id) $foundParentQty++;
-			$foundParent = $parentPage;
-			if($foundParentQty > 1) break;
+		
+			if($earlyExit) break;
 		}
 		
-		if($checkAccess && $getAll && $foundParents && $foundParents->count()) {
-			$p = $pages->newPage($template);
-			foreach($foundParents as $parentPage) {
-				if(!$parentPage->addable($p)) $foundParents->remove($parentPage);
-			}
-		}
+		if($getAll) return $foundParents; // always returns PageArray (populated or not)
 		
-		if($getAll) return $foundParents;
-		if($foundParentQty > 1) return $pages->newNullPage();
+		$qty = $foundParents->count();
+		if($qty > 1) return $pages->newNullPage(); // multiple possible parents
+		if($qty === 1) return $foundParents->first(); // one possible parent
 		
-		return $foundParent;
+		return null; // no parents
 	}
 
 	/**

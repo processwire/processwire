@@ -1299,8 +1299,8 @@ class Template extends WireData implements Saveable, Exportable {
 	 * This is based on family settings, when applicable. 
 	 * It also takes into account user access, if requested (see arg 1). 
 	 *
-	 * If there is no shortcut parent, NULL is returned. 
-	 * If there are multiple possible shortcut parents, a NullPage is returned.
+	 * If there is no defined parent, NULL is returned. 
+	 * If there are multiple defined parents, a NullPage is returned.
 	 * 
 	 * #pw-group-family
 	 *
@@ -1313,7 +1313,7 @@ class Template extends WireData implements Saveable, Exportable {
 	}
 
 	/**
-	 * Return all possible parent pages for this template
+	 * Return all defined parent pages for this template
 	 * 
 	 * #pw-group-family
 	 * 
