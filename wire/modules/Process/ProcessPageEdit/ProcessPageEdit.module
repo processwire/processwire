@@ -2132,7 +2132,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		if($page->hasStatus(Page::statusLocked)) {
 			$inputStatus = $input->post('status');
-			if(!$user->hasPermission('page-lock', $page) || (is_array($inputStatus) && in_array(Page::statusLocked, $inputStatus))) {
+			$locked = 
+				!$form->getChildByName('status') 
+				|| !$user->hasPermission('page-lock', $page) 
+				|| !is_array($inputStatus) 	
+				|| in_array(Page::statusLocked, $inputStatus);
+			if($locked) {
 				$this->error($this->noticeLocked);
 				$this->processSaveRedirect($this->redirectUrl);
 				return;
