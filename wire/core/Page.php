@@ -1807,7 +1807,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-common
 	 * #pw-group-traversal
 	 *
-	 * @param string $selector Selector to use, or omit to return all children.
+	 * @param string|array $selector Selector to use, or omit to return all children.
 	 * @param array $options Optional options to modify behavior, the same as those provided to Pages::find.
 	 * @return PageArray|array Returns PageArray for most cases. Returns regular PHP array if using the findIDs option.
 	 * @see Page::child(), Page::find(), Page::numChildren(), Page::hasChildren()
