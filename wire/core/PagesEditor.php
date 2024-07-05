@@ -984,7 +984,7 @@ class PagesEditor extends Wire {
 	 * 
 	 */
 	public function saveStatus(Page $page) {
-		return $this->savePageStatus($page, $page->status) > 0;
+		return $this->savePageStatus($page, $page->status, false, 2) > 0;
 	}
 
 	/**
