@@ -366,8 +366,6 @@ class Sanitizer extends Wire {
 	 */
 	public function nameFilter($value, array $allowedExtras, $replacementChar, $beautify = false, $maxLength = 128) {
 		
-		static $replacements = array();
-
 		if(!is_string($value)) $value = $this->string($value);
 		$allowed = array_merge($this->allowedASCII, $allowedExtras); 
 		$needsWork = strlen(str_replace($allowed, '', $value));
@@ -376,27 +374,30 @@ class Sanitizer extends Wire {
 		if($beautify && $needsWork) {
 			if($beautify === self::translate && $this->multibyteSupport) {
 				$value = mb_strtolower($value);
+				$replacements = array();
 
-				if(empty($replacements)) {
+				if(empty($this->caches['nameFilterReplace'])) {
 					$modules = $this->wire()->modules;
 					if($modules) {
-						$configData = $this->wire()->modules->getModuleConfigData('InputfieldPageName');
-						$replacements = empty($configData['replacements']) ? InputfieldPageName::$defaultReplacements : $configData['replacements'];
+						$replacements = $this->wire()->modules->getConfig('InputfieldPageName', 'replacements');
+						if(empty($replacements)) $replacements = InputfieldPageName::$defaultReplacements;
+						$this->caches['nameFilterReplace'] = $replacements;
 					}
+				} else {
+					$replacements = $this->caches['nameFilterReplace']; 
 				}
-
-				foreach($replacements as $from => $to) {
-					if(mb_strpos($value, $from) !== false) {
-						$value = mb_eregi_replace($from, $to, $value);
-					}
+			
+				if(count($replacements)) {
+					$value = str_replace(array_keys($replacements), array_values($replacements), $value);
+					$needsWork = strlen(str_replace($allowed, '', $value));
 				}
 			}
 
-			if(function_exists("\\iconv")) {
+			if($needsWork && function_exists("\\iconv")) {
 				$v = iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $value);
 				if($v) $value = $v;
+				$needsWork = strlen(str_replace($allowed, '', $value));
 			}
-			$needsWork = strlen(str_replace($allowed, '', $value)); 
 		}
 
 		if(strlen($value) > $maxLength) $value = substr($value, 0, $maxLength); 
