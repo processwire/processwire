@@ -72,11 +72,15 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		$this->user = $this->wire()->user; 
+		$of = $this->user->of();
+		if($of) $this->user->of(false);
+		
 		$this->headline($this->_("Profile:") . ' ' . $this->user->name); // Primary Headline (precedes the username)
 		$form = $this->buildForm($fieldName);
 		
 		if($input->post('submit_save_profile') || $fieldName) {
 			$this->processInput($form, $fieldName); 
+			if($of) $this->user->of(true);
 			if($fieldName) {
 				// no need to redirect
 			} else {
@@ -84,7 +88,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			}
 				
 		} else { 
-			return $form->render();
+			$out = $form->render();
+			if($of) $this->user->of(true);
+			return $out;
 		}
 		return '';
 	}	

@@ -524,6 +524,18 @@ $config->sessionHistory = 0;
 $config->userAuthHashType = 'sha1';
 
 /**
+ * Enable output formatting for current $user API variable at boot?
+ * 
+ * EXPERIMENTAL: May not be compatible with with all usages, so if setting to `true` 
+ * then be sure to test thoroughly on anything that works with $user API variable. 
+ * 
+ * @var bool
+ * @since 3.0.241
+ * 
+ */
+$config->userOutputFormatting = false;
+
+/**
  * Names (string) or IDs (int) of roles that are not allowed to login
  *
  * Note that you must create these roles yourself in the admin. When a user has

@@ -601,7 +601,9 @@ class ProcessWire extends Wire {
 		// the current user can only be determined after the session has been initiated
 		$session = $this->wire('session', new Session($this), true); 
 		$this->initVar('session', $session);
-		$this->wire('user', $users->getCurrentUser());
+		$user = $users->getCurrentUser();
+		if($config->userOutputFormatting) $user->of(true);
+		$this->wire('user', $user);
 		
 		$input = $this->wire('input', new WireInput(), true); 
 		if($config->wireInputLazy) $input->setLazy(true);

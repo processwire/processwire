@@ -156,6 +156,7 @@
  * 
  * @property string $userAuthSalt Salt generated at install time to be used as a secondary/non-database salt for the password system. #pw-group-session
  * @property string $userAuthHashType Default is 'sha1' - used only if Blowfish is not supported by the system. #pw-group-session
+ * @property bool $userOutputFormatting Enable output formatting for current $user API variable at boot? (default=false) #pw-group-session @since 3.0.241
  * @property string $tableSalt Additional hash for other (non-authentication) purposes. #pw-group-system @since 3.0.164
  * 
  * @property bool $internal This is automatically set to FALSE when PW is externally bootstrapped. #pw-group-runtime
