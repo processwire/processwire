@@ -376,7 +376,7 @@ class Debug {
 			$obj = null;
 			$class = '';
 			$type = '';
-			$args = $trace['args'];
+			$args = isset($trace['args']) ? $trace['args'] : array();
 			$argStr = '';
 			$file = $trace['file'];
 			$basename = basename($file); 

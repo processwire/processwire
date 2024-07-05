@@ -85,7 +85,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 		$markupFunction = $this->getSetting('markupFunction');
 		$markupText = $this->getSetting('markupText');
 		$textformatters = $this->getSetting('textformatters');
-		$description = $this->getSetting('description');
+		$description = (string) $this->getSetting('description');
 		
 		if($markupFunction !== null & is_callable($markupFunction)) {
 			$out .= "\n" . call_user_func($markupFunction, $this);
@@ -181,4 +181,3 @@ class InputfieldMarkup extends InputfieldWrapper {
 	}
 	
 }
-

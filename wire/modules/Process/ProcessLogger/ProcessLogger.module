@@ -375,6 +375,8 @@ class ProcessLogger extends Process {
 			'text' => $this->_x('Text', 'th'),
 		);
 		
+		if(!is_array($templateItem)) $templateItem = $headers; 
+		
 		if(empty($templateItem['user']) && empty($templateItem['url'])) {
 			unset($templateItem['user'], $templateItem['url']); 
 			$table->headerRow(array(

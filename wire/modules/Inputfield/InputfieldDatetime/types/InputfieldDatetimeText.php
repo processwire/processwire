@@ -47,7 +47,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 			'showAnim' => 'fade',
 			'changeMonth' => true, 
 			'changeYear' => true,
-			'showButtonPane' => false, 
+			'showButtonPanel' => false, 
 			'numberOfMonths' => 1, 
 			'showMonthAfterYear' => false,
 			'showOtherMonths' => false, 
@@ -483,7 +483,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$f = $inputfields->InputfieldToggle;
 		$f->attr('name', 'showButtonPanel');
 		$f->label = $this->_('Display “Today” and “Done” buttons under calendar?');
-		$f->val($module->get('showButtonPane'));
+		$f->val($module->get('showButtonPanel'));
 		$f->columnWidth = 50;
 		$fieldset->add($f);
 

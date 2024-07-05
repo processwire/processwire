@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -115,17 +115,18 @@ class FieldtypeFloat extends Fieldtype {
 	 * 
 	 * @param Page $page
 	 * @param Field $field
-	 * @param string|float|int
+	 * @param string|float|int|null $value
 	 * @return string
 	 * 
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
+		if($value === null) return ''; // blank value
 		$precision = $field->get('precision'); 
 		if(is_null($precision) || $precision === '' || $precision < 0) {
 			$precision = self::getPrecision($value);
 		}
 		if(!is_string($value)) {
-			$value = number_format($value, $precision, '.', '');
+			$value = number_format((float) $value, $precision, '.', '');
 		}
 		return $value;
 	}
@@ -238,4 +239,3 @@ class FieldtypeFloat extends Fieldtype {
 
 
 }
-

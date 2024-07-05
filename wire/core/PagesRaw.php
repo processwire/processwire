@@ -837,7 +837,7 @@ class PagesRawFinder extends Wire {
 					if(!isset($templatesById[$templateId])) $templatesById[$templateId] = $templates->get($templateId);
 					$template = $templatesById[$templateId]; /** @var Template $template */
 					$slash = $template->slashUrls ? '/' : '';
-					$path = strlen($value) && $value !== '/' ? "$value$slash" : '';
+					$path = strlen("$value") && $value !== '/' ? "$value$slash" : '';
 					if(isset($this->runtimeFields['url'])) {
 						$this->values[$id]['url'] = $rootUrl . $path;
 					}

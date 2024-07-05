@@ -258,7 +258,7 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 					$titleField->set("value$language->id", $value);
 				}
 				if($nameUseLanguages) {
-					$value = $page->get("name$language->id"); 
+					$value = (string) $page->get("name$language->id"); 
 					if(strlen($value)) {
 						if(!empty($suggested["name$language"])) {
 							$nameLang = $suggested["name$language"];

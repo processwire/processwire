@@ -547,7 +547,7 @@ class MarkupPagerNav extends Wire implements Module {
 				}
 
 			} else {
-				$queryString .= "$key=" . urlencode($value) . "&";
+				$queryString .= "$key=" . urlencode("$value") . "&";
 			}
 		}
 		$this->queryString = htmlspecialchars(rtrim($queryString, "?&"));
