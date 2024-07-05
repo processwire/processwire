@@ -640,7 +640,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 		$class = 'InputfieldFileList ui-helper-clearfix';
 		if($this->overwrite && !$this->renderValueMode) $class .= " InputfieldFileOverwrite";
-		if($out) $out = "<ul class='$class'>$out</ul>";
+		
+		if($out) {
+			$out = "<ul class='$class'>$out</ul>";
+		} else {
+			$out = "<div class='InputfieldFileListPlaceholder' hidden></div>";
+		}
 		
 		return $out; 
 	}

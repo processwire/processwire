@@ -208,7 +208,7 @@ $(document).ready(function() {
 
 			if($fileList.length < 1) {
 				$fileList = $("<ul class='InputfieldFileList InputfieldFileListBlank'></ul>");
-				$this.prepend($fileList); 
+				$this.find('.InputfieldFileListPlaceholder').replaceWith($fileList);
 				$this.parent('.Inputfield').addClass('InputfieldFileEmpty'); 
 			}
 
