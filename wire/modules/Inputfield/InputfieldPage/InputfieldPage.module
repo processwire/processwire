@@ -20,6 +20,7 @@
  * @property string $findPagesSelector
  * @property string $findPagesSelect Same as findPageSelector, but configured interactively with InputfieldSelector .
  * @property int|bool $addable
+ * @property int|bool $forceCreate
  * @property int|bool $allowUnpub
  * @property int $derefAsPage
  * @property-read string $inputfieldClass Public property alias of protected getInputfieldClass() method
@@ -84,6 +85,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		'findPagesSelector' => '',
 		'derefAsPage' => 0, 
 		'addable' => 0,
+		'forceCreate' => 0,
 		'allowUnpub' => 0, // This option configured by FieldtypePage:Advanced
 	);
 
@@ -1113,6 +1115,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$this->pagesAdded = $pages->newPageArray();
 		$parent_id = $this->getSetting('parent_id');
 		$template_id = $this->getSetting('template_id');
+		$forceCreate = $this->getSetting('forceCreate');
 		$template = $this->wire()->templates->get((int) $template_id);
 
 		if(!$this->getSetting('addable') || !$parent_id || !$template_id) return;
@@ -1130,19 +1133,21 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		foreach($titles as $title) {
 
-			// check if there is an existing page using this title
-			$selector = "include=all, templates_id=$template_id, title=" . $sanitizer->selectorValue($title); 
-			$existingPage = $parent->child($selector);
+			if(!$forceCreate) {
+				// check if there is an existing page using this title
+				$selector = "include=all, templates_id=$template_id, title=" . $sanitizer->selectorValue($title); 
+				$existingPage = $parent->child($selector);
 			
-			if($existingPage->id) {
-				// use existing page
-				$this->pagesAdded->add($existingPage);
-				if($this->value instanceof PageArray) {
-					$this->value->add($existingPage); 
-					continue; 
-				} else {
-					$this->value = $existingPage; 
-					break;
+				if($existingPage->id) {
+					// use existing page
+					$this->pagesAdded->add($existingPage);
+					if($this->value instanceof PageArray) {
+						$this->value->add($existingPage); 
+						continue; 
+					} else {
+						$this->value = $existingPage; 
+						break;
+					}
 				}
 			}
 
@@ -1464,25 +1469,41 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				$this->_('If you want to make everything selectable, then specify nothing.') .
 				'</p>';
 			$inputfields->insertAfter($f, $field);
-		
+
+			/** @var  InputfieldFieldset $fieldset */
+			$fieldset = $modules->get('InputfieldFieldset'); 
+			$fieldset->label = $this->_('Creating new pages');
+			$fieldset->attr('name', '_creating_pages'); 
+			$fieldset->icon = 'lightbulb-o';
+
 			/** @var InputfieldCheckbox $field */
 			$field = $modules->get('InputfieldCheckbox');
 			$field->attr('name', 'addable');
 			$field->attr('value', 1);
-			$field->icon = 'lightbulb-o';
 			$field->label = $this->_('Allow new pages to be created from field?');
 			$field->description = $this->_('If checked, an option to add new page(s) will also be present if the indicated requirements are met.');
 			$field->notes =
 				$this->_('1. Both a parent and template must be specified in the “Selectable pages” section above.') . "\n" .
 				$this->_('2. The editing user must have access to create/publish these pages.') . "\n" .
 				$this->_('3. The “label field” must be set to “title (default)”.');
+			$fieldset->append($field);
 
 			if($this->addable) {
 				$field->attr('checked', 'checked');
 			} else {
-				$field->collapsed = Inputfield::collapsedYes;
+				$fieldset->collapsed = Inputfield::collapsedYes;
 			}
-			$inputfields->append($field);
+
+			/** @var InputfieldCheckbox $field */
+			$field = $modules->get('InputfieldCheckbox');
+			$field->attr('name', 'forceCreate');
+			$field->attr('value', 1);
+			if($this->forceCreate) $field->attr('checked', 'checked');
+			$field->label = $this->_('Create even if matching page exists?');
+			$field->description = $this->_('If checked, ProcessWire will create a new page even when a page with the same title already exists under the parent. If unchecked, the existing page is added instead.');
+			$fieldset->append($field);
+
+			$inputfields->append($fieldset);
 		}
 		
 		foreach(parent::___getConfigInputfields() as $inputfield) {
