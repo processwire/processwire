@@ -2427,6 +2427,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($of) $this->of(false);
 		foreach($values as $k => $v) {
 			$this->set($k, $v);
+			if(!$property) $this->trackChange($k);
 		}
 		if($property) {
 			$result = $this->save($property, $options);
