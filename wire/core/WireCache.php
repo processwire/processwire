@@ -602,8 +602,10 @@ class WireCache extends Wire {
 	 *
 	 */
 	public function getExpires($expire, $verbose = null) {
-
-		if($expire instanceof Wire && $expire->id) {
+		
+		$isString = is_string($expire);
+		
+		if(!$isString && $expire instanceof Wire && $expire->id) {
 
 			if($expire instanceof Page) {
 				// page object
@@ -618,7 +620,7 @@ class WireCache extends Wire {
 				$expire = time() + self::expireDaily;
 			}
 			
-		} else if(is_array($expire)) {
+		} else if(!$isString && is_array($expire)) {
 			// expire value already prepared by a previous call, just return it
 			if(isset($expire['selector']) && isset($expire['expire'])) {
 				if($verbose || $verbose === null) return $expire; // return array
@@ -628,11 +630,11 @@ class WireCache extends Wire {
 				$expire = self::expireDaily;
 			}
 
-		} else if(is_string($expire) && isset($this->expireNames[$expire])) {
+		} else if($isString && isset($this->expireNames[$expire])) {
 			// named expiration constant like "hourly", "daily", etc. 
 			$expire = time() + $this->expireNames[$expire];
 			
-		} else if(is_string($expire) && Selectors::stringHasSelector($expire)) {
+		} else if($isString && Selectors::stringHasSelector($expire)) {
 			// expire when page matches selector
 			if($verbose || $verbose === null) {
 				return array(
@@ -649,7 +651,7 @@ class WireCache extends Wire {
 		} else {
 
 			// account for date format as string
-			if(is_string($expire) && !ctype_digit("$expire")) {
+			if($isString && !ctype_digit("$expire")) {
 				$expire = strtotime($expire);
 				$isDate = true;
 			} else {
