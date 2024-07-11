@@ -919,7 +919,11 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		if($inputfield instanceof InputfieldHasArrayValue || $inputfield instanceof InputfieldSupportsArrayValue) {
 			// multi value
-			$description = $this->_('Enter the titles of the items you want to add, one per line. They will be created and added to your selection when you save the page.');
+			$description = $this->_('Enter the titles of the items you want to add, one per line.');
+			if ($this->getSetting('forceCreate'))
+				$description .= ' ' . $this->_('They will be created and added to your selection when you save the page.');
+			else
+				$description .= ' ' . $this->_('If selectable pages with these titles exist, they will be added to your selection. Otherwise they will first be created.');
 			$input = "<textarea id='$key' name='$key' rows='5'></textarea>";
 		} else {
 			// single value
