@@ -1503,6 +1503,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$field->attr('name', 'forceCreate');
 			$field->attr('value', 1);
 			if($this->forceCreate) $field->attr('checked', 'checked');
+			$field->showIf = 'addable=1';
 			$field->label = $this->_('Create even if matching page exists?');
 			$field->description = $this->_('If checked, ProcessWire will create a new page even when a page with the same title already exists under the parent. If unchecked, the existing page is added instead.');
 			$fieldset->append($field);
