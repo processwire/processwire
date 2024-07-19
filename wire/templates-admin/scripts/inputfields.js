@@ -902,6 +902,21 @@ var Inputfields = {
 	},
 	
 	/**
+	 * Get an Inputfield by name, id or element 
+	 * 
+	 * This is an alias of the inputfield() function and works the same way, 
+	 * but this syntax may be preferred in some cases. 
+	 * 
+ 	 * @param value
+	 * @returns object
+	 * @since 3.0.241
+	 * 
+	 */	
+	get: function(value) {
+		return this.inputfield(value);
+	},
+	
+	/**
 	 * Return the .InputfieldHeader element for given Inputfield (or id, name, element within)
 	 * 
  	 * @param $inputfield Can be .Inputfield, id, name, or any element within Inputfield
@@ -1074,7 +1089,8 @@ var Inputfields = {
 	 * `toggle` or 'link' action based on what you provide in the settings argument.
 	 * Below is a summary of these settings: 
 	 * 
-	 * Settings for 'click' and 'link' type actions:
+	 * Settings for 'click' and 'link' type actions
+	 * ============================================
 	 *  - `icon` (string): Class to use for icon, i.e. 'fa-cog'. 
 	 *  - `callback` (function): Callback function when action icon is clicked.
 	 *  - `event` (string): Event name to trigger in JS when clicked ('click' actions only).
@@ -1083,7 +1099,8 @@ var Inputfields = {
 	 *  - `modal` (bool): Specify true to make a link open in a modal window ('link' actions only). 
 	 *     (requires that /wire/modules/JqueryUI/JqueryUI/modal.js is loaded)
 	 *
-	 * Settings for 'toggle' (on/off) type actions:
+	 * Settings for 'toggle' (on/off) type actions
+	 * ===========================================
 	 *  - `on` (bool): True if action is currently ON, false if not (default=false).
 	 *  - `onIcon` (string): Icon class when action is ON and clicking would toggle OFF, i.e. 'fa-toggle-off'.
 	 *  - `onCallback` (function): Callback function when action is clicked to turn ON.
@@ -1095,10 +1112,37 @@ var Inputfields = {
 	 *  - `offTooltip` (string): Optional tooltip text for when action is OFF.
 	 *  -  Note that if 'offIcon' or 'offTooltip' are omitted, they will use their 'on' equivalent.
 	 *  
-	 * Other/optional settings (applies to all types): 
+	 *  Settings for dropdown 'menu' type actions 
+	 *  =========================================
+	 *  Note that menu type actions also require jQuery UI and /wire/templates-admin/scripts/main.js,
+	 *  both of which are already present in PW’s admin themes (AdminThemeUikit recommended).
+	 *  Dropdown menu actions require ProcessWire 3.0.241 or newer.
+	 *  - `icon` (string): Icon name to use for dropdown toggle, i.e. 'fa-wrench'.
+	 *  - `tooltip` (string): Optional tooltip to describe what the dropdown is for. 
+	 *  - `menuItems` (array): Definition of menu items, each with one or more of the following properties. 
+	 *     - `label` (string): Label text for the menu item (required).
+	 *     - `icon` (string): Icon name for the menu item, if desired.
+	 *     - `callback` (function|null): JS callback function to execute item is clicked. 
+	 *     - `event` (string): JS event name to trigger when item is clicked. 
+	 *     - `tooltip` (string): Tooltip text to show when hovering menu item (title attribute). 
+	 *     - `href` (string): URL to go to when menu item clicked. 
+	 *     - `target` (string): Target attribute when href is used (i.e. "_blank"). 
+	 *     - `modal` (bool): Open href in modal window instead?
+	 *     - `active` (function|bool): Callback function that returns true if menu item active, or false 
+	 *        if disabled. You can also directly specify true or false for this option.
+	 *     - Note that all menuItems properties above are optional, except for 'label'.
+	 *  - `menuAction` (string): Action that toggles the menu to show, one of 'click' or 'hover' (default).
+	 *  - `menuMy` (string): The 'my' jQuery position (default='right top') https://api.jqueryui.com/menu/#option-position
+	 * 	- `menuAt` (string): The 'at' jQuery position (default='right+15 bottom') https://api.jqueryui.com/menu/#option-position
+	 *
+	 * Other/optional settings (applies to all types)
+	 * ==============================================
 	 *  - `name` (string): Name of action using only characters [_-a-zA-Z0-9]. 
 	 *  - `overIcon` (string): Optional icon class when mouse cursor is hovering OVER the action. 
 	 *  - `overCallback` (function): Optional callback function when mouse cursor is hovering OVER the action.
+	 *  - `downIcon` (string): Optional icon class when mouse is down (3.0.241+). 
+	 *  - `downCallback` (function): Optional callback function when mouse is down on the icon (3.0.241+).
+	 *  - `downEvent` (string): Optional JS event to trigger when mouse is down on the icon (3.0.241+). 
 	 *  - `cursor` (function): Optional/alternate mouse cursor to show when hovering over the action. 
 	 *  - `iconTag` (string): Optionally override the default <i> tag used for the icon. You can specify this
 	 *     if you want to use a non-FontAwesome icon.
@@ -1127,6 +1171,40 @@ var Inputfields = {
 	 *   offCallback: function() {
 	 *     ProcessWire.alert('You toggled off');
 	 *   }	
+	 * });
+	 * 
+	 * // Add a dropdown menu with select-all/unselect-all for a checkboxes field
+	 * $f = Inputfields.get('checkboxes_field_name');
+	 * Inputfields.addHeaderAction($f, {
+	 * 	 name: 'tools',
+	 * 	 icon: 'fa-wrench',
+	 *   tooltip: 'Select or unselect all',
+	 *   menuItems: [
+	 *     {
+	 *       name: 'select-all',
+	 *       label: 'Select all',
+	 *       icon: 'fa-check-square-o',
+	 *       callback: function() {
+	 *         $f.find('input[type=checkbox]').prop('checked', true);
+	 *         $f.trigger('change');
+	 * 	     },
+	 *       active: function() {
+	 *         return $f.find('input[type=checkbox]').not(':checked').length > 0;
+	 *       }
+	 *     },
+	 *     {
+	 *       name: 'unselect-all',
+	 *       label: 'Unselect all',
+	 *       icon: 'fa-square-o',
+	 *       callback: function() {
+	 *         $f.find('input[type=checkbox]').prop('checked', false);
+	 *         $f.trigger('change');
+	 *       },
+	 *       active: function() {
+	 *         return $f.find('input[type=checkbox]:checked').length > 0;
+	 *       }
+	 *     }
+	 *   ]
 	 * });
 	 * ~~~~~
 	 * 
@@ -1166,14 +1244,27 @@ var Inputfields = {
 			overCallback: null,
 			overEvent: '', 
 			cursor: '',
-			// other
+			// for optional mousedown state:
+			downIcon: '', 
+			downCallback: null, 
+			downEvent: '',
+			// name of this action (to make getable by getHeaderAction)
 			name: '',
+			// tag to use for icon
 			iconTag: '<i class="fa fa-fw"></i>',
 			// icon element if already present
-			$iconElement: null, 
+			$iconElement: null,
+			// items for menu, see menuItemDefaults in _addHeaderActionMenu()
+			menuItems: [],
+			// type of dropdown menu: 'click' or 'hover' (requires menuItems)
+			menuAction: 'hover',
+			// jQuery UI 'my' and 'at' position values for menu (https://api.jqueryui.com/menu/#option-position)
+			menuMy: 'right top', 
+			menuAt: 'right+15 bottom' 
 		};
-
+		
 		settings = $.extend(defaults, settings);
+		$inputfield = this.inputfield($inputfield);
 		
 		var $header = this.header($inputfield);
 		var $icon = settings.$iconElement ? settings.$iconElement : $(settings.iconTag);
@@ -1261,10 +1352,132 @@ var Inputfields = {
 			}
 		}
 	
+		if(settings.downIcon.length || settings.downCallback || settings.downEvent) {
+			$icon.on('mousedown', function() {
+				if(settings.downIcon.length) {
+					$icon.addClass(fa(settings.downIcon));
+				}
+				if(settings.downCallback) settings.downCallback($icon);
+				if(settings.downEvent) $icon.trigger(settings.downEvent, [ $icon ]);
+			});
+			if(settings.downIcon.length) {
+				$icon.on('mouseup', function() {
+					$icon.removeClass(fa(settings.downIcon));
+				});
+			}
+		}
+	
+		// setup dropdown menu if specified
+		if(settings.menuItems.length) {
+			for(var n = 0; n < settings.menuItems.length; n++) {
+				if(typeof settings.menuItems[n].icon === 'undefined') continue;
+				settings.menuItems[n].icon = fa(settings.menuItems[n].icon);
+			}
+			this._addHeaderActionMenu($inputfield, $header, $icon, settings);
+		}
+		
 		$header.append($icon);
 		if($icon.prop('hidden')) $icon.prop('hidden', false);
 
 		return $icon;
+	},
+	
+	/**
+	 * Setup dropdown 'menu' type header actions for addHeaderAction() function
+	 * 
+ 	 * @param $inputfield
+	 * @param settings
+	 * @private
+	 * 
+	 */	
+	_addHeaderActionMenu: function($inputfield, $header, $icon, settings) {
+		
+		var menuItemDefaults = {
+			icon: '', // optional icon
+			label: '', // menu item label (required)
+			callback: null, // function to call on click
+			event: '', // event to trigger on click
+			tooltip: '', // tooltip text (title attribute)
+			href: '', // URL to link to
+			target: '', // if href populated, i.e. '_blank'
+			modal: false, // if href populated, open in modal?
+			active: true, // is item active? Specify callback that returns true or false
+		};
+		
+		if(!settings.name.length) {
+			settings.name = 'act' + ($header.find('.InputfieldHeaderAction').length + 1);
+		}
+		
+		var menuId = $inputfield.attr('id') + '-menu-' + settings.name;
+		var $menu = $('<ul></ul>').attr('id', menuId)
+			.addClass('pw-dropdown-menu').css('display', 'none')
+			.attr('data-my', settings.menuMy)
+			.attr('data-at', settings.menuAt);
+		
+		for(var n = 0; n < settings.menuItems.length; n++) {
+			
+			var item = $.extend(menuItemDefaults, settings.menuItems[n]);
+			var $li = $('<li></li>');
+			var $a = $('<a></a>').text(item.label);
+			
+			if(item.href) $a.attr('href', item.href);
+			if(item.target) $a.attr('target', item.target);
+			if(item.tooltip) $a.attr('title', item.tooltip);
+			
+			if(item.icon) {
+				var $itemIcon = $(settings.iconTag).addClass(item.icon);
+				$a.prepend($itemIcon);
+			}
+			
+			$a.attr('data-n', n);
+			$li.append($a);
+			$menu.append($li);
+			
+			$a.on('click', function() {
+				var $a = $(this);
+				var $li = $a.parent();
+				if($li.hasClass('ui-state-disabled')) return false;
+				var n = parseInt($a.attr('data-n'));
+				// note: cannot use 'item' defined outside this function since 
+				// the 'n' value can be different
+				var item = $.extend(menuItemDefaults, settings.menuItems[n]);
+				if(item.callback) item.callback($a);
+				if(typeof item.event !== 'undefined' && item.event.length) {
+					$icon.trigger(item.event, [$a]);
+				}
+				if(item.href) {
+					if(item.modal) {
+						pwModalWindow(item.href);
+					} else if(item.target.length) {
+						return true;
+					} else {
+						window.location.href = item.href;
+					}
+				}
+				return false;
+			});
+		}
+		
+		$icon.addClass('pw-dropdown-toggle').attr('data-pw-dropdown', '#' + menuId);
+		
+		if(settings.menuAction === 'click') $icon.addClass('pw-dropdown-toggle-click');
+		
+		$inputfield.append($menu);
+		
+		$menu.on('pw-show-dropdown', function() {
+			$(this).children('li').each(function() {
+				var $li = $(this);
+				var $a = $li.children('a');
+				var n = parseInt($a.attr('data-n'));
+				var active = settings.menuItems[n].active;
+				if(typeof active === 'function') active = active($a);
+				if(active) {
+					$li.removeClass('ui-state-disabled');
+				} else {
+					$li.addClass('ui-state-disabled');
+				}
+			});
+		});
 	},
 	
 	/**
@@ -2402,6 +2615,7 @@ function InputfieldStates($target) {
 				$inputfields.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
 				InputfieldStates($li);	
 				InputfieldRequirements($li);
+				InputfieldHeaderActions($li);
 				InputfieldColumnWidths();
 			} else {
 				$li.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);

@@ -62,6 +62,7 @@
  * @property string $tabLabel Label for tab if Inputfield rendered in its own tab via Inputfield::collapsedTab* setting. @since 3.0.201 #pw-group-labels
  * @property string|null $prependMarkup Optional markup to prepend to the Inputfield content container. #pw-group-other
  * @property string|null $appendMarkup Optional markup to append to the Inputfield content container. #pw-group-other
+ * @property string|null $footerMarkup Optional markup to add to the '.Inputfield' container, after '.InputfieldContent'. @since 3.0.241 #pw-advanced
  * 
  * @method string|Inputfield label($label = null) Get or set the 'label' property via method. @since 3.0.110 #pw-group-labels
  * @method string|Inputfield description($description = null) Get or set the 'description' property via method. @since 3.0.110  #pw-group-labels
@@ -433,8 +434,9 @@ abstract class Inputfield extends WireData implements Module {
 		$this->set('textFormat', self::textFormatBasic); // format applied to description and notes
 		$this->set('renderFlags', 0);  // See render* constants
 		$this->set('renderValueFlags', 0); // see renderValue* constants, applicable to renderValue mode only
-		$this->set('prependMarkup', ''); // markup to prepend to Inputfield output
-		$this->set('appendMarkup', ''); // markup to append to Inputfield output
+		$this->set('prependMarkup', ''); // markup to prepend to InputfieldContent output
+		$this->set('appendMarkup', ''); // markup to append to InputfieldContent output
+		$this->set('footerMarkup', ''); // markup to add to end of Inputfield output
 
 		// default ID attribute if no 'id' attribute set
 		$this->defaultID = $this->className() . self::$numInstances; 
@@ -2104,16 +2106,16 @@ abstract class Inputfield extends WireData implements Module {
 	 * `toggle` or 'link' action based on what you provide in the $settings argument.
 	 * Below is a summary of these settings:
 	 * 
-	 * Settings for 'click' or 'link' type actions:
-	 * 
+	 * Settings for 'click' or 'link' type actions
+	 * -------------------------------------------
 	 * - `icon` (string): Name of font-awesome icon to use.
 	 * - `tooltip` (string): Optional tooltip text to display when icon hovered. 
 	 * - `event` (string): Event name to trigger in JS when clicked ('click' actions only). 
 	 * - `href` (string): URL to open ('link' actions only). 
 	 * - `modal` (bool): Specify true to open link in modal ('link' actions only). 
 	 * 
-	 * Settings for 'toggle' (on/off) type actions: 
-	 * 
+	 * Settings for 'toggle' (on/off) type actions 
+	 * -------------------------------------------
 	 * - `on` (bool): Start with the 'on' state? (default=false)
 	 * - `onIcon` (string): Name of font-awesome icon to show for on state. 
 	 * - `onEvent` (string): JS event name to trigger when toggled on. 
@@ -2122,15 +2124,41 @@ abstract class Inputfield extends WireData implements Module {
 	 * - `offEvent` (string): JS event name to trigger when toggled off. 
 	 * - `offTooltip` (string): Tooltip text to show when off icon is hovered. 
 	 * 
-	 * Other/optional settings (applies to all types): 
-	 * 
+	 * Other/optional settings (applies to all types) 
+	 * ----------------------------------------------
 	 * - `name` (string): Name of this action (-_a-zA-Z0-9).
+	 * - `parent` (string): Name of parent action, if this action is part of a menu.
 	 * - `overIcon` (string): Name of font-awesome icon to show when hovered. 
 	 * - `overEvent` (string): JS event name to trigger when mouse is over the icon.
+	 * - `downIcon` (string): Icon to display when mouse is down on the action icon (3.0.241+).
+	 * - `downEvent` (string): JS event name to trigger when mouse is down on the icon (3.0.241+).
 	 * - `cursor` (string): CSS cursor name to show when mouse is over the icon. 
 	 * - `setAll` (array): Set all of the header actions in one call, replaces any existing. 
 	 *    Note: to get all actions, call the method and omit the $settings argument. 
 	 * 
+	 * Settings for dropdown menu actions (3.0.241+)
+	 * ---------------------------------------------
+	 *  Note that menu type actions also require jQuery UI and /wire/templates-admin/scripts/main.js,
+	 *  both of which are already present in PW’s admin themes (AdminThemeUikit recommended).
+	 *  Requires ProcessWire 3.0.241 or newer.
+	 *  - `icon` (string): Icon name to use for dropdown toggle, i.e. 'fa-wrench'.
+	 *  - `tooltip` (string): Optional tooltip to describe what the dropdown is for.
+	 *  - `menuAction` (string): Action that toggles the menu to show, one of 'click' or 'hover' (default).
+	 *  - `menuItems` (array): Definition of menu items, each with one or more of the following properties.
+	 *     - `label` (string): Label text for the menu item (required).
+	 *     - `icon` (string): Icon name for the menu item, if desired.
+	 *     - `callback` (function|null): JS callback to execute item is clicked (not applicable in PHP).*
+	 *     - `event` (string): JS event name to trigger when item is clicked.
+	 *     - `tooltip` (string): Tooltip text to show when hovering menu item (title attribute).
+	 *     - `href` (string): URL to go to when menu item clicked.
+	 *     - `target` (string): Target attribute when href is used (i.e. "_blank").
+	 *     - `modal` (bool): Open href in modal window instead?
+	 *     - `active` (function|bool): Callback function that returns true if menu item active, or false.*
+	 *        if disabled. You can also directly specify true or false for this option.
+	 *     - NOTE 1: All `menuItems` properties above are optional, except for 'label'.
+	 *     - NOTE 2: To use `callback` or `active` as functions, you must define your menu in JS instead.
+	 *     - NOTE 3: For examples see the addHeaderAction() method in /wire/templates-admin/scripts/inputfields.js
+	 *
 	 * @param array $settings Specify array containing the appropriate settings above.
 	 * @return array Returns all currently added actions.
 	 * @since 3.0.240

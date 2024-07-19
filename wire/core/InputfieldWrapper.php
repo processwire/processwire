@@ -973,7 +973,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			} else if(strpos($markupItemContent, '{class}') !== false) {
 				$markupItemContent = str_replace('{class}', '', $markupItemContent); 
 			}
-			if($inputfield->className() != 'InputfieldWrapper') $ffOut = str_replace('{out}', $ffOut, $markupItemContent); 
+			if($inputfield->className() != 'InputfieldWrapper') $ffOut = str_replace('{out}', $ffOut, $markupItemContent);
+			$ffOut .= $inputfield->getSetting('footerMarkup');
 			$out .= str_replace(array('{attrs}', '{out}'), array(trim($attrs), $label . $ffOut), $markup['item']); 
 			$lastInputfield = $inputfield;
 		} // foreach($children as $inputfield)
