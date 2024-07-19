@@ -1,7 +1,7 @@
 /**
  * ProcessWire Admin common javascript
  *
- * Copyright 2016 by Ryan Cramer
+ * Copyright 2016-2024 by Ryan Cramer
  * 
  */
 
@@ -117,6 +117,8 @@ var ProcessWireAdmin = {
 
 			var $a = $(this);
 			var $ul;
+			
+			if($a.hasClass('pw-dropdown-init')) return;
 		
 			if($a.attr('data-pw-dropdown')) {
 				// see if it is specifying a certain <ul>
@@ -181,6 +183,7 @@ var ProcessWireAdmin = {
 					$a.removeClass('hover');
 				});
 			}
+			$a.addClass('pw-dropdown-init');
 		}
 
 		function mouseenterDropdownToggle(e) {
@@ -239,6 +242,7 @@ var ProcessWireAdmin = {
 
 				$a.addClass('hover');
 				$ul.show();
+				$ul.trigger('pw-show-dropdown', [ $ul ]); 
 				$ul.data('pw-dropdown-last-offset', offset);
 
 			}, delay);
@@ -254,7 +258,10 @@ var ProcessWireAdmin = {
 
 			if(timeout) clearTimeout(timeout);
 			setTimeout(function() {
-				if($ul.filter(":hover").length) return;
+				// filter(':hover') does not work in jQuery 3.x
+				// if($ul.filter(":hover").length) return; 
+				var hovered = $ul.filter(function() { return $(this).is(':hover'); });
+				if(hovered.length) return;
 				$ul.find('ul').hide();
 				$ul.hide();
 				$a.removeClass('hover');
@@ -433,6 +440,10 @@ var ProcessWireAdmin = {
 			});
 
 			$(".pw-dropdown-toggle").each(setupDropdown);
+			
+			$('.InputfieldForm').on('reloaded', function() {
+				$('.pw-dropdown-toggle:not(.pw-dropdown-init)').each(setupDropdown);
+			}); 
 
 			$(document)
 				.on('mousedown', '.pw-dropdown-toggle-click', mouseenterDropdownToggle)
