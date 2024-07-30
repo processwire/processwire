@@ -29,22 +29,6 @@ class PagesEditor extends Wire {
 	protected $pages;
 	
 	/**
-	 * Deleted page ID tracking
-	 *
-	 * @var array of [ id => id ]
-	 * 
-	 */
-	protected $deleted = array();
-
-	/**
-	 * Delete recursion level 
-	 * 
-	 * @var int 
-	 * 
-	 */
-	protected $deleteLevel = 0;
-
-	/**
 	 * Construct
 	 * 
 	 * @param Pages $pages
