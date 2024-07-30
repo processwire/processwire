@@ -13,6 +13,7 @@
  * @property bool|int $inlineLimitPage Limit editor to current page only
  * @property array $inlineAllowFieldtypes
  * @method Page getPage() Get page being edited (3.0.208+)
+ * @method string getAjaxPostUrl() Get URL that ajax save requests should POST to (3.0.242+)
  * 
  */
 
@@ -201,6 +202,19 @@ class PageFrontEdit extends WireData implements Module {
 	 */
 	public function ___getPage() {
 		return $this->page;
+	}
+
+	/**
+	 * Get URL that ajax save should post to
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @return string
+	 * @since 3.0.242
+	 * 
+	 */
+	public function ___getAjaxPostUrl() {
+		return $this->wire()->page->url;
 	}
 
 	/**
@@ -750,6 +764,9 @@ class PageFrontEdit extends WireData implements Module {
 			$tinymceUrl = '';
 		}
 		
+		$ajaxPostUrl = $this->getAjaxPostUrl();
+		if($draft) $ajaxPostUrl .= (strpos($ajaxPostUrl, '?') ? '&' : '?') . "draft=$draft";
+		
 		$configJS = $config->js();
 		$configJS['modals'] = $config->modals;
 		$configJS['urls'] = array(
@@ -768,7 +785,7 @@ class PageFrontEdit extends WireData implements Module {
 				'fa' => $config->urls->adminTemplates . "styles/font-awesome/css/font-awesome.min.css", 
 			),
 			'adminTheme' => $adminTheme ? $adminTheme : 'AdminThemeDefault',
-			'pageURL' => $this->wire()->page->url . ($draft ? "?draft=$draft" : "")
+			'pageURL' => $ajaxPostUrl
 		);
 	
 		$scripts[] = 
