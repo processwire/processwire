@@ -19,7 +19,7 @@ class FieldtypeFloat extends Fieldtype {
 		return array(
 			'title' => __('Float', __FILE__),
 			'summary' => __('Field that stores a floating point number', __FILE__),
-			'version' => 107,
+			'version' => 108,
 			'permanent' => true, 
 		);
 	}
@@ -175,10 +175,56 @@ class FieldtypeFloat extends Fieldtype {
 	 */
 	public function getDatabaseSchema(Field $field) {
 		$schema = parent::getDatabaseSchema($field); 
-		$schema['data'] = 'float NOT NULL';
+		$schema['data'] = ($field->get('colType') === 'double' ? 'double' : 'float') . ' NOT NULL';
 		return $schema;
 	}
 
+	/**
+	 * Set the database data column type (updating the DB table)
+	 * 
+	 * @param Field $field
+	 * @param string $newType Specify either 'float' or 'double'
+	 * @return string Returns the colum
+	 * @since 3.0.241
+	 * 
+	 */
+	public function setColumnType(Field $field, $newType) {
+		$oldType = $this->getColumnType($field);
+		if($newType != 'double') $newType = $this->getDefaultColumnType();
+		if($oldType === $newType) return $oldType;
+		$database = $this->wire()->database;
+		$table = $field->getTable();
+		$database->exec("ALTER TABLE $table MODIFY `data` $newType NOT NULL");
+		$field->warning("Changed '$field->name' type from '$oldType' to '$newType'", Notice::debug);
+		$field->set('colType', $newType);
+		return $newType;
+	}
+
+	/**
+	 * Get the current database data column type
+	 * 
+	 * @param Field $field
+	 * @return string 
+	 * @since 3.0.241
+	 * 
+	 */
+	protected function getColumnType(Field $field) {
+		$database = $this->wire()->database;
+		$table = $field->getTable();
+		try {
+			$cols = $database->getColumns($table, true);
+			$type = $cols['data']['type'];
+		} catch(\Exception $e) {
+			$this->error($e->getMessage());
+			$type = $this->getDefaultColumnType();
+		}
+		return $type;
+	}
+	
+	protected function getDefaultColumnType() {
+		return 'float';
+	}
+	
 	/**
 	 * Get field configuration
 	 * 
@@ -190,9 +236,21 @@ class FieldtypeFloat extends Fieldtype {
 		$inputfields = parent::___getConfigInputfields($field);
 		$precision = $field->get('precision');
 		if($precision === null) $precision = 2; 
-
-		/** @var InputfieldInteger $f */
-		$f = $this->wire()->modules->get('InputfieldInteger');
+		
+		$colType = strtolower($this->getColumnType($field));
+		$newType = $field->get('colType');
+		if(empty($newType)) $newType = $colType;
+		if($newType != $colType) $colType = $this->setColumnType($field, $newType);
+		
+		$f = $inputfields->InputfieldRadios;
+		$f->attr('name', 'colType'); 
+		$f->label = $this->_('Database column type'); 
+		$f->addOption('float', $this->_('Float (single-precision)'));
+		$f->addOption('double', $this->_('Double (double-precision)'));
+		$f->val($colType);
+		$inputfields->add($f);
+		
+		$f = $inputfields->InputfieldInteger;
 		$f->attr('name', 'precision'); 
 		$f->label = $this->_('Number of decimal digits to round to');
 		$f->description = $this->_('Or use a negative number like `-1` to disable rounding.');
