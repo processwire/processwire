@@ -2937,7 +2937,7 @@ function InputfieldReloadEvent(event, extraData) {
 		var $content;
 		if(data.indexOf('{') === 0) {
 			data = JSON.parse(data);
-			console.log(data);
+			// console.log(data);
 			$content = '';
 		} else {
 			$content = jQuery(data).find("#" + id).children(".InputfieldContent");
