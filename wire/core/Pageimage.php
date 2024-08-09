@@ -544,14 +544,16 @@ class Pageimage extends Pagefile {
 		$xml = @file_get_contents($filename);
 		
 		if($xml) {
-			$a = @simplexml_load_string($xml)->attributes();
-			if((int) $a->width > 0) $width = (int) $a->width;
-			if((int) $a->height > 0) $height = (int) $a->height;
-			if((!$width || !$height) && $a->viewBox) {
-				$values = explode(' ', $a->viewBox);
-				if(count($values) === 4) {
-					$width = (int) round($values[2]);
-					$height = (int) round($values[3]);
+			if($root = @simplexml_load_string($xml)) {
+				$a = $root->attributes();
+				if((int) $a->width > 0) $width = (int) $a->width;
+				if((int) $a->height > 0) $height = (int) $a->height;
+				if((!$width || !$height) && $a->viewBox) {
+					$values = explode(' ', $a->viewBox);
+					if(count($values) === 4) {
+						$width = (int) round($values[2]);
+						$height = (int) round($values[3]);
+					}
 				}
 			}
 		}
