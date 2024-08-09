@@ -543,8 +543,8 @@ class Pageimage extends Pagefile {
 		if(!$filename) $filename = $this->filename;
 		$xml = @file_get_contents($filename);
 		
-		if($xml) {
-			$a = @simplexml_load_string($xml)->attributes();
+		if($xml && false !== ($a = @simplexml_load_string($xml))) {
+			$a = $a->attributes();
 			if((int) $a->width > 0) $width = (int) $a->width;
 			if((int) $a->height > 0) $height = (int) $a->height;
 			if((!$width || !$height) && $a->viewBox) {
