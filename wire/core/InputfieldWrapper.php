@@ -402,6 +402,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	/**
 	 * Insert new or existing Inputfield before or after another
 	 * 
+	 * #pw-group-manipulation
+	 * 
 	 * @param Inputfield|array|string $item New or existing item Inputfield, name, or new item array to insert.
 	 * @param Inputfield|string $existingItem Existing item or item name you want to insert before.
 	 * @param bool $before True to insert before, false to insert after (default=false).
@@ -721,6 +723,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$classes = array();
 		$useColumnWidth = $this->useColumnWidth;
 		$renderAjaxInputfield = $this->wire()->config->ajax ? $this->wire()->input->get('renderInputfieldAjax') : null;
+		$toggleLabel = $sanitizer->entities1($this->_('Toggle open/close'));
 		
 		$lockedStates = array(
 			Inputfield::collapsedNoLocked, 
@@ -883,7 +886,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				$icon = $icon ? str_replace('{name}', $sanitizer->name(str_replace(array('icon-', 'fa-'), '', $icon)), $markup['item_icon']) : ''; 
 				$toggle = $collapsed == Inputfield::collapsedNever ? '' : $markup['item_toggle']; 
 				if($toggle && strpos($toggle, 'title=') === false) {
-					$toggle = str_replace("class=", "title='" . $this->_('Toggle open/close') . "' class=", $toggle);
+					$toggle = str_replace("class=", "title='$toggleLabel' class=", $toggle);
 				}
 				$headerActions = $inputfield->addHeaderAction();
 				if(count($headerActions)) {
@@ -894,18 +897,12 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label_hidden']); 
 				} else {
 					// label always visible
-					$label = str_replace(array('{for}', '{out}'), array($for, $icon . $label . $toggle), $markup['item_label']); 
+					$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label']);
+					$label = $this->setAttributeInMarkup('for', $for, $label, true);
 				}
 				$headerClass = trim($inputfield->getSetting('headerClass') . " $classes[item_label]");
-				if($headerClass) {
-					if(strpos($label, '{class}') !== false) {
-						$label = str_replace('{class}', ' ' . $headerClass, $label); 
-					} else {
-						$label = preg_replace('/( class=[\'"][^\'"]+)/', '$1 ' . $headerClass, $label, 1);
-					}
-				} else if(strpos($label, '{class}') !== false) {
-					$label = str_replace('{class}', '', $label); 
-				}
+				$label = $this->setAttributeInMarkup('class', $headerClass, $label);
+				
 			} else if($skipLabel === Inputfield::skipLabelMarkup) {
 				// no header and no markup for header
 				$label = '';
@@ -964,15 +961,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			}
 			$markupItemContent = $markup['item_content'];
 			$contentClass = trim($inputfield->getSetting('contentClass') . " $classes[item_content]");
-			if($contentClass) {
-				if(strpos($markupItemContent, '{class}') !== false) {
-					$markupItemContent = str_replace('{class}', ' ' . $contentClass, $markupItemContent); 
-				} else {
-					$markupItemContent = preg_replace('/( class=[\'"][^\'"]+)/', '$1 ' . $contentClass, $markupItemContent, 1);
-				}
-			} else if(strpos($markupItemContent, '{class}') !== false) {
-				$markupItemContent = str_replace('{class}', '', $markupItemContent); 
-			}
+			$markupItemContent = $this->setAttributeInMarkup('class', $contentClass, $markupItemContent);
 			if($inputfield->className() != 'InputfieldWrapper') $ffOut = str_replace('{out}', $ffOut, $markupItemContent);
 			$ffOut .= $inputfield->getSetting('footerMarkup');
 			$out .= str_replace(array('{attrs}', '{out}'), array(trim($attrs), $label . $ffOut), $markup['item']); 
@@ -995,6 +984,69 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		}
 
 		return $out; 
+	}
+
+	/**
+	 * Set attribute value in markup, optionall replacing a {placeholder} tag
+	 * 
+	 * When a placeholder is present in the given $markup, it should be the 
+	 * attribute name wrapped in `{}`, i.e. `{class}`
+	 * 
+	 * Note that class attributes are appended while other attributes are replaced.
+	 * 
+	 * @param string $name Attribute name (i.e. "class", "for", etc.)
+	 * @param string $value Value to set for the attribute
+	 * @param string $markup Markup where the attribute or placeholder exists
+	 * @param bool $removeEmpty Remove attribute if it resolves to empty value?
+	 * @return string Updated markup
+	 * @since 3.0.242
+	 * 
+	 */
+	protected function setAttributeInMarkup($name, $value, $markup, $removeEmpty = false) {
+		
+		$placeholder = '{' . $name . '}';
+		$hasPlaceholder = strpos($markup, $placeholder) !== false; 
+		
+		if(strlen("$value")) {
+			if($hasPlaceholder) {
+				// replace existing class="… with class="… value
+				$replacement = $name === 'class' ? " $value" : $value;
+				$markup = str_replace($placeholder, $replacement, $markup);
+				
+			} else if(strpos($markup, " $name=") !== false) {
+				// update existing attribute value without a {class} being present
+				// for class attribute it appends existing, for others it replaces
+				$replacement = $name === 'class' ? "$1 $value" : $value;
+				$markup = preg_replace('/(\s' . $name . '=[\'"][^\'"]*)/', $replacement, $markup, 1);
+				
+			} else {
+				// insert attribute where it doesn't currently exist
+				$markup = preg_replace('!(<[a-z0-9]+)(\s*)!i', "$1 $name='$value'$2", $markup, 1);
+			}
+			
+			// remove unnecessary whitespace in class attribute values
+			if($name === 'class') {
+				foreach(array(" $name=' ", " $name=\" ") as $find) {
+					while(strpos($markup, $find)) {
+						$markup = str_replace($find, rtrim($find), $markup);
+					}
+				}
+			}
+			
+		} else if($hasPlaceholder) {
+			if($removeEmpty) {
+				// remove name="{name}"
+				$markup = str_replace(array(" $name='{" . $name . "}'", " $name=\"{" . $name . "}\""), '', $markup);
+			} else {
+				// replace {name} with blank string
+				$markup = str_replace($placeholder, '', $markup);
+			}
+			
+		} else {
+			// $value is empty and there is no placeholder, leave $markup as-is
+		}
+		
+		return $markup;
 	}
 
 	/**
