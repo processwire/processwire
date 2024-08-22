@@ -98,29 +98,33 @@ class Installer {
 		// these two vars used by install-head.inc
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
-		
-		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc"); 
 
-		$step = $this->post('step');
+        $step = $this->post('step');
+
+        if ($step !== null) {
+            $step = (int) $step;
+        } else {
+            $step = -1;
+        }
+
+        /** @var ProcessWire $wire */
+
+        if ($step === 5) {
+            require("./index.php");
+            $wire->modules->refresh();
+        }
 		
-		if($step === null) {
-			$this->welcome();
-		} else {
-			$step = (int) $step;
-			switch($step) {
-				case 0: $this->initProfile(); break;
-				case 1: $this->compatibilityCheck(); break;
-				case 2: $this->dbConfig();  break;
-				case 4: $this->dbSaveConfig();  break;
-				case 5: require("./index.php");
-					/** @var ProcessWire $wire */
-					$wire->modules->refresh();
-					$this->adminAccountSave($wire);
-					break;
-				default:
-					$this->welcome();
-			} 
-		}
+		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc");
+
+		switch($step) {
+            case 0: $this->initProfile(); break;
+            case 1: $this->compatibilityCheck(); break;
+            case 2: $this->dbConfig();  break;
+            case 4: $this->dbSaveConfig();  break;
+            case 5: $this->adminAccountSave($wire); break;
+            default:
+                $this->welcome();
+        }
 
 		require("./wire/modules/AdminTheme/AdminThemeUikit/install-foot.inc"); 
 	}
