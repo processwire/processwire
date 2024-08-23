@@ -964,12 +964,16 @@
 								'class': (secondary ? 'ui-priority-secondary' : ''),
 								click: function() {
 									if($button.attr('type') == 'submit') {
+										var updated = false;
 										$button.trigger('click'); 
 										$asmItem.effect('highlight', {}, 500); 
 										
 										var $asmSetStatus = $icontents.find('#' + options.listItemStatusClass); // first try to find by ID
 										if($asmSetStatus.length == 0) $asmSetStatus = $icontents.find(':input.' + options.listItemStatusClass); // then by class, if not ID
-										if($asmSetStatus.length > 0) $asmItem.find('.' + options.listItemStatusClass).html($asmSetStatus.eq(0).val());
+										if($asmSetStatus.length > 0) {
+											$asmItem.find('.' + options.listItemStatusClass).html($asmSetStatus.eq(0).val());
+											updated = true;
+										}
 										
 										var $asmSetDesc = $icontents.find('#' + options.listItemDescClass); // first try to find by ID
 										if($asmSetDesc.length == 0) $asmSetDesc = $icontents.find(':input.' + options.listItemDescClass); // then by class, if not ID
@@ -983,7 +987,9 @@
 											} else {
 												$desc.html(asmSetDesc);
 											}
+											updated = true;
 										}
+										if(updated) $asmItem.trigger('asmItemUpdated');
 									}
 									$iframe.dialog('close'); 
 								}
