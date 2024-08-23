@@ -1183,9 +1183,11 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field = $modules->get('InputfieldHidden');
 			$field->attr('id+name', 'asmListItemStatus'); 
 			$field->attr('class', 'asmListItemStatus');
+			$width = $this->field->columnWidth;
 			$field->attr('data-tpl',
 				// % gets replaced with live percent
-				"<span class='ui-priority-secondary'>" . $this->field->type->shortName . "</span> %"
+				"<span>" .  $this->field->type->shortName . "</span> " . 
+				"<span class='columnWidth ui-priority-secondary' data-was='$width' data-field='{$this->field->id}'>%</span>"
 			); 
 			$field->attr('value', '');
 			$form->append($field); 

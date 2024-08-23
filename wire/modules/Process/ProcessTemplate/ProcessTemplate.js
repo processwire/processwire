@@ -96,6 +96,8 @@ function ProcessTemplateAsmSelect() {
 		var isDblClick = false;
 		var snapWithin = 9;
 		var snapWidth = 0;
+		var useSnapWidth = false;
+		var useRails = true;
 
 		function asmListItem($item) {
 			if(!$item.hasClass('asmListItem')) $item = $item.closest('.asmListItem');
@@ -111,7 +113,32 @@ function ProcessTemplateAsmSelect() {
 			$item = columnWidthItem($item);
 			return parseInt($item.text());
 		}
+		
+		/**
+		 * Given a width (10-100), pad it to the nearest 5% or nearest predefined (33%, etc.)
+		 * 
+		 * @param width
+		 * @returns {number|*}
+		 * 
+		 */
+		function getRailWidth(width) {
+			if(width >= 96) return 100;
+			if(width <= 10) return 10;
+			if(width == 33 || width == 34 || width == 66) return width;
+			width = width.toString();
+			var w1 = parseInt(width.substring(0,1));
+			var w2 = parseInt(width.substring(1));
+			if(w2 >= 7) {
+				w1++; w2 = 0;
+			} else if(w2 >= 4) {
+				w2 = 5;
+			} else if(w2 >= 0) {
+				w2 = 0;
+			}
+			return parseInt(w1.toString() + w2.toString());
+		}
 
+		// deprecated
 		function getSnapWidth($item) {
 			$item = asmListItem($item);
 			var rowWidth = getRowWidth($item);
@@ -169,19 +196,22 @@ function ProcessTemplateAsmSelect() {
 				$parent = $item;
 				$item = $item.find('.columnWidth');
 			}
-			if(snapWidth > 0) {
+			if(useSnapWidth && snapWidth > 0) {
 				if(columnWidth > snapWidth && columnWidth - snapWidth <= snapWithin) {
 					columnWidth = snapWidth;
 				} else if(columnWidth < snapWidth && snapWidth - columnWidth <= snapWithin) {
 					columnWidth = snapWidth;
 				}
 			}
+			if(useRails) columnWidth = getRailWidth(columnWidth);
 			var pct = parseInt(columnWidth) + '%';
 			$item.text(pct);
 			var $columnWidthBar = $parent.find('.columnWidthBar');
 			var $columnWidthBarPct = $columnWidthBar.children('.columnWidthBarPct');
+			$columnWidthBar.css('transition', 'width 0.1s');// ease-in');
 			$columnWidthBar.css('width', columnWidth + '%')
-			if(columnWidth >= 90) {
+			$columnWidthBarPct.text(pct);
+			if(columnWidth > 95) {
 				$columnWidthBarPct.text('');
 			} else {
 				$columnWidthBarPct.text(pct);
@@ -239,7 +269,7 @@ function ProcessTemplateAsmSelect() {
 				$('body').addClass('columnWidthActive');
 				$item.siblings('.fieldType, .fieldInfo').css('opacity', 0.3);
 				$list.sortable('disable');
-				snapWidth = getSnapWidth($parent);
+				if(useSnapWidth) snapWidth = getSnapWidth($parent);
 				startColumnWidthBar($item);
 			} else {
 				if(!mousingActive) return;
@@ -252,16 +282,40 @@ function ProcessTemplateAsmSelect() {
 				$list.sortable('enable');
 			}
 		}
+	
+		// returns all widths in an array. also disables the useRails option when 
+		// any existing width does not line up with our predefined rail size
+		function getAllWidths($inputfield) {
+			var widths = [];
+			$inputfield.find('.columnWidth').each(function() {
+				var width = parseInt($(this).text());
+				widths.push(width);
+				if(useRails && width != 66 && width != 33 && width != 34) {
+					if(width % 5 !== 0) useRails = false;
+				}
+			});
+			useSnapWidth = !useRails;
+			return widths;
+		}
 
 		var mouseMove = function(e) {
 			if(lastPageX && lastPageY) {
-				var diffX = e.pageX - lastPageX;
-				var diffY = e.pageY - lastPageY;
+				var diffX = (e.pageX - lastPageX) / 3;
+				var diffY = (e.pageY - lastPageY);
 				var diff = Math.abs(diffX) >= Math.abs(diffY) ? diffX : (diffY * -1);
 				if(diff === 0) return;
 				var pct = currentPct;
-				if(diff > 0 && pct < 100) pct++;
-				if(diff < 0 && pct > 10) pct--;
+				var detectMax = 10;
+				var detectMin = 1;
+				var d = Math.abs(diff);
+				if(useRails && d >= detectMax) {
+					var moveAmt = 5;
+					if(diff > 0 && pct < 100) pct += diff > detectMax ? moveAmt : 1;
+					if(diff < 0 && pct > 10) pct -= d > detectMax ? moveAmt : 1;
+				} else if(d >= detectMin) {
+					if(diff > 0 && pct < 100) pct++;
+					if(diff < 0 && pct > 10) pct--;
+				}
 				if(pct != currentPct) {
 					setColumnWidth($percentElement, pct);
 					currentPct = pct;
@@ -278,9 +332,28 @@ function ProcessTemplateAsmSelect() {
 			setActive($percentElement, false);
 			setupRows();
 		};
-
+		
+		var mouseDblClick = function($percentElement) {
+			var $editLink = $percentElement.closest('li').find('.asmListItemEdit').eq(0).children('a');
+			var href = $editLink.attr('href'); // geet the url to update
+			$editLink.attr('href', href + '#find-columnWidth'); // update url to find the columnWidth inputfield
+			setTimeout(function() { $editLink.attr('href', href); }, 1000); // restore previous url
+			$editLink.trigger('click');
+		};
+		
+		var isMousedown = false;
+		
 		var mouseDown = function(e) {
 			$percentElement = $(this);
+			if(isMousedown) {
+				isMousedown = false;
+				mouseDblClick($percentElement);
+				$percentElement.trigger('mouseup'); // prevents a asm sort from starting
+				return;
+			}
+			isMousedown = true;
+			setTimeout(function() { isMousedown = false; }, 500);
+			
 			if($percentElement.hasClass('columnWidthOff')) return false;
 			setActive($percentElement, true);
 			currentPct = getColumnWidth($percentElement);
@@ -298,9 +371,13 @@ function ProcessTemplateAsmSelect() {
 			$(this).closest('.ui-sortable').sortable('disable');
 		};
 
+		/*
 		var dblClick = function(e) {
 			var $t = $(this);
 			isDblClick = true;
+			console.log('dblclick');
+			var $editLink = $t.closest('li').find('.asmListItemEdit').eq(0).children('a');
+			$editLink.trigger('click');
 			snapWidth = getSnapWidth($t);
 			if(snapWidth) {
 				setColumnWidth($t, snapWidth);
@@ -309,6 +386,7 @@ function ProcessTemplateAsmSelect() {
 			}
 			isDblClick = false;
 		};
+		 */
 
 		/*
 		var toggleRequired = function() {
@@ -334,17 +412,20 @@ function ProcessTemplateAsmSelect() {
 
 		var $inputfield = $('#wrap_fieldgroup_fields'); // Inputfield wrapping element
 		var $select = $('#fieldgroup_fields'); // original (hidden) select
-
+	
 		$inputfield
-			//.on('dblclick', '.fieldType', toggleRequired)
 			.on('mousedown', '.columnWidth', mouseDown)
 			.on('mouseover', '.columnWidth', mouseOver)
 			.on('mouseout', '.columnWidth', mouseOut)
-			.on('dblclick', '.columnWidth', dblClick)
 			.on('asm-ready', function() {
 				// triggered by manual inline call to ProcessTemplateInitFields() function
 				setupRows()
-			});
+				// sets the useRails toggle
+				getAllWidths($inputfield); 
+			})
+			.on('asmItemUpdated', function() {
+				setupRows();
+			}); 
 
 		$select.on('change', function(e, eventData) {
 
