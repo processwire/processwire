@@ -1305,7 +1305,7 @@ var Inputfields = {
 			tooltip = settings.tooltip;
 		}
 	
-		if(tooltip.length) $icon.attr('title', tooltip);
+		if(tooltip.length) $icon.attr('title', tooltip).attr('uk-tooltip', tooltip);
 		
 		$icon.on('click', function() {
 			if(actionType === 'link') {
