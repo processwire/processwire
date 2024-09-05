@@ -1256,7 +1256,7 @@ class PageFrontEdit extends WireData implements Module {
 			
 			if(count($changes)) {
 				try {
-					$page->save();
+					$pages->save($page, [ 'uncacheAll' => false ]); 
 					$data['status'] = count($errors) ? 2 : 1;
 				}
 				catch(\Exception $e) {
