@@ -572,6 +572,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			if(substr($filename, -1 * strlen($ext)) != $ext) continue; 
 			if($ignoreRegex && preg_match($ignoreRegex, $filename)) continue;
 			$basename = basename($file->getFilename(), $ext); 
+			if(strpos($basename, '.') === 0) continue;
 			if($sanitizer->name($basename) !== $basename) continue;
 			if(ctype_digit($basename)) continue;
 			// if(count($templates->find("name=$basename"))) continue; 
