@@ -3,7 +3,7 @@
 /**
  * ProcessWire Markup Regions
  * 
- * Supportings finding and manipulating of markup regions in an HTML document. 
+ * Supports finding and manipulating of markup regions in an HTML document. 
  *
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
