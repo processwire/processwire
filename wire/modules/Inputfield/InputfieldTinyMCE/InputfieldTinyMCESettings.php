@@ -760,6 +760,11 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 			if(!$inputfield->useFeature($feature)) unset($features[$key]);
 		}
 		if($inputfield->lazyMode) $features[] = "lazyMode$inputfield->lazyMode";
+	
+		// if external_plugins is empty it must be an empty object in JSON rather than array
+		if(isset($dataSettings['external_plugins']) && empty($dataSettings['external_plugins'])) {
+			$dataSettings['external_plugins'] = new \stdClass();
+		}
 		
 		$inputfield->wrapAttr('data-configName', $configName);
 		$inputfield->wrapAttr('data-settings', $this->tools()->jsonEncode($dataSettings, 'data-settings', false));
