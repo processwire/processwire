@@ -56,7 +56,7 @@
  * @property bool|int $changeMonth Show a select dropdown to allow changing month? (default=true)
  * @property bool|int $changeYear Show a select dropdown to allow changing year? (default=true)
  * @property bool|int $showButtonPanel Show "Today" and "Done" buttons under the calendar? (default=false)
- * @property int $numberOfMonths Number of month calendars to show together side-by-sidee (default=1)
+ * @property int $numberOfMonths Number of month calendars to show together side-by-side (default=1)
  * @property bool|int $showMonthAfterYear Show the month after the year? (default=false)
  * @property bool|int $showOtherMonths Show dates in other months (non-selectable) at the start or end of the current month? (default=false)
  * 
@@ -72,7 +72,7 @@
  * 
  * Properties specific to "select" input type
  * ==========================================
- * @property string $dateSelectFormat Format to use for date select 
+ * @property string $dateSelectFormat Format to use for date select, i.e. 'mdy' for 'Sep 1 2024' or 'Mdy' for 'September 1 2024'
  * @property string $timeSelectFormat Format to use for time select
  * @property int $yearFrom First selectable year (default=current year - 100)
  * @property int $yearTo Last selectable year (default=current year + 20)
