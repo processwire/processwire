@@ -636,7 +636,7 @@ var InputfieldSelector = {
 		// update preview display
 		if(selector.length > 0 && selector != InputfieldSelector.selector) { 
 			if(!$preview.is(".selector-preview-disabled")) {
-				$preview.html('<code>' + initValue + selector + '</code>'); 
+				$preview.html('<code>' + ProcessWire.entities(initValue + selector) + '</code>'); 
 				$preview.fadeIn(); 
 			}
 			var $counter = $preview.siblings('.selector-counter'); 
