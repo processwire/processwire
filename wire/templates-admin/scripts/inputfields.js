@@ -1892,8 +1892,20 @@ function InputfieldDependencies($target) {
 
 				// special case for 'count' subfield condition, 
 				// where we take the value's length rather than the value
-				if (condition.subfield == 'count') value = value.length;
-
+				if(condition.subfield == 'count') value = value.length;
+			
+				// match custom data attributes (for some types of inputs) when requested to
+				if(condition.subfield.indexOf('data-') === 0) {
+					if($field.is('select') && !$field.prop('multiple')) {
+						var v = $field.find('option[value="' + $field.val() + '"]').attr(condition.subfield);
+					} else if($inputfield.hasClass('InputfieldCheckboxes') || $inputfield.hasClass('InputfieldRadios')) {
+						// @todo
+					} else {
+						var v = $field.attr(condition.subfield);
+					}
+					if(typeof v !== 'undefined' && v !== null) value = v; 
+				}
+				
 				// if value is an object, make it in array
 				// in either case, convert value to an array called values
 				if (typeof value == 'object') {
@@ -2043,7 +2055,7 @@ function InputfieldDependencies($target) {
 
 			// separate out the field, operator and value
 			var part = parts[n];
-			var match = part.match(/^[,\s]*([_.|a-zA-Z0-9]+)(=|!=|<=|>=|<|>|%=)([^,]+),?$/);
+			var match = part.match(/^[,\s]*([-_.|a-zA-Z0-9]+)(=|!=|<=|>=|<|>|%=)([^,]+),?$/);
 			if(!match) continue;
 			var field = match[1];
 			var operator = match[2];

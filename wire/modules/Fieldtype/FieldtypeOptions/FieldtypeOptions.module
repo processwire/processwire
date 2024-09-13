@@ -105,7 +105,10 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		if(!$inputfield) $inputfield = $this->wire()->modules->get('InputfieldSelect'); 
 		
 		foreach($this->manager->getOptions($field) as $option) {
-			$inputfield->addOption((int) $option->id, $option->getTitle()); 
+			$value = $option->value;
+			$attrs = [];
+			if($value) $attrs['data-if-value'] = $value;
+			$inputfield->addOption((int) $option->id, $option->getTitle(), $attrs); 
 		}
 	
 		if($field->get('initValue')) {

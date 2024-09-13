@@ -1065,7 +1065,7 @@ class Field extends WireData implements Saveable, Exportable {
 			foreach(array('showIf', 'requiredIf') as $depType) {
 				$theIf = $inputfield->getSetting($depType);
 				if(empty($theIf)) continue;
-				$theIf = preg_replace('/([_.|a-zA-Z0-9]+)([=!%*<>]+)/', '$1' . $contextStr . '$2', $theIf);
+				$theIf = preg_replace('/([_|a-zA-Z0-9]+)*([-._|a-zA-Z0-9]*)([=!%*<>]+)/', '$1' . $contextStr . '$2$3', $theIf);
 				if(stripos($theIf, 'forpage.') !== false) {
 					// de-contextualize if the field name starts with 'forpage.' as used by 
 					// repeaters (or others) referring to page in editor rather than item page
