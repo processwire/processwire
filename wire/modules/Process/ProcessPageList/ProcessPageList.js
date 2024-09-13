@@ -96,6 +96,9 @@ $(document).ready(function() {
 
 			// URL where page move's should be posted
 			ajaxMoveURL: ProcessWire.config.urls.admin + 'page/sort/',
+
+			// context to pass to the ajaxURL
+			ajaxParams: {},
 		
 			// classes for pagination
 			paginationClass: 'PageListPagination',
@@ -612,6 +615,12 @@ $(document).ready(function() {
 					"&open=" + options.openPageIDs[0] + 
 					"&mode=" + options.mode;
 				if(options.labelName.length) ajaxURL += '&labelName=' + options.labelName;
+				
+				// Add params to the AJAX URL
+				for(var key in options.ajaxParams) {
+					ajaxURL += '&' + key + '=' + options.ajaxParams[key];
+				}
+
 				$.getJSON(ajaxURL)
 					.done(function(data, textStatus, jqXHR) {
 						processChildren(data);
@@ -735,7 +744,7 @@ $(document).ready(function() {
 
 				$li.append($a); 
 				setNumChildren($li, child.numChildren, child.numTotal, true);
-		
+	
 				if(child.note && child.note.length) $li.append($("<span>" + child.note + "</span>").addClass('PageListNote detail')); 	
 				
 				var $actions = $("<ul></ul>").addClass('PageListActions actions'); 
