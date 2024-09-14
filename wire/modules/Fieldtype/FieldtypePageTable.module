@@ -471,17 +471,23 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 		$loadOptions = array('cache' => false);
 		if($template) $loadOptions['template'] = $template;
 		
-		$items = $this->wire()->pages->getById($value, $loadOptions);
-		$sanitizer = $this->wire()->sanitizer;
-		
 		$sortfields = $field->get('sortfields');
+		$sorts = array();
 		if($sortfields) {
-			$sorts = array();
+			$sanitizer = $this->wire()->sanitizer;
 			foreach(explode(',', $sortfields) as $sortfield) {
 				$sorts[] = $sanitizer->name(trim($sortfield));
 			}
-			if(wireCount($sorts)) $items->sort($sorts);
+			//autojoin sort fields to avoid N+1 queries in $items->sort()
+			$loadOptions['joinFields'] = array_map(function($string) {
+				return str_replace('-', '', $string);
+			}, $sorts);
 		}
+		
+		$items = $this->wire()->pages->getById($value, $loadOptions);
+		
+		$sortfields = $field->get('sortfields');
+		if(wireCount($sorts)) $items->sort($sorts);
 		
 		foreach($items as $item) {
 			$item->setQuietly('_pageTableField', $field->id);
