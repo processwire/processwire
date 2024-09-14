@@ -699,9 +699,8 @@ class PagesLoader extends Wire {
 				if(strpos($key, '__')) {
 					if($value === null) {
 						$row[$key] = 'null'; // ensure detected by later isset in foreach($joinFields)
-					} else {
-						$page->setFieldValue($key, $value, false);
 					}
+					$page->setFieldValue($key, $value, false);
 				} else {
 					$page->setForced($key, $value);
 				}
