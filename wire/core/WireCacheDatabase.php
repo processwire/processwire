@@ -3,7 +3,7 @@
 /**
  * Database cache handler for WireCache
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 2.0.218
@@ -203,6 +203,38 @@ class WireCacheDatabase extends Wire implements WireCacheInterface {
 		}
 		if($install) $this->install();
 		return $result;
+	}
+
+	/**
+	 * Database cache maintenance (every 10 minutes)
+	 * 
+	 * @param Template|Page $obj
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.242
+	 * 
+	 */
+	public function maintenance($obj) {
+		
+		if($obj) return false; // let WireCache handle when object value is provided
+		
+		$sql = 
+			'DELETE FROM caches ' . 
+			'WHERE (expires<=:now AND expires>:never) ' . 
+			'OR expires<:then';
+		
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':now', date(WireCache::dateFormat, time())); 
+		$query->bindValue(':never', WireCache::expireNever);
+		$query->bindValue(':then', '1974-10-10 10:10:10');
+		$query->execute();
+		$qty = $query->rowCount();
+
+		if($qty) $this->wire->cache->log(
+			sprintf('DB cache maintenance expired %d cache(s)', $qty)
+		);
+
+		return $qty > 0;
 	}
 
 	/**
