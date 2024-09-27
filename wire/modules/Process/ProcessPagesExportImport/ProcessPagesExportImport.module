@@ -862,6 +862,14 @@ class ProcessPagesExportImport extends Process {
 			$f->collapsed = Inputfield::collapsedYes;
 		} else {
 			if($options['commit']) $page->message($this->_('Import successful'));
+			
+			//JP import meta data
+			if (isset($item['meta']) && $page->id) {
+				foreach ($item['meta'] as $key => $value) {
+					$page->meta()->set($key, $value);
+				}
+			}
+			// END JP import meta data
 		}
 		
 		foreach(array('errors', 'warnings', 'messages') as $noticeType) {
@@ -1100,6 +1108,28 @@ class ProcessPagesExportImport extends Process {
 		if($exportTo == 'json') {
 			// json
 			$json = $exporter->exportJSON($exportPages, $exportOptions);
+			
+			//JP export meta
+			$modifyData = json_decode($json, true);
+			foreach ($modifyData['pages'] as $key => $item) {
+				$pageId = $item['settings']['id'];
+				$page = $this->pages->get($pageId);
+				if ($page->id) {
+					$pageMeta = $page->meta()->getArray();
+
+					if ($pageMeta && is_array($pageMeta)) {
+						$modifyData['pages'][$key]['meta'] = [];
+						foreach ($pageMeta as $keyMeta => $value) {
+							if (isset($keyMeta) && isset($value)) {
+								$modifyData['pages'][$key]['meta'][$keyMeta] = $value;
+							}
+						}
+					}
+				}
+			}
+			$json = json_encode($modifyData, true);
+			//END JP export meta
+			
 			$form = $this->wire('modules')->get('InputfieldForm');
 			$f = $this->wire('modules')->get('InputfieldTextarea');
 			$f->attr('id+name', 'export_json');
