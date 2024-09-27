@@ -95,6 +95,14 @@ class Pagefile extends WireData implements WireArrayItem {
 	protected $fieldValues = array();
 
 	/**
+	 * Reference to the mock/placeholder Page object used for custom fields
+	 * 
+	 * @var Page
+	 * 
+	 */
+	protected $filePage;
+
+	/**
 	 * Created user (populated only on rquest)
 	 *
 	 * @var User|null
@@ -717,6 +725,21 @@ class Pagefile extends WireData implements WireArrayItem {
 	}
 
 	/**
+	 * Get the mock/placeholder Page object used for custom fields
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return Page
+	 * 
+	 */
+	public function getFilePage() {
+		if(!$this->filePage) {
+			$this->filePage = $this->pagefiles->getFieldsPage();
+		}
+		return $this->filePage;
+	}
+
+	/**
 	 * Get a custom field value
 	 * 
 	 * #pw-internal Most non-core cases should just use get() or direct access rather than this method
@@ -740,9 +763,7 @@ class Pagefile extends WireData implements WireArrayItem {
 		
 		$field = $fieldgroup->getFieldContext($field); // get in context
 		$fieldtype = $field->type; /** @var Fieldtype $fieldtype */	
-		$fileField = $this->pagefiles->getField(); /** @var Field $fileField */
-		$fileFieldtype = $fileField->type; /** @var FieldtypeFile|FieldtypeImage $fileFieldtype */	
-		$page = $fileFieldtype->getFieldsPage($fileField);
+		$page = $this->getFilePage();
 		
 		if(array_key_exists($name, $this->fieldValues)) {
 			$value = $this->fieldValues[$name];
@@ -793,7 +814,7 @@ class Pagefile extends WireData implements WireArrayItem {
 		$field = $fieldgroup->getFieldContext($name);
 		if(!$field) return false;
 		
-		$page = $this->pagefiles->getFieldsPage();
+		$page = $this->getFilePage();
 
 		/** @var Fieldtype $fieldtype */
 		$fieldtype = $field->type;
