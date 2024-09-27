@@ -534,7 +534,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			"SELECT pages.id AS id, " . implode(', ', $nameColumns) . ", " .
 			"COUNT(children.id) AS kids " .
 			"FROM pages " .
-			"LEFT JOIN pages AS children ON children.id=pages.parent_id " .
+			"LEFT JOIN pages AS children ON children.parent_id=pages.id " .
 			"WHERE pages.parent_id=:id " .
 			"GROUP BY pages.id ";
 
