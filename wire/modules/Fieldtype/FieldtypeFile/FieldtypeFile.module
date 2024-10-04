@@ -263,7 +263,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$inputfield = $event->object; 	
 		$page = $event->options['page']; /** @var Page $page */
 		$field = $event->options['field']; /** @var Field $field */
-		$pagefiles = $page->get($field->name); 
+		$pagefiles = $page->getUnformatted($field->name); 
 		$inputfield->destinationPath = $pagefiles->path();
 	}
 
