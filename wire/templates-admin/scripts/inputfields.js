@@ -1330,7 +1330,7 @@ var Inputfields = {
 				}
 			} else {
 				if(settings.callback) settings.callback($icon);
-				if(settings.event) settings.trigger(settings.event, [ $icon ]);
+				if(settings.event) $icon.trigger(settings.event, [ $icon ]);
 			}
 			return false;
 		});
