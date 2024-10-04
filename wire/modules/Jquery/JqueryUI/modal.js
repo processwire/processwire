@@ -214,6 +214,7 @@ function pwModalWindow(href, options, size) {
 	} else {
 		url = href + (href.indexOf('?') > -1 ? '&' : '?') + 'modal=1';
 	}
+	if(url.indexOf('%3F')) url = url.replace('%3F', '?');
 	$iframe = jQuery('<iframe class="pw-modal-window" frameborder="0" src="' + url + '"></iframe>');
 	$iframe.attr('id', 'pw-modal-window-' + (pwModalWindows.length+1));
 	pwModalWindows[pwModalWindows.length] = $iframe;
