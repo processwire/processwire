@@ -938,6 +938,90 @@ class PagesEditor extends Wire {
 	}
 
 	/**
+	 * Save multiple named fields from given page 
+	 * 
+	 * ~~~~~
+	 * // you can specify field names as array…
+	 * $a = $pages->saveFields($page, [ 'title', 'body', 'summary' ]);
+	 * 
+	 * // …or a CSV string of field names:
+	 * $a = $pages->saveFields($page, 'title, body, summary');
+	 *
+	 * // return value is array of saved field/property names 
+	 * print_r($a); // outputs: array( 'title', 'body', 'summary' )
+	 * ~~~~~
+	 * 
+	 * @param Page $page Page to save
+	 * @param array|string|string[]|Field[] $fields Array of field names to save or CSV/space separated field names to save.
+	 *   These should only be Field names and not native page property names.
+	 * @param array|string $options Optionally specify one or more of the following to modify default behavior:
+	 *  - `quiet` (boolean): Specify true to bypass updating of modified user and time (default=false).
+	 *  - `noHooks` (boolean): Prevent before/after save hooks (default=false), please also use $pages->___saveField() for call.
+	 *  - See $options argument for Pages::save() for additional options
+	 * @return array Array of saved field names (may also include property names if they were modified)
+	 * @throws WireException
+	 * @since 3.0.242
+	 * 
+	 */
+	public function saveFields(Page $page, $fields, array $options = array()) {
+
+		$saved = array();
+		$quiet = !empty($options['quiet']);
+		$noHooks = !empty($options['noHooks']);
+
+		// do not update modified user/time until last save
+		if(!$quiet) $options['quiet'] = true;
+
+		if(!is_array($fields)) {
+			$fields = explode(' ', str_replace(',', ' ', "$fields"));
+		}
+
+		foreach($fields as $key => $field) {
+			$field = trim("$field");
+			if(empty($field) || !$page->hasField($field)) unset($fields[$key]);
+		}
+
+		// save each field
+		foreach($fields as $field) {
+			if($noHooks) {
+				$success = $this->saveField($page, $field, $options);
+			} else {
+				$success = $this->pages->saveField($page, $field, $options);
+			}
+			if($success) {
+				$saved[$field] = $field;
+				$page->untrackChange($field);
+			}
+		}
+
+		if($quiet) {
+			// do not save native properties or update page modified-user/modified
+			
+		} else {
+			// finish by saving the page without fields
+			$options['quiet'] = false;
+		
+			foreach($page->getChanges() as $name) {
+				if($page->hasField($name)) continue;
+				// add only changed native properties to saved list
+				$saved[$name] = $name; 
+			}
+			
+			$options['noFields'] = true;
+			
+			if($noHooks) {
+				$this->save($page, $options);
+			} else {
+				$this->pages->save($page, $options);
+			}
+		}
+		
+		$this->pages->debugLog('saveFields', "$page:" . implode(',', $fields), $saved);
+
+		return $saved;
+	}
+
+	/**
 	 * Silently add status flag to a Page and save
 	 * 
 	 * This action does not update the Page modified date. 

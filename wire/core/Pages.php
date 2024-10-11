@@ -39,8 +39,9 @@
  * HOOKABLE METHODS
  * ================
  * @method PageArray find($selectorString, array $options = array()) Find and return all pages matching the given selector string. Returns a PageArray. #pw-group-retrieval
- * @method bool save(Page $page, $options = array()) Save any changes made to the given $page. Same as : $page->save() Returns true on success. #pw-group-manipulation
+ * @method bool save(Page $page, $options = array()) Save any changes made to the given $page. Same as $page->save(); Returns true on success. #pw-group-manipulation
  * @method bool saveField(Page $page, $field, array $options = array()) Save just the named field from $page. Same as: $page->save('field') #pw-group-manipulation
+ * @method array saveFields(Page $page, $fields, array $options = array()) Saved multiple named fields for $page. @since 3.0.242 #pw-group-manipulation
  * @method bool trash(Page $page, $save = true) Move a page to the trash. If you have already set the parent to somewhere in the trash, then this method won't attempt to set it again. #pw-group-manipulation
  * @method bool restore(Page $page, $save = true) Restore a trashed page to its original location. #pw-group-manipulation
  * @method int|array emptyTrash(array $options = array()) Empty the trash and return number of pages deleted. #pw-group-manipulation
@@ -90,9 +91,6 @@
  * @method savedPageOrField(Page $page, array $changes) Hook inclusive of both saved() and savedField().
  * @method found(PageArray $pages, array $details) Hook called at the end of a $pages->find().
  *
- * TO-DO
- * =====
- * @todo Update saveField to accept array of field names as an option. 
  *
  */
 
@@ -868,6 +866,36 @@ class Pages extends Wire {
 	 */
 	public function ___saveField(Page $page, $field, $options = array()) {
 		return $this->editor()->saveField($page, $field, $options);
+	}
+
+	/**
+	 * Save multiple named fields from given page
+	 *
+	 * ~~~~~
+	 * // you can specify field names as array…
+	 * $a = $pages->saveFields($page, [ 'title', 'body', 'summary' ]);
+	 *
+	 * // …or a CSV string of field names:
+	 * $a = $pages->saveFields($page, 'title, body, summary');
+	 *
+	 * // return value is array of saved field/property names
+	 * print_r($a); // outputs: array( 'title', 'body', 'summary' )
+	 * ~~~~~
+	 *
+	 * @param Page $page Page to save
+	 * @param array|string|string[]|Field[] $fields Array of field names to save or CSV/space separated field names to save.
+	 *   These should only be Field names and not native page property names.
+	 * @param array|string $options Optionally specify one or more of the following to modify default behavior:
+	 *  - `quiet` (boolean): Specify true to bypass updating of modified user and time (default=false).
+	 *  - `noHooks` (boolean): Prevent before/after save hooks (default=false), please also use $pages->___saveField() for call.
+	 *  - See $options argument for Pages::save() for additional options
+	 * @return array Array of saved field names (may also include property names if they were modified)
+	 * @throws WireException
+	 * @since 3.0.242
+	 *
+	 */
+	public function ___saveFields(Page $page, $fields, array $options = array()) {
+		return $this->editor()->saveFields($page, $fields, $options); 
 	}
 
 	/**
