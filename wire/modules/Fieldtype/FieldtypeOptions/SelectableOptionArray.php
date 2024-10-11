@@ -3,7 +3,7 @@
 /**
  * ProcessWire Selectable Option Array, for FieldtypeOptions 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $title
@@ -164,13 +164,13 @@ class SelectableOptionArray extends WireArray {
 		return parent::set($key, $value); 
 	}
 	
-	public function __set($key, $value) {
+	public function __set($property, $value) {
 		// we must have both this and set() per behavior of WireArray::__set()
 		// which throws exceptions if attempting to set a property
-		if(SelectableOption::isProperty($key)) {
-			$this->setProperty($key, $value);
+		if(SelectableOption::isProperty($property)) {
+			$this->setProperty($property, $value);
 		} else {
-			parent::__set($key, $value);
+			parent::__set($property, $value);
 		}
 	}
 	
@@ -215,11 +215,12 @@ class SelectableOptionArray extends WireArray {
 	 * 
 	 * @param string $property May be "title", "value" or "id"
 	 * @param string|int $value
-	 * @return bool|SelectableOption
+	 * @param bool|null $noValue Value to return if option not present (default=false)
+	 * @return bool|null|SelectableOption
 	 * 
 	 */
-	protected function getOptionByProperty($property, $value) {
-		$match = false;
+	protected function getByProperty($property, $value, $noValue = false) {
+		$match = $noValue;
 		foreach($this as $option) {
 			/** @var SelectableOption $option */
 			$v = $option->getProperty($property);
@@ -231,6 +232,166 @@ class SelectableOptionArray extends WireArray {
 	}
 
 	/**
+	 * Alias of getByProperty
+	 * 
+	 * Was renamed to getByProperty() but old method name kept in case this class is extended anywhere
+	 * 
+	 * @param string $property
+	 * @param string|int $value
+	 * @return bool|SelectableOption
+	 * @deprecated 
+	 * 
+	 */
+	protected function getOptionByProperty($property, $value) {
+		return $this->getByProperty($property, $value);
+	}
+
+	/**
+	 * Add option by property (id, name, title) 
+	 * 
+	 * @param string $property One of id, name or title
+	 * @param string|int $value Value to match for above property
+	 * @return SelectableOption|false Returns option added or false if not found
+	 * @throws WireException
+	 * 
+	 */
+	protected function addByProperty($property, $value) {
+		if(!$this->field) {
+			throw new WireException("Cannot add by '$property' without \$field");
+		}
+		$fieldtype = $this->field->type; /** @var FieldtypeOptions $fieldtype */
+		$options = $fieldtype->manager->getOptions($this->field, array($property => $value)); 
+		$option = $options->first();
+		if(!$option) return false;
+		$this->add($option);
+		return $option;
+	}
+
+	/**
+	 * Add by option ID
+	 * 
+	 * @param int $id
+	 * @return false|SelectableOption Returns option added on success or false on fail
+	 * @throws WireException
+	 * 
+	 */
+	public function addByID($id) {
+		return $this->addByProperty('id', $id); 
+	}
+	
+	/**
+	 * Add by option value
+	 *
+	 * @param string $value
+	 * @return false|SelectableOption Returns option added on success or false on fail
+	 * @throws WireException
+	 *
+	 */
+	public function addByValue($value) {
+		return $this->addByProperty('value', $value);
+	}
+	
+	/**
+	 * Add by option title
+	 *
+	 * @param string $title
+	 * @return false|SelectableOption Returns option added on success or false on fail
+	 * @throws WireException
+	 *
+	 */
+	public function addByTitle($title) {
+		return $this->addByProperty('title', $title);
+	}
+
+	/**
+	 * Get option by ID
+	 *
+	 * @param int $id
+	 * @return SelectableOption|null
+	 * @since 3.0.242
+	 *
+	 */
+	public function getByID($id) {
+		return $this->getByProperty('id', $id, null);
+	}
+
+	/**
+	 * Get option by value
+	 *
+	 * @param string $value
+	 * @return SelectableOption|null
+	 * @since 3.0.242
+	 *
+	 */
+	public function getByValue($value) {
+		return $this->getByProperty('value', $value, null);
+	}
+
+	/**
+	 * Get option by title
+	 *
+	 * @param string $title
+	 * @return SelectableOption|null
+	 * @since 3.0.242
+	 *
+	 */
+	public function getByTitle($title) {
+		return $this->getByProperty('title', $title, null);
+	}
+	
+	/**
+	 * Remove item by property (value, title, id)
+	 *
+	 * @param string $property
+	 * @param string|int $value
+	 * @return bool
+	 * @since 3.0.242
+	 *
+	 */
+	protected function removeByProperty($property, $value) {
+		$option = $this->getByProperty($property, $value);
+		if(!$option) return false;
+		$this->remove($option);
+		return true;
+	}
+
+	/**
+	 * Remove option by ID
+	 *
+	 * @param int $id
+	 * @return bool
+	 * @since 3.0.242
+	 *
+	 */
+	public function removeByID($id) {
+		return $this->removeByProperty('id', $id);
+	}
+
+	/**
+	 * Remove option by value
+	 *
+	 * @param string $value
+	 * @return bool
+	 * @since 3.0.242
+	 *
+	 */
+	public function removeByValue($value) {
+		return $this->removeByProperty('value', $value);
+	}
+
+	/**
+	 * Remove option by title
+	 *
+	 * @param string $title
+	 * @return bool
+	 * @since 3.0.242
+	 *
+	 */
+	public function removeByTitle($title) {
+		return $this->removeByProperty('title', $title);
+	}
+
+	/**
 	 * Is the given value present in these selectable options? 
 	 * 
 	 * @param string $value
@@ -238,7 +399,7 @@ class SelectableOptionArray extends WireArray {
 	 * 
 	 */
 	public function hasValue($value) {
-		return $this->getOptionByProperty('value', $value);
+		return $this->getByProperty('value', $value);
 	}
 
 	/**
@@ -249,7 +410,7 @@ class SelectableOptionArray extends WireArray {
 	 * 
 	 */
 	public function hasTitle($title) {
-		return $this->getOptionByProperty('title', $title); 
+		return $this->getByProperty('title', $title); 
 	}
 
 	/**
@@ -260,7 +421,7 @@ class SelectableOptionArray extends WireArray {
 	 *
 	 */
 	public function hasID($id) {
-		return $this->getOptionByProperty('id', (int) $id);
+		return $this->getByProperty('id', (int) $id);
 	}
 	
 	/**
