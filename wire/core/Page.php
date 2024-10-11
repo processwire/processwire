@@ -2350,7 +2350,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param array $options See Pages::save() documentation for options. You may also specify $options as the first argument if no $field is needed.
 	 * @return bool Returns true on success false on fail
 	 * @throws WireException on database error
-	 * @see Pages::save(), Pages::saveField(), Pages::saveReady(), Pages::saveFieldReady(), Pages::saved(), Pages::fieldSaved()
+	 * @see Pages::save(), Page::saveFields(), Pages::saveField(), Pages::saveReady(), Pages::saveFieldReady(), Pages::saved(), Pages::fieldSaved()
 	 *
 	 */
 	public function save($field = null, array $options = array()) {
@@ -2375,6 +2375,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$options['noFields'] = true; 
 		
 		return $pages->save($this, $options);
+	}
+
+	/**
+	 * Save only the given named fields for this page
+	 * 
+	 * @param array|string $fields Array of field name(s) or string (CSV or space separated)
+	 * @param array $options See Pages::save() documentation for options.
+	 * @return array Names of fields that were saved
+	 * @throws WireException on database error
+	 * @see Page::save()
+	 * @since 3.0.242
+	 * 
+	 */
+	public function saveFields($fields, array $options = array()) {
+		return $this->wire()->pages->saveFields($this, $fields, $options);
 	}
 	
 	/**
