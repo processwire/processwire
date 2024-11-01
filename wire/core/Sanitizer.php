@@ -1995,7 +1995,14 @@ class Sanitizer extends Wire {
 				$value = preg_replace('!</li>\s*<li!is', "$options[separator]<li", $value);
 			}
 		}
-	
+
+		// replace single less than sign that's not accompanied with a greater than sign
+		// to something that looks like it, but that strip_tags() won’t strip.
+		// this is to prevent something like "5<10" from getting converted to "5"
+		if(strpos($value, '<') !== false && strpos($value, '>') === false) {
+			$value = preg_replace('/<([\w\d])/', '≺$1', $value);
+		}
+		
 		// remove tags
 		$value = trim(strip_tags($value));
 
