@@ -91,7 +91,7 @@ class Installer {
 	public function execute() {
 		
 		if(self::TEST_MODE) {
-			error_reporting(E_ALL | E_STRICT);
+			error_reporting(E_ALL);
 			ini_set('display_errors', 1);
 		}
 
@@ -2065,6 +2065,6 @@ class Installer {
 /****************************************************************************************************/
 
 if(!Installer::TEST_MODE && is_file("./site/assets/installed.php")) die("This installer has already run. Please delete it."); 
-error_reporting(E_ALL | E_STRICT); 
+error_reporting(E_ALL); 
 $installer = new Installer();
 $installer->execute();

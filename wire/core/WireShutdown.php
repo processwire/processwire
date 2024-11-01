@@ -158,7 +158,7 @@ class WireShutdown extends Wire {
 			E_USER_ERROR        => $this->_('Error'),
 			E_USER_WARNING      => $this->_('User Warning'),
 			E_USER_NOTICE       => $this->_('User Notice'),
-			E_STRICT            => $this->_('Strict Warning'),
+			2048 => $this->_('Strict Warning'), // 2048=E_STRICT (deprecated in PHP 8.4)
 			E_RECOVERABLE_ERROR => $this->_('Recoverable Fatal Error')
 		);
 

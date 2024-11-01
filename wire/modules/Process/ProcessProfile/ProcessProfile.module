@@ -155,7 +155,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			$field = $user->fields->getFieldContext($field);
 			$inputfield = $field->getInputfield($user);
 			if(!$inputfield) continue;
-			$inputfield->value = $user->get($field->name);
+			$inputfield->val($user->get($field->name));
 			
 			if($field->name === 'admin_theme') {
 				if(!$inputfield->value) $inputfield->value = $config->defaultAdminTheme;
