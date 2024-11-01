@@ -987,7 +987,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	}
 
 	/**
-	 * Set attribute value in markup, optionall replacing a {placeholder} tag
+	 * Set attribute value in markup, optionally replacing a {placeholder} tag
 	 * 
 	 * When a placeholder is present in the given $markup, it should be the 
 	 * attribute name wrapped in `{}`, i.e. `{class}`

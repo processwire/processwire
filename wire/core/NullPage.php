@@ -65,6 +65,7 @@ class NullPage extends Page implements WireNull {
 	 * 
 	 * @param string $selector
 	 * @return null
+	 * @todo can this return NullPage instead?
 	 * 
 	 */
 	public function parent($selector = '') { return null; }
