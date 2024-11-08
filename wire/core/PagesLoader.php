@@ -698,7 +698,8 @@ class PagesLoader extends Wire {
 			foreach($row as $key => $value) {
 				if(strpos($key, '__')) {
 					if($value === null) {
-						$row[$key] = 'null'; // ensure detected by later isset in foreach($joinFields)
+						// $row[$key] = 'null'; // ensure detected by later isset in foreach($joinFields)
+						$row[$key] = new NullField();
 					} else {
 						$page->setFieldValue($key, $value, false);
 					}
@@ -712,7 +713,10 @@ class PagesLoader extends Wire {
 				if(!$template->fieldgroup->hasField($joinField)) continue;
 				$field = $page->getField($joinField);
 				if(!$field || !$field->type) continue;
-				if(isset($row["{$joinField}__data"])) {
+				$v = isset($row["{$joinField}__data"]) ? $row["{$joinField}__data"] : null;
+				if($v instanceof NullField) $v = null;
+				// if(isset($row["{$joinField}__data"])) {
+				if($v !== null) {
 					if(!$field->hasFlag(Field::flagAutojoin)) {
 						$field->addFlag(Field::flagAutojoin);
 						$tmpAutojoinFields[$field->id] = $field;
@@ -2026,6 +2030,286 @@ class PagesLoader extends Wire {
 			$selector->add(new SelectorEqual('limit', 1));
 		}
 		return $this->pages->find($selector, $options)->getTotal();
+	}
+
+
+	/**
+	 * Preload/Prefetch fields for page together as a group (experimental)
+	 * 
+	 * This is an optimization that enables you to load the values for multiple fields into
+	 * a page at once, and often in a single query. This is similar to the `joinFields` option
+	 * when loading a page, or the `autojoin` option configured with a field, except that it 
+	 * can be used after a page is already loaded. It provides a performance improvement
+	 * relative lazy-loading of fields individually as they are accessed. 
+	 * 
+	 * Preload works only with Fieldtypes that do not override the core’s loading methods. 
+	 * Preload also does not work with FieldtypeMulti types at present, except for the Page
+	 * Fieldtype when configured to load a single page. Though it can be enabled for testing 
+	 * purposes using the `useFieldtypeMulti` $options argument. 
+	 * 
+	 * NOTE: This function is currently experimental, recommended for testing only.
+	 * 
+	 * @param Page $page Page to preload fields for
+	 * @param array $fieldNames Names of fields to preload
+	 * @param array $options 
+	 *  - `debug` (bool): Specify true to return array of debug info (default=false).
+	 *  - `useFieldtypeMulti` (bool): Enable FieldtypeMulti for testing purposes (default=false).
+	 * @return int|array Number of fields preloaded, or array of details (if debug) 
+	 * @since 3.0.243
+	 * 
+	 */
+	public function preloadFields(Page $page, array $fieldNames, $options = array()) {
+		
+		$defaults = [
+			'debug' => is_bool($options) ? $options : false, 
+			'useFieldtypeMulti' => false, 
+		];
+		
+		static $level = 0;
+
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		$debug = $options['debug'];
+		$database = $page->wire()->database;
+		$fieldNames = array_unique($fieldNames);
+		$fields = $page->wire()->fields;
+		$loadFields = [];
+		$loadedFields = [];
+		$selects = [];
+		$joins = [];
+		$numJoins = 0;
+		$maxJoins = 60;
+		
+		$log = [
+			'loaded' => [], 
+			'skipped' => [], 
+			'blank' => [], 
+			'queries' => 1, 
+			'timer' => 0.0, 
+		];
+		
+		if(!$page->id || !$page->template) return $debug ? $log : 0; 
+	
+		foreach($fieldNames as $fieldKey => $fieldName) {
+
+			// identify which fields to load and which to skip
+			$field = $fields->get($fieldName);
+			$fieldName = $field ? $field->name : '';
+			$fieldNames[$fieldKey] = $fieldName; 
+			$error = $field ? $this->skipPreloadField($page, $field, $options) : 'Field not found';
+
+			if($error) {
+				unset($fieldNames[$fieldKey]);
+				if($debug) $log['skipped'][$fieldName] = $error;
+				continue;
+			}
+
+			$fieldtype = $field->type;
+			$schema = $fieldtype->trimDatabaseSchema($fieldtype->getDatabaseSchema($field));
+			$numJoins += count($schema);
+			
+			if($numJoins >= $maxJoins) break;
+			
+			$loadFields[$fieldName] = $field;
+			$table = $field->getTable();
+		
+			// build selects and joins
+			foreach(array_keys($schema) as $colName) {
+				if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) {
+					$sep = FieldtypeMulti::multiValueSeparator;
+					$orderBy = "ORDER BY $table.sort";
+					$selects[] = "GROUP_CONCAT($table.$colName $orderBy SEPARATOR '$sep') AS `{$table}__$colName`";
+				} else {
+					$selects[] = "$table.$colName AS {$table}__$colName";
+				}
+				$joins[$table] = "LEFT JOIN $table ON $table.pages_id=pages.id";
+			}
+			
+			unset($fieldNames[$fieldKey]);
+		}
+		
+		if(!count($selects)) return $debug ? $log : 0;
+		
+		$level++;
+		$timer = $debug ? Debug::timer() : false;
+
+		// build and execute the query
+		$sql = 
+			'SELECT ' . implode(",\n", $selects) . ' ' .
+			"\nFROM pages " .
+			"\n" . implode(" \n", $joins) . ' ' .
+			"\nWHERE pages.id=:pid";
+	
+		$query = $database->prepare($sql);
+		$query->bindValue(':pid', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		
+		$data = [];
+		$row = $query->fetch(\PDO::FETCH_ASSOC);
+		$query->closeCursor();
+		
+		// combine data from DB into column groups by field name
+		if($row) {
+			foreach($row as $key => $value) {
+				list($table, $colName) = explode('__', $key, 2);
+				list(, $fieldName) = explode('_', $table, 2);
+				if(!isset($data[$fieldName])) $data[$fieldName] = [];
+				$data[$fieldName][$colName] = $value;
+			}
+		}
+
+		// wake up loaded values and populate to $page
+		foreach($data as $fieldName => $sleepValue) {
+			if(!isset($loadFields[$fieldName])) continue;
+			$field = $loadFields[$fieldName];
+			$fieldtype = $field->type;
+			$cols = array_keys($sleepValue);
+			if(count($cols) === 1 && array_key_exists('data', $sleepValue)) {
+				$sleepValue = $sleepValue['data'];
+			}	
+			if($sleepValue === null) continue; // force to getBlankValue in loop below this
+			if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) { 
+				if(strrpos($sleepValue, FieldtypeMulti::multiValueSeparator)) {
+					$sleepValue = explode(FieldtypeMulti::multiValueSeparator, $sleepValue);
+				}
+			}
+			$value = $fieldtype->wakeupValue($page, $field, $sleepValue);
+			$page->_parentSet($field->name, $value);
+			$loadedFields[$field->name] = $fieldName;
+			unset($loadFields[$field->name]); 
+			if($debug) {
+				$log['loaded'][$fieldName] = "$fieldtype->shortName: " . implode(',', $cols);
+			}
+		}
+	
+		// any remaining loadFields not present in DB should get blank value
+		foreach($loadFields as $field) {
+			$value = $field->type->getBlankValue($page, $field); 
+			$page->_parentSet($field->name, $value);
+			if($debug) $log['blank'][$field->name] = $field->type->shortName;
+		}
+	
+		$numLoaded = count($loadedFields);
+
+		// go recursive for any remaining fields
+		if(count($fieldNames)) {
+			$result = $this->preloadFields($page, $fieldNames, $debug);
+			if($debug) {
+				foreach($log as $key => $value) {
+					if(is_array($value)) {
+						$log[$key] = array_merge($value, $result[$key]);
+					} else if(is_int($value)) {
+						$log[$key] += $result[$key];
+					}
+				}
+			} else {
+				$numLoaded += $result;
+			}
+		}
+	
+		$level--;
+		if($debug && $timer && !$level) $log['timer'] = Debug::timer($timer);
+		
+		return $debug ? $log : $numLoaded;
+	}
+
+	/**
+	 * Preload all supported fields for given page (experimental)
+	 * 
+	 * NOTE: This function is currently experimental, recommended for testing only.
+	 * 
+	 * @param Page $page Page to preload fields for
+	 * @param array $options 
+	 *  - `debug` (bool): Specify true to return array of debug info (default=false).
+	 *  - `skipFieldNames` (array): Optional names of fields to skip over (default=[]). 
+	 * @return int|array Number of fields preloaded, or array of details (if debug)
+	 * @since 3.0.243
+	 * 
+	 */
+	public function preloadAllFields(Page $page, $options = array()) {
+		$fieldNames = [];
+		$skipFieldNames = isset($options['skipFieldNames']) ? $options['skipFieldNames'] : false;
+		foreach($page->template->fieldgroup as $field) {
+			if($skipFieldNames && in_array($field->name, $skipFieldNames)) continue;
+			$fieldNames[] = $field->name;
+		}
+		return $this->preloadFields($page, $fieldNames, $options);
+	}
+
+	/**
+	 * Skip preloading of this field or fieldtype?
+	 * 
+	 * Returns populated string with reason if yes, or blank string if no. 
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	protected function skipPreloadField(Page $page, Field $field, array $options) {
+		
+		static $fieldtypeErrors = [];
+
+		$useFieldtypeMulti = isset($options['useFieldtypeMulti']) ? $options['useFieldtypeMulti'] : false;
+		$error = '';
+
+		if($page->_parentGet($field->name) !== null) {
+			$error = 'Already loaded';
+		} else if(!$page->template->fieldgroup->hasField($field)) {
+			$error = "Template '$page->template' does not have field";
+		} else if(!$field->getTable()) {
+			$error = 'Field has no table';
+		}
+		
+		if($error) return $error;
+
+		$fieldtype = $field->type;
+		$shortName = $fieldtype->shortName;
+		
+		if(isset($fieldtypeErrors[$shortName])) return $fieldtypeErrors[$shortName]; 
+		
+		// fieldtype status not yet known
+		$schema = $fieldtype->getDatabaseSchema($field);
+		$xtra = isset($schema['xtra']) ? $schema['xtra'] : [];
+
+		if($fieldtype instanceof FieldtypeMulti) {
+			if($useFieldtypeMulti) {
+				// allow group_concat for FieldtypeMulti
+			} else if($fieldtype instanceof FieldtypePage && $field->get('derefAsPage') > 0) {
+				// allow single-page matches
+			} else {
+				$error = "$shortName: Unsupported";
+			}
+		} else if($fieldtype instanceof FieldtypeFieldsetOpen) {
+			$error = 'Fieldset: Unsupported';
+		}
+
+		if(!$error && isset($xtra['all']) && $xtra['all'] === false) {
+			if($shortName !== 'Repeater' && $shortName !== 'RepeaterMatrix') {
+				$error = "$shortName: External storage";
+			}
+		}
+		
+		if(!$error) {
+			$ref = new \ReflectionClass($fieldtype);
+			// identify parent class that implements loadPageField method
+			$info = $ref->getMethod('___loadPageField'); 
+			$class = wireClassName($info->class); 
+			// whitelist of classes with custom loadPageField methods we support
+			$rootClasses = [ 
+				'Fieldtype', 
+				'FieldtypeMulti', 
+				'FieldtypeTextarea', 
+				'FieldtypeTextareaLanguage' 
+			];
+			if(!in_array($class, $rootClasses)) {
+				$error = "$shortName: Has custom loader";
+			}
+		}
+
+		$fieldtypeErrors[$shortName] = $error;
+		
+		return $error;
 	}
 
 	/**
