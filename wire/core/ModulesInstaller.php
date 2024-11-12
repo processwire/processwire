@@ -266,14 +266,20 @@ class ModulesInstaller extends ModulesClass {
 				$reason = $this->_("Module is permanent");
 			} else {
 				$dependents = $this->getRequiresForUninstall($class);
-				if(count($dependents)) $reason = $this->_("Module is required by other modules that must be removed first");
+				if(count($dependents)) $reason = $this->_(sprintf(
+					"Module is required by other modules that must be removed first: %s",
+					implode(', ', $dependents))
+				);
 			}
 
 			if(!$reason && in_array('Fieldtype', wireClassParents($namespace . $class))) {
 				foreach($this->wire()->fields as $field) {
 					$fieldtype = wireClassName($field->type, false);
 					if($fieldtype == $class) {
-						$reason = $this->_("This module is a Fieldtype currently in use by one or more fields");
+						$reason = $this->_(sprintf(
+							"This module is a Fieldtype currently in use by one or more fields including: %s",
+							$field->name)
+						);
 						break;
 					}
 				}
