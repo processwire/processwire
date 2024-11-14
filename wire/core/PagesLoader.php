@@ -2265,8 +2265,15 @@ class PagesLoader extends Wire {
 
 		$fieldtype = $field->type;
 		$shortName = $fieldtype->shortName;
+		$cacheName = $shortName;
 		
-		if(isset($fieldtypeErrors[$shortName])) return $fieldtypeErrors[$shortName]; 
+		if($fieldtype instanceof FieldtypePage) {
+			$cacheName .= $field->get('derefAsPage');
+		}
+		
+		if(isset($fieldtypeErrors[$cacheName])) {
+			return $fieldtypeErrors[$cacheName];
+		}
 		
 		// fieldtype status not yet known
 		$schema = $fieldtype->getDatabaseSchema($field);
@@ -2307,7 +2314,7 @@ class PagesLoader extends Wire {
 			}
 		}
 
-		$fieldtypeErrors[$shortName] = $error;
+		$fieldtypeErrors[$cacheName] = $error;
 		
 		return $error;
 	}
