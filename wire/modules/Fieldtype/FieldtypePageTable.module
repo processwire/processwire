@@ -451,6 +451,8 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
+
+		if($value && !is_array($value)) $value = array($value);
 		
 		if(!is_array($value) || !wireCount($value) || empty($field->template_id)) {
 			return $this->getBlankValue($page, $field);
