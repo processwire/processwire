@@ -2052,9 +2052,10 @@ class PagesLoader extends Wire {
 	 * @param Page $page Page to preload fields for
 	 * @param array $fieldNames Names of fields to preload
 	 * @param array $options 
-	 *  - `debug` (bool): Specify true to return array of debug info (default=false).
+	 *  - `debug` (bool): Specify true to include additional debug info in return value (default=false). 
 	 *  - `useFieldtypeMulti` (bool): Enable FieldtypeMulti for testing purposes (default=false).
-	 * @return int|array Number of fields preloaded, or array of details (if debug) 
+	 *  - `loadPageRefs` (bool): Optimization to early load pages in page reference fields? (default=true)
+	 * @return array Array containing what was loaded and skipped
 	 * @since 3.0.243
 	 * 
 	 */
@@ -2063,13 +2064,14 @@ class PagesLoader extends Wire {
 		$defaults = [
 			'debug' => is_bool($options) ? $options : false, 
 			'useFieldtypeMulti' => false, 
+			'loadPageRefs' => true, 
 		];
 		
 		static $level = 0;
 
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		$debug = $options['debug'];
-		$database = $page->wire()->database;
+		$database = $this->wire()->database;
 		$fieldNames = array_unique($fieldNames);
 		$fields = $page->wire()->fields;
 		$loadFields = [];
@@ -2084,10 +2086,9 @@ class PagesLoader extends Wire {
 			'skipped' => [], 
 			'blank' => [], 
 			'queries' => 1, 
-			'timer' => 0.0, 
 		];
 		
-		if(!$page->id || !$page->template) return $debug ? $log : 0; 
+		if(!$page->id || !$page->template) return $log;
 	
 		foreach($fieldNames as $fieldKey => $fieldName) {
 
@@ -2099,7 +2100,7 @@ class PagesLoader extends Wire {
 
 			if($error) {
 				unset($fieldNames[$fieldKey]);
-				if($debug) $log['skipped'][$fieldName] = $error;
+				if($fieldName) $log['skipped'][] = "$fieldName ($error)";
 				continue;
 			}
 
@@ -2127,7 +2128,7 @@ class PagesLoader extends Wire {
 			unset($fieldNames[$fieldKey]);
 		}
 		
-		if(!count($selects)) return $debug ? $log : 0;
+		if(!count($selects)) return $log;
 		
 		$level++;
 		$timer = $debug ? Debug::timer() : false;
@@ -2158,58 +2159,90 @@ class PagesLoader extends Wire {
 		}
 
 		// wake up loaded values and populate to $page
+		$pageIds = [];
+		
 		foreach($data as $fieldName => $sleepValue) {
-			if(!isset($loadFields[$fieldName])) continue;
+			if(!isset($loadFields[$fieldName])) {
+				unset($data[$fieldName]);
+				continue;
+			}
 			$field = $loadFields[$fieldName];
 			$fieldtype = $field->type;
 			$cols = array_keys($sleepValue);
 			if(count($cols) === 1 && array_key_exists('data', $sleepValue)) {
 				$sleepValue = $sleepValue['data'];
 			}	
-			if($sleepValue === null) continue; // force to getBlankValue in loop below this
+			if($sleepValue === null) {
+				unset($data[$fieldName]); 
+				continue; // force to getBlankValue in loop below this
+			}
 			if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) { 
 				if(strrpos($sleepValue, FieldtypeMulti::multiValueSeparator)) {
 					$sleepValue = explode(FieldtypeMulti::multiValueSeparator, $sleepValue);
 				}
 			}
+			if($fieldtype instanceof FieldtypePage && $sleepValue && $options['loadPageRefs']) {
+				if(!is_array($sleepValue)) $sleepValue = [ $sleepValue ];
+				foreach($sleepValue as $pageId) {
+					$pageId = (int) $pageId;
+					if(!$pageId) continue;
+					if($this->pages->cacher()->hasCache($pageId)) continue;
+					$parentId = $field->get('parent_id');
+					$templateId = FieldtypePage::getTemplateIDs($field, true);
+					if(!ctype_digit("$parentId")) $parentId = 0;
+					if(!ctype_digit("$templateId")) $templateId = 0;
+					$groupKey = "$parentId,$templateId";
+					if(!isset($pageIds[$groupKey])) $pageIds[$groupKey] = [];
+					$pageIds[$groupKey][$pageId] = $pageId; 
+				}
+			}
+			
+			$data[$fieldName] = $sleepValue;
+		}
+	
+		// preload all pages in template or parent groups
+		if(count($pageIds)) {
+			foreach($pageIds as $groupKey => $ids) {
+				list($parentId, $templateId) = explode(',', $groupKey);
+				$this->pages->getByID($ids, [ 'template' => $templateId, 'parent_id' => $parentId ]); 
+			}
+		}
+		
+		foreach($data as $fieldName => $sleepValue) {
+			$field = $loadFields[$fieldName];
+			$fieldtype = $field->type;
 			$value = $fieldtype->wakeupValue($page, $field, $sleepValue);
 			$page->_parentSet($field->name, $value);
 			$loadedFields[$field->name] = $fieldName;
-			unset($loadFields[$field->name]); 
-			if($debug) {
-				$log['loaded'][$fieldName] = "$fieldtype->shortName: " . implode(',', $cols);
-			}
+			unset($loadFields[$field->name]);
+			$log['loaded'][] = $fieldName;
 		}
 	
 		// any remaining loadFields not present in DB should get blank value
 		foreach($loadFields as $field) {
 			$value = $field->type->getBlankValue($page, $field); 
-			$page->_parentSet($field->name, $value);
-			if($debug) $log['blank'][$field->name] = $field->type->shortName;
+			$fieldName = $field->name;
+			$page->_parentSet($fieldName, $value);
+			$log['blank'][] = $fieldName;
 		}
 	
-		$numLoaded = count($loadedFields);
-
 		// go recursive for any remaining fields
 		if(count($fieldNames)) {
-			$result = $this->preloadFields($page, $fieldNames, $debug);
-			if($debug) {
-				foreach($log as $key => $value) {
-					if(is_array($value)) {
-						$log[$key] = array_merge($value, $result[$key]);
-					} else if(is_int($value)) {
-						$log[$key] += $result[$key];
-					}
+			$result = $this->preloadFields($page, $fieldNames, $options);
+			foreach($log as $key => $value) {
+				if(is_array($value)) {
+					$log[$key] = array_merge($value, $result[$key]);
+				} else if(is_int($value)) {
+					$log[$key] += $result[$key];
 				}
-			} else {
-				$numLoaded += $result;
 			}
 		}
 	
 		$level--;
+		
 		if($debug && $timer && !$level) $log['timer'] = Debug::timer($timer);
 		
-		return $debug ? $log : $numLoaded;
+		return $log;
 	}
 
 	/**
@@ -2285,7 +2318,7 @@ class PagesLoader extends Wire {
 			} else if($fieldtype instanceof FieldtypePage && $field->get('derefAsPage') > 0) {
 				// allow single-page matches
 			} else {
-				$error = "$shortName: Unsupported";
+				$error = "$shortName: Unsupported without useFieldtypeMulti=true";
 			}
 		} else if($fieldtype instanceof FieldtypeFieldsetOpen) {
 			$error = 'Fieldset: Unsupported';
