@@ -92,6 +92,18 @@ class PagesLoaderCache extends Wire {
 	}
 
 	/**
+	 * Is given page ID in the cache?
+	 * 
+	 * @param int page ID
+	 * @return bool
+	 * @since 3.0.243
+	 * 
+	 */
+	public function hasCache($id) {
+		return isset($this->pageIdCache[$id]);
+	}
+
+	/**
 	 * Cache the given page.
 	 *
 	 * @param Page $page
