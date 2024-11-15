@@ -1207,8 +1207,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param array $fieldNames Names of fields to preload or omit (or blank array) 
 	 *   to preload all supported fields. 
 	 * @param array $options Options to modify default behavior:
-	 *  `debug` (bool): Specify true to return array of debug info (default=false). 
-	 * @return int|array Number of fields preloaded, or array of details (if debug)
+	 * - `debug` (bool): Specify true to return additional info in returned array (default=false). 
+	 * - See the `PagesLoader::preloadFields()` method for additional options.
+	 * @return array Array of details 
 	 * @since 3.0.243
 	 *
 	 */

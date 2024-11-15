@@ -2254,7 +2254,8 @@ class PagesLoader extends Wire {
 	 * @param array $options 
 	 *  - `debug` (bool): Specify true to return array of debug info (default=false).
 	 *  - `skipFieldNames` (array): Optional names of fields to skip over (default=[]). 
-	 * @return int|array Number of fields preloaded, or array of details (if debug)
+	 *  - See the `PagesLoader::preloadFields()` method for additional options. 
+	 * @return array Array of details 
 	 * @since 3.0.243
 	 * 
 	 */
