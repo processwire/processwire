@@ -898,7 +898,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				} else {
 					// label always visible
 					$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label']);
-					$label = $this->setAttributeInMarkup('for', $for, $label, true);
+					if($skipLabel !== Inputfield::skipLabelFor) $label = $this->setAttributeInMarkup('for', $for, $label, true);
 				}
 				$headerClass = trim($inputfield->getSetting('headerClass') . " $classes[item_label]");
 				$label = $this->setAttributeInMarkup('class', $headerClass, $label);
