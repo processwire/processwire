@@ -1060,7 +1060,7 @@ class ProcessModule extends Process {
 		$sanitizer = $this->wire()->sanitizer;
 		$session = $this->wire()->session;
 	
-		$name = $sanitizer->name($name); 
+		$name = $sanitizer->name(trim($name)); 
 		$info = self::getModuleInfo();
 		$this->headline($this->labels['download_install']); 
 		$this->breadcrumb('./', $info['title']);
