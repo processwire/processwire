@@ -757,8 +757,8 @@ class Pages extends Wire {
 		}
 	
 		if(!empty($options['parent_id'])) {
-			unset($options['parent_id']);
 			$parent_id = (int) $options['parent_id'];
+			unset($options['parent_id']);
 		} else if($parent) {
 			unset($options['parent']);
 			if($parent instanceof Page) {
