@@ -818,7 +818,7 @@ class ProcessModule extends Process {
 			'allowDelete' => false,
 			'allowSections' => true,
 			'allowDates' => false,
-			'allowClasses' => false,
+			'allowClasses' => true,
 			'allowType' => false,
 			'allowInstall' => true, 
 			'summaries' => array(), 
