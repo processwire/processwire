@@ -1171,7 +1171,6 @@ class Template extends WireData implements Saveable, Exportable {
 	 * Given an array of export data, import it
 	 * 
 	 * @param array $data
-	 * @return bool True if successful, false if not
 	 * @return array Returns array(
 	 * 	[property_name] => array(
 	 * 		'old' => 'old value', // old value (in string comparison format)
@@ -1222,7 +1221,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * #pw-group-family
 	 *
 	 * @param array|TemplatesArray|null $setValue Specify only when setting, an iterable value containing Template objects, IDs or names
-	 * @return TemplatesArray
+	 * @return TemplatesArray|Template[]
 	 * @since 3.0.153
 	 *
 	 */
@@ -1237,7 +1236,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 * @param string $property Specify either 'childTemplates' or 'parentTemplates'
 	 * @param array|TemplatesArray|null $setValue Iterable value containing Template objects, IDs or names
-	 * @return TemplatesArray
+	 * @return TemplatesArray|Template[]
 	 * @since 3.0.153
 	 * 
 	 */
@@ -1267,6 +1266,7 @@ class Template extends WireData implements Saveable, Exportable {
 				if($template) $value->add($template);
 			}
 		}
+		/** @var TemplatesArray|Template[] $value */
 		
 		return $value; 
 	}
