@@ -124,8 +124,9 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$id = (int) $input->get('id');
 		$this->langID = (int) $input->get('lang');
 		if($id) $this->page = $pages->get($id);
-		if($this->page && $this->page->id && !$this->wire()->user->hasPermission("page-view", $this->page)) {
-			throw new WireException("You don't have access to this page");
+		// if($this->page && $this->page->id && !$this->wire()->user->hasPermission("page-view", $this->page)) {
+		if($this->page && $this->page->id && !$this->page->viewable()) {
+			throw new WireException($this->_('Page is not viewable'));
 		}
 		if(!$this->page) $this->page = $pages->newNullPage();
 
