@@ -181,4 +181,4 @@ resolved any issues.
 
 ------
 
-Copyright 2023 by Ryan Cramer / Ryan Cramer Design, LLC
+Copyright 2024 by Ryan Cramer / Ryan Cramer Design, LLC
