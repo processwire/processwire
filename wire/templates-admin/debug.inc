@@ -118,8 +118,17 @@ echo
 		<?php
 		$o = ''; $oc = 0;
 		foreach($session as $key => $value) {
-			if(is_object($value)) $value = (string) $value;
-			if(is_array($value)) $value = print_r($value, true);
+			if(is_object($value)) {
+				if(method_exists($value, '__toString')) {
+					$value = (string) $value;
+				} else if(method_exists($value, '__debugInfo')) {
+					$value = print_r($value, true);
+				} else {
+					$value = get_class($value);
+				}
+			} else if(is_array($value)) {
+				$value = print_r($value, true);
+			}
 			$oc++;
 			$o .= "<tr><td>$key</td><td><pre>" . $sanitizer->entities($value) . "</pre></td></tr>";
 		} 
