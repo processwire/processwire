@@ -571,6 +571,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	 */
 	protected function ___getFilesPage(Page $page, $prefix = '') {
 		$files = array();
+		if(!$page->id) return $files;
 		foreach($page->template->fieldgroup as $field) {
 			/** @var Fieldtype $type */
 			$type = $field->type;
