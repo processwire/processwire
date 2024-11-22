@@ -307,6 +307,7 @@ var ProcessLister = {
 			if(typeof AdminDataTable != "undefined") AdminDataTable.init();
 			$("a.lister-lightbox", ProcessLister.results).magnificPopup({ type: 'image', closeOnContentClick: true, closeBtnInside: true });
 			if(refreshAll) ProcessLister.results.fadeTo(0, 1.0);
+			window.dispatchEvent(new Event('resize'));
 		}, 250);
 
 		var pos = data.indexOf('ProcessListerScript');
