@@ -426,7 +426,9 @@ function InputfieldRepeater($) {
 		if($repeater.hasClass('InputfieldNoDraft')) ajaxURL += '&nodraft=1';	
 		if(pageVersion) ajaxURL += '&version=' + pageVersion;
 
-		$spinner.removeClass('fa-arrows').addClass('fa-spin fa-spinner');
+		var iconName = $item.attr('data-icon');
+		if(typeof iconName === 'undefined' || !iconName) iconName = 'fa-arrows';
+		$spinner.removeClass(iconName).addClass('fa-spin fa-spinner');
 		repeaterID = repeaterID.replace(/_repeater\d+$/, '').replace('_LPID' + pageID, '');
 		
 		if(typeof contextStr !== 'undefined' && contextStr.length) {
@@ -454,7 +456,7 @@ function InputfieldRepeater($) {
 			}
 
 			$content.slideDown('fast', function() {
-				$spinner.removeClass('fa-spin fa-spinner').addClass('fa-arrows');
+				$spinner.removeClass('fa-spin fa-spinner').addClass(iconName);
 				updateAccordion($item);
 			});
 			
