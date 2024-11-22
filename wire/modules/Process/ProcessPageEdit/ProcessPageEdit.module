@@ -3345,14 +3345,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			} else {
 				$title = (string) $title;
 			}
-			if(empty($title)) {
+			if(!strlen("$title")) {
 				if($this->pages->names()->isUntitledPageName($page->name)) {
 					$title = $page->template->getLabel();
 				} else {
 					$title = $page->get('name');
 				}
 			}
-			if(empty($title)) $title = $page->name;
+			if(!strlen("$title")) $title = $page->name;
 		} else if($this->parent && $this->parent->id) {
 			$titlePage = $this->parent;
 			$title = rtrim($this->parent->path, '/') . '/[...]';
@@ -3380,7 +3380,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$headline = $titlePage->get('title|name');
 		}
 	
-		if(empty($headline)) $headline = $title;
+		if(!strlen("$headline")) $headline = $title;
 
 		$this->headline($headline);
 		$this->browserTitle($browserTitle);

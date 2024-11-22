@@ -193,8 +193,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function getHeadline() {
-		$headline = $this->wire('processHeadline');
-		if(!$headline) $headline = $this->wire()->page->get('title|name');
+		$headline = (string) $this->wire('processHeadline');
+		if(!strlen($headline)) $headline = $this->wire()->page->get('title|name');
 		if($headline !== 'en' && $this->wire()->languages) $headline = $this->_($headline);
 		return $this->sanitizer->entities1($headline);
 	}
