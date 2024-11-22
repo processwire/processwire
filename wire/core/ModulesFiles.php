@@ -309,6 +309,10 @@ class ModulesFiles extends ModulesClass {
 			if(class_exists(__NAMESPACE__ . "\\$moduleName", false)) return true;
 			// next do a slower check, figuring out namespace
 			$ns = $this->modules->info->getModuleNamespace($moduleName, array('file' => $file));
+			if($ns === null) {
+				// unable to determine module namespace, likely file does not exist
+				$ns = (string) $ns;
+			}
 			$className = trim($ns, "\\") . "\\$moduleName";
 			if(class_exists($className, false)) return true;
 			// if this point is reached, module is not yet in memory in either instance
