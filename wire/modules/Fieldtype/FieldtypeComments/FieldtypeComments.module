@@ -300,12 +300,12 @@ class FieldtypeComments extends FieldtypeMulti {
 		// assign code and subcode
 		if(!$comment->code || !$comment->subcode) {
 			$rand = new WireRandom();
-			if(!strlen($comment->code)) {
+			if(!strlen("$comment->code")) {
 				// code: visible to admin only
 				$code = $rand->alphanumeric(128);
 				$comment->code = $code;
 			}
-			if(!strlen($comment->subcode)) {
+			if(!strlen("$comment->subcode")) {
 				// subcode: may be visible to commenter
 				$subcode = $rand->alphanumeric(40);
 				$comment->subcode = $subcode;
@@ -2555,4 +2555,3 @@ class FieldtypeComments extends FieldtypeMulti {
 	}
 	
 }
-

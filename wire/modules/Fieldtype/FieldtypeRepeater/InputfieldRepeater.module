@@ -263,7 +263,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		
 		$fields = $this->wire()->fields;
 		$items = $this->attr('value');
-		$item = count($items) ? $items->first() : null;
+		$item = wireCount($items) ? $items->first() : null;
 		
 		$templateId = $this->field ? (int) $this->field->get('template_id') : 0;
 		$template = $templateId ? $this->wire()->templates->get($templateId) : null;

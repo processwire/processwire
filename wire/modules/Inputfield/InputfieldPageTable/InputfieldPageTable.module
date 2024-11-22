@@ -518,7 +518,7 @@ class InputfieldPageTable extends Inputfield {
 			$value = (string) $object;
 		}
 
-		$value = $this->wire()->sanitizer->entities(strip_tags($value)); 
+		$value = $this->wire()->sanitizer->entities(strip_tags("$value")); 
 		$value = nl2br($value); 
 		
 		return $value; 

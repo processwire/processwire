@@ -905,7 +905,7 @@ class WireTextTools extends Wire {
 	 *  - `has` (bool): Specify true to only return true or false if it has tags (default=false).
 	 * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
 	 *	- `tagClose` (string): The required closing tag character(s), default is '}'
-	 * @return array|bool
+	 * @return array|bool Always returns array unless you specify the `has` option as true.
 	 * @since 3.0.126
 	 *
 	 */
@@ -918,6 +918,7 @@ class WireTextTools extends Wire {
 		);
 		
 		$options = array_merge($defaults, $options);
+		$str = (string) $str;
 		$tags = array();
 		$pos1 = strpos($str, $options['tagOpen']);
 		
