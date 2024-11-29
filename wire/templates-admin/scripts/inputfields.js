@@ -2665,7 +2665,7 @@ function InputfieldStates($target) {
 		var config = ProcessWire.config;
 	} 
 	if(typeof config !== "undefined" && config.debug) {
-		$('.InputfieldHeader > i.toggle-icon', $target).on('mouseenter', function() {
+		$('.InputfieldHeader > i.toggle-icon:not(.toggle-icon-debug)', $target).on('mouseenter', function() {
 			var $label = $(this).parent('label');
 			if($label.length == 0) return;
 			var forId = $label.attr('for');
@@ -2682,7 +2682,7 @@ function InputfieldStates($target) {
 			var $label = $(this).parent('label');
 			if($label.length == 0) return;
 			$label.find('.InputfieldNameTip').remove();
-		});
+		}).addClass('toggle-icon-debug');
 	}
 
 	// no need to apply anything further for ajax-loaded inputfields
