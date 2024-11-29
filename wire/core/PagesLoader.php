@@ -2129,6 +2129,9 @@ class PagesLoader extends Wire {
 		}
 		
 		if(!count($selects)) return $log;
+
+		$trackChanges = $level ? null : $page->trackChanges();
+		if($trackChanges) $page->setTrackChanges(false);
 		
 		$level++;
 		$timer = $debug ? Debug::timer() : false;
@@ -2241,6 +2244,8 @@ class PagesLoader extends Wire {
 		$level--;
 		
 		if($debug && $timer && !$level) $log['timer'] = Debug::timer($timer);
+		
+		if($trackChanges) $page->setTrackChanges($trackChanges);
 		
 		return $log;
 	}
