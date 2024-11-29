@@ -5,7 +5,7 @@
  *
  * Manages collection of ALL Field instances, not specific to any particular Fieldgroup
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages all custom fields in ProcessWire, independently of any Fieldgroup. 
@@ -108,6 +108,13 @@ class Fields extends WireSaveableItems {
 	protected $flagNames = array();
 
 	/**
+	 * Flags to field IDs
+	 * 
+	 * @var array 
+	 */
+	protected $flagsToIds = array();
+
+	/**
 	 * Field names that are native/permanent to this instance of ProcessWire (configurable at runtime)
 	 * 
 	 * Array indexes are the names and values are all boolean true. 
@@ -185,6 +192,50 @@ class Fields extends WireSaveableItems {
 	}
 
 	/**
+	 * Called after rows loaded from DB but before populated to this instance
+	 *
+	 * @param array $rows
+	 *
+	 */
+	protected function loadRowsReady(array &$rows) { 
+		for($flag = 1; $flag <= 256; $flag *= 2) {
+			$this->flagsToIds[$flag] = array();
+		}
+		foreach($rows as $row) {
+			$flags = (int) $row['flags'];
+			if(empty($flags)) continue;
+			foreach($this->flagsToIds as $flag => $ids) {
+				if($flags & $flag) $this->flagsToIds[$flag][] = (int) $row['id'];
+			}
+		}
+	}
+
+	/**
+	 * Given field ID return native property
+	 * 
+	 * This avoids loading the field if the property can be obtained natively. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param int $id
+	 * @param string $property
+	 * @return array|bool|mixed|string|null
+	 * @since 3.0.243
+	 * 
+	 */
+	public function fieldIdToProperty($id, $property) {
+		$id = (int) $id;
+		if(isset($this->lazyIdIndex[$id])) {
+			$n = $this->lazyIdIndex[$id];
+			if(isset($this->lazyItems[$n][$property])) {
+				return $this->lazyItems[$n][$property];
+			}
+		}
+		$field = $this->get($id);
+		return $field ? $field->get($property) : null;
+	}
+
+	/**
 	 * Make an item and populate with given data
 	 *
 	 * @param array $a Associative array of data to populate
@@ -250,7 +301,7 @@ class Fields extends WireSaveableItems {
 	 * @since 3.0.194
 	 *
 	 */
-	protected function initItem(array &$row, WireArray $items = null) {
+	protected function initItem(array &$row, ?WireArray $items = null) {
 		/** @var Field $item */
 		$item = parent::initItem($row, $items);
 		$fieldtype = $item ? $item->type : null;
@@ -317,7 +368,7 @@ class Fields extends WireSaveableItems {
 	 * $fields->save($field); 
 	 * ~~~~~
 	 *
-	 * @param Field|Saveable $item The field to save
+	 * @param Field $item The field to save
 	 * @return bool True on success, false on failure
 	 * @throws WireException
 	 *
@@ -432,7 +483,7 @@ class Fields extends WireSaveableItems {
 	 * 
 	 * This method will throw a WireException if you attempt to delete a field that is currently in use (i.e. assigned to one or more fieldgroups). 
 	 *
-	 * @param Field|Saveable $item Field to delete
+	 * @param Field $item Field to delete
 	 * @return bool True on success, false on failure
 	 * @throws WireException
 	 *
@@ -473,7 +524,7 @@ class Fields extends WireSaveableItems {
 	/**
 	 * Create and return a cloned copy of the given Field
 	 * 
-	 * @param Field|Saveable $item Field to clone
+	 * @param Field $item Field to clone
 	 * @param string $name Optionally specify name for new cloned item
 	 * @return Field $item Returns the new clone on success, or false on failure
 	 *
@@ -1094,6 +1145,30 @@ class Fields extends WireSaveableItems {
 	}
 
 	/**
+	 * Find fields by flag
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param int $flag
+	 * @param bool $getFieldNames
+	 * @return array|Field[]
+	 * @since 3.0.243
+	 * 
+	 */
+	public function findByFlag($flag, $getFieldNames = false) {
+		if(!isset($this->flagsToIds[$flag])) return array();
+		$items = [];
+		foreach($this->flagsToIds[$flag] as $id) {
+			if($getFieldNames) {
+				$items[] = $this->fieldIdToProperty($id, 'name');
+			} else {
+				$items[] = $this->get($id); 
+			}
+		}
+		return $items;
+	}
+
+	/**
 	 * Find fields by type
 	 * 
 	 * @param string|Fieldtype $type Fieldtype class name or object
@@ -1239,7 +1314,7 @@ class Fields extends WireSaveableItems {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param Field|int|string Field to check
+	 * @param Field Field to check
 	 * @param string $permission Specify either 'view' or 'edit'
 	 * @param Page|null $page Optionally specify a page for context
 	 * @param User|null $user Optionally specify a user for context (default=current user)
@@ -1247,7 +1322,7 @@ class Fields extends WireSaveableItems {
 	 * @throws WireException if given invalid arguments
 	 *
 	 */
-	public function _hasPermission(Field $field, $permission, Page $page = null, User $user = null) {
+	public function _hasPermission(Field $field, $permission, ?Page $page = null, ?User $user = null) {
 		if($permission != 'edit' && $permission != 'view') {
 			throw new WireException('Specify either "edit" or "view"');
 		}
@@ -1285,7 +1360,7 @@ class Fields extends WireSaveableItems {
 	 * 
 	 * #pw-hooker
 	 * 
-	 * @param Field|Saveable $item
+	 * @param Field $item
 	 * @param Fieldtype $fromType
 	 * @param Fieldtype $toType
 	 * 
@@ -1297,7 +1372,7 @@ class Fields extends WireSaveableItems {
 	 * 
 	 * #pw-hooker
 	 * 
-	 * @param Field|Saveable $item
+	 * @param Field $item
 	 * @param Fieldtype $fromType
 	 * @param Fieldtype $toType
 	 * 

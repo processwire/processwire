@@ -220,7 +220,9 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$query->execute();
 		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
 		$n = 0;
-
+		
+		$this->loadRowsReady($rows);
+		
 		foreach($rows as $row) {
 			if($useLazy) {
 				$this->lazyItems[$n] = $row;
@@ -239,6 +241,14 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	}
 
 	/**
+	 * Called after rows loaded from DB but before populated to this instance
+	 * 
+	 * @param array $rows
+	 * 
+	 */
+	protected function loadRowsReady(array &$rows) { }
+
+	/**
 	 * Create a new Saveable item from a raw array ($row) and add it to $items
 	 * 
 	 * @param array $row
@@ -247,7 +257,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 * @since 3.0.194
 	 * 
 	 */
-	protected function initItem(array &$row, WireArray $items = null) {
+	protected function initItem(array &$row, ?WireArray $items = null) {
 
 		if(!empty($row['data'])) {
 			if(is_string($row['data'])) $row['data'] = $this->decodeData($row['data']);
@@ -753,7 +763,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 * @return WireLog
 	 *
 	 */
-	public function log($str, Saveable $item = null) {
+	public function log($str, ?Saveable $item = null) {
 		$logs = $this->wire()->config->logs;
 		$name = $this->className(array('lowercase' => true)); 
 		if($logs && in_array($name, $logs)) {
