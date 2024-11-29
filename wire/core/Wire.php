@@ -626,7 +626,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * @deprecated 
 	 *
 	 */
-	static public function isHooked($method, Wire $instance = null) {
+	static public function isHooked($method, ?Wire $instance = null) {
 		/** @var ProcessWire $wire */
 		$wire = $instance ? $instance->wire() : ProcessWire::getCurrentInstance();
 		if($instance) return $instance->wire()->hooks->hasHook($instance, $method);
@@ -1370,7 +1370,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-hooker
 	 * 
-	 * @param \Exception|WireException $e Exception object that was thrown.
+	 * @param \Exception $e Exception object that was thrown.
 	 * @param bool|int $severe Whether or not it should be considered severe (default=true).
 	 * @param string|array|object|true $text Additional details (optional):
 	 * 	- When provided, it will be sent to `$this->error($text)` if $severe is true, or `$this->warning($text)` if $severe is false.

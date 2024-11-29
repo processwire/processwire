@@ -37,7 +37,7 @@ class FieldtypeRepeaterVersions extends Wire {
 	 * @since 3.0.232
 	 *
 	 */
-	public function hasNestedRepeaterFields($page, Field $field = null, $verify = false) {
+	public function hasNestedRepeaterFields($page, ?Field $field = null, $verify = false) {
 		$has = false;
 
 		if($field === null) {

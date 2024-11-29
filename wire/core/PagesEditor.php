@@ -1292,7 +1292,7 @@ class PagesEditor extends Wire {
 	 * Clone an entire page (including fields, file assets, and optionally children) and return it.
 	 *
 	 * @param Page $page Page that you want to clone
-	 * @param Page $parent New parent, if different (default=same parent)
+	 * @param Page|null $parent New parent, if different (default=same parent)
 	 * @param bool $recursive Clone the children too? (default=true)
 	 * @param array|string $options Optional options that can be passed to clone or save
 	 * 	- forceID (int): force a specific ID
@@ -1302,7 +1302,7 @@ class PagesEditor extends Wire {
 	 * @throws WireException|\Exception on fatal error
 	 *
 	 */
-	public function _clone(Page $page, Page $parent = null, $recursive = true, $options = array()) {
+	public function _clone(Page $page, ?Page $parent = null, $recursive = true, $options = array()) {
 		
 		$defaults = array(
 			'forceID' => 0, 

@@ -157,13 +157,13 @@ class FieldtypeTextarea extends FieldtypeText {
 	/**
 	 * Get the MarkupQA instance
 	 * 
-	 * @param Page $page
-	 * @param Field $field
+	 * @param Page|null $page
+	 * @param Field|null $field
 	 * @return MarkupQA
 	 * @throws WireException If called the first time without page or field arguments
 	 * 
 	 */
-	public function markupQA(Page $page = null, Field $field = null) {
+	public function markupQA(?Page $page = null, ?Field $field = null) {
 		if(is_null($this->markupQA)) {
 			$this->markupQA = $this->wire(new MarkupQA($page, $field));
 		} else {

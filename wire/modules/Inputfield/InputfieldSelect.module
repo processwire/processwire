@@ -82,11 +82,11 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 *
 	 * @param string $value Value that the option submits (or label of optgroup, if specifying an optgroup)
 	 * @param string $label|array Optional label associated with the value (if null, value will be used as the label), or array of optgroup options [value=>label]
-	 * @param array $attributes Optional attributes to be associated with this option (i.e. a 'selected' attribute for an <option> tag)
+	 * @param array|null $attributes Optional attributes to be associated with this option (i.e. a 'selected' attribute for an <option> tag)
 	 * @return $this
 	 *
 	 */
-	public function addOption($value, $label = null, array $attributes = null) {
+	public function addOption($value, $label = null, ?array $attributes = null) {
 		if(is_null($label) || (is_string($label) && !strlen($label))) $label = $value; 
 		if($value === $label && strpos($value, '-') === 0 && trim($value, '-') === '') {
 			while(isset($this->options[$value])) $value .= '-';
@@ -453,11 +453,11 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * Returns whether the provided value is one of the available options
 	 *
 	 * @param string|int $value
-	 * @param array $options Array of options to check, or omit if using this classes options. 
+	 * @param array|null $options Array of options to check, or omit if using this classes options. 
 	 * @return bool
 	 *
 	 */
-	public function isOption($value, array $options = null) {
+	public function isOption($value, ?array $options = null) {
 
 		if(is_null($options)) $options = $this->options; 
 		$is = false;
@@ -715,7 +715,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		if(!empty($this->optionLanguageLabels) && $this->hasFieldtype === false) {
 			$languages = $this->wire()->languages;
 			if($languages) {

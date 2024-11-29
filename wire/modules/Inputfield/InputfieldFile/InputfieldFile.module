@@ -763,7 +763,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		
 		$config = $this->wire()->config;
 		
@@ -1468,7 +1468,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * @since 3.0.142
 	 * 
 	 */
-	public function getItemInputfields(Pagefile $item = null) {
+	public function getItemInputfields(?Pagefile $item = null) {
 	
 		/** @var Pagefiles $pagefiles */
 		$value = $this->val();

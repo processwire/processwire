@@ -737,8 +737,8 @@ class ModulesLoader extends ModulesClass {
 	 * #pw-internal
 	 *
 	 * @param string|object $moduleName Module instance or module name
-	 * @param User $user Optionally specify different user to consider than current.
-	 * @param Page $page Optionally specify different page to consider than current.
+	 * @param User|null $user Optionally specify different user to consider than current.
+	 * @param Page|null $page Optionally specify different page to consider than current.
 	 * @param bool $strict If module specifies no permission settings, assume no permission.
 	 *   - Default (false) is to assume permission when module doesn't say anything about it.
 	 *   - Process modules (for instance) generally assume no permission when it isn't specifically defined
@@ -747,7 +747,7 @@ class ModulesLoader extends ModulesClass {
 	 * @return bool
 	 *
 	 */
-	public function hasPermission($moduleName, User $user = null, Page $page = null, $strict = false) {
+	public function hasPermission($moduleName, ?User $user = null, ?Page $page = null, $strict = false) {
 
 		if(is_object($moduleName)) {
 			$module = $moduleName;

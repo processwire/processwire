@@ -2480,11 +2480,11 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	/**
 	 * Build the "roles" field for "access" tab in edit form
 	 * 
-	 * @param Template $template
+	 * @param Template|null $template
 	 * @return InputfieldMarkup
 	 * 
 	 */
-	protected function buildEditFormAccessRoles(Template $template = null) {
+	protected function buildEditFormAccessRoles(?Template $template = null) {
 
 		$config = $this->wire()->config;
 		$modules = $this->wire()->modules;

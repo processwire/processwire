@@ -736,8 +736,8 @@ class Modules extends WireArray {
 	 * #pw-internal
 	 * 
 	 * @param string|object $moduleName Module instance or module name
-	 * @param User $user Optionally specify different user to consider than current.
-	 * @param Page $page Optionally specify different page to consider than current.
+	 * @param User|null $user Optionally specify different user to consider than current.
+	 * @param Page|null $page Optionally specify different page to consider than current.
 	 * @param bool $strict If module specifies no permission settings, assume no permission.
 	 *   - Default (false) is to assume permission when module doesn't say anything about it. 
 	 *   - Process modules (for instance) generally assume no permission when it isn't specifically defined 
@@ -746,7 +746,7 @@ class Modules extends WireArray {
 	 * @return bool
 	 * 
 	 */
-	public function hasPermission($moduleName, User $user = null, Page $page = null, $strict = false) {
+	public function hasPermission($moduleName, ?User $user = null, ?Page $page = null, $strict = false) {
 		return $this->loader->hasPermission($moduleName, $user, $page, $strict);
 	}
 	
@@ -1740,7 +1740,7 @@ class Modules extends WireArray {
 	 * @return InputfieldWrapper|null
 	 * 
 	 */
-	public function ___getModuleConfigInputfields($moduleName, InputfieldWrapper $form = null) {
+	public function ___getModuleConfigInputfields($moduleName, ?InputfieldWrapper $form = null) {
 		return $this->configs->getModuleConfigInputfields($moduleName, $form);
 	}
 

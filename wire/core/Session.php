@@ -1706,7 +1706,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * @since 3.0.166
 	 *
 	 */
-	public function sessionHandler(WireSessionHandler $sessionHandler = null) {
+	public function sessionHandler(?WireSessionHandler $sessionHandler = null) {
 		if($sessionHandler) $this->sessionHandler = $sessionHandler;
 		return $this->sessionHandler;
 	}

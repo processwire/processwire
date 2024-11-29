@@ -175,12 +175,12 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	/**
 	 * Called right before Inputfield render
 	 * 
-	 * @param Inputfield $parent Parent Inputfield
+	 * @param Inputfield|null $parent Parent Inputfield
 	 * @param bool $renderValueMode Whether or not we are in renderValue mode
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 
 		if(self::debugRenderValue) {
 			// force render value mode for dev/debugging purposes

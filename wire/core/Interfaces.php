@@ -758,7 +758,7 @@ interface InputfieldHasSelectableOptions {
 	 * @return self|$this
 	 * 
 	 */
-	public function addOption($value, $label = null, array $attributes = null);
+	public function addOption($value, $label = null, ?array $attributes = null);
 	
 	/**
 	 * Add selectable option with label, optionally for specific language

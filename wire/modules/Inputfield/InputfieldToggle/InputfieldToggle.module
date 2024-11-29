@@ -334,7 +334,7 @@ class InputfieldToggle extends Inputfield {
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$f = $this->getInputfield();
 		if($f && $f !== $this) $f->renderReady($parent, $renderValueMode);
 		if($this->useDeselect && $this->defaultOption === 'none') {

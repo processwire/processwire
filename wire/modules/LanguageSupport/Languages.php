@@ -300,13 +300,12 @@ class Languages extends PagesType {
 	 * $languages->unsetDefault();
 	 * ~~~~~
 	 * 
-	 * @param Language $language
+	 * @param Language|null $language
 	 * @return void
-	 * 
 	 * @see Languages::unsetDefault(), Languages::setLanguage()
 	 * 
 	 */
-	public function setDefault(Language $language = null) {
+	public function setDefault(?Language $language = null) {
 		if(is_null($language)) {
 			// save current user language setting and make current language default
 			if(!$this->defaultLanguage) return;

@@ -344,7 +344,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	 * @since 3.0.186
 	 *
 	 */
-	public function rebuild(Page $page = null) {
+	public function rebuild(?Page $page = null) {
 		set_time_limit(3600);
 		$table = self::dbTableName;
 		if($page === null) {
@@ -535,6 +535,9 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			"COUNT(children.id) AS kids " .
 			"FROM pages " .
 			"LEFT JOIN pages AS children ON children.id=pages.parent_id " .
+			// The next line is proposed (PR#281) to replace the above line
+			// but we need further confirmation that it is correct:
+			// "LEFT JOIN pages AS children ON children.parent_id=pages.id " .
 			"WHERE pages.parent_id=:id " .
 			"GROUP BY pages.id ";
 
@@ -562,6 +565,23 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		
 		return $numUpdated;
 	}
+
+	/**
+	 * Alternate proposed replacement for updatePagePathsChildren() method
+	 * 
+	 * @param int $pageId
+	 * @param array $paths
+	 * @return int
+	 * @throws WireException
+	 * 
+	public function updatePagePathsChildren($pageId, array $paths) {
+		$numUpdated = 0;
+		foreach($this->wire()->pages->findMany("parent=$pageId,include=all") as $childPage) {
+			$numUpdated += $this->updatePagePaths($childPage);
+		}
+		return $numUpdated;
+	}
+	*/
 
 	
 	/*** ROOT SEGMENTS ******************************************************************************/

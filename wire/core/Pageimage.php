@@ -154,7 +154,7 @@ class Pageimage extends Pagefile {
 	 * $pageimage = new Pageimage($page->images, '/path/to/file.png');
 	 * ~~~~~
 	 *
-	 * @param Pageimages|Pagefiles $pagefiles 
+	 * @param Pagefiles $pagefiles 
 	 * @param string $filename Full path and filename to this pagefile
 	 * @throws WireException
 	 *
@@ -1782,12 +1782,12 @@ class Pageimage extends Pagefile {
 	 * #pw-internal
 	 *
 	 * @param string $name
-	 * @param PagefileExtra $value
+	 * @param PagefileExtra|null $value
 	 * @return PagefileExtra[]
 	 * @since 3.0.132
 	 *
 	 */
-	public function extras($name = null, PagefileExtra $value = null) {
+	public function extras($name = null, ?PagefileExtra $value = null) {
 		if($name) return parent::extras($name, $value); 
 		$extras = parent::extras();
 		$extras['webp'] = $this->webp();

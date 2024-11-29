@@ -782,7 +782,7 @@ class SelectableOptionManager extends Wire {
 	 * @param HookEvent|null $event
 	 * 
 	 */
-	public function updateLanguages(HookEvent $event = null) {
+	public function updateLanguages(?HookEvent $event = null) {
 		
 		if(!$this->useLanguages || !$this->wire()->languages) return;
 		

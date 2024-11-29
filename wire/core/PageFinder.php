@@ -3587,10 +3587,11 @@ class PageFinder extends Wire {
 		if(count($fields) > 1) {
 			// OR fields present
 			array_shift($fields);
-			$subfields = array($subfields);
+			$subfields = array($subfields); // 1. subfields is definitely an array…
 			foreach($fields as $name) {
 				if(strpos($name, "$fieldName.") === 0) {
-					list(,$name) = explode('__owner.', $name); 	
+					list(,$name) = explode('__owner.', $name);
+					/** @var array $subfields 2. …but PhpStorm in PHP8 mode can't tell it's an array without this */
 					$subfields[] = $name;
 				} else {
 					$this->syntaxError(
@@ -3662,7 +3663,7 @@ class PageFinder extends Wire {
 	 * @return array
 	 * 
 	 */
-	public function getPageArrayData(PageArray $pageArray = null) {
+	public function getPageArrayData(?PageArray $pageArray = null) {
 		if($pageArray !== null && count($this->pageArrayData)) {
 			$pageArray->data($this->pageArrayData); 
 		}

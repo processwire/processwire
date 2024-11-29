@@ -558,7 +558,7 @@ class ModulesConfigs extends ModulesClass {
 	 * @return InputfieldWrapper|null
 	 *
 	 */
-	public function getModuleConfigInputfields($moduleName, InputfieldWrapper $form = null) {
+	public function getModuleConfigInputfields($moduleName, ?InputfieldWrapper $form = null) {
 
 		$moduleName = $this->modules->getModuleClass($moduleName);
 		$configurable = $this->isConfigurable($moduleName);

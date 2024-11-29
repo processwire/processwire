@@ -90,7 +90,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * @link https://processwire.com/api/variables/sanitizer/ Offical $sanitizer API variable Documentation
@@ -4450,6 +4450,7 @@ class Sanitizer extends Wire {
 	 * 	- `delimiter` (string): Single delimiter to use to identify CSV strings. Overrides the 'delimiters' option when specified (default=null)
 	 * 	- `delimiters` (array): Delimiters to identify CSV strings. First found delimiter will be used, default=array("|", ",")
 	 * 	- `enclosure` (string): Enclosure to use for CSV strings (default=double quote, i.e. `"`)
+	 * 	- `escape` (string): Escape to use for CSV strings (default=backslash, i.e. "\\")
 	 * @return array
 	 * @throws WireException if an unknown $sanitizer method is given
 	 *
@@ -4465,6 +4466,7 @@ class Sanitizer extends Wire {
 			'delimiter' => null, 
 			'delimiters' => array('|', ','),
 			'enclosure' => '"',
+			'escape' => "\\", 
 			'trim' => true, 
 			'sanitizer' => null, 
 			'keySanitizer' => null,
@@ -4503,7 +4505,7 @@ class Sanitizer extends Wire {
 						}
 					}
 					if($hasDelimiter !== null) {
-						$value = str_getcsv($value, $hasDelimiter, $options['enclosure']);
+						$value = str_getcsv($value, $hasDelimiter, $options['enclosure'], $options['escape']);
 					} else {
 						$value = array($value);
 					}
@@ -5196,7 +5198,7 @@ class Sanitizer extends Wire {
 	 * @param string|int|array|float $value
 	 * @param int $maxLength Maximum length (default=128)
 	 * @param null|int $maxBytes Maximum allowed bytes (used for string types only)
-	 * @return array|bool|float|int|string
+	 * @return array|float|int|string
 	 * @since 3.0.125
 	 * @see Sanitizer::minLength()
 	 * 

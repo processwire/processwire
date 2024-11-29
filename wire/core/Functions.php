@@ -37,12 +37,12 @@ function wire($name = 'wire') {
  * 
  * #pw-group-common
  * 
- * @param ProcessWire|Wire|null $wire To set specify ProcessWire instance or any Wire-derived object in it, or omit to get current instance.
+ * @param Wire|null $wire To set specify ProcessWire instance or any Wire-derived object in it, or omit to get current instance.
  * @return ProcessWire
  * @since 3.0.125
  * 
  */
-function wireInstance(Wire $wire = null) {
+function wireInstance(?Wire $wire = null) {
 	if($wire === null) return ProcessWire::getCurrentInstance();
 	if(!$wire instanceof ProcessWire) $wire = $wire->wire();
 	ProcessWire::setCurrentInstance($wire);

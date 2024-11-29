@@ -86,13 +86,13 @@ class InputfieldText extends Inputfield {
 	/**
 	 * Render ready
 	 * 
-	 * @param Inputfield $parent
+	 * @param Inputfield|null $parent
 	 * @param bool $renderValueMode
 	 * @return bool
 	 * @throws WireException
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$showCount = (int) $this->getSetting('showCount');
 		if($showCount) {
 			$this->addClass('InputfieldTextLength');

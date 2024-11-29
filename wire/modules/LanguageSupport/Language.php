@@ -25,10 +25,10 @@ class Language extends Page {
 	/**
 	 * Construct a new Language instance
 	 * 
-	 * @param Template $tpl
+	 * @param Template|null $tpl
 	 *
 	 */
-	public function __construct(Template $tpl = null) {
+	public function __construct(?Template $tpl = null) {
 		parent::__construct($tpl);
 		if(!$tpl) $this->template = $this->wire()->templates->get('language'); 
 	}

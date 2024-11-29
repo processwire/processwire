@@ -268,7 +268,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 	 * @return string
 	 *
 	 */
-	public function renderFeed(PageArray $feedPages = null) {
+	public function renderFeed(?PageArray $feedPages = null) {
 
 		if(!is_null($feedPages)) $this->feedPages = $feedPages;
 
@@ -291,7 +291,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 	 * @return bool
 	 *
 	 */
-	public function render(PageArray $feedPages = null) {
+	public function render(?PageArray $feedPages = null) {
 		header($this->header); 
 		echo $this->renderFeed($feedPages);
 		return true; 
@@ -529,5 +529,3 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 	}
 
 }
-
-

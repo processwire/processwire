@@ -2024,7 +2024,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * @since 3.0.169
 	 *
 	 */
-	public function getNotifyEmails(Page $page, Field $field, Comment $comment = null) {
+	public function getNotifyEmails(Page $page, Field $field, ?Comment $comment = null) {
 
 		if(!$field->get('useNotify')) return array();
 
@@ -2093,7 +2093,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *
 	 * @param Page $page
 	 * @param Field $field
-	 * @param Comment|null $comment
+	 * @param Comment $comment
 	 * @param array $emailsData
 	 * @return int
 	 * @since 3.0.175

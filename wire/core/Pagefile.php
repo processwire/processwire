@@ -421,11 +421,11 @@ class Pagefile extends WireData implements WireArrayItem {
 	 * Set a description, optionally parsing JSON language-specific descriptions to separate properties
 	 *
 	 * @param string|array $value
-	 * @param Page|Language Langage to set it for. Omit to determine automatically. 
+	 * @param Language|null Langage to set it for. Omit to determine automatically. 
 	 * @return $this
 	 *
 	 */
-	protected function setDescription($value, Page $language = null) {
+	protected function setDescription($value, ?Page $language = null) {
 		
 		$languages = $this->wire()->languages;
 		
@@ -1387,12 +1387,12 @@ class Pagefile extends WireData implements WireArrayItem {
 	 * #pw-internal
 	 * 
 	 * @param string $name
-	 * @param PagefileExtra $value
+	 * @param PagefileExtra|null $value
 	 * @return PagefileExtra[]|PagefileExtra|null
 	 * @since 3.0.132
 	 * 
 	 */
-	public function extras($name = null, PagefileExtra $value = null) {
+	public function extras($name = null, ?PagefileExtra $value = null) {
 		if($name === null) return $this->extras;
 		if($value instanceof PagefileExtra) {
 			$this->extras[$name] = $value;

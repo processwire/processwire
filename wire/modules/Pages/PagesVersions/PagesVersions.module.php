@@ -1240,7 +1240,7 @@ class PagesVersions extends Wire implements Module {
 	 * @return Field[] Returned array of Field objects is indexed by Field name
 	 * 
 	 */
-	public function getUnsupportedFields(Page $page = null) {
+	public function getUnsupportedFields(?Page $page = null) {
 		if($page && !$page->id) return [];
 		$templateId = $page ? $page->templates_id : 0;
 		if(isset($this->unsupportedFields[$templateId])) {

@@ -43,7 +43,7 @@ class InputfieldPageListSelect extends Inputfield implements InputfieldPageListS
 		parent::init();
 	}
 
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$this->pageListReady($this->attr('name'), $this->labelFieldName);
 		return parent::renderReady($parent, $renderValueMode);
 	}

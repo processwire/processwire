@@ -125,11 +125,11 @@ class InputfieldFloat extends InputfieldInteger {
 	/**
 	 * Override method from Inputfield to convert locale specific decimals for input[type=number]
 	 * 
-	 * @param array $attributes
+	 * @param array|null $attributes
 	 * @return string
 	 * 
 	 */
-	public function getAttributesString(array $attributes = null) {
+	public function getAttributesString(?array $attributes = null) {
 		if(is_null($attributes)) $attributes = $this->getAttributes();
 		if($attributes['type'] === 'number') { 
 			$value = isset($attributes['value']) ? $attributes['value'] : null;

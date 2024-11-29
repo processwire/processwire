@@ -272,12 +272,12 @@ class InputfieldDatetime extends Inputfield {
 	 * We are overriding it here and checking for a datepicker, so that we can make sure 
 	 * jQuery UI is loaded before the InputfieldDatetime.js
 	 * 
-	 * @param Inputfield $parent
+	 * @param Inputfield|null $parent
 	 * @param bool $renderValueMode
 	 * @return bool
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$this->addClass("InputfieldNoFocus", 'wrapClass');
 		$this->getInputType()->renderReady();
 		return parent::renderReady($parent, $renderValueMode); 

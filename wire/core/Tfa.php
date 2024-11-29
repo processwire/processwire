@@ -484,11 +484,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Get the TFA module for given user or current session
 	 * 
-	 * @param User $user Optionally specify user
+	 * @param User|null $user Optionally specify user
 	 * @return Tfa|null
 	 * 
 	 */
-	public function getModule(User $user = null) {
+	public function getModule(?User $user = null) {
 	
 		$module = null;
 		$moduleName = $this->sessionGet('type');
@@ -913,13 +913,13 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * Modules that support auto-enable must implement this method to return true. Modules
 	 * that do not support it can ignore this method, as the default returns false.
 	 *
-	 * @param User $user Specify user to also confirm it is supported for given user.
+	 * @param User|null $user Specify user to also confirm it is supported for given user.
 	 *   Omit to test if the module supports it in general.
 	 * @return bool
 	 * @since 3.0.160
 	 *
 	 */
-	public function autoEnableSupported(User $user = null) {
+	public function autoEnableSupported(?User $user = null) {
 		if($user && $this->className() !== 'Tfa') {
 			// if it doesn't support it without user, then exit now
 			if(!$this->autoEnableSupported()) return false;
@@ -1901,7 +1901,7 @@ class RememberTfa extends Wire {
 	 * @return string
 	 * 
 	 */
-	protected function serverValue($cookieValue, User $user = null) {
+	protected function serverValue($cookieValue, ?User $user = null) {
 		if($user === null) $user = $this->user;
 		return sha1(
 			$user->id . $user->name . $user->email . 
@@ -1954,11 +1954,11 @@ class RememberTfa extends Wire {
 	/**
 	 * Get fingerprint string
 	 *
-	 * @param array $types Fingerprints to use, or omit when creating new
+	 * @param array|null $types Fingerprints to use, or omit when creating new
 	 * @return string
 	 *
 	 */
-	public function getFingerprintString(array $types = null) {
+	public function getFingerprintString(?array $types = null) {
 		if($types === null) $types = $this->fingerprints;
 		return implode(',', $types) . ':' . sha1(implode("\n", $this->getFingerprintArray())); 
 	}

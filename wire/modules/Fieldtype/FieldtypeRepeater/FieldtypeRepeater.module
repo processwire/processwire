@@ -1963,13 +1963,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 * - repeaters/for-field-123/for-page-456/repeater-item/something-else/
 	 * 
 	 * @param Page $page
-	 * @param Field $field Optionally limit to given field or null if not appliable
+	 * @param Field|null $field Optionally limit to given field or null if not appliable
 	 * @param bool $recursive Descend to children?
 	 * @return int Returns count of pages deleted, or 0 if delete not allowed
 	 * @since 3.0.188
 	 * 
 	 */
-	public function deleteRepeaterPage(Page $page, Field $field = null, $recursive = false) {
+	public function deleteRepeaterPage(Page $page, ?Field $field = null, $recursive = false) {
 		
 		static $level = 0;
 		$numDeleted = 0;

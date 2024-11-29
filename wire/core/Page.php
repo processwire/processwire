@@ -605,10 +605,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Create a new page in memory. 
 	 *
-	 * @param Template $tpl Template object this page should use. 
+	 * @param Template|null $tpl Template object this page should use. 
 	 *
 	 */
-	public function __construct(Template $tpl = null) {
+	public function __construct(?Template $tpl = null) {
 		parent::__construct();
 		if($tpl !== null) {
 			$tpl->wire($this);
@@ -2195,7 +2195,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return Page|NullPage Returns the next sibling page, or a NullPage if none found. 
 	 *
 	 */
-	public function next($selector = '', PageArray $siblings = null) {
+	public function next($selector = '', ?PageArray $siblings = null) {
 		if($selector instanceof PageArray) {
 			$siblings = $selector;
 			$selector = '';
@@ -2252,7 +2252,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return PageArray
 	 *
 	 */
-	public function nextUntil($selector = '', $filter = '', PageArray $siblings = null) {
+	public function nextUntil($selector = '', $filter = '', ?PageArray $siblings = null) {
 		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->nextUntilSiblings($this, $selector, $filter, $siblings); 
 		return $this->traversal()->nextUntil($this, $selector, $filter); 
@@ -2276,7 +2276,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return Page|NullPage Returns the previous sibling page, or a NullPage if none found. 
 	 *
 	 */
-	public function prev($selector = '', PageArray $siblings = null) {
+	public function prev($selector = '', ?PageArray $siblings = null) {
 		if($selector instanceof PageArray) {
 			$siblings = $selector;
 			$selector = '';
@@ -2315,7 +2315,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return PageArray
 	 *
 	 */
-	public function prevUntil($selector = '', $filter = '', PageArray $siblings = null) {
+	public function prevUntil($selector = '', $filter = '', ?PageArray $siblings = null) {
 		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->prevUntilSiblings($this, $selector, $filter, $siblings);
 		return $this->traversal()->prevUntil($this, $selector, $filter); 

@@ -224,12 +224,12 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 * @param Page $page
 	 * @param Field|InputfieldPage|string|int $field Field instance of field name (string) or ID
-	 * @param Page $editPage Page being edited
+	 * @param Page|null $editPage Page being edited
 	 * @return bool
 	 * @throws WireException
 	 * 
 	 */
-	public static function isValidPage(Page $page, $field, Page $editPage = null) {
+	public static function isValidPage(Page $page, $field, ?Page $editPage = null) {
 		
 		$pages = $page->wire()->pages;
 		$user = $page->wire()->user;
@@ -804,12 +804,12 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	/**
 	 * Called before render()
 	 * 
-	 * @param Inputfield $parent
+	 * @param Inputfield|null $parent
 	 * @param bool $renderValueMode
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 	
 		$this->renderValueMode = $renderValueMode;
 		parent::renderReady($parent, $renderValueMode);

@@ -544,7 +544,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 	 * @return bool
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		
 		if(!self::$loaded) {
 			$this->renderReadyOnce();

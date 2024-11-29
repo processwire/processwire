@@ -1044,7 +1044,7 @@ class Pages extends Wire {
 	 * @throws WireException|\Exception on fatal error
 	 *
 	 */
-	public function ___clone(Page $page, Page $parent = null, $recursive = true, $options = array()) {
+	public function ___clone(Page $page, ?Page $parent = null, $recursive = true, $options = array()) {
 		return $this->editor()->_clone($page, $parent, $recursive, $options);
 	}
 
@@ -1686,13 +1686,13 @@ class Pages extends Wire {
 	 * 
 	 * #pw-group-cache
 	 * 
-	 * @param Page $page Optional Page that initiated the uncacheAll
+	 * @param Page|null $page Optional Page that initiated the uncacheAll
 	 * @param array $options Options to modify default behavior: 
 	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent that call, set this to true.
 	 * @return int Number of pages uncached
 	 *
 	 */
-	public function uncacheAll(Page $page = null, array $options = array()) {
+	public function uncacheAll(?Page $page = null, array $options = array()) {
 		return $this->cacher->uncacheAll($page, $options);
 	}
 

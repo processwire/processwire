@@ -1973,11 +1973,11 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * #pw-group-manipulation
 	 *
 	 * @param array $a Array of Inputfield definitions
-	 * @param InputfieldWrapper $inputfields Specify the wrapper you want them added to, or omit to use current.
+	 * @param InputfieldWrapper|null $inputfields Specify the wrapper you want them added to, or omit to use current.
 	 * @return $this
 	 *
 	 */
-	public function importArray(array $a, InputfieldWrapper $inputfields = null) {
+	public function importArray(array $a, ?InputfieldWrapper $inputfields = null) {
 		
 		$modules = $this->wire()->modules;
 		

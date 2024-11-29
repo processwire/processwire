@@ -41,7 +41,7 @@ class InputfieldPageTitle extends InputfieldText {
 		));
 	}
 	
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		if($this->nameField) $this->setupCustom();
 		return parent::renderReady($parent, $renderValueMode);
 	}

@@ -334,7 +334,7 @@ class WireHooks {
 	 * @see WireHooks::isMethodHooked(), WireHooks::isPropertyHooked(), WireHooks::hasHook()
 	 *
 	 */
-	public function isHooked($method, Wire $instance = null) {
+	public function isHooked($method, ?Wire $instance = null) {
 		if($instance) return $this->hasHook($instance, $method);
 		if(strpos($method, ':') !== false) {
 			$hooked = isset($this->hookClassMethodCache[$method]); // fromClass::method() or fromClass::property

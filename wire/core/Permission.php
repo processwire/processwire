@@ -47,10 +47,10 @@ class Permission extends Page {
 	/**
 	 * Create a new Permission page in memory. 
 	 *
-	 * @param Template $tpl Template object this page should use. 
+	 * @param Template|null $tpl Template object this page should use. 
 	 *
 	 */
-	public function __construct(Template $tpl = null) {
+	public function __construct(?Template $tpl = null) {
 		parent::__construct($tpl); 
 		if(!$tpl) $this->template = $this->wire()->templates->get('permission'); 
 		$this->_parent_id = $this->wire()->config->permissionsPageID; 
@@ -145,5 +145,3 @@ class Permission extends Page {
 		return $this->wire()->permissions;
 	}
 }
-
-

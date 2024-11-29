@@ -509,13 +509,13 @@ class InputfieldTextTags extends Inputfield implements
 	 * 
 	 * #pw-internal
 	 *
-	 * @param Inputfield $parent
+	 * @param Inputfield|null $parent
 	 * @param bool $renderValueMode
 	 * @return bool
 	 * @throws WireException
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		/** @var JqueryUI $jQueryUI */
 		$jQueryUI = $this->wire()->modules->get('JqueryUI');
 		$jQueryUI->use('selectize');
@@ -800,7 +800,7 @@ class InputfieldTextTags extends Inputfield implements
 	 * @return self|$this
 	 *
 	 */
-	public function addOption($value, $label = null, array $attributes = null) {
+	public function addOption($value, $label = null, ?array $attributes = null) {
 		return $this->addTag($value, $label);
 	}
 

@@ -593,12 +593,12 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 * #pw-internal
 	 *
 	 * @param Field $field
-	 * @param Template $template
 	 * @param Fieldgroup $fieldgroup
+	 * @param Template|null $template
 	 * @return bool|string Returns error message string if not removeable or boolean false if it is removeable
 	 *
 	 */
-	public function isFieldNotRemoveable(Field $field, Fieldgroup $fieldgroup, Template $template = null) {
+	public function isFieldNotRemoveable(Field $field, Fieldgroup $fieldgroup, ?Template $template = null) {
 		
 		if(is_null($template)) $template = $this->wire()->templates->get($fieldgroup->name);
 

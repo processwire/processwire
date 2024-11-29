@@ -443,7 +443,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * @param Language|null $language
 	 * 
 	 */
-	public function setLanguage(Language $language = null) {
+	public function setLanguage(?Language $language = null) {
 		$languages = $this->wire()->languages;
 		if(!$language) $language = $languages->getDefault();
 		$this->setLanguage = $language;
@@ -846,7 +846,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * @return bool True if all good, false if not
 	 * 
 	 */
-	public function checkLanguagePageName(Language $language, Page $page, $parentID, $value, Wire $errorTarget = null) {
+	public function checkLanguagePageName(Language $language, Page $page, $parentID, $value, ?Wire $errorTarget = null) {
 		// verify that it does not conflict with another page inheriting name from default language
 		$isValid = true;
 		$nameKey = "name$language->id";
@@ -1441,11 +1441,11 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * Return the Language that the given path is in or null if can't determine
 	 *
 	 * @param string $path Page path without without installation subdir or URL segments or page numbers
-	 * @param Page $page If you already know the $page that resulted from the path, provide it here for faster performance
+	 * @param Page|null $page If you already know the $page that resulted from the path, provide it here for faster performance
 	 * @return Language|null
 	 *
 	 */
-	public function getPagePathLanguage($path, Page $page = null) {
+	public function getPagePathLanguage($path, ?Page $page = null) {
 
 		$languages = $this->wire()->languages;
 		$pages = $this->wire()->pages;

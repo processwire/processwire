@@ -238,9 +238,9 @@ class PagePermissions extends WireData implements Module {
 	}
 
 	/**
-	 * Returns whether the given user ($page) is editable by the current user 
+	 * Returns whether the given page ($page) is editable by the current user 
 	 * 
-	 * @param User|Page $page
+	 * @param Page $page
 	 * @param array $options
 	 *  - `viewable` (bool): Specify true if only a viewable check is needed (default=false)
 	 * @return bool
@@ -377,9 +377,9 @@ class PagePermissions extends WireData implements Module {
 	}
 
 	/**
-	 * Returns whether the given user ($page) is viewable by the current user
+	 * Returns whether the given page ($page) is viewable by the current user
 	 * 
-	 * @param User|Page $page
+	 * @param Page $page
 	 * @param array $options
 	 * @return bool
 	 * @throws WireException
@@ -583,7 +583,7 @@ class PagePermissions extends WireData implements Module {
 	 * @return bool
 	 *
 	 */
-	public function userFieldEditable($name, User $user = null) {
+	public function userFieldEditable($name, ?User $user = null) {
 		if($name instanceof Field) $name = $name->name;
 		if(empty($name) || !is_string($name)) return false;
 		if($user === null) $user = $this->wire()->user;

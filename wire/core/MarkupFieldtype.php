@@ -74,12 +74,12 @@ class MarkupFieldtype extends WireData implements Module {
 	 * If you construct without providing page and field, please populate them
 	 * separately with the setPage and setField methods before calling render().
 	 * 
-	 * @param Page $page
-	 * @param Field $field
+	 * @param Page|null $page
+	 * @param Field|null $field
 	 * @param mixed $value
 	 * 
 	 */
-	public function __construct(Page $page = null, Field $field = null, $value = null) {
+	public function __construct(?Page $page = null, ?Field $field = null, $value = null) {
 		parent::__construct();
 		if($page) $this->setPage($page);
 		if($field) $this->setField($field); 

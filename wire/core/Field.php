@@ -879,7 +879,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 * @return bool True if viewable, false if not
 	 * 
 	 */
-	public function ___viewable(Page $page = null, User $user = null) {
+	public function ___viewable(?Page $page = null, ?User $user = null) {
 		return $this->wire()->fields->_hasPermission($this, 'view', $page, $user);
 	}
 
@@ -893,12 +893,12 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-access
 	 *
-	 * @param Page|string|int|null $page Optionally specify a Page for context
-	 * @param User|string|int|null $user Optionally specify a different user (default = current user)
+	 * @param Page|null $page Optionally specify a Page for context
+	 * @param User|null $user Optionally specify a different user (default = current user)
 	 * @return bool
 	 *
 	 */
-	public function ___editable(Page $page = null, User $user = null) {
+	public function ___editable(?Page $page = null, ?User $user = null) {
 		return $this->wire()->fields->_hasPermission($this, 'edit', $page, $user);
 	}
 	

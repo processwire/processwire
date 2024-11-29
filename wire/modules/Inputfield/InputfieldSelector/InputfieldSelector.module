@@ -1188,11 +1188,11 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * @param string $selectedOperator
 	 * @param string $selectedValue
 	 * @param bool $orChecked
-	 * @param Selector $selector
+	 * @param Selector|null $selector
 	 * @return string
 	 * 
 	 */
-	protected function renderOpval($fieldName, $type = '', $selectedOperator = '', $selectedValue = '', $orChecked = false, Selector $selector = null) { 
+	protected function renderOpval($fieldName, $type = '', $selectedOperator = '', $selectedValue = '', $orChecked = false, ?Selector $selector = null) { 
 
 		/*
 		$this->message("fieldName: $fieldName"); 
@@ -1503,11 +1503,11 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 * @param $fieldName
 	 * @param string $selectedValue
-	 * @param Selector $selector
+	 * @param Selector|null $selector
 	 * @return string 
 	 * 
 	 */
-	protected function renderSelectSubfield($fieldName, $selectedValue = '', Selector $selector = null) {
+	protected function renderSelectSubfield($fieldName, $selectedValue = '', ?Selector $selector = null) {
 		
 		$sanitizer = $this->wire()->sanitizer;
 		

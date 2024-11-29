@@ -67,11 +67,11 @@ class MarkupQA extends Wire {
 	/**
 	 * Construct
 	 * 
-	 * @param Page $page
-	 * @param Field $field
+	 * @param Page|null $page
+	 * @param Field|null $field
 	 *
 	 */
-	public function __construct(Page $page = null, Field $field = null) {
+	public function __construct(?Page $page = null, ?Field $field = null) {
 		parent::__construct();
 		if($page) {
 			$this->setPage($page);
@@ -606,7 +606,7 @@ class MarkupQA extends Wire {
 	/**
 	 * Find pages linking to another
 	 * 
-	 * @param Page $page Page to find links to, or omit to use page specified in constructor
+	 * @param Page|null $page Page to find links to, or omit to use page specified in constructor
 	 * @param array $fieldNames Field names to look in or omit to use field specified in constructor
 	 * @param string $selector Optional selector to use as a filter
 	 * @param array $options Additional options
@@ -617,7 +617,7 @@ class MarkupQA extends Wire {
 	 * @return PageArray|array|int
 	 * 
 	 */
-	public function findLinks(Page $page = null, $fieldNames = array(), $selector = '', array $options = array()) {
+	public function findLinks(?Page $page = null, $fieldNames = array(), $selector = '', array $options = array()) {
 		
 		$pages = $this->wire()->pages;
 		$fields = $this->wire()->fields;

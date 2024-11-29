@@ -188,12 +188,12 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 	/**
 	 * Called before render()
 	 *
-	 * @param Inputfield $parent
+	 * @param Inputfield|null $parent
 	 * @param bool $renderValueMode
 	 * @return bool
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 
 		$modules = $this->wire()->modules;
 		$config = $this->wire()->config;

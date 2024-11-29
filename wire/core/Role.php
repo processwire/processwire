@@ -25,10 +25,10 @@ class Role extends Page {
 	/**
 	 * Create a new Role page in memory. 
 	 * 
-	 * @param Template $tpl
+	 * @param Template|null $tpl
 	 *
 	 */
-	public function __construct(Template $tpl = null) {
+	public function __construct(?Template $tpl = null) {
 		parent::__construct($tpl); 
 	}
 

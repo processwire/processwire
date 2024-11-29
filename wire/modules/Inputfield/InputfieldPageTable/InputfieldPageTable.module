@@ -108,7 +108,7 @@ class InputfieldPageTable extends Inputfield {
 		parent::init();
 	}
 	
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$this->addClass('InputfieldNoFocus', 'wrapClass');
 		$jQueryUI = $this->wire()->modules->get('JqueryUI'); /** @var JqueryUI $jQueryUI */
 		$jQueryUI->use('modal'); 

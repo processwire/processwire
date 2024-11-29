@@ -436,12 +436,12 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 	 * 
 	 * Outputs JSON result and exits
 	 * 
-	 * @param Page $original
+	 * @param Page|null $original
 	 * @param bool $returnArray
 	 * @return array|null
 	 * 
 	 */
-	public function processAjax(Page $original = null, $returnArray = false) {
+	public function processAjax(?Page $original = null, $returnArray = false) {
 		
 		$error = null;
 		if($original === null) $original = $this->page;

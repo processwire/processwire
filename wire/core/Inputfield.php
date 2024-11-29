@@ -1370,11 +1370,11 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param array $attributes Associative array of attributes to build the string from, or omit to use this Inputfield's attributes.
+	 * @param array|null $attributes Associative array of attributes to build the string from, or omit to use this Inputfield's attributes.
 	 * @return string
 	 *
 	 */
-	public function getAttributesString(array $attributes = null) {
+	public function getAttributesString(?array $attributes = null) {
 
 		$str = '';
 
@@ -1463,12 +1463,12 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * #pw-group-output
 	 * 
-	 * @param Inputfield|InputfieldWrapper|null The parent InputfieldWrapper that is rendering it, or null if no parent.
+	 * @param Inputfield|null The parent InputfieldWrapper that is rendering it, or null if no parent.
 	 * @param bool $renderValueMode Specify true only if this is for `Inputfield::renderValue()` rather than `Inputfield::render()`. 
 	 * @return bool True if assets were just added, false if already added. 
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		if($this->className() === 'InputfieldWrapper') {
 			$result = false;
 		} else {
@@ -1485,11 +1485,11 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * Hook this method instead if you want to hook renderReady().
 	 * 
-	 * @param Inputfield $parent
+	 * @param Inputfield|null $parent
 	 * @param bool $renderValueMode
 	 * 
 	 */
-	public function ___renderReadyHook(Inputfield $parent = null, $renderValueMode = false) { }
+	public function ___renderReadyHook(?Inputfield $parent = null, $renderValueMode = false) { }
 
 	/**
 	 * This hook was replaced by renderReady

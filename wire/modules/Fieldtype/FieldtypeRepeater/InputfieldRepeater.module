@@ -763,12 +763,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	/**
 	 * Called before render() or renderValue() method by InputfieldWrapper, before Inputfield-specific CSS/JS files added
 	 *
-	 * @param Inputfield|InputfieldWrapper|null The parent Inputfield/wrapper that is rendering it or null if no parent.
+	 * @param Inputfield|null The parent Inputfield/wrapper that is rendering it or null if no parent.
 	 * @param bool $renderValueMode Whether renderValueMode will be used.
 	 * @return bool
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 	
 		$user = $this->wire()->user;
 		$modules = $this->wire()->modules;

@@ -162,11 +162,11 @@ class ProcessPageSearchLive extends Wire {
 	/**
 	 * Construct
 	 *
-	 * @param Process|ProcessPageSearch $process
+	 * @param ProcessPageSearch|null $process
 	 * @param array $liveSearch
 	 * 
 	 */
-	public function __construct(Process $process = null, array $liveSearch = array()) {
+	public function __construct(?Process $process = null, array $liveSearch = array()) {
 		
 		if($process) {
 			$process->wire($this);

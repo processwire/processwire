@@ -701,12 +701,12 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 * Is the given template or template ID allowed here?
 	 * 
 	 * @param Template|int Template ID or object
-	 * @param Page $parent Optionally parent page to filter by
+	 * @param Page|null $parent Optionally parent page to filter by
 	 * @return bool
 	 * @throws WireException of template argument can't be resolved
 	 *
 	 */
-	protected function isAllowedTemplate($template, Page $parent = null) {
+	protected function isAllowedTemplate($template, ?Page $parent = null) {
 		if(!is_object($template)) $template = $this->wire()->templates->get($template);
 		if(!$template) throw new WireException('Unknown template');
 		$templates = $this->getAllowedTemplates($parent);
@@ -732,11 +732,11 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 * 
 	 * @param Page $parent
 	 * @param bool $showError
-	 * @param Template $template Optionally limit condition to a specific template
+	 * @param Template|null $template Optionally limit condition to a specific template
 	 * @return bool
 	 * 
 	 */
-	protected function isAllowedParent(Page $parent, $showError = false, Template $template = null) {
+	protected function isAllowedParent(Page $parent, $showError = false, ?Template $template = null) {
 
 		if($parent->template->noChildren) {
 			if($showError) {
@@ -807,11 +807,11 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 * 
 	 * This will always be 1-parent, unless predefinedParents was populated.
 	 * 
-	 * @param Template $template Optionally specify a template to filter parents by 
+	 * @param Template|null $template Optionally specify a template to filter parents by 
 	 * @return PageArray
 	 * 
 	 */
-	protected function getAllowedParents(Template $template = null) {
+	protected function getAllowedParents(?Template $template = null) {
 		if(count($this->predefinedParents)) {
 			$parents = $this->predefinedParents;
 		} else {

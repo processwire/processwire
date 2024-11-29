@@ -311,7 +311,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 
 		static $loaded = false;
 		

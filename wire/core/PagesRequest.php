@@ -729,7 +729,7 @@ class PagesRequest extends Wire {
 	 * @return string|Page|null Login page object or string w/redirect URL, null if 404
 	 * 
 	 */
-	public function ___getLoginPageOrUrl(Page $page = null) {
+	public function ___getLoginPageOrUrl(?Page $page = null) {
 		
 		$config = $this->wire()->config;
 

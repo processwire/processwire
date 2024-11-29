@@ -57,7 +57,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$label = $this->getSetting('label');
 		
 		if(!strlen($label) && $this->skipLabel == Inputfield::skipLabelBlank) {
