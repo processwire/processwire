@@ -140,6 +140,11 @@ class WireTextTools extends Wire {
 				while(stripos($str, "<br>\n\n") !== false) $str = str_replace("<br>\n\n", "<br>\n", $str);
 			}
 
+			// convert <img> tags to their alt text
+			if(stripos($str, '<img') !== false && !in_array('img', $options['keepTags'])) {
+				$str = preg_replace('!<img\s.*?alt=("|\')(.+?)\1.*?>!is', '$2', $str);
+			}
+
 			// make headlines more prominent with underlines or uppercase
 			if(($options['uppercaseHeadlines'] || $options['underlineHeadlines']) && stripos($str, '<h') !== false) {
 				$topHtag = '';
