@@ -1400,7 +1400,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Get the unformatted value of a field, regardless of current output formatting state
 	 * 
 	 * When a page’s output formatting state is off, `$page->get('property')` or `$page->property` will
-	 * produce the same result as this method call. 
+	 * produce the same result as this method call.
+	 *
+  	 * Calling this method for a Datetime field will return an empty string if the field is empty, or an integer timestamp otherwise.
 	 * 
 	 * ~~~~~
 	 * // Get the 'body' field without any text formatters applied
