@@ -115,7 +115,6 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$pages = $this->wire()->pages;
 		$input = $this->wire()->input;
 
-		
 		/** @var ProcessPageList $pageList */
 		$pageList = $modules->get('ProcessPageList');
 		$pageList->renderReady();
@@ -123,21 +122,22 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$this->startLabel = $this->_('Choose page');
 		$id = (int) $input->get('id');
 		$this->langID = (int) $input->get('lang');
-		if($id) $this->page = $pages->get($id);
-		// if($this->page && $this->page->id && !$this->wire()->user->hasPermission("page-view", $this->page)) {
-		if($this->page && $this->page->id && !$this->page->viewable()) {
-			throw new WireException($this->_('Page is not viewable'));
+		$page = $id > 0 ? $pages->get($id) : $pages->newNullPage();
+
+		if($page->id && !$page->viewable(false)) {
+			$page = $pages->newNullPage();
 		}
-		if(!$this->page) $this->page = $pages->newNullPage();
+		
+		$this->page = $page;
 
 		$this->wire()->config->js('ProcessPageEditLink', array(
 			'selectStartLabel' => $this->startLabel,
 			'langID' => $this->langID,
 			'pageID' => $id,
-			'pageUrl' => $this->page->url,
-			'pageName' => $this->page->name,
-			'rootParentUrl' => $this->page->rootParent->url,
-			'slashUrls' => $this->page->template ? $this->page->template->slashUrls : 1,
+			'pageUrl' => $page->id ? $page->url : '',
+			'pageName' => $page->id ? $page->name : '',
+			'rootParentUrl' => $page->id ? $page->rootParent->url : '',
+			'slashUrls' => $page->template ? $page->template->slashUrls : 1,
 			'urlType' => $this->urlType,
 			'extLinkRel' => $sanitizer->names($this->extLinkRel),
 			'extLinkTarget' => $this->extLinkTarget,
@@ -573,12 +573,14 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$files = array();
 		if(!$page->id) return $files;
 		foreach($page->template->fieldgroup as $field) {
-			/** @var Fieldtype $type */
-			$type = $field->type;
+			if(!$page->viewable($field)) continue;
+			$type = $field->type; /** @var Fieldtype $type */
 			if($type instanceof FieldtypeFile) {
 				$value = $page->get($field->name);
-				if($value) foreach($page->get($field->name) as $file) {
-					$files[$file->url] = $prefix . $field->getLabel() . ': ' . $file->basename;
+				if($value) {
+					foreach($page->get($field->name) as $file) {
+						$files[$file->url] = $prefix . $field->getLabel() . ': ' . $file->basename;
+					}
 				}
 			} else if(wireInstanceOf($type, 'FieldtypeRepeater')) { 
 				$value = $page->get($field->name);
