@@ -403,18 +403,16 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		if(in_array($this->input->urlSegment1, array('navJSON', 'bookmarks'))) return;
 	
-		$getID = $this->input->get('id');
-		if($getID === 'bookmark') {
-			$this->session->redirect('./bookmarks/');
-			return;
-		}
-		$getID = (int) $getID;
+		$getID = (int) $this->input->get('id');
 		$postID = (int) $this->input->post('id');
 		$id = abs($postID ? $postID : $getID); 
 
-		if(!$id) {
-			$this->session->location('./bookmarks/');
-			throw new Wire404Exception($this->noticeUnknown, Wire404Exception::codeSecondary); // Init error: no page provided
+		if(!$id || $this->input->get('id') === 'bookmark' || $this->input->urlSegment2 === 'bookmarks') {
+			// Init error: no page provided
+			if($this->wire()->process === $this) {
+				$this->session->location($this->wire()->page->url . 'bookmarks/');
+			} 
+			throw new Wire404Exception($this->noticeUnknown, Wire404Exception::codeSecondary); 
 		}
 
 		$this->page = $this->loadPage($id); 
