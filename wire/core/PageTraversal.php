@@ -138,7 +138,7 @@ class PageTraversal {
 	 * Same as children() but returns a Page object or NullPage (with id=0) rather than a PageArray
 	 *
 	 * @param Page $page
-	 * @param string|array $selector Selector to use, or blank to return the first child. 
+	 * @param string|array|int $selector Selector to use, or blank to return the first child. 
 	 * @param array $options
 	 * @return Page|NullPage
 	 *
@@ -150,6 +150,8 @@ class PageTraversal {
 		if(is_array($selector)) {
 			$selector["limit"] = 1;
 			$selector[] = array("start", "0");
+		} else if (($id = (int)$selector) && $id > 0) {
+			$selector = [ 'id' => $id, 'limit' => 1 ];
 		} else {
 			$selector .= ($selector ? ', ' : '') . "limit=1";
 			if(strpos($selector, 'start=') === false) $selector .= ", start=0"; // prevent pagination
