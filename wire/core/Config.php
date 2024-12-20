@@ -91,6 +91,7 @@
  * @property int $maxUrlSegments Maximum number of extra stacked URL segments allowed in a page's URL (including page numbers)  #pw-group-URLs
  * @property int $maxUrlSegmentLength Maximum length of any individual URL segment (default=128). #pw-group-URLs
  * @property int $maxUrlDepth Maximum URL/path slashes (depth) for request URLs. (Min=10, Max=60) #pw-group-URLs
+ * @property int $longUrlResponse Response code when URL segments, depth or length exceeds max allowed. #pw-group-URLs @since 3.0.243
  * @property string $wireInputOrder Order that variables with the $input API var are handled when you access $input->var. #pw-group-HTTP-and-input
  * @property bool $wireInputLazy Specify true for $input API var to load input data in a lazy fashion and potentially use less memory. Default is false. #pw-group-HTTP-and-input
  * @property int $wireInputArrayDepth Maximum multi-dimensional array depth for input variables accessed from $input or 1 to only allow single dimension arrays. #pw-group-HTTP-and-input @since 3.0.178

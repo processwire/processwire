@@ -985,7 +985,7 @@ $config->protectCSRF = true;
  * @var int
  *
  */
-$config->maxUrlSegments = 4;
+$config->maxUrlSegments = 20;
 
 /**
  * Maximum length for any individual URL segment (default=128)
@@ -1004,7 +1004,23 @@ $config->maxUrlSegmentLength = 128;
  * @var int
  * 
  */
-$config->maxUrlDepth = 30; 
+$config->maxUrlDepth = 30;
+
+/**
+ * Long URL response (URL depth, length or segments overflow)
+ *
+ * HTTP code that ProcessWire should respond with when it receives more URL segments,
+ * more URL depth, or longer URL length than what is allowed. Suggested values:
+ *
+ * - `404`: Page not found
+ * - `301`: Redirect to closest allowed URL (permanent)
+ * - `302`: Redirect to closest allowed URL (temporary)
+ *
+ * @var int
+ * @since 3.0.243
+ *
+ */
+$config->longUrlResponse = 404;
 
 /**
  * Pagination URL prefix

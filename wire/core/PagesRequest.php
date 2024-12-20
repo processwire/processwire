@@ -593,9 +593,15 @@ class PagesRequest extends Wire {
 		}
 
 		$maxUrlDepth = $config->maxUrlDepth;
-		if($maxUrlDepth > 0 && substr_count($it, '/') > $config->maxUrlDepth) {
-			$this->setResponseCode(414, 'Request URL exceeds max depth set in $config->maxUrlDepth');
-			return false;
+		if($maxUrlDepth > 0 && substr_count($it, '/') > $maxUrlDepth) {
+			if(in_array($config->longUrlResponse, [ 302, 301 ])) {
+				$parts = array_slice(explode('/', $it), 0, $maxUrlDepth);
+				$it = '/' . trim(implode('/', $parts), '/') . '/';
+				$this->setRedirectPath($it, $config->longUrlResponse);
+			} else {
+				$this->setResponseCode($config->longUrlResponse, 'Request URL exceeds max depth set in $config->maxUrlDepth');
+				return false;
+			}
 		}
 
 		if(!isset($it[0]) || $it[0] != '/') $it = "/$it";
