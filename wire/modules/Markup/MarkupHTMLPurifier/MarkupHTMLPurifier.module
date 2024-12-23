@@ -93,7 +93,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 * Method to allow hooks to further initialize HTMLPurifier config/settings
 	 * 
 	 * ~~~~~
-	 * $wire->addHook('MarkupHTMLPurifier::initSettings', function($event) {
+	 * $wire->addHook('MarkupHTMLPurifier::initConfig', function($event) {
 	 *   $def = $event->arguments(1); 
 	 *   $def->addAttribute('a', 'data-ext', 'Text');
 	 * }); 
