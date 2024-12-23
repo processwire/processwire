@@ -2011,7 +2011,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$table = $this->buildListerTable($results);
 			$tableOut = $table->render();
 			$headline = sprintf($this->_('%1$d to %2$d of %3$d'), $start+1, $end, $total); 
-			if($total > $limit) {
+			if($limit > 0 && $total > $limit) {
 				/** @var MarkupPagerNav $pager */
 				$pager = $this->wire()->modules->get('MarkupPagerNav'); 
 				$pagerOut = $pager->render($results);
