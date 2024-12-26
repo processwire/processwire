@@ -396,6 +396,25 @@ class Config extends WireData {
 	}
 
 	/**
+	 * Merge array config in a multi-level config setup
+	 * 
+	 * Example:
+	 * in config.php
+	 * $config->rockmigrations = ['foo' => 'my foo'];
+	 * 
+	 * in config-local.php
+	 * $config->merge('rockmigrations', ['bar' => 'my bar']);
+	 * 
+	 * Result:
+	 * ['foo' => 'my foo', 'bar' => 'my bar']
+	 */
+	public function merge(string $name, array $data) {
+		$current = $this->get($name);
+		if(!is_array($current)) $current = [];
+		$this->set($name, array_merge($current, $data));
+	}
+
+	/**
 	 * Change or set just the URL for the named location (leaving server disk path as-is)
 	 * 
 	 * - If you want to update both disk path and URL at the same time, or if URL and path are going to be the same relative to 
