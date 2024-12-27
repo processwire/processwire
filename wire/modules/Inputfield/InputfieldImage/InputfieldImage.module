@@ -220,7 +220,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$config->scripts->add($thisURL . "PWImageResizer.$jsExt?v={$config->version}-$moduleInfo[version]");
 			$maxSize = str_replace(',', '.', $this->maxSize); 
 			$quality = str_replace(',', '.', (float) ($this->clientQuality / 100));
-			$this->wrapAttr('data-resize', "$this->maxWidth;$this->maxHeight;$maxSize;$quality");
+			$maxWidth = $this->maxWidth ? (int) $this->maxWidth : 99999;
+			$maxHeight = $this->maxHeight ? (int) $this->maxHeight : 99999; 
+			$this->wrapAttr('data-resize', "$maxWidth;$maxHeight;$maxSize;$quality");
 		}
 		
 		$value = $this->val();
@@ -1000,7 +1002,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * });
 	 * ~~~~~
 	 * 
-	 * @param Pagefile|Pageimage $pagefile
+	 * @param Pageimage $pagefile
 	 * @return array Associative array of ('action_name' => 'Action Label')
 	 * 
 	 */
@@ -1166,7 +1168,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	/**
 	 * Get variations for the given Pagefile
 	 * 
-	 * @param Pagefile|Pageimage $pagefile
+	 * @param Pageimage $pagefile
 	 * @return array
 	 * 
 	 */
@@ -1177,7 +1179,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	/**
 	 * Get the image editor URL
 	 * 
-	 * @param Pagefile|Pageimage $pagefile
+	 * @param Pageimage $pagefile
 	 * @param int $pageID
 	 * @return string
 	 * 
@@ -1196,7 +1198,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	/**
 	 * Render the description field input
 	 * 
-	 * @param Pagefile|Pageimage $pagefile
+	 * @param Pageimage $pagefile
 	 * @param string $id
 	 * @param int $n
 	 * @return string
@@ -1355,7 +1357,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * Process input for a given Pageimage
 	 * 
 	 * @param WireInputData $input
-	 * @param Pagefile|Pageimage $pagefile
+	 * @param Pageimage $pagefile
 	 * @param int $n
 	 * @return bool
 	 * 

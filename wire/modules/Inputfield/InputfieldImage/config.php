@@ -84,7 +84,7 @@ class InputfieldImageConfiguration extends Wire {
 		$field->attr('name', 'resizeServer');
 		$field->label = $this->_('How to resize to max dimensions');
 		$field->description = $this->_('Using client-side resize enables you to reduce the file size and dimensions before uploading.');
-		$field->notes = $this->_('When using client-side resize, please specify both max width *and* max height in the fields above, or max megapixels in the field below.');
+		$field->notes = $this->_('When using client-side resize, please specify max width and/or max height in the fields above, or max megapixels in the field below.');
 		$field->icon = 'object-group';
 		$field->addOption(0, $this->_('Use client-side resize when possible'));
 		$field->addOption(1, $this->_('Use only server-side resize'));
