@@ -463,9 +463,10 @@ abstract class ProcessPageListRender extends Wire {
 				$value .= "<span class='label_$field'>";
 			} else if(strlen($value)) {
 				$value .= ", ";
+				$v = strip_tags("$v");
 			}
 
-			$value .= htmlspecialchars(strip_tags("$v"), ENT_QUOTES, "UTF-8", false);
+			$value .= htmlspecialchars("$v", ENT_QUOTES, "UTF-8", false);
 
 			if(empty($options['noTags'])) $value .= "</span>";
 		}
