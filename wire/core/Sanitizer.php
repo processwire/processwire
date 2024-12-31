@@ -992,7 +992,14 @@ class Sanitizer extends Wire {
 			$_value = $value;
 			$parts = explode('__', $_value);
 			foreach($parts as $n => $part) {
-				$parts[$n] = $this->punyDecodeName($part);
+				if(strpos($part, "xn-=") === 0) $part = substr($part, 3);
+				if(strpos($part, '=') === 0) {
+					// equals at beginning means keep this part as-is
+					$part = $this->name(substr($part, 1));
+				} else {
+					$part = $this->punyDecodeName($part);
+				}
+				$parts[$n] = $part;
 			}
 			$value = implode('', $parts);
 			return $value; 
@@ -1003,7 +1010,7 @@ class Sanitizer extends Wire {
 		if(strpos($value, 'xn--') !== 0) $value = 'xn--' . substr($value, 3);
 		if(function_exists('idn_to_utf8')) {
 			// use native php function if available
-			$value = @idn_to_utf8($value);
+			$value = idn_to_utf8($value, 32); // 32=IDNA_NONTRANSITIONAL_TO_UNICODE
 		} else {
 			// otherwise use Punycode class
 			$pc = new Punycode();
@@ -1037,9 +1044,18 @@ class Sanitizer extends Wire {
 			while(strlen($_value)) {
 				$part = $tt->substr($_value, 0, 12);
 				$_value = $tt->substr($_value, 12);
-				$parts[] = $this->punyEncodeName($part);
+				$part = $this->punyEncodeName($part);
+				if(strpos($part, 'xn-') !== 0) {
+					// if encoding didn't result in an xn- string then 
+					// prefix an equals to indicate this part should be taken literally
+					$part = "=$part";
+				}
+				$parts[] = $part;
 			}
 			$value = implode('__', $parts);
+			if(strpos($value, 'xn--') !== false && strpos($value, 'xn-') !== 0) {
+				$value = "xn-$value";
+			}
 			return $value; 
 		}
 		
@@ -1047,7 +1063,7 @@ class Sanitizer extends Wire {
 		
 		if(function_exists("idn_to_ascii")) {
 			// use native php function if available
-			$value = substr(@idn_to_ascii($value), 3);
+			$value = substr(idn_to_ascii($value, 16), 3); // 16=IDNA_NONTRANSITIONAL_TO_ASCII
 		} else {
 			// otherwise use Punycode class
 			$pc = new Punycode();
@@ -1063,6 +1079,10 @@ class Sanitizer extends Wire {
 			$value = $this->name($_value);
 		}
 		return $value;
+	}
+	
+	protected function punycode() {
+		return new Punycode();
 	}
 
 	/**
@@ -2382,7 +2402,7 @@ class Sanitizer extends Wire {
 
 		} else {
 			// domain contains utf8
-			$pc = function_exists("idn_to_ascii") ? false : new Punycode();
+			$pc = function_exists("idn_to_ascii") ? false : $this->punycode();
 			$domain = $pc ? $pc->encode($domain) : @idn_to_ascii($domain);
 			if($domain === false || !strlen($domain)) return '';
 			$url = $scheme . $domain . $rest;
