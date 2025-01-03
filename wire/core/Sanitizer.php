@@ -777,7 +777,8 @@ class Sanitizer extends Wire {
 	 *  - `Sanitizer::okUTF8` (constant): Allow UTF-8 characters to appear in path (implied if $config->pageNameCharset is 'UTF8'). 
 	 * @param int|array $maxLength Maximum number of characters allowed in the name.
 	 *  You may also specify the $options array for this argument instead. 
-	 * @param array $options Array of options to modify default behavior. See Sanitizer::name() method for available options. 
+	 * @param array $options Array of options to modify default behavior. See Sanitizer::name() method for available options, plus:
+	 *  - `punycodeVersion` (int): Punycode version to use with UTF-8 page names, see Sanitizer::getPunycodeVersion() method for details.
 	 * @return string
 	 * @see Sanitizer::name()
 	 *
@@ -788,7 +789,8 @@ class Sanitizer extends Wire {
 		if(!strlen($value)) return '';
 		
 		$defaults = array(
-			'charset' => $this->wire()->config->pageNameCharset
+			'charset' => $this->wire()->config->pageNameCharset,
+			'punycodeVersion' => 0, 
 		);
 		
 		if(is_array($beautify)) {
@@ -820,13 +822,16 @@ class Sanitizer extends Wire {
 				&& !ctype_alnum(str_replace(array('-', '_', '.'), '', $value)) 
 				&& strpos($value, 'xn-') !== 0) {
 				
+				$tt = $this->getTextTools();
+				$max = $maxLength;
+				
 				do {
 					// encode value
-					$value = $this->punyEncodeName($_value);
+					$value = $this->punyEncodeName($_value, $options['punycodeVersion']);
 					// if result stayed within our allowed character limit, then good, we're done
 					if(strlen($value) <= $maxLength) break;
 					// continue loop until encoded value is equal or less than allowed max length
-					$_value = substr($_value, 0, strlen($_value) - 1);
+					$_value = $tt->substr($_value, 0, $max--);
 				} while(true);
 				
 				// if encode was necessary and successful, return with no further processing
@@ -843,7 +848,7 @@ class Sanitizer extends Wire {
 			$beautify = self::okUTF8;
 			if(strpos($value, 'xn-') === 0) {
 				// found something to convert
-				$value = $this->punyDecodeName($value);
+				$value = $this->punyDecodeName($value, $options['punycodeVersion']);
 				// now it will run through okUTF8
 			}
 		}
@@ -981,43 +986,51 @@ class Sanitizer extends Wire {
 	 * Decode a PW-punycode'd name value
 	 * 
 	 * @param string $value
+	 * @param int $version 0=auto-detect, 1=original/buggy, 2=punycode library, 3=php idn function
 	 * @return string
 	 * 
 	 */
-	protected function punyDecodeName($value) {
+	protected function punyDecodeName($value, $version = 0) {
 		// exclude values that we know can't be converted
 		if(strlen($value) < 4 || strpos($value, 'xn-') !== 0) return $value;
+		$version = $this->getPunycodeVersion($version);
 		
 		if(strpos($value, '__')) {
+			// as used by punycode version 1 to split long strings
 			$_value = $value;
 			$parts = explode('__', $_value);
 			foreach($parts as $n => $part) {
-				if(strpos($part, "xn-=") === 0) $part = substr($part, 3);
-				if(strpos($part, '=') === 0) {
-					// equals at beginning means keep this part as-is
-					$part = $this->name(substr($part, 1));
-				} else {
-					$part = $this->punyDecodeName($part);
-				}
-				$parts[$n] = $part;
+				$parts[$n] = $this->punyDecodeName($part, $version);
 			}
 			$value = implode('', $parts);
 			return $value; 
 		}
 		
 		$_value = $value; 
+		
 		// convert "xn-" single hyphen to recognized punycode "xn--" double hyphen
 		if(strpos($value, 'xn--') !== 0) $value = 'xn--' . substr($value, 3);
-		if(function_exists('idn_to_utf8')) {
-			// use native php function if available
-			$value = idn_to_utf8($value, 32); // 32=IDNA_NONTRANSITIONAL_TO_UNICODE
-		} else {
-			// otherwise use Punycode class
+		
+		if($version >= 3) {
+			// PHP IDN function
+			// 32=IDNA_NONTRANSITIONAL_TO_UNICODE
+			$info = array();
+			$value = idn_to_utf8($value, 32, INTL_IDNA_VARIANT_UTS46, $info); 
+			if(empty($value)) $value = $info['result'];
+			
+		} else if($version === 2) {
+			// Punycode library
 			$pc = new Punycode();
 			$value = $pc->decode($value);
+			
+		} else {
+			// PHP IDN with old/buggy behavior post PHP 7.4
+			$value = @idn_to_utf8($value);
 		}
+		
 		// if utf8 conversion failed, restore original value
 		if($value === false || !strlen($value)) $value = $_value;
+		
 		return $value;
 	}
 
@@ -1025,50 +1038,57 @@ class Sanitizer extends Wire {
 	 * Encode a name value to PW-punycode
 	 * 
 	 * @param string $value
+	 * @param int $version 0=auto-detect, 1=original/buggy, 2=punycode library, 3=php idn function
 	 * @return string
 	 * 
 	 */
-	protected function punyEncodeName($value) {
-		// exclude values that don't need to be converted
+	protected function punyEncodeName($value, $version = 0) {
+		
 		if(strpos($value, 'xn-') === 0) return $value;
 		if(ctype_alnum(str_replace(array('.', '-', '_'), '', $value))) return $value;
-		$tt = $this->getTextTools();
 
+		$version = $this->getPunycodeVersion($version);
+		
 		while(strpos($value, '__') !== false) {
 			$value = str_replace('__', '_', $value);
 		}
-		
-		if(strlen($value) >= 50) {
+
+		if(strlen($value) >= 50 && $version < 2) {
+			$tt = $this->getTextTools();
 			$_value = $value;
 			$parts = array();
 			while(strlen($_value)) {
 				$part = $tt->substr($_value, 0, 12);
 				$_value = $tt->substr($_value, 12);
-				$part = $this->punyEncodeName($part);
-				if(strpos($part, 'xn-') !== 0) {
-					// if encoding didn't result in an xn- string then 
-					// prefix an equals to indicate this part should be taken literally
-					$part = "=$part";
-				}
-				$parts[] = $part;
+				$parts[] = $this->punyEncodeName($part, $version);
 			}
 			$value = implode('__', $parts);
-			if(strpos($value, 'xn--') !== false && strpos($value, 'xn-') !== 0) {
-				$value = "xn-$value";
-			}
-			return $value; 
+			return $value;
 		}
-		
+
 		$_value = $value;
-		
-		if(function_exists("idn_to_ascii")) {
-			// use native php function if available
-			$value = substr(idn_to_ascii($value, 16), 3); // 16=IDNA_NONTRANSITIONAL_TO_ASCII
-		} else {
-			// otherwise use Punycode class
+
+		if($version >= 3) {
+			// PHP 7.4+ idn_to_ascii
+			$info = array();
+			// 16=IDNA_NONTRANSITIONAL_TO_ASCII
+			$value = idn_to_ascii($value, 16, INTL_IDNA_VARIANT_UTS46, $info); 
+			// IDN return value fails on longer strings, but populates result correctly
+			if(strlen($_value) >= 50) $value = $info['result'];
+			
+		} else if($version === 2) {
+			// Punycode library
 			$pc = new Punycode();
 			$value = substr($pc->encode($value), 3);
+			
+		} else {
+			// buggy behavior in PHP 7.4+ but pages may already be present with it
+			// INTL_IDNA_VARIANT_2003 is default prior to PHP 7.4
+			$value = @idn_to_ascii($value);
 		}
+		
+		if(strpos($value, 'xn-') === 0) $value = substr($value, 3);
+		
 		if(strlen($value) && $value !== '-') {
 			// in PW the xn- prefix has one fewer hyphen than in native Punycode
 			// for compatibility with pageName sanitization and beautification
@@ -1078,9 +1098,40 @@ class Sanitizer extends Wire {
 			// return value is always ascii
 			$value = $this->name($_value);
 		}
+		
 		return $value;
 	}
 	
+	/**
+	 * Get internal Punycode version to use
+	 *
+	 * 0: Auto-detect from current environment.
+	 * 1: PHP IDN function used by all PW versions prior to 3.0.244, but buggy PHP 7.4+.
+	 * 2: Dedicated Punycode PHP library (no known issues at present).
+	 * 3: PHP IDN function call updated for PHP 7.4+ (default in new installations after January 2025).
+	 *
+	 * @param int $version
+	 * @return int 1=PHP DN but buggy after PHP 7.4+, 2=Punycode library, 3=PHP IDN function PHP 7.4+
+	 * @since 3.0.244
+	 *
+	 */
+	protected function getPunycodeVersion($version) {
+		$config = $this->wire()->config;
+		if(!$version && strpos($config->pageNameWhitelist, 'v') === 0) {
+			// i.e. "v3" specified at beginning of pageNameWhitelist
+			$version = substr($config->pageNameWhitelist, 1, 1);
+			$version = ctype_digit($version) ? (int) $version : 0;
+		}
+		if(!$version) $version = $config->installedAfter('2025-01-04') ? 3 : 1;
+		if(!function_exists('idn_to_utf8')) $version = 2;
+		if($version >= 3 && version_compare(phpversion(), '7.4.0', '<')) $version = 2;
+		return $version;
+	}
+
+	/**
+	 * @return Punycode
+	 * 
+	 */
 	protected function punycode() {
 		return new Punycode();
 	}
