@@ -639,14 +639,13 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			}
 			$query->execute();
 			$rowCount = $query->rowCount();
-			$query->closeCursor();
 		} catch(\Exception $e) {
 			if(!$this->checkTableSchema()) throw $e;
 			$rowCount = 0;
 			$query = null;
 		}
 		
-		if(!$rowCount || $query) return $result;
+		if(!$rowCount || !$query) return $result;
 		
 		$rows = array();
 		$pathCounts = array();
