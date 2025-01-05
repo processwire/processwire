@@ -624,7 +624,7 @@ class PageTraversal {
 			'host' => '', 
 			'pageNum' => is_int($options) || (is_string($options) && in_array($options, array('+', '-'))) ? $options : 1,
 			'data' => array(),
-			'urlSegmentStr' => is_string($options) ? $options : '',
+			'urlSegmentStr' => (is_string($options) && !in_array($options, array('+', '-'))) ? $options : '',
 			'urlSegments' => array(),
 			'language' => is_object($options) && wireInstanceOf($options, 'Language') ? $options : null,
 		);
@@ -707,7 +707,7 @@ class PageTraversal {
 				}
 				if(!strlen($prefix)) $prefix = $config->pageNumUrlPrefix;
 				$url = rtrim($url, '/') . '/' . $prefix . ((int) $options['pageNum']);
-				if($template->slashPageNum) $url .= '/';
+				if(((int) $template->slashPageNum) === 1) $url .= '/';
 			}
 		}
 
