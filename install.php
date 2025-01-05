@@ -11,7 +11,7 @@
  * If that file exists, the installer will not run. So if you need to re-run this installer for any
  * reason, then you'll want to delete that file. This was implemented just in case someone doesn't delete the installer.
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo 3.0.190: provide option for command-line options to install
@@ -478,13 +478,13 @@ class Installer {
 		if(!isset($values['dbPort'])) $values['dbPort'] = ini_get("mysqli.default_port"); 
 		if(!isset($values['dbUser'])) $values['dbUser'] = ini_get("mysqli.default_user"); 
 		if(!isset($values['dbPass'])) $values['dbPass'] = ini_get("mysqli.default_pw");
-		if(!isset($values['dbEngine'])) $values['dbEngine'] = 'MyISAM';
+		if(!isset($values['dbEngine'])) $values['dbEngine'] = 'InnoDB';
 		if(!isset($values['dbSocket'])) $values['dbSocket'] = ini_get("mysqli.default_socket");
 		if(!isset($values['dbCon'])) $values['dbCon'] = 'Hostname';
 
 		if(!$values['dbHost']) $values['dbHost'] = 'localhost';
 		if(!$values['dbPort']) $values['dbPort'] = 3306;
-		if(empty($values['dbCharset'])) $values['dbCharset'] = 'utf8';
+		if(empty($values['dbCharset'])) $values['dbCharset'] = 'utf8mb4';
 		if($values['dbCharset'] != 'utf8mb4') $values['dbCharset'] = 'utf8';
 		if($values['dbEngine'] != 'InnoDB') $values['dbEngine'] = 'MyISAM';
 
@@ -505,9 +505,8 @@ class Installer {
 		$this->input('dbHost', 'DB Host', $values['dbHost']);
 		$this->input('dbPort', 'DB Port', $values['dbPort']);
 		$this->input('dbSocket', 'DB Socket', $values['dbSocket'], array('width' => 300));
-	
-		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8', 'utf8mb4'));
-		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('MyISAM', 'InnoDB'));
+		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8mb4', 'utf8'));
+		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('InnoDB', 'MyISAM'));
 		$this->clear();
 	
 		// automatic required states for host, port and socket
@@ -532,7 +531,6 @@ class Installer {
 		";
 	
 		$this->p(
-			"The DB Charset option “utf8mb4” may not be compatible with all 3rd party modules.<br />" . 
 			"The DB Engine option “InnoDB” requires MySQL 5.6.4 or newer.", 
 			array('class' => 'detail', 'style' => 'margin-top:0')
 		);
@@ -1134,8 +1132,8 @@ class Installer {
 	 */
 	protected function profileImportSQL($database, $file1, $file2, array $options = array()) {
 		$defaults = array(
-			'dbEngine' => 'MyISAM',
-			'dbCharset' => 'utf8', 
+			'dbEngine' => 'InnoDB',
+			'dbCharset' => 'utf8mb4', 
 		);
 		$options = array_merge($defaults, $options); 
 		if(self::TEST_MODE) return;
