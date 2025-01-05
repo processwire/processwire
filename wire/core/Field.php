@@ -1248,7 +1248,9 @@ class Field extends WireData implements Saveable, Exportable {
 			$table = $this->setTable;
 		} else {
 			$name = $this->settings['name'];
-			if(!strlen($name)) throw new WireException("Field 'name' is required");
+			$length = strlen($name);
+			if(!$length) throw new WireException("Field 'name' is required");
+			if($length > 58) $name = substr($name, 0, 58); // 'field_' + 58 = 64 max
 			$table = self::tablePrefix . $name;
 		}
 		if(self::$lowercaseTables) $table = strtolower($table); 
@@ -1265,6 +1267,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 */
 	public function setTable($table = null) {
 		$table = empty($table) ? '' : $this->wire()->sanitizer->fieldName($table);
+		if(strlen($table) > 64) $table = substr($table, 0, 64);
 		$this->setTable = $table;
 	}
 

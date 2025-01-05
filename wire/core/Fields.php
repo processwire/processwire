@@ -388,12 +388,14 @@ class Fields extends WireSaveableItems {
 			// even if only the case has changed. 
 			$schema = $item->type->getDatabaseSchema($item);
 			if(!empty($schema)) {
-				foreach(array($table, "tmp_$table") as $t) {
+				list(,$tmpTable) = explode(Field::tablePrefix, $table, 2);
+				$tmpTable = "tempf_$tmpTable";
+				foreach(array($table, $tmpTable) as $t) {
 					if(!$database->tableExists($t)) continue;
 					throw new WireException("Cannot rename to '$item->name' because table `$table` already exists");
 				}
-				$database->exec("RENAME TABLE `$prevTable` TO `tmp_$table`"); // QA
-				$database->exec("RENAME TABLE `tmp_$table` TO `$table`"); // QA
+				$database->exec("RENAME TABLE `$prevTable` TO `$tmpTable`"); // QA
+				$database->exec("RENAME TABLE `$tmpTable` TO `$table`"); // QA
 			}
 			$item->prevTable = '';
 		}
