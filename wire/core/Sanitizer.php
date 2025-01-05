@@ -1072,9 +1072,9 @@ class Sanitizer extends Wire {
 			// PHP 7.4+ idn_to_ascii
 			$info = array();
 			// 16=IDNA_NONTRANSITIONAL_TO_ASCII
-			$value = idn_to_ascii($value, 16, INTL_IDNA_VARIANT_UTS46, $info); 
+			idn_to_ascii($value, 16, INTL_IDNA_VARIANT_UTS46, $info); 
 			// IDN return value fails on longer strings, but populates result correctly
-			if(strlen($_value) >= 50) $value = $info['result'];
+			$value = $info['result'];
 			
 		} else if($version === 2) {
 			// Punycode library
