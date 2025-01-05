@@ -492,7 +492,7 @@ class Installer {
 			if(strpos($key, 'chmod') === 0) {
 				$values[$key] = (int) $value;
 			} else if($key != 'httpHosts') {
-				$values[$key] = htmlspecialchars($value, ENT_QUOTES, 'utf-8'); 
+				$values[$key] = htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); 
 			}
 		}
 		
@@ -1139,20 +1139,20 @@ class Installer {
 		if(self::TEST_MODE) return;
 		$restoreOptions = array();
 		$replace = array();
-		if($options['dbEngine'] != 'MyISAM') {
-			$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
-		}
-		if($options['dbCharset'] != 'utf8') {
-			$replace['CHARSET=utf8'] = "CHARSET=$options[dbCharset]";
-			if(strtolower($options['dbCharset']) === 'utf8mb4') {
-				if(strtolower($options['dbEngine']) === 'innodb') {
-					$replace['(255)'] = '(191)'; 
-					$replace['(250)'] = '(191)'; 
-				} else {
-					$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
-				}
+		$replace['ENGINE=InnoDB'] = "ENGINE=$options[dbEngine]";
+		$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
+		$replace['CHARSET=utf8mb4;'] = "CHARSET=$options[dbCharset];";
+		$replace['CHARSET=utf8;'] = "CHARSET=$options[dbCharset];";
+		
+		if(strtolower($options['dbCharset']) === 'utf8mb4') {
+			if(strtolower($options['dbEngine']) === 'innodb') {
+				$replace['(255)'] = '(191)'; 
+				$replace['(250)'] = '(191)'; 
+			} else {
+				$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
 			}
 		}
+		
 		if(count($replace)) $restoreOptions['findReplaceCreateTable'] = $replace; 
 		require("./wire/core/WireDatabaseBackup.php"); 
 		$backup = new WireDatabaseBackup(); 
