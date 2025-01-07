@@ -1269,7 +1269,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		if(strpos($likeValue, "'") !== false || strpos($likeValue, "’") !== false) {
 			// match either straight or curly apostrophe
-			$likeValue = preg_replace('/[\'’]+/', '(\'|’)', $likeValue);
+			$likeValue = str_replace([ "'", "’" ], "('|’)", $likeValue);
 			// if word ends with apostrophe then apostrophe is optional
 			$likeValue = rtrim(str_replace("('|’) ", "('|’)? ", "$likeValue "));
 		}
