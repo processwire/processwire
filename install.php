@@ -98,11 +98,12 @@ class Installer {
 		// these two vars used by install-head.inc
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
-		
-		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc"); 
-
 		$step = $this->post('step');
 		
+		if($step === '5') require('./index.php');
+		
+		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc");
+
 		if($step === null) {
 			$this->welcome();
 		} else {
@@ -112,7 +113,7 @@ class Installer {
 				case 1: $this->compatibilityCheck(); break;
 				case 2: $this->dbConfig();  break;
 				case 4: $this->dbSaveConfig();  break;
-				case 5: require("./index.php");
+				case 5: 
 					/** @var ProcessWire $wire */
 					$wire->modules->refresh();
 					$this->adminAccountSave($wire);
