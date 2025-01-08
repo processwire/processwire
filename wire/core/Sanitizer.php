@@ -838,6 +838,10 @@ class Sanitizer extends Wire {
 				if(strpos($value, 'xn-') === 0) {
 					return $value;
 				} else {
+					if(strlen($value) && ctype_alnum(str_replace(array('-', '_', '.'), '', $value))) {
+						if($this->getPunycodeVersion($options['punycodeVersion']) > 1) return $value;
+					}
+						
 					// can't be encoded, send to regular name sanitizer
 					$value = $_value;
 				}
@@ -1044,17 +1048,42 @@ class Sanitizer extends Wire {
 	 */
 	protected function punyEncodeName($value, $version = 0) {
 		
-		if(strpos($value, 'xn-') === 0) return $value;
-		if(ctype_alnum(str_replace(array('.', '-', '_'), '', $value))) return $value;
-
+		$tt = $this->getTextTools();
 		$version = $this->getPunycodeVersion($version);
 		
+		if(strpos($value, 'xn-') === 0) {
+			if(ctype_alnum(str_replace(array('.', '-', '_'), '', $value))) {
+				return $value;
+			}
+		}
+
+		if($version > 1) {
+			$whitelist = $this->wire()->config->pageNameWhitelist;
+			$v = '';
+			for($n = 0; $n < $tt->strlen($value); $n++) {
+				$c = $tt->substr($value, $n, 1);
+				if($tt->stripos($whitelist, $c) === false) {
+					$c = $this->pageName($c, self::translate);
+					if(empty($c) || $tt->stripos($whitelist, $c) === false) {
+						$c = '-';
+					}
+				}
+				$v .= $c;
+			}
+			while(strpos($v, '--') !== false) $v = str_replace('--', '-', $v);
+			$value = $tt->trim($v, '-');
+		}
+		
+		if(ctype_alnum(str_replace(array('.', '-', '_'), '', $value))) {
+			$value = $this->pageName(trim($value), true);
+			return $value;
+		}
+
 		while(strpos($value, '__') !== false) {
 			$value = str_replace('__', '_', $value);
 		}
 
-		if(strlen($value) >= 50 && $version < 2) {
-			$tt = $this->getTextTools();
+		if($version < 2 && strlen($value) >= 50) {
 			$_value = $value;
 			$parts = array();
 			while(strlen($_value)) {
@@ -1079,12 +1108,13 @@ class Sanitizer extends Wire {
 		} else if($version === 2) {
 			// Punycode library
 			$pc = new Punycode();
-			$value = substr($pc->encode($value), 3);
+			$value = $pc->encode($value);
 			
 		} else {
 			// buggy behavior in PHP 7.4+ but pages may already be present with it
 			// INTL_IDNA_VARIANT_2003 is default prior to PHP 7.4
-			$value = @idn_to_ascii($value);
+			// substr() is also not right here but kept for v1 compatibility
+			$value = substr(@idn_to_ascii($value), 3);
 		}
 		
 		if(strpos($value, 'xn-') === 0) $value = substr($value, 3);
