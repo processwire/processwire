@@ -1144,6 +1144,7 @@ class Installer {
 		$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
 		$replace['CHARSET=utf8mb4;'] = "CHARSET=$options[dbCharset];";
 		$replace['CHARSET=utf8;'] = "CHARSET=$options[dbCharset];";
+		$replace['CHARSET=utf8 COLLATE='] = "CHARSET=$options[dbCharset] COLLATE=";
 		
 		if(strtolower($options['dbCharset']) === 'utf8mb4') {
 			if(strtolower($options['dbEngine']) === 'innodb') {
