@@ -9,7 +9,7 @@
  * if(!$page->viewable()) { echo "sorry you can't view this"; }
  * ...and so on...
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * Optional special permissions that are optional (by default, not installed):
@@ -221,7 +221,18 @@ class PagePermissions extends WireData implements Module {
 		if($this->hasPagePublish === null) {
 			$this->hasPagePublish = $this->wire()->permissions->get('page-publish')->id > 0;
 		}
-		
+
+		/*
+		 * Potential addition (cc:@adrianbj)
+		 * cancel editable if page in trash, not restorable, and trash page not listable? 
+		if($page->isTrash() && !$page->restorable()) {
+			$trashId = $this->wire()->config->trashPageID;
+			if($page->id == $trashId) return false;
+			$trashPage = $this->wire()->pages->get($trashId);
+			if(!$trashPage->listable()) return false;
+		}
+		*/
+
 		if($this->hasPagePublish) {
 
 			// if user has the page-publish permission here, then we're good
@@ -243,6 +254,7 @@ class PagePermissions extends WireData implements Module {
 	 * @param Page $page
 	 * @param array $options
 	 *  - `viewable` (bool): Specify true if only a viewable check is needed (default=false)
+	 *  - `processName` (string): Name of Process module to consider for context. 3.0.244+ (default='')
 	 * @return bool
 	 * 
 	 */
@@ -252,16 +264,17 @@ class PagePermissions extends WireData implements Module {
 		
 		$user = $this->wire()->user;
 		$process = $this->wire()->process;
-		$processName = (string) $process;
 		$config = $this->wire()->config;
 		$guestRoleID = (int) $config->guestUserRolePageID;
 		$permissions = $this->wire()->permissions;
 		
 		$defaults = array(
 			'viewable' => false, // specify true if method is being used to determine viewable state
+			'processName' => '', 
 		);
 		
 		$options = count($options) ? array_merge($defaults, $options) : $defaults;
+		$processName = $options['processName'] ? $options['processName'] : (string) $process;
 	
 		if(!$page->id) return false;
 		
@@ -380,7 +393,8 @@ class PagePermissions extends WireData implements Module {
 	 * Returns whether the given page ($page) is viewable by the current user
 	 * 
 	 * @param Page $page
-	 * @param array $options
+	 * @param array $options 
+	 *   - `processName` (string): Name of Process module to consider for context. 3.0.244+ (default='')
 	 * @return bool
 	 * @throws WireException
 	 * 
@@ -565,13 +579,23 @@ class PagePermissions extends WireData implements Module {
 	 *
 	 */
 	protected function fileViewable(Page $page, $pagefile) {
-		if($this->wire()->user->isSuperuser()) return true;
+		$user = $this->wire()->user;
+		if($user->isSuperuser()) return true;
 		if(!$pagefile instanceof Pagefile) {
+			$of = $page->of();
+			if($of) $page->of(false); // false so that temp files are considered 
 			$pagefile = $page->hasFile(basename($pagefile), array('getPagefile' => true));
+			if($of) $page->of(true);
 			if(!$pagefile) return null;
 		}
 		$field = $pagefile->field;
 		if(!$field) return null;
+		if($pagefile->isTemp()) {
+			// temporary file, just uploaded but not yet saved
+			if(!$user->isLoggedin()) return false;
+			if($page->id === $user->id) return $this->userFieldEditable($field, $user);
+			return $this->fieldEditable($page, $field);
+		}
 		return $this->fieldViewable($page, $field, false);
 	}
 
@@ -606,6 +630,7 @@ class PagePermissions extends WireData implements Module {
 	 *   in that language (requires LanguageSupportPageNames module).
 	 * - Optionally specify boolean false as first or second argument to bypass template filename check.
 	 * - Optionally specify a Pagefile object or file basename to check if file is viewable. (3.0.166+)
+	 * - Optionally specify array as first or second argument for options (3.0.244+ internal use)
 	 * 
 	 * Returns boolean true or false. If given a Pagefile or file basename, it can also return null if
 	 * the Page itself is viewable but the file did not map to something we recognize as access controlled,
@@ -626,6 +651,7 @@ class PagePermissions extends WireData implements Module {
 		$checkTemplateFile = true; // return false if template filename doesn't exist
 		$pagefile = null;
 		$status = $page->status;
+		$options = array();
 
 		// allow specifying User instance as argument 0 
 		// this gives you a "viewable to user" capability
@@ -642,8 +668,14 @@ class PagePermissions extends WireData implements Module {
 				// @todo: prevent possible collision of field name and language name
 				$field = $arg0;
 				$checkTemplateFile = false;
-			} 
+			} else if(is_array($arg0)) {
+				$options = $arg0;
+			}
 		} 
+		
+		if($arg1) {
+			if(is_array($arg1) && empty($options)) $options = $arg1;
+		}
 		
 		if($arg0 === false || $arg1 === false) {
 			// bypass template filename check
@@ -668,7 +700,7 @@ class PagePermissions extends WireData implements Module {
 			$viewable = $this->processViewable($page);
 		} else if($page instanceof User) { // && !$user->isGuest() && ($user->hasPermission('user-admin') || $page->id === $user->id)) {
 			// user administrator or user viewing themself
-			$viewable = $this->userViewable($page); 
+			$viewable = $this->userViewable($page, $options); 
 		} else if(!$user->hasPermission("page-view", $page)) {
 			// user lacks basic view permission to page
 			$viewable = false;

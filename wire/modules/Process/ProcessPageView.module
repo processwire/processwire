@@ -147,7 +147,17 @@ class ProcessPageView extends Process {
 		$originalPage = $page;
 		$page = $request->getPageForUser($page, $user);
 		$code = $request->getResponseCode();
-	
+		$file = $request->getFile();
+		
+		if($code == 403 && $file && $user->isLoggedin() && $originalPage->id === $user->id) {
+			if($user->viewable($file, array('processName' => 'ProcessProfile'))) {
+				// config.pagefileSecure is active and request is file for current user
+				// allow file to be viewable if connected with user’s profile
+				$code = 200;
+				$page = $originalPage;
+			}
+		} 
+		
 		if($code == 401 || $code == 403) {
 			$this->userNotAllowed($user, $originalPage, $request);
 		}
@@ -171,7 +181,6 @@ class ProcessPageView extends Process {
 		}
 
 		try {
-			$file = $request->getFile();
 			if($file) {
 				$this->responseType = self::responseTypeFile;
 				$this->wire()->setStatus(ProcessWire::statusDownload, array('downloadFile' => $file));
@@ -706,5 +715,3 @@ class ProcessPageView extends Process {
 		$this->delayRedirects = $delayRedirects ? true : false;
 	}
 }
-
-

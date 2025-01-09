@@ -673,7 +673,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$fieldName = (string) $this->hasField;
 		}
 
-		$postUrl = $page ? $page->editUrl() : '';
+		if($page instanceof User && wireInstanceOf($this->wire->process, 'ProcessProfile')) {
+			$postUrl = './';
+		} else {
+			$postUrl = $page ? $page->editUrl() : '';
+		}
 
 		if($nameAttr != $fieldName && $fieldName && $postUrl) {
 			// file context for output after upload in case upload starts from a 
