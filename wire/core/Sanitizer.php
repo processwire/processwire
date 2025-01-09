@@ -239,6 +239,17 @@ class Sanitizer extends Wire {
 	);
 
 	/**
+	 * Characters blacklisted from UTF-8 page names
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $pageNameBlacklist = array(
+		'/', '\\', '%', '"', "'", '<', '>', '?', '!', '#', '@', ':', ';', ',', 
+		'+', '=', '*', '^', '$', '(', ')', '[', ']', '{', '}', '|', '&',
+	);
+
+	/**
 	 * Sanitizer method names (A-Z) and type(s) they return 
 	 * 
 	 * a: array
@@ -903,6 +914,7 @@ class Sanitizer extends Wire {
 		if(!strlen($value)) return '';
 		
 		$config = $this->wire()->config;
+		$keepGoing = true;
 		
 		// if UTF8 module is not enabled then delegate this call to regular pageName sanitizer
 		if($config->pageNameCharset != 'UTF8') return $this->pageName($value, false, $maxLength);
@@ -918,7 +930,8 @@ class Sanitizer extends Wire {
 		// whitelist of allowed characters and blacklist of disallowed characters
 		$whitelist = $config->pageNameWhitelist;
 		if(!strlen($whitelist)) $whitelist = false;
-		$blacklist = '/\\%"\'<>?#@:;,+=*^$()[]{}|&';
+		
+		$value = str_replace($this->pageNameBlacklist, '-', $value);
 		
 		// we let regular pageName handle chars like these, if they appear without other UTF-8
 		$extras = array('.', '-', '_', ',', ';', ':', '(', ')', '!', '?', '&', '%', '$', '#', '@');
@@ -933,43 +946,48 @@ class Sanitizer extends Wire {
 			if($this->caches[$k] || $tt->strtolower($value) === $value) {
 				// whitelist supports only lowercase OR value is all lowercase 
 				// let regular pageName sanitizer handle this
-				return $this->pageName($value, false, $maxLength);
+				$value = $this->pageName($value, false, $maxLength);
+				// maintain old behavior for existing installations
+				if($this->getPunycodeVersion() < 2) return $value; 
+				$keepGoing = false;
 			}
 		}
 
-		// validate that all characters are in our whitelist
-		$replacements = array();
+		if($keepGoing) {
+			// validate that all characters are in our whitelist
+			$replacements = array();
 
-		for($n = 0; $n < $tt->strlen($value); $n++) {
-			$c = $tt->substr($value, $n, 1);
-			$inBlacklist = $tt->strpos($blacklist, $c) !== false || strpos($blacklist, $c) !== false;
-			$inWhitelist = !$inBlacklist && $whitelist !== false && $tt->strpos($whitelist, $c) !== false;
-			if($inWhitelist && !$inBlacklist) {
-				// in whitelist
-			} else if($inBlacklist || !strlen(trim($c)) || ctype_cntrl($c)) {
-				// character does not resolve to something visible or is in blacklist
-				$replacements[] = $c;
-			} else if($whitelist === false) {
-				// whitelist disabled: allow everything that is not blacklisted
-			} else {
-				// character that is not in whitelist, double check case variants
-				$cLower = $tt->strtolower($c);
-				$cUpper = $tt->strtoupper($c);
-				if($cLower !== $c && $tt->strpos($whitelist, $cLower) !== false) {
-					// allow character and convert to lowercase variant
-					$value = $tt->substr($value, 0, $n) . $cLower . $tt->substr($value, $n+1);
-				} else if($cUpper !== $c && $tt->strpos($whitelist, $cUpper) !== false) {
-					// allow character and convert to uppercase varient
-					$value = $tt->substr($value, 0, $n) . $cUpper . $tt->substr($value, $n+1);
-				} else {
-					// queue character to be replaced
+			for($n = 0; $n < $tt->strlen($value); $n++) {
+				$c = $tt->substr($value, $n, 1);
+				if($c === '-') continue;
+				$inWhitelist = $whitelist !== false && $tt->strpos($whitelist, $c) !== false;
+				if($inWhitelist) {
+					// in whitelist
+				} else if(!strlen(trim($c)) || ctype_cntrl($c)) {
+					// character does not resolve to something visible 
 					$replacements[] = $c;
+				} else if($whitelist === false) {
+					// whitelist disabled: allow everything that is not blacklisted
+				} else {
+					// character that is not in whitelist, double check case variants
+					$cLower = $tt->strtolower($c);
+					$cUpper = $tt->strtoupper($c);
+					if($cLower !== $c && $tt->strpos($whitelist, $cLower) !== false) {
+						// allow character and convert to lowercase variant
+						$value = $tt->substr($value, 0, $n) . $cLower . $tt->substr($value, $n + 1);
+					} else if($cUpper !== $c && $tt->strpos($whitelist, $cUpper) !== false) {
+						// allow character and convert to uppercase variant
+						$value = $tt->substr($value, 0, $n) . $cUpper . $tt->substr($value, $n + 1);
+					} else {
+						// queue character to be replaced
+						$replacements[] = $c;
+					}
 				}
 			}
-		}
 
-		// replace disallowed characters with "-"
-		if(count($replacements)) $value = str_replace($replacements, '-', $value);
+			// replace disallowed characters with "-"
+			if(count($replacements)) $value = str_replace($replacements, '-', $value);
+		}
 		
 		// replace doubled word separators
 		foreach($separators as $c) {
@@ -1059,6 +1077,7 @@ class Sanitizer extends Wire {
 
 		if($version > 1) {
 			$whitelist = $this->wire()->config->pageNameWhitelist;
+			$value = str_replace($this->pageNameBlacklist, '-', $value);
 			$v = '';
 			for($n = 0; $n < $tt->strlen($value); $n++) {
 				$c = $tt->substr($value, $n, 1);
@@ -1083,7 +1102,15 @@ class Sanitizer extends Wire {
 			$value = str_replace('__', '_', $value);
 		}
 
-		if($version < 2 && strlen($value) >= 50) {
+		if($version > 1) {
+			// version 2, 3
+			while(strpos($value, '--') !== false) {
+				$value = str_replace('--', '-', $value);
+			}
+			$value = trim($value, '-');
+			
+		} else if(strlen($value) >= 50) {
+			// version 1
 			$_value = $value;
 			$parts = array();
 			while(strlen($_value)) {
@@ -1145,7 +1172,7 @@ class Sanitizer extends Wire {
 	 * @since 3.0.244
 	 *
 	 */
-	protected function getPunycodeVersion($version) {
+	protected function getPunycodeVersion($version = 0) {
 		$config = $this->wire()->config;
 		if(!$version && strpos($config->pageNameWhitelist, 'v') === 0) {
 			// i.e. "v3" specified at beginning of pageNameWhitelist
