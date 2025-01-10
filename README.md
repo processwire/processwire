@@ -40,7 +40,7 @@ development branch.
 ProcessWire is a timeless tool for web professionals that has always been 
 committed to the long term. It started in 2003, gained the name ProcessWire
 in 2006, and has been in active development as an open source project since 2010. 
-Now more than a decade later (2023), we’re just getting started, as ProcessWire 
+Now more than a decade later (2025), we’re just getting started, as ProcessWire 
 continues to grow and develop into the next 10 years and beyond. 
 
 While ProcessWire has been around for a long time, don’t feel bad if you haven’t 
@@ -71,9 +71,7 @@ in the ProcessWire forums, subscribe to our
 [weekly newsletter](https://processwire.com/community/newsletter/subscribe/)
 for the latest ProcessWire news, check out our
 [website showcase](https://processwire.com/sites/)
-to see what others are building with ProcessWire, and read our 
-[blog](https://processwire.com/blog/) 
-to stay up-to-date with the latest ProcessWire versions.
+to see what others are building with ProcessWire.
 
 Weekly ProcessWire news is posted by Teppo Koivula on his site 
 [ProcessWire Weekly](https://weekly.pw). 
@@ -129,15 +127,15 @@ replacing your `/wire/` directory with the one from the newer version.
 ### Pro module version upgrade notes (if applicable)
 
 - [FormBuilder](https://processwire.com/store/form-builder/)
-  version 0.5.3 or newer recommended.
+  version 0.5.5 or newer recommended.
 - [ListerPro](https://processwire.com/store/lister-pro/)
-  version 1.1.5 or newer recommended. 
+  version 1.1.6 or newer recommended. 
 - [ProFields](https://processwire.com/store/pro-fields/)
   the latest versions of all ProFields (10 modules) are recommended.
 - [LoginRegisterPro](https://processwire.com/store/login-register-pro/)
-  version 7 or newer recommended.   
+  version 8 or newer recommended.   
 - [ProCache](https://processwire.com/store/pro-cache/)
-  version 4.0.3 or newer recommended. After upgrading, go to your ProCache 
+  version 4.0.5 or newer recommended. After upgrading, go to your ProCache 
   settings in the admin (Setup > ProCache) and see if it suggests any 
   modifications to your .htaccess file.
  
@@ -171,14 +169,12 @@ resolved any issues.
 
 * [ProcessWire Support Forums](https://processwire.com/talk/)
 * [ProcessWire Weekly News](https://weekly.pw/)
-* [ProcessWire Blog](https://processwire.com/blog/)
 * [Sites running ProcessWire](https://processwire.com/sites/)
 * [Subscribe to ProcessWire Weekly email](https://processwire.com/community/newsletter/subscribe/)
 * [Submit your site to our directory](https://processwire.com/sites/submit/)
-* [Follow @processwire on X-Twitter](http://twitter.com/processwire/)
 * [Contact ProcessWire developer](https://processwire.com/contact/)
 * [Report issue](https://github.com/processwire/processwire-issues/issues)
 
 ------
 
-Copyright 2023 by Ryan Cramer / Ryan Cramer Design, LLC
+Copyright 2025 by Ryan Cramer / Ryan Cramer Design, LLC

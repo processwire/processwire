@@ -1174,10 +1174,12 @@ class Sanitizer extends Wire {
 	 */
 	protected function getPunycodeVersion($version = 0) {
 		$config = $this->wire()->config;
-		if(!$version && strpos($config->pageNameWhitelist, 'v') === 0) {
-			// i.e. "v3" specified at beginning of pageNameWhitelist
-			$version = substr($config->pageNameWhitelist, 1, 1);
-			$version = ctype_digit($version) ? (int) $version : 0;
+		if(!$version) {
+			$whitelist = $config->pageNameWhitelist;
+			for($n = 3; $n > 0; $n--) {
+				if(strpos($whitelist, "v$n") !== false) $version = $n;
+				if($version) break;
+			}
 		}
 		if(!$version) $version = $config->installedAfter('2025-01-04') ? 3 : 1;
 		if(!function_exists('idn_to_utf8')) $version = 2;
