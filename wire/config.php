@@ -1065,6 +1065,14 @@ $config->pageNameCharset = 'ascii';
  * 
  * Please note this whitelist is only used if pageNameCharset is 'UTF8'. 
  * 
+ * If your ProcessWire version is 3.0.244+ AND your installation date was before 10 Jan 2025, 
+ * AND you are enabling UTF8 page names now, please add the text `v3` (without the quotes) 
+ * at the beginning or end of your pageNameWhitelist. This will ensure that it uses a 
+ * newer/better UTF-8 page name conversion. The older version is buggy on PHP versions 7.4+, 
+ * but is used for existing installations so as not to unexpectedly change any existing page 
+ * names. When a new ProcessWire installation occurs after 5 Jan 2025 it automatically uses 
+ * the newer/better version and does not require anything further. 
+ * 
  * @var string
  * 
  */ 

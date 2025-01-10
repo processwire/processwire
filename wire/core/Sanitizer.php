@@ -1181,7 +1181,7 @@ class Sanitizer extends Wire {
 				if($version) break;
 			}
 		}
-		if(!$version) $version = $config->installedAfter('2025-01-04') ? 3 : 1;
+		if(!$version) $version = $config->installedAfter('2025-01-10') ? 3 : 1;
 		if(!function_exists('idn_to_utf8')) $version = 2;
 		if($version >= 3 && version_compare(phpversion(), '7.4.0', '<')) $version = 2;
 		return $version;
