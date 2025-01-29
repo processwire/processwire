@@ -27,6 +27,7 @@
  * @method string ajaxAction($action)
  * @method PageArray find($selectorString, Page $page)
  * @method array getHidePageIDs(array $a = array()) 
+ * @method string getSelector(Page $page, array $options)
  * 
  * @todo Option to configure whether "Pub" action should appear for non-superusers
  *
@@ -381,16 +382,9 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		if(is_null($limit)) $limit = $this->limit;
 		if(is_null($start)) $start = $this->start;
 		
-		if($limit) {
-			$selector = "start=$start, limit=$limit, status<" . Page::statusMax;
-			
-			if($this->useTrash && !$superuser) { 
-				$trashID = $this->wire()->config->trashPageID;
-				if($page->id == $trashID && $user->hasPermission('page-edit') && $page->listable()) {
-					$selector .= ", check_access=0";
-				}
-			}
-			
+		$selector = $this->getSelector($page, [ 'start' => $start, 'limit' => $limit ]);
+		
+		if(strlen($selector)) {
 			$children = $this->find($selector, $page);
 		} else {
 			$children = $this->wire()->pages->newPageArray();
@@ -407,6 +401,46 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$renderer->setHidePages($this->hidePages, $this->hidePagesNot); 
 		
 		return $renderer;
+	}
+
+	/**
+	 * Get selector string to use in finding children
+	 * 
+	 * @param Page $page
+	 * @param array $options
+	 * @return string
+	 * @since 3.0.245 
+	 * 
+	 */
+	public function ___getSelector(Page $page, array $options) {
+		
+		$defaults = [
+			'start' => 0, 
+			'limit' => 50, 
+		];
+	
+		$options = array_merge($defaults, $options);
+		$user = $this->wire()->user;
+		$start = (int) $options['start'];
+		$limit = (int) $options['limit'];
+		
+		$selector = "start=$start, limit=$limit, status<" . Page::statusMax;
+		
+		if($this->useTrash && !$user->isSuperuser()) {
+			$trashID = $this->wire()->config->trashPageID;
+			if($page->id == $trashID && $user->hasPermission('page-edit') && $page->listable()) {
+				$selector .= ", check_access=0";
+			}
+		}
+		
+		if($page->id === $this->wire()->config->trashPageID && !preg_match('/\bsort=/', $selector)) {
+			$sortfield = $page->sortfield();
+			if(!$sortfield || $sortfield === 'sort') {
+				$selector = trim("$selector, sort=-modified", ',');
+			}
+		}
+
+		return $selector;
 	}
 
 	/**
@@ -442,6 +476,17 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		}
 		
 		return $pageLabelField;
+	}
+
+	/**
+	 * Get parent page that current request is for 
+	 * 
+	 * @return Page|null
+	 * @since 3.0.245
+	 * 
+	 */
+	public function getPage() {
+		return $this->page;
 	}
 
 	/**
@@ -491,12 +536,6 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___find($selectorString, Page $page) {
-		if($page->id === $this->wire()->config->trashPageID && !preg_match('/\bsort=/', $selectorString)) {
-			$sortfield = $page->sortfield();
-			if(!$sortfield || $sortfield === 'sort') {
-				$selectorString = trim("$selectorString,sort=-modified", ',');
-			}
-		}
 		return $page->children($selectorString); 
 	}
 

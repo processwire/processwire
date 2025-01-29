@@ -228,6 +228,7 @@ $(document).ready(function() {
 				
 				function hideItem($item) {
 					var $actions = $item.find('.PageListActions');
+					if($item.hasClass('PageListItemOpen') && $actions.hasClass('PageListActionsKeepOpen')) return;
 					$item.removeClass('PageListItemHover');
 					if($actions.is(":visible")) { // || $hoveredItem.hasClass('PageListItemOpen')) {
 						$actions.animate({opacity: 0}, options.hoverActionFade, function () {
@@ -564,6 +565,9 @@ $(document).ready(function() {
 					} else {
 						$loading.fadeOut('fast');
 					}
+					
+					data.list = $target;
+					data.item = $target.prev('.PageListItem');
 
 					if(replace) {
 						$children.show();
