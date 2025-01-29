@@ -251,6 +251,8 @@ abstract class Process extends WireData implements Module {
 	 *
 	 */
 	public function ___breadcrumb($href, $label) {
+		if(is_array($label)) return $this;
+		$label = (string) $label;
 		$pos = strpos($label, '/'); 
 		if($pos !== false && strpos($href, '/') === false) {
 			// arguments got reversed, we'll work with it anyway...

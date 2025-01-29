@@ -810,6 +810,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 		
 		$pages = $this->wire()->pages;
+		$inputfield = null;
 
 		// value is an int or array of int|string|Page, load to pages, add to $pageArray
 		if(!is_array($value)) $value = array($value); 
@@ -818,17 +819,24 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 				// Page object
 				if($v->id == $page->id) continue;
 				$pg = $v; 
-			} else if(is_int($v)) {
+			} else if(is_int($v) || ctype_digit("$v")) {
 				// integer page ID
 				if($v == $page->id) continue;
 				$pg = $pages->get($v);
 			} else if(is_string($v)) {
 				// path or selector string
-				if(ctype_digit($v)) {
-					$v = (int) $v;
-					if($v == $page->id) continue;
+				if(strpos($v, '/') === 0 && $this->wire()->sanitizer->pagePathName($v) === $v) {
+					$pg = $pages->get($v);
+				} else if(Selectors::stringHasSelector($v)) {
+					$pg = $pages->get($v);
+				} else {
+					$pg = null;
 				}
-				$pg = $pages->get($v);
+				if(!$pg || !$pg->id) {
+					if(!$inputfield) $inputfield = $this->getInputfield($page, $field); 
+					$pgs = $inputfield->getSelectablePages($page, 'name|title=' . $this->wire()->sanitizer->selectorValue($v));
+					if(count($pgs)) $pg = $pgs->first();
+				}
 			} else {
 				// unrecognized type: can't make a page object from it
 				continue; 

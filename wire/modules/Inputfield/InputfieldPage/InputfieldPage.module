@@ -5,7 +5,7 @@
  *
  * Delegates the actual input control to a user-defined Inputfield derived from InputfieldSelect
  * 
- * @method PageArray|null getSelectablePages(Page $page)
+ * @method PageArray|null getSelectablePages(Page $page, $filterSelector = '')
  * @method PageArray findPagesCode(Page $page)
  * 
  * Can be accessed from $this or from $field:
@@ -349,10 +349,11 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * Return PageArray of selectable pages for this input
 	 * 
 	 * @param Page $page The Page being edited
+	 * @param string $filterSelector Additional selector to filter selectable pages (3.0.245+)
 	 * @return PageArray|null
 	 * 
 	 */
-	public function ___getSelectablePages(Page $page) {
+	public function ___getSelectablePages(Page $page, $filterSelector = '') {
 	
 		$pages = $this->wire()->pages;
 		$lockedModes = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked, Inputfield::collapsedBlankLocked);
@@ -386,25 +387,30 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$selector = self::populateFindPagesSelector($page, $findPagesSelector, $instance);
 			if($templateIDs) $selector = trim("$selector, templates_id=$templateIDs", ", "); 
 			if($this->parent_id) $selector = trim("$selector, parent_id=$this->parent_id", ", "); 
+			if($filterSelector) $selector .= ", $filterSelector";
 			$children = $pages->find($selector); 
 
 		} else if($this->findPagesCode) {
 			// php statement that returns a PageArray or a Page (to represent a parent)
 			$children = $this->findPagesCode($page);
-			if($children instanceof Page) $children = $children->children(); // @teppokoivula
+			if($children instanceof Page) $children = $children->children($filterSelector); // @teppokoivula
 
 		} else if($this->parent_id) {
 			$parent = $pages->get($this->parent_id); 
 			if($parent) {
 				if($templateIDs) {
-					$children = $parent->children("templates_id=$templateIDs, check_access=0, status<$statusUnder"); 
+					$selector = "templates_id=$templateIDs, check_access=0, status<$statusUnder";
 				} else {
-					$children = $parent->children("check_access=0, status<$statusUnder");
+					$selector = "check_access=0, status<$statusUnder";
 				}
+				if($filterSelector) $selector .= ", $filterSelector";
+				$children = $parent->children($selector);
 			}
 
 		} else if($templateIDs) {
-			$children = $pages->find("templates_id=$templateIDs, check_access=0, status<$statusUnder"); 
+			$selector = "templates_id=$templateIDs, check_access=0, status<$statusUnder";
+			if($filterSelector) $selector .= ", $filterSelector";
+			$children = $pages->find($selector); 
 
 		} else {
 			$children = $pages->newPageArray();
