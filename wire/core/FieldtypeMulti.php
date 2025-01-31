@@ -240,18 +240,27 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$schema = $this->getDatabaseSchema($field);
 		$useSort = isset($schema['sort']); 
 
+		// If the page is not created yet and there are no values, then there's nothing to do.
+		// Checking already here to also skip beginTransaction() + commit() calls.
+		if(!$page->created and !count($values)) {
+			return true;
+		}
+
 		// use transaction when possible
 		if($useTransaction) $database->beginTransaction();
 
-		try {
-			// since we don't manage IDs of existing values for multi fields, we delete the existing data and insert all of it again
-			$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id"); // QA
-			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
-			$query->execute();
-		} catch(\Exception $e) {
-			if($useTransaction) $database->rollBack();
-			if($config->allowExceptions) throw $e; // throw original
-			throw new WireDatabaseQueryException($e->getMessage(), $e->getCode(), $e);
+		// We only need to remove possible old values when saving an existing page
+		if($page->created) {
+			try {
+				// since we don't manage IDs of existing values for multi fields, we delete the existing data and insert all of it again
+				$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id"); // QA
+				$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
+				$query->execute();
+			} catch(\Exception $e) {
+				if($useTransaction) $database->rollBack();
+				if($config->allowExceptions) throw $e; // throw original
+				throw new WireDatabaseQueryException($e->getMessage(), $e->getCode(), $e);
+			}
 		}
 		
 		if(!count($values)) {
