@@ -240,8 +240,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$schema = $this->getDatabaseSchema($field);
 		$useSort = isset($schema['sort']); 
 
-		// If the page is not created yet and there are no values, then there's nothing to do.
-		// Checking already here to also skip beginTransaction() + commit() calls.
+		// If the page was created just now and there are no values, then there's nothing to do.
+		// NB: checking already here to also skip possible beginTransaction() + commit() calls.
 		if(!$page->created and !count($values)) {
 			return true;
 		}
@@ -249,7 +249,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		// use transaction when possible
 		if($useTransaction) $database->beginTransaction();
 
-		// We only need to remove possible old values when saving an existing page
+		// We only need to remove possible existing values when saving an *existing* page.
 		if($page->created) {
 			try {
 				// since we don't manage IDs of existing values for multi fields, we delete the existing data and insert all of it again
