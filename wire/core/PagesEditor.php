@@ -815,6 +815,11 @@ class PagesEditor extends Wire {
 			if($page->templatePrevious) $this->pages->templateChanged($page);
 			if(in_array('status', $changes)) $this->pages->statusChanged($page);
 		}
+		
+		if($triggerAddedPage && $page->rootParent()->id === $this->wire()->config->trashPageID) {
+			// new page created directly in trash, not a great way to start but that's how it is
+			$this->savePageStatus($page, Page::statusTrash);
+		}
 
 		$this->pages->debugLog('save', $page, true);
 
@@ -1094,29 +1099,34 @@ class PagesEditor extends Wire {
 		$database = $this->wire()->database;
 		$rowCount = 0;
 		$multi = is_array($pageID) || $pageID instanceof PageArray;
+		$page = $pageID instanceof Page ? $pageID : null;
 		$status = (int) $status;
 		
 		if($status < 0 || $status > Page::statusMax) {
 			throw new WireException("status must be between 0 and " . Page::statusMax);
 		}
 
-		$sql = "UPDATE pages SET status=";
+		$sqlUpdate = "UPDATE pages SET status=";
 	
 		if($remove === 2) {
 			// overwrite status (internal/undocumented)
-			$sql .= "status=$status";
+			$sqlUpdate .= "status=$status";
+			if($page instanceof Page) $page->status = $status;
 		} else if($remove) {
 			// remove status
-			$sql .= "status & ~$status";
+			$sqlUpdate .= "status & ~$status";
+			if($page instanceof Page) $page->removeStatus($status);
 		} else {
 			// add status
-			$sql .= "status|$status";
+			$sqlUpdate .= "status|$status";
+			if($page instanceof Page) $page->addStatus($status);
 		}
 		
 		if($multi && $recursive) {
 			// multiple page IDs combined with recursive option, must be handled individually
 			foreach($pageID as $id) {
-				$rowCount += $this->savePageStatus((int) "$id", $status, $recursive, $remove);
+				$id = $id instanceof Page ? $id : (int) "$id";
+				$rowCount += $this->savePageStatus($id, $status, $recursive, $remove);
 			}
 			// exit early in this case
 			return $rowCount; 
@@ -1128,15 +1138,17 @@ class PagesEditor extends Wire {
 				$id = (int) "$id";
 				if($id > 0) $ids[$id] = $id;
 			}
-			if(!count($ids)) $ids[] = 0;
-			$query = $database->prepare("$sql WHERE id IN(" . implode(',', $ids) . ")");
-			$database->execute($query);
-			return $query->rowCount();
+			if(count($ids)) {
+				$query = $database->prepare("$sqlUpdate WHERE id IN(" . implode(',', $ids) . ")");
+				$database->execute($query);
+				$rowCount = $query->rowCount();
+			}
+			return $rowCount;
 			
 		} else {
 			// single page ID or Page object
 			$pageID = (int) "$pageID";
-			$query = $database->prepare("$sql WHERE id=:page_id");
+			$query = $database->prepare("$sqlUpdate WHERE id=:page_id");
 			$query->bindValue(":page_id", $pageID, \PDO::PARAM_INT);
 			$database->execute($query);
 			$rowCount = $query->rowCount();
@@ -1146,12 +1158,13 @@ class PagesEditor extends Wire {
 		
 		// recursive mode assumed from this point forward
 		$parentIDs = array($pageID);
+		$ids = [];
 
 		do {
 			$parentID = array_shift($parentIDs);
 
 			// update all children to have the same status
-			$query = $database->prepare("$sql WHERE parent_id=:parent_id");
+			$query = $database->prepare("$sqlUpdate WHERE parent_id=:parent_id");
 			$query->bindValue(":parent_id", $parentID, \PDO::PARAM_INT);
 			$database->execute($query);
 			$rowCount += $query->rowCount();
@@ -1171,13 +1184,19 @@ class PagesEditor extends Wire {
 			
 			/** @noinspection PhpAssignmentInConditionInspection */
 			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-				$parentIDs[] = (int) $row['id'];
+				$id = (int) $row['id'];
+				$parentIDs[$id] = $id;
+				$ids[$id] = $id;
 			}
 			
 			$query->closeCursor();
 			
 		} while(count($parentIDs));
 		
+		if(count($ids)) {
+			$rowCount += $this->savePageStatus($ids, $status, false, $remove);
+		}
+
 		return $rowCount;
 	}
 	

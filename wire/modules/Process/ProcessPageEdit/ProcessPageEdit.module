@@ -1046,11 +1046,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	
 			if($this->page->addable() || $this->page->numChildren) $form->append($this->buildFormChildren()); 
 			if(!$this->page->template->noSettings && $this->useSettings) $form->append($this->buildFormSettings()); 
+			
 			if($this->isTrash && !$this->isPost) {
-				$this->message($this->_("This page is in the Trash"));
-				$tabRestore = $this->buildFormRestore();
-				if($tabRestore) $form->append($tabRestore);
+				if($this->page->rootParent()->id != $this->config->trashPageID) {
+					$this->warning($this->_('This page incorrectly has trash status, please “save” to fix it'));
+				} else {
+					$this->message($this->_('This page is in the Trash'));
+					$tabRestore = $this->buildFormRestore();
+					if($tabRestore) $form->append($tabRestore);
+				}
 			}
+			
 			$tabDelete = $this->buildFormDelete();
 			if($tabDelete->children()->count()) $form->append($tabDelete);
 			if($this->page->viewable() && !$this->requestModal) $this->buildFormView($this->getViewUrl()); 
@@ -2565,6 +2571,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 		}
 		
+		if(($value & Page::statusTrash) && $this->page->rootParent()->id != $this->config->trashPageID) {
+			$value = $value & ~Page::statusTrash;
+			$this->message($this->_('Removed trash status'));
+		}
+
 		$this->page->status = $value; 
 		
 		return true; 

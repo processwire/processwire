@@ -126,6 +126,7 @@ class PagesTrash extends Wire {
 		if($info['restorable']) {
 			// we detected original parent
 			if($this->lastAction !== "restore:$page") $this->pages->restoreReady($page);
+			$this->pages->editor()->savePageStatus($page->id, Page::statusTrash, true, true);
 			
 		} else if(!$page->parent->isTrash()) {
 			// page has had new parent already set
