@@ -72,6 +72,11 @@ class WireTempDir extends Wire {
 		if(!is_null($this->tempDirRoot)) throw new WireException("Temp dir has already been created");
 		if(empty($name)) $name = $this->createName();
 		if(is_object($name)) $name = wireClassName($name, false);
+		
+		if($basePath && !$this->wire()->files->allowPath($basePath, true)) {
+			$this->log("Given base path $basePath is not within ProcessWire assets so has been replaced");
+			$basePath = '';
+		}
 
 		$basePath = $this->classRootPath(true, $basePath);
 		$this->classRoot = $basePath;
