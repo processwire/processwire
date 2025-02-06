@@ -175,16 +175,17 @@ class RepeaterPageArray extends PageArray {
 
 		if(is_null($page)) { 
 			// no ready item available, get a new one
-			$page = $fieldtype->getBlankRepeaterPage($this->forPage, $this->field); 
+			$page = $fieldtype->getBlankRepeaterPage($this->forPage, $this->field);
+			$page->sort = $this->count();
 			$this->add($page);
 		} else {
+			$page->sort = $this->count();
 			$this->trackChange('add');
 		}
 
 		$page->of(false);
 		$page->removeStatus(Page::statusUnpublished); 
 		$page->removeStatus(Page::statusHidden); 
-		$page->sort = $this->count();
 
 		if($of) $this->forPage->of(true);
 		
