@@ -47,7 +47,7 @@ class Installer {
 	 * Minimum required PHP version to install ProcessWire
 	 *
 	 */
-	const MIN_REQUIRED_PHP_VERSION = '5.3.8';
+	const MIN_REQUIRED_PHP_VERSION = '7.1.0';
 
 	/**
 	 * Test mode for installer development, non destructive
@@ -1834,10 +1834,6 @@ class Installer {
 		$value = isset($_POST[$key]) ? $_POST[$key] : null;
 		
 		if($value === null && empty($sanitizer)) return null;
-		
-		if(version_compare(PHP_VERSION, "5.4.0", "<") && function_exists('get_magic_quotes_gpc')) {
-			if(get_magic_quotes_gpc()) $value = stripslashes($value);
-		}
 		
 		switch($sanitizer) {
 			case 'intSigned':
