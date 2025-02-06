@@ -2065,8 +2065,10 @@ function InputfieldDependencies($target) {
 			var values = [];
 	
 			// For repeaters PR #255
-			if(field.indexOf('forpage.') === 0) {
-				field = field.replace('forpage.', '').replace(/\_repeater\d+/g, '');
+			if(field.indexOf('forpage_repeater') === 0) {
+				field = field.replace(/forpage_repeater\d+\./g, '');
+			} else if(field.indexOf('forpage.') === 0) {
+				field = field.replace('forpage.', '').replace(/_repeater\d+/g, '');
 			}
 
 			// detect OR selector in field
