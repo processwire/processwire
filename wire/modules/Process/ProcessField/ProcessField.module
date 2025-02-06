@@ -2153,19 +2153,12 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form->attr('id', 'advanced');
 		$form->attr('class', 'WireTab');
 		$form->attr('title', $this->_x('Advanced', 'tab'));
-	
-		$tags = array();
-		$textTools = $this->wire()->sanitizer->getTextTools();
-		foreach($this->wire()->fields->getTags() as $tagKey => $tagValue) {
-			$tagKey = $textTools->strtolower($tagKey);
-			$tags[$tagKey] = $tagValue;
-		}
-		ksort($tags);
+
 		/** @var InputfieldTextTags $field */
 		$field = $this->wire()->modules->getInstall('InputfieldTextTags');
 		$field->attr('name', 'tags');
 		$field->allowUserTags = true;
-		if(count($tags)) $field->setTagsList($tags);
+		$field->setTagsList($this->wire()->fields->getTags());
 		$field->attr('value', $this->field->getTags(true));
 		$field->icon = 'tags';
 		$field->label = $this->labels['tags'];
@@ -2574,7 +2567,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			}
 			
 			if($name === 'tags') {
-				$value = $sanitizer->getTextTools()->strtolower($sanitizer->words($value));
+				$value = $sanitizer->words($value);
 			}
 
 			$this->field->set($name, $value); 
