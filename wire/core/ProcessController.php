@@ -486,18 +486,22 @@ class ProcessController extends Wire {
 	/**
 	 * Generate a message in JSON format, for use with AJAX output
 	 * 
-	 * @param string $msg
-	 * @param bool $error
-	 * @param bool $allowMarkup
+	 * @param string|array $msg Message string or in 3.0.246+ also accepts an array of extra data
+	 *   When using an array, please include a 'message' index with text about the error or non-error.
+	 * @param bool $error Is this in error message? Default is true, or specify false if not. 
+	 * @param bool $allowMarkup Allow markup in message? Applies only to $msg string or 'message' index of array (default=false)
 	 * @return string JSON encoded string
 	 *
 	 */
 	public function jsonMessage($msg, $error = false, $allowMarkup = false) {
-		if(!$allowMarkup) $msg = $this->wire()->sanitizer->entities($msg);
-		return json_encode(array(
-			'error' => (bool) $error, 
-			'message' => (string) $msg
-		)); 
+		$a = array('error' => (bool) $error, 'message' => '');
+		if(is_array($msg)) {
+			$a = array_merge($a, $msg);
+		} else {
+			$a['message'] = (string) $msg;
+		}
+		if(!$allowMarkup) $a['message'] = $this->wire()->sanitizer->entities($a['message']);
+		return json_encode($a); 
 	}
 
 	/**

@@ -440,7 +440,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			
 		} // foreach input
 		
-		if(strpos($selectors['for'], 'limit=') && $limit === $this->resultLimit) {
+		if(isset($selectors['for']) && strpos($selectors['for'], 'limit=') && $limit === $this->resultLimit) {
 			if(preg_match('/\blimit=(\d+),?/', $selectors['for'], $matches)) {
 				$limit = (int) $matches[1];
 				$selectors['for'] = str_replace($matches[0], '', $selectors['for']);
