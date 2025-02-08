@@ -600,7 +600,7 @@ var InputfieldTinyMCE = {
 		var t = InputfieldTinyMCE;
 		var allow = ',' + ProcessWire.config.InputfieldTinyMCE.pasteFilter + ',';
 		var regexTag = /<([a-z0-9:!\[\]]+)([^>]*)>/gi;
-		var regexAttr = /([-_a-z0-9]+)=["']([^"']*)["']/gi;
+		var regexAttr = /([-_a-z0-9]+)(?:\s*=\s*(?:(["'])(.*?)\2|(\S+)))?/gi;
 		var html = args.content;
 		var matchTag, matchAttr;
 		var removals = [];
@@ -676,13 +676,13 @@ var InputfieldTinyMCE = {
 			var attrRemoves = [];
 			
 			while((matchAttr = regexAttr.exec(tagAttrs)) !== null) {
-				var attrStr = matchAttr[0]; // i.e. alt="hello"
+				var attrStr = matchAttr[0]; // i.e. alt="hello", alt = 'hello', height=20, hidden
 				var attrName = matchAttr[1]; // i.e. alt
-				var attrVal = matchAttr[2]; // i.e. hello
+				var attrVal = matchAttr[3] || matchAttr[4] || null; // i.e. hello, hello, 20, null
 				
 				if(allow.indexOf(',' + tagName + '[' + attrName + ']') > -1) {
 					// matches whitelist of tag with allowed attribute
-				} else if(allow.indexOf(',' + tagName + '[' + attrName + '=' + attrVal + ']') > -1) {
+				} else if(attrVal !== null && allow.indexOf(',' + tagName + '[' + attrName + '=' + attrVal + ']') > -1) {
 					// matches whitelist of tag with allowed attribute having allowed value
 				} else {
 					// attributes do not match whitelist
