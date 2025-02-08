@@ -108,6 +108,11 @@ function PageFrontEditInit($) {
 		var orig = t.children('.pw-edit-orig');
 		var copy = t.children('.pw-edit-copy');
 		var name = t.attr('data-name');
+		var links = t.find('a').removeAttr('href');
+
+		if(t.parent().is('a')) {
+			t.parent().removeAttr('href');
+		}
 
 		copy.hide();
 		orig.show();
