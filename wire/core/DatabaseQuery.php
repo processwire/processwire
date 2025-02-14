@@ -465,7 +465,7 @@ abstract class DatabaseQuery extends WireData {
 		if(is_array($value)) {
 			$curValue = array_merge($curValue, $value);
 		} else {
-			$curValue[] = trim($value, ", ");
+			$curValue[] = trim("$value", ", ");
 		}
 		
 		$this->set($method, $curValue); 
@@ -756,4 +756,3 @@ abstract class DatabaseQuery extends WireData {
 	}
 
 }
-
