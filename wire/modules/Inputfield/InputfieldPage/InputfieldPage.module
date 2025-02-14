@@ -61,7 +61,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		'InputfieldCheckboxes',
 		'InputfieldRadios', 
 		'InputfieldAsmSelect',
-		'InputfieldPageListSelect', 
+		'InputfieldPageListSelect',
+		'InputfieldPageListSelectMultiple',
 		'InputfieldPageAutocomplete',
 		'InputfieldTextTags',
 	);
