@@ -1275,6 +1275,15 @@ class WireHooks {
 			$regexDelim = $matchPath[0];
 		} else {
 			// needs to be in regex format
+			if(strpos($matchPath, '.') !== false) {
+				// preserve some regex sequences containing periods
+				$r = [ '.+' => '•+', '.*' => '•*', '\\.' => '\\•' ];
+				$matchPath = str_replace(array_keys($r), array_values($r), $matchPath);
+				// force any remaining periods to be taken literally
+				$matchPath = str_replace('.', '\\.', $matchPath);
+				// restore regex sequences containing periods
+				$matchPath = str_replace(array_values($r), array_keys($r), $matchPath);
+			}
 			if(strpos($matchPath, '/') === 0) $matchPath = "^$matchPath";
 			$matchPath = "#$matchPath$#";
 		}
