@@ -315,7 +315,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			}
 		}
 
-		$database = new WireDatabasePDO($data);
+		$database = new static($data);
 		$database->setDebugMode($config->debug);
 		$config->wire($database);
 		// $database->_init();
