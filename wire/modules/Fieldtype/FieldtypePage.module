@@ -164,6 +164,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	public function ___savePageField(Page $page, Field $field) {
+		if(!$page->isChanged($field->name)) return true;
+
 		$value = $page->get($field->name);
 		if($value instanceof PageArray) {
 			if($value->data('filters')) throw new WireException('Filtered value is not saveable'); 
