@@ -602,7 +602,9 @@ class InputfieldTextTags extends Inputfield implements
 			$cfgName = $opts['cfgName'];
 			$out .= "<$script>";
 			foreach($tags as $val => $label) {
-				 $out .= "ProcessWire.config." . $cfgName . "['$val'] = '$label';";
+				$val = json_encode($val);
+				$label = json_encode($label);
+				$out .= "ProcessWire.config." . $cfgName . "[$val] = $label;";
 			}
 			$out .= "</$script>";
 		}
