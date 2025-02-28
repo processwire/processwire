@@ -1692,7 +1692,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	protected function buildEditFormTypeSelect() {
 		
 		$modules = $this->wire()->modules;
-		$languages = $this->wire()->langauges;
+		$languages = $this->wire()->languages;
 		$fields = $this->wire()->fields;
 		$config = $this->wire()->config;
 		$isNew = !$this->field || !$this->field->id;
@@ -3263,7 +3263,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function search($text, array $options = array()) {
 
-		$languages = $this->wire()->langauges;
+		$languages = $this->wire()->languages;
 		$page = $this->getProcessPage();
 
 		$result = array(

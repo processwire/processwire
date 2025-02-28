@@ -461,7 +461,7 @@ class InputfieldTextTags extends Inputfield implements
 	 * 
 	 */
 	public function getTagLabel($tag, $language = null) {
-		if(!$language && $this->wire()->langauges) $language = $this->wire()->user->language;
+		if(!$language && $this->wire()->languages) $language = $this->wire()->user->language;
 		$tags = $this->getTagsList($language);
 		if(isset($tags[$tag])) return $tags[$tag];
 		if($this->allowUserTags()) return $tag;

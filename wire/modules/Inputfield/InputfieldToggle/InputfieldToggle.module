@@ -491,8 +491,7 @@ class InputfieldToggle extends Inputfield {
 		
 		if($labelType === null) $labelType = $this->labelType;
 
-		/** @var Languages $langauges */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		$setLanguage = false;
 		$languageId = '';
 		$yes = '';
