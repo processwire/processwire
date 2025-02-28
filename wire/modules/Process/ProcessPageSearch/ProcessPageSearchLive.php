@@ -262,6 +262,7 @@ class ProcessPageSearchLive extends Wire {
 		
 		$q = empty($presets['q']) ? $input->get('q') : $presets['q'];
 		if(empty($q)) $q = $input->get('admin_search'); // legacy name
+		$q = (string) $q;
 		if(strpos($q, '~@') !== false) $q = str_replace('~@', '', $q); // disallow placeholder prefix
 		if(empty($operator)) $q = str_replace(array_keys($opHolders), array_values($opHolders), $q);
 		$q = $sanitizer->text($q, array('reduceSpace' => true));
