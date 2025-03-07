@@ -363,7 +363,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		} else if($inputfield instanceof InputfieldSelect && !$inputfield instanceof InputfieldHasArrayValue) {
 			$inputClasses[] = $this->getClass('select');
 		} else if($inputfield instanceof InputfieldFile) {
-			$themeColor = 'secondary';
+			// $themeColor = 'secondary';
 		}
 		
 		if($field) {
