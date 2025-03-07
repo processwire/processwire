@@ -727,6 +727,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->nameField->attr('class', $this->className() . 'Name');
 		$this->nameField->addClass('InputfieldFocusFirst');
 		$this->nameField->collapsed = Inputfield::collapsedNever;
+		$this->nameField->attr('placeholder', $nameInputLabel);
+		$this->nameField->skipLabel = Inputfield::skipLabelHeader;
 
 		$this->passField = $modules->get('InputfieldText');
 		$this->passField->set('label', $this->labels('password')); // Login form: password field label
@@ -734,6 +736,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->passField->attr('type', 'password'); 
 		$this->passField->attr('class', $this->className() . 'Pass');
 		$this->passField->collapsed = Inputfield::collapsedNever;
+		$this->passField->attr('placeholder', $this->labels('password'));
+		$this->passField->skipLabel = Inputfield::skipLabelHeader;
 
 		$this->submitField = $modules->get('InputfieldSubmit');
 		$this->submitField->attr('name', 'login_submit'); 
