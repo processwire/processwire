@@ -1147,7 +1147,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			if(count($templates)) {
 				// user specified 1 or more templates
 				$numEditable = 0;
-				$testPage = $pages->newPage();
+				$testPage = $pages->newPage( [ 'template' => reset($templates) ] );
 				$testPage->id = 999; // required (any ID number works)
 				if($this->wire()->permissions->has('page-publish')) {
 					$testPage->addStatus(Page::statusUnpublished);
