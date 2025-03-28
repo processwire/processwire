@@ -12,16 +12,16 @@ ul.Inputfields #login_pass {
 	width: 100%; 	
 }
 
-ul.Inputfields .InputfieldHeaderHidden + .InputfieldContent {
-	padding: 10px;
-}
-
 ul.Inputfields .Inputfield_login_name .InputfieldContent {
 	padding: 0 10px 0 10px;
 }
 
-ul.Inputfilds .Inputfield_login_pass .InputfieldContent {
+ul.Inputfields .Inputfield_login_pass .InputfieldContent {
 	padding: 0 10px 10px 10px; 
+}
+
+ul.Inputfields .Inputfield_login_pass > .InputfieldHeaderHidden + .InputfieldContent {
+	padding-top: 10px;
 }
 
 ul.Inputfields .InputfieldSubmit {

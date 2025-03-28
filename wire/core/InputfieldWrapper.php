@@ -89,7 +89,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		'list' => "<ul {attrs}>{out}</ul>",
 		'item' => "<li {attrs}>{out}</li>", 
 		'item_label' => "<label class='InputfieldHeader ui-widget-header{class}' for='{for}'>{out}</label>",
-		'item_label_hidden' => "<label class='InputfieldHeader InputfieldHeaderHidden ui-widget-header{class}'><span>{out}</span></label>",
+		'item_label_hidden' => "<label class='InputfieldHeader InputfieldHeaderHidden ui-widget-header{class}' for='{for}'><span>{out}</span></label>",
 		'item_content' => "<div class='InputfieldContent ui-widget-content{class}'>{out}</div>", 
 		'item_error' => "<p class='InputfieldError ui-state-error'><i class='fa fa-fw fa-flash'></i><span>{out}</span></p>",
 		'item_description' => "<p class='description'>{out}</p>", 
@@ -894,7 +894,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				}
 				if($skipLabel === Inputfield::skipLabelHeader || $quietMode) {
 					// label only shows when field is collapsed
-					$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label_hidden']); 
+					$labelHidden = $markup['item_label_hidden'];
+					if(strpos($labelHidden, '{for}')) $labelHidden = str_replace('{for}', $inputfield->attr('id'), $labelHidden);
+					$label = str_replace('{out}', $icon . $label . $toggle, $labelHidden); 
 				} else {
 					// label always visible
 					$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label']);

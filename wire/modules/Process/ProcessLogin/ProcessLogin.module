@@ -19,6 +19,7 @@
  * @property array $tfaRememberFingerprints Means by which to fingerprint user’s browser
  * @property string $tfaAutoType Auto-enable type, aka module name (default='')
  * @property array $tfaAutoRoleIDs Auto-enable for these role IDs, or blank for all roles. Applies only if $tfaAutoType selected (default=[])
+ * @property int $skipLabel Optionally populate with an Inputfield::skipLabel* constant to be used on the login form inputs. 
  * 
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
@@ -170,6 +171,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->set('tfaAutoRoleIDs', array());
 		$this->set('allowEmail', false);
 		$this->set('emailField', 'email');
+		$this->set('skipLabel', Inputfield::skipLabelNo); // Alternate is: Inputfield::InputfieldHeaderHidden
 		$this->customMarkup['forgot-icon'] = wireIconMarkup('question-circle', 'fw');
 		$this->customMarkup['home-icon'] = wireIconMarkup('home', 'fw'); 
 		parent::__construct();
@@ -727,8 +729,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->nameField->attr('class', $this->className() . 'Name');
 		$this->nameField->addClass('InputfieldFocusFirst');
 		$this->nameField->collapsed = Inputfield::collapsedNever;
-		$this->nameField->attr('placeholder', $nameInputLabel);
-		$this->nameField->skipLabel = Inputfield::skipLabelHeader;
+		$this->nameField->skipLabel = $this->skipLabel;
+		if($this->skipLabel) $this->nameField->attr('placeholder', $nameInputLabel);
 
 		$this->passField = $modules->get('InputfieldText');
 		$this->passField->set('label', $this->labels('password')); // Login form: password field label
@@ -736,8 +738,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->passField->attr('type', 'password'); 
 		$this->passField->attr('class', $this->className() . 'Pass');
 		$this->passField->collapsed = Inputfield::collapsedNever;
-		$this->passField->attr('placeholder', $this->labels('password'));
-		$this->passField->skipLabel = Inputfield::skipLabelHeader;
+		$this->passField->skipLabel = $this->skipLabel;
+		if($this->skipLabel) $this->passField->attr('placeholder', $this->labels('password'));
 
 		$this->submitField = $modules->get('InputfieldSubmit');
 		$this->submitField->attr('name', 'login_submit'); 
