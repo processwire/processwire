@@ -769,7 +769,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			if(in_array($collapsed, $lockedStates)) $renderValueMode = true;
 
 			$ffOut = $this->renderInputfield($inputfield, $renderValueMode);
-			if(!strlen($ffOut)) continue;
+			if(!strlen("$ffOut")) continue;
 			$collapsed = (int) $inputfield->getSetting('collapsed');  // retrieve again after render
 			$entityEncodeText = $inputfield->getSetting('entityEncodeText') === false ? false : true;
 			
