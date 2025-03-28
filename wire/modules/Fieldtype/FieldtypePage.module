@@ -150,7 +150,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public function ___getFieldSetups() {
 		$setups = parent::___getFieldSetups();
 		/** @var InputfieldPage $f */
-		$f = $this->wire()->modules->getModule('InputfieldPage', array('noInit' => true)); 
+		$f = $this->wire()->modules->getModule('InputfieldPage');
 		return array_merge($setups, $f->getFieldSetups());
 	}
 
