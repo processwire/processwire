@@ -177,8 +177,8 @@ class PageComparison {
 				// action is just a string to return
 				$result = $action;
 			}
-			
-		} else if(is_callable($action)) {
+
+		} else if(is_callable($action) && (!is_object($action) || $action instanceof \Closure)) {
 			// action is callable
 			$result = call_user_func_array($action, array($val, $key, $page));
 			
