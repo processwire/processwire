@@ -190,6 +190,8 @@ $(document).ready(function() {
 			}
 			
 			postUrl += (postUrl.indexOf('?') > -1 ? '&' : '?') + 'InputfieldFileAjax=1';
+			var $f = $('#Inputfield_id');
+			if($f.length) postUrl += '&eid=' + $f.val();
 
 			// CSRF protection
 			var $postToken = $form.find('input._post_token'); 

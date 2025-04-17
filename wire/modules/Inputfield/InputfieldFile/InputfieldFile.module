@@ -1508,7 +1508,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$hasPage = $this->hasPage;
 			if($hasPage && wireInstanceOf($hasPage, 'RepeaterPage')) {
 				$process = $this->wire()->process;
-				if($process instanceof WirePageEditor && $process->getPage()->id === $hasPage->id) {
+				$eid = (int) $this->wire()->input->get('eid');
+				if(!$eid) $eid = $process->getPage()->id;
+				if($process instanceof WirePageEditor && $eid === $hasPage->id) {
 					// repeater page being edited directly or in front-end modal
 					// so no '_repeater' suffix is necessary here
 				} else if(strpos($this->name, '_repeater') === false) {
