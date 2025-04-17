@@ -15,6 +15,8 @@
  *
  * InputfieldWrapper is not designed to render an Inputfield specifically, but you can set a value attribute
  * containing content that will be rendered before the wrapper.
+ * 
+ * #pw-summary-properties Access any common Inputfield type class name from an InputfieldWrapper and it will return a new instance of that Inputfield, i.e. `$f = $inputfields->InputfieldText;` Below are several examples.
  *
  * @property bool $renderValueMode True when only rendering values, i.e. no inputs (default=false). #pw-internal
  * @property bool $quietMode True to suppress label, description and notes, often combined with renderValueMode (default=false). #pw-internal
@@ -27,47 +29,47 @@
  * @method Inputfield new($typeName, $name = '', $label = '', array $settings = []) #pw-group-manipulation
  * @method bool allowProcessInput(Inputfield $inputfield) Allow Inputfield to have input processed? (3.0.207+) #pw-internal
  * 
- * @property InputfieldAsmSelect $InputfieldAsmSelect
- * @property InputfieldButton $InputfieldButton
- * @property InputfieldCheckbox $InputfieldCheckbox
- * @property InputfieldCheckboxes $InputfieldCheckboxes
- * @property InputfieldCKEditor $InputfieldCkeditor
- * @property InputfieldCommentsAdmin $InputfieldCommentsAdmin
- * @property InputfieldDatetime $InputfieldDatetime
- * @property InputfieldEmail $InputfieldEmail
- * @property InputfieldFieldset $InputfieldFieldset
- * @property InputfieldFieldsetClose $InputfieldlFieldsetClose
- * @property InputfieldFieldsetOpen $InputfieldFieldsetOpen
- * @property InputfieldFieldsetTabOpen $InputfieldFieldsetTabOpen
- * @property InputfieldFile $InputfieldFile
- * @property InputfieldFloat $InputfieldFloat
- * @property InputfieldForm $InputfieldForm
- * @property InputfieldHidden $InputfieldHidden
- * @property InputfieldIcon $InputfieldIcon
- * @property InputfieldImage $InputfieldImage
- * @property InputfieldInteger $InputfieldInteger
- * @property InputfieldMarkup $InputfieldMarkup
- * @property InputfieldName $InputfieldName
- * @property InputfieldPage $InputfieldPage
- * @property InputfieldPageAutocomplete $InputfieldPageAutocomplete
- * @property InputfieldPageListSelect $InputfieldPageListSelect
- * @property InputfieldPageListSelectMultiple $InputfieldPageListSelectMultiple
- * @property InputfieldPageName $InputfieldPageName
- * @property InputfieldPageTable $InputfieldPageTable
- * @property InputfieldPageTitle $InputfieldPageTitle
- * @property InputfieldPassword $InputfieldPassword
- * @property InputfieldRadios $InputfieldRadios
- * @property InputfieldRepeater $InputfieldRepeater
- * @property InputfieldSelect $InputfieldSelect
- * @property InputfieldSelectMultiple $InputfieldSelectMultiple
- * @property InputfieldSelector $InputfieldSelector
- * @property InputfieldSubmit $InputfieldSubmit
- * @property InputfieldText $InputfieldText
- * @property InputfieldTextarea $InputfieldTextarea
- * @property InputfieldTextTags $InputfieldTextTags
- * @property InputfieldToggle $InputfieldToggle
- * @property InputfieldURL $InputfieldURL
- * @property InputfieldWrapper $InputfieldWrapper
+ * @property InputfieldAsmSelect $InputfieldAsmSelect Create new asmSelect Inputfield #pw-group-properties
+ * @property InputfieldButton $InputfieldButton Create new button Inputfield #pw-group-properties
+ * @property InputfieldCheckbox $InputfieldCheckbox Create new checkbox Inputfield #pw-group-properties
+ * @property InputfieldCheckboxes $InputfieldCheckboxes Create new checkboxes Inputfield #pw-group-properties
+ * @property InputfieldCKEditor $InputfieldCKEditor Create new CKEditor Inputfield #pw-group-properties
+ * @property InputfieldCommentsAdmin $InputfieldCommentsAdmin #pw-internal
+ * @property InputfieldDatetime $InputfieldDatetime Create new date/time Inputfield #pw-group-properties
+ * @property InputfieldEmail $InputfieldEmail Create new email Inputfield #pw-group-properties
+ * @property InputfieldFieldset $InputfieldFieldset Create new Fieldset InputfieldWrapper #pw-group-properties
+ * @property InputfieldFieldsetClose $InputfieldlFieldsetClose #pw-internal
+ * @property InputfieldFieldsetOpen $InputfieldFieldsetOpen #pw-internal
+ * @property InputfieldFieldsetTabOpen $InputfieldFieldsetTabOpen #pw-internal
+ * @property InputfieldFile $InputfieldFile Create new file Inputfield #pw-group-properties
+ * @property InputfieldFloat $InputfieldFloat Create new float Inputfield #pw-group-properties
+ * @property InputfieldForm $InputfieldForm Create new form InputfieldWrapper #pw-group-properties
+ * @property InputfieldHidden $InputfieldHidden Create new hidden Inputfield #pw-group-properties
+ * @property InputfieldIcon $InputfieldIcon Create new icon Inputfield #pw-group-properties
+ * @property InputfieldImage $InputfieldImage Create new image Inputfield #pw-group-properties
+ * @property InputfieldInteger $InputfieldInteger Create new integer Inputfield #pw-group-properties
+ * @property InputfieldMarkup $InputfieldMarkup Create new markup Inputfield #pw-group-properties
+ * @property InputfieldName $InputfieldName #pw-internal
+ * @property InputfieldPage $InputfieldPage Create new Page selection Inputfield #pw-group-properties
+ * @property InputfieldPageAutocomplete $InputfieldPageAutocomplete Create new Page selection autocomplete Inputfield #pw-group-properties
+ * @property InputfieldPageListSelect $InputfieldPageListSelect Create new PageListSelect Inputfield #pw-group-properties
+ * @property InputfieldPageListSelectMultiple $InputfieldPageListSelectMultiple Create new multiple PageListSelect Inputfield #pw-group-properties
+ * @property InputfieldPageName $InputfieldPageName #pw-internal
+ * @property InputfieldPageTable $InputfieldPageTable #pw-internal
+ * @property InputfieldPageTitle $InputfieldPageTitle #pw-internal
+ * @property InputfieldPassword $InputfieldPassword #pw-internal
+ * @property InputfieldRadios $InputfieldRadios Create new radio buttons Inputfield #pw-group-properties
+ * @property InputfieldRepeater $InputfieldRepeater #pw-internal
+ * @property InputfieldSelect $InputfieldSelect Create new <select> Inputfield #pw-group-properties
+ * @property InputfieldSelectMultiple $InputfieldSelectMultiple Create new <select multiple> Inputfield #pw-group-properties
+ * @property InputfieldSelector $InputfieldSelector #pw-internal
+ * @property InputfieldSubmit $InputfieldSubmit Create new submit button Inputfield #pw-group-properties
+ * @property InputfieldText $InputfieldText Create new single-line text Inputfield #pw-group-properties
+ * @property InputfieldTextarea $InputfieldTextarea Create new multi-line <textarea> Inputfield #pw-group-properties
+ * @property InputfieldTextTags $InputfieldTextTags Create new text tags Inputfield #pw-group-properties
+ * @property InputfieldToggle $InputfieldToggle Create new toggle Inputfield #pw-group-properties
+ * @property InputfieldURL $InputfieldURL Create new URL Inputfield #pw-group-properties
+ * @property InputfieldWrapper $InputfieldWrapper Create new generic InputfieldWrapper #pw-group-properties
  *
  */
 
