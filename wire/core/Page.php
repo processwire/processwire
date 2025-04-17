@@ -3579,7 +3579,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * The output formatting state determines if a page's output is allowed to be filtered by runtime formatters. 
 	 * Pages used for output should have output formatting on. Pages you intend to manipulate and save should 
-	 * have it off. 
+	 * have it off. See this post about [output formatting](https://processwire.com/blog/posts/output-formatting/).
 	 * 
 	 * ~~~~~
 	 * // Set output formatting state off, for page manipulation
@@ -3596,6 +3596,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param bool $outputFormatting Optional, default true
 	 * @return $this
 	 * @see Page::outputFormatting(), Page::of()
+	 * @link https://processwire.com/blog/posts/output-formatting/
 	 *
 	 */
 	public function setOutputFormatting($outputFormatting = true) {
@@ -3626,6 +3627,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - Pages used for front-end output should have output formatting turned ON. 
 	 * 
 	 * - Pages that you are manipulating and saving should have output formatting turned OFF. 
+	 * 
+	 * See this post about [output formatting](https://processwire.com/blog/posts/output-formatting/).
 	 *
 	 * ~~~~~ 
 	 * // Set output formatting state off, for page manipulation
@@ -3640,6 +3643,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param bool $outputFormatting If specified, sets output formatting state ON or OFF. If not specified, nothing is changed. 
 	 * @return bool Current output formatting state (before this function call, if it was changed)
+	 * @link https://processwire.com/blog/posts/output-formatting/
 	 *
 	 */
 	public function of($outputFormatting = null) {
