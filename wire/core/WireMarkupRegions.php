@@ -956,14 +956,38 @@ class WireMarkupRegions extends Wire {
 					$classes = explode(' ', $value);
 					$classes = array_merge($tagInfo['classes'], $classes);
 					$classes = array_unique($classes);
-					// identify remove classes
+					$forceAddClasses = [];
+					$removeMatchClasses = [];
+					// identify force add and remove classes
 					foreach($classes as $key => $class) {
-						if(strpos($class, '-') !== 0) continue;
-						$removeClass = ltrim($class, '-');
-						unset($classes[$key]);
-						while(false !== ($k = array_search($removeClass, $classes))) unset($classes[$k]);
+						if(strpos($class, '+') === 0){
+							$class = ltrim($class, '+');
+							$forceAddClasses[$class] = $class;
+							unset($classes[$key]);
+						} else if(strpos($class, '-') === 0) {
+							$removeClass = substr($class, 1);
+							if(strpos($removeClass, '*') !== false) $removeMatchClasses[] = $removeClass;
+							unset($classes[$key]);
+							while(false !== ($k = array_search($removeClass, $classes))) unset($classes[$k]);
+						}
 					}
-					$attrs['class'] = implode(' ', $classes);
+					if(count($classes) && count($removeMatchClasses)) {
+						foreach($removeMatchClasses as $removeClass) {
+							if(strpos($removeClass, '/') === 0) {
+								// already a regex
+								if(strrpos($removeClass, '/') === 0) $removeClass .= '/';
+							} else {
+								// convert wildcard to regex
+								$removeClass = '/^' . str_replace('\\*', '.+', preg_quote($removeClass, '/')) . '$/';
+							}
+							foreach($classes as $key => $class) {
+								if(preg_match($removeClass, $class)) {
+									unset($classes[$key]);
+								}
+							}
+						}
+					}
+					$attrs['class'] = implode(' ', array_merge($forceAddClasses, $classes));
 				} else {
 					// replace
 					$attrs[$name] = $value;
