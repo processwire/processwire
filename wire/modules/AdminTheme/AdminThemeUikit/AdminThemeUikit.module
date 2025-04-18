@@ -1052,8 +1052,13 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}
 		
 		if($logoQS) $logoURL .= '?' . $sanitizer->entities($logoQS);
-		
-		$img = "<img src='$logoURL' $attr/>";
+
+		if($native && false) { // @todo
+			$logoURL = $config->urls($this) . 'pw.svg';
+			$img = file_get_contents(__DIR__ . '/pw.svg');
+		} else {
+			$img = "<img src='$logoURL' $attr/>";
+		}
 		
 		return $options['getURL'] ? $logoURL : $img;
 	}
@@ -1147,6 +1152,12 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$data['logoAction'] = (int) $this->logoAction;
 		$data['toggleBehavior'] = (int) $this->toggleBehavior; 
 		$config->js('adminTheme', $data);
+		$config->js('AdminThemeUikit', [
+			'labels' => [
+				'ok' => $this->_('Ok'), // Dialog box text for "Ok" // If not translated it will pull from common translations
+				'cancel' => $this->_('Cancel'), // Dialog box text for "Cancel" // If not translated it will pull from common translations
+			],
+		]); 
 		
 		return parent::getHeadJS();
 	}
