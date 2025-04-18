@@ -8,36 +8,133 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  */
+
+/**
+ * Throw a new WireException functionally
+ * 
+ * This can be used to facilitiate re-throwing a non-WireException as a WireException, 
+ * notably \PDOException or other exception classes that might use string for `code` property.
+ * 
+ * ~~~~
+ * // throw random WireException
+ * WireException();
+ * 
+ * // throw with message
+ * WireException('Hello world'); 
+ * 
+ * // throw WirePermissionException
+ * WireException([ 'class' => 'WirePermissionException', 'message' => 'No access' ]); 
+ * 
+ * // re-throw previous exception as WireException (and inherit message and code)
+ * WireException([ 'previous' => $exception ]);
+ * ~~~~
+ * 
+ * @param array|string $options One of the following options, or string for just `message`: 
+ *  - `class` (string): Class name of WireException to throw (default='WireException').
+ *  - `message` (string): Exception message string (default='' or pulled from previous exception).
+ *  - `code` (int|string): Exception code integer or alphanumeric string (default=0 or pulled from previous exception).
+ *  - `previous` (\Throwable): Previous exception. When present, code and message will be pulled from it if not specified.
+ * @throws WireException
+ * @since 3.0.248
+ * 
+ * 
+ */
+function WireException($options = []) {
+	$defaults = [
+		'class' => 'WireException',
+		'message' => is_string($options) ? $options : '', 
+		'code' => 0, 
+		'previous' => null, 
+	];
+	$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+	if($options['previous'] instanceof \Throwable) {
+		if(empty($options['message'])) {
+			$options['message'] = $options['previous']->getMessage();
+		}
+		if(empty($options['code'])) {
+			$options['code'] = $options['previous']->getCode();
+		}
+	} else {
+		$options['previous'] = null;
+	}
+	$class = wireClassName($options['class'], true);
+	$e = new $class($options['message'], 0, $options['previous']);
+	if($e instanceof WireException && $options['code'] !== 0) {
+		$e->setCode($options['code']);
+	}
+	throw $e; 
+}
 
 /**
  * Generic ProcessWire exception
  *
  */
 class WireException extends \Exception {
+
+	/**
+	 * Exception code when a string
+	 * 
+	 * @var string 
+	 * @since 3.0.248
+	 * 
+	 */
+	protected $codeStr = '';
+	
 	/**
 	 * Replace previously set message
+	 * 
+	 * Public since 3.0.248
 	 * 
 	 * @param string $message
 	 * @since 3.0.150
 	 * 
 	 */
-	protected function setMessage($message) {
+	public function setMessage($message) {
 		$this->message = $message;
 	}
 
 	/**
 	 * Replace previously set code
 	 * 
-	 * @param int $code
+	 * Public since 3.0.248
+	 * 
+	 * @param int|string $code
 	 * @since 3.0.150
 	 * 
 	 */
-	protected function setCode($code) {
-		$this->code = $code;
+	public function setCode($code) {
+		if(is_string($code)) {
+			$this->setCodeStr($code);
+			if(ctype_digit($code)) $this->code = (int) $code;
+		} else {
+			$this->code = (int) $code;
+		}
+	}
+
+	/**
+	 * Set alphanumeric code string
+	 * 
+	 * @param string $codeStr
+	 * @since 3.0.248
+	 * 
+	 */
+	public function setCodeStr($codeStr) {
+		$this->codeStr = (string) $codeStr;
+	}
+
+	/**
+	 * Get alphanumeric/string code if set, blank string if not
+	 * 
+	 * @return string
+	 * @since 3.0.248
+	 * 
+	 */
+	public function getCodeStr() {
+		return $this->codeStr;
 	}
 }
 
@@ -126,6 +223,7 @@ class WireDatabaseException extends WireException {}
  * 
  * May have \PDOException populated with call to its getPrevious(); method, 
  * in which can it also has same getCode() and getMessage() as \PDOException.
+ * Use getCodeStr() for PDOException string code. 
  * 
  * @since 3.0.156
  * 
@@ -169,5 +267,3 @@ class PageFinderException extends WireException { }
  *
  */
 class PageFinderSyntaxException extends PageFinderException { }
-
-

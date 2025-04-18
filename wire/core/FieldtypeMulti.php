@@ -251,7 +251,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		} catch(\Exception $e) {
 			if($useTransaction) $database->rollBack();
 			if($config->allowExceptions) throw $e; // throw original
-			throw new WireDatabaseQueryException($e->getMessage(), $e->getCode(), $e);
+			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $e ]); 
 		}
 		
 		if(!count($values)) {
@@ -343,7 +343,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			/** @var \PDOException $exception */
 			if($useTransaction) $database->rollBack();
 			if($config->allowExceptions) throw $exception; // throw original
-			throw new WireDatabaseQueryException($exception->getMessage(), $exception->getCode(), $exception); 
+			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $exception ]);
 		} else {
 			if($useTransaction) $database->commit();
 		}
