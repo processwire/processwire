@@ -45,6 +45,38 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$layout = $adminTheme->layout;
 		$userTemplateURL = $this->wire('config')->urls->admin . 'setup/template/edit?id=3';
 
+		$adminTheme->getThemeInfo(); // init
+		$themeInfos = $adminTheme->themeInfos;
+		
+		if(count($themeInfos)) {
+			$configFiles = [];
+			$f = $inputfields->InputfieldRadios;
+			$f->attr('id+name', 'themeName');
+			$f->label = $this->_('Theme style');
+			$f->icon = 'photo';
+			// $default = '[span.detail] ' . __('(default)') . ' [/span]';
+			foreach($themeInfos as $name => $info) {
+				$f->addOption($name, ucfirst($name));
+				$configFile = $info['path'] . 'config.php';
+				if(is_file($configFile)) $configFiles[$name] = $configFile;
+			}
+			$f->addOption('', $this->_('Original'));
+			$value = $adminTheme->themeName;
+			$f->val($value);
+			$f->themeOffset = 1; 
+			$inputfields->add($f);
+			
+			foreach($configFiles as $name => $configFile) {
+				$fs = $inputfields->InputfieldFieldset;
+				$inputfields->add($fs);
+				$fs->themeOffset = 1;
+				$fs->attr('name', "_theme_$name"); 
+				$fs->label = $this->_('Theme style settings:') . ' ' .  $name;
+				$fs->showIf = "themeName=$name";
+				$this->wire()->files->render($configFile, [ 'inputfields' => $fs ]); 
+			}
+		}
+
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->label = $this->_('Masthead + navigation');

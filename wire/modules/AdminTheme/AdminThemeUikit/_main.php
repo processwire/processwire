@@ -21,6 +21,12 @@ if(!defined("PROCESSWIRE")) die();
 /** @var Paths $urls */
 /** @var string $layout */
 /** @var Process $process */
+	
+$themeInfo = $adminTheme->getThemeInfo();
+if(!empty($themeInfo)) {
+	$themePhpFile = "$themeInfo[path]$themeInfo[name].php";
+	if(file_exists($themePhpFile)) include($themePhpFile);
+}
 
 $adminTheme->renderExtraMarkup('x'); // forces it to cache
 if(!isset($content)) $content = '';
@@ -76,4 +82,3 @@ if(!isset($content)) $content = '';
 	
 </body>
 </html><?php
-

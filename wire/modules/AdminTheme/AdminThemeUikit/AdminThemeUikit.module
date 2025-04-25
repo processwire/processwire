@@ -22,6 +22,8 @@
  * @property int $toggleBehavior (0=Standard, 1=Consistent)
  * @property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
  * @property int $cssVersion Current version number of core CSS/LESS files
+ * @property string $themeName One of blank (original) or name of theme style
+ * @property array $themeInfos where theme style files are located
  * 
  * @method string renderBreadcrumbs()
  * @method string getUikitCSS()
@@ -104,6 +106,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('ukGrid', false); 
 		$this->set('configPhpHash', '');
 		$this->set('cssVersion', 0);
+		// $this->set('themeName', ''); // @todo
+		$this->set('themeInfos', array('z' => 'z')); // z=sleeping
 		$this->setClasses(array(
 			'input' => 'uk-input',
 			'input-small' => 'uk-input uk-form-small',
@@ -1006,10 +1010,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function getLogo(array $options = array()) {
 		
-		/** @var Config $config */
-		$config = $this->wire('config');
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$config = $this->wire()->config;
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$defaults = array(
 			'getURL' => false, 
@@ -1022,8 +1024,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$logoURL = $this->get('logoURL');
 		$logoQS = '';
 		$svg = false;
-		
-		if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
+		$svgName = 'logo.svg';
+		$themeName = $this->themeName;
+		$themeInfo = $themeName ? $this->getThemeInfo() : [];
+		$themeLogo = empty($themeInfo) ? '' : $themeInfo['path'] . $svgName;
+
+		if($themeLogo && (empty($logoURL) || $options['getNative']) && file_exists($themeLogo)) {
+			if($options['getURL']) return $themeInfo['url'] . $svgName;
+			return file_get_contents($themeLogo);
+
+		} else if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
 			$native = true;
 			$logoURL = $this->url() . self::logo;
 		} else {
@@ -1053,12 +1063,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		
 		if($logoQS) $logoURL .= '?' . $sanitizer->entities($logoQS);
 
-		if($native && false) { // @todo
-			$logoURL = $config->urls($this) . 'pw.svg';
-			$img = file_get_contents(__DIR__ . '/pw.svg');
-		} else {
-			$img = "<img src='$logoURL' $attr/>";
-		}
+		$img = "<img src='$logoURL' $attr/>";
 		
 		return $options['getURL'] ? $logoURL : $img;
 	}
@@ -1162,6 +1167,47 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		return parent::getHeadJS();
 	}
 
+	/**
+	 * Get info for theme style
+	 * 
+	 * @param string $themeName Optionally specify name of theme style, or omit to use current
+	 * @return array
+	 * @throws WireException
+	 * 
+	 */
+	public function getThemeInfo($themeName = '') {
+		
+		if(empty($themeName)) $themeName = $this->themeName;
+		
+		$themeInfos = $this->themeInfos;
+		
+		if(isset($themeInfos['z'])) {
+			// wakeup
+			$config = $this->wire()->config;
+			$thisPath = $config->paths($this);
+			$themesPath = $thisPath . 'themes/';
+			$rootLen = strlen($config->paths->root);
+			if(is_dir($themesPath)) {
+				foreach(new \DirectoryIterator($themesPath) as $file) {
+					if(!$file->isDir() || $file->isDot()) continue;
+					$basename = $file->getBasename();
+					if(strpos($basename, '.') === 0) continue;
+					$themePath = $thisPath . "themes/$basename/";
+					$themeUrl = $config->urls->root . substr($themePath, $rootLen);
+					$themeInfos[$basename] = [
+						'name' => $basename,
+						'path' => $themePath,
+						'url' => $themeUrl
+					];
+				}
+			}
+			unset($themeInfos['z']);
+			$this->themeInfos = $themeInfos;
+		}
+		
+		return $themeName && isset($themeInfos[$themeName]) ? $themeInfos[$themeName] : [];
+	}
+	
 	/**
 	 * Module configuration
 	 * 
