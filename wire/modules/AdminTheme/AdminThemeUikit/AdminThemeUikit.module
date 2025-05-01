@@ -35,7 +35,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 34,
+			'version' => 35,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
 		); 
@@ -106,7 +106,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('ukGrid', false); 
 		$this->set('configPhpHash', '');
 		$this->set('cssVersion', 0);
-		// $this->set('themeName', ''); // @todo
+		$this->set('themeName', '');  // @todo default
 		$this->set('themeInfos', array('z' => 'z')); // z=sleeping
 		$this->setClasses(array(
 			'input' => 'uk-input',
@@ -139,14 +139,21 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		// if this is not the current admin theme, exit now so no hooks are attached
 		if(!$this->isCurrent()) return;
 	
-		/** @var Page $page */
-		$page = $this->wire('page');
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
-		/** @var Modules $modules */
-		$session = $this->wire('session');
-		
-		$sidenav = strpos($this->layout, 'sidenav') === 0;
+		$page = $this->wire()->page;
+		$pages = $this->wire()->pages;
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+
+		$themeName = $this->themeName;
+
+		if($themeName) {
+			$sidenav = false;
+			$this->layout = '';
+		} else {
+			$sidenav = strpos($this->layout, 'sidenav') === 0;
+		}
 
 		// disable sidebar layout if SystemNotifications is active
 		if($sidenav && $modules->isInstalled('SystemNotifications')) {
@@ -158,7 +165,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			}
 		}
 		
-		if(!$page || $page->template != 'admin') {
+		if(!$page || $page->template->name !== 'admin') {
 			// front-end
 			if($sidenav) {
 				// ensure that page edit links on front-end load the sidenav-init 
@@ -184,6 +191,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}
 		
 		$session->removeFor('Page', 'appendEditUrl');
+		
 		/** @var JqueryUI $jqueryUI */
 		$jqueryUI = $modules->get('JqueryUI');
 		$jqueryUI->use('panel');
@@ -200,13 +208,22 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$this->addHookAfter('ProcessLogin::afterLoginURL', $this, 'hookAfterLoginURL');
 			if(strpos($this->layout, 'sidenav-tree') === 0) {
 				// page-edit breadcrumbs go to page editor when page tree is always in sidebar
-				$this->wire('config')->pageEdit('editCrumbs', true);
+				$config->pageEdit('editCrumbs', true);
 			}
 		}
 		
 		// add cache clearing hooks
-		$this->wire('pages')->addHookAfter('saved', $this, 'hookClearCaches');
+		$pages->addHookAfter('saved', $this, 'hookClearCaches');
 		$modules->addHookAfter('refresh', $this, 'hookClearCaches');
+		
+		if($themeName) {
+			$themeInfo = $this->getThemeInfo($themeName);
+			$user = $this->wire()->user;
+			if($themeInfo && $themeInfo['path']) {
+				$adminTheme = $this;
+				include($themeInfo['path'] . 'init.php');
+			}
+		}
 	}
 	
 	/**
@@ -551,19 +568,15 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function hookClearCaches(HookEvent $event) {
 
-		/** @var Page|User|null $page */
-		$page = $event->arguments(0); 
-		/** @var array $changes */
-		$changes = $event->arguments(1);
-		/** @var User $user */
-		$user = $this->wire('user'); 
+		$page = $event->arguments(0); /** @var Page|User|null $page */
+		$changes = $event->arguments(1); /** @var array $changes */
+		$user = $this->wire()->user; 
 		
 		if($page !== null && !($page instanceof Page)) return;
 		if(!is_array($changes)) $changes = array();
 		
-		if($page === null || $page->template == 'admin' || ($page->id === $user->id && in_array('language', $changes))) {
-			/** @var Session $session */
-			$session = $this->wire('session'); 
+		if($page === null || $page->template->name === 'admin' || ($page->id === $user->id && in_array('language', $changes))) {
+			$session = $this->wire()->session; 
 			$session->removeFor($this, 'prnav');
 			$session->removeFor($this, 'sidenav');
 			$session->message("Cleared the admin theme navigation cache (primary nav)", Notice::debug);
@@ -572,6 +585,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 
 	/**
 	 * Hook to ProcessLogin::afterLoginURL()
+	 * 
+	 * Used by sidenav layouts only
 	 * 
 	 * @param HookEvent $event
 	 * 
@@ -599,7 +614,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public function ___renderBreadcrumbs() {
 
 		if(!$this->isLoggedIn || $this->isModal) return '';
-		$process = $this->wire('page')->process;
+		$process = $this->wire()->page->process;
 		if($process == 'ProcessPageList') return '';
 		$breadcrumbs = $this->wire('breadcrumbs');
 		$out = '';
@@ -610,10 +625,12 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		if(strpos($this->layout, 'sidenav') === false) {
 			$out = "<li>" . $this->renderQuickTreeLink() . "</li>";
 		}
+		
+		$sanitizer = $this->wire()->sanitizer;
 
 		foreach($breadcrumbs as $breadcrumb) {
 			$title = $breadcrumb->get('titleMarkup');
-			if(!$title) $title = $this->wire('sanitizer')->entities1($this->_($breadcrumb->title));
+			if(!$title) $title = $sanitizer->entities1($this->_($breadcrumb->title));
 			$out .= "<li><a href='$breadcrumb->url'>$title</a></li>";
 		}
 
@@ -729,6 +746,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	protected function renderPrimaryNavItemChildren(array $items) {
+		$sanitizer = $this->wire()->sanitizer;
 		$out = '';
 
 		foreach($items as $item) {
@@ -743,7 +761,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 					"<ul>" . $this->renderPrimaryNavItemChildren($item['children']) . "</ul>";
 
 			} else if(!empty($item['navJSON'])) {
-				$item['navJSON'] = $this->wire('sanitizer')->entities($item['navJSON']); 
+				$item['navJSON'] = $sanitizer->entities($item['navJSON']); 
 				$out .=
 					"<a class='pw-has-items pw-has-ajax-items' " .
 						"data-from='prnav-page-$item[parent_id]' " .
@@ -768,7 +786,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function renderPrimaryNavItems() {
 
-		$cache = self::dev ? '' : $this->wire('session')->getFor($this, 'prnav');
+		$session = $this->wire()->session;
+		
+		$cache = self::dev ? '' : $session->getFor($this, 'prnav');
 		if($cache) {
 			$this->markCurrentNavItems($cache);
 			return $cache;
@@ -781,7 +801,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$out .= $this->renderPrimaryNavItem($item);
 		}
 
-		if(!self::dev) $this->wire('session')->setFor($this, 'prnav', $out);
+		if(!self::dev) $session->setFor($this, 'prnav', $out);
 		$this->markCurrentNavItems($out);
 
 		return $out;
@@ -797,13 +817,15 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	public function renderSidebarNavItems() {
+		
+		$session = $this->wire()->session;
 
 		// see if we can get it from the cache
-		$out = self::dev ? '' : $this->wire('session')->getFor($this, 'sidenav');
+		$out = self::dev ? '' : $session->getFor($this, 'sidenav');
 		
 		if(empty($out)) {
 			$out = $this->renderSidebarNavCache();
-			$this->wire('session')->setFor($this, 'sidenav', $out);
+			$session->setFor($this, 'sidenav', $out);
 		}
 		
 		$out = str_replace('<!--pw-user-nav-label-->', $this->renderUserNavLabel(), $out);
@@ -819,6 +841,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	protected function renderSidebarNavCache() {
+		
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$out = '';
 		$items = $this->getPrimaryNavArray();
@@ -844,7 +868,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 							$childNavList .
 						"</ul>";
 				} else if($child['navJSON']) {
-					$child['navJSON'] = $this->wire('sanitizer')->entities($child['navJSON']); 
+					$child['navJSON'] = $sanitizer->entities($child['navJSON']); 
 					$childClass .= ' uk-parent';
 					$childAttr = " class='pw-has-items pw-has-ajax-items' data-json='$child[navJSON]'";
 					$childNav = "<ul $ulAttrs></ul>";
@@ -889,7 +913,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	protected function markCurrentNavItems(&$out) {
-		$page = $this->wire('page');
+		$page = $this->wire()->page;
 		foreach($page->parents()->and($page) as $p) {
 			$out = str_replace("page-$p-", "page-$p- uk-active", $out);
 		}
@@ -902,8 +926,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	public function renderUserNavLabel() {
-		/** @var User $user */
-		$user = $this->wire('user');
+		$sanitizer = $this->wire()->sanitizer;
+		$fields = $this->wire()->fields;
+		$user = $this->wire()->user;
 		$userLabel = $this->get('userLabel');
 		$userAvatar = $this->get('userAvatar');
 		$defaultIcon = 'user-circle';
@@ -918,7 +943,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$userLabel = $user->getText($userLabel, true, true);
 			}
 		} else {
-			$userLabel = $this->wire('sanitizer')->entities($userLabel);
+			$userLabel = $sanitizer->entities($userLabel);
 		}
 		
 		if($userAvatar) {
@@ -934,9 +959,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$userAvatar = $this->renderNavIcon("$icon fa-lg"); 
 			} else if(strpos($userAvatar, ':')) {
 				list($fieldID, $fieldName) = explode(':', $userAvatar); 
-				$field = $this->wire('fields')->get($fieldName);
+				$field = $fields->get($fieldName);
 				if(!$field || !$field->type instanceof FieldtypeImage) {
-					$field = $this->wire('fields')->get((int) $fieldID); 
+					$field = $fields->get((int) $fieldID); 
 				}
 				if($field && $field->type instanceof FieldtypeImage) {
 					$value = $user->get($field->name); 
@@ -966,14 +991,22 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function renderUserNavItems() {
 
+		$sanitizer = $this->wire()->sanitizer;
 		$items = $this->getUserNavArray();
+		$allowAttrs = [ 'href', 'target', 'class', 'id' ];
 		$out = '';
 
 		foreach($items as $item) {
-			$label = $this->wire('sanitizer')->entities($item['title']);
+			if(isset($item['url'])) $item['href'] = $item['url'];
+			$label = $sanitizer->entities($item['title']);
 			$icon = isset($item['icon']) ? $this->renderNavIcon($item['icon']) : ' ';
-			$target = isset($item['target']) ? " target='$item[target]'" : '';
-			$out .= "<li><a$target href='$item[url]'>$icon$label</a></li>";
+			$attrs = '';
+			foreach($item as $name => $value) {
+				if(in_array($name, $allowAttrs) || strpos($name, 'data-') === 0 || strpos($name, 'on') === 0) {
+					$attrs .= " $name='" . $sanitizer->entities($value) . "'";
+				}
+			}
+			$out .= "<li><a$attrs>$icon<span>$label</span></a></li>";
 		}
 
 		return $out;
@@ -990,7 +1023,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function renderQuickTreeLink($icon = 'tree', $text = '') {
 		$tree = $this->_('Tree');
-		$url = $this->wire('urls')->admin . 'page/';
+		$url = $this->wire()->urls->admin . 'page/';
 		return
 			"<a class='pw-panel' href='$url' data-tab-text='$tree' data-tab-icon='$icon' title='$tree'>" .
 				$this->renderNavIcon($icon) . $text .

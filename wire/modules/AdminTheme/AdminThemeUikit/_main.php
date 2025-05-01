@@ -22,10 +22,9 @@ if(!defined("PROCESSWIRE")) die();
 /** @var string $layout */
 /** @var Process $process */
 	
-$themeInfo = $adminTheme->getThemeInfo();
-if(!empty($themeInfo)) {
-	$themePhpFile = "$themeInfo[path]$themeInfo[name].php";
-	if(file_exists($themePhpFile)) include($themePhpFile);
+if($adminTheme->themeName && $adminTheme->themeName != 'original') {
+	$themeInfo = $adminTheme->getThemeInfo();
+	if(!empty($themeInfo)) include("$themeInfo[path]ready.php");
 }
 
 $adminTheme->renderExtraMarkup('x'); // forces it to cache
