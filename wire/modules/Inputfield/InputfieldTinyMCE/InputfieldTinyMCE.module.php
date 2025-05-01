@@ -135,7 +135,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 	 * 
 	 * field: setting names populated by init(). 
 	 * module: setting names populated by __construct(). 
-	 * defult: setting names that had the value 'default' set prior to init(). 
+	 * default: setting names that had the value 'default' set prior to init(). 
 	 * tinymce: setting names are those native to TinyMCE.
 	 * optionals: settings that can be configured with module OR field. 
 	 * 

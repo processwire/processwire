@@ -7,6 +7,8 @@
  *
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property InputfieldTinyMCE $inputfield
  *
  */
 abstract class InputfieldTinyMCEClass extends Wire {
@@ -38,6 +40,7 @@ abstract class InputfieldTinyMCEClass extends Wire {
 	 */
 	public function __get($name) {
 		switch($name) {
+			case 'inputfield': return $this->inputfield;
 			case 'tools':
 			case 'settings':
 			case 'configs':
