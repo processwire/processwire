@@ -2246,7 +2246,6 @@ class PageFinder extends Wire {
 		}
 
 		$query->leftjoin("$table AS $tableAlias ON $tableAlias.pages_id=pages.id");
-		bd("leftjoin $table as $tableAlias on $tableAlias.pages_id=pages.id"); 
 		$where .= strlen($where) ?  " $whereType ($sql)" : "($sql)";
 		
 		return true; 
