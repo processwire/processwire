@@ -59,7 +59,8 @@
  * @property-read InputfieldTinyMCETools $tools
  * @property-read InputfieldTinyMCEFormats $formats
  * @property-read null|bool $renderValueMode
- * 
+ *
+ * @method void getModuleConfigInputfields(InputfieldWrapper $inputfields) 
  * 
  */
 class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule {
@@ -845,7 +846,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 	 * @param InputfieldWrapper $inputfields
 	 * 
 	 */
-	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+	public function ___getModuleConfigInputfields(InputfieldWrapper $inputfields) {
 		$this->configs->getModuleConfigInputfields($inputfields);
 	}
 
