@@ -721,12 +721,19 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		}
 		
 		if($parent->addable()) {
-			$data['list'][] = array(
+			$themeName = $this->wire()->adminTheme->get('themeName');
+			$add = [
 				'url' => $urls->admin . "page/add/?parent_id=$parentID",
 				'label' => __('Add New', '/wire/templates-admin/default.php'),
 				'icon' => 'plus-circle',
-				'className' => 'separator pw-nav-add',
-			);
+				'className' => 'pw-nav-add add',
+			];
+			if(empty($themeName) || $themeName === 'original') {
+				$add['className'] = 'separator pw-nav-add';
+				$data['list'][] = $add; 
+			} else {
+				$data['add'] = $add;
+			}
 		}
 		
 		if($config->ajax) header("Content-Type: application/json");

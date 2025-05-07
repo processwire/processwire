@@ -24,7 +24,18 @@
  * @property int $cssVersion Current version number of core CSS/LESS files
  * @property string $themeName One of blank (original) or name of theme style
  * @property array $themeInfos where theme style files are located
+ *
+ * Settings specific to default theme 
+ * ----------------------------------
+ * @property string $defaultMainColor Main color or 'custom' (default='red')
+ * @property string $defaultMainColorCustom Main custom color hex code when `defaultMainColor=custom` (default='#eb1d61')
+ * @property string $defaultStyleName Style name, one of 'dark', 'light' or 'auto' (default='auto')
+ * @property array $defaultToggles Toggles for specific behaviors (default=[])
+ * @property string $defaultCustomCss Custom CSS rules string  (default='')
+ * @property string $defaultCustomCssFile URL to custom CSS file, relative to installation root (default='')
  * 
+ * Hookable methods
+ * ----------------
  * @method string renderBreadcrumbs()
  * @method string getUikitCSS()
  * 
@@ -121,7 +132,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'table' => 'uk-table uk-table-divider uk-table-justify uk-table-small',
 			'dl' => 'uk-description-list uk-description-list-divider',
 		));
-		
+	
+		// settings specific to default theme/style
+		$this->setArray([
+			'defaultStyleName' => 'auto',
+			'defaultMainColor' => 'red', 
+			'defaultMainColorCustom' => '#eb1d61',
+			'defaultToggles' => [], 
+			'defaultCustomCss' => '', 
+			'defaultCustomCssFile' => '', 
+		]);
 	}
 	
 	public function wired() {
@@ -189,6 +209,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		if($this->className() !== 'AdminThemeUikit') {
 			$this->addBodyClass('AdminThemeUikit');
 		}
+		
+		$themeName = $this->themeName;
+		if(empty($themeName)) $themeName = 'Original';
+		$this->addBodyClass('AdminThemeUikit' . ucfirst($themeName)); 
 		
 		$session->removeFor('Page', 'appendEditUrl');
 		

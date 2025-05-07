@@ -323,9 +323,11 @@ var ProcessWireAdmin = {
 					}
 
 					if(data.add) {
+						var addUrl = data.add.url;
+						if(addUrl.indexOf('/') !== 0) addUrl = data.url + addUrl;
 						var $li = $(
 							"<li class='ui-menu-item add'>" +
-							"<a href='" + data.url + data.add.url + "'>" +
+							"<a href='" + addUrl + "'>" +
 							"<i class='fa fa-fw fa-" + data.add.icon + "'></i>" +
 							data.add.label + "</a>" +
 							"</li>"
