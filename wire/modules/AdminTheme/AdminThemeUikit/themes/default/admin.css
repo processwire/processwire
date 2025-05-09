@@ -3114,6 +3114,11 @@ ins {
 	color: black;
 }
 
+.pw small > .uk-button {
+	background: transparent;
+	color: inherit;
+}
+
 @media (min-width: 960px) {
 	h1, .uk-h1 {
 		font-size: 2.425rem;

@@ -62,8 +62,8 @@ $logoOptions = array('height' => '40px');
 	</header>
 	
 <?php
-if($adminTheme->themeName === 'default') echo '</div><!--#pw-mastheads-->';
+if($adminTheme->themeName === 'default') echo '</div><!--pw-mastheads-->';
 if(strpos($adminTheme->layout, 'sidenav') === false) {
 	echo $adminTheme->renderNotices($notices) . $adminTheme->renderExtraMarkup('masthead');
 }
-if($adminTheme->themeName != 'default') echo '</div><!--#pw-mastheads-->';
+if($adminTheme->themeName != 'default') echo '</div><!--pw-mastheads-->';
