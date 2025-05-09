@@ -1,0 +1,37 @@
+/* -------------------------------------------------------------------- */
+/* ---- MINIMAL LIGHT BLUE AND MINIMAL DARK VARIABLES ---------------- */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --text-color: light-dark(blue, white);
+  --main-color: var(--text-color);
+  --main-background:light-dark(white, #222);
+  --border-color: light-dark(var(--text-color), var(--text-color));
+  --text-background: var(--main-background);
+  --inputs-background: var(--text-background);
+  --blocks-background: var(--text-background);
+  --muted-color: light-dark(#7c8efd, #8b8b8b);
+
+  --button-background: var(--text-background);
+  --button-color: light-dark(var(--text-color), var(--text-color));
+  --button-muted-color: var(--muted-color);
+  --button-border: var(--button-color);
+  --button-muted-background: var(--button-background);
+  --button-muted-border: var(--button-muted-color);
+  --button-hover-background: var(--button-color);
+  --button-hover-color: var(--button-background);
+  --button-hover-border: var(--button-color);
+
+  --masthead-background: var(--text-background);
+  --masthead-active-color: light-dark(var(--text-color), var(--text-color));
+  --masthead-text-color: var(--masthead-active-color);
+  --masthead-border-color: var(--masthead-active-color);
+  --masthead-logo-color: var(--masthead-active-color);
+
+  --alert-text-color: var(--text-color);
+  --alert-primary: light-dark(#ffd, var(--text-background));
+  --alert-warning: light-dark(#fcda6d, #d57f00);
+  --alert-success: light-dark(#97ecb2, #139472);
+  --alert-danger: light-dark(#ec9797, #8a1919);
+  --notes-background: light-dark(#ffd, #bdbdbd33);
+}

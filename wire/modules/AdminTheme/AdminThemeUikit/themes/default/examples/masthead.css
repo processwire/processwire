@@ -1,0 +1,16 @@
+/* -------------------------------------------------------------------- */
+/* ---- THEME WITH COLOR MASTHEAD VARIABLES -------------------------- */
+/* ---- (these depend on the default theme variables) --------------- */
+/* ----------------------------------------------------------------- */
+
+:root {
+    --masthead-background: var(--main-color);
+    --masthead-active-color: white;
+    --masthead-text-color: rgba(255,255,255,0.8);
+    --masthead-border-color: var(--main-background);
+    --masthead-logo-color: white;
+    --masthead-input-background: var(--masthead-background);
+    --masthead-input-color: var(--masthead-active-color);
+    --masthead-input-border: var(--masthead-text-color);
+    --masthead-menu-item-backgroud-hover: rgba(255,255,255,.2);
+}
