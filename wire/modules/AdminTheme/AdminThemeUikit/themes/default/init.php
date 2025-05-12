@@ -95,7 +95,7 @@ if($useDarkModeSwitcher) {
 		$setDarkMode = (int) $setDarkMode;
 		if($setDarkMode === 0 || $setDarkMode === 1 || $setDarkMode === -1) {
 			$user->meta('adminDarkMode', (int) $setDarkMode);
-			header('content-type', 'application/json');
+			header('content-type: application/json');
 			return die(json_encode([
 				'status' => 'ok',
 				'adminDarkMode' => (int) $setDarkMode
