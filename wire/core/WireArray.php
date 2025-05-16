@@ -15,7 +15,6 @@
  * https://processwire.com
  * 
  * @method WireArray and($item)
- * @method static WireArray new($items = array()) 
  * @property int $count Number of items
  * @property Wire|null $first First item
  * @property Wire|null $last Last item
@@ -1653,9 +1652,11 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 						if(is_array($v)) $v = implode(' ', $this->wire()->sanitizer->flatArray($v));
 						$value[] = (string) $v;
 					}
-				} else {
+				} else if($item instanceof Wire) {
 					$value = $this->getItemPropertyValue($item, $selector->field);
 					$value = is_array($value) ? $this->wire()->sanitizer->flatArray($value) : (string) $value;
+				} else {
+					$value = $item; // integer, string, etc. (non-Wire object)
 				}
 				if($not === $selector->matches($value) && isset($this->data[$key])) {
 					$qtyMatch++;
