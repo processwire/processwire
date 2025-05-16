@@ -29,6 +29,7 @@
  * ----------------------------------
  * @property string $defaultMainColor Main color or 'custom' (default='red')
  * @property string $defaultMainColorCustom Main custom color hex code when `defaultMainColor=custom` (default='#eb1d61')
+ * @property string $defaultMainColorCustomDark Same as above but when used, applies only to dark mode. 
  * @property string $defaultStyleName Style name, one of 'dark', 'light' or 'auto' (default='auto')
  * @property array $defaultToggles Toggles for specific behaviors (default=[])
  * @property string $defaultCustomCss Custom CSS rules string  (default='')
@@ -138,6 +139,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'defaultStyleName' => 'auto',
 			'defaultMainColor' => 'red', 
 			'defaultMainColorCustom' => '#eb1d61',
+			'defaultMainColorCustomDark' => '',
 			'defaultToggles' => [], 
 			'defaultCustomCss' => '', 
 			'defaultCustomCssFile' => '', 
@@ -1110,6 +1112,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$attr = "class='$class' alt='$alt' ";
 
 		if($svg) {
+			if($logoURL && !$options['getURL'] && strpos($logoURL, '//') === false) {
+				$file = $config->paths->root . str_replace('/', DIRECTORY_SEPARATOR, ltrim($this->get('logoURL'), '/')); 
+				if(is_file($file)) {
+					$data = (string) file_get_contents($file);
+					if(stripos($data, '<svg') === 0 && stripos($data, 'fill="currentColor"')) {
+						// use inline SVG if its color can be manipulated from CSS
+						return $data;
+					}
+				}
+			}
 			if($options['height']) $attr .= "style='height:$options[height]' ";
 			if(strpos($logoQS, 'uk-svg') === 0) {
 				// if logo has "?uk-svg" query string, add uk-svg attribute which makes it styleable via CSS/LESS (PR#77)

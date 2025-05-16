@@ -156,6 +156,7 @@ var AdminDarkMode = {
 		this.body.addClass(this.getName(mode) + '-theme');
 		this.mode = mode;
 		this.updateLink();
+		$(document).trigger('admin-color-change'); 
 	},
 	
 	setLight: function() {

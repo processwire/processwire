@@ -8,7 +8,7 @@ if($adminTheme->themeName === 'default') {
 }
 
 $inputfields->label = __('Default theme settings');
-$inputfields->description = __('This default theme is created by Diogo Oliveira and Jan Ploch at [KONKAT STUDIO](https://konkat.studio/).');
+$inputfields->description = __('This default theme is created by Diogo Oliveira and Jan Ploch at [KONKAT Studio](https://konkat.studio/).');
 $inputfields->icon = 'sliders';
 
 $f = $inputfields->InputfieldRadios;
@@ -35,10 +35,9 @@ $span = "<span class='defaultMainColorLabel' style='color:#fff;padding:1px 5px 2
 $f->addOption('red', sprintf($span, '#eb1d61', __('Red')));
 $f->addOption('green', sprintf($span, '#14ae85', __('Green')));
 $f->addOption('blue', sprintf($span, '#2380e6', __('Blue')));
-$f->addOption('custom', __('Custom color picker…'));
+$f->addOption('custom', __('Custom color pickers…'));
 $f->optionColumns = 1; 
 $f->entityEncodeText = false;
-$f->columnWidth = 50;
 $value = $adminTheme->get('defaultMainColor');
 if(empty($value)) $value = 'red';
 $f->val($value);
@@ -46,15 +45,27 @@ $inputfields->add($f);
 
 $f = $inputfields->InputfieldText;
 $f->attr('id+name', 'defaultMainColorCustom'); 
-$f->label = __('Custom color'); 
+$f->label = __('Custom main color (light mode)'); 
 $f->attr('type', 'color');
 $f->showIf = 'defaultMainColor=custom';
-$f->skipLabel = Inputfield::skipLabelHeader;
-$f->appendMarkup .= " <span class='uk-margin-small-left uk-text-small'>&larr; " . __('Click to select a custom color') . "</span>";
 $f->attr('style', 'width: 45px; padding: 1px 4px');
 $value = (string) $adminTheme->get($f->attr('name')); 
 if(empty($value)) $value = '#eb1d61';
 if(ctype_alnum(ltrim($value, '#'))) $f->val($value);
+$customColorValue = $value;
+$f->columnWidth = 50;
+$inputfields->add($f);
+
+$f = $inputfields->InputfieldText;
+$f->attr('id+name', 'defaultMainColorCustomDark');
+$f->label = __('Custom main color (dark mode)');
+$f->attr('type', 'color');
+$f->showIf = 'defaultMainColor=custom';
+$f->attr('style', 'width: 45px; padding: 1px 4px');
+$value = (string) $adminTheme->get($f->attr('name'));
+if(empty($value)) $value = $customColorValue;
+if(ctype_alnum(ltrim($value, '#'))) $f->val($value);
+$f->columnWidth = 50;
 $inputfields->add($f);
 
 $f = $inputfields->InputfieldCheckboxes;

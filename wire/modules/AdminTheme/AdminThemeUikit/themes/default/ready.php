@@ -15,6 +15,7 @@ $mainColors = [
 	'green' => '#14ae85', 
 	'blue' => '#2380e6', 
 	'custom' => $adminTheme->get('defaultMainColorCustom'),
+	'customDark' => $adminTheme->get('defaultMainColorCustomDark'),
 ];
 
 $config->styles->append($themeInfo['url'] . 'admin.css');
@@ -47,8 +48,14 @@ $adminTheme->addBodyClass("main-color-$mainColor");
 
 $mainColorCode = isset($mainColors[$mainColor]) ? $mainColors[$mainColor] : $mainColors['red'];
 if(strpos($mainColorCode, '#') === 0 && ctype_alnum(ltrim($mainColorCode, '#'))) {
-	$adminTheme->addExtraMarkup('head', 
-		"<style id='main-color-custom' type='text/css'>:root { --main-color: $mainColorCode }</style>"
+	$mainDarkCode = $mainColors['customDark']; 
+	if($mainColor === 'custom' && strpos($mainDarkCode, '#') === 0 && ctype_alnum(ltrim($mainDarkCode, '#'))) {
+		$css = "--main-color: light-dark($mainColorCode, $mainDarkCode);";
+	} else {
+		$css = "--main-color: $mainColorCode";
+	}
+	$adminTheme->addExtraMarkup('head',
+		"<style id='main-color-custom' type='text/css'>:root { $css }</style>"
 	);
 }
 

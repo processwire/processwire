@@ -70,15 +70,24 @@ $(document).ready(function() {
 	
 	$('#wrap_defaultMainColor').on('input', 'input', function() {
 		var value = 'main-color-' + $(this).val();
-		var color = $(this).closest('label').find('.defaultMainColorLabel').css('background') || $('#defaultMainColorCustom').val();
+		var color;
+		if(value === 'main-color-custom') {
+			color = $('body').hasClass('dark-theme') ? $('#defaultMainColorCustomDark').val() : $('#defaultMainColorCustom').val();
+		} else {
+			color = $(this).closest('label').find('.defaultMainColorLabel').css('background'); 
+		}
 		$body.removeClass(colorClasses).addClass(value);
 		setMainColor(color);
 	});
 	
-	$('#defaultMainColorCustom').on('input', function() {
+	$('#defaultMainColorCustom, #defaultMainColorCustomDark').on('input', function() {
 		var value = $(this).val();
 		$body.removeClass(colorClasses).addClass('main-color-custom');
-		setMainColor(value);
+		if($(this).attr('id') === 'defaultMainColorCustomDark') {
+			if($('body').hasClass('dark-theme')) setMainColor(value); 
+		} else {
+			if($('body').hasClass('light-theme')) setMainColor(value);
+		}
 	});
 	
 	$('.ui-button').on('mouseover', function() {
@@ -87,5 +96,11 @@ $(document).ready(function() {
 	}).on('mouseout', function() {
 		var color = getCurrentStyleName() === 'dark' ? getMainColor() : 'black';
 		$(this).css('background-color', color);
+	}); 
+	
+	$(document).on('admin-color-change', function() {
+		if($('body').hasClass('main-color-custom')) {
+			$('#defaultMainColorCustom, #defaultMainColorCustomDark').trigger('input');
+		}
 	}); 
 });

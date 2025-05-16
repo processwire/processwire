@@ -89,6 +89,7 @@ table,
 	color: var(--alert-text-color);
 }
 
+.uk-alert, 
 .uk-alert-primary {
 	background: var(--alert-primary);
 	color: var(--text-color);
@@ -391,6 +392,13 @@ body {
 }
 
 .pw-logo-link svg {
+	/* for custom SVG logos */
+	min-width: 34px;
+	min-height: 34px;
+}
+
+.pw-logo-native {
+	/* for native PW logo */
 	width: 34px;
 	height: 34px;
 }
