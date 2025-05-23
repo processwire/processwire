@@ -30,7 +30,13 @@ $(document).ready(function() {
 	function getMainColor() {
 		var $wrap = $('#wrap_defaultMainColor');
 		var $f = $wrap.find('input:checked');
-		if($f.val() === 'custom') return $('#defaultMainColorCustom').val();
+		if($f.val() === 'custom') {
+			if($('body').hasClass('dark-theme')) {
+				return $('#defaultMainColorCustomDark').val();
+			} else {
+				return $('#defaultMainColorCustom').val();
+			}
+		}
 		return $f.closest('label').find('.defaultMainColorLabel').css('background-color');
 	}
 	
@@ -41,6 +47,9 @@ $(document).ready(function() {
 	 * 
 	 */
 	function setMainColor(value) {
+		if(typeof value === 'undefined') value = getMainColor();
+		console.log('setMainColor', value);
+		
 		$('#main-color-custom').remove();
 		$('.pw-logo-native').css('color', value);
 		
@@ -57,6 +66,12 @@ $(document).ready(function() {
 			"</style>");
 	}
 	
+	function updateToggles() {
+		var $use2Colors = $('#defaultToggles_use2Colors');
+		var hidden = !$('#defaultMainColor_custom').prop('checked');
+		$use2Colors.parent('label').prop('hidden', hidden);
+	}
+	
 	function setButtonColor(value) {
 		$('.ui-button').css('background-color', value);
 	}
@@ -64,20 +79,27 @@ $(document).ready(function() {
 	$('#wrap_defaultStyleName').on('input', 'input', function() {
 		var styleName = $(this).val();
 		$body.removeClass(styleClasses).addClass(styleName + '-theme');
-		$('#defaultMainColor').trigger('input');
-		setButtonColor(styleName === 'light' ? 'black' : getMainColor()); 
+		//$('#defaultMainColor input').eq(0).trigger('input');
+		var color = getMainColor();
+		setMainColor(color);
+		setButtonColor(styleName === 'light' ? 'black' : color); 
 	});
 	
 	$('#wrap_defaultMainColor').on('input', 'input', function() {
 		var value = 'main-color-' + $(this).val();
 		var color;
 		if(value === 'main-color-custom') {
-			color = $('body').hasClass('dark-theme') ? $('#defaultMainColorCustomDark').val() : $('#defaultMainColorCustom').val();
+			if($('#defaultToggles_use2Colors').prop('checked')) {
+				color = $('body').hasClass('dark-theme') ? $('#defaultMainColorCustomDark').val() : $('#defaultMainColorCustom').val();
+			} else {
+				color = $('#defaultMainColorCustom').val();
+			}
 		} else {
 			color = $(this).closest('label').find('.defaultMainColorLabel').css('background'); 
 		}
 		$body.removeClass(colorClasses).addClass(value);
 		setMainColor(color);
+		updateToggles();
 	});
 	
 	$('#defaultMainColorCustom, #defaultMainColorCustomDark').on('input', function() {
@@ -86,7 +108,11 @@ $(document).ready(function() {
 		if($(this).attr('id') === 'defaultMainColorCustomDark') {
 			if($('body').hasClass('dark-theme')) setMainColor(value); 
 		} else {
-			if($('body').hasClass('light-theme')) setMainColor(value);
+			if($('body').hasClass('light-theme')) {
+				setMainColor(value);
+			} else if(!$('#defaultToggles_use2Colors').prop('checked')) {
+				setMainColor(value);
+			}
 		}
 	});
 	
@@ -102,5 +128,15 @@ $(document).ready(function() {
 		if($('body').hasClass('main-color-custom')) {
 			$('#defaultMainColorCustom, #defaultMainColorCustomDark').trigger('input');
 		}
+	});
+	
+	$('#defaultToggles_use2Colors').on('change', function() {
+		if($(this).prop('checked')) {
+			$('#defaultMainColorCustomDark').trigger('input');
+		} else {
+			$('#defaultMainColorCustom').trigger('input');
+		}
 	}); 
+	
+	updateToggles();
 });

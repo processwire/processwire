@@ -49,7 +49,8 @@ $adminTheme->addBodyClass("main-color-$mainColor");
 $mainColorCode = isset($mainColors[$mainColor]) ? $mainColors[$mainColor] : $mainColors['red'];
 if(strpos($mainColorCode, '#') === 0 && ctype_alnum(ltrim($mainColorCode, '#'))) {
 	$mainDarkCode = $mainColors['customDark']; 
-	if($mainColor === 'custom' && strpos($mainDarkCode, '#') === 0 && ctype_alnum(ltrim($mainDarkCode, '#'))) {
+	$use2Colors = $mainColor === 'custom' && in_array('use2Colors', $adminTheme->defaultToggles);
+	if($use2Colors && strpos($mainDarkCode, '#') === 0 && ctype_alnum(ltrim($mainDarkCode, '#'))) {
 		$css = "--main-color: light-dark($mainColorCode, $mainDarkCode);";
 	} else {
 		$css = "--main-color: $mainColorCode";

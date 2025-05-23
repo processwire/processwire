@@ -28,6 +28,22 @@ if(empty($value)) $value = 'auto';
 $f->val($value);
 $inputfields->add($f);
 
+$f = $inputfields->InputfieldCheckboxes;
+$f->attr('id+name', 'defaultToggles');
+$f->label = __('Toggles');
+$f->addOption('noUserMenu',
+	__('Disable light/dark/auto setting in user tools menu?') . ' ' .
+	'[span.detail] ' . __('(this prevents users from making their own dark/light mode selection)') . ' [/span]'
+);
+$f->addOption('use2Colors',
+	__('Define separate main color pickers for light mode and dark mode') . ' ' .
+	'[span.detail] ' . __('(use for more contrast in light or dark mode)') . ' [/span]',
+	[ 'hidden' => 'hidden' ]
+);
+$value = $adminTheme->get($f->name);
+if(is_array($value)) $f->val($value);
+$inputfields->add($f);
+
 $f = $inputfields->InputfieldRadios;
 $f->attr('id+name', 'defaultMainColor'); 
 $f->label = __('Main color'); 
@@ -45,7 +61,7 @@ $inputfields->add($f);
 
 $f = $inputfields->InputfieldText;
 $f->attr('id+name', 'defaultMainColorCustom'); 
-$f->label = __('Custom main color (light mode)'); 
+$f->label = __('Custom main color'); 
 $f->attr('type', 'color');
 $f->showIf = 'defaultMainColor=custom';
 $f->attr('style', 'width: 45px; padding: 1px 4px');
@@ -60,23 +76,12 @@ $f = $inputfields->InputfieldText;
 $f->attr('id+name', 'defaultMainColorCustomDark');
 $f->label = __('Custom main color (dark mode)');
 $f->attr('type', 'color');
-$f->showIf = 'defaultMainColor=custom';
 $f->attr('style', 'width: 45px; padding: 1px 4px');
 $value = (string) $adminTheme->get($f->attr('name'));
 if(empty($value)) $value = $customColorValue;
 if(ctype_alnum(ltrim($value, '#'))) $f->val($value);
 $f->columnWidth = 50;
-$inputfields->add($f);
-
-$f = $inputfields->InputfieldCheckboxes;
-$f->attr('id+name', 'defaultToggles');
-$f->label = __('Toggles');
-$f->addOption('noUserMenu', 
-	__('Disable light/dark/auto setting in user tools menu?') . ' ' . 
-	'[span.detail] ' . __('(this prevents users from making their own dark/light mode selection)') . ' [/span]'
-);
-$value = $adminTheme->get($f->name);
-if(is_array($value)) $f->val($value);
+$f->showIf = 'defaultMainColor=custom, defaultToggles=use2Colors';
 $inputfields->add($f);
 
 $url = $adminTheme->url() . 'themes/default/examples/';
