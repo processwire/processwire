@@ -83,6 +83,10 @@
 
 	--code-color: light-dark(#0173b0, #e7e695);
 	--code-background: light-dark(#0173b020, #3c3c3c5e);
+
+	--button-radius: 99999px;
+	--input-radius: 0;
+
 }
 
 @media (prefers-color-scheme: dark) {

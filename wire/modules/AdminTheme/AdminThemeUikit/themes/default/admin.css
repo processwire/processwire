@@ -89,7 +89,7 @@ table,
 	color: var(--alert-text-color);
 }
 
-.uk-alert, 
+.uk-alert,
 .uk-alert-primary {
 	background: var(--alert-primary);
 	color: var(--text-color);
@@ -1387,7 +1387,7 @@ small.ui-button-text
 
 .pw .Inputfield .selectize-input {
 	border-color: var(--border-color);
-	border-radius: 0;
+	border-radius: var(--input-radius);
 	line-height: 21px;
 	background-color: var(--blocks-background);
 }
@@ -1467,6 +1467,7 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
   ):not(.uk-form-blank),
 .Inputfields textarea:not(.uk-form-blank) {
 	border-color: var(--border-color);
+	border-radius: var(--input-radius);
 }
 
 .InputfieldCheckboxes ul li {
@@ -1604,7 +1605,7 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
     [type="radio"]
   ):not(.uk-form-blank),
 .Inputfields textarea:not(.uk-form-blank) {
-	border-radius: 0;
+	border-radius: var(--input-radius);
 }
 
 #pw-masthead .pw-search-form .pw-search-input,
@@ -1777,7 +1778,7 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 	border: 1px solid;
 	border-color: var(--border-color);
 	background-color: var(--inputs-background);
-	border-radius: 0;
+	border-radius: var(--input-radius);
 	color: var(--text-color);
 }
 
@@ -2654,7 +2655,7 @@ body .pw-panel-container:has(> iframe) .pw-panel-button.ui-button i.fa {
 .pw .tox-dialog .tox-button,
 .pw .vex-dialog-button,
 .pw .vex.vex-theme-default .vex-dialog-button {
-	border-radius: 99999px;
+	border-radius: var(--button-radius);
 }
 
 .pw-button-dropdown-main,
