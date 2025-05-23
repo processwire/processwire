@@ -1,0 +1,3141 @@
+@import url(./admin-custom.css);
+
+html,
+.pw body {
+	font-weight: 400;
+	color: var(--text-color, black);
+}
+
+html,
+.pw body,
+h1, .uk-h1, h2, .uk-h2, h3, .uk-h3, h4, .uk-h4, h5, .uk-h5, h6, .uk-h6, .uk-heading-small, .uk-heading-medium, .uk-heading-large, .uk-heading-xlarge, .uk-heading-2xlarge, .uk-heading-3xlarge,
+.uk-navbar-nav>li>a, .uk-navbar-item, .uk-navbar-toggle {
+	font-family: "Inter", system-ui, sans-serif;
+}
+
+:focus-visible {
+	outline: none;
+}
+
+.pw-container {
+	box-sizing: border-box;
+}
+
+a {
+	text-underline-offset: 0.125em;
+}
+
+.pw .uk-inline,
+.pw #pw-content-head h1,
+.pw .InputfieldHeader,
+ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileName,
+.pw .AjaxUpload .InputfieldFileInfo .InputfieldFileName,
+.pw .uk-input,
+.uk-select,
+.pw .uk-textarea,
+.pw .Inputfield,
+.pw .uk-tab > .uk-active > a,
+.pw .WireTabs.uk-tab > li.uk-active.pw-tab-muted > a,
+.pw .uk-alert-primary,
+.pw .uk-alert,
+.pw .ui-widget-content,
+.pw-table-responsive,
+.pw .uk-description-list,
+.ModulesList table.AdminDataList td p.module-summary,
+.PageList .PageListItemOpen > a.PageListPage,
+.pw .PageList .PageListItemOpen.PageListItemHover > a.PageListPage,
+.pw .PageListItem a span,
+.pw .PageList .PageListItemOpen > a.PageListPage,
+.pw
+body:not(.pw-narrow-width)
+.PageList
+.PageListItem.PageListItemOpen.PageListHasChildren
+> a.PageListPage:before,
+.pw
+body:not(.pw-narrow-width)
+.PageList
+.PageListItem.PageListHasChildren:not(.PageListItemOpen)
+> a.PageListPage:before,
+.pw .PageList .PageListItem .PageListNumChildren,
+.pw .detail,
+table,
+#pw-footer,
+.uk-description-list-divider > dt:nth-child(n + 2),
+.pw .uk-table-divider > tr:not(:first-child),
+.pw .uk-table-divider > :not(:first-child) > tr,
+.pw .uk-table-divider > :first-child > tr:not(:first-child),
+.pw .uk-offcanvas-bar,
+#offcanvas-nav .pw-sidebar-nav li > a,
+.InputfieldHeader.InputfieldStateToggle i.toggle-icon,
+._ProcessPageEditViewDropdownToggle {
+	color: var(--text-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	#offcanvas-nav .pw-sidebar-nav li > a:hover,
+	.pw .PageList .PageListItemOpen > a.PageListPage:hover,
+	.pw .PageList .PageListItemOpen.PageListItemHover > a.PageListPage:hover {
+		color: var(--text-color);
+	}
+}
+
+.pw #pw-masthead .uk-navbar-nav > li.uk-active,
+.pw #pw-masthead .uk-navbar-nav > li.uk-active > a {
+	color: var(--masthead-active-color);
+}
+
+.uk-alert,
+.pw-notices .NoticeMessage a.notice-remove {
+	color: var(--alert-text-color);
+}
+
+.uk-alert,
+.uk-alert-primary {
+	background: var(--alert-primary);
+	color: var(--text-color);
+}
+
+.uk-alert-warning {
+	background: var(--alert-warning);
+	color: var(--text-color);
+}
+.uk-alert-success {
+	background: var(--alert-success);
+	color: var(--text-color);
+}
+.uk-alert-danger {
+	background: var(--alert-danger);
+	color: var(--text-color);
+}
+
+.uk-nav-default .uk-nav-divider {
+	border-color: var(--border-color);
+}
+
+.uk-modal,
+.ui-widget-overlay {
+	opacity: 1;
+	background-color: var(--modal-color);
+}
+
+.uk-modal.uk-open {
+	display: flex !important;
+	align-items: center;
+}
+
+.pw .ui-dialog .ui-dialog-content,
+.pw .ui-widget-content,
+.pw .uk-modal-dialog {
+	background: var(--main-background);
+}
+
+.pw .uk-modal-dialog,
+.pw .ui-dialog {
+	outline: 1px solid var(--border-color);
+	border-radius: 0;
+}
+
+.pw .uk-modal-footer {
+	border-top-color: var(--border-color);
+	background-color: transparent;
+}
+
+.pw .uk-modal-footer.uk-text-right .uk-button {
+	margin-right: 0.2em;
+}
+
+.pw .uk-modal-footer.uk-text-right .uk-button {
+	margin-right: 0;
+	margin-left: 0.2em;
+}
+
+.pw .tox .tox-dialog-wrap__backdrop {
+	background-color: var(--modal-color);
+}
+
+.pw .tox .tox-dialog,
+.uk-section-muted {
+	background-color: var(--blocks-background);
+	border-color: var(--border-color);
+	color: var(--text-color);
+	border-radius: 0;
+	border-style: solid;
+	border-width: 1px;
+}
+
+.pw .uk-button-text {
+	color: var(--main-color);
+}
+
+.pw .uk-button-text .ui-priority-secondary {
+	color: inherit;
+}
+
+.pw .ui-button,
+.pw .ui-button.ui-state-default,
+.pw .ui-button.ui-state-hover,
+.tox-dialog .tox-button,
+.pw .ui-button.ui-priority-secondary,
+.pw .tox-dialog .tox-button:not(.tox-button--secondary):not(.tox-button--icon),
+.pw .vex-dialog-button,
+.pw .vex-dialog-button-primary.vex-dialog-button.vex-first,
+.pw
+.AdminThemeUikit
+.vex.vex-theme-default
+.vex-dialog-button.vex-dialog-button-primary,
+.pw .uk-button,
+.pw .uk-button-primary {
+	background-color: var(--button-background);
+	color: var(--button-color);
+	border: none;
+	box-shadow: 0px 0px 0 1px var(--button-border);
+	text-transform: none;
+	font-size: 1em;
+}
+
+.pw .ui-button.ui-priority-secondary,
+.pw .ui-button.ui-state-default.ui-priority-secondary,
+.pw .tox-dialog .tox-button.tox-button--secondary,
+.pw .vex-dialog-button-secondary.vex-dialog-button,
+.pw .vex-dialog-button-secondary.vex-dialog-button.vex-last,
+.pw .vex.vex-theme-default .vex-dialog-button.vex-dialog-button-secondary,
+.pw .uk-button-secondary,
+.pw .uk-button-default {
+	background-color: var(--button-muted-background);
+	color: var(--button-muted-color);
+	border: none;
+	box-shadow: 0px 0px 0 1px var(--button-muted-border);
+}
+
+.pw .ui-button:focus-visible,
+.pw.pw .ui-button.ui-state-hover,
+.pw .vex-dialog-button:focus,
+.uk-button:hover {
+	background-color: var(--button-hover-background);
+	color: var(--button-hover-color);
+	border: none;
+	box-shadow: 0px 0px 0 1px var(--button-hover-border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw .ui-button:hover,
+	.pw .tox-dialog .tox-button:hover,
+	.pw .tox-dialog .tox-button.tox-button--secondary:hover,
+	.pw .tox .tox-button--secondary:hover:not(:disabled),
+	.pw
+	.tox-dialog
+	.tox-button:not(.tox-button--secondary):not(.tox-button--icon):hover,
+	.pw.pw .ui-button.ui-state-hover,
+	.pw .vex-dialog-button-secondary.vex-dialog-button:hover,
+	.pw .vex-dialog-button-secondary.vex-dialog-button.vex-last:hover,
+	.pw
+	.vex.vex-theme-default
+	.vex-dialog-button.vex-dialog-button-secondary:hover,
+	.pw
+	.AdminThemeUikit
+	.vex.vex-theme-default
+	.vex-dialog-button.vex-dialog-button-primary:hover {
+		background-color: var(--button-hover-background);
+		color: var(--button-hover-color);
+		border: none;
+		box-shadow: 0px 0px 0 1px var(--button-hover-border);
+	}
+}
+
+.pw .PageListPage.label > i.icon,
+.pw .PageList .PageListItem > a.PageListPage.label > i.icon,
+.pw .PageList .PageListItem > a.PageListPage.label > i:not(.icon) {
+	color: inherit;
+}
+
+.pw .detail,
+.pw .notes,
+.pw .pw-detail,
+.pw .pw-notes,
+.pw .description,
+.pw .pw-description {
+	color: var(--muted-color) !important;
+}
+
+.ui-state-error-text,
+.ui-widget-content .ui-state-error-text,
+.ui-widget-header .ui-state-error-text {
+	color: var(--error-inline-text-color);
+}
+
+.pw .langTabEmpty.uk-active,
+.pw .langTabs .uk-tab > li.uk-active > a {
+	color: var(--text-color);
+}
+
+a,
+.uk-link {
+	color: var(--main-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	a:hover,
+	.uk-link:hover,
+	.uk-link-toggle:hover .uk-link {
+		color: var(--main-color);
+	}
+}
+
+.pw .InputfieldToggleGroup label.InputfieldToggleCurrent,
+.pw .InputfieldToggleGroup input:checked + label {
+	color: var(--button-color);
+}
+
+.ui-button,
+.InputfieldToggleCurrent,
+.tox-dialog .tox-button,
+.pw .vex-dialog-button {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.pw .InputfieldToggleGroup label,
+.pw .InputfieldToggleGroup input:not(:checked) + label:not(.InputfieldToggleCurrent):hover {
+	background-color: var(--main-background);
+	border-color: var(--border-color);
+	color: var(--text-color);
+}
+
+.pw .InputfieldToggleGroup label.InputfieldToggleCurrent,
+.pw .InputfieldToggleGroup input:checked + label,
+.pw .InputfieldToggleGroup label:not(.InputfieldToggleCurrent):hover {
+	background-color: var(--button-hover-background);
+	border-color: var(--button-hover-background);
+	color: var(--button-hover-color);
+}
+
+.pw .InputfieldToggleGroup label:last-of-type,
+.pw .InputfieldToggleGroup label:first-of-type {
+	border-radius: 0;
+	padding: 9px 12px;
+	min-width: 4em;
+	min-width: 3.5em;
+}
+
+.pw .InputfieldToggleGroup label:last-of-type {
+	border-left: none;
+}
+
+.pw .InputfieldToggleGroup label:first-of-type {
+	border-right: none;
+}
+
+.pw #main .notes,
+.pw .PageList .PageListItem.PageListSortItem {
+	background-color: var(--notes-background);
+}
+
+strong {
+	font-weight: 600;
+}
+
+h2,
+.uk-h2 {
+	color: var(--text-color);
+	font-size: 1.8em;
+}
+
+html,
+body {
+	background-color: var(--main-background);
+	min-height: 100vh;
+}
+
+html:has(body.modal-inline),
+body.modal-inline {
+	background-color: transparent;
+	min-height: 0;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+}
+
+#main {
+	width: 100%;
+	box-sizing: border-box;
+	flex-grow: 1;
+}
+
+.pw-user-nav .fa-lg {
+	top: 0;
+}
+
+.pw .uk-navbar-nav > li > a {
+	text-transform: none;
+	font-size: 1em;
+}
+
+.pw-logo-link {
+	display: block;
+	color: var(--masthead-logo-color);
+	position: relative;
+	z-index: 1;
+	max-width: 90px;
+	margin: auto;
+}
+
+.pw-logo-link:focus-visible {
+	color: var(--masthead-logo-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw-logo-link:hover {
+		color: var(--masthead-logo-color);
+	}
+}
+
+.pw-logo-link svg {
+	/* for custom SVG logos */
+	min-width: 34px;
+	min-height: 34px;
+}
+
+.pw-logo-native {
+	/* for native PW logo */
+	width: 34px;
+	height: 34px;
+}
+
+.ProcessLogin .pw-logo-link {
+	aspect-ratio: 4/3;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+a:focus-visible,
+label > :focus-visible,
+.ui-dialog .ui-dialog-titlebar .ui-button:focus-visible {
+	outline: 1px dotted var(--main-color);
+	outline-offset: 3px;
+}
+
+#pw-mastheads a:focus-visible,
+#pw-mastheads label > :focus-visible {
+	outline-color: var(--masthead-logo-color);
+}
+
+.uk-margin-right {
+	margin-right: 0 !important;
+}
+
+#pw-footer p:empty {
+	display: none;
+}
+
+.pw-table-responsive,
+.uk-description-list {
+	color: var(--text-color);
+	outline: 1px solid var(--border-color);
+	background-color: var(--blocks-background);
+}
+
+.pw-table-responsive,
+.uk-description-list {
+	padding: 20px 20px 35px 20px;
+}
+
+.pw .ui-menu {
+	background-color: var(--blocks-background);
+	color: var(--text-color);
+	border: 1px solid var(--border-color);
+	border-color: var(--border-color);
+}
+@media (hover: hover) and (pointer: fine) {
+	.pw .ui-menu .ui-menu-item a:hover {
+		background: transparent;
+	}
+}
+
+.pw
+.ui-menu
+.ui-menu-item
+a:is(:focus, :focus-visible, .ui-state-active, .ui-state-focus) {
+	background: var(--menu-item-backgroud-hover);
+}
+
+.ui-menu:focus-within .ui-menu-item .ui-widget-content:not(:focus-within),
+.ui-menu:focus-within .ui-menu-item .ui-widget-content:not(:focus-within) a {
+	background: none;
+}
+
+.ui-menu .ui-menu-item.separator:not(.highlight) {
+	border-top: 1px solid var(--border-color) !important;
+}
+
+.ui-menu .ui-menu-item a.ui-state-focus,
+.ui-menu .ui-menu-item a.ui-state-active {
+	background-color: transparent;
+}
+
+.pw .ui-menu .ui-menu-item a,
+.pw .ui-menu .ui-menu-item a i.fa,
+.pw .ui-menu .ui-menu-item i.fa,
+.pw .ui-menu.pw-button-dropdown .ui-menu-item a,
+.pw .ui-menu.pw-button-dropdown .ui-menu-item a i.fa,
+.pw .ui-menu.pw-button-dropdown .ui-menu-item i.fa {
+	color: inherit;
+}
+
+#pw-masthead:before {
+	content: "";
+	background-color: inherit;
+	position: fixed;
+	display: block;
+	width: 100%;
+	height: 54px;
+	pointer-events: none;
+	top: 0;
+}
+
+#offcanvas-nav #offcanvas-nav-header {
+	display: block;
+	margin: 0;
+	top: 0;
+	right: 14px;
+	position: absolute;
+}
+
+#offcanvas-nav .pw-logo {
+	display: none;
+}
+
+#offcanvas-nav-close i {
+	color: var(--masthead-active-color);
+}
+
+#offcanvas-nav .uk-offcanvas-bar {
+	background: var(--masthead-background);
+	padding: 0;
+	box-shadow: 0 4px 7px rgba(0, 0, 0, 0.175);
+	border-right: 1px solid var(--masthead-border-color);
+}
+
+#offcanvas-nav .pw-sidebar-nav li > a {
+	padding-left: 20px;
+	padding-right: 20px;
+}
+
+#offcanvas-nav .pw-search-form {
+	padding: 20px 20px 5px 20px;
+}
+
+.pw #offcanvas-nav .pw-search-form {
+	padding-top: 42px;
+}
+
+.pw #offcanvas-nav .pw-search-form .pw-search-input,
+.pw #offcanvas-nav .pw-search-form .pw-search-input:focus {
+	height: 35px;
+}
+
+.pw-sidebar-nav > li > ul > li {
+	border-top: 1px solid;
+	padding: 4px 0;
+}
+
+.pw-sidebar-nav > li:first-child {
+	border-top: none;
+}
+
+.pw-sidebar-nav > li {
+	border-top: 1px solid;
+	padding: 5px 0;
+}
+
+.pw #pw-mastheads,
+.pw #offcanvas-nav .uk-offcanvas-bar,
+.pw .ui-menu[style*="top: 56px"],
+.pw .ui-menu#ui-id-1,
+.pw .ui-menu-item > .ui-menu {
+	background-color: var(--masthead-background);
+	color: var(--masthead-active-color);
+	border-color: var(--masthead-border-color);
+}
+
+.pw .ui-menu#ui-id-1 {
+	translate: 0 -1px;
+}
+
+.pw
+:is(
+    #pw-masthead,
+    #pw-masthead-mobile,
+    #offcanvas-nav .uk-offcanvas-bar,
+    .ui-menu[style*="top: 56px"],
+    .ui-menu#ui-id-1,
+    .ui-menu-item > .ui-menu
+  )
+.pw
+.ui-menu-item
+a:is(:focus, :focus-visible, .ui-state-active, .ui-state-focus) {
+	background: var(--masthead-menu-item-backgroud-hover);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw
+	:is(
+      #pw-masthead,
+      #pw-masthead-mobile,
+      #offcanvas-nav .uk-offcanvas-bar,
+      .ui-menu[style*="top: 56px"],
+      .ui-menu#ui-id-1,
+      .ui-menu-item > .ui-menu
+    )
+	.pw
+	.ui-menu-item
+	a:hover {
+		background: var(--masthead-menu-item-backgroud-hover);
+	}
+}
+
+.pw
+:is(
+    #pw-masthead,
+    #pw-masthead-mobile,
+    #offcanvas-nav .uk-offcanvas-bar,
+    .ui-menu[style*="top: 56px"],
+    .ui-menu#ui-id-1,
+    .ui-menu-item > .ui-menu
+  )
+.ui-menu-item.separator:not(.highlight):not(:first-child) {
+	border-top: 1px solid var(--masthead-border-color) !important;
+}
+
+.ui-menu .ui-menu-item a small {
+	color: var(--muted-color) !important;
+}
+
+:is(
+    .pw #pw-masthead,
+    .pw #pw-masthead-mobile,
+    .pw #offcanvas-nav .uk-offcanvas-bar,
+    .pw .ui-menu[style*="top: 56px"],
+    .pw .ui-menu#ui-id-1,
+    .pw .ui-menu-item > .ui-menu
+  )
+.ui-menu-item
+a
+small {
+	color: var(--masthead-text-color) !important;
+}
+
+#offcanvas-toggle > i {
+	color: var(--masthead-active-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	#offcanvas-toggle:hover > i {
+		color: var(--masthead-active-color);
+	}
+}
+
+.pw .Inputfield,
+.InputfieldContent,
+.InputfieldHeader,
+.pw-table-responsive,
+.uk-description-list,
+.InputfieldStateCollapsed > .InputfieldHeader,
+.InputfieldFieldset > .InputfieldHeader,
+.InputfieldFieldset > .InputfieldContent,
+.InputfieldFieldset.InputfieldStateCollapsed > .InputfieldHeader,
+.pw .InputfieldImageEdit__inner,
+.pw .gridImage,
+.InputfieldFieldset>.InputfieldContent>.Inputfields .Inputfield {
+	background: var(--blocks-background);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.PageList .PageListItem:not(.PageListSortItem):hover {
+		background: var(--blocks-background);
+	}
+}
+
+.pw .gridImage__btn {
+	background: var(--blocks-background);
+	color: var(--text-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw .gridImage:hover .gridImage__btn:hover {
+		background: var(--blocks-background);
+		color: var(--text-color);
+	}
+}
+
+.AdminDataTable tr {
+	background: var(--blocks-background);
+}
+
+.AdminDataTable tr.ui-sortable-helper {
+	border-bottom: 1px solid var(--border-color);
+}
+
+.AdminDataTable td:has(>a) {
+	color: var(--main-color);
+}
+
+.InputfieldPageTable .PageListStatusHidden td {
+	opacity: 0.67;
+}
+
+.pw .gridImage__edit {
+	text-shadow: none;
+}
+
+.pw .gridImage.gridImageEditing .gridImage__inner {
+	background: none;
+}
+
+.pw
+.InputfieldImage:not(.InputfieldStateCollapsed)
+> .InputfieldContent
+.gridImage {
+	border: 1px solid var(--border-color);
+}
+
+.pw
+.InputfieldImage:not(.InputfieldStateCollapsed)
+> .InputfieldContent
+.gridImage__overflow {
+	transition: opacity 0.25s ease;
+}
+
+.pw
+.InputfieldImage:not(.InputfieldStateCollapsed)
+> .InputfieldContent
+.gridImage.gridImage--delete
+.gridImage__btn.gridImage__trash {
+	background: var(--blocks-background);
+	color: var(--alert-danger);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw .gridImage:hover .gridImage__inner {
+		background-color: rgba(0, 0, 0, 0.5) !important;
+	}
+
+	.InputfieldImageEditAll .gridImage:hover .gridImage__inner {
+		background-color: var(--blocks-background) !important;
+	}
+}
+
+.pw .gridImage.gridImage--delete .gridImage__inner {
+	background-color: color-mix(
+			in srgb,
+			var(--alert-danger),
+			transparent 50%
+	) !important;
+}
+
+.pw .InputfieldImageEdit__info {
+	color: var(--muted-color);
+	font-size: 0.875rem;
+}
+
+.pw .InputfieldImageEdit__inner,
+.pw .gridImage__tooltip {
+	border: none;
+	filter: drop-shadow(1px 0px 0px var(--border-color))
+	drop-shadow(-1px 0px 0px var(--border-color))
+	drop-shadow(0px 1px 0px var(--border-color))
+	drop-shadow(0px -1px 0px var(--border-color));
+	background: var(--blocks-background);
+}
+
+.pw .gridImage {
+	border: 1px solid var(--border-color);
+}
+
+.pw .InputfieldImageEdit__imagewrapper {
+	border-right: 1px solid var(--border-color);
+}
+
+.pw .InputfieldImageEdit__arrow {
+	border-bottom-color: var(--blocks-background);
+}
+
+.pw .Inputfield > .InputfieldHeader {
+	margin-bottom: 0;
+	overflow: auto;
+}
+
+.gridImage__tooltip {
+	background: var(--blocks-background);
+	color: var(--text-color);
+}
+
+.pw .gridImage__tooltip table th,
+.pw .gridImage__tooltip table td {
+	background-color: var(--blocks-background) !important;
+	color: var(--text-color);
+}
+
+.pw .gridImage__tooltip:after {
+	border-color: transparent;
+	border-top-color: var(--blocks-background);
+}
+
+.ui-dialog .ui-dialog-titlebar,
+.ui-dialog .ui-dialog-buttonpane {
+	background: var(--main-background);
+}
+
+.ui-dialog .ui-dialog-titlebar .ui-button {
+	background: none;
+}
+
+.InputfieldContent .pw-table-responsive {
+	outline: none;
+	background-color: transparent;
+	padding: 0;
+}
+
+#pw-masthead,
+#pw-masthead-mobile,
+.ui-dialog .ui-dialog-titlebar,
+.pw .pw-masthead-mobile {
+	border-bottom: 1px solid var(--masthead-border-color);
+}
+
+.pw .pw-sidebar-nav > li,
+.pw .pw-sidebar-nav > li > ul > li,
+.pw .pw-sidebar-nav > li > ul > li .pw-nav-add:first-child,
+.pw .pw-sidebar-nav > li > ul > li .pw-nav-dup:first-child,
+.pw .pw-sidebar-nav > li > ul > li .pw-nav-add {
+	border-color: var(--masthead-border-color);
+	border-top-color: var(--masthead-border-color);
+	border-bottom-color: var(--masthead-border-color);
+}
+
+.pw #offcanvas-nav .pw-sidebar-nav li.uk-open,
+.pw .pw-sidebar-nav > li > ul > li {
+	background-color: var(--masthead-background);
+}
+
+.pw #offcanvas-nav .pw-sidebar-nav li > a {
+	color: var(--masthead-text-color);
+}
+
+.pw #offcanvas-nav .pw-sidebar-nav li.uk-open > a {
+	color: var(--masthead-active-color);
+}
+
+.pw-sidebar-nav li > a {
+	position: relative;
+}
+
+.pw-sidebar-nav li:has(> a:focus-visible),
+.pw-sidebar-nav li > ul > li:has(a:focus-visible) {
+	background-color: var(--masthead-menu-item-backgroud-hover);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw-sidebar-nav li:has(> a:hover),
+	.pw-sidebar-nav li > ul > li:has(> a:hover) {
+		background-color: var(--masthead-menu-item-backgroud-hover);
+	}
+}
+
+.pw-sidebar-nav li > a:after {
+	content: "\f061";
+	font: normal normal normal 0.8em / 1 FontAwesome;
+	position: absolute;
+	color: var(--masthead-text-color);
+	border-top-color: transparent;
+	border-left-color: transparent;
+	right: 17px;
+	top: 50%;
+	translate: 0 -40%;
+}
+
+.pw-sidebar-nav li:not(.pw-nav-dup) > a[role="button"]:after {
+	content: "\f107";
+	font-size: 1.1em;
+}
+
+.pw-sidebar-nav
+li:not(.pw-nav-dup)
+> a[role="button"][aria-expanded="true"]:after {
+	content: "\f106";
+	font-size: 1.1em;
+}
+
+.InputfieldStateToggle .toggle-icon.fa-angle-down {
+	translate: 0 -10%;
+}
+
+.InputfieldStateToggle .toggle-icon.fa-angle-down:before {
+	content: "\f106";
+}
+
+.InputfieldStateToggle .toggle-icon.fa-angle-right:before {
+	content: "\f107";
+}
+
+.pw .pw-sidebar-nav > li > ul > li .highlight,
+.pw .pw-sidebar-nav > li > ul > li .separator {
+	border-top: none;
+}
+
+.ui-dialog .ui-dialog-buttonpane {
+	border-top: 1px solid var(--border-color);
+	margin-top: 0;
+}
+
+.ui-dialog .ui-dialog-titlebar {
+	padding-top: 0.7em;
+	padding-bottom: 0.7em;
+}
+
+.ui-dialog .ui-dialog-titlebar .ui-button {
+	top: 11px;
+}
+
+.modal #main.pw-container {
+	margin-top: 2em;
+}
+
+#pw-masthead .uk-navbar-nav > li.uk-active > a:after {
+	display: none;
+}
+
+#pw-masthead .uk-navbar-nav > li > a.hover:after {
+	display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	#pw-masthead .uk-navbar-nav > li > a:hover:after {
+		display: none;
+	}
+}
+
+.uk-tab,
+.uk-tab > .uk-active > a {
+	border-radius: 0;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+
+.pw
+.uk-tab
+> li:not(.uk-active)
+> a
+.pw
+.Inputfield.InputfieldStateCollapsed
+> .InputfieldHeader
+.uk-breadcrumb
+> *,
+.pw .uk-tab > li:not(.uk-active) > a .pw .uk-table th,
+.Inputfield.InputfieldStateCollapsed > .InputfieldHeader,
+.uk-breadcrumb {
+	color: var(--muted-color);
+}
+
+.pw .uk-nav-header {
+	color: var(--masthead-text-color);
+}
+
+.pw #pw-masthead .uk-navbar-nav > li,
+#pw-masthead .uk-navbar-nav > li > a,
+.pw #pw-masthead .pw-search-form .uk-form-icon,
+.pw #pw-masthead .pw-search-form .pw-search-input::placeholder,
+.pw #offcanvas-nav .pw-search-form .uk-form-icon,
+.pw #offcanvas-nav .pw-search-form .pw-search-input::placeholder {
+	color: var(--masthead-text-color);
+}
+
+.uk-breadcrumb > :nth-child(n + 2):not(.uk-first-column)::before {
+	margin: 0 15px 0 calc(15px - 4px);
+}
+
+.pw-search-form {
+	position: relative;
+}
+
+.pw-search-form:after {
+	content: attr(data-shortcut);
+	position: absolute;
+	right: 10px;
+	font-size: 12px;
+	color: color-mix(in srgb, var(--masthead-text-color), transparent 40%);
+	bottom: 6px;
+	white-space: nowrap;
+	pointer-events: none;
+	transition: opacity 0.25s ease;
+	opacity: 0;
+}
+
+.uk-offcanvas-bar .pw-search-form:after {
+	right: 29px;
+	bottom: 13px;
+}
+
+.pw-search-form:has(input:focus:placeholder-shown):after {
+	opacity: 1;
+}
+
+.pw-search-form .pw-search-input::placeholder {
+	transition: opacity 0.25s ease;
+}
+
+.pw #pw-masthead .uk-navbar-nav > li i,
+#pw-masthead .uk-navbar-nav > li > a i {
+	color: inherit !important;
+}
+
+.uk-text-muted,
+.pw #main .notes {
+	color: var(--muted-color) !important;
+}
+
+.uk-breadcrumb > * > *,
+.uk-breadcrumb > :nth-child(n + 2):not(.uk-first-column)::before {
+	color: inherit;
+}
+
+body.AdminThemeUikit
+.vex.vex-theme-default
+.vex-dialog-button.vex-dialog-button-primary,
+body.AdminThemeReno
+.vex.vex-theme-default
+.vex-dialog-button.vex-dialog-button-primary {
+	background-color: var(--text-color);
+	color: var(--blocks-background);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.pw .Inputfields select.uk-select:focus-visible,
+.pw .Inputfields select.uk-select:not(.uk-form-blank):focus-visible {
+	border-color: var(--border-color);
+	color: var(--text-color);
+	background-color: var(--inputs-background);
+}
+
+.InputfieldStateRequired > .InputfieldHeader:first-child:after {
+	color: var(--main-color);
+}
+
+.Inputfields .InputfieldRepeater .InputfieldRepeaterDrag {
+	opacity: 1;
+}
+
+.Inputfield {
+	outline: 1px solid var(--border-color);
+	position: relative;
+}
+
+.Inputfield:not(.InputfieldRowLast):has(> .InputfieldHeader):before,
+.Inputfield:not(.InputfieldRowLast):has(> .InputfieldHeader):after {
+	content: "";
+	position: absolute;
+	display: block;
+	height: 1px;
+	width: 1px;
+	bottom: -1px;
+	background-color: inherit;
+	z-index: 0;
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+.Inputfield:has(> .InputfieldHeader):before {
+	left: -1px;
+}
+
+.Inputfield:has(> .InputfieldHeader):after {
+	right: -1px;
+}
+
+.Inputfield > .InputfieldHeader,
+.Inputfield > .InputfieldContent {
+	position: relative;
+	z-index: 2;
+}
+
+.pw .InputfieldWrapper {
+	outline: none;
+}
+.pw
+.Inputfields
+.InputfieldRepeater
+.InputfieldRepeaterItem:not(
+    .InputfieldRepeaterDeletePending
+  ).InputfieldStateCollapsed
+> .InputfieldHeader,
+.pw
+.Inputfields
+.InputfieldRepeater
+.InputfieldContent
+.InputfieldRepeaterItem
+> .InputfieldHeader,
+.pw .InputfieldFileList > li > .InputfieldItemHeader {
+	background-color: var(--inputs-background) !important;
+	outline: 1px solid var(--border-color);
+	color: var(--text-color);
+	font-weight: inherit;
+	padding: 0.6em 0 0.6em 0.4em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw .Inputfield.InputfieldStateCollapsed:hover > .InputfieldHeader {
+		background: color-mix(
+				in srgb,
+				transparent,
+				var(--text-color) 2%
+		) !important;
+		color: var(--text-color);
+	}
+
+	.pw .uk-tab > li:not(.uk-active) > a:hover,
+	.uk-breadcrumb > * > :hover {
+		color: var(--muted-color);
+	}
+}
+
+.pw ul.InputfieldFileList li .InputfieldFileData {
+	outline: 1px solid var(--border-color);
+	border: none;
+	margin-top: 1px;
+	background-color: var(--blocks-background);
+}
+
+.pw .ui-progressbar {
+	background-color: var(--blocks-background);
+	outline: 1px solid var(--main-color);
+	height: 17px;
+	line-height: 1;
+	font-size: 11px;
+}
+
+.pw .ui-progressbar .ui-progressbar-value {
+	background-color: var(--main-color);
+}
+
+.pw .Inputfields :is(.InputfieldFileUpload, .InputfieldImageUpload) {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.pw .AdminThemeUikit .InputfieldImageValidExtensions {
+	top: 0;
+}
+
+.pw :is(.InputfieldImageValidExtensions, .InputfieldFileValidExtensions) {
+	margin-left: 0;
+}
+
+.Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem {
+	margin: 0 0 8px;
+}
+
+.Inputfields .InputfieldAsmSelect .asmListItem {
+	margin-top: 6px;
+	border-color: var(--border-color);
+	outline: none;
+}
+
+.pw .asmListItemLabel,
+.pw .asmListItemStatus {
+	padding: 0.35em;
+}
+
+.Inputfields .InputfieldAsmSelect .asmListItem .asmListItemHandle {
+	top: 9px;
+}
+
+.Inputfields .InputfieldAsmSelect .asmListItem .asmListItemRemove i {
+	top: 5px;
+}
+
+.Inputfields
+.InputfieldRepeater
+.InputfieldRepeaterItem:not(
+    .InputfieldRepeaterDeletePending
+  ).InputfieldRepeaterOff
+> .InputfieldHeader {
+	outline-color: var(--inputs-background);
+}
+
+.Inputfields
+.InputfieldRepeater
+.InputfieldContent
+.InputfieldRepeaterItem
+> .InputfieldHeader
+i.toggle-icon {
+	color: inherit;
+}
+
+.pw span.asmListItemDesc {
+	padding-top: 5px;
+}
+
+.pw .asmListItemStatus {
+	padding-top: 0.48em;
+}
+
+.pw .asmListItem.rowStart:before {
+	border-top-color: var(--main-color);
+	color: var(--blocks-background);
+}
+
+.pw .asmListItem.rowStop:not(.rowStart):before {
+	border-bottom: 5px solid var(--muted-color);
+	color: var(--blocks-background);
+}
+
+.uk-form-small:not(textarea):not([multiple]):not([size]) {
+	height: 34.5px;
+}
+
+.pw-panel-element.ui-accordion.ui-widget > .container {
+	background-color: var(--blocks-background);
+	outline: 1px solid var(--border-color);
+}
+
+.ProcessFormBuilderAccordion .ui-accordion-header,
+.pw-panel-element.ui-accordion.ui-widget > .container .ui-accordion-header,
+.pw-panel-element.ui-accordion.ui-widget
+> .container
+.ui-accordion-content.ui-widget-content {
+	background-color: var(--blocks-background);
+}
+
+.ui-accordion-header,
+.ui-accordion.ui-widget .ui-accordion-header {
+	margin-top: 6px;
+}
+.pw-panel-element.ui-accordion.ui-widget .ui-accordion-header {
+	margin-top: 10px;
+}
+
+.pw-panel-element.ui-accordion.ui-widget .ui-accordion-header,
+.ui-accordion.ui-widget .ui-accordion-header h1,
+.ui-accordion.ui-widget .ui-accordion-header h2,
+.ui-accordion.ui-widget .ui-accordion-header h3,
+.ui-accordion.ui-widget .ui-accordion-header h4,
+.ui-accordion.ui-widget .ui-accordion-header h5,
+.ui-accordion.ui-widget .ui-accordion-header a,
+.InputfieldFileList > li > .InputfieldItemHeader {
+	color: var(--text-color);
+}
+
+.pw-panel-element.ui-accordion .ui-accordion-header .ui-accordion-header-icon {
+	filter: invert(1);
+	left: 5px;
+}
+
+body .pw-panel-container .pw-panel-button.ui-button,
+body .pw-panel-container .pw-panel-button.ui-button i.fa {
+	background: var(--inputs-background);
+	color: var(--text-color);
+	text-transform: none;
+}
+
+#debug {
+	background: var(--main-background);
+	min-height: 100vh;
+	padding: 15px;
+}
+
+#debug pre {
+	background: var(--inputs-background);
+}
+
+#debug.ui-accordion.ui-widget .ui-accordion-header {
+	border: none;
+	border-bottom: 1px solid transparent;
+	transition: border-color 0.25s ease 0.25s;
+	padding-left: 0.635em;
+}
+
+.ui-accordion .ui-accordion-content {
+	padding-top: 0.25em;
+}
+
+.pw #debug.ui-accordion.ui-widget .ui-accordion-header.ui-state-hover {
+	background-color: var(--blocks-background);
+}
+
+#debug.ui-accordion.ui-widget .ui-accordion-header-active {
+	border-bottom: 1px solid var(--border-color);
+	transition-delay: 0s;
+}
+
+#debug.pw-panel-element.ui-accordion
+.ui-accordion-header
+.ui-accordion-header-icon {
+	display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.uk-table-hover > tr:hover,
+	.uk-table-hover tbody tr:hover {
+		background-color: var(--inputs-background);
+	}
+}
+
+body .pw-panel-container .pw-panel-button.ui-button {
+	top: 100px !important;
+}
+
+.ui-widget-content a {
+	color: var(--main-color);
+}
+
+body
+.pw-panel-container
+.pw-panel-button.ui-button
+small.ui-button-text
+> span {
+	display: none;
+}
+
+.ui-accordion-header,
+.ui-accordion.ui-widget .ui-accordion-header {
+	border: 1px solid;
+}
+
+.ui-accordion-header,
+.ui-accordion.ui-widget .ui-accordion-header,
+.pw-content li.ui-state-default,
+.pw-content .ui-widget-content li.ui-state-default {
+	background-color: var(--inputs-background);
+	border-color: var(--border-color);
+	color: var(--text-color);
+	font-weight: inherit;
+}
+
+.pw .ui-accordion-header.ui-state-hover,
+.pw .ui-accordion.ui-widget .ui-accordion-header.ui-state-hover,
+.pw .Inputfields .InputfieldAsmSelect .asmListItem.ui-state-hover,
+.pw
+.Inputfields
+.InputfieldRepeater
+.InputfieldContent
+.InputfieldRepeaterItem
+> .InputfieldHeader.ui-state-hover,
+.pw
+.Inputfields
+.InputfieldRepeater:not(.InputfieldIsColor):not(.InputfieldNoBorder)
+> .InputfieldHeader,
+.pw
+.Inputfields
+.InputfieldRepeater:not(.InputfieldIsColor):not(.InputfieldNoBorder)
+> .InputfieldContent,
+.pw
+.Inputfields
+.InputfieldRepeater
+.InputfieldContent
+.InputfieldRepeaterItem
+> .InputfieldContent {
+	background-color: var(--main-background);
+	border-color: var(--border-color);
+	color: var(--text-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw .InputfieldFileList > li > .InputfieldItemHeader:hover {
+		background-color: var(--main-background);
+		border-color: var(--border-color);
+		color: var(--text-color);
+	}
+}
+
+.pw
+.Inputfields
+.InputfieldRepeater:not(.InputfieldIsColor):not(.InputfieldNoBorder)
+> .InputfieldContent
+> .Inputfields {
+	background-color: transparent;
+}
+
+.pw
+.Inputfields
+.InputfieldRepeater:not(.InputfieldIsColor):not(.InputfieldNoBorder)
+> .InputfieldHeader,
+.pw
+.Inputfields
+.InputfieldRepeater:not(.InputfieldIsColor):not(.InputfieldNoBorder)
+> .InputfieldContent {
+	background-color: var(--blocks-background);
+}
+
+.pw .InputfieldNoBorder.InputfieldColumnWidth:not(.InputfieldColumnWidthFirst) {
+	padding-left: 0;
+}
+
+.pw
+.InputfieldNoBorder.InputfieldColumnWidth:not(.InputfieldColumnWidthFirst)
+> * {
+	padding-left: 20px;
+}
+
+.pw .uk-tab > * {
+	padding-left: 0px;
+}
+
+.pw .Inputfield .selectize-input {
+	border-color: var(--border-color);
+	border-radius: var(--input-radius);
+	line-height: 21px;
+	background-color: var(--blocks-background);
+}
+
+.pw .Inputfield .selectize-input:not(.has-items) {
+	background: var(--inputs-background);
+}
+
+.pw .Inputfield .selectize-control.multi .selectize-input.has-items > div {
+	background: var(--main-background);
+	border-color: var(--border-color);
+	color: var(--text-color);
+}
+
+.pw .Inputfield .selectize-control.multi .selectize-input.has-items > div > a {
+	color: var(--text-color) !important;
+	border-color: var(--border-color);
+}
+
+input:focus-visible,
+.pw .Inputfield .selectize-input.focus {
+	border-color: var(--border-color);
+}
+
+.pw-content li.ui-state-hover a,
+.pw-content .ui-widget-content li.ui-state-hover a {
+	color: var(--text-color);
+	font-weight: inherit;
+}
+
+.Inputfields .asmFieldset,
+.pw-content .Inputfields .asmFieldset,
+#content .Inputfields .asmFieldset {
+	font-weight: 600;
+}
+
+.Inputfields .asmListItem {
+	margin-bottom: 4px !important;
+}
+
+.Inputfield select + ol {
+	margin-top: 4px;
+}
+
+.Inputfields select.uk-select:not(.uk-form-blank) {
+	background-color: var(--blocks-background);
+}
+
+.pw-content li.ui-state-default a,
+.pw-content .ui-widget-content li.ui-state-default a {
+	color: var(--text-color);
+}
+
+.InputfieldHeader,
+ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileName,
+.AjaxUpload .InputfieldFileInfo .InputfieldFileName {
+	font-weight: 600 !important;
+	color: var(--text-color);
+}
+
+#pw-mastheads {
+	position: sticky;
+	width: 100%;
+	top: 0;
+	z-index: 98;
+}
+
+.ui-menu {
+	padding: 5px 0;
+}
+
+.pw .Inputfields select.uk-select:not(.uk-form-blank),
+.pw .Inputfield .selectize-input,
+.Inputfields
+input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not(.uk-form-blank),
+.Inputfields textarea:not(.uk-form-blank) {
+	border-color: var(--border-color);
+	border-radius: var(--input-radius);
+}
+
+.InputfieldCheckboxes ul li {
+	padding: 3px 0;
+}
+
+.pw .uk-checkbox {
+	border-color: transparent;
+}
+
+.pw .uk-radio,
+.pw .uk-radio:is(.focus, :focus-visible) {
+	border-color: var(--border-color);
+}
+
+.pw .uk-radio:checked,
+.pw .uk-radio:is(.focus, :focus-visible):checked {
+	border-color: var(--main-color);
+}
+
+input[type="radio"]:focus-visible:checked,
+.uk-radio:focus-visible:checked {
+	background-color: color-mix(
+			in srgb,
+			var(--main-color),
+			var(--text-color) 10%
+	) !important;
+}
+
+.uk-checkbox:focus-visible,
+#pw-masthead .pw-search-form .pw-search-input:focus-visible,
+#offcanvas-nav
+.pw-search-form
+.pw-search-input:focus-visible
+.Inputfields
+input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not(.uk-form-blank):focus-visible,
+.Inputfields textarea:not(.uk-form-blank):focus-visible {
+	border-color: var(--border-color);
+}
+
+.uk-checkbox:focus-visible {
+	background-color: color-mix(
+			in srgb,
+			var(--muted-color),
+			transparent 55%
+	) !important;
+}
+.uk-checkbox:checked:focus-visible {
+	background-color: color-mix(
+			in srgb,
+			var(--main-color),
+			var(--text-color) 10%
+	) !important;
+}
+
+.pw .ui-menu,
+.pw #offcanvas-nav .uk-offcanvas-bar,
+.pw .ui-datepicker {
+	box-shadow: 0 5px 7.5px 2.5px rgba(0, 0, 0, 0.02);
+}
+
+.pw-dropdown-menu[data-at="left bottom"],
+.pw-dropdown-menu[data-at="left bottom"] .ui-menu,
+.pw-dropdown-menu-shorter.ui-autocomplete {
+	position: fixed !important;
+	overflow-y: auto;
+	max-height: calc(100vh - 70px);
+	margin-top: -1px !important;
+}
+
+.uk-nav a .PageListStatusHidden,
+.pw-dropdown-menu a .PageListStatusHidden {
+	opacity: 1;
+}
+
+.pw-dropdown-menu-shorter.ui-autocomplete {
+	top: 57px !important;
+}
+
+.pw-dropdown-menu .ui-menu {
+	box-shadow: 5px 2.5px 7.5px 2.5px rgba(0, 0, 0, 0.015) !important;
+}
+
+.pw-dropdown-menu .ui-menu:has(> :nth-child(15)) {
+	top: 62px !important;
+}
+
+.pw-dropdown-menu,
+.pw ul.ui-menu > li.ui-menu-item > ul.ui-menu {
+	z-index: 99 !important;
+	border: 1px solid var(--masthead-border-color) !important;
+}
+
+.pw ul.pw-dropdown-menu > li.ui-menu-item > ul.ui-menu {
+	border: 1px solid var(--border-color) !important;
+}
+
+.pw .ui-menu .ui-menu-item .ui-menu.navJSON .ui-menu-item.add a,
+.pw .ui-menu .ui-menu-item .ui-menu.navJSON .ui-menu-item.highlight a {
+	border-color: var(--masthead-border-color) !important;
+}
+
+.uk-navbar-nav > li > a,
+.uk-navbar-item,
+.uk-navbar-toggle {
+	min-height: 55px;
+}
+#pw-masthead,
+#pw-masthead-mobile {
+	background: none;
+}
+#pw-masthead,
+#pw-masthead-mobile,
+#pw-mastheads {
+	height: 56px;
+}
+img.pw-logo {
+	max-height: 31px;
+	display: block;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	img.pw-logo-native:hover {
+		filter: brightness(0.85);
+	}
+}
+
+.uk-checkbox,
+#pw-masthead .pw-search-form .pw-search-input,
+#offcanvas-nav .pw-search-form .pw-search-input,
+.Inputfields
+input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not(.uk-form-blank),
+.Inputfields textarea:not(.uk-form-blank) {
+	border-radius: var(--input-radius);
+}
+
+#pw-masthead .pw-search-form .pw-search-input,
+#offcanvas-nav .pw-search-form .pw-search-input,
+#pw-masthead .pw-search-form .pw-search-input:focus,
+#offcanvas-nav .pw-search-form .pw-search-input:focus,
+#pw-masthead .pw-search-form .pw-search-input:focus-visible,
+#offcanvas-nav .pw-search-form .pw-search-input:focus-visible {
+	background-color: var(--masthead-input-background);
+	color: var(--masthead-input-color);
+	border-color: var(--masthead-input-border);
+	height: 31px;
+	border-radius: 9999px;
+	font-size: 15px;
+	padding-left: 30px !important;
+	padding-right: 2px;
+}
+
+#pw-masthead .pw-search-form .pw-search-input {
+	width: min(35vw, 350px);
+	max-width: min(35vw, 350px);
+	transition: all 0.25s ease;
+	box-shadow: -12px 0px 12px 0px var(--masthead-background);
+}
+
+#offcanvas-nav .pw-search-form .pw-search-input {
+	min-width: 100%;
+}
+
+#pw-masthead .pw-search-form {
+	position: absolute;
+	right: 0;
+}
+
+#pw-masthead .uk-navbar-right {
+	padding-right: 45px;
+}
+
+#pw-masthead .pw-search-form .pw-search-input:not(:focus, :focus-visible) {
+	max-width: 1.5em;
+	padding-left: 0 !important;
+	padding-right: 0;
+	border-color: transparent;
+	background-color: transparent;
+	cursor: pointer;
+	color: transparent;
+	opacity: 0;
+}
+
+#pw-masthead
+.pw-search-form
+.pw-search-input:not(:focus, :focus-visible)::selection {
+	background-color: transparent;
+}
+
+.pw-search-form .pw-search-input:not(:focus, :focus-visible)::placeholder {
+	opacity: 0;
+}
+
+.pw-search-form .uk-form-icon {
+	max-width: 31px;
+}
+
+.uk-checkbox:focus-visible,
+.Inputfields
+input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not(.uk-form-blank):focus-visible,
+.Inputfields textarea:not(.uk-form-blank):focus-visible {
+	color: inherit;
+	border-color: var(--border-color);
+	background: var(--inputs-background);
+	outline: none;
+}
+
+.Inputfields
+input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not(.uk-form-blank):not(:focus-visible) {
+	border-color: var(--border-color);
+}
+
+.Inputfields
+.InputfieldRepeater
+.InputfieldContent
+.InputfieldRepeaterItem
+> .InputfieldContent {
+	outline: none;
+}
+
+.InputfieldRepeaterItem > .InputfieldContent {
+	position: relative;
+	z-index: 1;
+}
+
+.pw-notices,
+.pw-notices li {
+	margin: 0;
+}
+
+.pw-notices .NoticeMessage {
+	border-bottom: 1px solid var(--border-color);
+}
+
+.uk-tab > li.uk-active,
+.WireTabs.uk-tab > li.uk-active.pw-tab-muted {
+	background: transparent;
+}
+
+.uk-tab > li > a {
+	color: var(--muted-color);
+	border: none;
+	border-bottom: 6px solid transparent;
+	padding: 10px 0px;
+	margin-right: 30px;
+}
+
+.uk-tab > li > a:focus-visible {
+	color: var(--text-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.uk-tab > li > a:hover {
+		color: var(--text-color);
+	}
+}
+
+.uk-tab > li:last-child > a {
+	margin-right: 0;
+}
+
+.uk-tab > .uk-active > a,
+.WireTabs.uk-tab > li.uk-active.pw-tab-muted > a {
+	color: var(--text-color);
+	border: none;
+	border-bottom: 6px solid var(--main-color);
+}
+
+.WireTabs > * {
+	margin-left: -1px;
+}
+
+.uk-tab::before {
+	border-bottom: 0;
+}
+
+.Inputfields
+input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not(.uk-form-blank),
+.Inputfields textarea:not(.uk-form-blank) {
+	background-color: var(--inputs-background);
+}
+
+.tox.tox-tinymce-inline {
+	z-index: 97;
+}
+
+body .tox.tox-tinymce-inline .tox-editor-container {
+	overflow: visible !important;
+}
+
+.pw .tox.tox-tinymce-inline .tox-editor-header {
+	translate: -0.5px 0.5px;
+}
+
+.InputfieldTinyMCE .InputfieldTinyMCEInline.InputfieldTinyMCEInline,
+.pw .tox .tox-textarea-wrap,
+.pw .tox .tox-textfield {
+	border: 1px solid;
+	border-color: var(--border-color);
+	background-color: var(--inputs-background);
+	border-radius: var(--input-radius);
+	color: var(--text-color);
+}
+
+.InputfieldTinyMCE
+.InputfieldTinyMCEInline.InputfieldTinyMCEInline:focus-visible,
+.pw .tox .tox-textarea-wrap:focus-within,
+.pw .tox .tox-textfield:focus-visible {
+	border-color: var(--border-color);
+	outline: none;
+	box-shadow: none;
+	color: var(--text-color);
+	background-color: var(--inputs-background);
+}
+
+.mce-edit-focus {
+	outline: none;
+	border-color: var(--border-color);
+}
+
+.tox-edit-area__iframe {
+	background-color: var(--inputs-background);
+}
+
+.pw .tox-collection__item-label {
+	color: #222;
+}
+
+.InputfieldContent .tox.tox-tinymce-inline .tox-edit-area__iframe {
+	background-color: var(--inputs-background);
+}
+
+.pw-notices .uk-alert {
+	border-bottom: 1px solid var(--border-color);
+}
+
+.Inputfields
+.InputfieldRepeater
+.InputfieldContent
+.InputfieldRepeaterItem
+> .InputfieldHeader.ui-state-error {
+	text-decoration: line-through;
+	background: var(--alert-danger);
+	color: var(--text-color);
+	border-color: var(--border-color);
+	outline-color: var(--border-color);
+}
+
+.pw-notices .NoticeWarning a.notice-remove,
+.pw-notices .NoticeError a.notice-remove {
+	color: var(--text-color);
+}
+
+.PageList .PageListItem.PageListItemOpen {
+	border-color: transparent;
+	background: transparent;
+}
+
+#pw-masthead .uk-navbar-nav > li > a.hover {
+	color: var(--masthead-text-color);
+}
+@media (hover: hover) and (pointer: fine) {
+	#pw-masthead .uk-navbar-nav > li > a:hover {
+		color: var(--masthead-text-color);
+	}
+}
+
+.PageList .PageListItem > a.PageListPage,
+.PageList .PageListItem.PageListItemHover > a.PageListPage,
+.PageList .PageListItemOpen > a.PageListPage,
+.PageListPage {
+	color: var(--text-color);
+}
+@media (hover: hover) and (pointer: fine) {
+	.PageList .PageListItemOpen > a.PageListPage:hover,
+	.PageList .PageListItemOpen.PageListItemHover > a.PageListPage:hover {
+		color: var(--text-color);
+	}
+}
+
+.PageList .PageListItemOpen > a.PageListPage,
+.PageList .PageListItemOpen.PageListItemHover > a.PageListPage,
+.PageListItem a span {
+	color: inherit;
+}
+@media (hover: hover) and (pointer: fine) {
+	.PageList .PageListItemOpen > a.PageListPage:hover,
+	.PageList
+	.PageListItemOpen.PageListItemHover
+	> a.PageListPage:hover
+	.PageList
+	.PageListItemOpen.PageListItemHover
+	> a {
+		color: inherit;
+	}
+}
+
+.PageList .PageListStatusHidden > a.PageListPage {
+	opacity: 0.4;
+}
+
+.PageList .PageListItem:has(:focus-visible) {
+	background-color: var(--blocks-background);
+}
+
+.PageList .PageListActions a,
+.PageList .PageListerActions a,
+.PageList .PageListMoveNote a {
+	border-radius: 0;
+}
+
+.PageList .PageListItem:not(:hover):focus-within .PageListActions.actions {
+	visibility: visible;
+}
+
+.PageList .PageListItem:not(:hover) .PageListActions.actions {
+	opacity: 0 !important;
+}
+
+.PageList .PageListItem:not(:hover):has(a:focus-visible) .PageListActions.actions {
+	opacity: 1 !important;
+}
+
+body:not(.pw-narrow-width)
+.PageList
+.PageListItem.PageListItemOpen.PageListHasChildren
+> a.PageListPage:before,
+body:not(.pw-narrow-width)
+.PageList
+.PageListItem.PageListHasChildren:not(.PageListItemOpen)
+> a.PageListPage:before {
+	color: var(--text-color);
+}
+
+.PageList .PageListActions a,
+.PageList .PageListerActions a,
+.PageList .PageListMoveNote a,
+.PageList .PageListActions a:focus-visible,
+.PageList .PageListerActions a:focus-visible,
+.PageList .PageListMoveNote a:focus-visible {
+	background-color: transparent;
+	color: var(--muted-color);
+	font-weight: 500;
+	font-size: 13px;
+	letter-spacing: 0.5px;
+	translate: 0 1px;
+}
+@media (hover: hover) and (pointer: fine) {
+	.PageList .PageListActions a:hover,
+	.PageList .PageListerActions a:hover,
+	.PageList .PageListMoveNote a:hover {
+		background-color: transparent;
+		color: var(--muted-color);
+		font-weight: 500;
+		font-size: 13px;
+		letter-spacing: 0.5px;
+		translate: 0 1px;
+	}
+}
+
+.PageList .PageListItem > a.PageListPage i.PageListStatusIcon,
+body:not(.pw-narrow-width) .PageList .PageListItem.PageListStatusHidden,
+body:not(.pw-narrow-width)
+.PageList
+.PageListItem.PageListStatusHidden.PageListItemOpen.PageListHasChildren
+> a.PageListPage:before,
+body:not(.pw-narrow-width)
+.PageList
+.PageListItem.PageListStatusHidden.PageListHasChildren:not(.PageListItemOpen)
+> a.PageListPage:before {
+	color: var(--muted-color);
+}
+
+.PageList .PageListItem > a.PageListPage {
+	color: var(--text-color);
+}
+@media (hover: hover) and (pointer: fine) {
+	.PageList .PageListActions a:hover,
+	.PageList .PageListerActions a:hover,
+	.PageList .PageListMoveNote a:hover,
+	.PageList .PageListItem > a.PageListPage:hover {
+		color: var(--text-color);
+	}
+}
+
+.PageList .PageListItem {
+	border-bottom: none;
+}
+
+.PageList a.PageListPage span {
+	color: inherit;
+}
+
+.PageList .PageListStatusHidden > a.PageListPage,
+.pw .PageList .PageListStatusHidden.PageListItemOpen > a.PageListPage {
+	opacity: 1;
+	color: var(--muted-color) !important;
+}
+@media (hover: hover) and (pointer: fine) {
+	.PageList .PageListStatusHidden > a.PageListPage:hover {
+		opacity: 1;
+		color: var(--muted-color) !important;
+	}
+}
+
+.PageList .PageListStatusHidden > a.PageListPage {
+	color: var(--muted-color);
+}
+
+#pw-content-body ul.uk-pagination > li > a {
+	border: 1px solid var(--border-color) !important;
+}
+
+#pw-content-body ul.uk-pagination > li > a {
+	border-color: var(--border-color) !important;
+	background: var(--blocks-background) !important;
+	color: var(--muted-color) !important;
+	border-radius: 0 !important;
+}
+
+#pw-content-body ul.uk-pagination > li.uk-active > a {
+	background: var(--text-color) !important;
+	color: var(--blocks-background) !important;
+}
+
+#pw-content-body ul.uk-pagination > li:not(.uk-active) > a:focus {
+	background: var(--inputs-background) !important;
+	color: var(--muted-color) !important;
+}
+@media (hover: hover) and (pointer: fine) {
+	#pw-content-body ul.uk-pagination > li:not(.uk-active) > a:hover {
+		background: var(--inputs-background) !important;
+		color: var(--muted-color) !important;
+	}
+}
+
+#pw-content-body ul.uk-pagination > li.uk-active + li > a {
+	border-left: none !important;
+}
+
+.uk-pagination a {
+	display: block;
+}
+body:not(.pw-narrow-width)
+.PageList
+.PageListItem.PageListItemOpen.PageListNoChildren
+> a.PageListPage:before {
+	content: "\f107";
+	font-family: fontAwesome;
+	color: rgba(0, 0, 0, 0.25);
+}
+.PageList
+.PageListItemOpen.PageListNoChildren
++ .PageListPlaceholder
+> .PageListPlaceholderItem {
+	background-color: transparent !important;
+	height: auto;
+	min-height: 1.5rem;
+}
+.PageList
+.PageListItemOpen.PageListNoChildren
++ .PageListPlaceholder
+> .PageListPlaceholderItem:after {
+	content: "--------";
+	display: inline;
+	color: rgba(0, 0, 0, 0.13);
+}
+
+.PageListSortPlaceholder {
+	min-height: 1.5rem;
+	width: 100% !important;
+	background-color: rgba(0, 0, 0, 0.07) !important;
+	border-left: none !important;
+}
+
+.pw .PageListSortItem > a.PageListPage {
+	background-color: transparent;
+}
+
+.PageList .PageListItemOpen.PageListNoChildren .PageListPlaceholder {
+	z-index: 1;
+	position: relative;
+	background-color: transparent !important;
+	width: 200px !important;
+}
+.PageList
+.PageListItemOpen.PageListNoChildren
++ .PageListPlaceholder:has(.PageListSortPlaceholder)
+.PageListPlaceholderItem {
+	display: none;
+}
+
+.PageListItem .PageListActions.actions {
+	display: inline-block !important;
+}
+@media (hover: hover) and (pointer: fine) {
+	.PageListItem:hover .PageListActions.actions {
+		opacity: 1
+	}
+}
+
+.PageList .PageListItem > a.PageListPage.label > i.icon {
+	padding: 0 0.25em 0 0;
+	color: var(--text-color);
+}
+
+.PageList .PageListItem > a.PageListPage.label > i:not(.icon) {
+	color: inherit;
+}
+
+.PageList
+.PageListItem
+.PageListActionFilter:not(.PageListActionFilterActive)
+> a {
+	background-color: var(--inputs-background);
+	color: var(--text-color);
+	font-weight: normal;
+}
+@media (hover: hover) and (pointer: fine) {
+	.PageList
+	.PageListItem
+	.PageListActionFilter:not(.PageListActionFilterActive)
+	> a:hover {
+		background-color: var(--inputs-background);
+		color: var(--text-color);
+		font-weight: normal;
+	}
+}
+
+.PageList .PageListItem .PageListActionFilter.PageListActionFilterActive > a {
+	color: var(--blocks-background);
+	background-color: var(--main-color);
+}
+
+.PageListNumChildren {
+	opacity: 0.5;
+	font-weight: 500;
+}
+
+.PageList .PageListItem .PageListLoading {
+	height: 0;
+	margin-top: 0.8rem;
+	margin-bottom: -0.8rem;
+	opacity: 0;
+}
+
+.PageList .PageListItem.PageListItemOpen > .PageListLoading {
+	opacity: 0.5;
+	transition: opacity 0.5s ease;
+}
+
+.uk-description-list dt,
+.uk-description-list dt a {
+	font-size: inherit;
+	text-transform: none;
+}
+
+.uk-description-list dd {
+	color: var(--text-color);
+}
+
+.uk-description-list dt a .fa {
+	color: var(--muted-color);
+	opacity: 0.2;
+}
+
+table,
+#pw-footer,
+.uk-description-list-divider > dt:nth-child(n + 2),
+.uk-table-divider > tr:not(:first-child),
+.uk-table-divider > :not(:first-child) > tr,
+.uk-table-divider > :first-child > tr:not(:first-child) {
+	border-color: var(--border-color);
+}
+
+.uk-table-divider > tbody > tr:last-child {
+	border-bottom-color: var(--border-color);
+}
+
+.pw-table-resizable td,
+.pw-table-resizable th {
+	border-left-color: var(--border-color);
+}
+
+.uk-table th {
+	font-weight: normal;
+	color: var(--muted-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.uk-table th .tablesorter-header-inner:hover {
+		color: var(--text-color);
+	}
+}
+
+.uk-breadcrumb {
+	margin-bottom: 10px;
+}
+label:has(> .uk-checkbox),
+.InputfieldCheckbox .InputfieldContent.uk-form-controls label {
+	display: inline-flex;
+}
+
+.uk-radio,
+.uk-checkbox {
+	transition: none;
+}
+.pw input[type="checkbox"],
+.pw .uk-checkbox,
+.Inputfield input[type="checkbox"],
+td > label > input[type="checkbox"].uk-checkbox,
+body .InputfieldCheckboxes input[type="checkbox"],
+#main .InputfieldCheckboxes input[type="checkbox"],
+body .LanguageSupport label.checkbox.detail input[type="checkbox"],
+#main .LanguageSupport label.checkbox.detail input[type="checkbox"],
+body .uk-form-controls-text label:only-of-type input[type="checkbox"],
+#main .uk-form-controls-text label:only-of-type input[type="checkbox"],
+body .InputfieldCheckboxes input.uk-checkbox,
+#main .InputfieldCheckboxes input.uk-checkbox,
+body .LanguageSupport label.checkbox.detail input.uk-checkbox,
+#main .LanguageSupport label.checkbox.detail input.uk-checkbox,
+body .uk-form-controls-text label:only-of-type input.uk-checkbox,
+#main .uk-form-controls-text label:only-of-type input.uk-checkbox {
+	font-size: 0.65rem;
+	margin-top: 0;
+	margin-right: 0.8em;
+	position: relative;
+	-webkit-appearance: none;
+	appearance: none;
+	outline: none;
+	width: 3.5em;
+	height: 2em;
+	border: none;
+	background-color: var(--muted-color);
+	background-color: color-mix(in srgb, var(--muted-color), transparent 30%);
+	border-radius: 3em;
+	box-shadow: none;
+	flex-shrink: 0;
+	vertical-align: middle;
+	align-items: center;
+	top: 0;
+	display: inline-flex;
+}
+.uk-checkbox:after,
+body .InputfieldCheckboxes input[type="checkbox"]:after,
+#main .InputfieldCheckboxes input[type="checkbox"]:after,
+body .LanguageSupport label.checkbox.detail input[type="checkbox"]:after,
+#main .LanguageSupport label.checkbox.detail input[type="checkbox"]:after,
+body .uk-form-controls-text label:only-of-type input[type="checkbox"]:after,
+#main .uk-form-controls-text label:only-of-type input[type="checkbox"]:after,
+body .InputfieldCheckboxes input.uk-checkbox:after,
+#main .InputfieldCheckboxes input.uk-checkbox:after,
+body .LanguageSupport label.checkbox.detail input.uk-checkbox:after,
+#main .LanguageSupport label.checkbox.detail input.uk-checkbox:after,
+body .uk-form-controls-text label:only-of-type input.uk-checkbox:after,
+#main .uk-form-controls-text label:only-of-type input.uk-checkbox:after,
+body .uk-checkbox:after,
+#main .uk-checkbox:after {
+	content: "";
+	position: relative;
+	background-color: var(--blocks-background);
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 50%;
+	box-shadow: none;
+	margin: 0 0.3em;
+}
+.uk-checkbox:checked,
+body .InputfieldCheckboxes input[type="checkbox"]:checked,
+#main .InputfieldCheckboxes input[type="checkbox"]:checked,
+body .LanguageSupport label.checkbox.detail input[type="checkbox"]:checked,
+#main .LanguageSupport label.checkbox.detail input[type="checkbox"]:checked,
+body .uk-form-controls-text label:only-of-type input[type="checkbox"]:checked,
+#main .uk-form-controls-text label:only-of-type input[type="checkbox"]:checked,
+body .InputfieldCheckboxes input.uk-checkbox:checked,
+#main .InputfieldCheckboxes input.uk-checkbox:checked,
+body .LanguageSupport label.checkbox.detail input.uk-checkbox:checked,
+#main .LanguageSupport label.checkbox.detail input.uk-checkbox:checked,
+body .uk-form-controls-text label:only-of-type input.uk-checkbox:checked,
+#main .uk-form-controls-text label:only-of-type input.uk-checkbox:checked,
+body .uk-checkbox:checked,
+#main .uk-checkbox:checked {
+	flex-direction: row-reverse;
+	background-color: var(--main-color);
+}
+
+body .InputfieldCheckboxes .InputfieldCheckboxesStacked li,
+#main .InputfieldCheckboxes .InputfieldCheckboxesStacked li,
+body .InputfieldCheckbox .InputfieldCheckboxesStacked li,
+#main .InputfieldCheckbox .InputfieldCheckboxesStacked li,
+body .InputfieldCheckboxes .InputfieldCheckboxesColumns li,
+#main .InputfieldCheckboxes .InputfieldCheckboxesColumns li,
+body .InputfieldCheckbox .InputfieldCheckboxesColumns li,
+#main .InputfieldCheckbox .InputfieldCheckboxesColumns li {
+	padding-bottom: 3px;
+}
+
+.InputfieldCheckboxes ul li {
+	list-style: none !important;
+	margin: 0 !important;
+}
+.uk-checkbox:checked,
+body .uk-checkbox:checked,
+#main .uk-checkbox:checked {
+	background-image: none;
+}
+
+input.gridImage__deletebox {
+	display: none !important;
+}
+
+.uk-radio:checked {
+	background-color: var(--main-color) !important;
+}
+
+.ui-dialog .ui-dialog-titlebar .ui-button,
+.ui-dialog .ui-dialog-titlebar {
+	color: var(--text-color);
+	font-weight: 600;
+}
+
+.ui-dialog .ui-dialog-titlebar .ui-button:focus,
+.ui-dialog .ui-dialog-titlebar .ui-button.ui-state-hover {
+	color: var(--text-color);
+	background-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+	.ui-dialog .ui-dialog-titlebar .ui-button:hover {
+		color: var(--text-color);
+		background-color: transparent;
+	}
+}
+
+.pw .ui-dialog .ui-dialog-titlebar .ui-button.ui-dialog-titlebar-close {
+	padding-top: 0px;
+	padding: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	right: 15px;
+}
+
+.ProcessLogin .pw-notices {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+}
+
+body.ProcessLogin.pw-guest .pw-notices .notice-remove {
+	display: block;
+}
+
+body.pw-guest .pw-notices > li > .uk-container {
+	text-align: left;
+}
+
+.ProcessLogin #ProcessLoginForm > .Inputfields {
+	padding: 0 30px;
+	background-color: var(--blocks-background);
+	width: fit-content;
+	display: flex;
+	flex-direction: column;
+	margin-top: 0;
+}
+
+.ProcessLogin #ProcessLoginForm {
+	width: fit-content;
+}
+
+.pw .ProcessLogin #ProcessLoginForm .Inputfield,
+.pw .ProcessLogin #ProcessLoginForm #wrap_login_name,
+.pw .ProcessLogin #ProcessLoginForm #wrap_login_pass,
+.pw .ProcessLogin #ProcessLoginForm #wrap_Inputfield_login_submit {
+	margin: 5px auto !important;
+}
+
+.pw .ProcessLogin #ProcessLoginForm input,
+.pw .ProcessLogin #ProcessLoginForm #wrap_login_name input,
+.pw .ProcessLogin #ProcessLoginForm #wrap_login_pass input {
+	text-align: left;
+}
+
+.pw .ProcessLogin #ProcessLoginForm input::placeholder {
+	color: var(--muted-color);
+}
+
+.ProcessLogin #pw-masthead-mobile {
+	background-color: transparent;
+	border-bottom: none;
+	position: relative;
+	height: auto;
+}
+
+.ProcessLogin #ProcessLoginForm .InputfieldContent {
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.ProcessLogin #ProcessLoginForm > .Inputfields input:focus-visible {
+	outline: none;
+	background-color: var(--blocks-background);
+}
+
+.ProcessLogin .pw-logo-link > * {
+	scale: 1.35;
+}
+
+html.pw:has(.ProcessLogin) {
+	display: flex;
+	display: flex;
+	flex-direction: column;
+	align-content: center;
+	justify-content: center;
+	align-items: center;
+	min-height: 100vh;
+}
+
+.ProcessLogin {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	padding: 40px;
+	min-width: 20vw;
+	min-height: 30vh;
+	max-width: 380px;
+	max-height: 900px;
+	border: 1px solid var(--border-color);
+}
+
+html.pw body.ProcessLogin {
+	background: var(--blocks-background);
+	box-shadow: none;
+	padding: 20px;
+	display: flex;
+	justify-content: center;
+	align-content: center;
+	flex-direction: column;
+	position: static;
+	margin: auto;
+}
+
+html.pw body.ProcessLogin #pw-mastheads {
+	position: static;
+}
+
+html.pw body.ProcessLogin > #main {
+	margin-bottom: 0 !important;
+	padding: 0 !important;
+	max-width: 390px !important;
+	margin-top: 0;
+}
+
+pre,
+:not(pre) > code,
+:not(pre) > kbd,
+:not(pre) > samp {
+	color: var(--code-color, #0173b0);
+	background-color: var(--code-background, #0173b027);
+	outline: none;
+	border: none;
+	border-radius: 0;
+}
+
+.ui-slider,
+.ui-slider-horizontal {
+	background: #999;
+}
+.ui-slider .ui-slider-range,
+.ui-widget .ui-slider .ui-slider-range,
+.ui-widget-content .ui-slider .ui-slider-range {
+	background: var(--border-color);
+}
+
+.pw .asmListItem > .asmListItemStatus > .columnWidth:not(.columnWidthOff) {
+	color: inherit;
+}
+@media (hover: hover) and (pointer: fine) {
+	.pw
+	.asmListItem
+	> .asmListItemStatus
+	> .columnWidth:not(.columnWidthOff):hover {
+		color: var(--main-color);
+	}
+}
+
+.pw .asmListItem .columnWidthBar {
+	background-color: var(--main-color) !important;
+	z-index: 0;
+}
+
+.pw .asmListItem > *:not(.columnWidthBar),
+.pw .asmListItem .asmListItemEdit,
+.pw .asmListItem .asmListItemEdit > *,
+.pw .asmListItem .asmListItemStatus {
+	opacity: 1;
+	color: var(--text-color);
+}
+
+.pw .asmListItem .asmListItemEdit > a,
+.pw .asmListItem .asmListItemStatus > * {
+	z-index: 1;
+	position: relative;
+}
+
+.ui-menu .ui-menu-item.separator:not(.highlight):first-child {
+	border-top: none !important;
+}
+
+.ui-menu:has(> .ui-menu-item.add:first-child a) {
+	padding-top: 0;
+}
+
+.ui-menu > .ui-menu-item.add:first-child a {
+	padding-top: 12px !important;
+	padding-bottom: 10px !important;
+}
+.ui-menu
+.ui-menu-item.separator:not(.highlight):not(
+    :first-child
+  ).pw-pagelist-show-all {
+	margin-top: 10px;
+	margin-bottom: 0;
+	padding-top: 0;
+	padding-bottom: 0;
+}
+.ui-menu
+.ui-menu-item
+.ui-menu.navJSON
+.ui-menu-item:not(.add):not(.highlight):not(:first-child).pw-pagelist-show-all
+> a {
+	margin-top: 0;
+	margin-bottom: 0;
+	padding-top: 10px;
+	padding-bottom: 10px;
+}
+
+.ui-menu > .ui-menu-item.add:first-child {
+	margin-bottom: 8px;
+}
+
+.ui-menu:has(> .pw-nav-add:last-child a),
+.ui-menu:has(> .ui-menu-item.separator:not(:first-child):last-child a) {
+	padding-bottom: 0;
+}
+
+.ui-menu > .pw-nav-add:last-child,
+.ui-menu .ui-menu-item.separator:not(:first-child):last-child {
+	padding-bottom: 0 !important;
+	padding-top: 0 !important;
+	margin-top: 12px;
+}
+
+.ui-menu
+.ui-menu-item.separator:not(.highlight):not(:first-child).pw-pagelist-show-all
++ .pw-nav-add {
+	margin-top: 0;
+}
+
+.ui-menu > .pw-nav-add:last-child a,
+.ui-menu .ui-menu-item.separator:not(:first-child):last-child a {
+	padding-top: 10px !important;
+	padding-bottom: 12px !important;
+}
+
+.uk-tab a {
+	background-color: transparent !important;
+}
+
+.uk-tab > * > a {
+	text-transform: none;
+	font-size: 1em;
+}
+
+.langTabs .ui-tabs-nav > li > a,
+.langTabs .uk-tab > li > a {
+	margin: 0 20px 0 0;
+	padding: 6px 0;
+	border-bottom: 5px solid transparent;
+	opacity: 1;
+	background: transparent !important;
+	color: var(--muted-color);
+	text-transform: uppercase;
+}
+
+.Inputfields .langTabsContainer .langTabs > .uk-tab {
+	margin-bottom: -1px;
+	z-index: 1;
+}
+
+.langTabs .ui-tabs-nav > li.uk-active > a,
+.langTabs .uk-tab > li.uk-active > a {
+	border-bottom-color: var(--main-color);
+}
+
+.langTabs .ui-tabs-nav > li,
+.langTabs .uk-tab > li {
+	margin: 0;
+}
+
+.langTabs .ui-tabs-nav > li > a,
+.langTabs .uk-tab > li > a,
+.langTabs .ui-tabs-nav > li.langTabEmpty > a,
+.langTabs .uk-tab > li.langTabEmpty > a {
+	color: var(--muted-color);
+	position: relative;
+}
+
+.langTabs .ui-tabs-nav > li > a:focus-visible,
+.langTabs .uk-tab > li > a:focus-visible {
+	color: var(--text-color);
+}
+
+.langTabs .uk-tab > li:not(.langTabEmpty) > a {
+	color: var(--text-color);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.langTabs .uk-tab > li:not(.langTabEmpty) > a:hover {
+		color: var(--text-color);
+	}
+}
+
+body .pw-panel-container .pw-panel-button.ui-button i.fa:has(+ span) {
+	transform: translate(4px, -2px) scale(0.9);
+}
+
+.pw-panel .fa-tree::before {
+	content: "\f0e8";
+}
+
+.pw-panel-button .fa {
+	background: transparent;
+	translate: -3px 0;
+	display: block;
+}
+
+.pw-panel-button .fa::before {
+	content: "\00D7";
+	font-family: inherit;
+	font-size: 30px;
+}
+
+body .pw-panel-container .pw-panel-button.ui-button {
+	translate: -3px 0;
+}
+
+body .pw-panel-container .pw-panel-button.ui-button,
+body .pw-panel-container .pw-panel-button.ui-button i.fa {
+	background-color: var(--main-background);
+}
+@media (hover: hover) and (pointer: fine) {
+	body .pw-panel-container .pw-panel-button.ui-button i.fa:hover,
+	body .pw-panel-container .pw-panel-button.ui-button:hover {
+		background-color: var(--main-background);
+	}
+}
+
+body .pw-panel-container:has(> iframe) .pw-panel-button.ui-button,
+body .pw-panel-container:has(> iframe) .pw-panel-button.ui-button i.fa {
+	background-color: var(--blocks-background);
+}
+@media (hover: hover) and (pointer: fine) {
+	body .pw-panel-container:has(> iframe) .pw-panel-button.ui-button i.fa:hover,
+	body .pw-panel-container:has(> iframe) .pw-panel-button.ui-button:hover {
+		background-color: var(--blocks-background);
+	}
+}
+
+.ui-button,
+.uk-button,
+.ui-button.ui-state-default,
+.ui-button.ui-state-hover,
+.pw .tox-dialog .tox-button,
+.pw .vex-dialog-button,
+.pw .vex.vex-theme-default .vex-dialog-button {
+	border-radius: var(--button-radius);
+}
+
+.pw-button-dropdown-main,
+.pw-button-dropdown-toggle {
+	position: relative;
+	z-index: 1;
+}
+.pw button.ui-button.pw-button-dropdown-toggle {
+	padding-right: 12px;
+	margin-left: 1px !important;
+	z-index: 2;
+}
+
+button.ui-button.pw-button-dropdown-main {
+	padding-right: 22px;
+}
+
+.gridImage .gridImage__inner {
+	transition: background-color 0.25s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+	.gridImage:hover .gridImage__inner {
+		background-color: rgba(50, 50, 50, 0.35) !important;
+	}
+}
+
+.pw .ahl,
+.ahl__link,
+.pw .ahl__template,
+.pw .ahl__template *,
+.pw .ahl__hover-content,
+.pw .ahl__hover-content *,
+.pw .ahl__link,
+.pw .ahl__link:active,
+.pw .ahl__link:visited,
+.pw .ahl__link i {
+	color: var(--muted-color) !important;
+	opacity: 1 !important;
+}
+@media (hover: hover) and (pointer: fine) {
+	.pw .ahl__link:hover {
+		color: var(--muted-color) !important;
+		opacity: 1 !important;
+	}
+}
+
+.ahl__template-name {
+	position: absolute;
+	right: 2.25em;
+	top: -0.35em;
+}
+
+.ahl--init .toggle-icon {
+	background: transparent;
+}
+
+#ProcessPageEditDelete {
+	background-color: transparent;
+}
+
+#pw-masthead-mobile {
+	display: flex;
+	align-items: center;
+}
+
+#pw-masthead-mobile > .pw-container {
+	margin-left: 0;
+}
+
+#offcanvas-toggle {
+	position: fixed;
+	z-index: 9999;
+	top: 15px;
+}
+
+#offcanvas-nav .pw-search-form {
+	padding-top: 38px;
+}
+
+body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
+	content: "\f00d";
+}
+
+.Inputfields .Inputfield.pw-drag-in-file {
+	background: var(--inputs-background) !important;
+}
+
+.InputfieldIsPrimary:not(.InputfieldNoBorder) {
+	background-color: var(--main-background);
+}
+
+.pw .Inputfields {
+	background-color: transparent;
+}
+
+.InputfieldHeader,
+.InputfieldContent {
+	background: transparent !important;
+	background-color: transparent !important;
+}
+
+.pw .InputfieldNoBorder {
+	background-color: transparent;
+	border: none;
+}
+
+.pw .Inputfield:not(.InputfieldNoBorder, .InputfieldWrapper),
+.Inputfields
+.InputfieldRepeater:not(.InputfieldIsColor):not(.InputfieldNoBorder) {
+	background: var(--blocks-background);
+}
+
+.pw
+.Inputfield.InputfieldIsHighlight:not(
+    .InputfieldNoBorder,
+    .InputfieldWrapper
+  ) {
+	background: var(--notes-background) !important;
+}
+
+.pw
+.Inputfield.InputfieldIsWarning:not(.InputfieldNoBorde, .InputfieldWrapperr) {
+	background: var(--alert-danger) !important;
+}
+:not(.InputfieldFieldset)>.InputfieldContent>.Inputfields>.InputfieldMarkup.InputfieldHeaderHidden:not(.InputfieldNoBorder, .InputfieldWrapper),
+.InputfieldForm>.Inputfields>.InputfieldMarkup.InputfieldHeaderHidden:not(.InputfieldNoBorder, .InputfieldWrapper) {
+	outline: 1px solid var(--border-color) !important;
+	padding-left: 20px;
+	padding-right: 20px;
+}
+
+.pw
+.Inputfield.InputfieldIsSecondary:not(
+    .InputfieldNoBorder,
+    .InputfieldWrapper
+  ),
+.pw
+.Inputfield.InputfieldIsSecondary:not(
+    .InputfieldNoBorder,
+    .InputfieldWrapper
+  ) {
+	background: var(--main-background) !important;
+}
+
+.InputfieldNoBorder > .InputfieldHeader {
+	padding-right: 0;
+}
+
+.InputfieldNoBorder > .InputfieldHeader.InputfieldStateToggle i.toggle-icon {
+	margin-right: 10px;
+}
+
+.pw .InputfieldWrapper {
+	background: none;
+}
+
+#ProcessListerResults #ProcessListerTable .pw-table-responsive {
+	outline: none;
+	border: 1px solid var(--border-color);
+}
+
+.pw input[disabled="disabled"] {
+	opacity: 0.4;
+}
+
+.uk-navbar-left {
+	gap: 22px;
+}
+
+.uk-navbar-nav,
+.uk-navbar-right,
+[class*="uk-navbar-center"] {
+	gap: 25px;
+}
+
+.modules_section a[style="opacity: 0.6;"] {
+	opacity: 1 !important;
+}
+
+.pw .InputfieldSelector .selector-list li.selector-row {
+	border: none;
+}
+
+.pw
+.Inputfields
+.InputfieldRepeater
+.InputfieldRepeaterItem
+> .InputfieldHeader.InputfieldRepeaterHeaderInit
+.toggle-icon {
+	line-height: 1.3em;
+}
+
+.pw
+.Inputfields
+.InputfieldRepeater
+.InputfieldRepeaterItem:not(
+    .InputfieldRepeaterDeletePending
+  ).InputfieldRepeaterUnpublished
+> .InputfieldHeader {
+	opacity: 1;
+}
+
+.pw
+.Inputfields
+.InputfieldRepeater
+.InputfieldRepeaterItem:not(
+    .InputfieldRepeaterDeletePending
+  ).InputfieldRepeaterUnpublished
+> .InputfieldHeader
+> * {
+	opacity: 0.5;
+}
+
+.ui-priority-secondary,
+.ui-widget-content .ui-priority-secondary,
+.ui-widget-header .ui-priority-secondary {
+	opacity: 1;
+	filter: none;
+	color: var(--muted-color);
+}
+
+a
+:is(
+    .ui-priority-secondary,
+    .ui-widget-content .ui-priority-secondary,
+    .ui-widget-header .ui-priority-secondary
+  ) {
+	color: inherit;
+}
+
+html.pw .Inputfield.InputfieldTinyMCE .InputfieldContent {
+	background-color: var(--blocks-background, #f4f4f4);
+}
+
+.pw .tox-dialog .tox-button--naked {
+	border: none;
+	background-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pw .tox-dialog .tox-button--naked:hover,
+	.pw .tox .tox-button--naked:hover:not(:disabled) {
+		border: none;
+		background-color: transparent;
+	}
+}
+
+.pw .uk-select {
+	height: 40px;
+	background-image: linear-gradient(
+			45deg,
+			transparent 50%,
+			var(--text-color) 50%
+	),
+	linear-gradient(135deg, var(--text-color) 50%, transparent 50%),
+	linear-gradient(45deg, var(--text-color) 50%, transparent 50%),
+	linear-gradient(135deg, transparent 50%, var(--text-color) 50%) !important;
+	background-position: calc(100% - 12px) calc(50% + 4px),
+	calc(100% - 8px) calc(50% + 4px), calc(100% - 8px) calc(50% - 4px),
+	calc(100% - 12px) calc(50% - 4px) !important;
+	background-size: 4px 4px, 4px 4px, 4px 4px, 4px 4px !important;
+	background-repeat: no-repeat !important;
+}
+
+.fa-angle-right:before,
+.fa-angle-down:before {
+	width: 15px;
+}
+
+a .ModuleClass.ui-priority-secondary {
+	opacity: 1;
+}
+
+.pw #ProcessPageEditChildEdit .PageEditChild {
+	border: none;
+	background-color: var(--blocks-background) !important;
+}
+
+.pw #ProcessPageEditChildEdit .PageEditChildHidden {
+	outline-style: dashed;
+}
+
+.pw #ProcessPageEditChildEdit .PageEditChild:first-child {
+	margin-top: 0;
+}
+
+.pw
+#ProcessPageEditChildEdit
+.PageEditChildHidden
+> .InputfieldHeader
+.PageEditChildHideAction,
+.pw
+#ProcessPageEditChildEdit
+.PageEditChildUnpub
+> .InputfieldHeader
+.PageEditChildUnpubAction {
+	color: var(--main-color);
+}
+
+#offcanvas-toggle {
+	right: 15px;
+}
+
+.pw .vex .vex-content,
+.pw .vex.vex-theme-default .vex-content,
+.pw .ui-datepicker {
+	background-color: var(--blocks-background);
+	color: var(--text-color);
+	border-radius: 0;
+	border: 1px solid var(--border-color);
+}
+
+.ui-datepicker {
+	translate: 0 -1px;
+	padding-top: 20px;
+}
+
+.ui-datepicker table th {
+	color: var(--text-color);
+}
+
+.ui-datepicker table td .ui-state-default {
+	border: 1px solid transparent;
+	color: var(--text-color);
+	border-radius: 0;
+}
+
+.pw .ui-datepicker table td .ui-state-default:hover {
+	background: var(--main-color);
+	border: 1px solid var(--main-color);
+	color: var(--blocks-background);
+}
+
+.ui-datepicker table td .ui-state-highlight,
+.ui-datepicker table td .ui-state-highlight:hover {
+	border: 1px solid var(--inputs-background);
+	background: var(--inputs-background);
+	color: var(--text-color);
+}
+
+.ui-datepicker table td .ui-state-active,
+.ui-datepicker table td .ui-state-active:hover {
+	background: var(--main-color);
+	border-color: var(--main-color);
+	color: var(--blocks-background);
+}
+
+.ui-datepicker .ui-datepicker-title {
+	color: var(--blocks-background);
+}
+
+.ui-datepicker .ui-datepicker-header {
+	border-bottom: var(--border-color);
+}
+
+.ui-datepicker .ui-datepicker-next {
+	color: var(--text-color);
+}
+
+.ui-datepicker .ui-datepicker-prev {
+	color: var(--text-color);
+}
+
+.ui-datepicker .ui-datepicker-next.ui-datepicker-next-hover {
+	color: var(--main-color);
+}
+
+.ui-datepicker button.ui-datepicker-current {
+	color: var(--blocks-background);
+	background: var(--main-color);
+	border-color: var(--main-color);
+}
+
+.ui-datepicker button.ui-datepicker-close {
+	background: var(--text-color);
+	border-color: var(--text-color);
+	color: var(--blocks-color);
+}
+
+.ui-datepicker button.ui-datepicker-close:hover {
+	background: var(--main-color);
+	border-color: var(--main-color);
+}
+
+.ui-datepicker .ui-slider,
+.ui-datepicker .ui-slider-horizontal {
+	background: var(--border-color);
+}
+
+.ui-datepicker .ui-timepicker-div {
+	border-top: 1px solid var(--border-color);
+	border-bottom: 1px solid var(--border-color);
+}
+
+.ui-datepicker .ui-timepicker-div #ui_tpicker_time_Inputfield_date {
+	color: var(--blocks-background);
+}
+
+.ui-datepicker .ui-datepicker-title select {
+	min-height: 22px;
+	border-radius: 0;
+	border-color: var(--border-color);
+	background-color: var(--blocks-background);
+	color: var(--text-color);
+}
+
+.ui-datepicker .ui-timepicker-div:last-child {
+	border-bottom: none;
+	padding-bottom: 0 !important;
+}
+
+.maxColHeightSpacer {
+	height: auto !important;
+}
+
+[style="background:#777;height:3px;width:100%;"] {
+	display: none;
+}
+
+.Inputfields .langTabsContainer .pw-notes, .Inputfields .langTabsContainer .notes {
+	margin-top: 15px;
+}
+
+.pw .InputfieldIconAll .fa.fw {
+	background: none;
+}
+
+.pw li.pageBreak .asmListItemLabel {
+	background-color: var(--blocks-background);
+}
+
+.pw .asmListItem.pageBreak .asmListItemEdit > *,
+.pw .asmListItem.pageBreak > *:not(.columnWidthBar),
+.pw .asmListItem.pageBreak .asmListItemStatus,
+.pw .asmListItem.pageBreak .asmListItemStatus > * {
+	color: var(--muted-color);
+}
+
+.pw .asmListItem.pageBreak .asmListItemStatus > [data-was] {
+	display: none;
+}
+
+.pw .InputfieldFormBuilderPageBreak .InputfieldContent {
+	border-bottom: none;
+}
+
+del {
+	color: var(--error-inline-text-color);
+}
+
+span.pw-diff {
+	color: var(--muted-color);
+}
+
+ins {
+	color: var(--text-color);
+	font-weight: inherit;
+}
+
+.colorpicker {
+	z-index: 5;
+}
+
+#tracy-show-button {
+	color: black;
+}
+
+.pw small > .uk-button {
+	background: transparent;
+	color: inherit;
+}
+
+@media (min-width: 960px) {
+	h1, .uk-h1 {
+		font-size: 2.425rem;
+	}
+}
+
+@media (min-width: 640px) {
+	#offcanvas-toggle {
+		right: 30px;
+	}
+}

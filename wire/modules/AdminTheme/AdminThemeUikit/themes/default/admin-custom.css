@@ -1,0 +1,193 @@
+/* inter-regular - latin */
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 400;
+	src: url("./fonts/inter-v18-latin-regular.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* inter-italic - latin */
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: italic;
+	font-weight: 400;
+	src: url("./fonts/inter-v18-latin-italic.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* inter-600 - latin */
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 600;
+	src: url("./fonts/inter-v18-latin-600.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* inter-600italic - latin */
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: italic;
+	font-weight: 600;
+	src: url("./fonts/inter-v18-latin-600italic.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- DEFAULT THEME VARIABLES (LIGHT and DARK) --------------------- */
+/* ---- (keep active while uncommenting the others to test) --------- */
+/* ----------------------------------------------------------------- */
+
+:root {
+	color-scheme: light dark;
+
+	--main-color: #eb1d61;
+
+	--text-color: light-dark(black, white);
+	--muted-color: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));
+	--border-color: light-dark(rgba(0, 0, 0, 0.16), #444);
+	--main-background:light-dark(#eee, #222);
+	--inputs-background:light-dark(#f8f8f8, #161616);
+	--blocks-background: light-dark(white, black);
+
+	--button-background: light-dark(var(--text-color), var(--main-color));
+	--button-color: light-dark(var(--blocks-background), var(--text-color));
+	--button-border: transparent;
+	--button-muted-background: light-dark(var(--muted-color), #404040);
+	--button-muted-color: light-dark(var(--blocks-background), var(--text-color));;
+	--button-muted-border: transparent;
+	--button-hover-background: light-dark(var(--main-color), var(--text-color));
+	--button-hover-color: var(--blocks-background);
+	--button-hover-border: transparent;
+	--menu-item-backgroud-hover: var(--main-background);
+
+	--masthead-background: var(--blocks-background);
+	--masthead-active-color: var(--text-color);
+	--masthead-text-color: var(--muted-color);
+	--masthead-border-color: var(--border-color);
+	--masthead-logo-color: var(--main-color);
+	--masthead-menu-item-backgroud-hover: var(--menu-item-backgroud-hover);
+
+	--masthead-input-background: var(--inputs-background);
+	--masthead-input-color: var(--text-color);
+	--masthead-input-border: var(--border-color);
+
+	--modal-color: rgba(0,0,0,0.7);
+
+	--alert-text-color: var(--text-color);
+	--alert-primary: var(--main-background);
+	--alert-warning: light-dark(#fcda6d, #d57f00);
+	--alert-success: light-dark(#97ecb2, #139472);
+	--alert-danger: light-dark(#ffc3c3, #8a1919);
+	--notes-background: light-dark(#ffd, #bdbdbd33);
+
+	--error-inline-text-color: light-dark(#cd0a0a, #ff1d1d);
+
+	--code-color: light-dark(#0173b0, #e7e695);
+	--code-background: light-dark(#0173b020, #3c3c3c5e);
+
+	--button-radius: 99999px;
+	--input-radius: 0;
+
+}
+
+@media (prefers-color-scheme: dark) {
+	* {
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+}
+
+body.light-theme,
+html:has(body.light-theme) {
+	color-scheme: light;
+}
+
+body.dark-theme,
+html:has(body.dark-theme) {
+	color-scheme: dark;
+}
+
+body.light-theme * {
+	-webkit-font-smoothing: auto;
+	-moz-osx-font-smoothing: auto;
+}
+
+body.dark-theme * {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body.main-color-red {
+	--main-color: #eb1d61;
+}
+
+body.main-color-green {
+	--main-color: #14ae85;
+}
+
+body.main-color-blue {
+	--main-color: #2380e6;
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- THEME WITH COLOR MASTHEAD VARIABLES -------------------------- */
+/* ---- (these depend on the default theme variables) --------------- */
+/* ----------------------------------------------------------------- */
+/*
+:root {
+    --masthead-background: var(--main-color);
+    --masthead-active-color: white;
+    --masthead-text-color: rgba(255,255,255,0.8);
+    --masthead-border-color: var(--main-background);
+    --masthead-logo-color: white;
+    --masthead-input-background: var(--masthead-background);
+    --masthead-input-color: var(--masthead-active-color);
+    --masthead-input-border: var(--masthead-text-color);
+    --masthead-menu-item-backgroud-hover: rgba(255,255,255,.2);
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- BORDERLESS --------------------------------------------------- */
+/* ------------------------------------------------------------------ */
+/*
+:root {
+  --border-color: var(--main-background);
+  --inputs-background: var(--blocks-background);
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- MINIMAL LIGHT BLUE AND MINIMAL DARK VARIABLES ---------------- */
+/* ------------------------------------------------------------------ */
+/*
+:root {
+  --text-color: light-dark(blue, white);
+  --main-color: var(--text-color);
+  --main-background:light-dark(white, #222);
+  --border-color: light-dark(var(--text-color), var(--text-color));
+  --text-background: var(--main-background);
+  --inputs-background: var(--text-background);
+  --blocks-background: var(--text-background);
+  --muted-color: light-dark(#7c8efd, #8b8b8b);
+
+  --button-background: var(--text-background);
+  --button-color: light-dark(var(--text-color), var(--text-color));
+  --button-muted-color: var(--muted-color);
+  --button-border: var(--button-color);
+  --button-muted-background: var(--button-background);
+  --button-muted-border: var(--button-muted-color);
+  --button-hover-background: var(--button-color);
+  --button-hover-color: var(--button-background);
+  --button-hover-border: var(--button-color);
+
+  --masthead-background: var(--text-background);
+  --masthead-active-color: light-dark(var(--text-color), var(--text-color));
+  --masthead-text-color: var(--masthead-active-color);
+  --masthead-border-color: var(--masthead-active-color);
+  --masthead-logo-color: var(--masthead-active-color);
+
+  --alert-text-color: var(--text-color);
+  --alert-primary: light-dark(#ffd, var(--text-background));
+  --alert-warning: light-dark(#fcda6d, #d57f00);
+  --alert-success: light-dark(#97ecb2, #139472);
+  --alert-danger: light-dark(#ec9797, #8a1919);
+  --notes-background: light-dark(#ffd, #bdbdbd33);
+}
