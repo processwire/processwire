@@ -89,21 +89,49 @@ table,
 	color: var(--alert-text-color);
 }
 
+.pw .uk-notification-close svg {
+	display: none;
+}
+
+.pw .uk-notification-close,
+.pw .uk-notification-close:hover {
+	color: inherit;
+	text-decoration: none;
+	translate: 0 -14%;
+	display: block;
+}
+
+.pw .uk-notification-close:before {
+	content: "\f00d";
+	font: normal normal normal 14px / 1 FontAwesome;
+	font-size: inherit;
+	text-rendering: auto;
+}
+
+.uk-notification-message {
+	border: 1px solid var(--border-color);
+	font-size: 1rem;
+}
+
 .uk-alert,
-.uk-alert-primary {
+.uk-alert-primary,
+.uk-notification-message {
 	background: var(--alert-primary);
 	color: var(--text-color);
 }
 
-.uk-alert-warning {
+.uk-alert-warning,
+.uk-notification-message-warning {
 	background: var(--alert-warning);
 	color: var(--text-color);
 }
-.uk-alert-success {
+.uk-alert-success,
+.uk-notification-message-success {
 	background: var(--alert-success);
 	color: var(--text-color);
 }
-.uk-alert-danger {
+.uk-alert-danger,
+.uk-notification-message-danger {
 	background: var(--alert-danger);
 	color: var(--text-color);
 }
@@ -326,7 +354,8 @@ a,
 }
 
 .pw #main .notes,
-.pw .PageList .PageListItem.PageListSortItem {
+.pw .PageList .PageListItem.PageListSortItem,
+.PageListItem span.PageListNote {
 	background-color: var(--notes-background);
 }
 
@@ -442,7 +471,9 @@ label > :focus-visible,
 	padding: 20px 20px 35px 20px;
 }
 
-.pw .ui-menu {
+.pw .ui-menu,
+.pw .selectize-dropdown {
+	background: var(--blocks-background);
 	background-color: var(--blocks-background);
 	color: var(--text-color);
 	border: 1px solid var(--border-color);
@@ -992,8 +1023,15 @@ li:not(.pw-nav-dup)
 }
 
 .uk-text-muted,
-.pw #main .notes {
+.pw #main .notes,
+.PageListItem span.PageListNote {
 	color: var(--muted-color) !important;
+}
+
+.PageListItem span.PageListNote {
+	font-size: .875rem;
+	padding: .1em .5em .2em .2em;
+	margin-left: 0.5em;
 }
 
 .uk-breadcrumb > * > *,
@@ -1034,7 +1072,9 @@ body.AdminThemeReno
 }
 
 .Inputfield:not(.InputfieldRowLast):has(> .InputfieldHeader):before,
-.Inputfield:not(.InputfieldRowLast):has(> .InputfieldHeader):after {
+.Inputfield:not(.InputfieldRowLast):has(> .InputfieldHeader):after,
+.InputfieldRepeaterInit > li > label + div:before,
+.InputfieldRepeaterInit > li > label + div:after {
 	content: "";
 	position: absolute;
 	display: block;
@@ -1047,12 +1087,21 @@ body.AdminThemeReno
 	pointer-events: none;
 }
 
-.Inputfield:has(> .InputfieldHeader):before {
+.Inputfield:has(> .InputfieldHeader):before,
+.InputfieldRepeaterInit > li > label + div:before {
 	left: -1px;
 }
 
-.Inputfield:has(> .InputfieldHeader):after {
+.Inputfield:has(> .InputfieldHeader):after,
+.InputfieldRepeaterInit > li > label + div:after {
 	right: -1px;
+}
+
+.InputfieldRepeaterInit > li > label + div:before,
+.InputfieldRepeaterInit > li > label + div:after {
+	bottom: auto;
+	top: -1px;
+	background-color: var(--blocks-background);
 }
 
 .Inputfield > .InputfieldHeader,
@@ -1064,6 +1113,17 @@ body.AdminThemeReno
 .pw .InputfieldWrapper {
 	outline: none;
 }
+
+.InputfieldRepeaterInit > li {
+	margin-top: -1px;
+	margin-left: -1px;
+	margin-right: -1px;
+	padding-top: 1px;
+	padding-left: 1px;
+	padding-right: 1px;
+	position: relative;
+}
+
 .pw
 .Inputfields
 .InputfieldRepeater
@@ -1083,6 +1143,7 @@ body.AdminThemeReno
 	color: var(--text-color);
 	font-weight: inherit;
 	padding: 0.6em 0 0.6em 0.4em;
+	min-height: 2.2rem;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1385,6 +1446,10 @@ small.ui-button-text
 	padding-left: 0px;
 }
 
+.pw .Inputfield:has(.selectize-input.dropdown-active) {
+	z-index: 3;
+}
+
 .pw .Inputfield .selectize-input {
 	border-color: var(--border-color);
 	border-radius: var(--input-radius);
@@ -1410,6 +1475,22 @@ small.ui-button-text
 input:focus-visible,
 .pw .Inputfield .selectize-input.focus {
 	border-color: var(--border-color);
+}
+.pw .selectize-dropdown,
+.pw .selectize-dropdown .selectize-dropdown-content {
+	background-color: var(--blocks-background);
+}
+
+.pw .selectize-dropdown .selectize-dropdown-content > * {
+	background-color: transparent;
+}
+
+.pw .selectize-dropdown .selectize-dropdown-content > .active {
+	background-color: var(--menu-item-backgroud-hover);
+	color: var(--text-color);
+}
+.pw .selectize-input:before {
+	content: none;
 }
 
 .pw-content li.ui-state-hover a,
@@ -1452,7 +1533,7 @@ ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileName,
 	position: sticky;
 	width: 100%;
 	top: 0;
-	z-index: 98;
+	z-index: 199;
 }
 
 .ui-menu {
@@ -1470,11 +1551,23 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 	border-radius: var(--input-radius);
 }
 
-.InputfieldCheckboxes ul li {
+.uk-checkbox:focus,
+.uk-checkbox:indeterminate:focus {
+	border-color: var(--main-color);
+}
+.uk-checkbox:indeterminate {
+	background-color: transparent;
+}
+.uk-checkbox:checked,
+.uk-checkbox:checked:focus {
+	background-color: var(--main-color);
+}
+
+.pw-togcbx .InputfieldCheckboxes ul li {
 	padding: 3px 0;
 }
 
-.pw .uk-checkbox {
+.pw-togcbx .uk-checkbox {
 	border-color: transparent;
 }
 
@@ -1497,7 +1590,7 @@ input[type="radio"]:focus-visible:checked,
 	) !important;
 }
 
-.uk-checkbox:focus-visible,
+.pw-togcbx .uk-checkbox:focus-visible,
 #pw-masthead .pw-search-form .pw-search-input:focus-visible,
 #offcanvas-nav
 .pw-search-form
@@ -1509,15 +1602,14 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 .Inputfields textarea:not(.uk-form-blank):focus-visible {
 	border-color: var(--border-color);
 }
-
-.uk-checkbox:focus-visible {
+.pw-togcbx .uk-checkbox:focus-visible {
 	background-color: color-mix(
 			in srgb,
 			var(--muted-color),
 			transparent 55%
 	) !important;
 }
-.uk-checkbox:checked:focus-visible {
+.pw-togcbx .uk-checkbox:checked:focus-visible {
 	background-color: color-mix(
 			in srgb,
 			var(--main-color),
@@ -1559,8 +1651,12 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 
 .pw-dropdown-menu,
 .pw ul.ui-menu > li.ui-menu-item > ul.ui-menu {
-	z-index: 99 !important;
+	z-index: 200 !important;
 	border: 1px solid var(--masthead-border-color) !important;
+}
+
+.pw .ui-front {
+	z-index: 201 !important;
 }
 
 .pw ul.pw-dropdown-menu > li.ui-menu-item > ul.ui-menu {
@@ -1597,7 +1693,7 @@ img.pw-logo {
 	}
 }
 
-.uk-checkbox,
+.pw-togcbx .uk-checkbox,
 #pw-masthead .pw-search-form .pw-search-input,
 #offcanvas-nav .pw-search-form .pw-search-input,
 .Inputfields
@@ -1669,7 +1765,7 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 	max-width: 31px;
 }
 
-.uk-checkbox:focus-visible,
+.pw-togcbx .uk-checkbox:focus-visible,
 .Inputfields
 input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
     [type="radio"]
@@ -1761,15 +1857,19 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 }
 
 .tox.tox-tinymce-inline {
-	z-index: 97;
+	z-index: 198;
 }
 
 body .tox.tox-tinymce-inline .tox-editor-container {
 	overflow: visible !important;
 }
 
-.pw .tox.tox-tinymce-inline .tox-editor-header {
-	translate: -0.5px 0.5px;
+.pw .tox.tox-tinymce-inline.tox-tinymce--toolbar-sticky-off .tox-editor-header {
+	translate: -0.5px 1px;
+}
+
+.pw .tox.tox-tinymce-inline.tox-tinymce--toolbar-sticky-on .tox-editor-header {
+	translate: -0.5px 0;
 }
 
 .InputfieldTinyMCE .InputfieldTinyMCEInline.InputfieldTinyMCEInline,
@@ -1887,6 +1987,14 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 .PageList .PageListerActions a,
 .PageList .PageListMoveNote a {
 	border-radius: 0;
+}
+
+.pw .PageList .PageListActions .PageListActionEmpty a,
+.pw .PageList .PageListMoveNote a {
+	outline: 1px solid;
+	padding: 0.05em .65em;
+	margin: 0 .5em;
+	border-radius: var(--button-radius);
 }
 
 .PageList .PageListItem:not(:hover):focus-within .PageListActions.actions {
@@ -2176,31 +2284,33 @@ table,
 .uk-breadcrumb {
 	margin-bottom: 10px;
 }
-label:has(> .uk-checkbox),
-.InputfieldCheckbox .InputfieldContent.uk-form-controls label {
+
+.pw-togcbx label:has(> .uk-checkbox),
+.pw-togcbx .InputfieldCheckbox .InputfieldContent.uk-form-controls label {
 	display: inline-flex;
 }
 
 .uk-radio,
-.uk-checkbox {
+.pw-togcbx .uk-checkbox {
 	transition: none;
 }
-.pw input[type="checkbox"],
-.pw .uk-checkbox,
-.Inputfield input[type="checkbox"],
-td > label > input[type="checkbox"].uk-checkbox,
-body .InputfieldCheckboxes input[type="checkbox"],
-#main .InputfieldCheckboxes input[type="checkbox"],
-body .LanguageSupport label.checkbox.detail input[type="checkbox"],
-#main .LanguageSupport label.checkbox.detail input[type="checkbox"],
-body .uk-form-controls-text label:only-of-type input[type="checkbox"],
-#main .uk-form-controls-text label:only-of-type input[type="checkbox"],
-body .InputfieldCheckboxes input.uk-checkbox,
-#main .InputfieldCheckboxes input.uk-checkbox,
-body .LanguageSupport label.checkbox.detail input.uk-checkbox,
-#main .LanguageSupport label.checkbox.detail input.uk-checkbox,
-body .uk-form-controls-text label:only-of-type input.uk-checkbox,
-#main .uk-form-controls-text label:only-of-type input.uk-checkbox {
+
+.pw-togcbx input[type="checkbox"],
+.pw-togcbx .uk-checkbox,
+.pw-togcbx .Inputfield input[type="checkbox"],
+.pw-togcbx td > label > input[type="checkbox"].uk-checkbox,
+.pw-togcbx .InputfieldCheckboxes input[type="checkbox"],
+.pw-togcbx #main .InputfieldCheckboxes input[type="checkbox"],
+.pw-togcbx .LanguageSupport label.checkbox.detail input[type="checkbox"],
+.pw-togcbx #main .LanguageSupport label.checkbox.detail input[type="checkbox"],
+.pw-togcbx .uk-form-controls-text label:only-of-type input[type="checkbox"],
+.pw-togcbx #main .uk-form-controls-text label:only-of-type input[type="checkbox"],
+.pw-togcbx .InputfieldCheckboxes input.uk-checkbox,
+.pw-togcbx #main .InputfieldCheckboxes input.uk-checkbox,
+.pw-togcbx .LanguageSupport label.checkbox.detail input.uk-checkbox,
+.pw-togcbx #main .LanguageSupport label.checkbox.detail input.uk-checkbox,
+.pw-togcbx .uk-form-controls-text label:only-of-type input.uk-checkbox,
+.pw-togcbx #main .uk-form-controls-text label:only-of-type input.uk-checkbox {
 	font-size: 0.65rem;
 	margin-top: 0;
 	margin-right: 0.8em;
@@ -2221,21 +2331,21 @@ body .uk-form-controls-text label:only-of-type input.uk-checkbox,
 	top: 0;
 	display: inline-flex;
 }
-.uk-checkbox:after,
-body .InputfieldCheckboxes input[type="checkbox"]:after,
-#main .InputfieldCheckboxes input[type="checkbox"]:after,
-body .LanguageSupport label.checkbox.detail input[type="checkbox"]:after,
-#main .LanguageSupport label.checkbox.detail input[type="checkbox"]:after,
-body .uk-form-controls-text label:only-of-type input[type="checkbox"]:after,
-#main .uk-form-controls-text label:only-of-type input[type="checkbox"]:after,
-body .InputfieldCheckboxes input.uk-checkbox:after,
-#main .InputfieldCheckboxes input.uk-checkbox:after,
-body .LanguageSupport label.checkbox.detail input.uk-checkbox:after,
-#main .LanguageSupport label.checkbox.detail input.uk-checkbox:after,
-body .uk-form-controls-text label:only-of-type input.uk-checkbox:after,
-#main .uk-form-controls-text label:only-of-type input.uk-checkbox:after,
-body .uk-checkbox:after,
-#main .uk-checkbox:after {
+.pw-togcbx .uk-checkbox:after,
+.pw-togcbx .InputfieldCheckboxes input[type="checkbox"]:after,
+.pw-togcbx #main .InputfieldCheckboxes input[type="checkbox"]:after,
+.pw-togcbx .LanguageSupport label.checkbox.detail input[type="checkbox"]:after,
+.pw-togcbx #main .LanguageSupport label.checkbox.detail input[type="checkbox"]:after,
+.pw-togcbx .uk-form-controls-text label:only-of-type input[type="checkbox"]:after,
+.pw-togcbx #main .uk-form-controls-text label:only-of-type input[type="checkbox"]:after,
+.pw-togcbx .InputfieldCheckboxes input.uk-checkbox:after,
+.pw-togcbx #main .InputfieldCheckboxes input.uk-checkbox:after,
+.pw-togcbx .LanguageSupport label.checkbox.detail input.uk-checkbox:after,
+.pw-togcbx #main .LanguageSupport label.checkbox.detail input.uk-checkbox:after,
+.pw-togcbx .uk-form-controls-text label:only-of-type input.uk-checkbox:after,
+.pw-togcbx #main .uk-form-controls-text label:only-of-type input.uk-checkbox:after,
+.pw-togcbx .uk-checkbox:after,
+.pw-togcbx #main .uk-checkbox:after {
 	content: "";
 	position: relative;
 	background-color: var(--blocks-background);
@@ -2245,43 +2355,42 @@ body .uk-checkbox:after,
 	box-shadow: none;
 	margin: 0 0.3em;
 }
-.uk-checkbox:checked,
-body .InputfieldCheckboxes input[type="checkbox"]:checked,
-#main .InputfieldCheckboxes input[type="checkbox"]:checked,
-body .LanguageSupport label.checkbox.detail input[type="checkbox"]:checked,
-#main .LanguageSupport label.checkbox.detail input[type="checkbox"]:checked,
-body .uk-form-controls-text label:only-of-type input[type="checkbox"]:checked,
-#main .uk-form-controls-text label:only-of-type input[type="checkbox"]:checked,
-body .InputfieldCheckboxes input.uk-checkbox:checked,
-#main .InputfieldCheckboxes input.uk-checkbox:checked,
-body .LanguageSupport label.checkbox.detail input.uk-checkbox:checked,
-#main .LanguageSupport label.checkbox.detail input.uk-checkbox:checked,
-body .uk-form-controls-text label:only-of-type input.uk-checkbox:checked,
-#main .uk-form-controls-text label:only-of-type input.uk-checkbox:checked,
-body .uk-checkbox:checked,
-#main .uk-checkbox:checked {
+.pw-togcbx .uk-checkbox:checked,
+.pw-togcbx .InputfieldCheckboxes input[type="checkbox"]:checked,
+.pw-togcbx #main .InputfieldCheckboxes input[type="checkbox"]:checked,
+.pw-togcbx .LanguageSupport label.checkbox.detail input[type="checkbox"]:checked,
+.pw-togcbx #main .LanguageSupport label.checkbox.detail input[type="checkbox"]:checked,
+.pw-togcbx .uk-form-controls-text label:only-of-type input[type="checkbox"]:checked,
+.pw-togcbx #main .uk-form-controls-text label:only-of-type input[type="checkbox"]:checked,
+.pw-togcbx .InputfieldCheckboxes input.uk-checkbox:checked,
+.pw-togcbx #main .InputfieldCheckboxes input.uk-checkbox:checked,
+.pw-togcbx .LanguageSupport label.checkbox.detail input.uk-checkbox:checked,
+.pw-togcbx #main .LanguageSupport label.checkbox.detail input.uk-checkbox:checked,
+.pw-togcbx .uk-form-controls-text label:only-of-type input.uk-checkbox:checked,
+.pw-togcbx #main .uk-form-controls-text label:only-of-type input.uk-checkbox:checked,
+.pw-togcbx .uk-checkbox:checked,
+.pw-togcbx #main .uk-checkbox:checked {
 	flex-direction: row-reverse;
 	background-color: var(--main-color);
 }
 
-body .InputfieldCheckboxes .InputfieldCheckboxesStacked li,
-#main .InputfieldCheckboxes .InputfieldCheckboxesStacked li,
-body .InputfieldCheckbox .InputfieldCheckboxesStacked li,
-#main .InputfieldCheckbox .InputfieldCheckboxesStacked li,
-body .InputfieldCheckboxes .InputfieldCheckboxesColumns li,
-#main .InputfieldCheckboxes .InputfieldCheckboxesColumns li,
-body .InputfieldCheckbox .InputfieldCheckboxesColumns li,
-#main .InputfieldCheckbox .InputfieldCheckboxesColumns li {
+.pw-togcbx .InputfieldCheckboxes .InputfieldCheckboxesStacked li,
+.pw-togcbx #main .InputfieldCheckboxes .InputfieldCheckboxesStacked li,
+.pw-togcbx .InputfieldCheckbox .InputfieldCheckboxesStacked li,
+.pw-togcbx #main .InputfieldCheckbox .InputfieldCheckboxesStacked li,
+.pw-togcbx .InputfieldCheckboxes .InputfieldCheckboxesColumns li,
+.pw-togcbx #main .InputfieldCheckboxes .InputfieldCheckboxesColumns li,
+.pw-togcbx .InputfieldCheckbox .InputfieldCheckboxesColumns li,
+.pw-togcbx #main .InputfieldCheckbox .InputfieldCheckboxesColumns li {
 	padding-bottom: 3px;
 }
 
-.InputfieldCheckboxes ul li {
+.pw-togcbx .InputfieldCheckboxes ul li {
 	list-style: none !important;
 	margin: 0 !important;
 }
-.uk-checkbox:checked,
-body .uk-checkbox:checked,
-#main .uk-checkbox:checked {
+.pw-togcbx .uk-checkbox:checked,
+.pw-togcbx #main .uk-checkbox:checked {
 	background-image: none;
 }
 
@@ -3126,6 +3235,29 @@ ins {
 .pw small > .uk-button {
 	background: transparent;
 	color: inherit;
+}
+
+.InputfieldIconAll .fa.fw {
+	color: var(--text-color);
+}
+
+.InputfieldIconAll .fa.fw.on {
+	color: var(--button-color);
+	background-color: var(--button-background);
+	border-radius: var(--input-radius);
+}
+
+.pw .fm-show-buttons {
+	color: var(--text-color);
+}
+
+.pw .fm-show-buttons:hover {
+	color: var(--main-color);
+}
+
+/* sugestion by @monollonom */
+.Inputfield[style*="opacity"] {
+	opacity: unset !important;
 }
 
 @media (min-width: 960px) {

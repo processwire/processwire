@@ -35,6 +35,10 @@ $f->addOption('noUserMenu',
 	__('Disable light/dark/auto setting in user tools menu?') . ' ' .
 	'[span.detail] ' . __('(this prevents users from making their own dark/light mode selection)') . ' [/span]'
 );
+$f->addOption('noTogCbx', 
+	__('Disable toggle style checkboxes?') . ' ' .
+	'[span.detail] ' . __('(makes it use regular style checkboxes instead)') . ' [/span]'
+);
 $f->addOption('use2Colors',
 	__('Define separate main color pickers for light mode and dark mode') . ' ' .
 	'[span.detail] ' . __('(use for more contrast in light or dark mode)') . ' [/span]',

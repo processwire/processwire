@@ -9,6 +9,7 @@
 $themeInfo = $adminTheme->getThemeInfo();
 $customCss = $adminTheme->get('defaultCustomCss');
 $customCssFile = $adminTheme->get('defaultCustomCssFile');
+$toggles = $adminTheme->defaultToggles;
 
 $mainColors = [ 
 	'red' => '#eb1d61', 
@@ -41,6 +42,7 @@ if($darkMode === 1) {
 }
 
 $adminTheme->addBodyClass("$styleName-theme");
+if(!in_array('noTogCbx', $toggles)) $adminTheme->addBodyClass("pw-togcbx");
 
 $mainColor = $adminTheme->get('defaultMainColor'); 
 if(empty($mainColor)) $mainColor = 'red';
@@ -62,5 +64,6 @@ if(strpos($mainColorCode, '#') === 0 && ctype_alnum(ltrim($mainColorCode, '#')))
 
 if($customCss) {
 	$customCss = htmlspecialchars($customCss, ENT_NOQUOTES); 
+	$customCss = str_replace('&gt;', ' > ', $customCss);
 	$adminTheme->addExtraMarkup('head', "<style id='default-custom-css' type='text/css'>$customCss</style>");
 }
