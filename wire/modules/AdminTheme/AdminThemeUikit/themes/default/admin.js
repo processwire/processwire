@@ -100,7 +100,6 @@ function setupCommandSearch() {
 	});
 }
 
-
 var AdminDarkMode = {
 	
 	isInit: false,
@@ -156,7 +155,7 @@ var AdminDarkMode = {
 		this.body.addClass(this.getName(mode) + '-theme');
 		this.mode = mode;
 		this.updateLink();
-		$(document).trigger('admin-color-change'); 
+		// $(document).trigger('admin-color-change'); 
 	},
 	
 	setLight: function() {
@@ -218,9 +217,12 @@ var AdminDarkMode = {
 };
 
 // Call the setup function when the DOM is loaded
-document.addEventListener("DOMContentLoaded", setupCommandSearch);
+// document.addEventListener("DOMContentLoaded", setupCommandSearch);
 
 $(document).ready(function () {
-  $(".pw-notices").insertAfter("#pw-mastheads");
-  AdminDarkMode.init();
+	if($("#pw-masthead .pw-search-input").length) {
+		setupCommandSearch();
+	}
+	$(".pw-notices").insertAfter("#pw-mastheads");
+	if(!$('body').hasClass('pw-no-dark-mode')) AdminDarkMode.init();
 });

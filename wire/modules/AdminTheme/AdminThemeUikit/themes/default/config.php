@@ -2,6 +2,10 @@
 
 /** @var AdminThemeUikit $adminTheme */
 /** @var InputfieldWrapper $inputfields  */
+/** @var Config $config */
+
+$settings = $config->AdminThemeUikit;
+if(!is_array($settings)) $settings = [];
 
 if($adminTheme->themeName === 'default') {
 	$adminTheme->wire()->config->scripts->add($adminTheme->url() . 'themes/default/config.js');
@@ -14,17 +18,24 @@ $inputfields->icon = 'sliders';
 $f = $inputfields->InputfieldRadios;
 $f->attr('id+name', 'defaultStyleName');
 $f->label = __('Would you like to default to light or dark mode?');
+$darkAttr = [];
+$value = $adminTheme->get('defaultStyleName');
+if(empty($value)) $value = 'auto';
+if(!empty($settings['noDarkMode'])) {
+	$darkAttr = [ 'disabled' => 'disabled' ]; 
+	$value = 'light';
+	$f->notes = __('Dark mode disabled has been disabled by `$config->AdminThemeUikit("noDarkMode")`'); 
+} else {
+	$f->notes = __('Individual users can also choose light/dark/auto mode from the user tools menu.');
+}
 $f->description = 
 	__('This setting is used for users that have not specifically chosen light or dark mode.') . ' ' . 
 	__('When “Auto” is selected, the mode will be determined from the user’s browser or OS setting.'); 
-$f->notes = __('Individual users can also choose light/dark/auto mode from the user tools menu.'); 
 $f->addOption('light', __('Light'));
-$f->addOption('dark', __('Dark'));
+$f->addOption('dark', __('Dark'), $darkAttr);
 $f->addOption('auto', __('Auto') . ' ' . 
-	'[span.detail] ' . __('(use browser/OS setting)') . ' [/span]' );
+	'[span.detail] ' . __('(use browser/OS setting)') . ' [/span]', $darkAttr);
 $f->optionColumns = 1;
-$value = $adminTheme->get('defaultStyleName');
-if(empty($value)) $value = 'auto'; 
 $f->val($value);
 $inputfields->add($f);
 
@@ -35,9 +46,12 @@ $f->addOption('noUserMenu',
 	__('Disable light/dark/auto setting in user tools menu?') . ' ' .
 	'[span.detail] ' . __('(this prevents users from making their own dark/light mode selection)') . ' [/span]'
 );
-$f->addOption('noTogCbx', 
-	__('Disable toggle style checkboxes?') . ' ' .
-	'[span.detail] ' . __('(makes it use regular style checkboxes instead)') . ' [/span]'
+$togcbxAttr = [];
+if(!empty($settings['noTogcbx'])) $togcbxAttr = [ 'disabled' => 'disabled' ];
+$f->addOption('useTogcbx', 
+	__('Use toggle style checkboxes globally?') . ' ' .
+	'[span.detail] ' . __('(use toggle rather than marker style checkboxes)') . ' [/span]',
+	$togcbxAttr
 );
 $f->addOption('use2Colors',
 	__('Define separate main color pickers for light mode and dark mode') . ' ' .
@@ -45,7 +59,10 @@ $f->addOption('use2Colors',
 	[ 'hidden' => 'hidden' ]
 );
 $value = $adminTheme->get($f->name);
-if(is_array($value)) $f->val($value);
+if(is_array($value)) {
+	$f->val($value);
+	if(in_array('togcbx', $value)) $f->addClass('pw-togcbx', 'wrapClass');
+}
 $inputfields->add($f);
 
 $f = $inputfields->InputfieldRadios;

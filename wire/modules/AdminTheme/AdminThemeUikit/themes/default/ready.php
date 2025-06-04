@@ -10,6 +10,7 @@ $themeInfo = $adminTheme->getThemeInfo();
 $customCss = $adminTheme->get('defaultCustomCss');
 $customCssFile = $adminTheme->get('defaultCustomCssFile');
 $toggles = $adminTheme->defaultToggles;
+$settings = $config->AdminThemeUikit;
 
 $mainColors = [ 
 	'red' => '#eb1d61', 
@@ -32,7 +33,10 @@ if($page->process == 'ProcessModule' && $input->get('name') === $adminTheme->cla
 	$darkMode = $user->meta('adminDarkMode');
 }
 
-if($darkMode === 1) {
+if(is_array($settings) && !empty($settings['noDarkMode'])) {
+	$styleName = 'light';
+	$adminTheme->addBodyClass('pw-no-dark-mode'); 
+} else if($darkMode === 1) {
 	$styleName = 'dark';
 } else if($darkMode === 0) {
 	$styleName = 'light';
@@ -42,7 +46,9 @@ if($darkMode === 1) {
 }
 
 $adminTheme->addBodyClass("$styleName-theme");
-if(!in_array('noTogCbx', $toggles)) $adminTheme->addBodyClass("pw-togcbx");
+if(in_array('useTogcbx', $toggles) && empty($settings['noTogcbx'])) {
+	$adminTheme->addBodyClass("pw-togcbx");
+}
 
 $mainColor = $adminTheme->get('defaultMainColor'); 
 if(empty($mainColor)) $mainColor = 'red';

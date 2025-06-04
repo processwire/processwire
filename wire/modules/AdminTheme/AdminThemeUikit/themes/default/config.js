@@ -70,6 +70,12 @@ $(document).ready(function() {
 		var $use2Colors = $('#defaultToggles_use2Colors');
 		var hidden = !$('#defaultMainColor_custom').prop('checked');
 		$use2Colors.parent('label').prop('hidden', hidden);
+		
+		if($('#defaultToggles_useTogcbx').prop('checked')) {
+			$('body').addClass('pw-togcbx');
+		} else {
+			$('body').removeClass('pw-togcbx'); 
+		}
 	}
 	
 	function setButtonColor(value) {
@@ -123,12 +129,14 @@ $(document).ready(function() {
 		var color = getCurrentStyleName() === 'dark' ? getMainColor() : 'black';
 		$(this).css('background-color', color);
 	}); 
-	
+
+	/*
 	$(document).on('admin-color-change', function() {
 		if($('body').hasClass('main-color-custom')) {
 			$('#defaultMainColorCustom, #defaultMainColorCustomDark').trigger('input');
 		}
 	});
+	 */
 	
 	$('#defaultToggles_use2Colors').on('change', function() {
 		if($(this).prop('checked')) {
@@ -136,7 +144,9 @@ $(document).ready(function() {
 		} else {
 			$('#defaultMainColorCustom').trigger('input');
 		}
-	}); 
+	});
+	
+	$('#defaultToggles_useTogcbx').on('change', updateToggles); 
 	
 	updateToggles();
 });

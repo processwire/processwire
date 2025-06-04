@@ -8,10 +8,12 @@
 
 $themeInfo = $adminTheme->getThemeInfo();
 $toggles = $adminTheme->defaultToggles;
+$settings = $config->AdminThemeUikit; 
 
 $useDarkModeSwitcher = 
 	$user->isLoggedin() 
 	&& !in_array('noUserMenu', $toggles) 
+	&& empty($settings['noDarkMode'])
 	&& $user->hasPermission('page-edit');
 
 /**
