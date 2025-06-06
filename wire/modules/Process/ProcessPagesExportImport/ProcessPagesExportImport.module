@@ -636,6 +636,7 @@ class ProcessPagesExportImport extends Process {
 	
 		$modules = $this->wire()->modules;
 		$input = $this->wire()->input;
+		$adminTheme = $this->wire()->adminTheme;
 	
 		/** @var InputfieldForm $form */
 		$form = $modules->get('InputfieldForm');
@@ -700,16 +701,17 @@ class ProcessPagesExportImport extends Process {
 		$f->startLabel = $this->_('Choose parent'); 
 		$checkedDirect = $input->post('import_parent_type') == 'direct' ? "checked='checked'" : '';
 		$checkedBelow = $checkedDirect ? '' : "checked='checked'"; 
+		$radioClass = $adminTheme->getClass('input-radio');
 		$f->appendMarkup = 
 			"<p class='InputfieldRadios'>" . 
 				"<label style='display:block'>" . 
-					"<input type='radio' name='import_parent_type' $checkedBelow value='below'>" .
+					"<input type='radio' name='import_parent_type' $checkedBelow value='below' class='$radioClass'>" .
 					"<span class='pw-no-select'>" . 
 						$this->_('Import pages into selected parent and maintain page path structure below it') . 
 					"</span>" . 
 				"</label>" . 
 				"<label style='display:block'>" . 
-					"<input type='radio' name='import_parent_type' $checkedDirect value='direct'>" .
+					"<input type='radio' name='import_parent_type' $checkedDirect value='direct' class='$radioClass'>" .
 					"<span class='pw-no-select'>" . 
 						$this->_('Import pages as children of selected parent page only') .
 					"</span>" . 
@@ -871,7 +873,8 @@ class ProcessPagesExportImport extends Process {
 				// NullPage (error)
 			} else if($numChanges) {
 				// Page (success)
-				$attr = "type='radio' name='confirm$originalID' class='import-confirm'";
+				$class = $this->wire()->adminTheme->getClass('input-radio');
+				$attr = "type='radio' name='confirm$originalID' class='import-confirm $class'";
 				$val = $this->wire()->input->post("confirm$originalID");
 				if($val == $originalID || $val === null) {
 					$checkedYes = "checked='checked'";

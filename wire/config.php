@@ -1648,8 +1648,8 @@ $config->adminEmail = '';
  * #property bool compress Compress compiled CSS?
  * #property array customLessFiles Custom .less files to include, relative to PW installation root.
  * #property string customCssFile Target custom .css file to compile custom .less file(s) to. 
- * #proeprty bool noDarkMode If theme supports a dark mode, specify true to disable it as an option.
- * #proeprty bool noTogcbx If theme supports toggle style checkboxes, disable them. 
+ * #property bool noDarkMode If theme supports a dark mode, specify true to disable it as an option.
+ * #property bool noTogcbx If theme supports toggle style checkboxes, disable them. 
  * 
  */
 $config->AdminThemeUikit = array(

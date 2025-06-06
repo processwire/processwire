@@ -136,7 +136,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	
 		// settings specific to default theme/style
 		$this->setArray([
-			'defaultStyleName' => 'auto',
+			'defaultStyleName' => 'light',
 			'defaultMainColor' => 'red', 
 			'defaultMainColorCustom' => '#eb1d61',
 			'defaultMainColorCustomDark' => '',

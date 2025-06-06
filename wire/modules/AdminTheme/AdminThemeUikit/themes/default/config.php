@@ -24,7 +24,7 @@ if(empty($value)) $value = 'auto';
 if(!empty($settings['noDarkMode'])) {
 	$darkAttr = [ 'disabled' => 'disabled' ]; 
 	$value = 'light';
-	$f->notes = __('Dark mode disabled has been disabled by `$config->AdminThemeUikit("noDarkMode")`'); 
+	$f->notes = __('Dark mode has been disabled by `$config->AdminThemeUikit("noDarkMode")`'); 
 } else {
 	$f->notes = __('Individual users can also choose light/dark/auto mode from the user tools menu.');
 }
