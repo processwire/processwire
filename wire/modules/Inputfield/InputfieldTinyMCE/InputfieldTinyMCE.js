@@ -854,10 +854,10 @@ var InputfieldTinyMCE = {
 		
 		this.onSetup(function(editor) {
 			editor.on('focus', function(e) {
-				$(editor.container).closest('.' + t.cls.main).addClass(t.cls.focused);
+				jQuery(editor.container).closest('.' + t.cls.main).addClass(t.cls.focused);
 			});
 			editor.on('blur', function(e) {
-				$(editor.container).closest('.' + t.cls.main).removeClass(t.cls.focused);
+				jQuery(editor.container).closest('.' + t.cls.main).removeClass(t.cls.focused);
 			});
 		});
 		
