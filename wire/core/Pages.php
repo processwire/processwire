@@ -1946,6 +1946,11 @@ class Pages extends Wire {
 		$class = empty($options['pageClass']) ? 'Page' : $options['pageClass'];
 
 		unset($options['template'], $options['parent'], $options['pageClass']); 
+		
+		if($template && !$template instanceof Template) {
+			$template = $this->wire()->templates->get($template);
+			if(!$template instanceof Template) $template = null;
+		}
 	
 		if(strpos($class, "\\") === false) $class = wireClassName($class, true);
 		
