@@ -14,6 +14,8 @@
  * @method void added($user) Hook called just after a User is added #pw-hooker
  * @method void deleteReady($user) Hook called before a User is deleted #pw-hooker
  * @method void deleted($user) Hook called after a User is deleted #pw-hooker
+ * @method User new($options = []) Create new User instance in memory (3.0.249+)
+ *  
  *
  */
 
@@ -156,9 +158,11 @@ class Users extends PagesType {
 	 * 
 	 */
 	public function newUser() {
+		$config = $this->wire()->config;
 		/** @var User $user */
 		$user = $this->wire()->pages->newPage(array(
-			'template' => 'user',
+			'template' => $this->wire()->templates->get($config->userTemplateID),
+			'parent' => $config->usersPageID, 
 			'pageClass' => $this->getPageClass()
 		));
 		return $user;

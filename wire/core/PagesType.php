@@ -17,6 +17,7 @@
  * https://processwire.com
  *
  * @method Page add($name)
+ * @method Page new(array $options = []) 3.0.249
  * @method bool save(Page $page)
  * @method bool delete(Page $page, $recursive = false)
  * 
@@ -87,6 +88,23 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		$this->addParents($parents); 
 		$wire->pages->types($this);
 		parent::__construct();
+	}
+
+	/**
+	 * Create new instance of this page type
+	 * 
+	 * @param array $options
+	 * @return Page
+	 * @since 3.0.249
+	 * 
+	 */
+	public function ___new(array $options = []) {
+		$defaults = array(
+			'template' => $this->getTemplate(),
+			'parent' => $this->getParent(),
+			'pageClass' => $this->getPageClass()
+		);
+		return $this->wire()->pages->newPage(array_merge($defaults, $options));
 	}
 
 	/**

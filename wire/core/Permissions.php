@@ -16,6 +16,7 @@
  * @method void added(Page $page) Hook called just after a Permission is added #pw-hooker
  * @method void deleteReady(Page $page) Hook called before a Permission is deleted #pw-hooker
  * @method void deleted(Page $page) Hook called after a permission is deleted #pw-hooker
+ * @method Permission new($options = []) Create new Permission instance in memory (3.0.249+)
  * 
  */
 class Permissions extends PagesType {
