@@ -963,6 +963,17 @@ class Installer {
 			"\n */" .
 			"\n\$config->installed = " . time() . ";" .
 			"\n\n";
+		
+		if(strpos($s, '$config->sessionName') === false) $cfg .=
+			"\n/**" .
+			"\n * Installer: Session name " . 
+			"\n * " .
+			"\n * Default session name as used in session cookie. " .
+			"\n * Note that changing this will automatically logout any current sessions. " .
+			"\n * " .
+			"\n */" .
+			"\n\$config->sessionName = 'pw" . mt_rand(0, 999) . "';" .
+			"\n\n";
 
 		if(!empty($values['httpHosts'])) {
 			$cfg .= 
