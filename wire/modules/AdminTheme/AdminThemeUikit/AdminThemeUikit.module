@@ -283,6 +283,81 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	}
 
 	/**
+	 * Test all Uikit v3 features using current admin CSS
+	 * 
+	 * This is for testing admin.less themes, Original, and themes in /themes/ dir. 
+	 * To use, append "?test_uikit=1" to your admin URL while logged in as superuser.
+	 * 
+	 * @throws WireException
+	 * 
+	 */
+	public function testUikit() {
+		
+		$config = $this->wire()->config;
+		$url = $config->urls($this);
+		$path = $config->paths->root . 'wire/modules/AdminTheme/AdminThemeUikit/';
+		$testsUrl = $url . 'uikit-pw/tests/';
+		$testsPath = $path . 'uikit-pw/tests/';
+		$testName = (string) $this->wire()->input->get('test_uikit');
+		$cssUrl = '';
+		$s = 'script';
+		
+		if($this->themeName) {
+			$themeInfo = $this->getThemeInfo($this->themeName);
+			if($themeInfo && $themeInfo['path']) {
+				$cssUrl = $themeInfo['url'] . 'admin.css';
+			}
+		}
+	
+		if(empty($cssUrl)) $cssUrl = $this->getUikitCSS();
+		
+		if(strpos($testName, '.html')) {
+			list($testName,) = explode('.html', $testName, 2);
+			$value = $testName;
+			$testName = $this->wire()->sanitizer->pageName($testName);
+			if($testName !== $value || strpos($testName, '.') !== false) $testName = '';
+		} else {
+			$testName = '';
+		}
+		
+		if(!$testName) $testName = 'index';
+	
+		$fileName = $testsPath . $testName . '.html';
+		if(!is_file($fileName)) return;
+		
+		$out = file_get_contents($fileName);
+		$head = $this->wire()->files->render(__DIR__ . '/_head.php', [
+			'layout' => '', 
+		], [ 
+			'allowedPaths' => [ $path, __DIR__ . '/' ]
+		]);
+		
+		$items = [];
+		preg_match_all('/(<link[^>]+>)/', $head, $matches); 
+		foreach($matches[1] as $item) {
+			if(strpos($item, '/Process/') === false) $items[] = $item;
+		}
+		preg_match_all('!(<' . $s . '[^>]+?src=[^<]+?</' . $s . '>)!', $head, $matches);
+		foreach($matches[1] as $item) {
+			if(strpos($item, '/Process/') === false) $items[] = $item; 
+		}
+		if(strpos($out, '/test.js') === false) {
+			$items[] = "<script src='{$testsUrl}js/test.js'></script>";
+		}
+		$items[] = "<link rel='stylesheet' type='text/css' href='{$testsUrl}css/index.css' />";
+		$head = "<$s>var ProcessWire = {}, testsUrl = '$testsUrl', adminThemeUrl = '$url', cssUrl = '$cssUrl';</$s>";
+		$a = [
+			'src="' => 'src="' . $testsUrl,
+			"value=\"$testName.html\"" => "value='$testName.html' selected", 
+		];
+		$out = str_replace(array_keys($a), array_values($a), $out);
+		$out = str_replace('<head>', '<head>' . $head . implode("\n", $items), $out);
+		ob_end_clean();
+		echo $out;
+		exit;
+	}
+
+	/**
 	 * Get Uikit uk-width-* class for given column width
 	 * 
 	 * @param int $columnWidth

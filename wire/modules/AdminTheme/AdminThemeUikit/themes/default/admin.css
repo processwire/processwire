@@ -2885,7 +2885,7 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
 }
 
 .pw
-.Inputfield.InputfieldIsWarning:not(.InputfieldNoBorde, .InputfieldWrapperr) {
+.Inputfield.InputfieldIsWarning:not(.InputfieldNoBorder, .InputfieldWrapper) {
 	background: var(--alert-danger) !important;
 }
 :not(.InputfieldFieldset)>.InputfieldContent>.Inputfields>.InputfieldMarkup.InputfieldHeaderHidden:not(.InputfieldNoBorder, .InputfieldWrapper),

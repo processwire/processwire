@@ -1,0 +1,20 @@
+ul.uk-navbar-nav ul {
+	display: block;
+}
+
+body.uk-light #test-selects .uk-select {
+	color: #fff;
+}
+
+#test-selects .uk-select,
+body.uk-dark #test-selects .uk-select {
+	color: #333;
+}
+
+body, body.uk-dark {
+	background: #fff;
+	color: #222;
+}
+body.uk-light {
+	background: #222;
+}

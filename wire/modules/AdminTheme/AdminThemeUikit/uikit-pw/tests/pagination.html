@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en-gb" dir="ltr">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Pagination - UIkit tests</title>
+        <script src="js/test.js"></script>
+    </head>
+
+    <body>
+
+        <div class="uk-container">
+
+            <h1>Pagination</h1>
+
+            <nav aria-label="Pagination">
+                <ul class="uk-pagination" uk-margin>
+                    <li class="uk-disabled"><a href><span uk-pagination-previous></span></a></li>
+                    <li><a href="#"><span uk-pagination-previous></span></a></li>
+                    <li><a href="#">1</a></li>
+                    <li class="uk-disabled"><span>…</span></li>
+                    <li><a href="#">4</a></li>
+                    <li><a href="#">5</a></li>
+                    <li><a href="#">6</a></li>
+                    <li class="uk-active"><span aria-current="page">7</span></li>
+                    <li><a href="#">8</a></li>
+                    <li><a href="#">9</a></li>
+                    <li><a href="#">10</a></li>
+                    <li class="uk-disabled"><span>…</span></li>
+                    <li><a href="#">20</a></li>
+                    <li><a href="#"><span uk-pagination-next></span></a></li>
+                    <li class="uk-disabled"><a href><span uk-pagination-next></span></a></li>
+                </ul>
+            </nav>
+
+            <nav aria-label="Pagination">
+                <ul class="uk-pagination uk-flex-center" uk-margin>
+                    <li class="uk-disabled"><a href><span uk-pagination-previous></span></a></li>
+                    <li><a href="#"><span uk-pagination-previous></span></a></li>
+                    <li><a href="#">1</a></li>
+                    <li class="uk-disabled"><span>…</span></li>
+                    <li><a href="#">4</a></li>
+                    <li><a href="#">5</a></li>
+                    <li><a href="#">6</a></li>
+                    <li class="uk-active"><span aria-current="page">7</span></li>
+                    <li><a href="#">8</a></li>
+                    <li><a href="#">9</a></li>
+                    <li><a href="#">10</a></li>
+                    <li class="uk-disabled"><span>…</span></li>
+                    <li><a href="#">20</a></li>
+                    <li><a href="#"><span uk-pagination-next></span></a></li>
+                    <li class="uk-disabled"><a href><span uk-pagination-next></span></a></li>
+                </ul>
+            </nav>
+
+            <nav aria-label="Pagination">
+                <ul class="uk-pagination uk-flex-right" uk-margin>
+                    <li class="uk-disabled"><a href><span uk-pagination-previous></span></a></li>
+                    <li><a href="#"><span uk-pagination-previous></span></a></li>
+                    <li><a href="#">1</a></li>
+                    <li class="uk-disabled"><span>…</span></li>
+                    <li><a href="#">4</a></li>
+                    <li><a href="#">5</a></li>
+                    <li><a href="#">6</a></li>
+                    <li class="uk-active"><span aria-current="page">7</span></li>
+                    <li><a href="#">8</a></li>
+                    <li><a href="#">9</a></li>
+                    <li><a href="#">10</a></li>
+                    <li class="uk-disabled"><span>…</span></li>
+                    <li><a href="#">20</a></li>
+                    <li><a href="#"><span uk-pagination-next></span></a></li>
+                    <li class="uk-disabled"><a href><span uk-pagination-next></span></a></li>
+                </ul>
+            </nav>
+
+            <h2>Previous/Next</h2>
+
+            <nav>
+                <ul class="uk-pagination uk-flex-center">
+                    <li><a href="#"><span uk-pagination-previous></span> Previous</a></li>
+                    <li><a href="#">Next <span uk-pagination-next></span></a></li>
+                </ul>
+            </nav>
+
+            <nav>
+                <ul class="uk-pagination">
+                    <li><a href="#"><span uk-pagination-previous></span> Previous</a></li>
+                    <li class="uk-margin-auto-left"><a href="#">Next <span uk-pagination-next></span></a></li>
+                </ul>
+            </nav>
+
+            <h2>Javascript Options</h2>
+
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-striped">
+                    <thead>
+                        <tr>
+                            <th>Option</th>
+                            <th>Value</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>i18n</code></td>
+                            <td>Object</td>
+                            <td>null</td>
+                            <td>Override default translation texts.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2>i18n</h2>
+
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-striped">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>label</code></td>
+                            <td>Previous page | Next page</td>
+                            <td>Error message for invalid file type.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </body>
+</html>
