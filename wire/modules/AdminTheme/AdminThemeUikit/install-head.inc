@@ -22,8 +22,6 @@ $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8");
 
 	<link type='text/css' href='wire/modules/AdminTheme/AdminThemeUikit/uikit-pw/pw.min.css' rel='stylesheet' />
 	<link type='text/css' href='wire/templates-admin/styles/AdminTheme.css' rel='stylesheet' />
-	<link type='text/css' href='wire/modules/AdminTheme/AdminThemeUikit/themes/default/admin.css' rel='stylesheet' />
-	<link type='text/css' href='wire/modules/AdminTheme/AdminThemeUikit/themes/default/install.css' rel='stylesheet' />
 	<link type='text/css' href='wire/templates-admin/styles/font-awesome/css/font-awesome.min.css' rel='stylesheet' />
 	
 	<style type='text/css'>
