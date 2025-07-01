@@ -319,13 +319,12 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 
 		$languageValue = (string) (empty($this->data[$language->id]) ? '' : $this->data[$language->id]); 
 		
-		if(!strlen($languageValue)) {
+		if($languageValue === '' && $defaultValue !== '' && $this->field) {
 			// value is blank
-			if($this->field) { 
-				if($this->field->get('langBlankInherit') == self::langBlankInheritDefault) {
-					// inherit value from default language
-					$languageValue = $defaultValue; 
-				}
+			if(((int) $this->field->get('langBlankInherit')) === self::langBlankInheritDefault
+				|| ($this->field->name === 'title' && $template->name === 'admin')) {
+				// inherit value from default language
+				$languageValue = $defaultValue; 
 			}
 		}
 		
