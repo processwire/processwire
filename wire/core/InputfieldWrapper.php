@@ -1123,7 +1123,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				$type = 'toggle';
 				$a['offIcon'] = $a['onIcon']; 
 			}
-			if($type === 'toggle') $icon = $a['on'] ? $a['onIcon'] : $a['offIcon'];
+			if($type === 'toggle') $icon = !empty($a['on']) ? $a['onIcon'] : $a['offIcon'];
 			if(empty($icon) || empty($type)) continue;
 			$a['type'] = $type;
 			if(strpos($icon, 'fa-') !== 0) $icon = "fa-$icon";
