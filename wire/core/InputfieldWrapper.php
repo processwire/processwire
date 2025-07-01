@@ -560,6 +560,27 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	}
 
 	/**
+	 * Remove an Inputfield from the form by name
+	 * 
+	 * Note that this works the same as the getByName/getChildByName methods in that it
+	 * will find (and remove) the field by name, even if nested within other wrappers
+	 * or fieldsets. It returns the removed Inputfield when found, or null if not. 
+	 * 
+	 * @param string $name
+	 * @return Inputfield|null Removed Inputfield object on success, or null if not found
+	 * @since 3.0.250
+	 * 
+	 */
+	public function removeByName($name) {
+		$f = $this->getByName((string) $name);
+		if(!$f) return null;
+		$parent = $f->getParent();
+		if(!$parent instanceof InputfieldWrapper) return null;
+		$parent->remove($f);
+		return $f;
+	}
+
+	/**
 	 * Prepare children for rendering by creating any fieldset groups
 	 * 
 	 */
@@ -902,7 +923,11 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				} else {
 					// label always visible
 					$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label']);
-					if($skipLabel !== Inputfield::skipLabelFor) $label = $this->setAttributeInMarkup('for', $for, $label, true);
+					if($skipLabel === Inputfield::skipLabelFor) {
+						$label = $this->removeAttributeFromMarkup('for', $label);
+					} else {
+						$label = $this->setAttributeInMarkup('for', $for, $label, true);
+					}
 				}
 				$headerClass = trim($inputfield->getSetting('headerClass') . " $classes[item_label]");
 				$label = $this->setAttributeInMarkup('class', $headerClass, $label);
@@ -1051,6 +1076,20 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		}
 		
 		return $markup;
+	}
+
+	/**
+	 * Remove named attribute from given markup
+	 * 
+	 * @param string $name
+	 * @param string $markup
+	 * @return string
+	 * @since 3.0.250
+	 * 
+	 */
+	protected function removeAttributeFromMarkup($name, $markup) {
+		if(stripos($markup, " $name=") === false) return $markup;
+		return preg_replace('!\s' . $name . '=["\'][^"\']*["\']!i', '', $markup);
 	}
 
 	/**
