@@ -88,8 +88,19 @@ class ProcessJavaScriptHooks extends Process implements ConfigurableModule
 
   private function renderExample(string $file): string
   {
-    return wire()->files->render(__DIR__ . '/examples/' . $file . '.php')
-      . wire()->files->render(__DIR__ . '/examples/assets.php');
+    return $this->renderFile(__DIR__ . '/examples/' . $file . '.php')
+      . $this->renderFile(__DIR__ . '/examples/assets.php');
+  }
+
+  private function renderFile(string $file): string
+  {
+    return wire()->files->render(
+      $file,
+      [],
+      [
+        'allowedPaths' => [__DIR__],
+      ]
+    );
   }
 
   private function renderNav(): string
