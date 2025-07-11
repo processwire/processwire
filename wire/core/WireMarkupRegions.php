@@ -5,7 +5,7 @@
  * 
  * Supports finding and manipulating of markup regions in an HTML document. 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -37,23 +37,40 @@ class WireMarkupRegions extends Wire {
 	 * 
 	 */
 	protected $selfClosingTags = array(
-		'link',
-		'area',
-		'base',
-		'br',
-		'col',
-		'command',
-		'embed',
-		'hr',
-		'img',
-		'input',
-		'keygen',
-		'link',
-		'meta',
-		'param',
-		'source',
-		'track',
-		'wbr',
+		'link' => 'link',
+		'area' => 'area',
+		'base' => 'base',
+		'br' => 'br',
+		'col' => 'col',
+		'command' => 'command',
+		'embed' => 'embed',
+		'hr' => 'hr',
+		'img' => 'img',
+		'input' => 'input',
+		'keygen' => 'keygen',
+		'link' => 'link',
+		'meta' => 'meta',
+		'param' => 'param',
+		'source' => 'source',
+		'track' => 'track',
+		'wbr' => 'wbr',
+	);
+
+	/**
+	 * Tags that generally only appear once in the output 
+	 * 
+	 * These can be used as unnamed markup regions
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $singles = array(
+		'html' => 'html',
+		'head' => 'head',
+		'title' => 'title',
+		'body' => 'body',
+		'main' => 'main',
+		'base' => 'base',
 	);
 
 	/**
@@ -63,13 +80,23 @@ class WireMarkupRegions extends Wire {
 	 * 
 	 */
 	protected $actions = array(
-		'prepend',
-		'append',
-		'before',
-		'after',
-		'replace',
-		'remove',
+		'prepend' => 'prepend',
+		'append' => 'append',
+		'before' => 'before',
+		'after' => 'after',
+		'replace' => 'replace',
+		'remove' => 'remove',
+		'update' => 'update',
 	);
+
+	/**
+	 * Markup snippets that should be removed from final output
+	 * 
+	 * @var array 
+	 * @since 3.0.250
+	 * 
+	 */
+	protected $removals = array();
 
 	/**
 	 * Locate and return all regions of markup having the given attribute
@@ -737,7 +764,7 @@ class WireMarkupRegions extends Wire {
 		if($name && !isset($attrs[$name])) $attrs[$name] = $val;
 		$tag = rtrim($tag); // remove extra space we added
 		$tagName = strtolower($tagName);
-		$selfClosing = in_array($tagName, $this->selfClosingTags);
+		$selfClosing = isset($this->selfClosingTags[$tagName]); 
 		$classes = isset($attrs['class']) ? explode(' ', $attrs['class']) : array();
 		$id = isset($attrs['id']) ? $attrs['id'] : '';
 		$pwid = '';
@@ -768,7 +795,7 @@ class WireMarkupRegions extends Wire {
 				} else {
 					$actionTarget = $value;
 				}
-				if($actionTarget && in_array($action, $this->actions)) {
+				if($actionTarget && isset($this->actions[$action])) {
 					// found a valid action and target
 					unset($attrs[$name]);
 					$actionType = $actionTarget === true ? 'bool' : 'attr';
@@ -786,7 +813,7 @@ class WireMarkupRegions extends Wire {
 			list($prefix, $action) = explode('-', $class, 2);
 			if(strpos($action, '-')) list($action, $actionTarget) = explode('-', $action, 2);
 			if($prefix && $actionTarget) {} // ignore
-			if(in_array($action, $this->actions)) {
+			if(isset($this->actions[$action])) {
 				// valid action, remove action from classes and class attribute
 				unset($classes[$key]); 
 				$attrs['class'] = implode(' ', $classes);	
@@ -803,6 +830,10 @@ class WireMarkupRegions extends Wire {
 
 		// if there's an action, but no target, the target is assumed to be the pw-id or id
 		if($action && (!$actionTarget || $actionTarget === true)) $actionTarget = $pwid; 
+		
+		if(strpos($actionTarget, '^') === 0) {
+			$actionType = 'tag';
+		}
 		
 		$info = array(
 			'id' => $id,
@@ -1074,6 +1105,17 @@ class WireMarkupRegions extends Wire {
 
 		$pos = null;
 		
+		if($name === 'tag') {
+			if(strpos($value, '.')) {
+				list($tag, $class) = explode('.', $value, 2);
+				if(stripos($html, "<$tag") === false) return false;
+				$value = $class;
+				$name = 'class';
+			} else {
+				return stripos($html, "<$value>") || stripos($html, "<$value ");
+			}
+		}
+		
 		if($value === true) {
 			$tests = array(
 				" $name ",
@@ -1119,16 +1161,21 @@ class WireMarkupRegions extends Wire {
 			if($name == 'id') {
 				$names = '(id|pw-id|data-pw-id)';
 			} else {
-				$names = preg_quote($name); 
+				$names = preg_quote($name, '!'); 
 			}
 			if($value === true) {
+				// match only the presence of the attribute
 				$regex = '!<[^<>]*\s' . $names . '[=\s/>]!i';
+			} else if($name === 'class') {
+				// match class even if other class names are present
+				$regex = '!<[^<>]*\sclass\s*=\s*["\'][^"\'<>]*\b' . preg_quote($value) . '[\s"\']!i';
 			} else {
-				$regex = '/<[^<>]*\s' . $names . '\s*=\s*["\']?' . preg_quote($value) . '(?:["\']|[\s>])/i';
+				// match attribute value
+				$regex = '!<[^<>]*\s' . $names . '\s*=\s*["\']?' . preg_quote($value) . '(?:["\']|[\s>])!i';
 			}
 			if(preg_match($regex, $html)) $pos = true;
 		}
-		
+	
 		return $pos !== false;
 	}
 
@@ -1165,6 +1212,13 @@ class WireMarkupRegions extends Wire {
 		if(self::debug) {
 			$findOptions['debugNote'] = "update.$options[action]($selector)";
 		}
+	
+		// convert to tag matching format for find() method
+		if(strpos($selector, '^') === 0) {
+			$selector = ltrim($selector, '^');
+			// tag is implied if in 'tag.class' format, so only add brackets if no class
+			if(!strpos($selector, '.')) $selector = "<$selector>";
+		}
 		
 		$findRegions = $this->find($selector, $markup, $findOptions);
 		
@@ -1179,10 +1233,11 @@ class WireMarkupRegions extends Wire {
 			if($action == 'auto') {
 				// auto mode delegates to the region action
 				$action = '';
-				if(in_array($region['action'], $this->actions)) $action = $region['action'];
+				if(isset($this->actions[$region['action']])) $action = $region['action'];
 			}
 			
 			switch($action) {
+				case 'update':
 				case 'append':
 					$replacement = $region['open'] . $region['region'] . $content . $region['close'];
 					break;
@@ -1297,7 +1352,30 @@ class WireMarkupRegions extends Wire {
 		$options['action'] = 'after'; // after intended
 		return $this->replace($selector, '', $markup, $options);
 	}
-	
+
+	/**
+	 * Initialize given HTML for markup regions
+	 * 
+	 * @param string $html
+	 * @since 3.0.250
+	 * 
+	 */
+	protected function initHtml(&$html) {
+		$tests = [ '="<', "='<", '="&lt;', "='&lt;" ];
+		foreach($tests as $test) {
+			$apply = strpos($html, $test); 
+			if($apply) break;
+		}
+		if($apply) {
+			$actions = implode('|', $this->actions);
+			$html = preg_replace(
+				'!(<[^<>]+\s(?:data-pw-|pw-)(?:' . $actions . ')=["\'])(?:<|&lt;)([^<>\'"&]+)(?:>|&gt;)(["\'])!i',
+				'$1^$2$3',
+				$html
+			);
+		}
+	}
+
 	/**
 	 * Identify and populate markup regions in given HTML
 	 *
@@ -1379,16 +1457,20 @@ class WireMarkupRegions extends Wire {
 		$defaults = array(
 			'useClassActions' => false // allow use of "pw-*" class actions? (legacy)
 		);
+
+		if(is_string($htmlRegions) && $recursionLevel === 1) {
+			$this->initHtml($htmlRegions);
+		}
 		
 		$options = array_merge($defaults, $options);
 		$leftoverMarkup = '';
 		$hasDebugLandmark = strpos($htmlDocument, self::debugLandmark) !== false;
 		$debug = $hasDebugLandmark && $this->wire()->config->debug;
 		$debugTimer = $debug ? Debug::timer() : 0;
+		$this->populateSingles($htmlDocument, $htmlRegions);
 		
 		if(is_array($htmlRegions)) {
 			$regions = $htmlRegions;
-			$leftoverMarkup = '';
 			
 		} else if($this->hasRegions($htmlRegions)) {
 			$htmlRegions = $this->stripRegions('<!--', $htmlRegions);
@@ -1430,14 +1512,39 @@ class WireMarkupRegions extends Wire {
 			
 			// $xregion = $region;
 			$action = $region['action'];
-			$actionTarget = $region['actionTarget'];
+			$actionType = $region['actionType'];
+			$actionTarget = ltrim($region['actionTarget']);
+			
+			if(strpos($actionTarget, '.') === 0) {
+				$actionAttribute = 'class';
+				$actionTargetPrefix = '.';
+			} else if(strpos($actionTarget, '^') === 0) {
+				$actionAttribute = 'tag';
+				$actionTargetPrefix = '^';
+			} else {
+				$actionAttribute = 'id';
+				$actionTargetPrefix = '#';
+			}
+			
+			$actionTarget = ltrim($actionTarget, '.#^');
 			$regionHTML = $region['region'];
 			$mergeAttr = $region['attrs'];
 			
 			unset($mergeAttr['id']);
-			$documentHasTarget = $this->hasAttribute('id', $actionTarget, $htmlDocument); 
-			$isNew = ($region['actionType'] == 'attr' && $region['action'] != 'replace'); 
-			if(!$isNew) $isNew = $action == 'before' || $action == 'after';
+			$documentHasTarget = $this->hasAttribute($actionAttribute, $actionTarget, $htmlDocument); 
+			if(!$documentHasTarget) {
+				// if target was not matched, check for target as a single tag (html, head, body, main)
+				if(isset($this->singles[$actionTarget])) {
+					$actionTarget = "pwmr-$actionTarget";
+					$documentHasTarget = $this->hasAttribute('data-pw-id', $actionTarget, $htmlDocument);
+				}
+			}
+			
+			if($actionType === 'attr' || $actionType === 'tag') {
+				$isNew = $action != 'replace' && $action != 'update';
+			} else {
+				$isNew = $action === 'before' || $action === 'after';
+			}
 
 			if($isNew) {
 				// element is newly added element not already present
@@ -1446,7 +1553,7 @@ class WireMarkupRegions extends Wire {
 				$attrs = $region['attrs'];
 				$attrStr = count($attrs) ? ' ' . $this->renderAttributes($attrs, false) : '';
 				if(!strlen(trim($attrStr))) $attrStr = '';
-				if($region['actionType'] == 'bool') {
+				if($actionType == 'bool') {
 					$regionHTML = $region['region'];
 				} else {
 					$regionHTML = str_replace($region['open'], "<$region[name]$attrStr>", $regionHTML);
@@ -1460,7 +1567,7 @@ class WireMarkupRegions extends Wire {
 				$pwid = empty($region['pwid']) ? $region['actionTarget'] : $region['pwid']; 
 				$open = $region['open'];
 				$openLen = strlen($open);
-				if($openLen > 50) $open = substr($open, 0, 30) . '[sm]... +' . ($openLen - 30) . ' bytes[/sm]>';
+				if($openLen > 100) $open = substr($open, 0, 100) . '[sm]... +' . ($openLen - 100) . ' bytes[/sm]>';
 				$debugRegionStart = "[sm]" . trim(substr($region['region'], 0, 80));  
 				$pos = strrpos($debugRegionStart, '>');
 				if($pos) $debugRegionStart = substr($debugRegionStart, 0, $pos+1);
@@ -1468,8 +1575,21 @@ class WireMarkupRegions extends Wire {
 				//$debugRegionEnd = substr($region['region'], -30); 
 				//$pos = strpos($debugRegionEnd, '</'); 
 				//if($pos !== false) $debugRegionEnd = substr($debugRegionEnd, $pos);
-				$region['note'] = strtoupper($debugAction) . " [b]#{$pwid}[/b] " .
-					($region['actionTarget'] != $pwid ? "(target=$region[actionTarget])" : "") . 
+				if(strpos($open, 'pw-')) {
+					$open = preg_replace('!\s(data-)?pw-(' . implode('|', $this->actions) . ')(=[^\s><]+)?!', '', $open);
+				}
+				if(strpos($pwid, 'pwmr-') === 0) {
+					$pwid = '<' . substr($pwid, 5) . '…';
+					$debugActionTarget = $pwid;
+				} else if($actionTargetPrefix === '^') {
+					$pwid = "<" . ltrim($pwid, '^') . '…';
+					$debugActionTarget = $pwid;
+				} else {
+					$pwid = $actionTargetPrefix . $pwid;
+					$debugActionTarget = $actionTargetPrefix . $actionTarget;
+				}
+				$region['note'] = strtoupper($debugAction) . " {$pwid} " .
+					($debugActionTarget != $pwid ? "(target=$debugActionTarget) " : "") . 
 					"[sm]with[/sm] $open"; 
 				if($region['close']) {
 					$region['note'] .= $this->debugNoteStr($debugRegionStart) . $region['close'];
@@ -1488,7 +1608,7 @@ class WireMarkupRegions extends Wire {
 			} else {
 				// update the markup
 				$updates[] = array(
-					'actionTarget' => "#$actionTarget", 
+					'actionTarget' => $actionTargetPrefix . $actionTarget, 
 					'regionHTML' => $regionHTML, 
 					'action' => $action, 
 					'mergeAttr' => $mergeAttr,
@@ -1584,6 +1704,41 @@ class WireMarkupRegions extends Wire {
 	}
 
 	/**
+	 * Populate single-use tags as unnamed markup regions
+	 * 
+	 * @param string $htmlDocument
+	 * @param array|string $htmlRegions
+	 * @since 3.0.250
+	 * 
+	 */
+	protected function populateSingles(&$htmlDocument, &$htmlRegions) {
+		
+		foreach($this->singles as $tag) {
+
+			$attr = "data-pw-id=\"pwmr-$tag\"";
+			$find = [ "<$tag>", "<$tag " ];
+			$replace = [ "<$tag $attr>", "<$tag $attr " ];
+			$has = false;
+			
+			if(is_array($htmlRegions)) {
+				foreach($htmlRegions as $key => $htmlRegion) {
+					if(stripos($htmlRegion, "<$tag") === false) continue;
+					$htmlRegions[$key] = str_ireplace($find, $replace, $htmlRegion);
+					$has = true;
+				}
+			} else if(strpos($htmlRegions, "<$tag") !== false) {
+				$htmlRegions = str_ireplace($find, $replace, $htmlRegions);
+				$has = true;
+			}
+			
+			if($has || stripos($htmlDocument, "<$tag") !== false) {
+				$htmlDocument = str_ireplace($find, $replace, $htmlDocument);
+				$this->removals[] = " $attr";
+			}
+		}
+	}
+
+	/**
 	 * Remove any <region> or <pw-region> tags present in the markup, leaving their innerHTML contents
 	 * 
 	 * Also removes data-pw-id and pw-id attributes
@@ -1601,9 +1756,25 @@ class WireMarkupRegions extends Wire {
 			$updated = true;
 		}
 		
+		if(count($this->removals)) {
+			$qty = 0;
+			$html = str_ireplace($this->removals, '', $html, $qty);
+			if($qty) $updated = true;
+		}
+			
 		if(stripos($html, ' data-pw-id=') || stripos($html, ' pw-id=')) {
-			$html = preg_replace('/(<[^>]+)(?: data-pw-id| pw-id)=["\']?[^>\s"\']+["\']?/i', '$1', $html);
-			$updated = true;
+			$find = [];
+			$replace = [];
+			if(preg_match_all('/(<[^<>]+?)(?: data-pw-id=| pw-id=)["\']?[^>\s"\']+["\']?/i', $html, $matches)) {
+				foreach($matches[0] as $key => $fullMatch) {
+					$find[] = $fullMatch;
+					$replace[] = $matches[1][$key];
+				}
+			}
+			if(count($find)) {
+				$html = str_ireplace($find, $replace, $html);
+				$updated = true;
+			}
 		}
 		
 		return $updated; 
@@ -1646,7 +1817,7 @@ class WireMarkupRegions extends Wire {
 	
 	protected function debugNoteStr($str, $maxLength = 0) {
 		$str = str_replace(array("\r", "\n", "\t"), ' ', $str);
-		while(strpos($str, '  ') !== false) $str= str_replace('  ', ' ', $str);
+		while(strpos($str, '  ') !== false) $str = str_replace('  ', ' ', $str);
 		if($maxLength) $str  = substr($str, 0, $maxLength);
 		return trim($str);
 	}
@@ -1655,6 +1826,7 @@ class WireMarkupRegions extends Wire {
 		if(!count($debugNotes)) $debugNotes[] = "Nothing found";
 		if($debugTimer !== null) $debugNotes[] = '[sm]' . Debug::timer($debugTimer) . ' seconds[/sm]';
 		$out = "• " . implode("\n• ", $debugNotes);
+		$out = str_replace($this->removals, '', $out);
 		$out = $this->wire()->sanitizer->entities($out);
 		$out = str_replace(array('[sm]', '[/sm]'), array('<small style="opacity:0.7">', '</small>'), $out);
 		$out = str_replace(array('[b]', '[/b]'), array('<strong>', '</strong>'), $out);
