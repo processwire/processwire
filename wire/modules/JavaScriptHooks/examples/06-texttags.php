@@ -19,11 +19,16 @@
         }
       }
 
-      // add TextTags() as global function
-      window.TextTags = function(text) {
+      const func = function(text) {
         const instance = ProcessWire.wire(new TextTags());
         return instance.log(text);
-      };
+      }
+
+      // add TextTags() as global function
+      window.TextTags = func;
+
+      // add TextTags() as ProcessWire.TextTags() function
+      ProcessWire.TextTags = func;
     })();
 
     // add demo hook to modify the log() behavior
@@ -33,7 +38,9 @@
     });
 
     TextTags("Hello, world!");
+
+    ProcessWire.TextTags("Hi there from ProcessWire.TextTags()");
   </script>
 
-  <p>Example built as response to <a href=https://github.com/baumrock/processwire/pull/1>https://github.com/baumrock/processwire/pull/1</a></p>.
+  <p>Example built as response to <a href=https://github.com/baumrock/processwire/pull/1>https://github.com/baumrock/processwire/pull/1</a>.</p>
 </div>
