@@ -34,4 +34,6 @@
 
     TextTags("Hello, world!");
   </script>
+
+  <p>Example built as response to <a href=https://github.com/baumrock/processwire/pull/1>https://github.com/baumrock/processwire/pull/1</a></p>.
 </div>
