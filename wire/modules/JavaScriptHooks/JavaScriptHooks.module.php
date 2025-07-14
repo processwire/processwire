@@ -42,7 +42,7 @@ class JavaScriptHooks extends WireData implements Module, ConfigurableModule
           // minify: false,
         );
     } catch (\Throwable $th) {
-      bd($th->getMessage());
+      $this->log($th->getMessage());
     }
   }
 
