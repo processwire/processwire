@@ -400,10 +400,17 @@ class ProcessController extends Wire {
 			}
 		}
 		
-		if(!$adminTheme instanceof AdminThemeFramework) {
+		if(!$process instanceof WirePageEditor) {
 			$headline = (string) $this->wire('processHeadline');
-			if(strlen($headline) && strpos($headline, 'icon-') !== false) {
-				$process->headline(preg_replace('/\bicon-[-a-z0-9]+\b/', '', $headline));
+			if(strlen($headline)) {
+				if(strpos($headline, '<icon-') === false) {
+					// $icon = $this->wire()->modules->getModuleInfoProperty('icon');
+					// if($icon) $process->headline("<icon-$icon> $headline");
+				} else {
+					if(!$adminTheme instanceof AdminThemeFramework) {
+						$process->headline(preg_replace('/(?:<|&lt;)icon-[-a-z0-9]+(?:>|&gt;)/', '', $headline));
+					}
+				}
 			}
 		}
 
