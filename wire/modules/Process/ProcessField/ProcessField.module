@@ -803,7 +803,10 @@ class ProcessField extends Process implements ConfigurableModule {
 		$this->breadcrumb('./', $this->moduleInfo['title']);
 		
 		if($this->field->id) {
-			$headline = sprintf($this->_x('Edit Field: %s', 'edit headline'), $this->field->name); // Headline when editing a field
+			$fieldName = $this->field->name;
+			$icon = $this->field->icon;
+			if($icon) $fieldName = "<icon-$icon> $fieldName";
+			$headline = sprintf($this->_x('Edit Field: %s', 'edit headline'), $fieldName); // Headline when editing a field
 		} else {
 			$headline = $this->_x('Add New Field', 'add headline'); // Headline when adding a field
 		}

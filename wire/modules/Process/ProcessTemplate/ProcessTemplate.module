@@ -774,6 +774,9 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		if(!$label) $label = $this->template->name;
 		if($label != $this->template->name) $label = "$label ({$this->template->name})";
 		
+		$icon = $this->template->icon;
+		if($icon) $label = "<icon-$icon> $label";
+		
 		$headline = sprintf($this->_('Edit Template: %s'), $label); // Headline when editing a template
 
 		$this->breadcrumb('./', $this->moduleInfo['title']); 

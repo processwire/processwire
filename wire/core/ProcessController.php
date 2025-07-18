@@ -328,7 +328,8 @@ class ProcessController extends Wire {
 	public function ___execute() {
 
 		$debug = $this->wire()->config->debug; 
-		$breadcrumbs = $this->wire()->breadcrumbs; 
+		$breadcrumbs = $this->wire()->breadcrumbs;
+		$adminTheme = $this->wire()->adminTheme;
 		$headline = $this->wire('processHeadline'); 
 		$numBreadcrumbs = $breadcrumbs ? count($breadcrumbs) : null;
 		$process = $this->getProcess();
@@ -396,6 +397,13 @@ class ProcessController extends Wire {
 				}
 			} else {
 				$content = '';
+			}
+		}
+		
+		if(!$adminTheme instanceof AdminThemeFramework) {
+			$headline = (string) $this->wire('processHeadline');
+			if(strlen($headline) && strpos($headline, 'icon-') !== false) {
+				$process->headline(preg_replace('/\bicon-[-a-z0-9]+\b/', '', $headline));
 			}
 		}
 

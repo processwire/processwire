@@ -1650,9 +1650,10 @@ class ProcessModule extends Process {
 			($flags & Modules::flagsDisabled);
 
 		$this->breadcrumb('./', $sinfo['title']); 
-		$this->headline($moduleInfo['title']); 
-		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title'])); 
-
+		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title']));
+		$icon = isset($moduleInfo['icon']) ? $moduleInfo['icon'] : '';
+		$this->headline($icon ? "<icon-$icon> $moduleInfo[title]" : $moduleInfo['title']); 
+	
 		/** @var InputfieldForm $form */
 		$form = $modules->get("InputfieldForm"); 
 		$form->attr('id', 'ModuleEditForm'); 
