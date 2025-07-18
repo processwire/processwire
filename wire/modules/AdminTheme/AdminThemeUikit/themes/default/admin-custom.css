@@ -84,8 +84,6 @@
 	--code-color: light-dark(#0173b0, #e7e695);
 	--code-background: light-dark(var(--inputs-background), #3c3c3c5e);
 
-	--shadow-color: light-dark(rgba(0,0,0,0.025), rgba(255,255,255, 0.035));
-
 	--button-radius: 99999px;
 	--input-radius: 0;
 
@@ -139,7 +137,7 @@ body.main-color-blue {
     --masthead-input-background: var(--masthead-background);
     --masthead-input-color: var(--masthead-active-color);
     --masthead-input-border: var(--masthead-text-color);
-    --masthead-menu-item-backgroud-hover: rgba(255,255,255,.2);
+    --masthead-menu-item-background-hover: rgba(255,255,255,.2);
 }
 
 /* -------------------------------------------------------------------- */

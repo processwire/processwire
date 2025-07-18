@@ -937,7 +937,8 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 }
 
 .uk-progress {
-	background-color: var(--border-color);
+	background-color: var(--inputs-background);
+	border: 1px solid var(--border-color);
 }
 
 .uk-progress::-webkit-progress-value {
@@ -1039,11 +1040,6 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 
 .uk-marker:hover {
 	color: var(--blocks-background)
-}
-
-.uk-alert {
-	background: var(--main-background);
-	color: var(--text-color);
 }
 
 .uk-placeholder {
@@ -1572,7 +1568,11 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 .uk-card:hover {
 	outline: none !important;
 	border: none !important;
-	box-shadow: 0 5px 15px var(--shadow-color);
+	box-shadow: 0 5px 15px color-mix(in srgb, var(--text-color), transparent 90%);
+	transition: box-shadow .25s ease;
+}
+.uk-card-default.uk-card-hover:hover {
+	box-shadow: 0 5px 15px color-mix(in srgb, var(--text-color), transparent 75%);
 }
 
 .uk-table th,
@@ -1617,8 +1617,8 @@ table.AdminDataTable:not(.uk-table) th {
 }
 
 .ui-tooltip {
-	-webkit-box-shadow: 0 0 5px var(--shadow-color);
-	box-shadow: 0 0 5px var(--shadow-color)
+	-webkit-box-shadow: 0 0 5px color-mix(in srgb, var(--text-color), transparent 98%);
+	box-shadow: 0 0 5px color-mix(in srgb, var(--text-color), transparent 98%)
 }
 
 .ui-widget-content {
@@ -1687,9 +1687,20 @@ table.AdminDataTable:not(.uk-table) th {
 	color: var(--text-color)
 }
 
-.ui-state-error,.ui-widget-content .ui-state-error,.ui-widget-header .ui-state-error {
-	background: var(--alert-danger);
-	color: var(--text-color)
+.pw .ui-state-error,.pw .ui-widget-content .ui-state-error,.pw .ui-widget-header .ui-state-error {
+	background: var(--error-inline-text-color);
+	color: var(--blocks-background);
+}
+
+.InputfieldStateError > .InputfieldHeader,
+.InputfieldStateError > .InputfieldHeader:after {
+	color: var(--error-inline-text-color) !important;
+}
+
+.InputfieldHeader.ui-state-error,
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error {
+	background-color: var(--alert-danger) !important;
+	color: var(--error-inline-text-color) !important;
 }
 
 .ui-state-error:not(:input),.ui-widget-content .ui-state-error:not(:input),.ui-widget-header .ui-state-error:not(:input) {
@@ -1713,7 +1724,7 @@ table.AdminDataTable:not(.uk-table) th {
 }
 
 .ui-widget-shadow {
-	background: var(--shadow-color);
+	background: color-mix(in srgb, var(--text-color), transparent 90%);
 }
 
 .pw-content .ui-widget-content a {
@@ -1818,7 +1829,7 @@ button.ui-button.pw-button-dropdown-toggle {
 
 .ui-tooltip {
 	color: var(--blocks-background);
-	box-shadow: 0 0 7px var(--shadow-color);
+	box-shadow: 0 0 7px color-mix(in srgb, var(--text-color), transparent 98%);
 	background: var(--text-color);
 	border-color: var(--blocks-background)
 }
@@ -1876,13 +1887,10 @@ button.ui-button.pw-button-dropdown-toggle {
 	color: inherit
 }
 
-.ui-menu .ui-menu-item a.uk-active,
-.ui-menu .ui-menu-item a.on,
-.ui-menu .ui-menu-item a:hover,
-.ui-menu .ui-menu-item a.ui-state-focus,
-.ui-menu .ui-menu-item a.ui-state-active {
+.ui-menu .ui-menu-item a.uk-active,.ui-menu .ui-menu-item a.on,
+.ui-menu .ui-menu-item a:hover,.ui-menu .ui-menu-item a.ui-state-focus,.ui-menu .ui-menu-item a.ui-state-active {
 	color: var(--text-color);
-	background: var(--inputs-background);
+	background: var(--inputs-background)
 }
 
 .ui-menu .ui-menu-item a small {
@@ -2050,11 +2058,14 @@ table,
 	font-size: 1rem;
 }
 
-.uk-alert,
+.uk-alert {
+	background: var(--blocks-background);
+	border: 1px solid var(--border-color);
+}
+
 .uk-alert-primary,
 .uk-notification-message {
 	background: var(--alert-primary);
-	color: var(--text-color);
 }
 
 .uk-alert-warning,
@@ -2178,7 +2189,7 @@ table,
 	background-color: var(--button-background);
 	color: var(--button-color);
 	border: none;
-	box-shadow: 0px 0px 0 1px var(--shadow-color);
+	box-shadow: 0px 0px 0 1px color-mix(in srgb, var(--text-color), transparent 98%);
 	text-transform: none;
 	font-size: 1em;
 }
@@ -2194,7 +2205,7 @@ table,
 	background-color: var(--button-muted-background);
 	color: var(--button-muted-color);
 	border: none;
-	box-shadow: 0px 0px 0 1px var(--shadow-color);
+	box-shadow: 0px 0px 0 1px color-mix(in srgb, var(--text-color), transparent 98%);
 }
 
 .pw .uk-button-default {
@@ -2220,7 +2231,7 @@ table,
 	background-color: var(--button-hover-background);
 	color: var(--button-hover-color);
 	border: none;
-	box-shadow: 0px 0px 0 1px var(--shadow-color);
+	box-shadow: 0px 0px 0 1px color-mix(in srgb, var(--text-color), transparent 98%);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -2247,7 +2258,7 @@ table,
 		background-color: var(--button-hover-background);
 		color: var(--button-hover-color);
 		border: none;
-		box-shadow: 0px 0px 0 1px var(--shadow-color);
+		box-shadow: 0px 0px 0 1px color-mix(in srgb, var(--text-color), transparent 98%);
 		text-decoration: none;
 		cursor: pointer;
 	}
@@ -2563,7 +2574,7 @@ a:is(:focus, :focus-visible, .ui-state-active, .ui-state-focus) {
 #offcanvas-nav .uk-offcanvas-bar {
 	background: var(--masthead-background);
 	padding: 0;
-	box-shadow: 0 4px 7px var(--shadow-color);
+	box-shadow: 0 4px 7px color-mix(in srgb, var(--text-color), transparent 98%);
 	border-right: 1px solid var(--masthead-border-color) !important;
 }
 
@@ -2607,6 +2618,10 @@ a:is(:focus, :focus-visible, .ui-state-active, .ui-state-focus) {
 	background-color: var(--masthead-background);
 	color: var(--masthead-active-color);
 	border-color: var(--masthead-border-color) !important;
+}
+
+.pw:has(:is(.pw-primary-nav > li, .ui-menu[style*="top: 56px"], .ui-menu#ui-id-1, .ui-menu-item > .ui-menu):hover) .tracy-panel {
+	pointer-events: none;
 }
 
 .pw .ui-menu#ui-id-1 {
@@ -2733,10 +2748,6 @@ small {
 	border-bottom: 1px solid var(--border-color);
 }
 
-.AdminDataTable td>a {
-	color: var(--main-color);
-}
-
 .InputfieldPageTable .PageListStatusHidden td {
 	opacity: 0.67;
 }
@@ -2798,10 +2809,10 @@ small {
 .pw .InputfieldImageEdit__inner,
 .pw .gridImage__tooltip {
 	border: none;
-	filter: drop-shadow(1px 0px 0px var(--shadow-color))
-	drop-shadow(-1px 0px 0px var(--shadow-color))
-	drop-shadow(0px 1px 0px var(--shadow-color))
-	drop-shadow(0px -1px 0px var(--shadow-color));
+	filter: drop-shadow(1px 0px 0px color-mix(in srgb, var(--text-color), transparent 98%))
+	drop-shadow(-1px 0px 0px color-mix(in srgb, var(--text-color), transparent 98%))
+	drop-shadow(0px 1px 0px color-mix(in srgb, var(--text-color), transparent 98%))
+	drop-shadow(0px -1px 0px color-mix(in srgb, var(--text-color), transparent 98%));
 	background: var(--blocks-background);
 }
 
@@ -3441,7 +3452,12 @@ small.ui-button-text
 .InputfieldRepeater
 .InputfieldContent
 .InputfieldRepeaterItem
-> .InputfieldHeader.ui-state-hover,
+> .InputfieldHeader.ui-state-hover {
+	background-color: var(--main-background);
+	border-color: var(--border-color);
+	color: var(--text-color);
+}
+
 .pw
 .Inputfields
 .InputfieldRepeater:not(.InputfieldIsColor):not(.InputfieldNoBorder)
@@ -3456,9 +3472,7 @@ small.ui-button-text
 .InputfieldContent
 .InputfieldRepeaterItem
 > .InputfieldContent {
-	background-color: var(--main-background);
-	border-color: var(--border-color);
-	color: var(--text-color);
+	background-color: transparent;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -3591,7 +3605,7 @@ ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileName,
 	position: sticky;
 	width: 100%;
 	top: 0;
-	z-index: 199;
+	z-index: 99;
 }
 
 .ui-menu {
@@ -3700,7 +3714,7 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 .pw .ui-menu,
 .pw #offcanvas-nav .uk-offcanvas-bar,
 .pw .ui-datepicker {
-	box-shadow: 0 5px 7.5px 2.5px var(--shadow-color);
+	box-shadow: 0 5px 7.5px 2.5px color-mix(in srgb, var(--text-color), transparent 98%);
 }
 
 .pw-dropdown-menu[data-at="left bottom"],
@@ -3722,7 +3736,7 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 }
 
 .pw-dropdown-menu .ui-menu {
-	box-shadow: 5px 2.5px 7.5px 2.5px var(--shadow-color) !important;
+	box-shadow: 5px 2.5px 7.5px 2.5px color-mix(in srgb, var(--text-color), transparent 99%) !important;
 }
 
 .pw-dropdown-menu .ui-menu:has(> :nth-child(15)) {
@@ -3731,12 +3745,12 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 
 .pw-dropdown-menu,
 .pw ul.ui-menu > li.ui-menu-item > ul.ui-menu {
-	z-index: 200 !important;
+	z-index: 150 !important;
 	border: 1px solid var(--border-color) !important;
 }
 
 .pw .ui-front {
-	z-index: 201 !important;
+	z-index: 101 !important;
 }
 
 .pw ul.pw-dropdown-menu > li.ui-menu-item > ul.ui-menu {
@@ -3804,7 +3818,7 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 	width: min(35vw, 350px);
 	max-width: min(35vw, 350px);
 	transition: all 0.25s ease;
-	box-shadow: -12px 0px 12px 0px var(--shadow-color);
+	box-shadow: -12px 0px 12px 0px color-mix(in srgb, var(--text-color), transparent 98%);
 }
 
 #offcanvas-nav .pw-search-form .pw-search-input {
@@ -3934,7 +3948,7 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 }
 
 .tox.tox-tinymce-inline {
-	z-index: 198;
+	z-index: 98;
 }
 
 body .tox.tox-tinymce-inline .tox-editor-container {
@@ -3988,6 +4002,7 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 }
 
 .pw-notices .uk-alert {
+	border: none;
 	border-bottom: 1px solid var(--border-color);
 }
 
@@ -4311,14 +4326,20 @@ body:not(.pw-narrow-width)
 
 .PageList .PageListItem .PageListLoading {
 	height: 0;
-	margin-top: 0.8rem;
-	margin-bottom: -0.8rem;
 	opacity: 0;
 }
 
 .PageList .PageListItem.PageListItemOpen > .PageListLoading {
 	opacity: 0.5;
 	transition: opacity 0.5s ease;
+}
+
+.PageListLoading[style*="block"] {
+	display: inline-block !important;
+}
+
+.PageListItem:not(:hover) .PageListLoading[style*="block"] {
+	display: none !important;
 }
 
 .uk-description-list dt,
@@ -5083,7 +5104,7 @@ a
 }
 
 html.pw .Inputfield.InputfieldTinyMCE .InputfieldContent {
-	background-color: var(--blocks-background, #f4f4f4);
+	/* RJC background-color: var(--blocks-background, #f4f4f4); */
 }
 
 .pw .tox-dialog .tox-button--naked {
