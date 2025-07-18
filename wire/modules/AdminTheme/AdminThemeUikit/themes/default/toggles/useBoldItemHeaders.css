@@ -1,0 +1,71 @@
+/*** AsmSelect, PageAutocomplete, PageListSelect, accordions ***************/
+
+.pw .Inputfields .InputfieldPageAutocomplete li,
+.pw .Inputfields .InputfieldPageAutocomplete li a,
+.pw .Inputfields .InputfieldPageListSelectMultiple ol li,
+.pw .Inputfields .InputfieldAsmSelect .asmListItem,
+.pw .Inputfields .InputfieldAsmSelect .asmListItem.ui-state-default,
+.pw .Inputfields .InputfieldAsmSelect .asmListItem.ui-state-hover {
+	/* make asmSelect/autocomplete/pageListSelect use the main-color */
+	--main-background: var(--main-color);
+	--border-color: var(--main-color);
+	--text-color: rgba(255,255,255,0.9);
+	background-color: var(--main-background);
+	margin-top: 0;
+	margin-bottom: 1px !important;
+}
+
+.pw .Inputfields .InputfieldPageAutocomplete li:hover,
+.pw .Inputfields .InputfieldPageAutocomplete li:hover a,
+.pw .Inputfields .InputfieldPageListSelectMultiple ol li:hover,
+.pw .Inputfields .InputfieldAsmSelect .asmListItem.ui-state-hover {
+	/* highlight hovered items */
+	filter: brightness(1.05);
+	filter: brightness(0.95);
+	border-color: var(--main-color);
+}
+
+.pw .ui-accordion-header {
+	/* accordion items like the debug mode tools */
+	--inputs-background: var(--main-color);
+	--blocks-background: var(--main-color);
+	--text-color: #fff;
+	border: 0;
+	margin-top: 3px !important;
+}
+
+.pw .ui-accordion-header:hover,
+.pw .ui-accordion-header.ui-state-hover {
+	--inputs-background: var(--main-color);
+	--main-background: var(--main-color);
+	filter: brightness(1.05);
+}
+.ui-accordion.ui-widget .ui-accordion-content {
+	padding: 20px;
+}
+
+.asmListItemStatus .columnWidth {
+	/* percent width indicator in AsmSelect field lists */
+	color: rgba(255,255,255,0.65);
+}
+
+/*** Repeaters *********************************************************/
+
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader,
+.pw .InputfieldFileList > li > .InputfieldItemHeader {
+	/* make InputfieldRepeater item headers use the main color */
+	--inputs-background: var(--main-color);
+	--border-color: var(--main-color);
+	--text-color: rgba(255,255,255,0.9);
+	--muted-color: rgba(255,255,255,0.8);
+}
+
+.InputfieldRepeaterItem > .InputfieldHeader:hover {
+	/* make hovered repeater header slightly highlighted */
+	filter: brightness(1.05);
+}
+
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem {
+	/* large margin not needed when using bolder headers */
+	margin-bottom: 2px;
+}

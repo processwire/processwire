@@ -2,6 +2,7 @@
 
 /** @var AdminThemeUikit $adminTheme */
 /** @var WireInput $input */
+/** @var Modules $modules */
 /** @var Config $config */
 /** @var Page $page */
 /** @var User $user */
@@ -9,12 +10,22 @@
 $themeInfo = $adminTheme->getThemeInfo();
 $toggles = $adminTheme->defaultToggles;
 $settings = $config->AdminThemeUikit; 
+$themeUrl = $config->urls('AdminThemeUikit') . 'themes/default/';
+$cssToggles = [ 'useBoldItemHeaders', 'usePageListButtons', 'useInputFocus' ]; 
 
 $useDarkModeSwitcher = 
 	$user->isLoggedin() 
 	&& !in_array('noUserMenu', $toggles) 
 	&& empty($settings['noDarkMode'])
 	&& $user->hasPermission('page-edit');
+
+foreach($cssToggles as $name) {
+	if(!in_array($name, $toggles)) continue;
+	$config->styles->add($themeUrl . "toggles/$name.css");
+}
+if($modules->isInstalled('InputfieldTable')) {
+	$config->styles->add($themeUrl . "toggles/InputfieldTable.css");
+}
 
 /**
  * Update TinyMCE to use our custom skin and content_css

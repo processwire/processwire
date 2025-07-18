@@ -1,0 +1,36 @@
+.Inputfields input:focus:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not(.uk-form-blank),
+.Inputfields textarea:focus,
+.pw .Inputfields .Inputfield select.uk-select:focus,
+select.uk-select:focus {
+	/* have inputs show a focused state */
+	/*border-color: var(--muted-color) !important;*/
+	background-color: var(--blocks-background) !important;
+}
+
+.InputfieldForm .Inputfields .Inputfield select.uk-select {
+	/* make <select> elements have same background color as text inputs */
+	background-color: var(--inputs-background);
+}
+
+/*** TinyMCE ***/
+.InputfieldTinyMCE .tox-edit-area {
+	background: var(--inputs-background);
+}
+.InputfieldTinyMCE .mce-edit-focus,
+.InputfieldTinyMCEFocused .tox-edit-area__iframe {
+	--inputs-background: var(--blocks-background);
+	background: var(--blocks-background);
+	
+}
+.InputfieldTinyMCEFocused .tox .tox-toolbar,
+.InputfieldTinyMCEFocused .tox .tox-menubar,
+.InputfieldTinyMCEFocused .tox .tox-statusbar,
+.InputfieldTinyMCEFocused .tox .tox-toolbar__overflow,
+.InputfieldTinyMCEFocused .tox .tox-toolbar__primary {
+	--blocks-background: var(--inputs-background);
+}
+
+.pw .InputfieldTinyMCEFocused .tox .tox-menubar .tox-mbtn:hover,
+.pw .InputfieldTinyMCEFocused .tox .tox-tbtn:hover {
+	background: light-dark(white, black);
+}

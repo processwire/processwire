@@ -50,6 +50,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'version' => 36,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
+			'icon' => 'smile-o', 
 		); 
 	}
 

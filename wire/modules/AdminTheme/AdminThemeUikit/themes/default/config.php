@@ -42,15 +42,21 @@ $inputfields->add($f);
 $f = $inputfields->InputfieldCheckboxes;
 $f->attr('id+name', 'defaultToggles');
 $f->label = __('Toggles');
+$f->addOption('useBoldItemHeaders', __('Use bold headers for repeaters, files, images, etc.'));
+$f->addOption('usePageListButtons', __('Use buttons for page-list action links'));
+$f->addOption('useInputFocus', 
+	__('Highlight focused inputs') . ' ' . 
+	'[span.detail] ' . __('(additional clarity for currently focused input)') . ' [/span]'
+);
 $f->addOption('noUserMenu',
 	__('Disable light/dark/auto setting in user tools menu?') . ' ' .
-	'[span.detail] ' . __('(this prevents users from making their own dark/light mode selection)') . ' [/span]'
+	'[span.detail] ' . __('(prevents users from making their own dark/light mode selection)') . ' [/span]'
 );
 $togcbxAttr = [];
 if(!empty($settings['noTogcbx'])) $togcbxAttr = [ 'disabled' => 'disabled' ];
 $f->addOption('useTogcbx', 
 	__('Use toggle style checkboxes globally?') . ' ' .
-	'[span.detail] ' . __('(use toggle rather than marker style checkboxes)') . ' [/span]',
+	'[span.detail] ' . __('(use toggle rather than checkmark style checkboxes)') . ' [/span]',
 	$togcbxAttr
 );
 $f->addOption('use2Colors',
