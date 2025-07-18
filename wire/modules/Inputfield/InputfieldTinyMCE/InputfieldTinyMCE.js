@@ -844,13 +844,6 @@ var InputfieldTinyMCE = {
 		this.debug = ProcessWire.config.InputfieldTinyMCE.debug;
 		this.isDocumentReady = true;
 		this.log('documentReady', this.editorIds);
-		while(this.editorIds.length > 0) {
-			var editorId = this.editorIds.shift();
-			this.init(editorId, 'documentReady');
-		}
-		this.initDocumentEvents();
-		var $placeholders = jQuery('.' + this.cls.placeholder + ':visible');
-		if($placeholders.length) this.initPlaceholders($placeholders);
 		
 		this.onSetup(function(editor) {
 			editor.on('focus', function(e) {
@@ -860,6 +853,14 @@ var InputfieldTinyMCE = {
 				jQuery(editor.container).closest('.' + t.cls.main).removeClass(t.cls.focused);
 			});
 		});
+		
+		while(this.editorIds.length > 0) {
+			var editorId = this.editorIds.shift();
+			this.init(editorId, 'documentReady');
+		}
+		this.initDocumentEvents();
+		var $placeholders = jQuery('.' + this.cls.placeholder + ':visible');
+		if($placeholders.length) this.initPlaceholders($placeholders);
 		
 		if(this.debug) {
 			this.log('qty', 

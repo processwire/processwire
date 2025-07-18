@@ -6,7 +6,8 @@
   margin: 1rem;
   font-size: 16px;
   color: var(--text-color, #333);
-  background: var(--inputs-background, #f8f8f8);
+  /*background: var(--inputs-background, #f8f8f8);*/
+  background: transparent;
 }
 a {
   text-underline-offset: 0.125em;
@@ -59,7 +60,7 @@ a {
 .mce-content-body code {
   border-radius: 3px;
   padding: 0.1rem 0.2rem;
-  background-color: var(--muted-color, #f5f2f0);
+  /* background-color: var(--muted-color, #f5f2f0); */
   color: var(--text-color, #222);
   font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
 }
@@ -233,19 +234,35 @@ a > .mce-content-body img {
   outline: 1px solid var(--main-color, #0782c1);
 }
 .mce-content-body pre {
-  color: #333;
-  border: 1px dashed var(--border-color, #ccc);
-  padding: 0.5rem 1rem !important;
+  /*border: 1px dashed var(--border-color, #ccc);*/
+  /*padding: 0.5rem 1rem !important;*/
+  border: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
   -moz-tab-size: 4;
   -o-tab-size: 4;
   -webkit-tab-size: 4;
   tab-size: 4;
+  font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  font-size: 15px;
+  color: light-dark(#333, #fff);
+  background: light-dark(#eee, #333);
+  font-size: 0.9375rem;
+  margin: 0.5em 0;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;	
+}
+.mce-content-body code {
+  font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  font-size: 15px;
+  color: light-dark(#333, #fff);
+  background-color: light-dark(#eee, #333);
 }
 .mce-content-body pre code {
   background-color: initial;
 }
+
+/*
 .mce-content-body pre[class*="language-"] {
   font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
   font-size: 0.9375rem;
@@ -254,5 +271,4 @@ a > .mce-content-body img {
   padding: 0.5rem 1rem;
   color: var(--muted-color, #777);
 }
-
-/*# sourceMappingURL=wire.css.map */
+ */
