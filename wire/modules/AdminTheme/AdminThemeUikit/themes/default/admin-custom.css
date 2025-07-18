@@ -41,7 +41,7 @@
 
 	--main-color: #eb1d61;
 
-	--text-color: light-dark(black, white);
+	--text-color: light-dark(#111, white);
 	--muted-color: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));
 	--border-color: light-dark(rgba(0, 0, 0, 0.16), #444);
 	--main-background:light-dark(#eee, #222);
@@ -51,20 +51,20 @@
 	--button-background: light-dark(var(--text-color), var(--main-color));
 	--button-color: light-dark(var(--blocks-background), var(--text-color));
 	--button-border: transparent;
-	--button-muted-background: light-dark(var(--muted-color), #404040);
+	--button-muted-background: light-dark(#737373, #404040);
 	--button-muted-color: light-dark(var(--blocks-background), var(--text-color));;
 	--button-muted-border: transparent;
 	--button-hover-background: light-dark(var(--main-color), var(--text-color));
 	--button-hover-color: var(--blocks-background);
 	--button-hover-border: transparent;
-	--menu-item-backgroud-hover: var(--main-background);
+	--menu-item-background-hover: var(--main-background);
 
 	--masthead-background: var(--blocks-background);
 	--masthead-active-color: var(--text-color);
 	--masthead-text-color: var(--muted-color);
 	--masthead-border-color: var(--border-color);
 	--masthead-logo-color: var(--main-color);
-	--masthead-menu-item-backgroud-hover: var(--menu-item-backgroud-hover);
+	--masthead-menu-item-background-hover: var(--menu-item-background-hover);
 
 	--masthead-input-background: var(--inputs-background);
 	--masthead-input-color: var(--text-color);
@@ -74,15 +74,17 @@
 
 	--alert-text-color: var(--text-color);
 	--alert-primary: var(--main-background);
-	--alert-warning: light-dark(#fcda6d, #d57f00);
-	--alert-success: light-dark(#97ecb2, #139472);
-	--alert-danger: light-dark(#ffc3c3, #8a1919);
+	--alert-warning: light-dark(#fff0be, #d57f00);
+	--alert-success: light-dark(#c1e7cd, #139472);
+	--alert-danger: light-dark(#fee6e6, #8a1919);
 	--notes-background: light-dark(#ffd, #bdbdbd33);
 
 	--error-inline-text-color: light-dark(#cd0a0a, #ff1d1d);
 
 	--code-color: light-dark(#0173b0, #e7e695);
-	--code-background: light-dark(#0173b020, #3c3c3c5e);
+	--code-background: light-dark(var(--inputs-background), #3c3c3c5e);
+
+	--shadow-color: light-dark(rgba(0,0,0,0.025), rgba(255,255,255, 0.035));
 
 	--button-radius: 99999px;
 	--input-radius: 0;
@@ -104,11 +106,6 @@ html:has(body.light-theme) {
 body.dark-theme,
 html:has(body.dark-theme) {
 	color-scheme: dark;
-}
-
-body.light-theme * {
-	-webkit-font-smoothing: auto;
-	-moz-osx-font-smoothing: auto;
 }
 
 body.dark-theme * {
