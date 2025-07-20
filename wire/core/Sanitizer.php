@@ -5013,6 +5013,7 @@ class Sanitizer extends Wire {
 	 *  - `maxWordLength` (int): Maximum word length (default=80)
 	 *  - `maxWords` (int): Maximum number of words allowed (default=0, no limit)
 	 *  - `stripTags` (bool): Strip markup tags so they don’t contribute to returned word list? (default=true)
+	 *  - `truncate` (bool): Truncate rather than remove words that exceed maxWordLength? (default=false) 3.0.250+
 	 * @return array
 	 * @since 3.0.160
 	 *
@@ -5030,6 +5031,7 @@ class Sanitizer extends Wire {
 			'keepNumberFormat' => true, 
 			'keepChars' => array(),
 			'stripTags' => true,
+			'truncate' => false,
 		);
 
 		$options = array_merge($defaults, $options);
@@ -5122,8 +5124,17 @@ class Sanitizer extends Wire {
 				continue;
 			}
 			$length = $this->multibyteSupport ? mb_strlen($word) : strlen($word);
-			if($length < $minLength || $length > $maxLength) {
-				// remove any words that are outside the min/max length requirements
+			if($length > $maxLength) {
+				// remove or truncate any words that are too long
+				if($options['truncate']) {
+					$word = $this->multibyteSupport ? mb_substr($word, 0, $maxLength) : substr($word, 0, $maxLength);
+					$words[$key] = $word;
+				} else {
+					unset($words[$key]);
+					continue;
+				}
+			} else if($length < $minLength) {
+				// remove any words that are are not long enough
 				unset($words[$key]);
 				continue;
 			} else if($keepChars !== '' && !strlen(trim($word, $keepChars))) {
