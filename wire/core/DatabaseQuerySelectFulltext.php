@@ -328,6 +328,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 		} else {
 			$this->matchFieldName($fieldName, $value);
 		}
+
+		if(!count($this->query->where) && (strpos($operator, '~') !== false || $operator === '*+=')) {
+			$this->query->where('(1>2)'); // force non-match 
+		}
 		
 		return $this;
 	}
@@ -720,9 +724,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$wordsAlternates = array();
 		
 		$phraseWords = $this->words($value); // including non-indexable
-		$lastPhraseWord = array_pop($phraseWords);
+		$lastPhraseWord = (string) array_pop($phraseWords);
 		$scoreField = $this->getScoreFieldName();
 		$againstValues = array();
+		$matchAgainst = null;
 		
 		// BOOLEAN PHRASE: full phrase matches come before expanded matches
 		if(count($phraseWords)) {
@@ -748,19 +753,20 @@ class DatabaseQuerySelectFulltext extends Wire {
 				}
 			}
 		}
-		
-		$againstValues[] = ($this->isIndexableWord($lastPhraseWord) ? '+' : '') . $this->escapeAgainst($lastPhraseWord) . '*';
-		$bindKey = $this->query->bindValueGetKey(implode(' ', $againstValues));
-		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
-		
-		if($this->allowOrder) {
-			$this->query->select("$matchAgainst + 333.3 AS $scoreField");
-			$this->query->orderby("$scoreField DESC");
+	
+		if(strlen($lastPhraseWord)) {
+			$againstValues[] = ($this->isIndexableWord($lastPhraseWord) ? '+' : '') . $this->escapeAgainst($lastPhraseWord) . '*';
+			$bindKey = $this->query->bindValueGetKey(implode(' ', $againstValues));
+			$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
+			if($this->allowOrder) {
+				$this->query->select("$matchAgainst + 333.3 AS $scoreField");
+				$this->query->orderby("$scoreField DESC");
+			}
 		}
 		
 		if(!count($words)) {
 			// no words to work with for query expansion (not likely, unless stopwords or too-short)
-			$this->query->where($matchAgainst);
+			if($matchAgainst) $this->query->where($matchAgainst);
 			return;
 		}
 		
