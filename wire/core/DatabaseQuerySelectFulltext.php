@@ -1215,6 +1215,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			'stopwords' => true, // allow stopwords
 			'indexable' => false, // include only indexable words?
 			'alternates' => false, // include alternate versions of words?
+			'truncate' => true, 
 		);
 		
 		$options = count($options) ? array_merge($defaults, $options) : $defaults;
@@ -1312,6 +1313,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected function strlen($value) {
+		$value = (string) $value;
 		if(function_exists('mb_strlen')) {
 			return mb_strlen($value);
 		} else {
