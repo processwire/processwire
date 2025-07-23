@@ -60,7 +60,7 @@ $(document).ready(function() {
 			"<style type='text/css' id='main-color-custom'>" +
 				":root { " +
 					".main-color-custom { " +
-						"--main-color: " + value  + "; " +
+						"--pw-main-color: " + value  + "; " +
 					"} " +
 			"} " +
 			"</style>");

@@ -44,24 +44,24 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$layout = $adminTheme->layout;
 		$userTemplateURL = $config->urls->admin . 'setup/template/edit?id=3';
 
-		$adminTheme->getThemeInfo(); // init
-		$themeInfos = $adminTheme->themeInfos;
+		$themeInfos = $adminTheme->getThemeInfo('all'); // init
 		
 		if(count($themeInfos)) {
 			$configFiles = [];
 			$f = $inputfields->InputfieldRadios;
 			$f->attr('id+name', 'themeName');
-			$f->label = $this->_('Theme name');
+			$f->label = $this->_('Uikit style theme');
 			$f->notes = 
-				$this->_('After changing the theme, please submit/save before configuring it.') . ' ' . 
-				$this->_('When using `admin.less` customization, you should use the “Original” theme.');
+				$this->_('After changing the style theme, please submit/save before configuring it.') . ' ' . 
+				$this->_('When using `admin.less` customization, the “Core original” style is required.');
 			$f->icon = 'photo';
 			foreach($themeInfos as $name => $info) {
-				$f->addOption($name, ucfirst($name), [ 'data-url' => $info['url'] ]);
+				$label = (isset($info['title']) ? $info['title'] : ucfirst($name));
+				$f->addOption($name, $label, [ 'data-url' => $info['url'] ]);
 				$configFile = $info['path'] . 'config.php';
 				if(is_file($configFile)) $configFiles[$name] = $configFile;
 			}
-			$f->addOption('', $this->_('Original'));
+			$f->addOption('', $this->_('Core original'));
 			$value = $adminTheme->themeName;
 			$f->val($value);
 			$f->themeOffset = 1; 
@@ -72,7 +72,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 				$inputfields->add($fs);
 				$fs->themeOffset = 1;
 				$fs->attr('name', "_theme_$name"); 
-				$fs->label = $this->_('Theme style settings:') . ' ' .  $name;
+				$fs->label = $themeInfos[$name]['title'] . ' ' . $this->_('theme settings');
 				$fs->showIf = "themeName=$name";
 				$this->wire()->files->render($configFile, [ 'inputfields' => $fs ]); 
 			}

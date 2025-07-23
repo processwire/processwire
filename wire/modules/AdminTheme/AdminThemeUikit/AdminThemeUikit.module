@@ -141,7 +141,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'defaultMainColor' => 'red', 
 			'defaultMainColorCustom' => '#eb1d61',
 			'defaultMainColorCustomDark' => '',
-			'defaultToggles' => [], 
+			'defaultToggles' => [ 'useInputFocus' ], 
 			'defaultCustomCss' => '', 
 			'defaultCustomCssFile' => '', 
 		]);
@@ -1326,29 +1326,38 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		
 		$themeInfos = $this->themeInfos;
 		
-		if(isset($themeInfos['z'])) {
-			// wakeup
-			$config = $this->wire()->config;
-			$thisPath = $config->paths($this);
-			$themesPath = $thisPath . 'themes/';
-			$rootLen = strlen($config->paths->root);
-			if(is_dir($themesPath)) {
-				foreach(new \DirectoryIterator($themesPath) as $file) {
-					if(!$file->isDir() || $file->isDot()) continue;
-					$basename = $file->getBasename();
-					if(strpos($basename, '.') === 0) continue;
-					$themePath = $thisPath . "themes/$basename/";
-					$themeUrl = $config->urls->root . substr($themePath, $rootLen);
-					$themeInfos[$basename] = [
-						'name' => $basename,
-						'path' => $themePath,
-						'url' => $themeUrl
-					];
+		if(empty($themeInfos) || isset($themeInfos['z'])) {
+			$session = $this->wire()->session;
+			$themeInfos = $session->getFor($this, 'themeInfos');
+			if(empty($themeInfos)) {
+				// wakeup
+				$config = $this->wire()->config;
+				$thisPath = $config->paths($this);
+				$themesPath = $thisPath . 'themes/';
+				$rootLen = strlen($config->paths->root);
+				if(is_dir($themesPath)) {
+					foreach(new \DirectoryIterator($themesPath) as $file) {
+						if(!$file->isDir() || $file->isDot()) continue;
+						$basename = $file->getBasename();
+						if(strpos($basename, '.') === 0) continue;
+						$themePath = $thisPath . "themes/$basename/";
+						$themeUrl = $config->urls->root . substr($themePath, $rootLen);
+						$themeInfo = ['name' => $basename, 'path' => $themePath, 'url' => $themeUrl];
+						$infoFile = $themePath . 'info.php';
+						if(is_file($infoFile)) {
+							$a = include($infoFile);
+							$themeInfo = array_merge($a, $themeInfo);
+						}
+						$themeInfos[$basename] = $themeInfo;
+					}
 				}
+				unset($themeInfos['z']);
+				$this->themeInfos = $themeInfos;
+				$session->setFor($this, 'themeInfos', $themeInfos);
 			}
-			unset($themeInfos['z']);
-			$this->themeInfos = $themeInfos;
 		}
+		
+		if($themeName === 'all') return $themeInfos;
 		
 		return $themeName && isset($themeInfos[$themeName]) ? $themeInfos[$themeName] : [];
 	}

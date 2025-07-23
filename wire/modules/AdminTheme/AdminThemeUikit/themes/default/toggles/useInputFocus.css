@@ -4,22 +4,22 @@
 select.uk-select:focus {
 	/* have inputs show a focused state */
 	/*border-color: var(--muted-color) !important;*/
-	background-color: var(--blocks-background) !important;
+	background-color: var(--pw-blocks-background) !important;
 }
 
 .InputfieldForm .Inputfields .Inputfield select.uk-select {
 	/* make <select> elements have same background color as text inputs */
-	background-color: var(--inputs-background);
+	background-color: var(--pw-inputs-background);
 }
 
 /*** TinyMCE ***/
 .InputfieldTinyMCE .tox-edit-area {
-	background: var(--inputs-background);
+	background: var(--pw-inputs-background);
 }
 .InputfieldTinyMCE .mce-edit-focus,
 .InputfieldTinyMCEFocused .tox-edit-area__iframe {
-	--inputs-background: var(--blocks-background);
-	background: var(--blocks-background);
+	--inputs-background: var(--pw-blocks-background);
+	background: var(--pw-blocks-background);
 	
 }
 .InputfieldTinyMCEFocused .tox .tox-toolbar,
@@ -27,7 +27,7 @@ select.uk-select:focus {
 .InputfieldTinyMCEFocused .tox .tox-statusbar,
 .InputfieldTinyMCEFocused .tox .tox-toolbar__overflow,
 .InputfieldTinyMCEFocused .tox .tox-toolbar__primary {
-	--blocks-background: var(--inputs-background);
+	--blocks-background: var(--pw-inputs-background);
 }
 
 .pw .InputfieldTinyMCEFocused .tox .tox-menubar .tox-mbtn:hover,

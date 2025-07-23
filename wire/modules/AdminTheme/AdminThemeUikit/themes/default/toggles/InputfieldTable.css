@@ -13,5 +13,5 @@
 .InputfieldTableRowDeleteLink:hover,
 .InputfieldTableActionRow:hover {
 	/* make table action links highlight with main color when hovered */
-	color: var(--main-color);
+	color: var(--pw-main-color);
 }

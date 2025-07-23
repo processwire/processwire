@@ -4,13 +4,13 @@
 /* ----------------------------------------------------------------- */
 
 :root {
-    --masthead-background: var(--main-color);
-    --masthead-active-color: white;
-    --masthead-text-color: rgba(255,255,255,0.8);
-    --masthead-border-color: var(--main-background);
-    --masthead-logo-color: white;
-    --masthead-input-background: var(--masthead-background);
-    --masthead-input-color: var(--masthead-active-color);
-    --masthead-input-border: var(--masthead-text-color);
-    --masthead-menu-item-backgroud-hover: rgba(255,255,255,.2);
+    --pw-masthead-background: var(--pw-main-color);
+    --pw-masthead-active-color: white;
+    --pw-masthead-text-color: rgba(255,255,255,0.8);
+    --pw-masthead-border-color: var(--pw-main-background);
+    --pw-masthead-logo-color: white;
+    --pw-masthead-input-background: var(--pw-masthead-background);
+    --pw-masthead-input-color: var(--pw-masthead-active-color);
+    --pw-masthead-input-border: var(--pw-masthead-text-color);
+    --pw-masthead-menu-item-backgroud-hover: rgba(255,255,255,.2);
 }

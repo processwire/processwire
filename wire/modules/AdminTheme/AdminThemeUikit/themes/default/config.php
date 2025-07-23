@@ -11,13 +11,12 @@ if($adminTheme->themeName === 'default') {
 	$adminTheme->wire()->config->scripts->add($adminTheme->url() . 'themes/default/config.js');
 }
 
-$inputfields->label = __('Default theme settings');
-$inputfields->description = __('This default theme is created by Diogo Oliveira and Jan Ploch at [KONKAT Studio](https://konkat.studio/).');
+$inputfields->description = __('Created by Diogo Oliveira and Jan Ploch at [KONKAT Studio](https://konkat.studio/).');
 $inputfields->icon = 'sliders';
 
 $f = $inputfields->InputfieldRadios;
 $f->attr('id+name', 'defaultStyleName');
-$f->label = __('Would you like to default to light or dark mode?');
+$f->label = __('Would you like a default of light or dark mode?');
 $darkAttr = [];
 $value = $adminTheme->get('defaultStyleName');
 if(empty($value)) $value = 'auto';

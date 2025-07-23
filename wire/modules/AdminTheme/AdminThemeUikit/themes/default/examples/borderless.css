@@ -3,6 +3,6 @@
 /* ------------------------------------------------------------------ */
 
 :root {
-  --border-color: var(--main-background);
-  --inputs-background: var(--blocks-background);
+  --pw-border-color: var(--pw-main-background);
+  --pw-inputs-background: var(--pw-blocks-background);
 }
