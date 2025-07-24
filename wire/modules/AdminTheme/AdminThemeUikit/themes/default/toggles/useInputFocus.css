@@ -18,8 +18,7 @@ select.uk-select:focus {
 }
 .InputfieldTinyMCE .mce-edit-focus,
 .InputfieldTinyMCEFocused .tox-edit-area__iframe {
-	--inputs-background: var(--pw-blocks-background);
-	background: var(--pw-blocks-background);
+	--pw-inputs-background: var(--pw-blocks-background);
 	
 }
 .InputfieldTinyMCEFocused .tox .tox-toolbar,
@@ -27,7 +26,7 @@ select.uk-select:focus {
 .InputfieldTinyMCEFocused .tox .tox-statusbar,
 .InputfieldTinyMCEFocused .tox .tox-toolbar__overflow,
 .InputfieldTinyMCEFocused .tox .tox-toolbar__primary {
-	--blocks-background: var(--pw-inputs-background);
+	--pw-blocks-background: var(--pw-inputs-background);
 }
 
 .pw .InputfieldTinyMCEFocused .tox .tox-menubar .tox-mbtn:hover,

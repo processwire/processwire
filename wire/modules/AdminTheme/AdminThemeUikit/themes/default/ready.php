@@ -4,12 +4,15 @@
 /** @var AdminThemeUikit $adminTheme */
 /** @var User $user */
 /** @var WireInput $input */
+/** @var Modules $modules */
 /** @var Page $page */
 
 $themeInfo = $adminTheme->getThemeInfo();
+$themeUrl = $config->urls('AdminThemeUikit') . 'themes/default/';
 $customCss = $adminTheme->get('defaultCustomCss');
 $customCssFile = $adminTheme->get('defaultCustomCssFile');
 $toggles = $adminTheme->defaultToggles;
+$cssToggles = [ 'useBoldItemHeaders', 'usePageListButtons', 'useInputFocus' ];
 $settings = $config->AdminThemeUikit;
 
 $mainColors = [ 
@@ -20,8 +23,17 @@ $mainColors = [
 	'customDark' => $adminTheme->get('defaultMainColorCustomDark'),
 ];
 
+$config->styles->append($themeInfo['url'] . 'admin-custom.css');
 $config->styles->append($themeInfo['url'] . 'admin.css');
 $config->scripts->append($themeInfo['url'] . 'admin.js');
+
+foreach($cssToggles as $name) {
+	if(!in_array($name, $toggles)) continue;
+	$config->styles->add($themeUrl . "toggles/$name.css");
+}
+if($modules->isInstalled('InputfieldTable')) {
+	$config->styles->add($themeUrl . "toggles/InputfieldTable.css");
+}
 
 if($customCssFile) {
 	$config->styles->append($config->urls->root . ltrim($customCssFile, '/')); 

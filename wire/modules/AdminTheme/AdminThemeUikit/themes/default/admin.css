@@ -1,5 +1,3 @@
-@import url(./admin-custom.css);
-
 /* END Set general color to work in light and dark */
 
 .uk-section-primary:not(.uk-preserve-color),.uk-section-secondary:not(.uk-preserve-color),.uk-tile-primary:not(.uk-preserve-color),.uk-tile-secondary:not(.uk-preserve-color),.uk-card-primary.uk-card-body,.uk-card-primary>:not([class*='uk-card-media']),.uk-card-secondary.uk-card-body,.uk-card-secondary>:not([class*='uk-card-media']),.uk-overlay-primary {

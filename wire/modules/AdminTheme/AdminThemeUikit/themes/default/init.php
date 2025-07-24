@@ -7,11 +7,9 @@
 /** @var Page $page */
 /** @var User $user */
 
-$themeInfo = $adminTheme->getThemeInfo();
 $toggles = $adminTheme->defaultToggles;
 $settings = $config->AdminThemeUikit; 
 $themeUrl = $config->urls('AdminThemeUikit') . 'themes/default/';
-$cssToggles = [ 'useBoldItemHeaders', 'usePageListButtons', 'useInputFocus' ]; 
 
 $useDarkModeSwitcher = 
 	$user->isLoggedin() 
@@ -19,42 +17,47 @@ $useDarkModeSwitcher =
 	&& empty($settings['noDarkMode'])
 	&& $user->hasPermission('page-edit');
 
-foreach($cssToggles as $name) {
-	if(!in_array($name, $toggles)) continue;
-	$config->styles->add($themeUrl . "toggles/$name.css");
-}
-if($modules->isInstalled('InputfieldTable')) {
-	$config->styles->add($themeUrl . "toggles/InputfieldTable.css");
-}
-
 /**
  * Update TinyMCE to use our custom skin and content_css
  * 
  */
-$adminTheme->addHookAfter('InputfieldTinyMCESettings::prepareSettingsForOutput', function(HookEvent $e) use($themeInfo) {
-	$o = $e->object; /** @var InputfieldTinyMCESettings $o */
-	$f = $o->inputfield;
-	$settings = $e->return;
-	$rootUrl = $e->wire()->config->urls->root;
-	$url = $rootUrl . ltrim($themeInfo['url'], '/');
-
-	if($rootUrl != '/' && strpos($url, $rootUrl) === 0) $url = substr($url, strlen($rootUrl)-1); 
+$adminTheme->addHookAfter('InputfieldTinyMCESettings::prepareSettingsForOutput', function(HookEvent $e) use($themeUrl) {
 	
-	if(empty($settings['content_css']) || strpos($settings['content_css'], 'document.css') === false) {
-		$a = [
-			'content_css' =>  $url . 'content.css', 
-			'content_css_url' => $url . 'content.css',
-			'skin_url' => rtrim($url, '/'), 
-			'skin' => 'custom',
-			'toolbar_sticky_offset' => 55, // applies to inline mode only
-		];
-		$settings = array_merge($settings, $a);
-		$f->setArray($a);
+	$f = $e->object->__get('inputfield'); /** @var InputfieldTinyMCE $f */
+	
+	static $contentCss = '';
+	
+	$settings = $e->return;
+	$css = isset($settings['content_css']) ? $settings['content_css'] : $f->content_css;
+
+	if(strpos($css, 'document')) {
+		// keep
+		return;
+	} else if(strpos($css, '/content_css/wire.css') || empty($css)) {
+		// replace
 	} else {
-		// leave document mode as-is
+		// leave custom
+		return;
+	}
+
+	if(empty($contentCss)) {
+		$contentCss = $e->wire()->config->versionUrl($themeUrl . 'content.css');
 	}
 	
+	$a = [
+		'content_css' => $contentCss,
+		'content_css_url' => $contentCss,
+		'toolbar_sticky_offset' => 55, // applies to inline mode only
+	];
+	
+	if($f->skin === 'oxide' || !$f->skin) {
+		$a['skin_url'] = rtrim($themeUrl, '/');
+		$a['skin'] = 'custom';
+	}
+	
+	$settings = array_merge($settings, $a);
 	$e->return = $settings;
+	
 });
 
 /**
@@ -124,11 +127,15 @@ if($useDarkModeSwitcher) {
 if($page->process == 'ProcessModule' && $input->get('name') === 'InputfieldTinyMCE') {
 	$page->wire()->addHookAfter('InputfieldTinyMCE::getModuleConfigInputfields', function(HookEvent $e) {
 		$inputfields = $e->arguments(0); /** @var InputfieldWrapper $inputfields */
-		$a = [ 'skin', 'content_css', 'content_css_url' ];
+		$a = [ 
+			'skin' => 'oxide', 
+			'content_css' => 'wire', 
+			'content_css_url' => '' 
+		];
 		$note = __('PLEASE NOTE: this setting is currently overridden by AdminThemeUikit “default” theme.', __FILE__);
-		foreach($a as $name) {
+		foreach($a as $name => $default) {
 			$f = $inputfields->get($name);	
-			if($f && $f->val() != 'document') $f->notes = $note;
+			if($f && !$f->val() || $f->val() === $default) $f->notes = $note;
 		}
 	}); 
 }
