@@ -91,6 +91,25 @@ class WireShutdown extends Wire {
 	protected $error = array();
 
 	/**
+	 * Methods that should have their arguments suppressed from PHP backtraces
+	 * 
+	 * - Each method must include a `->`. 
+	 * - Methods should not include parenthesis. 
+	 * - If for specific class, include the class name before the `->`.
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $banBacktraceMethods = array(
+		'->___login', // Session or ProcessLogin
+		'->___start', // i.e. Tfa
+		'->___setPass', // Password.php
+		'Session->___authenticate',
+		'Password->matches',
+		'Password->hash',
+	);
+
+	/**
 	 * Default HTML to use for error message
 	 * 
 	 * Can be overridden with $config->fatalErrorHTML in /site/config.php
@@ -188,6 +207,7 @@ class WireShutdown extends Wire {
 	protected function getErrorMessage(array $error) {
 		
 		$type = $error['type'];
+		$config = $this->config;
 		
 		if(isset($this->types[$type])) {
 			$errorType = $this->types[$type];
@@ -203,7 +223,25 @@ class WireShutdown extends Wire {
 			$detail = '';
 		}
 		
-		return "$errorType: \t$message $detail ";
+		$message = "$errorType: \t$message $detail ";
+
+		if(strpos($message, '#1') !== false && stripos($message, '):')) {
+			// backtrace likely present in $message
+			// methods that should have their arguments excluded from backtrace
+			foreach($this->banBacktraceMethods as $name) {
+				if(strpos($message, "$name(") === false) continue;
+				if(!preg_match_all('!' . $name . '\([^\n]+\)!', $message, $matches)) continue;
+				foreach($matches[0] as $match) {
+					$message = str_replace($match, '->' . $name . '(...)', $message);
+				}
+			}
+		}
+	
+		if(strlen((string) $config->dbPass) > 4) {
+			$message = str_replace((string) $config->dbPass, '[...]', $message);
+		}
+		
+		return $message;
 	}
 
 	/**
