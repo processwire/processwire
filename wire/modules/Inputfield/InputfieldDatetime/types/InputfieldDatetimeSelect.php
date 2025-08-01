@@ -75,7 +75,6 @@ class InputfieldDatetimeSelect extends InputfieldDatetimeType {
 		$yearLock = $this->getSetting('yearLock');
 		$format = $this->getSetting('dateSelectFormat');
 		$select = $this->modules->get('InputfieldSelect'); /** @var InputfieldSelect $select */
-		$sanitizer = $this->wire()->sanitizer;
 		$datetime = $this->wire()->datetime;
 		$monthLabel = $this->_('Month');
 		$yearLabel = $this->_('Year');
@@ -91,7 +90,7 @@ class InputfieldDatetimeSelect extends InputfieldDatetimeType {
 
 		for($n = 1; $n <= 12; $n++) {
 			$monthFormat = $abbreviate ? '%b' : '%B';
-			$monthLabel = $sanitizer->entities($datetime->strftime($monthFormat, mktime(0, 0, 0, $n, 1)));
+			$monthLabel = $datetime->strftime($monthFormat, mktime(0, 0, 0, $n, 1));
 			$months->addOption($n, $monthLabel);
 		}
 
