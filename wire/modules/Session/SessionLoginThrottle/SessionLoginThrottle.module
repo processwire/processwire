@@ -5,7 +5,7 @@
  *
  * Throttles the frequency of logins for a given account, helps to reduce dictionary attacks.
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -26,7 +26,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 			'permanent' => false, 
 			'singular' => true, 
 			'autoload' => function() { return count($_POST) > 0;  }
-			);
+		);
 	}
 
 	/**
@@ -57,6 +57,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	 * 
 	 */
 	public function __construct() {
+		parent::__construct();
 		foreach(self::$defaultSettings as $key => $value) {
 			$this->set($key, $value); 
 		}
@@ -67,8 +68,8 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function init() {
-		if($this->wire('config')->demo) return;
-		$this->session->addHookAfter('allowLoginAttempt', $this, 'hookSessionAllowLoginAttempt'); 
+		if($this->wire()->config->demo) return;
+		$this->wire()->session->addHookAfter('allowLoginAttempt', $this, 'hookSessionAllowLoginAttempt'); 
 	}
 
 	/**
@@ -92,7 +93,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 			$allowed = false; 
 
 		} else if($this->checkIP) {
-			$ip = $this->wire('session')->getIP(); 
+			$ip = $this->wire()->session->getIP(); 
 			if(strlen($ip) && !$this->allowLogin($ip)) $allowed = false;
 		}
 
@@ -112,8 +113,8 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		if(isset($this->allowLoginResults[$name])) return $this->allowLoginResults[$name];
 
 		$time = time();
-		$database = $this->wire('database');
-		$name = $this->wire('sanitizer')->pageName($name, Sanitizer::toAscii);
+		$database = $this->wire()->database;
+		$name = $this->wire()->sanitizer->pageName($name, Sanitizer::toAscii);
 		
 		$query = $database->prepare("SELECT attempts, last_attempt FROM session_login_throttle WHERE name=:name");
 		$query->bindValue(":name", $name);
@@ -135,7 +136,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 				$elapsedSeconds = $time - $lastAttempt; 
 				if($elapsedSeconds < $requireSeconds) {
 					if($this->logFails) {
-						$this->wire('log')->save(
+						$this->wire()->log->save(
 							"login-throttle", 
 							"Blocked login attempt for '$name' (attempts=$attempts, seconds=$requireSeconds)",
 							array('showUser' => false)
@@ -144,7 +145,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 					$error = 
 						$this->_('Login not attempted due to overflow.') . ' ' . 
 						sprintf($this->_("Please wait at least %d seconds before attempting another login."), $requireSeconds); 
-					if($this->wire('process') == 'ProcessLogin') {
+					if($this->wire()->process == 'ProcessLogin') {
 						parent::error($error);
 					} else {
 						throw new SessionLoginThrottleException($error); // ensures the error can't be missed in unknown API usage
@@ -209,8 +210,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 			if(!isset($data[$key])) $data[$key] = $value;
 		}
 
-		/** @var InputfieldCheckbox $f */
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $inputfields->InputfieldCheckbox;
 		$f->attr('name', 'checkIP');
 		$f->attr('value', 1);
 		$f->attr('checked', $data['checkIP'] ? 'checked' : ''); 
@@ -218,15 +218,15 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$f->description = $this->_('By default, throttling will only be done by username. If you check this box, then throttling will also be done by IP address. We recommended enabling this option if your users are not coming from a shared IP address.');
 		$inputfields->add($f);
 
-		/** @var InputfieldInteger $f */
-		$f = $this->wire('modules')->get('InputfieldInteger'); 
+		$f = $inputfields->InputfieldInteger;
 		$f->attr('name', 'seconds');
 		$f->attr('value', $data['seconds']); 
 		$f->label = $this->_('Number of seconds to make user wait after failed login attempt'); 
 		$f->description = $this->_('This number is multiplied by the number of failed attempts, so each failed attempt increases the wait time exponentially. As a result, be careful about setting this too high.');
-		$inputfields->add($f); 
+		$inputfields->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldInteger'); 
+
+		$f = $inputfields->InputfieldInteger;
 		$f->attr('name', 'maxSeconds');
 		$f->attr('value', $data['maxSeconds']); 
 		$f->label = $this->_('Maximum number of seconds a user would ever have to wait before attempting another login'); 
@@ -234,8 +234,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$f->notes = $this->_('60=1 minute, 300=5 minutes, 600=10 minutes, 3600=1 hour, 86400=1 day'); 
 		$inputfields->add($f);
 	
-		/** @var InputfieldCheckbox $f */
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $inputfields->InputfieldCheckbox;
 		$f->attr('name', 'logFails');
 		if($data['logFails']) $f->attr('checked', 'checked');
 		$f->label = $this->_('Save to log file when name/IP is blocked?');
@@ -256,7 +255,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 				"`last_attempt` int(10) unsigned NOT NULL," . 
 				"PRIMARY KEY (`name`))";
 
-		$this->database->exec($sql);
+		$this->wire()->database->exec($sql);
 	}
 
 	/**
@@ -264,7 +263,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	 *
 	 */
 	public function ___uninstall() { 
-		$this->database->exec("DROP TABLE IF EXISTS session_login_throttle"); 
+		$this->wire()->database->exec("DROP TABLE IF EXISTS session_login_throttle"); 
 	}
 
 }
