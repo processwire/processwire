@@ -69,3 +69,16 @@
 	/* large margin not needed when using bolder headers */
 	margin-bottom: 2px;
 }
+
+/*** AsmSelect: Column width slider bar ******************************/
+
+.pw .asmListItem > .asmListItemStatus > .columnWidth:not(.columnWidthOff):hover {
+	color: var(--text-color);
+}
+.pw .asmListItem .columnWidthBar {
+	background-color: rgba(0,0,0,0.5) !important;
+	line-height: 1.7em;
+}
+.pw .asmListItem.rowStart:before {
+	border-top-color: var(--text-color);
+}

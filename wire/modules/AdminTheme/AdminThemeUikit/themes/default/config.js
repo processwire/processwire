@@ -48,7 +48,11 @@ $(document).ready(function() {
 	 */
 	function setMainColor(value) {
 		if(typeof value === 'undefined') value = getMainColor();
-		console.log('setMainColor', value);
+		if(value.indexOf(')') > -1) {
+			// Removes stuff after the rgb(...)
+			// rgb(20, 174, 133) none repeat scroll 0% 0% / auto padding-box border-box
+			value = value.substring(0, value.indexOf(')')+1);
+		}
 		
 		$('#main-color-custom').remove();
 		$('.pw-logo-native').css('color', value);
@@ -58,11 +62,7 @@ $(document).ready(function() {
 		
 		$('head').append(
 			"<style type='text/css' id='main-color-custom'>" +
-				":root { " +
-					".main-color-custom { " +
-						"--pw-main-color: " + value  + "; " +
-					"} " +
-			"} " +
+				":root { " + "--pw-main-color: " + value  + "; " + "} " +
 			"</style>");
 	}
 	
