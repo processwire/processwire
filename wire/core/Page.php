@@ -4096,7 +4096,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * ~~~~~
 	 * // set and save a meta value 
-	 * $page->meta()->set('colors', [ 'red, 'green', 'blue' ]); 
+	 * $page->meta()->set('colors', [ 'red', 'green', 'blue' ]); 
 	 * 
 	 * // get a meta value
 	 * $colors = $page->meta()->get('colors');
