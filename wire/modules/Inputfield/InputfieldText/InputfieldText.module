@@ -3,7 +3,7 @@
 /**
  * An Inputfield for handling single line "text" form inputs
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $type Input type (typically "text")
@@ -11,6 +11,7 @@
  * @property int $minlength Minimum allowed length of value (usually combined with 'required' option)
  * @property int $maxlength Maximum allowed length of value
  * @property string $placeholder Placeholder attribute text
+ * @property string|null $autocomplete HTML5 autocomplete attribute, used only by text and email, not other descending types (3.0.252+)
  * @property string $pattern HTML5 pattern attribute
  * @property string $initValue Optional initial/default value
  * @property bool $stripTags Should HTML tags be stripped from value?
@@ -168,6 +169,20 @@ class InputfieldText extends Inputfield {
 			if($language && $language->id && !$language->isDefault()) {
 				$placeholder = (string) parent::get("placeholder$language->id"); 
 				if(strlen($placeholder)) $attrs['placeholder'] = $placeholder;
+			}
+		}
+	
+		$autocomplete = strtolower((string) $this->getSetting('autocomplete'));
+		if($autocomplete && !isset($attrs['autocomplete'])) {
+			$type = strtolower(str_replace('Inputfield', '', $this->className()));
+			if($type === 'text' || $this->type === 'email' || $this->type === 'tel') {
+				if($type === 'text') {
+					$attrs['autocomplete'] = $autocomplete;
+				} else if($autocomplete === 'on' || $autocomplete === 'off') {
+					$attrs['autocomplete'] = $autocomplete;
+				} else if($this->type === $autocomplete) {
+					$attrs['autocomplete'] = $autocomplete; // email or tel
+				}
 			}
 		}
 
@@ -384,7 +399,32 @@ class InputfieldText extends Inputfield {
 		$field->collapsed = Inputfield::collapsedBlank;
 		$inputfields->append($field);
 
-		if($this->hasFieldtype === false) { 
+		if($this->hasFieldtype === false) {
+			$type = strtolower(str_replace('Inputfield', '', $this->className()));
+			if($this->type === 'email') $type = 'email';
+			if($type === 'text' || $type === 'email' || $this->type === 'tel') {
+				$f = $inputfields->InputfieldSelect;
+				$f->attr('name', 'autocomplete');
+				$f->label = $this->_('Autocomplete');
+				$f->valueAddOption = true;
+				$f->collapsed = Inputfield::collapsedBlank;
+				$f->addOption('', $this->_('None'));
+				$f->addOption('on', $this->_('On'));
+				$f->addOption('off', $this->_('Off'));
+				if($type === 'text' || $type === 'email') $f->addOption('email', $this->_('Email'));
+				if($type === 'text' || $this->type === 'tel') $f->addOption('tel', $this->_('Tel (phone number)'));
+				if($this->type === 'text') {
+					$f->addOption('given-name', $this->_('Given-name (first name)'));
+					$f->addOption('family-name', $this->_('Family-name (last name)'));
+					$f->addOption('name', $this->_('Name (full name)'));
+					$f->addOption('street-address', $this->_('Street-address'));
+					$f->addOption('username', $this->_('Username'));
+					$f->addOption('one-time-code', $this->_('One-time-code (verification code)'));
+				}
+				$f->val($this->getSetting('autocomplete'));
+				$inputfields->add($f);
+			}
+			
 			/** @var InputfieldText $field */
 			$field = $modules->get($this->className());
 			$field->setAttribute('name', 'initValue'); 
