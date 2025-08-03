@@ -503,7 +503,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 					
 				} else if($col === 'limit') {
 					$value = (int) $value;
-					if($value > 0) $limit = $value;
+					if($value > -1) $limit = $value;
 					
 				} else if($col === 'start') {
 					$value = (int) $value;
