@@ -5105,9 +5105,19 @@ a
   ) {
 	color: inherit;
 }
-
+/*
+ * this rule is causing wrong background color to appear between fields with themeOffset>0
 html.pw .Inputfield.InputfieldTinyMCE .InputfieldContent {
 	background-color: var(--pw-blocks-background, #f4f4f4);
+}
+ */
+
+.pw .InputfieldStateCollapsed.InputfieldNoBorder:hover > .InputfieldHeader {
+	/* fixes wrong background color for collapsed Inputfield with no-border when hovered */
+	background-color: inherit;
+}
+.InputfieldFileDelete {
+	padding-right: 7px; 
 }
 
 .pw .tox-dialog .tox-button--naked {
