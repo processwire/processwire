@@ -1,4 +1,6 @@
-class HooksHelper {
+import {HookEvent} from "./HookEvent";
+
+export class HooksHelper {
   hooks = {
     after: {},
     before: {},
@@ -193,8 +195,3 @@ class HooksHelper {
     );
   }
 }
-
-// trigger HooksHelper:ready event and pass the instance to it
-document.dispatchEvent(
-  new CustomEvent("HooksHelper:ready", { detail: new HooksHelper() })
-);

@@ -7,7 +7,7 @@
  * - event.replace
  * - event.return
  */
-class HookEvent {
+export class HookEvent {
   constructor(data) {
     this.object = data.object;
     this.args = data.arguments;
