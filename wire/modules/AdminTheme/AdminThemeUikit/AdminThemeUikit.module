@@ -564,11 +564,13 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			case 'highlight': $wrapClasses[] = 'InputfieldIsHighlight'; break;
 			case 'none': break;
 		}
-		
-		switch($themeBorder) {
-			case 'none': $wrapClasses[] = 'InputfieldNoBorder'; break;
-			case 'hide': $wrapClasses[] = 'InputfieldHideBorder'; break;
-			case 'card': $wrapClasses[] = 'uk-card uk-card-default'; break;
+
+		if(strpos($inputfield->attr('name'), '_repeater') === false || $themeBorder === 'card') {
+			switch($themeBorder) {
+				case 'none': $wrapClasses[] = 'InputfieldNoBorder'; break;
+				case 'hide': $wrapClasses[] = 'InputfieldHideBorder'; break;
+				case 'card': $wrapClasses[] = 'uk-card uk-card-default'; break;
+			}
 		}
 		
 		if($themeOffset && $themeOffset !== 'none') {
