@@ -72,28 +72,16 @@ a {
 .mce-content-body table:not([cellpadding]) th {
 	padding: 0.4rem;
 }
-.mce-content-body
-table[border]:not([border="0"]):not([style*="border-width"])
-td,
-.mce-content-body
-table[border]:not([border="0"]):not([style*="border-width"])
-th {
+.mce-content-body table[border]:not([border="0"]):not([style*="border-width"]) td,
+.mce-content-body table[border]:not([border="0"]):not([style*="border-width"]) th {
 	border-width: 1px;
 }
-.mce-content-body
-table[border]:not([border="0"]):not([style*="border-style"])
-td,
-.mce-content-body
-table[border]:not([border="0"]):not([style*="border-style"])
-th {
+.mce-content-body table[border]:not([border="0"]):not([style*="border-style"]) td,
+.mce-content-body table[border]:not([border="0"]):not([style*="border-style"]) th {
 	border-style: solid;
 }
-.mce-content-body
-table[border]:not([border="0"]):not([style*="border-color"])
-td,
-.mce-content-body
-table[border]:not([border="0"]):not([style*="border-color"])
-th {
+.mce-content-body table[border]:not([border="0"]):not([style*="border-color"]) td,
+.mce-content-body table[border]:not([border="0"]):not([style*="border-color"]) th {
 	border-color: var(--pw-border-color, #ccc);
 }
 .mce-content-body span[lang] {
@@ -135,7 +123,7 @@ th {
 	line-height: 1.3em;
 	font-size: 14px;
 	color: #999;
-	color: var(--pw-muted-text, #999);
+	color: var(--pw-muted-color, #999);
 }
 .mce-content-body .align_right,
 .mce-content-body .align-right,

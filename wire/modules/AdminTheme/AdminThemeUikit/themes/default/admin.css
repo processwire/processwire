@@ -545,12 +545,12 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 }
 
 .uk-subnav-pill>*>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-card-primary.uk-card-body .uk-subnav-pill>*>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:hover,.uk-card-secondary.uk-card-body .uk-subnav-pill>*>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:hover,.uk-overlay-primary .uk-subnav-pill>*>a:hover {
-	background-color: var(--pw-inputs-background)
+	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color)
 }
 
 .uk-subnav-pill>*>a:active,.uk-section-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-card-primary.uk-card-body .uk-subnav-pill>*>a:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:active,.uk-card-secondary.uk-card-body .uk-subnav-pill>*>a:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:active,.uk-overlay-primary .uk-subnav-pill>*>a:active {
-	background-color: var(--pw-inputs-background)
+	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color)
 }
 
@@ -1481,7 +1481,8 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 }
 
 .uk-text-meta {
-	color: var(--pw-muted-color)
+	color: var(--pw-muted-color) !important;
+	font-size: .875rem;
 }
 
 .uk-text-meta>a {
@@ -5264,7 +5265,7 @@ a .ModuleClass.ui-priority-secondary {
 .ui-datepicker button.ui-datepicker-close {
 	background: var(--pw-text-color);
 	border-color: var(--pw-text-color);
-	color: var(--pw-blocks-color);
+	color: var(--pw-blocks-background);
 }
 
 .ui-datepicker button.ui-datepicker-close:hover {
