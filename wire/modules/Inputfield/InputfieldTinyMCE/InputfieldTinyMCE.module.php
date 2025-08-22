@@ -6,8 +6,11 @@
  * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
+ * #pw-body = 
  * TinyMCE 6.x, Copyright (c) 2023 Ephox Corporation DBA Tiny Technologies, Inc.
  * https://www.tiny.cloud/docs/tinymce/6/
+ * #pw-body
+ * 
  *
  * TinyMCE settings (these are also Field settings)
  * ------------------------------------------------
@@ -34,15 +37,15 @@
  * 
  * Module settings
  * ---------------
- * @property string $content_css Basename of content CSS file to use or "custom" to use custom URL (default='wire')
+ * @property string $content_css Basename of content CSS file to use or "custom" to use custom URL (default=wire)
  * @property string $content_css_url Applies only if $content_css has value "custom"
- * @property string $skin
- * @property string $skin_url
+ * @property string $skin Skin to use (default=oxide)
+ * @property string $skin_url URL to skin
  * @property string $extPluginOpts Newline separated URL paths (relative to PW root) of extra plugin .js files
  * @property string $defaultsFile Location of optional defaults.json file that merges with defaults.json (URL relative to PW root URL)
  * @property string $defaultsJSON JSON that merges with the defaults.json for all instances
  * @property array $optionals Names of optional settings that can be configured per-field
- * @property bool|int $debugMode Makes InputfieldTinyMCE.js use verbose console.log() messages
+ * @property bool|int $debugMode Makes InputfieldTinyMCE.js use verbose console.log() messages (default=false)
  * @property string $extraCSS Extra CSS for editor, applies to all editors (appended to TinyMCE content_style setting)
  * @property string $pasteFilter Rule string of elements and attributes allowed during filtered paste
  * @property array $imageFields Names of fields allowed for drag-drop in images
@@ -50,15 +53,15 @@
  * 
  * Runtime settings
  * ----------------
- * @property string $configName
- * @property-read bool $readonly Automatically set during renderValue mode
- * @property-read bool $initialized
+ * @property string $configName Name of configuration set to use (default=blank)
+ * @property-read bool $readonly Are we in read-only mode? Automatically set during renderValue mode. This is a read-only property. (default=false)
+ * @property-read bool $initialized Is the editor initialized? This is a read-only property. (default=false)
  * @property array $external_plugins URLs of external plugins, this is also a TinyMCE setting
- * @property-read InputfieldTinyMCESettings $settings
- * @property-read InputfieldTinyMCEConfigs $configs
- * @property-read InputfieldTinyMCETools $tools
- * @property-read InputfieldTinyMCEFormats $formats
- * @property-read null|bool $renderValueMode
+ * @property-read InputfieldTinyMCESettings $settings #pw-internal
+ * @property-read InputfieldTinyMCEConfigs $configs #pw-internal
+ * @property-read InputfieldTinyMCETools $tools #pw-internal
+ * @property-read InputfieldTinyMCEFormats $formats #pw-internal
+ * @property-read null|bool $renderValueMode #pw-internal
  *
  * @method void getModuleConfigInputfields(InputfieldWrapper $inputfields) 
  * 
@@ -497,6 +500,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 		$class = $this->className();
 		$config = $this->wire()->config;
 		$mceUrl = $this->mcePath(true);
+		
 		
 		$config->scripts->add($mceUrl . 'tinymce.min.js');
 		

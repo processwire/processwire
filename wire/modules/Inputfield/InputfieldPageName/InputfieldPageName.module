@@ -1,10 +1,10 @@
 <?php namespace ProcessWire;
 
 /**
- * An Inputfield for handling ProcessWire "name" fields
+ * An Inputfield for handling ProcessWire page “name” fields
  * 
- * @property Page|null $parentPage
- * @property Page|null $editPage
+ * @property Page|null $parentPage Parent of page being edited
+ * @property Page|null $editPage Page being edited
  * @property string $sanitizeMethod Default = 'pageName'
  * @property string $languageSupportLabel
  * @property bool|int $slashUrls whether a trailing slash should be shown in the URL preview (default=1)

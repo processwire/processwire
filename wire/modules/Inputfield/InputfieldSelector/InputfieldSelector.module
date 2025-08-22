@@ -2,10 +2,13 @@
 
 /**
  * ProcessWire Selector Inputfield
- *
- * Concept by Avoine
- * Code by Ryan Cramer
+ * 
+ * #pw-summary Build a page finding selector visually.
+ * #pw-body =
+ * Concept by Avoine,
+ * Code by Ryan Cramer,
  * Sponsored by Avoine
+ * #pw-body
  * 
  * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com

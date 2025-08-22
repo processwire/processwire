@@ -881,6 +881,8 @@ class Pages extends Wire {
 	 * // return value is array of saved field/property names
 	 * print_r($a); // outputs: array( 'title', 'body', 'summary' )
 	 * ~~~~~
+	 * 
+	 * #pw-group-manipulation
 	 *
 	 * @param Page $page Page to save
 	 * @param array|string|string[]|Field[] $fields Array of field names to save or CSV/space separated field names to save.
@@ -1426,6 +1428,7 @@ class Pages extends Wire {
 	 * - Assigns a 'sort' value'. 
 	 * 
 	 * #pw-internal
+	 * #pw-group-manipulation
 	 * 
 	 * @param Page $page
 	 *
@@ -1443,6 +1446,7 @@ class Pages extends Wire {
 	 * already have a name, unless the name is "untitled"
 	 * 
 	 * #pw-internal
+	 * #pw-group-manipulation
 	 * 
 	 * @param Page $page
 	 * @param array $options 

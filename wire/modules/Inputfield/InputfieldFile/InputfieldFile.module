@@ -6,25 +6,25 @@
  * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
- * @property string $extensions Allowed file extensions, space separated
- * @property array $okExtensions File extensions that are whitelisted if any in $extensions are problematic. (3.0.167+)
- * @property int $maxFiles Maximum number of files allowed
- * @property int $maxFilesize Maximum file size
- * @property bool $useTags Whether or not tags are enabled
- * @property string $tagsList Predefined tags
- * @property bool|int $unzip Whether or not unzip is enabled
- * @property bool|int $overwrite Whether or not overwrite mode is enabled
- * @property int $descriptionRows Number of rows for description field (default=1, 0=disable)
- * @property string $destinationPath Destination path for uploaded file
- * @property string $itemClass Class name(s) for each file item (default=InputfieldFileItem ui-widget ui-widget-content)
- * @property bool|int $noUpload Set to true or 1 to disable uploading to this field
- * @property bool|int $noLang Set to true or 1 to disable multi-language descriptions
- * @property bool|int $noAjax Set to true or 1 to disable ajax uploading
- * @property int $uploadOnlyMode Set to true or 1 to disable existing file list display, or 2 to also prevent file from having 'temp' status.
- * @property bool|int $noCollapseItem Set to true to disable collapsed items (like for LanguageTranslator tool or other things that add tools to files)
- * @property bool|int $noShortName Set to true to disable shortened filenames in output
- * @property bool|int $noCustomButton Set to true to disable use of the styled <input type='file'>
- * @property Pagefiles|Pagefile|null $value
+ * @property string $extensions Allowed file extensions, space separated (default='')
+ * @property array $okExtensions File extensions that are whitelisted if any in $extensions are problematic. (3.0.167+) (default=[])
+ * @property int $maxFiles Maximum number of files allowed or 0 for no max (default=0)
+ * @property int $maxFilesize Maximum file size or 0 for auto detect (default=0)
+ * @property bool $useTags Whether or not tags are enabled (default=false)
+ * @property string $tagsList Predefined tags (default='')
+ * @property bool|int $unzip Whether or not unzip is enabled (default=false)
+ * @property bool|int $overwrite Whether or not overwrite mode is enabled (default=false)
+ * @property int $descriptionRows Number of rows for description field or 0 to disable (default=1)
+ * @property string $destinationPath Destination path for uploaded file or omit for auto.
+ * @property string $itemClass Class name(s) for each file item (default=auto)
+ * @property bool|int $noUpload Set to true or 1 to disable uploading to this field (default=0)
+ * @property bool|int $noLang Set to true or 1 to disable multi-language descriptions (default=0)
+ * @property bool|int $noAjax Set to true or 1 to disable ajax uploading (default=0)
+ * @property int $uploadOnlyMode Set to true or 1 to disable existing file list display, or 2 to also prevent file from having 'temp' status. (default=0)
+ * @property bool|int $noCollapseItem Set to true to disable collapsed items (like for LanguageTranslator tool or other things that add tools to files) (default=false) 
+ * @property bool|int $noShortName Set to true to disable shortened filenames in output (default=false)
+ * @property bool|int $noCustomButton Set to true to disable use of the styled <input type='file'> (default=false)
+ * @property Pagefiles|Pagefile|null $value Value attribute 
  *
  * @method string renderItem($pagefile, $id, $n)
  * @method string renderList($value)

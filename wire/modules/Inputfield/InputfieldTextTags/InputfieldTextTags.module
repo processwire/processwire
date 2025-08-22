@@ -2,7 +2,7 @@
 
 /**
  * An Inputfield for handling predefined or user input tags
- * 
+ * #pw-body = 
  * ~~~~~
  * // create a text tags Inputifeld
  * $f = $modules->get('InputfieldTextTags');
@@ -20,19 +20,20 @@
  * $f->val('foo bar');
  * $f->val([ 'foo', 'bar' ]); // this also works
  * ~~~~~
+ * #pw-body
  * 
- * @property array|string $tagsList Array of tags [ 'tag' => 'label' ], or newline separated string of "tag=label", or use addTag() to populate.
- * @property string $tagsUrl Remote URL to find tags from, must have a '{q}' in it somewhere, which will be replaced with the query. 
- * @property int|bool $allowUserTags Allow user-entered tags?
- * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection?
- * @property int $maxItems Max selectable items, 0 for no limit, 1 for single-select mode, or 2+ to limit selection to that number.
- * @property int $maxSelectedItems Alias of maxItems (as used by InputfieldPage)
- * @property bool|int $useAjax
- * @property string $delimiter One of 's' (for space ' '), 'p' (for pipe '|') or 'c' (for comma).
- * @property string $value
- * @property string $placeholder Placeholder string to show when no options selected. 
- * @property-read array $arrayValue
- * @property string|null $pageSelector
+ * @property array|string $tagsList Array of tags [ 'tag' => 'label' ], or newline separated string of "tag=label", or use addTag() to populate. (default=[])
+ * @property string $tagsUrl Remote URL to find tags from, must have a '{q}' in it somewhere, which will be replaced with the query. (default=blank)
+ * @property int|bool $allowUserTags Allow user-entered tags? (default=false)
+ * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection? (default=true)
+ * @property int $maxItems Max selectable items, 0 for no limit, 1 for single-select mode, or 2+ to limit selection to that number. (default=0)
+ * @property int $maxSelectedItems Alias of maxItems (as used by InputfieldPage) (default=0)
+ * @property bool|int $useAjax Whether ajax mode is enabled, used internally (default=false)
+ * @property string $delimiter One of 's' (for space ' '), 'p' (for pipe '|') or 'c' (for comma). (default=s)
+ * @property string $value Value attribute of selected tags separated by delimiter (default=blank)
+ * @property string $placeholder Placeholder string to show when no options selected.  (default=blank)
+ * @property-read array $arrayValue Read-only property of selected tags in an array (default=[])
+ * @property string|null $pageSelector Selector for finding pages, for InputfieldSupportsPageSelector interface (default=null)
  *
  * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com

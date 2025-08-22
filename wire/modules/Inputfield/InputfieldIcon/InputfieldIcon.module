@@ -3,7 +3,7 @@
 /**
  * Inputfield for icon selection
  *
- * @property bool $prefixValue Should value attribute always start with prefix? (externally)
+ * @property bool $prefixValue Should value attribute always start with prefix? (default=true)
  * 
  */
 class InputfieldIcon extends Inputfield {

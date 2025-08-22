@@ -5,17 +5,16 @@
  *
  * Stores a large block of multi-line text.
  *
- * For documentation about the fields used in this class, please see:  
- * /wire/core/Fieldtype.php
- * 
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
- * Properties set to $field that is using this type, acceessed by $field->get('property'):
+ * #pw-body = 
+ * Properties set to `$field` that is using this type, acceessed by `$field->get('property')` 
  *
- * - contentType (int): Content type of field output using a self::contentType* constant (default=self::contentTypeUnknown)
- * - htmlOptions (array): Options for content-type Markup/HTML using self::html* constants (default=null or blank array)
- * - inputfieldClass (string): Inputfield class/module name to use for this field (default=InputfieldTextarea)
+ * - `contentType` (int): Content type of field output using a self::contentType* constant (default=0)
+ * - `htmlOptions` (array): Options for content-type Markup/HTML using self::html* constants (default=[])
+ * - `inputfieldClass` (string): Inputfield class/module name to use for this field (default=InputfieldTextarea)
+ * #pw-body
  *
  */
 

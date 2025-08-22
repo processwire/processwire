@@ -1,13 +1,15 @@
 <?php namespace ProcessWire;
 
 /**
- * An Inputfield for handling "textarea" form inputs
+ * An Inputfield for handling “textarea” form inputs
+ * 
+ * This is also the base class for rich text editors in ProcessWire, like TinyMCE. 
  * 
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $rows Number of rows for textarea (default=5)
- * @property int $contentType Content type, applicable when used with FieldtypeTextarea. See FieldtypeTextarea contentType constants (default=contentTypeUnknown)
+ * @property int $contentType Content type, applicable when used with FieldtypeTextarea. See FieldtypeTextarea contentType constants (default=0)
  *
  */
 class InputfieldTextarea extends InputfieldText {

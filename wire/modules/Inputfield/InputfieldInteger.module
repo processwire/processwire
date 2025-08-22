@@ -6,14 +6,14 @@
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
- * @property string $inputType Input type to use, one of "text" or "number"
- * @property int|float $min
- * @property int|float $max
- * @property int|float|string $step
- * @property int $size
- * @property string $placeholder
- * @property int|float $initValue Initial/default value (when used as independent Inputfield)
- * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger)
+ * @property string $inputType Input type to use, one of "text" or "number" (default=text)
+ * @property int|float $min Minimum allowed value (default='')
+ * @property int|float $max Maximum allowed value (default='')
+ * @property int|float|string $step HTML5 step attribute value (default='')
+ * @property int $size Size attribute value (default=10)
+ * @property string $placeholder Placeholder attribute value (default='')
+ * @property int|float $initValue Initial/default value (when used as independent Inputfield) (default='')
+ * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger) (default='')
  * 
  */
 

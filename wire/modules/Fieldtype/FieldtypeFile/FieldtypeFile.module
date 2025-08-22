@@ -5,15 +5,11 @@
  *
  * Field that stores one or more files with optional description. 
  *
- * For documentation about the fields used in this class, please see:  
- * /wire/core/Fieldtype.php
- * /wire/core/FieldtypeMulti.php
- * 
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property array $allowFieldtypes Allowed Fieldtype types for custom fields
- * @property string $defaultFileExtensions
+ * @property string $defaultFileExtensions Default file extensions (default=pdf doc docx xls xlsx gif jpg jpeg png)
  * @method string formatValueString(Page $page, Field $field, $value)
  *
  */

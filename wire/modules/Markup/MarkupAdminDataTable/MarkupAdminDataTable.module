@@ -164,9 +164,9 @@ class MarkupAdminDataTable extends ModuleJS {
 	 *   - `array('label' => 'url')`: converts to `<td><a href='url'>label</a></td>` (same as above, but in nested array with count 1)
 	 *   - `array('label', 'class')`: converts to `<td class='class'>label</td>`
 	 * @param array $options Optionally specify any one of the following:
-	 *   - separator (bool): specify true to show a stronger visual separator above the column
-	 *   - class (string): specify one or more class names to apply to the `<tr>`
-	 *   - attrs (array): array of attr => value for attributes to add to the `<tr>`
+	 *   - `separator` (bool): specify true to show a stronger visual separator above the column
+	 *   - `class` (string): specify one or more class names to apply to the `<tr>`
+	 *   - `attrs` (array): array of attr => value for attributes to add to the `<tr>`
 	 * @return $this
 	 * 
 	 */

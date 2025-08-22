@@ -1,24 +1,24 @@
 <?php namespace ProcessWire;
 
 /**
- * An Inputfield for handling single line "text" form inputs
+ * An Inputfield for handling single line “text” form inputs
  * 
  * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
- * @property string $type Input type (typically "text")
- * @property int $size Size of input or 0 for full width
- * @property int $minlength Minimum allowed length of value (usually combined with 'required' option)
- * @property int $maxlength Maximum allowed length of value
- * @property string $placeholder Placeholder attribute text
- * @property string|null $autocomplete HTML5 autocomplete attribute, used only by text and email, not other descending types (3.0.252+)
- * @property string $pattern HTML5 pattern attribute
- * @property string $initValue Optional initial/default value
- * @property bool $stripTags Should HTML tags be stripped from value?
+ * @property string $type Input type (default=text)
+ * @property int $size Size of input or 0 for full width (default=0)
+ * @property int $minlength Minimum allowed length of value or 0 for no max (usually combined with 'required' option) (default=0)
+ * @property int $maxlength Maximum allowed length of value or 0 for no min (default=0)
+ * @property string $placeholder Placeholder attribute text (default=blank)
+ * @property string|null $autocomplete HTML5 autocomplete attribute, used only by text and email, not other descending types (3.0.252+) (default=null)
+ * @property string $pattern HTML5 pattern attribute for front-end validation (default=blank)
+ * @property string $initValue Optional initial/default value (default=blank)
+ * @property bool $stripTags Should HTML tags be stripped from value? (default=false)
  * @property bool $noTrim By default whitespace is trimmed from value, set this to true to bypass that behavior (default=false).
- * @property bool $useLanguages When combined with multi-language support, setting this to true will provide one input per language. Get/set each language value with the "value[languageID]" property, and just "value" for default language. 
+ * @property bool $useLanguages When combined with multi-language support, setting this to true will provide one input per language. Get/set each language value with the "value[languageID]" property, and just "value" for default language. (default=false)
  * @property bool|int $requiredAttr When combined with "required" option, this also makes it use the HTML5 "required" attribute. (default=false)
- * @property int $showCount Show a character counter (1) or word counter (2) or neither (0). Recommended value is 1 when using minlength or maxlength.
+ * @property int $showCount Show a character counter (1) or word counter (2) or neither (0). Recommended value is 1 when using minlength or maxlength. (default=0)
  * 
  *
  */

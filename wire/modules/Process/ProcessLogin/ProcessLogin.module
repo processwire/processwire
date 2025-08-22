@@ -24,7 +24,6 @@
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
  * @method string executeLogout() #pw-hooker
- * @method string executeLoggedOut() #pw-hooker
  * @method string afterLoginOutput() #pw-hooker
  * @method void afterLoginRedirect($url = '') #pw-hooker
  * @method string afterLoginURL($url = '') #pw-hooker
@@ -39,7 +38,6 @@
  * @method void loginFormProcessed($form, $name) #pw-hooker 3.0.223+
  * @method array getBeforeLoginVars() #pw-hooker
  * @method array getLoginLinks() #pw-hooker
- * @method string renderLoginLinks() #pw-hooker
  * 
  *
  */
@@ -274,7 +272,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * If not set, redirect will be back to the current page with a "login=1" GET variable. 
 	 * However, you should only check if the user is logged in with if($user->isLoggedin()).
 	 * 
-	 * @param $url
+	 * @param string $url
 	 * @return $this
 	 * @throws WireException if given invalid URL
 	 * 
@@ -1026,6 +1024,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	/**
 	 * Hook called on login fail
 	 * 
+	 * #pw-hooker
+	 * 
 	 * @param string $name
 	 * @param string $message Specify only to override default error message (since 3.0.151)
 	 * 
@@ -1037,6 +1037,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 
 	/**
 	 * Hook called on login success
+	 * 
+	 * #pw-hooker
 	 * 
 	 * @param User $user
 	 * 

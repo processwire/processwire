@@ -68,7 +68,7 @@
  * @property string $filesPath Get the disk path to store files for this page, creating it if it does not exist. #pw-group-files
  * @property string $filesUrl Get the URL to store files for this page, creating it if it does not exist. #pw-group-files
  * @property bool $hasFiles Does this page have one or more files in its files path? #pw-group-files
- * @property bool $outputFormatting Whether output formatting is enabled or not. #pw-advanced
+ * @property bool $outputFormatting Whether output formatting is enabled or not. Same as calling $page->of() with no arguments. #pw-advanced
  * @property int $sort Sort order of this page relative to siblings (applicable when manual sorting is used). #pw-group-system
  * @property int|null $sortPrevious Previous sort order, if changed (3.0.235+) #pw-group-system
  * @property int $index Index of this page relative to its siblings, regardless of sort (starting from 0). #pw-group-traversal
@@ -3019,16 +3019,18 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - `$page->render->fieldName;`
 	 * - `$page->_fieldName_;`
 	 * 
-	 * This method expects that there is a file in `/site/templates/fields/` to render the field with:
+	 * This method expects that there is a file in `/site/templates/fields/` to render the field with
+	 * one of the following:
 	 * 
 	 * - `/site/templates/fields/fieldName.php`
 	 * - `/site/templates/fields/fieldName.templateName.php`
-	 * - `/site/templates/fields/fieldName/$file.php` (using $file argument)
-	 * - `/site/templates/fields/$file.php` (using $file argument)
-	 * - `/site/templates/fields/$file/fieldName.php` (using $file argument, must have trailing slash)
-	 * - `/site/templates/fields/$file.fieldName.php` (using $file argument, must have trailing period)
+	 * - `/site/templates/fields/fieldName/$file.php`
+	 * - `/site/templates/fields/$file.php`
+	 * - `/site/templates/fields/$file/fieldName.php`
+	 * - `/site/templates/fields/$file.fieldName.php`
 	 * 
-	 * Note that the examples above showing $file require that the `$file` argument is specified. 
+	 * Note that the examples above showing $file require that the `$file` argument is specified
+	 * in the `renderField()` method call. 
 	 * 
 	 * ~~~~~
 	 * // Render output for the 'images' field (assumes you have implemented an output file)
@@ -3038,8 +3040,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-output-rendering
 	 * 
 	 * @param string $fieldName May be any custom field name or native page property.
-	 * @param string $file Optionally specify file (in site/templates/fields/) to render with (may omit .php extension).
-	 * @param mixed|null $value Optionally specify value to render, otherwise it will be pulled from this $page. 
+	 * @param string $file Optionally specify file (in site/templates/fields/) to render with (may optionally omit .php extension).
+	 * @param mixed|null $value Optionally specify value to render, otherwise it will be pulled from this page. 
 	 * @return mixed|string Returns the rendered value of the field
 	 * @see Page::render(), Page::renderValue()
 	 * 

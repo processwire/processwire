@@ -6,17 +6,17 @@
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
- * @property int|null|string $precision Decimals precision (or -1 to disable rounding in 3.0.193+)
+ * @property int|null|string $precision Decimals precision (or -1 to disable rounding in 3.0.193+) (default=2)
  * @property int $digits Total digits, for when used in decimal mode (default=0)
- * @property string $inputType Input type to use, one of "text" or "number"
- * @property int|float $min
- * @property int|float $max
- * @property int|float|string $step
- * @property int $size
- * @property string $placeholder
+ * @property string $inputType Input type to use, one of "text" or "number" (default=text)
+ * @property int|float $min Minimum allowed value
+ * @property int|float $max Maximum allowed value
+ * @property int|float|string $step HTML5 step attibute value (default=any)
+ * @property int $size Size attribute for input 
+ * @property string $placeholder Placeholder attribute for input (default='')
  * @property int|float $initValue Initial/default value (when used as independent Inputfield)
  * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger)
- * @property bool|int $noE Convert “123E-3” and “123E3” type numbers to real numbers in the <input>? 3.0.193+
+ * @property bool|int $noE Convert “123E-3” and “123E3” type numbers to real numbers in the <input>? 3.0.193+ (default=false)
  * 
  */
 

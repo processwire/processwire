@@ -16,7 +16,7 @@ class InputfieldHidden extends Inputfield {
 		return array(
 			'title' => __('Hidden', __FILE__), // Module Title
 			'version' => 101,
-			'summary' => __('Hidden value in a form', __FILE__), // Module Summary
+			'summary' => __('Hidden input in a form', __FILE__), // Module Summary
 			'permanent' => true, 
 		);
 	}

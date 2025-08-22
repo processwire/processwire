@@ -6,23 +6,17 @@
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
- * @property string $prependMarkup Optional markup to prepend to the form output
- * @property string $appendMarkup Optional markup to append to the form output
- * @property bool $protectCSRF Set to false to disable automatic CSRF protection
- * @property int $columnWidthSpacing Optionally set the column width spacing (pixels)
- * @property string $description Optionally set a description headline for the form
- * @property string $confirmText Confirmation text that precedes list of changes when class InputfieldFormConfirm is active
- * @property string $method Form method attribute (default="post")
- * @property string $action Form action attribute (default="./")
+ * @property string $prependMarkup Optional markup to prepend to the form output (default='')
+ * @property string $appendMarkup Optional markup to append to the form output (default='')
+ * @property bool $protectCSRF Set to false to disable automatic CSRF protection (default=true)
+ * @property int $columnWidthSpacing Optionally set the column width spacing (pixels) (default=auto)
+ * @property string $description Optionally set a description headline for the form (default='')
+ * @property string $confirmText Confirmation text that precedes list of changes when class InputfieldFormConfirm is active (default=There are unsaved changes:)
+ * @property string $method Form method attribute (default=POST)
+ * @property string $action Form action attribute (default=./)
  * 
  * @method bool process() Process the form and return true on success, false on error (3.0.205+). 
  * @method void renderOrProcessReady($type) Hook called before form render or process (3.0.171+)
- * 
- * Optional classes: 
- * =================
- * InputfieldFormNoHeights: tells it not to worry about lining up all columns vertically. 
- * InputfieldFormNoWidths: indicates that form will be in 2-column label => input format (column widths do not apply)
- * InputfieldFormConfirm: tell it to notify user if they make any changes and forgot to submit. 
  * 
  * #pw-body =
  * Here is an example of creating an InputfieldForm using Inputfield modules. This particular example
@@ -81,7 +75,12 @@
  *   echo $form->render();
  * }
  * ~~~~~
- * 
+ *
+ * Optional classes you can add to the InputfieldForm:
+ * - `InputfieldFormNoHeights` tells it not to worry about lining up all columns vertically.
+ * - `InputfieldFormNoWidths` indicates that form will be in 2-column label => input format (column widths do not apply).
+ * - `InputfieldFormConfirm` tell it to notify user if they make any changes and forgot to submit.
+ *
  * #pw-body
  *
  */

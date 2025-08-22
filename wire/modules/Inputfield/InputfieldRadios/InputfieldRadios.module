@@ -7,7 +7,7 @@
  * https://processwire.com
  * 
  * @property int $optionColumns Number of columns to display radios in, or 0 for vertical stacked, or 1 for inline (default=0)
- * @property string $optionWidth Alternative to optionColumns, specify option width like '222px', '22em', etc. or '1' for auto. 3.0.184+
+ * @property string $optionWidth Alternative to optionColumns, specify option width like '222px', '22em', etc. or '1' for auto. 3.0.184+ (default=blank)
  * 
  */
 
