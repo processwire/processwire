@@ -185,6 +185,14 @@ function InputfieldDatetimeSelect() {
  * 
  */
 jQuery(document).ready(function($) {
+	
+	if(typeof $.datepicker !== 'undefined') {
+		var _gotoToday = $.datepicker._gotoToday;
+		$.datepicker._gotoToday = function(id) {
+			_gotoToday.call(this, id);
+			$.datepicker._curInst.input.datepicker('setDate', new Date());
+		};
+	}
 
 	// init datepickers present when document is ready
 	$("input.InputfieldDatetimeDatepicker:not(.InputfieldDatetimeDatepicker3):not(.initDatepicker)").each(function(n) {
