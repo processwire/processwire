@@ -10,7 +10,7 @@
  * Base class that holds a message, source class, and timestamp.
  * Contains notices/messages used by the application to the user. 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  * @property string|object|array $text Text or value of notice
@@ -909,6 +909,31 @@ class Notices extends WireArray {
 			break;
 		}
 		return $notice;
+	}
+
+	/**
+	 * Get all notices visible to current user
+	 *
+	 * @return Notices Returns a new Notices object
+	 * @since 3.0.252
+	 *
+	 */
+	public function getVisible() {
+		$config = $this->wire()->config;
+		$user = $this->wire()->user;
+		$items = new Notices();
+		$this->wire($items);
+		foreach($this as $notice) {
+			/** @var Notice $notice */
+			$flags = $notice->flags;
+			if(($flags & Notice::superuser) && !$user->isSuperuser()) continue;
+			if(($flags & Notice::login) && !$user->isLoggedin()) continue;
+			if(($flags & Notice::debug) && !$config->debug) continue;
+			if(($flags & Notice::admin) && !$config->admin) continue;
+			if(($flags & Notice::logOnly)) continue;
+			$items->add($notice);
+		}
+		return $items;
 	}
 
 	/**
