@@ -77,9 +77,9 @@ function _checkForHttpHostError(Config $config) {
  */
 function _checkForTwoFactorAuth(Session $session) {
 	$tfaUrl = $session->getFor('_user', 'requireTfa'); // contains URL to configure TFA
-	if(!$tfaUrl || strpos($tfaUrl, $session->wire('page')->url()) === 0) return;
-	$sanitizer = $session->wire('sanitizer');
-	$session->wire('user')->warning(
+	if(!$tfaUrl || strpos($tfaUrl, $session->wire()->page->url()) === 0) return;
+	$sanitizer = $session->wire()->sanitizer;
+	$session->wire()->user->warning(
 		'<strong>' . $sanitizer->entities1(__('Action required')) . '</strong> ' .
 		wireIconMarkup('angle-right') . ' ' . 
 		"<a href='$tfaUrl'>" . $sanitizer->entities1(__('Enable two-factor authentication')) . " </a>",
@@ -172,7 +172,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 		}
 		if($modal) $session->addHookBefore('redirect', null, '_hookSessionRedirectModal'); 
 		$content = $controller->execute();
-		$process = $controller->wire('process');
+		$process = $controller->wire()->process;
 		
 		if(!$ajax && !$modal && !$demo && $user->isLoggedin()) _checkForTwoFactorAuth($session);
 		if($process) {} // ignore
@@ -184,7 +184,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 	} catch(WirePermissionException $e) {
 		$wire->setStatusFailed($e, "Permission error from $page->process", $page); 
 
-		if($controller && $controller->isAjax()) {
+		if($controller && $config->ajax) {
 			$content = $controller->jsonMessage($e->getMessage(), true); 
 
 		} else if($user->isGuest()) {
@@ -209,7 +209,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 		} else {
 			$wire->error($msg);
 		}
-		if($controller && $controller->isAjax()) {
+		if($controller && $config->ajax) {
 			$content = $controller->jsonMessage($e->getMessage(), true);
 			$wire->trackException($e, false);
 		} else {
@@ -230,7 +230,7 @@ if($ajax) {
 // config properties that should be mirrored to ProcessWire.config.property in JS
 $config->js(array('httpHost', 'httpHosts', 'https'), true); 
 
-if($controller && $controller->isAjax()) {
+if($controller && $config->ajax) {
 	if(empty($content) && count($notices)) {
 		$notice = $notices->last(); /** @var Notice $notice */
 		$content = $controller->jsonMessage($notice->text, false, $notice->flags & Notice::allowMarkup);
