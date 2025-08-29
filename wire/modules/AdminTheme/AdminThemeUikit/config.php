@@ -268,7 +268,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 			$this->_('We do not recommend changing this unless you are an admin theme developer.') . ' ' . 
 			$this->_('Warning: this will override custom `$config->AdminThemeUikit` settings, base style and custom styles.'); 
 		$f->notes = $defaultFileNote . " " .
-			"[uikit.pw.css](" . $modules->wire('config')->urls('AdminThemeUikit') . "uikit/dist/css/uikit.pw.css)";
+			"[pw.min.css](" . $config->urls('AdminThemeUikit') . "uikit-pw/pw.min.css)";
 		$f->icon = 'file-code-o';
 		$f->collapsed = Inputfield::collapsedBlank;
 		$fieldset2->add($f);
