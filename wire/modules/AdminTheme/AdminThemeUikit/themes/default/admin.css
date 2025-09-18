@@ -1368,12 +1368,12 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 
 .uk-tab>*>a {
 	/* color: #e83561;*/
-	color: var(--main-color);  /* RJC */
+	color: var(--pw-main-color);  /* RJC */
 }
 
 .uk-tab>*>a:hover {
 	/* color: #d21846; */
-	color: var(--main-color);  /* RJC */
+	color: var(--pw-main-color);  /* RJC */
 }
 
 .uk-tab>.uk-active>a {
