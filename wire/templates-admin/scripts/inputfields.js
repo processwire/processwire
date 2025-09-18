@@ -1317,13 +1317,17 @@ var Inputfields = {
 			} else if(actionType === 'toggle') {
 				if($icon.data('on')) {
 					$icon.removeClass(fa(settings.onIcon)).addClass(fa(settings.offIcon))
-					if(settings.offTooltip.length) $icon.attr('title', settings.offTooltip);
+					if(settings.offTooltip.length) {
+						$icon.attr('title', settings.offTooltip).attr('uk-tooltip', settings.offTooltip); 
+					}
 					if(settings.offCallback) settings.offCallback($icon);
 					$icon.data('on', false);
 					if(settings.offEvent) $icon.trigger(settings.offEvent, [ $icon ]);
 				} else {
 					$icon.removeClass(fa(settings.offIcon)).addClass(fa(settings.onIcon));
-					if(settings.onTooltip.length) $icon.attr('title', settings.onTooltip);
+					if(settings.onTooltip.length) {
+						$icon.attr('title', settings.onTooltip).attr('uk-tooltip', settings.onTooltip);
+					}
 					if(settings.onCallback) settings.onCallback($icon);
 					$icon.data('on', true);
 					if(settings.onEvent) $icon.trigger(settings.onEvent, [ $icon ]);
