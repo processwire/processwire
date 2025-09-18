@@ -395,7 +395,7 @@ class InputfieldText extends Inputfield {
 		$field->label = $this->_('Pattern');
 		$field->setAttribute('value', $this->attr('pattern')); 
 		$field->description = $this->_('Optional regular expression pattern to require in the input. This is used both client side (HTML5 pattern attribute) and server side for validation. Be sure to provide an example of the required pattern in your field description.'); // Pattern description
-		$field->notes = $this->_('See [html5pattern.com](http://html5pattern.com) for examples of patterns you can use and create.'); // Pattern notes
+		$field->notes = sprintf($this->_('See [here](%s) for more information about the pattern attribute.'), 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/pattern');
 		$field->collapsed = Inputfield::collapsedBlank;
 		$inputfields->append($field);
 
