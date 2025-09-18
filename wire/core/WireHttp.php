@@ -525,7 +525,10 @@ class WireHttp extends Wire {
 		$result = false;
 		$error = array();
 		
-		if(empty($url)) return false;
+		if(empty($url)) {
+			$this->resetRequest();
+			return false;
+		}
 		
 		$this->resetResponse();
 		
@@ -555,6 +558,8 @@ class WireHttp extends Wire {
 			// populate type errors only if request failed and specific options requested
 			$this->error = array_merge($this->error, $error);
 		}
+		
+		$this->resetRequest();
 		
 		return $result;
 	}
