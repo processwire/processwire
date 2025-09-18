@@ -20,7 +20,7 @@
  * $input->cookie['foo'] = 'bar'; // same as above
  * 
  * // setting cookies, with options
- * $input->cookie->set('foo', bar', 86400); // live for 1 day
+ * $input->cookie->set('foo', 'bar', 86400); // live for 1 day
  * $input->cookie->options('age', 3600); // any further set() cookies live for 1 hour (3600s)
  * $input->cookie->set('foo', 'bar'); // uses setting from above options() call
  * 
@@ -72,7 +72,7 @@
  * ~~~~~
  * 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  */ 
@@ -161,7 +161,8 @@ class WireInputDataCookie extends WireInputData {
 	 * Options you can get or set: 
 	 * 
 	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session. For example: 3600=1 hour, 86400=1 day,
-	 *    604800=1 week, 2592000=30 days, etc. (default=0, expire with session)
+	 *    604800=1 week, 2592000=30 days, etc. Note that the default may be overridden by `$config->cookieOptions` setting from
+	 *    your /site/config.php file. (default=86400)
 	 * - `expire` (int|string): If you prefer to use an expiration date rather than the `age` option, specify a unix timestamp (int),
 	 *    ISO-8601 date string, or any date string recognized by PHP’s strtotime(), like "2020-11-03" or +1 WEEK", etc. (default=null).
 	 *    Please note the expire option was added in 3.0.159, previous versions should use the `age` option only.
@@ -247,7 +248,7 @@ class WireInputDataCookie extends WireInputData {
 	 * ~~~~~
 	 * $input->cookie->foo = 'bar'; // set with default options (expires with session)
 	 * $input->cookie->set('foo', 'bar'); // same as above
-	 * $input->cookie->set('foo', bar', 86400); // expire after 86400 seconds (1 day)
+	 * $input->cookie->set('foo', 'bar', 86400); // expire after 86400 seconds (1 day)
 	 * $input->cookie->set('foo', 'bar', [ // set with options
 	 *   'age' => 86400, 
 	 *   'path' => $page->url,
@@ -259,7 +260,8 @@ class WireInputDataCookie extends WireInputData {
 	 * @param string $value Cookie value
 	 * @param array|int|string $options Specify int for `age` option, string for `expire` option, or array for multiple options:
 	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session. For example: 3600=1 hour, 86400=1 day,
-	 *    604800=1 week, 2592000=30 days, etc. (default=0, expire with session)
+	 *    604800=1 week, 2592000=30 days, etc. Note that the default may be overridden by `$config->cookieOptions` setting from
+	 *    your /site/config.php file. (default=86400)
 	 * - `expire` (int|string): If you prefer to use an expiration date rather than the `age` option, specify a unix timestamp (int),
 	 *    ISO-8601 date string, or any date string recognized by PHP’s strtotime(), like "2020-11-03" or +1 WEEK", etc. (default=null).
 	 *    Please note the expire option was added in 3.0.159, previous versions should use the `age` option only.
@@ -338,7 +340,8 @@ class WireInputDataCookie extends WireInputData {
 	 * @param string|array|int|float $value Value to place in cookie
 	 * @param array $options Optionally override options from $config->cookieOptions and any previously set from an options() call:
 	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session. For example: 3600=1 hour, 86400=1 day,
-	 *    604800=1 week, 2592000=30 days, etc. (default=0, expire with session)
+	 *    604800=1 week, 2592000=30 days, etc. Note that the default may be overridden by `$config->cookieOptions` setting from
+	 *    your /site/config.php file. (default=86400)
 	 * - `expire` (int|string): If you prefer to use an expiration date rather than the `age` option, specify a unix timestamp (int), 
 	 *    ISO-8601 date string, or any date string recognized by PHP’s strtotime(), like "2020-11-03" or +1 WEEK", etc. (default=null).
 	 *    Please note the expire option was added in 3.0.159, previous versions should use the `age` option only. 
@@ -464,5 +467,3 @@ class WireInputDataCookie extends WireInputData {
 		return in_array($name, $this->skipCookies) ? false : true;
 	}
 }
-
-
