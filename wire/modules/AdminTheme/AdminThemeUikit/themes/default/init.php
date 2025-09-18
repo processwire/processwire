@@ -47,7 +47,7 @@ $adminTheme->addHookAfter('InputfieldTinyMCESettings::prepareSettingsForOutput',
 	$a = [
 		'content_css' => $contentCss,
 		'content_css_url' => $contentCss,
-		'toolbar_sticky_offset' => 55, // applies to inline mode only
+		// 'toolbar_sticky_offset' => 55, // removed: was causing issues with toolbar placement
 	];
 	
 	if($f->skin === 'oxide' || !$f->skin) {

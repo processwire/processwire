@@ -1,5 +1,13 @@
 /* END Set general color to work in light and dark */
 
+a, .uk-link { /* RJC */
+	color: var(--pw-main-color); 
+}
+
+.PageList .ProcessListerTable tr.open>td:first-child a.actions_toggle { /* RJC */
+	color: var(--pw-main-color);
+}
+
 .uk-section-primary:not(.uk-preserve-color),.uk-section-secondary:not(.uk-preserve-color),.uk-tile-primary:not(.uk-preserve-color),.uk-tile-secondary:not(.uk-preserve-color),.uk-card-primary.uk-card-body,.uk-card-primary>:not([class*='uk-card-media']),.uk-card-secondary.uk-card-body,.uk-card-secondary>:not([class*='uk-card-media']),.uk-overlay-primary {
 	color: light-dark(var(--pw-blocks-background), var(--pw-text-color));
 }
@@ -1359,11 +1367,13 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 }
 
 .uk-tab>*>a {
-	color: #e83561;
+	/* color: #e83561;*/
+	color: var(--main-color);  /* RJC */
 }
 
 .uk-tab>*>a:hover {
-	color: #d21846;
+	/* color: #d21846; */
+	color: var(--main-color);  /* RJC */
 }
 
 .uk-tab>.uk-active>a {
@@ -3749,8 +3759,8 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 	border: 1px solid var(--pw-border-color) !important;
 }
 
-.pw .ui-front {
-	z-index: 101 !important;
+.pw .ui-front:not(.ui-widget-overlay) { /* RJC */
+	z-index: 101 !important; 
 }
 
 .pw ul.pw-dropdown-menu > li.ui-menu-item > ul.ui-menu {
