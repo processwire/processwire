@@ -1298,16 +1298,17 @@ class DatabaseQuerySelectFulltext extends Wire {
 			
 		} else {
 			// given value can match at beginning of any word boundary in value
-			if($this->wire()->database->getRegexEngine() === 'ICU') {
-				list($a, $b) = array("\\b", "\\b"); 
+			// depending on engine, different characters identify word boundaries
+			$regexEngine = $this->wire()->database->getRegexEngine();
+			if($regexEngine === 'ICU') {
+				// ICU (MySQL 8+)
+				list($a, $b) = [ "\\b", "\\b" ];
 			} else {
-				list($a, $b) = array('[[:<:]]', '[[:>:]]'); 
+				// HenrySpencer
+				list($a, $b) = [ '[[:<:]]', '[[:>:]]' ];
 			}
-
-			$likeValue = "($a|[[:blank:]]|[[:punct:]]|[[:space:]]|^|[-]|>|‘|“|„|«|‹|¿|¡)" . $likeValue;
-			
-			// if not doing partial matching then must also end at word boundary
-			if(!$options['partial']) $likeValue .= "($b|[[:blank:]]|[[:punct:]]|[[:space:]]|$|[-]|<|’|”|»|›)";
+			$likeValue = $a . $likeValue;
+			if(!$options['partial']) $likeValue .= $b; 
 		}
 
 		return $likeValue;
