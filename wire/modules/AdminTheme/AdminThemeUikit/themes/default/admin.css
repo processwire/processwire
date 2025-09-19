@@ -2634,9 +2634,14 @@ a:is(:focus, :focus-visible, .ui-state-active, .ui-state-focus) {
 	border-color: var(--pw-masthead-border-color) !important;
 }
 
-.pw:has(:is(.pw-primary-nav > li, .ui-menu[style*="top: 56px"], .ui-menu#ui-id-1, .ui-menu-item > .ui-menu):hover) .tracy-panel {
+/* RJC: Adrian says this is causing a major slowdown: 
+.pw:has(:is(.pw-primary-nav > li, 
+.ui-menu[style*="top: 56px"], 
+.ui-menu#ui-id-1, 
+.ui-menu-item > .ui-menu):hover) .tracy-panel {
 	pointer-events: none;
 }
+ */
 
 .pw .ui-menu#ui-id-1 {
 	translate: 0 -1px;
