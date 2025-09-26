@@ -1846,8 +1846,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		/** @var InputfieldsArray $all */
 		$all = $this->wire(new InputfieldsArray());
 		foreach($this->children() as $child) {
-			if($child instanceof InputfieldWrapper) {
+			if($child instanceof InputfieldWrapper || $child instanceof InputfieldFieldsetClose) {
 				if(!empty($options['withWrappers'])) $all->add($child);
+				if($child instanceof InputfieldFieldsetClose) continue;
 				foreach($child->getAll($options) as $c) {
 					$all->add($c); 
 				}
