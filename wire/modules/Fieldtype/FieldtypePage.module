@@ -256,6 +256,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$value = (string) $value;
 		if(strpos($value, '|') !== false) {
 			$value = explode('|', $value);
+		} else if(strrpos($value, FieldtypeMulti::multiValueSeparator)) {
+			$value = explode(FieldtypeMulti::multiValueSeparator, $value);
 		} else if(strpos($value, ',') !== false) {
 			$value = explode(',', $value);
 		} else if(ctype_digit($value)) {
