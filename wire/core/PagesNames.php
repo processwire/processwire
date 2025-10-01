@@ -477,26 +477,42 @@ class PagesNames extends Wire {
 			}
 			$options['page'] = $page;
 		}
+
+		$fallbackFormat = '';
 		
 		if(!strlen($name)) {
 			// no name currently present, so we need to determine what kind of name it should have
 			if($page) {
+				$fallbackFormat = $page->id ? 'random' : 'untitled-time';
 				$format = $this->defaultPageNameFormat($page, array(
-					'fallbackFormat' => $page->id ? 'random' : 'untitled-time',
+					'fallbackFormat' => $fallbackFormat,
 					'parent' => $options['parent']
 				));
 				$name = $this->pageNameFromFormat($page, $format, array('language' => $options['language'])); 
 			} else {
 				$name = $this->uniqueRandomPageName();
+				$fallbackFormat = 'random';
 			}
-		}
-		
-		while($this->pageNameExists($name, $options)) {
-			$name = $this->incrementName($name);
 		}
 		
 		if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
 
+		$n = 0;
+		while($this->pageNameExists($name, $options)) {
+			if($fallbackFormat != 'random' && strrpos($name, '-')) {
+				list(,$suffix) = explode('-', $name, 2);
+				if(strlen($suffix) >= 12 && ctype_digit($suffix)) {
+					$fallbackFormat = 'random'; // avoid untitled-time more than once
+				}
+			}
+			if(++$n > 5 || $fallbackFormat === 'random') {
+				$name = $this->uniqueRandomPageName();
+			} else {
+				$name = $this->incrementName($name);
+			}
+			if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
+		}
+		
 		return $name;
 	}
 
