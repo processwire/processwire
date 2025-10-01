@@ -23,4 +23,8 @@
  *
  */
 class PageTableField extends Field {
+	public function __construct() {
+		parent::__construct();
+		parent::set('distinctAutojoin', true);
+	}
 }
