@@ -19,7 +19,8 @@
  *
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
- *
+ * 
+ * @method void updatePage(Page $page)
  *
  */
 
@@ -54,6 +55,7 @@ class PagesAccess extends Wire {
 	public function __construct($item = null) {
 		parent::__construct();
 		if(!$item) return;
+		if($item instanceof Wire) $item->wire($this);
 		if($item instanceof Page) {
 			$this->updatePage($item);
 		} else if($item instanceof Template) {
@@ -181,7 +183,7 @@ class PagesAccess extends Wire {
 	 * @param Page $page
 	 *
 	 */
-	public function updatePage(Page $page) {
+	public function ___updatePage(Page $page) {
 
 		$page_id = (int) $page->id; 
 		if(!$page_id) return;
