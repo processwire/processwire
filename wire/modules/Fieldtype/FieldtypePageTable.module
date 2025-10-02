@@ -520,7 +520,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 					foreach($template->fieldgroup as $f) {
 						/** @var Field $f */
 						if(!$f->hasFlag(Field::flagAutojoin)) continue;
-						$joinFields[$f->id] = $f->name;
+						$joinFields[$f->name] = $f->name;
 					}
 				}
 			}
