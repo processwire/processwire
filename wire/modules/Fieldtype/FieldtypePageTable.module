@@ -316,7 +316,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * Get the Inputfield used for input by PageTable
 	 * 
 	 * @param Page $page
-	 * @param Field|PageTableField $field
+	 * @param PageTableField $field
 	 * @return Inputfield
 	 * 
 	 */
@@ -362,7 +362,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * Return true or false as to whether the item is valid for this PageTable
 	 * 
 	 * @param Page $page
-	 * @param Field|PageTableField $field
+	 * @param PageTableField $field
 	 * @param Page $item
 	 * @return bool
 	 * 
@@ -414,7 +414,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * Prep a value for storage
 	 * 
 	 * @param Page $page
-	 * @param Field|PageTableField $field
+	 * @param PageTableField $field
 	 * @param PageArray $value
 	 * @throws WireException
 	 * @return array
@@ -443,13 +443,13 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * Wake up a stored value
 	 *
 	 * @param Page $page
-	 * @param Field|PageTableField $field
+	 * @param PageTableField $field
 	 * @param array $value
 	 * @return PageArray
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
-
+		
 		if($value && !is_array($value)) {
 			$value = explode(FieldtypeMulti::multiValueSeparator, $value); // #2066
 		}
@@ -458,39 +458,80 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 			return $this->getBlankValue($page, $field);
 		}
 		
-		$template_id = $field->get('template_id'); 
-		
-		if(!is_array($template_id)) { 
-			$template_id = $template_id ? array($template_id) : array();
-		}
-		
-		if(wireCount($template_id) == 1) {
-			$template = $this->wire()->templates->get(reset($template_id));
-		} else {
-			$template = null;
-		}
-		
-		$loadOptions = array('cache' => false);
-		if($template) $loadOptions['template'] = $template;
-		
-		$items = $this->wire()->pages->getById($value, $loadOptions);
-		$sanitizer = $this->wire()->sanitizer;
-		
-		$sortfields = $field->get('sortfields');
-		if($sortfields) {
-			$sorts = array();
-			foreach(explode(',', $sortfields) as $sortfield) {
-				$sorts[] = $sanitizer->name(trim($sortfield));
-			}
-			if(wireCount($sorts)) $items->sort($sorts);
-		}
+		$items = $this->wakeupPageTableValue($field, $value);
 		
 		foreach($items as $item) {
 			$item->setQuietly('_pageTableField', $field->id);
-			$item->setQuietly('_pageTableParent', $page->id); 
+			$item->setQuietly('_pageTableParent', $page->id);
+		}
+
+		return $items; 
+	}
+
+	/**
+	 * Wake up an array of PageTable page IDs to a loaded PageArray
+	 * 
+	 * @param PageTableField $field
+	 * @param int[] $ids
+	 * @return PageArray
+	 * 
+	 */
+	protected function wakeupPageTableValue(Field $field, array $ids) {
+	
+		$pages = $this->wire()->pages;
+		$templates = $this->wire()->templates;
+		$sanitizer = $this->wire()->sanitizer;
+		
+		$sorts = array();
+		$sortfields = $field->get('sortfields');
+		$templateIds = $field->get('template_id');
+		$loadOptions = [ 'cache' => false ];
+		$joinFields = [];
+		$tableTemplates = [];
+
+		if(!is_array($templateIds)) {
+			$templateIds = $templateIds ? array($templateIds) : array();
+		}
+
+		foreach($templateIds as $templateId) {
+			$template = $templates->get($templateId);
+			if($template) $tableTemplates[] = $template;
 		}
 		
-		return $items; 
+		if(count($tableTemplates) === 1) {
+			$loadOptions['template'] = reset($tableTemplates);
+		}
+
+		if($sortfields) {
+			foreach(explode(',', $sortfields) as $sortfield) {
+				$sortfield = $sanitizer->name(trim($sortfield));
+				$sorts[] = $sortfield;
+				if(strpos($sortfield, '.')) list($sortfield,) = explode('.', $sortfield, 2);
+				$sortfield = trim($sortfield, '-');
+				if($pages->loader()->isNativeColumn($sortfield)) continue;
+				$joinFields[$sortfield] = $sortfield;
+			}
+		}
+
+		if(count($joinFields)) {
+			if(count($tableTemplates)) {
+				// merge joinFields with autojoin fields in template fieldgroups
+				foreach($tableTemplates as $template) {
+					foreach($template->fieldgroup as $f) {
+						/** @var Field $f */
+						if(!$f->hasFlag(Field::flagAutojoin)) continue;
+						$joinFields[$f->id] = $f->name;
+					}
+				}
+			}
+			$loadOptions['joinFields'] = array_values($joinFields);
+		}
+
+		$items = $pages->getById($ids, $loadOptions);
+		
+		if(count($sorts)) $items->sort($sorts);
+
+		return $items;
 	}
 
 	/**
@@ -618,7 +659,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	/**
 	 * Return configuration fields definable for each FieldtypePage
 	 * 
-	 * @param Field|PageTableField $field
+	 * @param PageTableField $field
 	 * @return InputfieldWrapper
 	 *
 	 */
