@@ -844,9 +844,9 @@ class Fields extends WireSaveableItems {
 			$items = $this->wire()->pages->getById($ids, $template); 
 			
 			foreach($items as $page) {
+				set_time_limit(600);
 				try {
 					$field->type->deletePageField($page, $field);
-					// $this->message("Deleted '{$field->name}' from '{$page->path}'", Notice::debug);
 
 				} catch(\Exception $e) {
 					$this->trackException($e, false, true);
