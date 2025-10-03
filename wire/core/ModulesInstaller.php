@@ -301,8 +301,8 @@ class ModulesInstaller extends ModulesClass {
 
 		$reason = '';
 		$class = $this->modules->getModuleClass($class);
-		$filename = $this->modules->installableFile($class);
-		$dirname = dirname($filename);
+		$filename = (string) $this->modules->installableFile($class);
+		$dirname = strlen($filename) ? dirname($filename) : '';
 
 		if(empty($filename) || $this->modules->isInstalled($class)) {
 			$reason = "Module must be uninstalled before it can be deleted.";

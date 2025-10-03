@@ -1656,7 +1656,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if(!$field->type instanceof FieldtypePage) return ''; 
 
 		$selector = '';
-		$hasPageListSelect = strpos($field->get('inputfield'), 'PageListSelect') !== false;
+		$hasPageListSelect = strpos((string) $field->get('inputfield'), 'PageListSelect') !== false;
 
 		// determine autocomplete state based on field settings and quantity of pages involved
 		$findPagesSelector = $field->get('findPagesSelector|findPagesSelect');

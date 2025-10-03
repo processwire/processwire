@@ -48,14 +48,18 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 *
 	 */
 	public function attach() {
-		session_set_save_handler(
-			array($this, 'open'),
-			array($this, 'close'),
-			array($this, 'read'),
-			array($this, 'write'),
-			array($this, 'destroy'),
-			array($this, 'gc')
-		);
+		if(version_compare(PHP_VERSION, '8.4.0') >= 0) {
+			session_set_save_handler($this);
+		} else {
+			session_set_save_handler(
+				array($this, 'open'),
+				array($this, 'close'),
+				array($this, 'read'),
+				array($this, 'write'),
+				array($this, 'destroy'),
+				array($this, 'gc')
+			);
+		}
 	}
 
 	/**

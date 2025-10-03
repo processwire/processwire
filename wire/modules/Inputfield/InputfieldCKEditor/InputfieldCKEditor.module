@@ -204,7 +204,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 			$value = str_replace(' ', '', $value); 
 			$value = explode(',', $value); 
 		} else if($key == 'extraAllowedContent') {
-			$value = str_replace(array("\r\n", "\n"), "; ", trim($value)); 
+			$value = str_replace(array("\r\n", "\n"), "; ", trim("$value")); 
 		} else if($key == 'configName') {
 			$this->configName = $value;
 		}
