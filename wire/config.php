@@ -1746,9 +1746,9 @@ $config->preloadCacheNames = array(
 /**
  * Allow Exceptions to propagate?
  * 
- * When true, ProcessWire will not capture Exceptions and will instead let them fall
+ * When true, ProcessWire will not capture Throwables and will instead let them fall
  * through in their original state. Use only if you are running ProcessWire with your
- * own Exception handler. Most installations should leave this at false.
+ * own Exception/Error handler. Most installations should leave this at false.
  * 
  * @var bool
  * 

@@ -3,7 +3,7 @@
 /**
  * ProcessWire shutdown handler
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  *  
  * Look for errors at shutdown and log them, plus echo the error if the page is editable
  *
@@ -206,24 +206,23 @@ class WireShutdown extends Wire {
 	 */
 	protected function getErrorMessage(array $error) {
 		
-		$type = $error['type'];
 		$config = $this->config;
-		
-		if(isset($this->types[$type])) {
-			$errorType = $this->types[$type];
-		} else {
-			$errorType = $this->types[E_USER_ERROR];
-		}
-		
 		$message = str_replace("\t", ' ', $error['message']);
 		
-		if($type != E_USER_ERROR) {
-			$detail = sprintf($this->labels['line-of-file'], $error['line'], $error['file']) . ' ';
-		} else {
-			$detail = '';
+		if(PROCESSWIRE < 302) {
+			$type = $error['type'];
+			if(isset($this->types[$type])) {
+				$errorType = $this->types[$type];
+			} else {
+				$errorType = $this->types[E_USER_ERROR];
+			}
+			if($type != E_USER_ERROR) {
+				$detail = sprintf($this->labels['line-of-file'], $error['line'], $error['file']) . ' ';
+			} else {
+				$detail = '';
+			}
+			$message = "$errorType: \t$message $detail ";
 		}
-		
-		$message = "$errorType: \t$message $detail ";
 
 		if(strpos($message, '#1') !== false && stripos($message, '):')) {
 			// backtrace likely present in $message
@@ -560,6 +559,48 @@ class WireShutdown extends Wire {
 	protected function ___fatalError($error) { }
 
 	/**
+	 * Set shutdown fatal error
+	 * 
+	 * Used only for index version >= 302 
+	 *
+	 * @param \Throwable $e
+	 * @param string $message
+	 * @since 3.0.253
+	 * 
+	 */
+	public function setFatalError(\Throwable $e, $message = '') {
+		if(empty($message)) {
+			$user = $this->wire()->user; 
+			$message = $e->getMessage();
+			if($this->config->debug || ($user && $user->isSuperuser())) {
+				$longMessage = (string) $e; 
+				if(strlen($longMessage) > strlen($message)) $message = $longMessage;
+			}
+		}
+		$this->error = [
+			'file' => $e->getFile(),
+			'line' => $e->getLine(), 
+			'message' => $message, 
+			'type' => E_USER_ERROR,
+			'throwable' => $e,
+		];
+	}
+	
+	/**
+	 * Get last error
+	 * 
+	 * @return array
+	 * @since 3.0.253
+	 * 
+	 */
+	protected function getError() {
+		if(empty($this->error)) {
+			$this->error = error_get_last();
+		}
+		return $this->error;
+	}
+
+	/**
 	 * Shutdown function registered with PHP
 	 * 
 	 * @return bool
@@ -567,13 +608,11 @@ class WireShutdown extends Wire {
 	 */
 	public function shutdown() {
 		
-		$error = error_get_last();
+		$error = $this->getError();
 		
-		if(!$error) return true;
-		if(!in_array($error['type'], $this->fatalTypes)) return true;
+		if(empty($error) || !in_array($error['type'], $this->fatalTypes)) return true;
 		
-		if(empty($this->error)) $this->fatalError($error);
-		$this->error = $error; 
+		$this->fatalError($error);
 		$this->prepareLabels();
 		$config = $this->config;
 		$user = $this->wire()->user; /** @var User|null $user */
@@ -818,7 +857,8 @@ class WireShutdown extends Wire {
 	 * 
 	 */
 	public function shutdownExternal() {
-		if(error_get_last()) return;
+		$error = $this->getError();
+		if(!empty($error)) return; 
 		/** @var ProcessPageView $process */
 		$process = $this->wire()->process;
 		if($process == 'ProcessPageView') $process->finished();
