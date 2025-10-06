@@ -3970,12 +3970,13 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 	overflow: visible !important;
 }
 
+.pw .tox.tox-tinymce .tox-editor-header,
 .pw .tox.tox-tinymce-inline.tox-tinymce--toolbar-sticky-off .tox-editor-header {
-	translate: -0.5px 1px;
+	translate: 0 1.5px;
 }
-
-.pw .tox.tox-tinymce-inline.tox-tinymce--toolbar-sticky-on .tox-editor-header {
-	translate: -0.5px 0;
+.pw .tox.tox-tinymce.tox-tinymce--toolbar-sticky-on .tox-editor-header {
+	transition: translate 0.3s ease;
+	translate: 0 55px;
 }
 
 .InputfieldTinyMCE .InputfieldTinyMCEInline.InputfieldTinyMCEInline,
@@ -4408,6 +4409,10 @@ table,
 .pw-togcbx label:has(> .uk-checkbox),
 .pw-togcbx .InputfieldCheckbox .InputfieldContent.uk-form-controls label {
 	display: inline-flex;
+}
+
+.template-permissions label:has(> .uk-checkbox) {
+	display: block;
 }
 
 .uk-radio,
