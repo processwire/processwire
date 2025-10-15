@@ -21,6 +21,7 @@
  * https://processwire.com
  * 
  * @method void updatePage(Page $page)
+ * @method void updateTemplate(Template $template)
  *
  */
 
@@ -164,7 +165,7 @@ class PagesAccess extends Wire {
 	 * @param Template $template
 	 *
 	 */
-	public function updateTemplate(Template $template) {
+	public function ___updateTemplate(Template $template) {
 		$this->rebuild();
 	}
 
