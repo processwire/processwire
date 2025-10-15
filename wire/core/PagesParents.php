@@ -3,19 +3,22 @@
 /**
  * ProcessWire Pages Parents
  *
- * Implements page parents helper methods for the $pages API variable
- * and manages the pages_parents DB table. 
- * 
+ * #pw-headline Pages Parents
+ * #pw-breadcrumb Pages
+ * #pw-var $pages->parents
+ * #pw-summary Implements page parents helper methods for the $pages API variable and manages the pages_parents DB table. 
+ * #pw-body = 
  * This is not intended for the public API and instead used internally by 
- * the $pages classes, but available at $pages->parents()->methodName() if 
+ * the $pages classes, but available at `$pages->parents()->methodName()` if 
  * you want to use anything here. 
+ * #pw-body
  * 
  * ~~~~~~
  * // Rebuild the entire pages_parents table
  * $numRows = $pages->parents()->rebuildAll();
  * ~~~~~~
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.156
@@ -565,8 +568,6 @@ class PagesParents extends Wire {
 
 	/**
 	 * Rebuild pages_parents table for given page (experimental faster alternative/rewrite of rebuild method)
-	 * 
-	 * #pw-internal
 	 * 
 	 * @param Page $page
 	 * @param Page $oldParent

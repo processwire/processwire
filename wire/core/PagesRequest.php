@@ -3,6 +3,9 @@
 /**
  * ProcessWire Pages Request
  *
+ * #pw-headline Pages Request
+ * #pw-var $pages->request
+ * #pw-breadcrumb Pages
  * #pw-summary Methods for identifying and loading page from current request URL.
  * #pw-body =
  * Methods in this class should be accessed from `$pages->request()`, i.e. 
@@ -11,7 +14,7 @@
  * ~~~~~
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @method Page|NullPage getPage()
@@ -412,8 +415,6 @@ class PagesRequest extends Wire {
 	 * 
 	 * If this method returns a blank array, it means that the getPage()
 	 * method has not yet been called or that it did not match a page. 
-	 * 
-	 * #pw-advanced
 	 * 
 	 * @return array
 	 * @since 3.0.242

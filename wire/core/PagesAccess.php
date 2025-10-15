@@ -2,20 +2,22 @@
 
 /**
  * ProcessWire Pages Access
- *
- * Maintains the pages_access table which serves as a way to line up pages 
- * to the templates that maintain their access roles.
  * 
+ * #pw-headline Pages Access
+ * #pw-breadcrumb Pages
+ * #pw-summary Maintains the pages_access table which serves as a way to line up pages to the templates that maintain their access roles.
+ * #pw-body = 
  * This class serves as a way for PageFinder to determine if a user has access to a page
  * before actually loading it. 
  *
- * The pages_access template contains just two columns:
+ * The pages_access table contains just two columns:
  * 
- * 	- pages_id: Any given page 
- * 	- templates_id: The template that sets this pages access
+ * 	- `pages_id` (int): Any given page 
+ * 	- `templates_id` (int): The template that sets this pages access
  *
  * Pages using templates that already define their access (determined by $template->useRoles) 
  * are omitted from the pages_access table, as they aren't necessary. 
+ * #pw-body
  *
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com

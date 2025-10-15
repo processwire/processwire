@@ -2,8 +2,15 @@
 
 /**
  * ProcessWire Pages Raw Tools
+ * 
+ * #pw-headline Pages Raw
+ * #pw-var $pages->raw
+ * #pw-breadcrumb Pages
+ * #pw-summary Methods for finding and loading raw page data
+ * #pw-body =
+ * #pw-body
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  */

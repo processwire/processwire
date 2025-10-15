@@ -3,6 +3,8 @@
 /**
  * ProcessWire PagesType
  *
+ * #pw-headline Pages Type
+ * #pw-breadcrumb Pages
  * #pw-summary Provides an interface to the Pages class but specific to a given page class/type, with predefined parent and template. 
  * #pw-body = 
  * This class is primarily used by the core as an alternative to `$pages`, providing an API for other Page types like 

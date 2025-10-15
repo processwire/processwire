@@ -3,9 +3,9 @@
 /**
  * ProcessWire Pages Names
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
- * https://processwire.com
- * 
+ * #pw-headline Pages Names
+ * #pw-breadcrumb Pages
+ * #pw-var $pages->names
  * #pw-summary This class includes methods for generating and modifying page names.
  * #pw-body = 
  * While these methods are mosty for internal core use, some may at times be useful from the public API as well.
@@ -19,6 +19,10 @@
  * $name = $pages->names()->uniqueRandomPageName();
  * ~~~~~
  * #pw-body
+ * 
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * https://processwire.com
+ *
  * 
  */ 
 
@@ -102,6 +106,7 @@ class PagesNames extends Wire {
 
 		// ensure page name is unique	
 		$pageName = $this->uniquePageName($pageName, $page);
+		$page->setQuietly('_hasUniqueName', true);
 		
 		// assign to page
 		$page->name = $pageName;
@@ -490,7 +495,7 @@ class PagesNames extends Wire {
 				));
 				$name = $this->pageNameFromFormat($page, $format, array('language' => $options['language'])); 
 			} else {
-				$name = $this->uniqueRandomPageName();
+				$name = $this->uniqueRandomPageName([ 'confirm' => false ]);
 				$fallbackFormat = 'random';
 			}
 		}
@@ -506,7 +511,7 @@ class PagesNames extends Wire {
 				}
 			}
 			if(++$n > 5 || $fallbackFormat === 'random') {
-				$name = $this->uniqueRandomPageName();
+				$name = $this->uniqueRandomPageName([ 'confirm' => false ]);
 			} else {
 				$name = $this->incrementName($name);
 			}
@@ -655,6 +660,7 @@ class PagesNames extends Wire {
 		}
 
 		if($parentID) {
+			// xxx
 			$wheres[] = 'parent_id=:parent_id';
 			$binds[':parent_id'] = $parentID; 
 		}
@@ -790,7 +796,8 @@ class PagesNames extends Wire {
 		if($config->pageNameCharset == 'UTF8') {
 			$name = $this->wire()->sanitizer->pageName($name, Sanitizer::toAscii);
 		}
-		
+	
+		// xxx
 		$sql = "SELECT id, status, parent_id FROM pages WHERE name=:name AND id!=:id";
 		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':name', $name);

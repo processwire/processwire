@@ -2,8 +2,13 @@
 
 /**
  * ProcessWire Pages Trash
- *
- * Implements page trash/restore/empty methods of the $pages API variable
+ * 
+ * #pw-headline Pages Trash
+ * #pw-breadcrumb Pages
+ * #pw-var $pages->trasher
+ * #pw-summary Implements page trash/restore/empty methods for the $pages API variable.
+ * #pw-body = 
+ * #pw-body
  *
  * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
@@ -41,6 +46,8 @@ class PagesTrash extends Wire {
 	 * Move a page to the trash
 	 *
 	 * If you have already set the parent to somewhere in the trash, then this method won't attempt to set it again.
+	 * 
+	 * #pw-group-trash
 	 *
 	 * @param Page $page
 	 * @param bool $save Set to false if you will perform the save() call, as is the case when called from the Pages::save() method.
@@ -113,6 +120,8 @@ class PagesTrash extends Wire {
 	 *
 	 * Note that this method assumes already have set a new parent, but have not yet saved.
 	 * If you do not set a new parent, then it will restore to the original parent, when possible.
+	 * 
+	 * #pw-group-restore
 	 *
 	 * @param Page $page
 	 * @param bool $save Set to false if you only want to prep the page for restore (i.e. being saved elsewhere)
@@ -160,6 +169,8 @@ class PagesTrash extends Wire {
 	 *  - `name` (string): Name that should be restored to page’s “name” property.
 	 *  - `namePrevious` (string): Previous name, if we had to modify the original name to make it restorable. 
 	 *  - `name{id}` (string): Name that should be restored  to language where {id} is language ID (if appliable).
+	 * 
+	 * #pw-group-restore
 	 *
 	 * @param Page $page Page to restore
 	 * @param bool $populateToPage Populate this information to given page? (default=false)
@@ -279,6 +290,8 @@ class PagesTrash extends Wire {
 	/**
 	 * Parse a trashed page name into an array of its components
 	 * 
+	 * #pw-group-info
+	 * 
 	 * @param string $name
 	 * @return array|bool Returns array of info if name is a trash/restore name, or boolean false if not
 	 * 
@@ -320,6 +333,8 @@ class PagesTrash extends Wire {
 	 * Delete all pages in the trash
 	 *
 	 * Populates error notices when there are errors deleting specific pages.
+	 * 
+	 * #pw-group-trash
 	 *
 	 * @param array $options
 	 *  - `chunkSize` (int): Pages will be deleted in chunks of this many pages per chunk (default=100).
@@ -553,6 +568,8 @@ class PagesTrash extends Wire {
 	/**
 	 * Get total number of pages in trash
 	 * 
+	 * #pw-group-info
+	 * 
 	 * @return int
 	 * 
 	 */
@@ -562,6 +579,8 @@ class PagesTrash extends Wire {
 
 	/**
 	 * Return the root parent trash page
+	 * 
+	 * #pw-group-info
 	 * 
 	 * @return Page
 	 * @throws WireException if trash page cannot be located (highly unlikely)

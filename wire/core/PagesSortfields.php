@@ -2,8 +2,12 @@
 
 /**
  * ProcessWire PagesSortfields
- *
- * Manages the table for the sortfield property for Page children.
+ * 
+ * #pw-headline Pages Sortfields
+ * #pw-breadcrumb Pages
+ * #pw-summary Manages the table for the sortfield property for Page children.
+ * #pw-body = 
+ * #pw-body
  * 
  * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
