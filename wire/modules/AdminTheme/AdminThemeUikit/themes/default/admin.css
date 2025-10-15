@@ -1599,7 +1599,7 @@ table.AdminDataTable:not(.uk-table) th {
 }
 
 .uk-table.AdminDataTableSortable tr.tablesorter-headerRow th.tablesorter-headerDesc {
-	color: ver(--main-color);
+	color: var(--pw-main-color);
 }
 
 .uk-table.AdminDataTableSortable tr.tablesorter-headerRow th.tablesorter-headerAsc {
