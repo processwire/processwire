@@ -720,7 +720,15 @@ class WireHttp extends Wire {
 		$fp = fopen($url, 'rb', false, $context);
 		restore_error_handler();
 
-		if(isset($http_response_header)) $this->setResponseHeader($http_response_header);
+		if(version_compare(PHP_VERSION, '8.5.0', '>=')) {
+			$http_response_header = http_get_last_response_headers();
+		} else {
+			// http_response_header variable is set by PHP 
+		}
+
+		if(isset($http_response_header)) {
+			$this->setResponseHeader($http_response_header);
+		}
 
 		if($fp) {
 			$result = @stream_get_contents($fp);
@@ -892,8 +900,8 @@ class WireHttp extends Wire {
 			$this->setResponseHeaderValues($responseHeaders);
 			$this->setHttpCode(curl_getinfo($curl, CURLINFO_HTTP_CODE)); 
 		}
-		
-		curl_close($curl);
+
+		if(version_compare(PHP_VERSION, '8.5.0', '<')) curl_close($curl);
 
 		return $result;
 	}
@@ -1149,7 +1157,7 @@ class WireHttp extends Wire {
 		}
 
 		if($result === false) $this->error[] = curl_error($curl);
-		curl_close($curl);
+		if(version_compare(PHP_VERSION, '8.5.0', '<')) curl_close($curl);
 		
 		return $result; 
 	}

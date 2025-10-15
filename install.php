@@ -727,8 +727,14 @@ class Installer {
 			} else {
 				$dsn = "mysql:dbname=$values[dbName];host=$values[dbHost];port=$values[dbPort]";
 			}
+
+			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
+				$initCommand = constant("\\PDO\\Mysql::ATTR_INIT_COMMAND");
+			} else {
+				$initCommand = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+			}
 			$driver_options = array(
-				\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'",
+				$initCommand => "SET NAMES 'UTF8'",
 				\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
 			);
 			
