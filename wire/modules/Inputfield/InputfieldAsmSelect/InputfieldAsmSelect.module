@@ -254,6 +254,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 		// ensure selected options are placed as last in the AsmSelect select output
 		$selectedOptions = $this->attr('value'); 
 		foreach($selectedOptions as $id) {
+			if($id === null) continue;
 			if(!isset($this->options[$id])) continue; 
 			$label = $this->options[$id]; 
 			unset($this->options[$id]); 	

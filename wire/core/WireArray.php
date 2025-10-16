@@ -785,7 +785,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			return $this->findOne($key) ? true : false;
 		}
 
-		if(array_key_exists($key, $this->data)) return true; 
+		if($key !== null && array_key_exists($key, $this->data)) return true; 
 
 		$match = null;
 		if(is_string($key)) {
