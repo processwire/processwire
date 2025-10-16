@@ -515,6 +515,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 								"outline-color: #$matches[1]; " . 
 								"color: #fff; " . 
 								"--pw-inputs-background: #$matches[1]; " . 
+								"--pw-border-color: #$matches[1]; " . 	
 								"--pw-text-color: #fff; " . 
 							"} " . 
 							".Inputfield_$this->name .InputfieldContent " .
