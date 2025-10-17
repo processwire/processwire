@@ -28,10 +28,16 @@
 if(!defined("PROCESSWIRE")) define("PROCESSWIRE", 302); // index version
 $rootPath = __DIR__;
 if(DIRECTORY_SEPARATOR != '/') $rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
-$composerAutoloader = $rootPath . '/vendor/autoload.php'; // composer autoloader
-if(file_exists($composerAutoloader)) require_once($composerAutoloader);
+$vendorPath = $rootPath . '/' . trim(getenv('PW_VENDOR_PATH', true) ?: 'vendor', '/');
+$composerAutoloader = realpath($vendorPath . '/autoload.php'); // composer autoloader
+if(false !== $composerAutoloader) {
+	require_once($composerAutoloader);
+	$vendorPath = realpath($vendorPath) . '/';
+}
 if(!class_exists("ProcessWire\\ProcessWire", false)) require_once("$rootPath/wire/core/ProcessWire.php");
 $config = ProcessWire::buildConfig($rootPath);
+$config->paths->composer = $vendorPath;
+$config->paths->composerAutoloader = $composerAutoloader; // False if file not found
 
 if(!$config->dbName) {
 	// If ProcessWire is not installed, go to the installer
