@@ -1163,7 +1163,9 @@ class PagesEditor extends Wire {
 			$sqlUpdate .= "status|$status";
 			if($page instanceof Page) $page->addStatus($status);
 		}
-		
+
+		if($page) $this->pages->statusChangeReady($page);
+
 		if($multi && $recursive) {
 			// multiple page IDs combined with recursive option, must be handled individually
 			foreach($pageID as $id) {
@@ -1234,6 +1236,8 @@ class PagesEditor extends Wire {
 			$query->closeCursor();
 			
 		} while(count($parentIDs));
+		
+		if($page) $this->pages->statusChanged($page);
 		
 		if(count($ids)) {
 			$rowCount += $this->savePageStatus($ids, $status, false, $remove);

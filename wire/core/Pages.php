@@ -273,6 +273,10 @@ class Pages extends Wire {
 	 * $skyscrapers = $pages->find("template=building, floors>=25");
 	 * ~~~~~
 	 * 
+	 * Non-visible pages are excluded unless an `include=x` mode is specified in the selector,
+	 * where `x` is `hidden`, `unpublished` or `all`. If `all` is specified, then non-accessible
+	 * pages (via access control) can also be included.
+	 * 
 	 * #pw-group-retrieve
 	 * 
 	 * @param string|int|array|Selectors $selector Specify selector (standard usage), but can also accept page ID or array of page IDs.
@@ -280,25 +284,21 @@ class Pages extends Wire {
 	 *  - `findOne` (bool): Apply optimizations for finding a single page (default=false).
 	 *  - `findAll` (bool): Find all pages with no exclusions, same as "include=all" option (default=false). 
 	 *  - `findIDs` (bool|int): 1 to get array of page IDs, true to return verbose array, 2 to return verbose array with all cols in 3.0.153+. (default=false).
-	 *  - `getTotal` (bool): Whether to set returning PageArray's "total" property (default=true) except when findOne=true.
-	 *  - `loadPages` (bool): Whether to populate the returned PageArray with found pages (default=true). 
+	 *  - `getTotal` (bool): Whether to set returning PageArray's "total" property when finding multiple pages. (default=true)
+	 *  - `loadPages` (bool): Whether to populate the returned PageArray with found pages. 
 	 *	   The only reason why you'd want to change this to false would be if you only needed the count details from 
 	 *	   the PageArray: getTotal(), getStart(), getLimit, etc. This is intended as an optimization for $pages->count().
-	 * 	   Does not apply if $selector argument is an array. 
-	 *  - `cache` (bool): Allow caching of selectors and loaded pages? (default=true). Also sets loadOptions[cache].
+	 * 	   Does not apply if $selector argument is an array. (default=true)
+	 *  - `cache` (bool): Allow caching of selectors and loaded pages? Also sets loadOptions[cache]. (default=true)
 	 *  - `allowCustom` (boolean): Allow use of _custom="another selector" in given $selector? For specific uses. (default=false)
 	 *  - `caller` (string): Optional name of calling function, for debugging purposes, i.e. "pages.count" (default=blank).
-	 *  - `include` (string): Optional inclusion mode of 'hidden', 'unpublished' or 'all'. (default=none). Typically you would specify this 
-	 *     directly in the selector string, so the option is mainly useful if your first argument is not a string. 
+	 *  - `include` (string): Optional inclusion mode of 'hidden', 'unpublished' or 'all'. Typically you would specify this 
+	 *     directly in the selector string, so the option is mainly useful if your first argument is not a string. (default=none)
 	 *  - `stopBeforeID` (int): Stop loading pages once page matching this ID is found (default=0).
 	 *  - `startAfterID` (int): Start loading pages once page matching this ID is found (default=0). 
 	 *  - `lazy` (bool): Specify true to force lazy loading. This is the same as using the Pages::findMany() method (default=false).
 	 *  - `loadOptions` (array): Optional associative array of options to pass to getById() load options.
 	 * @return PageArray|array PageArray of that matched the given selector, or array of page IDs (if using findIDs option).
-	 * 
-	 * Non-visible pages are excluded unless an "include=x" mode is specified in the selector
-	 * (where "x" is "hidden", "unpublished" or "all"). If "all" is specified, then non-accessible
-	 * pages (via access control) can also be included.
 	 * @see Pages::findOne(), Pages::findMany(), Pages::get()
 	 *
 	 */
@@ -2254,6 +2254,31 @@ class Pages extends Wire {
 	 * COMMON PAGES HOOKS
 	 * 
 	 */
+	
+	/**
+	 * Hook called just before a page is saved
+	 *
+	 * May be preferable to a before `Pages::save` hook because you know for sure a save will
+	 * be executed immediately after this is called. Whereas you don't necessarily know
+	 * that when the before `Pages::save` is called, as an error may prevent it.
+	 *
+	 * #pw-group-save-hooks
+	 *
+	 * @param Page $page The page about to be saved
+	 * @return array Optional extra data to add to pages save query, which the hook can populate.
+	 * @see Pages::savePageOrFieldReady(), Pages::saveFieldReady()
+	 *
+	 */
+	public function ___saveReady(Page $page) {
+		$data = array();
+		foreach($this->types as $manager) {
+			if(!$manager->hasValidTemplate($page)) continue;
+			$a = $manager->saveReady($page);
+			if(!empty($a) && is_array($a)) $data = array_merge($data, $a);
+		}
+		$page->saveReady($page->getChanges(), false);
+		return $data;
+	}
 
 	/**
 	 * Hook called after a page is successfully saved
@@ -2269,7 +2294,7 @@ class Pages extends Wire {
 	 * @see Pages::savedPageOrField(), Pages::savedField()
 	 *
 	 */
-	public function ___saved(Page $page, array $changes = array(), $values = array()) { 
+	public function ___saved(Page $page, array $changes = array(), $values = array()) {
 		$str = "Saved page";
 		if(count($changes)) $str .= " (Changes: " . implode(', ', $changes) . ")";
 		$this->log($str, $page);
@@ -2277,6 +2302,7 @@ class Pages extends Wire {
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->saved($page, $changes, $values);
 		}
+		$page->saved($changes, false);
 	}
 
 	/**
@@ -2289,6 +2315,7 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function ___addReady(Page $page) {
+		$page->addReady();
 	}
 
 	/**
@@ -2300,6 +2327,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___added(Page $page) { 
+		$page->added();
 		$this->log("Added page", $page);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->added($page);
@@ -2319,6 +2347,9 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___moveReady(Page $page) {
+		$oldParent = $page->parentPrevious;
+		if(!$oldParent) $oldParent = $this->newNullPage();
+		$page->moveReady($oldParent, $page->parent);
 	}
 
 	/**
@@ -2332,10 +2363,14 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___moved(Page $page) { 
-		if($page->parentPrevious) {
-			$this->log("Moved page from {$page->parentPrevious->path}$page->name/", $page);
+		$oldParent = $page->parentPrevious; 
+		if(!$oldParent) $oldParent = $this->newNullPage();
+		$newParent = $page->parent;
+		$page->moved($oldParent, $newParent);
+		if($oldParent) {
+			$this->log("Moved page from $oldParent->path$page->name/ to $newParent->path$page->name/", $page);
 		} else {
-			$this->log("Moved page", $page); 
+			$this->log("Moved page to $newParent->path$page->name/", $page); 
 		}
 	}
 
@@ -2403,31 +2438,8 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___restored(Page $page) { 
+		// $page->restored();
 		$this->log("Restored page", $page); 
-	}
-
-	/**
-	 * Hook called just before a page is saved
-	 *
-	 * May be preferable to a before `Pages::save` hook because you know for sure a save will 
-	 * be executed immediately after this is called. Whereas you don't necessarily know
- 	 * that when the before `Pages::save` is called, as an error may prevent it. 
-	 * 
-	 * #pw-group-save-hooks
-	 *
-	 * @param Page $page The page about to be saved
-	 * @return array Optional extra data to add to pages save query, which the hook can populate. 
-	 * @see Pages::savePageOrFieldReady(), Pages::saveFieldReady()
-	 *
-	 */
-	public function ___saveReady(Page $page) {
-		$data = array();
-		foreach($this->types as $manager) {
-			if(!$manager->hasValidTemplate($page)) continue;
-			$a = $manager->saveReady($page);
-			if(!empty($a) && is_array($a)) $data = array_merge($data, $a); 
-		}
-		return $data;
 	}
 
 	/**
@@ -2443,7 +2455,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___deleteReady(Page $page, array $options = array()) {
-		if($options) {} // ignore
+		$page->deleteReady($options);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->deleteReady($page);
 		}
@@ -2459,8 +2471,8 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___deleted(Page $page, array $options = array()) { 
-		if($options) {}
-		if(empty($options['_deleteBranch'])) $this->log("Deleted page", $page); 
+		if(empty($options['_deleteBranch'])) $this->log("Deleted page", $page);
+		$page->deleted($options);
 		$this->wire()->cache->maintenance($page);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->deleted($page);
@@ -2508,7 +2520,9 @@ class Pages extends Wire {
 	 * @param Page $copy The actual clone about to be saved
 	 *
 	 */
-	public function ___cloneReady(Page $page, Page $copy) { }
+	public function ___cloneReady(Page $page, Page $copy) { 
+		$page->cloneReady($copy);
+	}
 
 	/**
 	 * Hook called when a page has been cloned
@@ -2520,6 +2534,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___cloned(Page $page, Page $copy) { 
+		$page->cloned($copy);
 		$this->log("Cloned page to $copy->path", $page); 
 	}
 	
@@ -2544,6 +2559,9 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___renameReady(Page $page) {
+		if($page->namePrevious && $page->namePrevious != $page->name) {
+			$page->renameReady($page->namePrevious, $page->name);
+		}
 	}
 
 	/**
@@ -2565,8 +2583,9 @@ class Pages extends Wire {
 	 * @param Page $page The $page that was renamed
 	 *
 	 */
-	public function ___renamed(Page $page) { 
+	public function ___renamed(Page $page) {
 		if($page->namePrevious && $page->namePrevious != $page->name) {
+			$page->renamed($page->namePrevious, $page->name);
 			$this->log("Renamed page from '$page->namePrevious' to '$page->name'", $page);
 		}
 	}
@@ -2601,12 +2620,19 @@ class Pages extends Wire {
 		$isInserted = $page->_inserted > 0;
 		$wasPublished = !($statusPrevious & Page::statusUnpublished);
 		
-		if($isPublished && (!$wasPublished || $isInserted)) $this->published($page);
-		if(!$isPublished && $wasPublished) $this->unpublished($page);
+		if($isPublished && (!$wasPublished || $isInserted)) {
+			$this->published($page);
+			$page->removedStatus('unpublished', Page::statusUnpublished);
+		}
+		if(!$isPublished && $wasPublished) {
+			$this->unpublished($page);
+			$page->addedStatus('unpublished', Page::statusUnpublished);
+		}
 	
 		$from = array();
 		$to = array();
-		foreach(Page::getStatuses() as $name => $flag) {
+		$statuses = Page::getStatuses();
+		foreach($statuses as $name => $flag) {
 			if($flag == Page::statusUnpublished) continue; // logged separately
 			if($statusPrevious & $flag) $from[] = $name;
 			if($status & $flag) $to[] = $name; 
@@ -2614,10 +2640,22 @@ class Pages extends Wire {
 		if(count($from) || count($to)) {
 			$added = array();
 			$removed = array();
-			foreach($from as $name) if(!in_array($name, $to)) $removed[] = $name;
-			foreach($to as $name) if(!in_array($name, $from)) $added[] = $name;
+			foreach($from as $name) {
+				if(!in_array($name, $to)) {
+					$removed[] = $name;
+					$page->removedStatus($name, $statuses[$name]); 
+				}
+			}
+			foreach($to as $name) {
+				if(!in_array($name, $from)) {
+					$added[] = $name;
+					$page->addedStatus($name, $statuses[$name]); 
+				}
+			}
 			$str = '';
-			if(count($added)) $str = "Added status '" . implode(', ', $added) . "'";
+			if(count($added)) {
+				$str = "Added status '" . implode(', ', $added) . "'";
+			}
 			if(count($removed)) {
 				if($str) $str .= ". ";
 				$str .= "Removed status '" . implode(', ', $removed) . "'";
@@ -2641,6 +2679,20 @@ class Pages extends Wire {
 		$wasPublished = !($page->statusPrevious & Page::statusUnpublished);
 		if($isPublished && !$wasPublished) $this->publishReady($page);
 		if(!$isPublished && $wasPublished) $this->unpublishReady($page);
+
+		$newStatus = $page->status;
+		$oldStatus = $page->statusPrevious;
+		foreach(Page::getStatuses() as $name => $flag) {
+			if(($newStatus & $flag) && !($oldStatus & $flag)) {
+				if($name === 'unpublished' && !$page->published) {
+					// do not trigger addStatus if page has never been published
+					continue;
+				}
+				$page->addStatusReady($name, $flag);
+			} else if(($oldStatus & $flag) && !($newStatus & $flag)) {
+				$page->removeStatusReady($name, $flag);
+			}
+		}
 	}
 
 	/**
@@ -2711,7 +2763,9 @@ class Pages extends Wire {
 	 * @see Pages::savePageOrFieldReady()
 	 * 
 	 */
-	public function ___saveFieldReady(Page $page, Field $field) { }
+	public function ___saveFieldReady(Page $page, Field $field) { 
+		$page->saveReady([ $field->name ], $field->name);
+	}
 
 	/**
 	 * Hook called after Pages::saveField successfully executes
@@ -2724,6 +2778,7 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function ___savedField(Page $page, Field $field) { 
+		$page->saved([ $field->name ], $field->name);
 		$this->log("Saved page field '$field->name'", $page); 
 	}
 

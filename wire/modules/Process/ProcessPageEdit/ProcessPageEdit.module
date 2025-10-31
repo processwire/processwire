@@ -572,6 +572,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->form = $this->modules->get('InputfieldForm');
 		$this->form = $this->buildForm($this->form);
 		$this->form->setTrackChanges();
+		$this->page->editReady($this->form);
 
 		if($this->isPost && $this->form->isSubmitted()) $this->processSave();
 
