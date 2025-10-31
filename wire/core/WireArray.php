@@ -606,7 +606,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		}
 
 		// check if the index is set and return it if so
-		if(isset($this->data[$key])) return $this->data[$key];
+		if($key !== null && isset($this->data[$key])) return $this->data[$key];
 
 		// check if key contains something other than numbers, letters, underscores, hyphens
 		if(is_string($key)) { 

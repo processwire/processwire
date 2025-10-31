@@ -396,7 +396,9 @@ $config->sessionChallenge = true;
  * Predefined settings:
  * 
  * - 0 or false: Fingerprint off
- * - 1 or true: Fingerprint on with default setting (remote IP & useragent)
+ * - 1 or true: Fingerprint on with system default settings
+ *   (Useragent for installations after Oct 31 2025 at 5pm)
+ *   (Useragent + Remote IP for existing installations)
  * 
  * Custom settings:
  * 
