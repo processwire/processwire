@@ -632,6 +632,24 @@ class WireHooks {
 				}
 				if($objMatch) $options['objMatch'] = $objMatch;
 			}
+			if(strpos($method, '*') !== false) try {
+				// Wildcard method hooks
+				// i.e. addHook('Pages::*') for all hookable methods in $pages
+				// i.e. addHook('Pages::save*') for Pages::saved, Pages::saveReady, Pages::save, etc.
+				$ref = new \ReflectionClass("\\ProcessWire\\$fromClass");
+				$hookIds = [];
+				$findMethod = '___' . trim($method, '*');
+				foreach($ref->getMethods() as $item) {
+					if(strpos($item->name, '___') !== 0) continue;
+					if($method === '*' || ($findMethod && strpos($item->name, $findMethod) === 0)) {
+						$hookableName = substr($item->name, 3);
+						$hookIds[] = $this->addHook($object, "$fromClass::$hookableName", $toObject, $toMethod, $options);
+					}
+				}
+				return implode(',', $hookIds);
+			} catch(\Exception $e) {
+				// wildcard hook cannot be attached	
+			}
 			$options['fromClass'] = $fromClass;
 		}
 
