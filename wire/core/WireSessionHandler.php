@@ -12,7 +12,7 @@
  *
  */
 
-abstract class WireSessionHandler extends WireData implements Module {
+abstract class WireSessionHandler extends WireData implements Module, \SessionHandlerInterface {
 
 	/**
 	 * Initialize the save handler when $modules sets the current instance
@@ -99,6 +99,7 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 *
 	 * @param string $id Session ID
 	 * @param string Serialized data to write
+	 * @return bool
 	 *
 	 */
 	abstract public function write($id, $data); 
