@@ -440,7 +440,7 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		}
 		
 		if(!empty($options['ignoreExtensions'])) {
-			if($this->patternMatchesvalue($options['ignoreExtensions'], $extension)) {
+			if($this->patternMatchesValue($options['ignoreExtensions'], $extension)) {
 				$this->lastReason = "File '$basename' matched ignoreExtensions: $this->lastMatchedPattern";
 				return false;
 			}
