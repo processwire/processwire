@@ -585,7 +585,15 @@ class WireUpload extends Wire {
 		$tmpDir = $dir . '.zip_tmp/';
 	
 		try {
-			$files = $fileTools->unzip($zipFile, $tmpDir); 
+			$options = [];
+			if($this->maxFileSize) $options['maxTotalMegabytes'] = $this->maxFileSize / 1000000;
+			$extensions = $this->validExtensions;
+			$key = array_search('zip', $extensions);
+			if($key !== false) unset($extensions[$key]); 
+			if(count($extensions)) {
+				$options['extractFiles'] = [ '!\.(' . implode('|', $extensions) . ')$!' ];
+			}
+			$files = $fileTools->unzip($zipFile, $tmpDir, $options);
 			if(!count($files)) {
 				throw new WireException($this->_('No files found in ZIP file'));
 			}
