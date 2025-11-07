@@ -4477,6 +4477,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param InputfieldWrapper $form The page editing form
 	 * @todo Determine if this can also apply to the front-end editor. 
+	 * @since 3.0.253
 	 * 
 	 */	
 	public function ___editReady(InputfieldWrapper $form) { }
@@ -4508,6 +4509,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param string|false $name Indicates whether entire page was saved or just a field/property:
 	 *  - Populated with `string` field or property name if `$page->save($name)` was used rather than `$page->save();`
 	 *  - Populated with `false` if entire page is to be saved, i.e. `$page->save()`
+	 * @since 3.0.253
 	 * 
 	 */
 	public function ___saveReady(array $changes, $name = false) { }
@@ -4538,6 +4540,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param string|false $name Indicates whether entire page was saved or just a field:
 	 *  - Populated with `string` field or property name if `$page->save($name)` was used rather than `$page->save();`
 	 *  - Populated with `false` if entire page was saved, i.e. `$page->save()`
+	 * @since 3.0.253
 	 *
 	 */
 	public function ___saved(array $changes, $name = false) {}
@@ -4554,6 +4557,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-hooker
 	 * 
+	 * @since 3.0.253
+	 * 
 	 */
 	public function ___addReady() {}
 
@@ -4568,6 +4573,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * ~~~~~
 	 * 
 	 * #pw-hooker
+	 * 
+	 * @since 3.0.253
 	 * 
 	 */
 	public function ___added() {}
@@ -4588,6 +4595,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param Page $oldParent
 	 * @param Page $newParent
+	 * @since 3.0.253
 	 * 
 	 */
 	public function ___moveReady($oldParent, $newParent) {}
@@ -4608,6 +4616,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param Page $oldParent
 	 * @param Page $newParent
+	 * @since 3.0.253
 	 *
 	 */
 	public function ___moved($oldParent, $newParent) {}
@@ -4624,6 +4633,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-hooker
 	 * 
+	 * @since 3.0.253
+	 * 
 	 */
 	public function ___deleteReady() {}
 	
@@ -4638,6 +4649,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * ~~~~~
 	 * 
 	 * #pw-hooker
+	 * 
+	 * @since 3.0.253
 	 *
 	 */
 	public function ___deleted() {}
@@ -4655,6 +4668,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-hooker
 	 * 
 	 * @param Page $copy The copy of this page that it will be cloned to
+	 * @since 3.0.253
 	 * 
 	 */
 	public function ___cloneReady(Page $copy) {}
@@ -4673,6 +4687,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-hooker
 	 *
 	 * @param Page $copy The new cloned copy of the page
+	 * @since 3.0.253
 	 * 
 	 */
 	public function ___cloned(Page $copy) {}
@@ -4692,6 +4707,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param string $oldName The old name
 	 * @param string $newName The new name (read-only)
+	 * @since 3.0.253
 	 *
 	 */
 	public function ___renameReady($oldName, $newName) {}
@@ -4711,6 +4727,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string $oldName The old name
 	 * @param string $newName The new name
+	 * @since 3.0.253
 	 *
 	 */
 	public function ___renamed($oldName, $newName) {}
@@ -4733,6 +4750,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param string $name Name of the status flag to be added, i.e. unpublished, hidden, trash, locked
 	 * @param int $value Value of the status flag to be added, a `Page::status*` constant
+	 * @since 3.0.253
 	 * 
 	 */
 	public function ___addStatusReady($name, $value) {}
@@ -4753,6 +4771,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param string $name Name of the status flag that was added, i.e. unpublished, hidden, trash, locked
 	 * @param int $value Value of the status flag that was added, a `Page::status*` constant
+	 * @since 3.0.253
 	 * 
 	 */
 	public function ___addedStatus($name, $value) {}
@@ -4775,6 +4794,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string $name Name of the status flag to be removed, i.e. unpublished, hidden, trash, locked
 	 * @param int $value Value of the status flag to be removed, a `Page::status*` constant
+	 * @since 3.0.253
 	 *
 	 */
 	public function ___removeStatusReady($name, $value) {}
@@ -4795,6 +4815,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string $name Name of the status flag that was removed, i.e. unpublished, hidden, trash, locked
 	 * @param int $value Value of the status flag that was removed, a `Page::status*` constant
+	 * @since 3.0.253
 	 *
 	 */
 	public function ___removedStatus($name, $value) {}
