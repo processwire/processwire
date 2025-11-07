@@ -3,24 +3,23 @@
 /**
  * Base class for FileValidator modules
  * 
+ * #pw-summary Base class for FileValidator modules, which validate uploaded files. 
+ * #pw-body = 
  * To create a FileValidator module: 
  * 
- * 1. Create a class that extends this and follow the naming convention: FileValidator[Something].
+ * 1. Create a class that extends this and follow the naming convention: `FileValidator[Something]`.
  * 2. Place in file: /site/modules/FileValidator[Something].module (or in module-specific directory).
- * 3. Copy the getModuleInfo() method out of this class and update as appropriate.
- * 4. Implement an isValidFile($filename) method, and you are done. 
+ * 3. Copy the `getModuleInfo()` method out of this class and update as appropriate.
+ * 4. Implement an `isValidFile($filename)` method, and you are done. 
  * 
- * EXAMPLE: /site/modules/FileValidatorHTML.module
- * 
+ * Example: /site/modules/FileValidatorHTML.module
+ * ~~~~~~
  * class FileValidatorHTML extends FileValidatorModule {
  *     public static function getModuleInfo() {
  *       return array(
  *         'title' => 'Validate HTML files',
  *         'version' => 1, 
- *         'autoload' => false, 
- *         'singular' => false, 
  *         'validates' => array('html', 'htm'),
- *         'requires' => 'ProcessWire>=2.5.24',
  *       );
  *     }
  *     protected function isValidFile($filename) {
@@ -29,11 +28,11 @@
  *         return $valid;
  *     }
  * }
+ * ~~~~~~
+ * #pw-body
  * 
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
- * 
- * Class FileValidatorModule
  * 
  */
 abstract class FileValidatorModule extends WireData implements Module {
