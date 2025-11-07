@@ -197,7 +197,7 @@ class ProcessPagesExportImport extends Process {
 			$zipFile = $this->exportImport->getExportPath() . $fileField->value->first()->name;
 			if(!$zipFile || !is_file($zipFile)) throw new WireException('No ZIP file found: ' . $zipFile); 
 			$unzipPath = $this->exportImport->getExportPath('import-zip'); 
-			$zipFileItems = $files->unzip($zipFile, $unzipPath);
+			$zipFileItems = $files->unzip($zipFile, $unzipPath, [ 'requireFiles' => [ 'pages.json' ] ]);
 			$files->unlink($zipFile); 
 			if(empty($zipFileItems)) throw new WireException("No files found in ZIP"); 
 			$jsonFile = $unzipPath . "pages.json";

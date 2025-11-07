@@ -634,15 +634,24 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function testNotices() {
 		if(!$this->wire()->user->isLoggedin()) return false;
+		
 		$this->message('Message test');
 		$this->message('Message test debug', Notice::debug);
 		$this->message('Message test markup <a href="#">example</a>', Notice::allowMarkup);
+		$this->message('Message test markdown [example](#)', Notice::allowMarkdown);
+		$this->message('Message test superuser', Notice::superuser);
+		$this->message('Message test nogroup', Notice::noGroup);
+		$this->message('icon-female Message test icon');
+		
 		$this->warning('Warning test');
 		$this->warning('Warning test debug', Notice::debug);
 		$this->warning('Warning test markup <a href="#">example</a>', Notice::allowMarkup);
+		$this->warning('Warning test prepend', Notice::prepend);
+		
 		$this->error('Error test');
 		$this->error('Error test debug', Notice::debug);
 		$this->error('Error test markup <a href="#">example</a>', Notice::allowMarkup);
+		
 		return true;
 	}
 	
@@ -697,6 +706,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 		foreach($notices as $n => $notice) {
 			/** @var Notice $notice */
+			if(!$notice->viewable()) continue;
 
 			$text = (string) $notice->text;
 			$allowMarkup = $notice->flags & Notice::allowMarkup;

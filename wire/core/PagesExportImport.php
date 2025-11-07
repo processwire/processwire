@@ -188,7 +188,9 @@ class PagesExportImport extends Wire {
 		$path = $tempDir->get();
 		$options['filesPath'] = $path; 
 		
-		$zipFileItems = $this->wire()->files->unzip($filename, $path); 
+		$zipFileItems = $this->wire()->files->unzip($filename, $path, [
+			'requireFiles' => [ 'pages.json' ]
+		]); 
 		
 		if(empty($zipFileItems)) return false;
 		
