@@ -1000,6 +1000,8 @@ class WireHooks {
 			'replace' => false,
 		);
 		
+		if(self::___debug) $result['hooksRun'] = [];
+		
 		if($type === 'method' || $type === 'property' || $type === 'either') {
 			if(!$methodExists && !$this->isHookedOrParents($object, $method, $type)) {
 				return $result; // exit quickly when we can
@@ -1137,6 +1139,7 @@ class WireHooks {
 				if(!$toMethodCallable) continue;
 
 				$result['numHooksRun']++;
+				if(self::___debug) $result['hooksRun'][] = $hook['options']; 
 				
 				if($event->cancelHooks === true) $cancelHooks = true;
 
@@ -1402,7 +1405,7 @@ class WireHooks {
 		foreach($arguments as $argument) {
 			if(is_object($argument)) $notes[] = get_class($argument);
 			else if(is_array($argument)) $notes[] = "array(" . count($argument) . ")";
-			else if(strlen($argument) > 20) $notes[] = substr($argument, 0, 20) . '...';
+			else if(strlen("$argument") > 20) $notes[] = substr("$argument", 0, 20) . '...';
 		}
 		$timerName .= "(" . implode(', ', $notes) . ")";
 		if(isset($this->debugTimers[$timerName])) {
