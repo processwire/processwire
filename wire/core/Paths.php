@@ -66,6 +66,7 @@
  * @property string $adminTemplates Admin theme template files: /wire/templates-admin/ or /site/templates-admin/ #pw-internal
  * @property string $modules Core modules: /wire/modules/
  * @property string $siteModules Site-specific modules: /site/modules/
+ * @property string $markupRegions Site-specific files added by Markup Regions: /site/assets/markup-regions/ (3.0.254+)
  * @property string $core ProcessWire core files: /wire/core/
  * @property string $site ProcessWire site files /site/
  * @property string $assets Site-specific assets: /site/assets/
@@ -89,6 +90,7 @@
  * @property-read string $httpAdminTemplates Full http/https URL to admin templates. #pw-internal
  * @property-read string $httpModules Full http/https URL to core (wire) modules. #pw-group-urls-only
  * @property-read string $httpSiteModules Full http/https URL to site modules. #pw-group-urls-only
+ * @property-read string $httpMarkupRegions Full http/https URL to files added by Markup Regions. #pw-group-urls-only (3.0.254+)
  * @property-read string $httpAssets Full http/https URL to site assets (i.e. https://domain.com/site/assets/). #pw-group-urls-only
  * @property-read string $httpFiles Full http/https URL to site assets files (i.e. https://domain.com/site/assets/files/). #pw-group-urls-only
  * @property-read string $httpNext Full http/https URL to next pagination of current page (when applicable). #pw-group-urls-only #pw-group-pagination

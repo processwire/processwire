@@ -97,6 +97,12 @@ class WireMarkupRegions extends Wire {
 	 * 
 	 */
 	protected $removals = array();
+	
+	/**
+	 * @var WireMarkupFileRegions|null 
+	 * 
+	 */
+	protected $fileRegions = null;
 
 	/**
 	 * Locate and return all regions of markup having the given attribute
@@ -1457,15 +1463,25 @@ class WireMarkupRegions extends Wire {
 		$defaults = array(
 			'useClassActions' => false // allow use of "pw-*" class actions? (legacy)
 		);
-
-		if(is_string($htmlRegions) && $recursionLevel === 1) {
-			$this->initHtml($htmlRegions);
-		}
 		
 		$options = array_merge($defaults, $options);
-		$leftoverMarkup = '';
 		$hasDebugLandmark = strpos($htmlDocument, self::debugLandmark) !== false;
 		$debug = $hasDebugLandmark && $this->wire()->config->debug;
+		$debugNotes = array();
+		
+		if(is_string($htmlRegions) && $recursionLevel === 1) {
+			$this->initHtml($htmlRegions);
+			$n = $this->fileRegions()->apply($htmlDocument, $htmlRegions, $options);
+			if($debug) {
+				foreach($this->fileRegions()->getErrors() as $errorContext => $errors) {
+					foreach($errors as $error) $debugNotes[] = "File region: $error in $errorContext";
+				}
+				foreach($this->fileRegions()->getNotes() as $note) $debugNotes[] = "File region: $note";
+				if($n) $debugNotes[] = "Applied $n file region(s)";
+			}
+		}
+		
+		$leftoverMarkup = '';
 		$debugTimer = $debug ? Debug::timer() : 0;
 		$this->populateSingles($htmlDocument, $htmlRegions);
 		
@@ -1634,7 +1650,7 @@ class WireMarkupRegions extends Wire {
 		if($debug) {
 			$leftoverBytes = strlen($leftoverMarkup);
 			$htmlRegionsLen = strlen($htmlRegions); 
-			$debugNotes = array(); 
+			
 			if($recursionLevel > 1) $debugNotes[] = "PASS: $recursionLevel";
 			if(count($populatedNotes)) $debugNotes = array_merge($debugNotes, $populatedNotes); // implode($bull, $populatedNotes);
 			if(count($rejectedNotes)) foreach($rejectedNotes as $note) $debugNotes[] = "SKIPPED: $note";
@@ -1838,6 +1854,21 @@ class WireMarkupRegions extends Wire {
 		if($debugNotes === null) $debugNotes = $this->debugNotes; 
 		$out = $this->renderDebugNotes($debugNotes, $debugTimer);
 		$markup = str_replace(self::debugLandmark, $out, $markup); 
+	}
+	
+	/**
+	 * Get instance of WireMarkupFileRegions
+	 * 
+	 * @return WireMarkupFileRegions
+	 * @since 3.0.254
+	 * 
+	 */
+	public function fileRegions() {
+		if($this->fileRegions === null) {
+			$this->fileRegions = new WireMarkupFileRegions();
+			$this->wire($this->fileRegions);
+		}
+		return $this->fileRegions;
 	}
 
 }

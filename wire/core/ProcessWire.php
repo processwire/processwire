@@ -1242,6 +1242,7 @@ class ProcessWire extends Wire {
 			'templates' => "$siteDir/templates/",
 			'fieldTemplates' => "$siteDir/templates/fields/",
 			'adminTemplates' => "$wireDir/$adminTplDir/",
+			'markupRegions' => "$assetsDir/markup-regions/",
 		), true);
 		
 		$cfg['paths'] = clone $cfg['urls'];
