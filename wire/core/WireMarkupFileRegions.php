@@ -74,7 +74,7 @@
  * ~~~~~
  * Now you can define your SCSS/LESS anywhere in the output, and it will populate
  * a /site/assets/markup-regions/test.scss (or .less) file. But you'll have to use
- * wahtever tool you want to compile it to a CSS file. 
+ * whatever tool you want to compile it to a CSS file. 
  * ~~~~~
  * <style id="my-test-scss" pw-file="test.scss">
  *   $alert-background: red; 

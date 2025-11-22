@@ -937,6 +937,13 @@ class WireFileTools extends Wire {
 		];
 		
 		$options = array_merge($defaults, $options);
+	
+		// remove any options that match the defaults so that FileValidatorZip settings
+		// do not get overwritten by our defaults here
+		foreach($options as $key => $value) {
+			if($value === $defaults[$key] && $key !== 'test') unset($options[$key]); 
+		}
+		
 		$destinationPath = rtrim($destinationPath, '/' . DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 		$filenames = [];
 		$chmodFile = $this->wire()->config->chmodFile;

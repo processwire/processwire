@@ -155,8 +155,8 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 	public function __construct() {
 		$this->setArray([
 			'minFiles' => 1,
-			'maxFiles' => 1000,
-			'maxDepth' => 8,
+			'maxFiles' => 1500,
+			'maxDepth' => 10,
 			'maxFileMegabytes' => 20,
 			'maxTotalMegabytes' => 100,
 			'maxErrors' => 10,
