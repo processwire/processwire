@@ -2130,7 +2130,7 @@ class ProcessModule extends Process {
 		if(strpos($out, '<img') === false && !strpos($out, '</a>')) return $out;
 		
 		$moduleUrl = $config->urls($moduleName);
-		$readmeUrl = str_replace('/edit', '/readme', $modules->getModuleEditUrl($moduleName));
+		$readmeUrl = str_replace([ '/edit?', '/edit/?' ], '/readme?', $modules->getModuleEditUrl($moduleName));
 
 		// make <img src=...> and <a href=...> attributes relative to module's URL, so that
 		// src="file.jpg" converts to src="/site/modules/ModuleName/file.jpg"
