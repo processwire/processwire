@@ -3146,7 +3146,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @since 3.0.253
 	 * 
 	 */
-	public function ___renderPage(array $options) {
+	public function ___renderPage(array $options = []) {
 		/** @var PageRender $pageRender */
 		$pageRender = $this->wire()->modules->get('PageRender');
 		return $pageRender->render($this, $options);
