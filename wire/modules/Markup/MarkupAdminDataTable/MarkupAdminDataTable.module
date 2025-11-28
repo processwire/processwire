@@ -19,6 +19,7 @@
  * @property bool $responsive
  * @property array $settings
  * @property string $id
+ * @property int $border
  * 
  */
 
@@ -28,7 +29,7 @@ class MarkupAdminDataTable extends ModuleJS {
 		return array(
 			'title' => 'Admin Data Table',
 			'summary' => 'Generates markup for data tables used by ProcessWire admin',
-			'version' => 107,
+			'version' => 108,
 			'permanent' => true,
 		);
 	}
@@ -87,7 +88,7 @@ class MarkupAdminDataTable extends ModuleJS {
 		);
 	
 		// settings set globally for all tables (when present)
-		$settings = $this->wire('config')->MarkupAdminDataTable;
+		$settings = $this->wire()->config->MarkupAdminDataTable;
 		
 		if(empty($settings)) {
 			$settings = $defaults;
@@ -109,6 +110,7 @@ class MarkupAdminDataTable extends ModuleJS {
 		$this->set('caption', '');
 		$this->set('responsive', self::responsiveYes);
 		$this->set('settings', $settings);
+		$this->set('border', '');
 		$this->set('id', '');
 		
 		parent::init();
@@ -161,9 +163,11 @@ class MarkupAdminDataTable extends ModuleJS {
 	 * @param array $a Array of columns that will each be a `<td>`, where each element may be one of the following:
 	 *   - `string`: converts to `<td>string</td>`
 	 *   - `$a["key"] = "value"`: converts to `<td><a href='value'>key</a></td>`
-	 *   - `array('label' => 'url')`: converts to `<td><a href='url'>label</a></td>` (same as above, but in nested array with count 1)
-	 *   - `array('label', 'class')`: converts to `<td class='class'>label</td>`
+	 *   - `[ 'label' => 'url' ]`: converts to `<td><a href='url'>label</a></td>` (same as above, but in nested array with count 1)
+	 *   - `[ 'label', 'class') ]`: converts to `<td class='class'>label</td>`
+	 *   - `true` for any column to skip it, making the previous column colspan into it. (3.0.254+)
 	 * @param array $options Optionally specify any one of the following:
+	 *   - 
 	 *   - `separator` (bool): specify true to show a stronger visual separator above the column
 	 *   - `class` (string): specify one or more class names to apply to the `<tr>`
 	 *   - `attrs` (array): array of attr => value for attributes to add to the `<tr>`
@@ -215,6 +219,8 @@ class MarkupAdminDataTable extends ModuleJS {
 				foreach($v as $kk => $vv) {
 					$v[$kk] = $this->encode($vv);
 				}
+			} else if(is_bool($v)) {
+				// colspan, keep as-is
 			} else {
 				$v = $this->encode($v); 
 			}
@@ -244,6 +250,8 @@ class MarkupAdminDataTable extends ModuleJS {
 	 * 
 	 */
 	public function ___render() {
+		
+		$sanitizer = $this->wire()->sanitizer;
 
 		$tableClass = trim($this->settings('class') . ' ' . $this->class); 
 		if($this->responsive == self::responsiveYes) {
@@ -272,7 +280,9 @@ class MarkupAdminDataTable extends ModuleJS {
 		}
 
 		if(count($this->rows)) { 
-			$out = "\n<table id='$id' class='$tableClass'>";
+			$attr = "id='$id' class='$tableClass'";
+			if($this->border) $attr .= " border='" . ((int) $this->border) . "'";
+			$out = "\n<table $attr>";
 
 			if($this->caption) $out .= "\n\t<caption>{$this->caption}</caption>";
 
@@ -307,15 +317,19 @@ class MarkupAdminDataTable extends ModuleJS {
 				if(isset($this->rowClasses[$n])) $attrs['class'] = $this->rowClasses[$n];
 				$attrStr = '';
 				foreach($attrs as $attrName => $attrVal) {
-					$attrStr .= " $attrName='" . $this->wire('sanitizer')->entities($attrVal) . "'";
+					$attrStr .= " $attrName='" . $sanitizer->entities($attrVal) . "'";
 				}
 				$out .= "\n\t\t<tr$attrStr>";
-				foreach($row as $td) {
+				foreach($row as $nn => $td) {
+					if(is_bool($td)) continue; // colspan
 					$class = '';
 					if(is_array($td)) list($td, $class) = $td;
 					if(strlen("$td") == 0 || $td === '&nbsp;') $class .= ($class ? ' ' : '') . 'blank';
 					if($class) $class = " class='$class'";
-					$out .= "\n\t\t\t<td$class>$td</td>"; 
+					$colspan = 1;
+					while(isset($row[++$nn]) && is_bool($row[$nn])) $colspan++;
+					$colspan = $colspan > 1 ? " colspan='$colspan'" : "";
+					$out .= "\n\t\t\t<td$class$colspan>$td</td>"; 
 				}
 				$out .= "\n\t\t</tr>";
 			}
