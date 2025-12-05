@@ -1056,11 +1056,14 @@ class PagesExportImport extends Wire {
 		//          'description' => 'file description',
 		//          'tags' => 'file tags',
 		//          'variations' => [ 'file1.260x0.jpg' => 'http://domain.com/site/assets/files/123/file1.260x0.jpg' ]
+		//          'filedata' => [ ... ]
 		//      ],
 		//      'file2.png' => [ ... see above ... ],
 		//      'file3.gif' => [ ... see above ... ],
 		// ];
 
+		/** @var FieldtypeFile|FieldtypeImage $fieldtype */
+		$fieldtype = $field->type;
 		$pagefiles = $page->get($field->name); 
 		if(!$pagefiles instanceof Pagefiles) {
 			$page->warning("Unable to import files to field '$field->name' because it is not a files field"); 
@@ -1138,6 +1141,8 @@ class PagesExportImport extends Wire {
 				if($key == 'description') {
 					$pagefile->description($value);
 					if(!$pagefile->isChanged($key)) continue;
+				} else if($key === 'filedata') {
+					$pagefile->filedata($fieldtype->importFiledata($page, $value, $options));
 				} else if($options['commit']) {
 					$pagefile->set($key, $value);
 					if(!$pagefile->isChanged($key)) continue;

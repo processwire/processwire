@@ -550,6 +550,28 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		
 		return $indexValue;
 	}
+	
+	/**
+	 * Import value
+	 * 
+	 * This does not handle files on the file system, that part is handled by the
+	 * PagesExportImport module. Note that module does not use this importValue method. 
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|float|int|null|object|string $value
+	 * @param array $options
+	 * @return array|float|int|string
+	 *
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		foreach($value as $key => $item) {
+			if(empty($item['filedata'])) continue;
+			$value[$key]['filedata'] = $this->importFiledata($page, $item['filedata'], $options);
+		}
+		$value = parent::___importValue($page, $field, $value, $options);
+		return $value;
+	}
 
 	/**
 	 * Export value
@@ -559,6 +581,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * @param array|float|int|null|object|string $value
 	 * @param array $options
 	 * @return array|float|int|string
+	 * @since 3.0.254
 	 * 
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
@@ -590,7 +613,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				$exportKey = $k;
 			}
 			
-			unset($v['data']); 
+			unset($v['data']);
+			
+			$v['filedata'] = empty($v['filedata']) ? [] : $this->exportFiledata($page, $v['filedata'], $options);
 	
 			if($options['FieldtypeFile']['noJSON']) {
 				// export version 2 for exported description uses array value for multi-language, rather than JSON string
@@ -602,6 +627,88 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		}
 		
 		return $exportValue; 	
+	}
+	
+	/**
+	 * Export filedata
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param array|string $filedata
+	 * @param array $options
+	 * @return array
+	 * @since 3.0.254
+	 * 
+	 */
+	protected function exportFiledata(Page $page, $filedata, array $options = []) {
+		if(!is_array($filedata)) {
+			$filedata = json_decode($filedata, true);
+			if($filedata === false) return [];
+		}
+		$fields = $this->wire()->fields;
+		foreach($filedata as $key => $value) {
+			if(strpos($key, '_') !== 0) continue;
+			if(strpos($key, '_field.') === 0) {
+				unset($filedata[$key]); 
+				continue;
+			}
+			$fieldId = ltrim($key, '_');
+			if(!ctype_digit($fieldId)) continue;
+			$field = $fields->get((int) $fieldId); /** @var Field $f */
+			if(!$field) continue;
+			unset($filedata[$key]);
+			$key = "_field.{$fieldId}_$field->name";
+			$a = $field->type->exportValue($page, $field, $value, $options);
+			$filedata[$key] = $a;
+		}
+		return $filedata;
+	}
+	
+	/**
+	 * Import filedata (as used by PagesExportImport import)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param array|string $filedata
+	 * @param array $options
+	 * @return array
+	 * 
+	 */
+	public function importFiledata(Page $page, $filedata, array $options) {
+		$languages = $this->wire()->languages;
+		if(!is_array($filedata)) {
+			$filedata = json_decode($filedata, true);
+			if($filedata === false) return [];
+		}
+		$fields = $this->wire()->fields;
+		foreach($filedata as $key => $value) {
+			if(strpos($key, '_field.') !== 0) continue;
+			list(, $k) = explode('.', $key, 2);
+			list(/*$fieldId*/, $fieldName) = explode('_', $k, 2);
+			$field = $fields->get($fieldName);
+			if(!$field) continue;
+			unset($filedata[$key]);
+			if($languages && wireInstanceOf($field->type, 'FieldtypeLanguageInterface')) {
+				if(is_array($value)) {
+					foreach($value as $langName => $langVal) {
+						$language = $languages->get($langName);
+						if(!$language) continue;
+						$langKey = $language->isDefault() ? 'data' : "data$language->id";
+						$value[$langKey] = $langVal;
+						unset($value[$langName]);
+					}
+				} else {
+					$value = ['data' => $value];
+				}
+			} else {
+				$value = $field->type->importValue($page, $field, $value, $options);
+			}
+			$key = "_$field->id";
+			$filedata[$key] = $value;
+		}
+		return $filedata;
 	}
 
 	/**
