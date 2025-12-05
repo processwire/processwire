@@ -396,7 +396,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		$legacyHookEvent = $this->hasHook('renderPage()'); 
 		if($legacyHookEvent) {
 			$legacyHookEvent = new HookEvent([
-				'object' => $this,
+				'object' => $page,
 				'method' => 'renderPage',
 				'arguments' => [ 'options' => $options ],
 				'when' => 'before',
