@@ -3640,16 +3640,24 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 
 .uk-checkbox:focus,
 .uk-checkbox:indeterminate:focus {
-	border-color: var(--pw-main-color);
+	border-color: var(--pw-main-color) !important;
 }
 .uk-checkbox:indeterminate {
-	background-color: transparent;
+	background-color: var(--pw-main-color);
+	background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%20%20%3Crect%20fill%3D%22%23fff%22%20x%3D%223%22%20y%3D%228%22%20width%3D%2210%22%20height%3D%221%22%20%2F%3E%0A%3C%2Fsvg%3E')
 }
 .pw .uk-checkbox:checked,
 .pw .uk-checkbox:checked:focus {
 	background-color: var(--pw-main-color);
-	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="white" version="1.1" viewBox="0 0 78.369 78.369" xml:space="preserve"><g><path d="M78.049,19.015L29.458,67.606c-0.428,0.428-1.121,0.428-1.548,0L0.32,40.015c-0.427-0.426-0.427-1.119,0-1.547l6.704-6.704 c0.428-0.427,1.121-0.427,1.548,0l20.113,20.112l41.113-41.113c0.429-0.427,1.12-0.427,1.548,0l6.703,6.704 C78.477,17.894,78.477,18.586,78.049,19.015z"/></g></svg>');
+	background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="white" version="1.1" viewBox="0 0 78.369 78.369" xml:space="preserve"><g><path d="M78.049,19.015L29.458,67.606c-0.428,0.428-1.121,0.428-1.548,0L0.32,40.015c-0.427-0.426-0.427-1.119,0-1.547l6.704-6.704 c0.428-0.427,1.121-0.427,1.548,0l20.113,20.112l41.113-41.113c0.429-0.427,1.12-0.427,1.548,0l6.703,6.704 C78.477,17.894,78.477,18.586,78.049,19.015z"/></g></svg>');
 	background-size: 82%;
+}
+.pw .uk-checkbox:checked:focus {
+	background-color: color-mix(
+			in srgb,
+			var(--pw-main-color),
+			var(--pw-text-color) 20%
+	) !important;
 }
 
 .pw-togcbx .InputfieldCheckboxes ul li {
