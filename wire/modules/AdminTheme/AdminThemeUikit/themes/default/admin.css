@@ -3653,7 +3653,8 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 }
 
 .pw-togcbx .InputfieldCheckboxes ul li {
-	padding: 3px 0;
+	padding-top: 3px;
+	padding-bottom: 3px;
 }
 
 .pw-togcbx .uk-checkbox {
