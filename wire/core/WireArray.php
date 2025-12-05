@@ -1249,6 +1249,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if($obj) {
 			$key = $this->getItemKey($key); 
 		}
+		
+		if($key === null) return $this;
 
 		if(array_key_exists($key, $this->data)) {
 			$item = $this->data[$key];
