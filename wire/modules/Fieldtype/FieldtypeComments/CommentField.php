@@ -105,6 +105,20 @@ class CommentField extends Field {
 		return $this->getFieldtype()->getCommentByID($page, $this, $id); 
 	}
 	
+	
+	/**
+	 * Get multiple comments by ID
+	 *
+	 * @param int[] $ids Comment IDs
+	 * @param Page|null $page Optionally limit comments to this page
+	 * @return CommentArray
+	 * @since 3.0.255
+	 *
+	 */
+	public function getCommentsByID(array $ids, $page = null) {
+		return $this->getFieldtype()->getCommentsById($this, $ids, $page);
+	}
+	
 	/**
 	 * Get parent comments for given Comment
 	 *
