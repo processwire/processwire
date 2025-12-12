@@ -601,7 +601,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function populateMarkupRegions(&$html) {
-
+		
 		$markupRegions = new WireMarkupRegions();
 		$this->wire($markupRegions);
 		
@@ -609,11 +609,13 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		
 		if($pos === false) {
 			// if no doctype match, attempt an html tag match
-			$pos = stripos($html, '<html'); 
+			$pos = stripos($html, '<html');
 		}
 		
-		// if no document start, or document starts at pos==0, then nothing to populate
-		if(!$pos) {
+		if($pos === 0) {
+			// no markup output before document start, no regions will be populated
+		} else if($pos === false) {
+			// if no document start then nothing to populate
 			// there still may be region related stuff that needs to be removed like <region> tags
 			$markupRegions->removeRegionTags($html);
 			$html = $markupRegions->stripOptional($html);
