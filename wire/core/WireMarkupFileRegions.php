@@ -183,6 +183,30 @@ class WireMarkupFileRegions extends Wire {
 	}
 	
 	/**
+	 * Namespaces that have specific meanings in file regions
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $reservedNamespaces = [
+		'ready' => 'ready',
+		'loaded' => 'loaded',
+		'onload' => 'loaded',
+	];
+	
+	/**
+	 * Boolean namespaces that map to reserved namespaces
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $booleanNamespaces = [
+		'pw-ready' => 'ready', 
+		'pw-loaded' => 'loaded',
+		'pw-onload' => 'loaded',
+	];
+	
+	/**
 	 * Errors found by findRegions() method 
 	 * 
 	 * @var array 
@@ -275,6 +299,7 @@ class WireMarkupFileRegions extends Wire {
 			$content = $matches[4][$key];
 			$open = "<$tag $attrs>";
 			$context = $open . str_replace(["\n", "\t"], " ", substr($content, 0, 30)) . '…';
+			$namespace = false;
 			$errors = [];
 			
 			if(empty($value)) {
@@ -309,6 +334,18 @@ class WireMarkupFileRegions extends Wire {
 			foreach($errors as $error) {
 				$this->addError($context, $error);
 			}
+	
+			if(strpos($open, 'pw-ns') || strpos($open, 'pw-namespace')) {
+				if(preg_match('!\bpw-(?:ns|namespace)(?:=(["\'])(.+?)\\1)?!', $open, $match)) {
+					$namespace = isset($match[2]) ? $match[2] : true;
+				}
+			} else {
+				foreach($this->booleanNamespaces as $attrName => $ns) {
+					if(strpos($open, $attrName) === false) continue;
+					$namespace = $ns;
+					break;
+				}
+			}
 			
 			if(!isset($regions[$value])) $regions[$value] = [];
 			
@@ -326,6 +363,7 @@ class WireMarkupFileRegions extends Wire {
 				'details' => implode('. ', $errors), 
 				'region' => $content,
 				'html' => $fullMatch,
+				'namespace' => $namespace,
 			];
 			
 			$html = str_replace($fullMatch, '', $html);
@@ -400,6 +438,7 @@ class WireMarkupFileRegions extends Wire {
 				
 				foreach($regions as $region) {
 					if($region['error']) $skip = true;
+					if($region['namespace'] !== false) $this->applyRegionNamespace($region);
 					$newContent .= $region['region'];
 				}
 				
@@ -460,6 +499,45 @@ class WireMarkupFileRegions extends Wire {
 		}
 		
 		return $out;
+	}
+	
+	/**
+	 * Apply namespace to region content
+	 * 
+	 * @param array $region
+	 * 
+	 */
+	protected function applyRegionNamespace(array &$region) {
+		$sanitizer = $this->wire()->sanitizer;
+		$namespace = $region['namespace'];
+		$ext = strtolower(pathinfo($region['actionTarget'], PATHINFO_EXTENSION)); 
+		if(in_array($ext, [ 'css', 'scss', 'sass', 'less' ])) {
+			if(is_string($namespace) && strlen($namespace)) {
+				if(isset($this->reservedNamespaces[$namespace])) {
+					// reserved namespace not used by css
+				} else {
+					// use namespace as the parent rule in nested css
+					$region['region'] = "\n$namespace {" . $region['region'] . "}";
+				}
+			} else {
+				// boolean namespace not used for css 
+			}
+		} else if($ext === 'js') {
+			if(isset($this->reservedNamespaces[$namespace])) {
+				$namespace = $this->reservedNamespaces[$namespace];
+			}
+			if($namespace === 'ready') {
+				// document.ready 
+				$region['region'] = "\ndocument.addEventListener('DOMContentLoaded', (event) => {" . $region['region'] . "});";
+			} else if($namespace === 'loaded') {
+				// window.onload
+				$region['region'] = "\nwindow.onload = () => {" . $region['region'] . "};";
+			} else {
+				// boolean or named namespace puts JS within JS arrow IIFE
+				$namespace = is_string($namespace) && strlen($namespace) ? "/*" . $sanitizer->name($namespace) . "*/" : "";
+				$region['region'] = "\n(($namespace) => {" . $region['region'] . "})();";
+			}
+		}	
 	}
 	
 	/**
