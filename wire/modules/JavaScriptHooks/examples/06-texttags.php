@@ -1,0 +1,46 @@
+<h2>TextTags</h2>
+
+<div show-code>
+  <script>
+    // self-invoking function to create a new class TextTags
+    // but do not add it to the global namespace
+    (() => {
+      class TextTags {
+
+        // NOTE: this does NOT work
+        // you can't call a hookable method from the constructor
+        // because at that point the class is not yet hookable
+        // constructor(text) {
+        //   this.log(text);
+        // }
+
+        ___log(text) {
+          alert(text);
+        }
+      }
+
+      const func = function(text) {
+        const instance = ProcessWire.wire(new TextTags());
+        return instance.log(text);
+      }
+
+      // add TextTags() as global function
+      window.TextTags = func;
+
+      // add TextTags() as ProcessWire.TextTags() function
+      ProcessWire.TextTags = func;
+    })();
+
+    // add demo hook to modify the log() behavior
+    ProcessWire.addHookBefore("TextTags::log", (event) => {
+      const msg = event.arguments(0);
+      if (msg === "Hello, world!") event.arguments(0, "Hello, universe!");
+    });
+
+    TextTags("Hello, world!");
+
+    ProcessWire.TextTags("Hi there from ProcessWire.TextTags()");
+  </script>
+
+  <p>Example built as response to <a href=https://github.com/baumrock/processwire/pull/1>https://github.com/baumrock/processwire/pull/1</a>.</p>
+</div>
