@@ -1030,6 +1030,7 @@ class Config extends WireData {
 		}
 
 		foreach($urls as $url) {
+			$url = (string) $url;
 			if(strpos($url, $coreVersionStr)) {
 				// url already has core version present in it
 				if($useVersion === false) {
