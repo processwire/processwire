@@ -1310,7 +1310,9 @@ var Inputfields = {
 		$icon.on('click', function() {
 			if(actionType === 'link') {
 				if(settings.modal) {
-					pwModalWindow(settings.href);	
+					pwModalWindow(settings.href);
+				} else if(settings.target) {
+					window.open(settings.href, settings.target);
 				} else {
 					window.location.href = settings.href;
 				}
@@ -1474,7 +1476,11 @@ var Inputfields = {
 				var $a = $li.children('a');
 				var n = parseInt($a.attr('data-n'));
 				var active = settings.menuItems[n].active;
-				if(typeof active === 'function') active = active($a);
+				if(typeof active === 'undefined') {
+					active = true; // default
+				} else if(typeof active === 'function') {
+					active = active($a);
+				}
 				if(active) {
 					$li.removeClass('ui-state-disabled');
 				} else {

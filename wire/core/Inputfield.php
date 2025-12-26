@@ -2113,6 +2113,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * - `event` (string): Event name to trigger in JS when clicked ('click' actions only). 
 	 * - `href` (string): URL to open ('link' actions only). 
 	 * - `modal` (bool): Specify true to open link in modal ('link' actions only). 
+	 * - `target` (string): Optional target attribute i.e. '_blank'.
 	 * 
 	 * Settings for 'toggle' (on/off) type actions 
 	 * -------------------------------------------
