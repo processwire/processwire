@@ -183,9 +183,12 @@ $config->useFunctionsAPI = false;
  *
  * When enabled, HTML elements with an "id" attribute that are output before the opening 
  * `<!doctype>` or `<html>` tag can replace elements in the document that have the same id. 
- * Also supports append, prepend, replace, remove, before and after options. 
+ * Also supports append, prepend, replace, remove, before and after options. For more 
+ * details see [Markup Regions](https://processwire.com/docs/front-end/output/markup-regions/).
+ * 
+ * Specify true to enable, or integer 2 to enable also with file regions. 
  *
- * @var bool
+ * @var bool|int
  *
  */
 $config->useMarkupRegions = false;

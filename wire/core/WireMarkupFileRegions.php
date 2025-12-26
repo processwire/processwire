@@ -6,14 +6,14 @@
  * #pw-headline Markup File Regions
  * #pw-summary Enables you to use the Markup Regions system to populate CSS and JS files.
  * #pw-body = 
- * File regions are a part of ProcessWire’s [Markup Regions](https://processwire.com/docs/front-end/output/markup-regions/) 
+ * File regions are an experimental part of ProcessWire’s [Markup Regions](https://processwire.com/docs/front-end/output/markup-regions/) 
  * output strategy. File regions enable you to define CSS, JS, SCSS or LESS in your markup alongside the markup that is styled
  * or manipulated by it, keeping everything together as a single component, in cases where it's worthwhile. Unlike inline styles 
  * or scripts, ProcessWire takes care of moving these assets to one or more external asset files. These external asset files are 
  * automatically updated whenever you make a change to your file regions. 
  * 
- * File regions require ProcessWire 3.0.254 or newer. They are automatically enabled when Markup Regions are enabled. And Markup
- * Regions are enabled with `$config->useMarkupRegions = true;` in your /site/config.php file.
+ * File regions require ProcessWire 3.0.254 or newer. They are not enabled by default. 
+ * Markup Regions with File Regions are enabled with `$config->useMarkupRegions = 2;` in your /site/config.php file.
  * More about: [Markup Regions](https://processwire.com/docs/front-end/output/markup-regions/).
  * 
  * #### How to use file regions for CSS: 

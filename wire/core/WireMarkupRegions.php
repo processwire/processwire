@@ -48,7 +48,6 @@ class WireMarkupRegions extends Wire {
 		'img' => 'img',
 		'input' => 'input',
 		'keygen' => 'keygen',
-		'link' => 'link',
 		'meta' => 'meta',
 		'param' => 'param',
 		'source' => 'source',
@@ -121,6 +120,7 @@ class WireMarkupRegions extends Wire {
 	 *  - `max` (int): Maximum allowed regions to return (default=500).
 	 *  - `exact` (bool): Return region markup exactly as-is? (default=false). Specify true when using return values for replacement.
 	 *  - `leftover` (bool): Specify true if you want to return a "leftover" key in return value with leftover markup. 
+	 *  - `type` (string|int): Optional type name to return for each region. 
 	 * @return array Returns one of the following: 
 	 *  - Associative array of [ 'id' => 'markup' ] when finding specific attributes or #id attributes. 
 	 *  - Regular array of markup regions when finding regions having a specific class attribute. 
@@ -139,6 +139,7 @@ class WireMarkupRegions extends Wire {
 			'max' => 500, 
 			'exact' => false, 
 			'leftover' => false,
+			'type' => '', 
 		);
 
 		$options = array_merge($defaults, $options);
@@ -217,6 +218,7 @@ class WireMarkupRegions extends Wire {
 			$regionMarkup = empty($tagInfo['close']) ? '' : substr($markupAfter, $closeOpenTagPos + 1);
 			$region = $this->getTagRegion($regionMarkup, $tagInfo, $options);
 			$region['startPos'] = $openTagPos;
+			$region['type'] = $options['type'];
 
 			if($options['single']) {
 				// single mode means we just return the markup
@@ -1449,6 +1451,7 @@ class WireMarkupRegions extends Wire {
 	 * @param string|array $htmlRegions Markup containing regions (or regions array from a find call)
 	 * @param array $options Options to modify behavior: 
 	 *  - `useClassActions` (bool): Allow "pw-*" actions to be specified in class names? Per original/legacy spec. (default=false)
+	 *  - `useFileRegions` (bool): Allow use of markup file regions? (default=false)
 	 * @return int Number of updates made to $htmlDocument
 	 *
 	 */
@@ -1461,23 +1464,28 @@ class WireMarkupRegions extends Wire {
 		$callQty++;
 
 		$defaults = array(
-			'useClassActions' => false // allow use of "pw-*" class actions? (legacy)
+			'useClassActions' => false, // allow use of "pw-*" class actions? (legacy)
+			'useFileRegions' => false, 
 		);
 		
 		$options = array_merge($defaults, $options);
 		$hasDebugLandmark = strpos($htmlDocument, self::debugLandmark) !== false;
 		$debug = $hasDebugLandmark && $this->wire()->config->debug;
-		$debugNotes = array();
+		$debugNotes = [];
+		$htmlDocumentRegions = []; // regions found in or included from _main.php
 		
 		if(is_string($htmlRegions) && $recursionLevel === 1) {
 			$this->initHtml($htmlRegions);
-			$n = $this->fileRegions()->apply($htmlDocument, $htmlRegions, $options);
-			if($debug) {
-				foreach($this->fileRegions()->getErrors() as $errorContext => $errors) {
-					foreach($errors as $error) $debugNotes[] = "File region: $error in $errorContext";
-				}
-				foreach($this->fileRegions()->getNotes() as $note) $debugNotes[] = "File region: $note";
-				if($n) $debugNotes[] = "Applied $n file region(s)";
+			if($options['useFileRegions']) $this->populateFileRegions($htmlDocument, $htmlRegions, $options, $debug);
+			if($this->hasRegionActions($htmlDocument)) {
+				// find regions in (or included from) _main.php
+				$htmlDocumentRegions = $this->find('[pw-action]', $htmlDocument, [
+					'verbose' => true,
+					'leftover' => false,
+					'exact' => true,
+					'debugNote' => "htmlDocumentRegions",
+					'type' => 'htmlDocument',
+				]);
 			}
 		}
 		
@@ -1501,6 +1509,10 @@ class WireMarkupRegions extends Wire {
 			
 		} else {
 			$regions = array();
+		}
+
+		if(count($htmlDocumentRegions)) {
+			$regions = array_merge(array_values($htmlDocumentRegions), array_values($regions));
 		}
 
 		if(!count($regions)) {
@@ -1631,7 +1643,11 @@ class WireMarkupRegions extends Wire {
 				);
 				if(is_string($htmlRegions)) {
 					// remove region markup from $htmlRegions so we can later determine what’s left
-					$htmlRegions = str_replace($region['html'], '', $htmlRegions);
+					if($region['type'] === 'htmlDocument') {
+						$htmlDocument = str_replace($region['html'], '', $htmlDocument);
+					} else {
+						$htmlRegions = str_replace($region['html'], '', $htmlRegions);
+					}
 				}
 				$populatedNotes[] = $regionNote;
 				$numUpdates++;
@@ -1656,13 +1672,15 @@ class WireMarkupRegions extends Wire {
 			if(count($rejectedNotes)) foreach($rejectedNotes as $note) $debugNotes[] = "SKIPPED: $note";
 			if($leftoverBytes) $debugNotes[] = "$leftoverBytes non-region bytes skipped: [sm]{$leftoverMarkup}[/sm]";
 			if($htmlRegionsLen) {
+				$htmlRegionsSummary = strlen($htmlRegions) < 1024 ? $htmlRegions : substr($htmlRegions, 0, 1024) . '…'; 
 				if($recursionLevel > 1) {
-					$debugNotes[] = "$htmlRegionsLen HTML-region bytes found no home after 2nd pass: [sm]{$htmlRegions}[/sm]";
+					$debugNotes[] = "$htmlRegionsLen HTML-region bytes found no home after 2nd pass: [sm]{$htmlRegionsSummary}[/sm]";
 				} else if($this->hasRegions($htmlRegions)) {
-					$debugNotes[] = "$htmlRegionsLen HTML-region bytes remaining for 2nd pass: [sm]{$htmlRegions}[/sm]";
+					$debugNotes[] = "$htmlRegionsLen HTML-region bytes remaining for 2nd pass: [sm]{$htmlRegionsSummary}[/sm]";
 				} else {
-					$debugNotes[] = "$htmlRegionsLen HTML bytes remaining, but no regions present: [sm]{$htmlRegions}[/sm]";
+					$debugNotes[] = "$htmlRegionsLen HTML bytes remaining, but no regions present: [sm]{$htmlRegionsSummary}[/sm]";
 				}
+				unset($htmlRegionsSummary);
 			}
 			if(count($this->debugNotes)) {
 				$this->debugNotes = array_unique($this->debugNotes); 
@@ -1753,7 +1771,28 @@ class WireMarkupRegions extends Wire {
 			}
 		}
 	}
-
+	
+	/**
+	 * Populate file regions
+	 *
+	 * @param string $htmlDocument
+	 * @param array|string $htmlRegions
+	 * @param array $options
+	 * @param bool $debug
+	 *
+	 */
+	protected function populateFileRegions(&$htmlDocument, &$htmlRegions, $options, $debug) {
+		$fileRegions = $this->fileRegions();
+		if(!$fileRegions) return;
+		$n = $fileRegions->apply($htmlDocument, $htmlRegions, $options);
+		if(!$debug) return;
+		foreach($fileRegions->getErrors() as $errorContext => $errors) {
+			foreach($errors as $error) $debugNotes[] = "File region: $error in $errorContext";
+		}
+		foreach($fileRegions->getNotes() as $note) $debugNotes[] = "File region: $note";
+		if($n) $debugNotes[] = "Applied $n file region(s)";
+	}
+	
 	/**
 	 * Remove any <region> or <pw-region> tags present in the markup, leaving their innerHTML contents
 	 * 
@@ -1811,24 +1850,34 @@ class WireMarkupRegions extends Wire {
 	/**
 	 * Does the given HTML markup have references to any pw-actions?
 	 * 
-	 * Note: not currently used by this class. 
-	 * 
 	 * @param string $html
 	 * @return bool
 	 * 
 	 */
 	public function hasRegionActions(&$html) {
-		$has = false;
+		if(strpos($html, ' pw-') === false && strpos($html, ' data-pw-') === false) return false;
+		$regex = 
+			'!\s' . // at least one whitespace
+			'(?:pw-|data-pw-)' . // "pw-" or "data-pw-"
+			'(?:' . implode('|', $this->actions) . ')' . // append, prepend, before, after, replace, etc.
+			'(?:' .
+				'>|' .      // close open tag, i.e. "pw-append>"
+				'[="\']|' . // equals attribute value, i.e. "pw-append='foo'"
+				'[^<>]+>' . // attributes then close open tag, i.e. "pw-append class='bar'>
+			')!';
+		return (bool) preg_match($regex, $html);
+		
+		/*
 		foreach($this->actions as $action) {
 			if(strpos($html, "pw-$action") !== false) {
 				// found pw-action, now perform a more thorough check
-				if(preg_match('![="\'\s]pw-' . $action . '(?:["\'\s=][^<>]*>|>)!', $html)) {
+				if(preg_match('![="\'\s](?:pw-|data-pw-)' . $action . '(?:["\'\s=][^<>]*>|>)!', $html)) {
 					$has = true;
 					break;
 				}
 			}
 		}
-		return $has;
+		*/
 	}
 	
 	protected function debugNoteStr($str, $maxLength = 0) {

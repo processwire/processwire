@@ -551,10 +551,11 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			}
 		}
 
-		if($config->useMarkupRegions) {
+		$useMarkupRegions = (int) $config->useMarkupRegions;
+		if($useMarkupRegions) {
 			$contentType = $template->contentType; 
 			if(empty($contentType) || stripos($contentType, 'html') !== false) {
-				$this->populateMarkupRegions($data);
+				$this->populateMarkupRegions($data, [ 'useFileRegions' => $useMarkupRegions > 1 ]);
 			}
 		}
 		
@@ -597,10 +598,11 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Populate markup regions directly to $html
 	 * 
-	 * @param $html
+	 * @param string $html
+	 * @param array $options
 	 * 
 	 */
-	protected function populateMarkupRegions(&$html) {
+	protected function populateMarkupRegions(&$html, array $options = []) {
 		
 		$markupRegions = new WireMarkupRegions();
 		$this->wire($markupRegions);
@@ -625,7 +627,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		// split document at doctype/html boundary
 		$htmlBefore = substr($html, 0, $pos);
 		$html = substr($html, $pos);
-		$options = array('useClassActions' => true); 
+		$options = [ 
+			'useClassActions' => true,
+			'useFileRegions' => !empty($options['useFileRegions']),
+		]; 
 		$config = $this->wire()->config;
 		$version = (int) $config->useMarkupRegions;
 		
