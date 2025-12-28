@@ -149,6 +149,13 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 	protected $zip = null;
 	
 	/**
+	 * Is ProcessWire currently being upgraded? (process=ProcessWireUpgrade)
+	 * 
+	 * @var bool 
+	 */
+	protected $isUpgrade = false;
+	
+	/**
 	 * Construct
 	 * 
 	 */
@@ -189,6 +196,7 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		
 		$zipArchive = '\ZipArchive';
 		$close = true;
+		$this->isUpgrade = $this->wire()->page->process == 'ProcessWireUpgrade';
 		
 		if(!class_exists($zipArchive)) {
 			$this->error($this->_('PHP’s ZipArchive class is not available and is required'));
@@ -217,7 +225,9 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		$this->requireFilesRuntime = $this->requireFiles;
 		$errors = [];
 
-		if($totalFiles > $this->maxFiles) {
+		if($this->isUpgrade) {
+			// do not perform file quantity check when upgrading ProcessWire
+		} else if($totalFiles > $this->maxFiles) {
 			if($close) $zip->close();
 			$this->error(
 				$this->_('Too many files in ZIP') .
@@ -292,24 +302,26 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		$depth = substr_count($name, '/');
 		$compRatio = $comp && $bytes ? $bytes / $comp : 0;
 
-		if($this->totalMegabytes > $this->maxTotalMegabytes) {
-			$errors[] = $this->_('Total extracted ZIP size exceeds max allowed size') .
-				($this->verbose ? " ($this->totalMegabytes MB > $this->maxTotalMegabytes MB)" : "");
-		}
-
-		if($megabytes > $this->maxFileMegabytes) {
-			$errors[] = $this->_('Exceeds max allowed size') .
-				($this->verbose ? " ($megabytes MB > $this->maxFileMegabytes MB)" : "");
-		}
-
-		if($depth > $this->maxDepth) {
-			$errors[] = $this->_('Exceeds max allowed directory depth') .
-				($this->verbose ? " ($depth > $this->maxDepth)" : "");
-		}
-
-		if($this->maxCompRatio && $compRatio > $this->maxCompRatio) {
-			$errors[] = $this->_('Exceeds max compression ratio') .
-				($this->verbose ? " (" . ceil($compRatio) . " > $this->maxCompRatio)" : "");
+		if(!$this->isUpgrade) {
+			if($this->totalMegabytes > $this->maxTotalMegabytes) {
+				$errors[] = $this->_('Total extracted ZIP size exceeds max allowed size') .
+					($this->verbose ? " ($this->totalMegabytes MB > $this->maxTotalMegabytes MB)" : "");
+			}
+			
+			if($megabytes > $this->maxFileMegabytes) {
+				$errors[] = $this->_('Exceeds max allowed size') .
+					($this->verbose ? " ($megabytes MB > $this->maxFileMegabytes MB)" : "");
+			}
+			
+			if($depth > $this->maxDepth) {
+				$errors[] = $this->_('Exceeds max allowed directory depth') .
+					($this->verbose ? " ($depth > $this->maxDepth)" : "");
+			}
+			
+			if($this->maxCompRatio && $compRatio > $this->maxCompRatio) {
+				$errors[] = $this->_('Exceeds max compression ratio') .
+					($this->verbose ? " (" . ceil($compRatio) . " > $this->maxCompRatio)" : "");
+			}
 		}
 
 		if(!empty($info['encryption_method']) && !$this->allowEncrypted) {
