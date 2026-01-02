@@ -209,7 +209,25 @@ class Wire404Exception extends WireException {
 	 *
 	 */
 	const codeAnonymous = 0;
-
+	
+	/**
+	 * Get description of source for 404 error 
+	 * 
+	 * @return string
+	 * @since 3.0.255
+	 * 
+	 */
+	public function getDescription() {
+		switch($this->getCode()) {
+			case self::codeNonexist: return 'Requested URL does not exist';
+			case self::codePermission: return 'Not enough permission to requested URL';
+			case self::codeSecondary: return 'Secondary non-file asset does not exist';
+			case self::codeLanguage: return 'URL not available in requested language';
+			case self::codeFile: return 'Physical file that does not exist';
+			case self::codeFunction: return 'wire404() function call';
+			default: return 'Anonymous 404';
+		}
+	}
 }
 
 /**

@@ -196,8 +196,20 @@ class ProcessPageView extends Process {
 		} catch(Wire404Exception $e) {
 			// 404 exception thrown during page render
 			TemplateFile::clearAll();
+			$message = $e->getMessage();
+			$description = $e->getDescription();
+			$message = $description && $message ? "$description: $message" : trim("$description $message"); 
+			if(in_array('http404', $config->logs)) {
+				if(isset($_SERVER['REQUEST_URI'])) {
+					$url = $this->wire()->sanitizer->url($_SERVER['REQUEST_URI'], [ 'maxLength' => 255 ]);
+				} else {
+					$url = $this->wire()->input->url(true);
+				}
+				$this->wire()->log->save('http404', "$message (Page: $originalPage) -- $url"); 
+				unset($url);
+			}
 			return $this->renderNoPage($request, array(
-				'reason404' => '404 thrown during page render',
+				'reason404' => $message, 
 				'exception404' => $e, 
 				'page' => $page, 
 				'ready' => true, // let it know ready state already executed

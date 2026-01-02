@@ -446,7 +446,6 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$this->database->execute($query);
 		if($query->rowCount()) {
 			$row = $query->fetch(\PDO::FETCH_ASSOC);
-			$query->closeCursor();
 			$sess = $_SESSION; // save
 			session_decode($row['data']);
 			$row['data'] = $_SESSION;
@@ -454,6 +453,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		} else {
 			$row = [];
 		}
+		$query->closeCursor();
 		return $row; 
 	}
 

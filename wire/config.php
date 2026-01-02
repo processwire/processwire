@@ -1590,7 +1590,15 @@ $config->markupQA = array(
  * Additional core logs
  * 
  * All activities from the API functions corresponding with the given log names will be logged. 
- * Options that can be specified are: pages, fields, templates, modules, exceptions, deprecated.
+ * Options that can be specified are: 
+ * 
+ * - pages
+ * - fields
+ * - templates
+ * - modules
+ * - exceptions
+ * - deprecated
+ * - http404 (3.0.255+)
  * 
  * Use log "deprecated" to log deprecated calls (during development only).
  * 
