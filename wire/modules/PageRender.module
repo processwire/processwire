@@ -402,7 +402,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				'when' => 'before',
 			]);
 			$hook = $this->runHooks('renderPage', [ $legacyHookEvent ], 'before'); 
-			if(!empty($hook['replace'])) return $hook['return'];
+			if(!empty($hook['replace'])) return $legacyHookEvent->return;
 		}
 	
 		$template = $page->template;
@@ -591,9 +591,12 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * #pw-internal
 	 * 
 	 * @param HookEvent $event
+	 * @return string|null
 	 * 
 	 */
-	public function ___renderPage($event) { }
+	public function ___renderPage($event) { 
+		return null;
+	}
 
 	/**
 	 * Populate markup regions directly to $html
