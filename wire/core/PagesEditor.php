@@ -553,6 +553,7 @@ class PagesEditor extends Wire {
 		$userID = $user ? $user->id : $config->superUserPageID;
 		$systemVersion = $config->systemVersion;
 		$sql = '';
+		$sqlNowCustom = '"'.date('Y-m-d H:i:s').'"'; // Use instead of MySQL's NOW() to avoid timezone difference with PHP
 		
 		if(!$page->created_users_id) $page->created_users_id = $userID;
 		
@@ -597,7 +598,7 @@ class PagesEditor extends Wire {
 		}
 
 		if(empty($options['quiet'])) {
-			$sql = 'modified=NOW()';
+			$sql = 'modified='.$sqlNowCustom;
 			$data['modified_users_id'] = (int) $userID;
 		} else {
 			// quiet option, use existing values already populated to page, when present
@@ -606,7 +607,7 @@ class PagesEditor extends Wire {
 			if($page->modified > 0) {
 				$data['modified'] = date('Y-m-d H:i:s', $page->modified);
 			} else if($isNew) {
-				$sql = 'modified=NOW()';
+				$sql = 'modified='.$sqlNowCustom;
 			}
 			if($page->created > 0) {
 				$data['created'] = date('Y-m-d H:i:s', $page->created);
@@ -619,7 +620,7 @@ class PagesEditor extends Wire {
 		if(!$page->isUnpublished() && ($isNew || ($page->statusPrevious && ($page->statusPrevious & Page::statusUnpublished)))) {
 			// page is being published
 			if($systemVersion >= 12) {
-				$sql .= ($sql ? ', ' : '') . 'published=NOW()';
+				$sql .= ($sql ? ', ' : '') . 'published='.$sqlNowCustom;
 			}
 		}
 
@@ -630,7 +631,7 @@ class PagesEditor extends Wire {
 		$sql = trim($sql, ", ");
 
 		if($isNew) { 
-			if(empty($data['created'])) $sql .= ', created=NOW()';
+			if(empty($data['created'])) $sql .= ', created='.$sqlNowCustom;
 			$query = $database->prepare("INSERT INTO pages SET $sql");
 		}  else {
 			$query = $database->prepare("UPDATE pages SET $sql WHERE id=:page_id");
@@ -955,7 +956,8 @@ class PagesEditor extends Wire {
 				$user = $this->wire()->user;
 				$userID = (int) ($user ? $user->id : $this->wire()->config->superUserPageID);
 				$database = $this->wire()->database;
-				$query = $database->prepare("UPDATE pages SET modified_users_id=:userID, modified=NOW() WHERE id=:pageID");
+				$sqlNowCustom = '"'.date('Y-m-d H:i:s').'"'; // Use instead of MySQL's NOW() to avoid timezone difference with PHP
+				$query = $database->prepare("UPDATE pages SET modified_users_id=:userID, modified=$sqlNowCustom WHERE id=:pageID");
 				$query->bindValue(':userID', $userID, \PDO::PARAM_INT);
 				$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
 				$database->execute($query);
@@ -1586,7 +1588,7 @@ class PagesEditor extends Wire {
 		$sql = "UPDATE pages SET $col=";
 		
 		if(is_null($time)) {
-			$sql .= 'NOW() ';
+			$sql .= '"'.date('Y-m-d H:i:s').'" ';
 			
 		} else if(is_int($time) || ctype_digit($time)) {
 			$time = (int) $time;
