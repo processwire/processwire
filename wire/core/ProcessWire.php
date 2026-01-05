@@ -1273,6 +1273,14 @@ class ProcessWire extends Wire {
 			/** @noinspection PhpIncludeInspection */
 			@require($configFile);
 		}
+
+		// Include local config file that is typically used
+		// when deploying to multiple environments (staging/production)
+		$configFileLocal = $sitePath . "config-local.php";
+		if(is_file($configFileLocal)) {
+			/** @noinspection PhpIncludeInspection */
+			@require($configFileLocal);
+		}
 		
 		if($httpHost) {
 			$config->httpHost = $httpHost;
