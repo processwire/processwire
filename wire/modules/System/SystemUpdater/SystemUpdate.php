@@ -74,3 +74,27 @@ abstract class SystemUpdate extends Wire {
 	}
 
 }
+
+/**
+ * Updates at ProcessWire::ready state instead
+ * 
+ * Implement an update() method that returns true|false rather than execute()
+ * 
+ */
+abstract class SystemUpdateAtReady extends SystemUpdate {
+	public function execute() {
+		$this->wire()->addHookAfter('ProcessWire::ready', $this, 'executeAtReady');
+		return 0; // indicates we will update system version ourselves when ready
+	}
+	public function executeAtReady() {
+		if($this->update()) {
+			$this->updater->saveSystemVersion($this->getVersion());
+		}
+	}
+	
+	/**
+	 * @return bool
+	 * 
+	 */
+	abstract public function update();
+}

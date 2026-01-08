@@ -4,12 +4,8 @@
  * Clear legacy and irrelevant entries from modules table
  *
  */
-class SystemUpdate19 extends SystemUpdate {
-	public function execute() {
-		$this->wire()->addHookAfter('ProcessWire::ready', $this, 'executeAtReady');
-		return 0; // indicates we will update system version ourselves when ready
-	}
-	public function executeAtReady() {
+class SystemUpdate19 extends SystemUpdateAtReady {
+	public function update() {
 		$database = $this->wire()->database;
 		$modules = $this->wire()->modules;
 		$query = $database->prepare('DELETE FROM modules WHERE class=:name');
@@ -22,7 +18,6 @@ class SystemUpdate19 extends SystemUpdate {
 		}
 		$query->closeCursor();
 		if($qty) $this->message("Removed $qty redundant modules table entries", Notice::debug); 
-		$this->updater->saveSystemVersion(19);
+		return true;
 	}
 }
-

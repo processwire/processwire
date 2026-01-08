@@ -5,12 +5,8 @@
  * 
  *
  */
-class SystemUpdate18 extends SystemUpdate {
-	public function execute() {
-		$this->wire()->addHookAfter('ProcessWire::ready', $this, 'executeAtReady');
-		return 0; // indicates we will update system version ourselves when ready
-	}
-	public function executeAtReady() {
+class SystemUpdate18 extends SystemUpdateAtReady {
+	public function update() {
 		foreach($this->wire()->fields as $field) {
 			if($field->type instanceof FieldtypeFile) {
 				try {
@@ -18,7 +14,6 @@ class SystemUpdate18 extends SystemUpdate {
 				} catch(\Exception $e) { }
 			}
 		}
-		$this->updater->saveSystemVersion(18);
+		return true;
 	}
 }
-

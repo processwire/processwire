@@ -4,12 +4,8 @@
  * Correct created_users_id on some pages from admin page ID to be default superuser ID
  *
  */
-class SystemUpdate20 extends SystemUpdate {
-	public function execute() {
-		$this->wire()->addHookAfter('ProcessWire::ready', $this, 'executeAtReady');
-		return 0; // indicates we will update system version ourselves when ready
-	}
-	public function executeAtReady() {
+class SystemUpdate20 extends SystemUpdateAtReady {
+	public function update() {
 		$database = $this->wire()->database;
 		$config = $this->wire()->config;
 		/** @var User $u */
@@ -22,8 +18,6 @@ class SystemUpdate20 extends SystemUpdate {
 		$query->execute();
 		$rowCount = $query->rowCount();
 		if($rowCount) $this->message("Updated $rowCount page(s) for correct created_users_id");
-		$this->updater->saveSystemVersion(20);
+		return true;
 	}
 }
-
-
