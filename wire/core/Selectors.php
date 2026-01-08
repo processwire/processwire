@@ -31,8 +31,9 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  * 
  * @link https://processwire.com/api/selectors/ Official Selectors Documentation
  * @method Selector[] getIterator()
+ * @method null|string getCustomVariableValue($name, $property = '')
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo Move static helper methods to dedicated API var/class so this class can be more focused
@@ -100,6 +101,15 @@ class Selectors extends WireArray {
 		'{' => '}',
 		'(' => ')',
 	);
+	
+	/**
+	 * Custom variable values available to all Selectors instances
+	 * 
+	 * @var array 
+	 * @since 3.0.255
+	 * 
+	 */
+	static protected $customVariableValues = [];
 	
 	/**
 	 * Given a selector string, extract it into one or more corresponding Selector objects, iterable in this object.
@@ -254,7 +264,7 @@ class Selectors extends WireArray {
 			$value = $this->extractValue($str, $quote); 
 
 			if($this->parseVars && $quote === '[' && $this->valueHasVar($value)) {
-				// parse an API variable property to a string value
+				// parse an API or runtime variable to a string value
 				$v = $this->parseValue($value); 
 				if($v !== null) {
 					$value = $v;
@@ -657,8 +667,10 @@ class Selectors extends WireArray {
 	 */
 	public function parseValue($value) {
 		if(!preg_match('/^\$?[_a-zA-Z0-9]+(?:\.[_a-zA-Z0-9]+)?$/', $value)) return null;
+		$v = $this->getCustomVariableValue($value);
+		if($v !== null) return "$v";
 		$property = '';
-		if(strpos($value, '.')) list($value, $property) = explode('.', $value); 
+		if(strpos($value, '.')) list($value, $property) = explode('.', $value, 2); 
 		if(!in_array($value, $this->allowedParseVars)) return null; 
 		$value = $this->wire($value); 
 		if(is_null($value)) return null; // does not resolve to API var
@@ -721,8 +733,9 @@ class Selectors extends WireArray {
 			$name = $value;
 			$subname = '';
 		}
-		if(!in_array($name, $this->allowedParseVars)) return false;
+		if(in_array($name, $this->allowedParseVars)) return true;
 		if(strlen($subname) && $this->wire()->sanitizer->fieldName($subname) !== $subname) return false;
+		if($this->getCustomVariableValue($value) === null) return false;
 		return true; 
 	}
 
@@ -1874,8 +1887,52 @@ class Selectors extends WireArray {
 		}
 		return rtrim($s, ", ");
 	}
-
-
+	
+	/**
+	 * Set a custom [variable] value available to all Selectors and PageFinder class instances 
+	 * 
+	 * ~~~~
+	 * Selectors::setCustomVariableValue('foo', 'bar'); 
+	 * $s = new Selectors("name=[foo]"); 
+	 * echo $s; // outputs: "name=bar"
+	 * $pages->find("name=[foo]"); // finds pages with name=bar
+	 * ~~~~
+	 *
+	 * @param string $name 
+	 * @param string|int|array|WireData|float|null|bool $value 
+	 * @since 3.0.255
+	 *
+	 */
+	public static function setCustomVariableValue($name, $value) {
+		self::$customVariableValues[$name] = $value;
+	}
+	
+	
+	/**
+	 * Get the value for a custom [var] to populate in a selector (also works in PageFinder)
+	 *
+	 * This can be useful for cases where the variable would be stored somewhere in
+	 * a configuration, like a Lister selector or Page reference field selector, where PHP
+	 * variables typically wouldn't be available.
+	 * 
+	 * If hooking this method, /site/ready.php is recommended.
+	 *
+	 * @param string $name
+	 * @return null|string
+	 * @since 3.0.255
+	 *
+	 */
+	public function ___getCustomVariableValue($name) {
+		if(isset(self::$customVariableValues[$name])) return self::$customVariableValues[$name];
+		switch($name) {
+			case 'timestamp': return time();
+			case 'date': return date('Y-m-d');
+			case 'datetime': return date('Y-m-d H:i:s');
+			case 'year': return date('Y');
+		}
+		return null;
+	}
+	
 }
 
 Selector::loadSelectorTypes();

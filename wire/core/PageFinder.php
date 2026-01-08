@@ -1496,7 +1496,14 @@ class PageFinder extends Wire {
 		// Example: "field=[id>0, name=something, this=that]" converts to "field.id=123|456|789"
 
 		$selectors = $selector->getValue();
-		if(!$selectors instanceof Selectors) return;
+		if(!$selectors instanceof Selectors) {
+			if(is_string($selectors)) {
+				// potential custom variable provided by Selectors::getCustomVariableValue hook
+				$value = $parentSelectors->getCustomVariableValue($selectors);
+				if($value !== null) $selector->setValue($value); 
+			}
+			return;
+		}
 		
 		$hasTemplate = false;
 		$hasParent = false;
