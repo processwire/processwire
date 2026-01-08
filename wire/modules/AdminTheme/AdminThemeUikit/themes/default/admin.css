@@ -3910,9 +3910,24 @@ input:not([type="submit"]):not([type="file"]):not([type="checkbox"]):not(
 	outline: none;
 }
 
-.InputfieldRepeaterItem > .InputfieldContent {
+.pw .Inputfields .Inputfield.InputfieldRepeaterItem > .InputfieldContent {
 	position: relative;
-	z-index: 1;
+	z-index: 2;
+}
+
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader,
+.pw .Inputfields .InputfieldRepeater .InputfieldRepeaterItem:not( .InputfieldRepeaterDeletePending ).InputfieldStateCollapsed > .InputfieldHeader {
+	outline: none;
+	border: 1px solid var(--pw-border-color);
+	margin-left: -1px;
+	margin-right: -1px;
+	width: calc(100% + 2px);
+	transition: border-bottom-color 0.15s ease;
+}
+
+.pw .Inputfields .Inputfield.InputfieldRepeaterItem:not(.InputfieldStateCollapsed) > .InputfieldHeader {
+	border-bottom-color: transparent;
+	transition: border-bottom-color 0.15s ease;
 }
 
 .pw-notices,
@@ -5455,4 +5470,20 @@ ins {
 
 #test-selects ~ .uk-section {
 	padding: 1.5em;
+}
+
+/* Hamburger Helper added 7 Jan 2026: */
+
+.fa-navicon:before, .fa-reorder:before, .fa-bars:before {
+	color: var(--pw-masthead-active-color);
+}
+
+#offcanvas-nav #offcanvas-nav-close {
+	display: none;
+}
+
+@media (max-width: 639px) {
+	#pw-masthead {
+		display: none;
+	}
 }
