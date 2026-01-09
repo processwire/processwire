@@ -2141,4 +2141,30 @@ class PagesEditor extends Wire {
 	public function hookFieldtypeSleepValueStripMB4(HookEvent $event) {
 		$event->return = $this->wire()->sanitizer->removeMB4($event->return); 
 	}
+	
+	/*
+	public function saveProperty(Page $page, $property) {
+		$useHooks = true;
+		$values = [];
+		switch($property) {
+			case 'status':
+				$status = $page->status;
+				$statusPrevious = $page->statusPrevious;
+				$result = $this->saveStatus($page);
+				break;
+			case 'created':
+			case 'modified':
+			case 'published':
+				$result = $this->touch($page, $page->get($property), $property);
+				break;
+			case 'name':
+				$this->pages->names()->checkNameConflicts($page);
+				if($page->namePrevious && $page->namePrevious != $page->name) {
+					if($useHooks) $this->pages->renameReady($page);
+				}
+			
+			
+		}
+	}
+	*/
 }

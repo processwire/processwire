@@ -1044,4 +1044,42 @@ abstract class FieldtypeMulti extends Fieldtype {
 		return $inputfields;
 	}
 
+	/* @todo
+	protected function wakeupMultiValueToArray($value) {
+		
+		if(strrpos($value, self::multiValueSeparator) === false) {
+			if(ctype_digit("$value")) $value = (int) $value;
+			return $value ? [ $value ] : [];
+		}
+		
+		$totalLength = strlen($value);
+		$maxIdLength = 0;
+		$value = explode(self::multiValueSeparator, $value);
+		
+		foreach($value as $key => $id) {
+			$id = (string) $id;
+			$idLength = strlen($id);
+			if(ctype_digit($id)) $value[$key] = (int) $id;
+			if($idLength > $maxIdLength) $maxIdLength = $idLength;
+		}
+		
+		if($totalLength < 100) {
+			// group_concat_max_len is not likely to be a factor
+			return $value;
+		}
+		
+		$database = $this->wire()->database;
+		$maxConcatLength = $database->getVariable('group_concat_max_len');
+		
+		if($totalLength >= ($maxConcatLength - $maxIdLength)) {
+			// potential overflow
+			$maxConcatLength *= 2;
+			$database->exec("SET group_concat_max_len=$maxConcatLength");
+			throw new WireException("Please try again");
+		}
+		
+		return $value;
+	}
+	*/
+	
 }
