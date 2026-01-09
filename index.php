@@ -10,7 +10,7 @@
  * do so after you have installed the site, as the installer is not informed
  * of any changes made in this file. 
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @version 3.0.2
@@ -59,5 +59,6 @@ try {
 } catch(\Throwable $e) {
 	$wire ? $wire->trackException($e) : $config->trackException($e);
 	if($process && $e instanceof \Exception) $process->finished();
-	if($wire && $wire->shutdown) $wire->shutdown->setFatalError($e);
+	$shutdown = $wire ? $wire->shutdown : null;
+	if($shutdown) $shutdown->setFatalError($e);
 }
