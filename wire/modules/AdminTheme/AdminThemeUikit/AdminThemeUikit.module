@@ -150,6 +150,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public function wired() {
 		parent::wired();
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax');
+		$settings = $this->wire()->config->AdminThemeUikit; 
+		if(is_array($settings) && !empty($settings['themeName'])) {
+			$this->set('themeName', $settings['themeName']);
+		}
 	}
 	
 	/**
@@ -300,7 +304,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$cssUrl = '';
 		$s = 'script';
 		
-		if($this->themeName) {
+		if($this->themeName && $this->themeName != 'original') {
 			$themeInfo = $this->getThemeInfo($this->themeName);
 			if($themeInfo && $themeInfo['path']) {
 				$cssUrl = $themeInfo['url'] . 'admin.css';
@@ -1160,7 +1164,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$svg = false;
 		$svgName = 'logo.svg';
 		$themeName = $this->themeName;
-		$themeInfo = $themeName ? $this->getThemeInfo() : [];
+		$themeInfo = $themeName && $themeName != 'original' ? $this->getThemeInfo() : [];
 		$themeLogo = empty($themeInfo) ? '' : $themeInfo['path'] . $svgName;
 
 		if($themeLogo && (empty($logoURL) || $options['getNative']) && file_exists($themeLogo)) {
@@ -1322,6 +1326,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public function getThemeInfo($themeName = '') {
 		
 		if(empty($themeName)) $themeName = $this->themeName;
+		if(empty($themeName) || $themeName === 'original') return [];
 		
 		$themeInfos = $this->themeInfos;
 		

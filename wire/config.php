@@ -1663,6 +1663,7 @@ $config->adminEmail = '';
  * #property string customCssFile Target custom .css file to compile custom .less file(s) to. 
  * #property bool noDarkMode If theme supports a dark mode, specify true to disable it as an option.
  * #property bool noTogcbx If theme supports toggle style checkboxes, disable them. 
+ * #property string themeName Name of AdminThemeUikit theme to use when one not yet selected (original, default, auto)
  * 
  */
 $config->AdminThemeUikit = array(
@@ -1673,6 +1674,7 @@ $config->AdminThemeUikit = array(
 	'customCssFile' => '/site/assets/admin.css',
 	'noDarkMode' => false, 
 	'noTogcbx' => false,
+	'themeName' => 'auto', 
 );
 
 /**

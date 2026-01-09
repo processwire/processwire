@@ -63,6 +63,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 			}
 			$f->addOption('', $this->_('Core original'));
 			$value = $adminTheme->themeName;
+			if($value === 'original') $value = '';
 			$f->val($value);
 			$f->themeOffset = 1; 
 			$inputfields->add($f);
@@ -778,6 +779,40 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f->columnWidth = 33;
 		$f->showIf = 'test_select=2';
 		$f->notes = $f->showIf . " ($f->columnWidth%)";
+		$fieldset->add($f);
+		
+		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->label = 'Button tests';
+		$inputfields->add($fieldset);
+	
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup'); 
+		$f->attr('name', '_button_tests'); 
+		$types = [ 'large', 'small', 'text', 'link' ];
+		$colors = [ 'primary', 'secondary', 'default', 'danger' ];
+		$out = '<h3>Link tag buttons</h3>';
+		foreach($types as $type) {
+			$typeLabel = ucfirst($type);
+			$out .= "<p>";
+			foreach($colors as $color) {
+				$colorLabel = ucfirst($color); 
+				$out .= "<a class='uk-button uk-button-$type uk-button-$color'>$typeLabel $colorLabel</a> ";
+			}
+			$out .= "</p>";
+		}
+		$out .= '<h3>Button tag buttons</h3>';
+		foreach($types as $type) {
+			$typeLabel = ucfirst($type);
+			$out .= "<p>";
+			foreach($colors as $color) {
+				$colorLabel = ucfirst($color);
+				$out .= "<button type='button' class='uk-button uk-button-$type uk-button-$color'>$typeLabel $colorLabel</button> ";
+			}
+			$out .= "</p>";
+		}
+		$f->value = $out; 
 		$fieldset->add($f);
 	}
 	
