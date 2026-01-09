@@ -5447,6 +5447,37 @@ ins {
 	background-color: transparent;
 }
 
+/*** Adjustments for uk-button-text and uk-button-default ***/
+
+.pw .uk-button-link,
+.pw .uk-button-text,
+.pw .uk-button-link:hover,
+.pw .uk-button-text:hover {
+	background: transparent !important;
+	outline: 0;
+	padding: 0;
+	color: var(--pw-main-color) !important;
+	margin-right: 20px;
+	border-radius: 0;
+	box-shadow: none !important;
+}
+.pw .uk-button-link:hover,
+.pw .uk-button-text:hover {
+	text-decoration: underline !important;
+	color: var(--pw-main-color) !important;
+	background: transparent !important;
+	padding: 0;
+}
+.pw .uk-button-default:not(.uk-button-text):not(.uk-button-link) {
+	background: transparent;
+	border: 1px solid var(--pw-text-color); 
+	color: var(--pw-text-color);
+	box-shadow: none !important;
+}
+.pw .uk-button-default:not(.uk-button-text):not(.uk-button-link):hover {
+	border: 1px solid var(--pw-main-color) !important;
+}
+
 /* sugestion by @monollonom */
 .Inputfield[style*="opacity"] {
 	opacity: unset !important;
