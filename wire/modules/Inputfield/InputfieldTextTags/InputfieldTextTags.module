@@ -849,11 +849,12 @@ class InputfieldTextTags extends Inputfield implements
 	 * 
 	 */
 	public function setPageSelector($selector) {
+		$selector = (string) $selector;
 		if($this->hasInputfield) {
 			if(!$this->hasInputfield->getSetting('useAjax')) return false;
-			if(!strlen($this->tagsUrl)) $this->tagsUrl = $this->hasInputfield->getSetting('tagsUrl');
+			if(!strlen("$this->tagsUrl")) $this->tagsUrl = $this->hasInputfield->getSetting('tagsUrl');
 		} 
-		if(!strlen($this->tagsUrl) || !$this->useAjax()) return false;
+		if(!strlen("$this->tagsUrl") || !$this->useAjax()) return false;
 		if(strlen($selector)) $this->pageSelector = $selector;
 		return true;
 	}
