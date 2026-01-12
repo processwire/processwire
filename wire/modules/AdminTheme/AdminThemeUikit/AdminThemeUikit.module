@@ -24,6 +24,7 @@
  * @property int $cssVersion Current version number of core CSS/LESS files
  * @property string $themeName One of blank (original) or name of theme style
  * @property array $themeInfos where theme style files are located
+ * @property int $askTheme When non-zero, ask superuser if they want to try an updated theme. 
  *
  * Settings specific to default theme 
  * ----------------------------------
@@ -119,8 +120,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('ukGrid', false); 
 		$this->set('configPhpHash', '');
 		$this->set('cssVersion', 0);
-		$this->set('themeName', 'auto');
+		$this->set('themeName', '');
 		$this->set('themeInfos', array('z' => 'z')); // z=sleeping
+		$this->set('askTheme', 1);
 		$this->setClasses(array(
 			'input' => 'uk-input',
 			'input-small' => 'uk-input uk-form-small',
@@ -152,7 +154,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax');
 		$settings = $this->wire()->config->AdminThemeUikit; 
 		if(is_array($settings) && !empty($settings['themeName'])) {
-			$this->set('themeName', $settings['themeName']);
+			// used by new installations that selected theme during installation
+			$this->setQuietly('themeName', $settings['themeName']);
+			$this->setQuietly('askTheme', 0);
 		}
 	}
 	
@@ -172,26 +176,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$session = $this->wire()->session;
 		$config = $this->wire()->config;
 		$input = $this->wire()->input;
+		$user = $this->wire()->user;
 
 		$themeName = $this->themeName;
 		
-		if($themeName === 'auto') {
-			// auto when one has not yet been selected, we will auto-select
-			if($config->installed >= 1767898190) { // 2026-01-08
-				// new installations auto-select konkat default
-				$themeName = 'default';
-			} else {
-				// existing installations auto-select original
-				$themeName = '';
-			}
-			$this->themeName = $themeName;
-		}
-
-		if($themeName) {
+		if($themeName && $themeName != 'auto') {
 			$sidenav = false;
 			$this->layout = '';
 		} else {
 			$sidenav = strpos($this->layout, 'sidenav') === 0;
+			$themeName = '';
 		}
 
 		// disable sidebar layout if SystemNotifications is active
@@ -260,10 +254,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	
 		if($themeName && $themeName != 'original') {
 			$themeInfo = $this->getThemeInfo($themeName);
-			$user = $this->wire()->user;
 			if($themeInfo && $themeInfo['path']) {
 				$adminTheme = $this;
 				include($themeInfo['path'] . 'init.php');
+			}
+		}
+
+		if($this->askTheme && $themeName != 'default') { 
+			if($user->isSuperuser() && !$input->requestMethod('post')) {
+				$adminTheme = $this;
+				include_once(__DIR__ . '/themes/default/ask.php');
 			}
 		}
 	}
