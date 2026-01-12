@@ -1589,10 +1589,16 @@ class Modules extends WireArray {
 	 * - Configuration data is stored encoded in the database "modules" table "data" field.
 	 *
 	 * ~~~~~~
-	 * // Getting, modifying and saving module config data
+	 * // Getting, modifying and saving all module config data
 	 * $data = $modules->getConfig('HelloWorld');
 	 * $data['greeting'] = 'Hello World! How are you today?';
 	 * $modules->saveConfig('HelloWorld', $data);
+	 * 
+	 * // Getting a single configuration property
+	 * $value = $modules->getConfig('HelloWorld', 'some_property');
+	 * 
+	 * // Saving a single configuration property
+	 * $modules->saveConfig('HelloWorld', 'some_property', 'New Value'); 
 	 * ~~~~~~
 	 *
 	 * #pw-group-configuration
