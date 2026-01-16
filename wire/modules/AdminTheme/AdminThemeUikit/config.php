@@ -814,6 +814,20 @@ class AdminThemeUikitConfigHelper extends Wire {
 		}
 		$f->value = $out; 
 		$fieldset->add($f);
+		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->label = 'Theme color tests';
+		$inputfields->add($fieldset);
+		
+		$colors = [ 'primary', 'secondary', 'highlight', 'warning', 'danger' ];
+		foreach($colors as $color) {
+			$f = $fieldset->InputfieldText;
+			$f->attr('name', '_themeColor_' . $color); 
+			$f->label = $color; 
+			$f->themeColor = $color; 
+			$fieldset->add($f); 
+		}
 	}
 	
 }

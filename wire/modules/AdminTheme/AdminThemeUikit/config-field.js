@@ -90,8 +90,10 @@ function updateAdminThemeUikitExample() {
 		example.addClass('InputfieldIsWarning');
 	}
 
-	var bgcolor = example.css('background-color');
-	$('#_adminTheme, #_adminTheme > *').css('background-color', bgcolor);
+	if(!$('body').hasClass('AdminThemeUikitDefault')) {
+		var bgcolor = example.css('background-color');
+		$('#_adminTheme, #_adminTheme > *').css('background-color', bgcolor);
+	}
 }
 
 function initAdminThemeUikitColumnWidth() {

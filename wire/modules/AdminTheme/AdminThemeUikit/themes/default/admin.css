@@ -5076,7 +5076,7 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
 	padding-right: 20px;
 }
 .pw .InputfieldIsPrimary:not(.InputfieldNoBorder)>.InputfieldHeader, .InputfieldIsPrimary:not(.InputfieldNoBorder)>.InputfieldContent {
-	background-color: transparent;
+	background-color: var(--pw-main-background);
 }
 .pw
 .Inputfield.InputfieldIsSecondary:not(
@@ -5088,7 +5088,7 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
     .InputfieldNoBorder,
     .InputfieldWrapper
   ) {
-	background: var(--pw-main-background) !important;
+	background: var(--pw-inputs-background);
 }
 
 .InputfieldNoBorder > .InputfieldHeader {
