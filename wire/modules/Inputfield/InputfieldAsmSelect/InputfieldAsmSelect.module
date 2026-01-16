@@ -107,6 +107,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 	 */
 	public function __construct() {
 		$this->set('usePageEdit', 0);
+		$this->set('hideDeleted', 1);
 		$this->asmOptionNames = array_flip($this->asmOptionNames);
 		parent::__construct();
 	}
@@ -274,6 +275,15 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 		
 		$inputfields = parent::___getConfigInputfields();
 		if($this->hasFieldtype != 'FieldtypePage' || !$this->hasField) return $inputfields;
+		
+		/** @var InputfieldRadios $f */
+		$f = $this->wire()->modules->get('InputfieldRadios');
+		$f->attr('name', 'hideDeleted');
+		$f->label = $this->_('How to handle deleted items'); 
+		$f->addOption(0, $this->_('Mark item for deletion (with option to undelete)')); 
+		$f->addOption(1, $this->_('Remove item immediately')); 
+		$f->val((int) $this->hideDeleted); 
+		$inputfields->add($f);
 		
 		/** @var InputfieldRadios $f */
 		$f = $this->wire()->modules->get('InputfieldRadios');
