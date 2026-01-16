@@ -2808,13 +2808,25 @@ small {
 	}
 }
 
-.pw .gridImage.gridImage--delete .gridImage__inner {
-	background-color: color-mix(
-			in srgb,
-			var(--pw-alert-danger),
-			transparent 50%
-	) !important;
+.pw .gridImage.gridImage--delete .ImageData > *:not(.InputfieldImageEdit__name) {
+	display: none;
 }
+.pw .gridImage.gridImage--delete .gridImage__overflow {
+	opacity: 0.5;
+}
+.pw .gridImage.gridImage--delete,
+.pw .gridImage.gridImage--delete .ImageData > *,
+.pw .gridImage.gridImage--delete .gridImage__trash {
+	background: var(--pw-alert-danger) !important;
+	color: var(--pw-error-inline-text-color) !important;
+}
+.pw .InputfieldImage .gridImages .gridImage.gridImage--delete {
+	border-color: var(--pw-error-inline-text-color);
+}
+.pw .gridImage.gridImage--delete .gridImage__inner {
+	background: transparent !important;
+}
+
 
 .pw .InputfieldImageEdit__info {
 	color: var(--pw-muted-color);
@@ -3282,10 +3294,28 @@ body.AdminThemeReno
 	margin: 0 0 8px;
 }
 
+.Inputfields .InputfieldPageAutocomplete ol li,
 .Inputfields .InputfieldAsmSelect .asmListItem {
 	margin-top: 6px;
 	border-color: var(--pw-border-color);
 	outline: none;
+}
+.Inputfields .InputfieldPageAutocomplete ol li {
+	padding: 3px 3px 3px 2px;
+}
+.pw .Inputfields .InputfieldPageAutocomplete ol li .itemRemove {
+	top: 6px;
+}
+.Inputfields .InputfieldPageAutocomplete ol li.ui-state-hover {
+	background: var(--pw-main-background);
+	color: var(--pw-text-color);
+}
+.Inputfields .InputfieldAsmSelect .asmListItem.asmListItemDeleted,
+.Inputfields .InputfieldAsmSelect .asmListItem.asmListItemDeleted > * {
+	opacity: 1 !important;
+	border-color: var(--pw-error-inline-text-color); 
+	color: var(--pw-error-inline-text-color); 
+	background-color: var(--pw-alert-danger); 
 }
 
 .pw .asmListItemLabel,
