@@ -13,7 +13,7 @@ if(!defined('PROCESSWIRE')) die();
 /** @var AdminThemeUikit $adminTheme */
 /** @var string $themeName */
 
-$moduleEditUrl = $modules->getModuleEditUrl($this); 
+$moduleEditUrl = $modules->getModuleEditUrl($adminTheme); 
 $sanitizer = wire()->sanitizer;
 $use = $input->get('use_konkat_default');
 $script = 'script';
@@ -59,7 +59,7 @@ if($themeName === 'default') {
 	  <$script>
 		$('#ask_theme_no').on('click', function() {
 			$(this).closest('.uk-alert').slideUp();
-			$.get($(this).attr('href'), { use_konkat_default: 'dismiss' }, function() {}); 
+			$.get($(this).parent().attr('href'), { use_konkat_default: 'dismiss' }, function() {}); 
 			ProcessWire.alert({ message: '$alert', allowMarkup: true });
 			return false;
 		});
