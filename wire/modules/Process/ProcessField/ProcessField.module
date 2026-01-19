@@ -2956,7 +2956,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					$f->attr('name', "add_{$field->id}_template_$templateID");
 					$f->label = sprintf($this->_('Template: %s'), $template->name);
 					$f->label = sprintf($this->_('Add field "%1$s" to template "%2$s"'), $field->name, $template->name);
-					$f->description = sprintf($this->_('Where do you want to add "%s?"'), $field->name);
+					$f->description = sprintf($this->_('Where do you want to add "%s"?'), $field->name);
 					$f->icon = 'plus-circle';
 					$beforeLabel = $this->_('Before %s');
 					$afterLabel = $this->_('After %s');
