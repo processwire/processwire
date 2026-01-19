@@ -105,6 +105,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	);
 
 	static protected $markup = array();
+	
+	protected $instanceMarkup = array();
 
 	/**
 	 * Classes used during the render() method - customize with InputfieldWrapper::setClasses($array)
@@ -740,7 +742,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$columnWidthSpacing = $this->getSetting('columnWidthSpacing');
 		$quietMode = $this->getSetting('quietMode');
 		$lastInputfield = null;
-		$_markup = array_merge(self::$defaultMarkup, self::$markup);
+		$_markup = array_merge(self::$defaultMarkup, self::$markup, $this->instanceMarkup);
 		$_classes = array_merge(self::$defaultClasses, self::$classes);
 		$markup = array();
 		$classes = array();
@@ -1934,6 +1936,17 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	public static function setMarkup(array $markup) { 
 		self::$markup = array_merge(self::$markup, $markup); 
 	}
+
+	/**
+	 * Set custom markup for render for a specific instance, see self::$markup at top for reference.
+	 *
+	 * @param array $markup
+	 *
+	 */
+	public function setInstanceMarkup(array $markup) {
+		$this->instanceMarkup = $markup;
+	}
+
 
 	/**
 	 * Get custom markup for render, see self::$markup at top for reference.
