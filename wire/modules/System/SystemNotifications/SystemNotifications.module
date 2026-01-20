@@ -816,7 +816,7 @@ class SystemNotifications extends WireData implements Module {
 					$this->wire('user')->notifications()->error(
 						sprintf(
 							$this->_('Warning: you are editing this page in another window (editing started %s)'), 
-								wireDate('%X', (int) $created)), 
+								wireDate('G:i:s', (int) $created)), 
 							Notification::flagAnnoy | Notification::flagSession);
 					$recordNotify = true; 
 				}
@@ -827,7 +827,7 @@ class SystemNotifications extends WireData implements Module {
 				if($editingUser->id) {
 					$this->wire('user')->notifications()->error(
 						sprintf($this->_('Warning: user "%s" is currently editing this page (editing started %s)'),
-							$editingUser->name, wireDate('%X', (int) $created)),
+							$editingUser->name, wireDate('G:i:s', (int) $created)),
 								Notification::flagAnnoy | Notification::flagSession);
 					$recordNotify = true; 
 				}
