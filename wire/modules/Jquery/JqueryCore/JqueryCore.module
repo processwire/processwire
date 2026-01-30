@@ -68,7 +68,9 @@ class JqueryCore extends ModuleJS {
 				$migrate = $config->debug && $config->advanced && ProcessWire::versionSuffix === 'dev' ? 'debug' : 'quiet';
 				$this->addScript('migrate', $url . $components["migrate-$migrate"]);
 			}
-			$this->addScript('core', $url . 'JqueryCore.js?v=' . $this->getVersion());
+			$fileUrl = $url . 'JqueryCore.js';
+			if($config->useVersionUrls === null) $fileUrl .= '?v=' . $this->getVersion();
+			$this->addScript('core', $fileUrl);
 		}
 	}
 

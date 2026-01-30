@@ -173,8 +173,11 @@ class AdminThemeUikitCss extends WireData {
 		$file = $this->defaultCssFile;
 		$path = $config->paths($this->adminTheme) . $file;
 		if($getPath) return $path;
-		$v = $config->debug ? filemtime($path) : $config->version;
-		$url = $config->urls($this->adminTheme) . "$file?v=$v" ;
+		$url = $config->urls($this->adminTheme) . "$file";
+		if($config->useVersionUrls === null) {
+			$v = $config->debug ? filemtime($path) : $config->version;
+			$url .= "?v=$v";
+		}
 		return $url;
 	}
 
