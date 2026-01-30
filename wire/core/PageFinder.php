@@ -1836,7 +1836,8 @@ class PageFinder extends Wire {
 					// shortcut for blank value condition: this ensures that NULL/non-existence is considered blank
 					// without this section the query would still work, but a blank value must actually be present in the field
 					$isEmptyValue = $fieldtype->isEmptyValue($field, $value);
-					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $value < 0 && $operator[0] === '>') 
+					$v = substr("$value", 0, 3);
+					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $v < 0 && $operator[0] === '>') 
 						|| ($operator === '!=' && $isEmptyValue === false);	
 					if($useEmpty && strpos($subfield, 'data') === 0) { // && !$fieldtype instanceof FieldtypeMulti) {
 						if($isEmptyValue) $numEmptyValues++;
