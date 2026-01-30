@@ -3322,6 +3322,10 @@ body.AdminThemeReno
 .pw .asmListItemStatus {
 	padding: 0.35em;
 }
+.pw .asmListItem.ui-state-hover {
+	background: var(--pw-blocks-background);
+	color: #fff;
+}
 
 .Inputfields .InputfieldAsmSelect .asmListItem .asmListItemHandle {
 	top: 9px;
@@ -4400,17 +4404,18 @@ body:not(.pw-narrow-width)
 }
 
 .PageList .PageListItem.PageListItemOpen > .PageListLoading {
-	opacity: 0.5;
+	opacity: 1;
 	transition: opacity 0.5s ease;
 }
-
 .PageListLoading[style*="block"] {
 	display: inline-block !important;
 }
 
+/* RJC: This causing it to never disappear in some cases (issue #2180)
 .PageListItem:not(:hover) .PageListLoading[style*="block"] {
 	display: none !important;
 }
+ */
 
 .uk-description-list dt,
 .uk-description-list dt a {
