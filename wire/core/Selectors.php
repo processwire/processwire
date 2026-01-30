@@ -27,9 +27,11 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  *   echo "</p>";
  * }
  * ~~~~~
+ * For details on how to use selectors please see [Using Selectors](https://processwire.com/docs/selectors/)
+ * and [Selector Operators](https://processwire.com/docs/selectors/operators/).
  * #pw-body
  * 
- * @link https://processwire.com/api/selectors/ Official Selectors Documentation
+ * @link https://processwire.com/docs/selectors/ Official Selectors Documentation
  * @method Selector[] getIterator()
  * @method null|string getCustomVariableValue($name, $property = '')
  * 
