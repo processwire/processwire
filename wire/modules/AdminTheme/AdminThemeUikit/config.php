@@ -820,13 +820,40 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$fieldset->label = 'Theme color tests';
 		$inputfields->add($fieldset);
 		
-		$colors = [ 'primary', 'secondary', 'highlight', 'warning', 'danger' ];
+		$colors = [ 'primary', 'secondary', 'highlight', 'success', 'warning', 'danger' ];
+		
 		foreach($colors as $color) {
 			$f = $fieldset->InputfieldText;
 			$f->attr('name', '_themeColor_' . $color); 
 			$f->label = $color; 
 			$f->themeColor = $color; 
 			$fieldset->add($f); 
+		}
+		
+		foreach($colors as $color) {
+			$fs = $fieldset->InputfieldFieldset;
+			$fs->attr('name', '_themeColorFieldset_' . $color); 
+			$fs->label = "Fieldset: $color";
+			$fs->themeColor = $color; 
+			$fieldset->add($fs);
+			
+			$f = $fieldset->InputfieldText;
+			$f->attr('name', '_themeColor1_' . $color);
+			$f->label = "Field 1: $color";
+			$f->themeColor = $color;
+			$fs->add($f);
+			
+			$f = $fieldset->InputfieldSelect;
+			$f->attr('name', '_themeColor2_' . $color);
+			$f->label = "Field 2: $color";
+			$f->addOptions([ 'A', 'B', 'C' ]); 
+			$f->themeColor = $color;
+			$fs->add($f);
+			
+			$f = $fieldset->InputfieldText;
+			$f->attr('name', '_themeColor1_' . $color);
+			$f->label = "Field 3: No themeColor";
+			$fs->add($f);
 		}
 	}
 	

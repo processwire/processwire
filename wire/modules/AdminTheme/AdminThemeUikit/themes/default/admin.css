@@ -5051,12 +5051,10 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
 	background: var(--pw-blocks-background);
 }
 
-.pw
-.Inputfield.InputfieldIsHighlight:not(
-    .InputfieldNoBorder,
-    .InputfieldWrapper
-  ) {
-	background: var(--pw-notes-background) !important;
+.pw .Inputfield.InputfieldIsHighlight:not(.InputfieldNoBorder),
+.pw .Inputfield.InputfieldIsHighlight:not(.InputfieldNoBorder) > .InputfieldHeader,
+.pw .Inputfield.InputfieldIsHighlight:not(.InputfieldNoBorder) > .InputfieldContent {
+	background: var(--pw-notes-background);
 }
 
 .InputfieldIsSuccess:not(.InputfieldNoBorder)>.InputfieldHeader, .InputfieldIsSuccess:not(.InputfieldNoBorder)>.InputfieldContent {
@@ -5076,6 +5074,7 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
 
 :not(.InputfieldFieldset)>.InputfieldContent>.Inputfields>.InputfieldMarkup.InputfieldHeaderHidden:not(.InputfieldNoBorder, .InputfieldWrapper),
 .InputfieldForm>.Inputfields>.InputfieldMarkup.InputfieldHeaderHidden:not(.InputfieldNoBorder, .InputfieldWrapper) {
+	/* InputfieldMarkup */
 	outline: 1px solid var(--pw-border-color) !important;
 	padding-left: 20px;
 	padding-right: 20px;
@@ -5083,17 +5082,13 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
 .pw .InputfieldIsPrimary:not(.InputfieldNoBorder)>.InputfieldHeader, .InputfieldIsPrimary:not(.InputfieldNoBorder)>.InputfieldContent {
 	background-color: var(--pw-main-background);
 }
-.pw
-.Inputfield.InputfieldIsSecondary:not(
-    .InputfieldNoBorder,
-    .InputfieldWrapper
-  ),
-.pw
-.Inputfield.InputfieldIsSecondary:not(
-    .InputfieldNoBorder,
-    .InputfieldWrapper
-  ) {
+.pw .Inputfield.InputfieldIsSecondary:not(.InputfieldNoBorder, .InputfieldWrapper) {
 	background: var(--pw-inputs-background);
+}
+
+.InputfieldFieldset.InputfieldIsColor .Inputfield:not(.InputfieldIsColor) {
+	/* RJC: Inputfield in a Fieldset that has no color applied, inherit from Fieldset */
+	background-color: transparent;
 }
 
 .InputfieldNoBorder > .InputfieldHeader {
@@ -5137,6 +5132,25 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
 
 .InputfieldHeader {
 	margin-top: 1px;
+}
+.InputfieldIsColor > .InputfieldHeader,
+.InputfieldFieldset.InputfieldIsColor .Inputfield:not(.InputfieldIsColor) {
+	/* RJC: margin-top on an InputfieldIsColor makes it seem to have an extra border */
+	margin-top: 0;
+}
+.pw .Inputfields > .InputfieldIsColor {
+	/* RJC: This makes it use the same color around the Inputfield rather than mix of dark and light outlines */
+	/* #ccc and #333 are to approximate --pw-border-color without transparency */
+	outline: 1px solid; 
+	outline-color: light-dark(#ccc, #333);
+}
+.pw .Inputfields > .InputfieldFieldset.InputfieldIsColor .Inputfield:not(.InputfieldIsColor),
+.pw .Inputfields > .InputfieldIsColor:not(.InputfieldIsSecondary) + .Inputfield {
+	/* RJC: The above outline rule seems to miss the header of some Inputfields so this fixes that */
+	/* RJC: InputfieldIsSecondary skipped because it already has it and adding this doubles it */
+	border-top: 1px solid;
+	border-color: light-dark(#ccc, #333);
+	outline-color: light-dark(#ccc, #333);
 }
 
 .pw
