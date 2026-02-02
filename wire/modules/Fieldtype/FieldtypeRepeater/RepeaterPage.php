@@ -113,12 +113,12 @@ class RepeaterPage extends Page {
 
 		// auto-detect forField from its location
 		$grandparent = $this->parent()->parent();
-		$grandparentName = $grandparent->name;
+		$grandparentName = $grandparent ? $grandparent->name : '';
 		$prefix = FieldtypeRepeater::fieldPageNamePrefix;  // for-field-
 		$forField = null;
 		$fields = $this->wire()->fields;
 
-		if(strpos($grandparentName, $prefix) === 0) {
+		if($grandparentName !== '' && strpos($grandparentName, $prefix) === 0) {
 			// determine field from grandparent name in format: for-field-1234
 			$forID = (int) substr($grandparentName, strlen($prefix));
 			$forField = $fields->get($forID); 
