@@ -384,20 +384,20 @@ class ImageSizer extends Wire {
 		if($this->engine) $this->engine->setModified($modified ? true : false);
 		return $this;
 	}
-
-	public function setAutoRotation($value = true) { return $this->setOptions(array('autoRotation', $value)); }
-	public function setCropExtra($value) { return $this->setOptions(array('cropExtra', $value)); }
-	public function setCropping($cropping = true) { return $this->setOptions(array('cropping', $cropping)); }
-	public function setDefaultGamma($value = 2.2) { return $this->setOptions(array('defaultGamma', $value)); }
-	public function setFlip($flip) { return $this->setOptions(array('flip', $flip)); }
-	public function setHidpi($hidpi = true) { return $this->setOptions(array('hidpi', $hidpi)); }
-	public function setQuality($n) { return $this->setOptions(array('quality', $n)); }
-	public function setRotate($degrees) { return $this->setOptions(array('rotate', $degrees)); }
-	public function setScale($scale) { return $this->setOptions(array('scale', $scale)); }
-	public function setSharpening($value) { return $this->setOptions(array('sharpening', $value)); }
-	public function setTimeLimit($value = 30) { return $this->setOptions(array('timeLimit', $value)); }
-	public function setUpscaling($value = true) { return $this->setOptions(array('upscaling', $value)); }
-	public function setUseUSM($value = true) { return $this->setOptions(array('useUSM', $value)); }
+	
+	public function setAutoRotation($value = true) { return $this->setOptions(['autoRotation' => $value]); }
+	public function setCropExtra($value) { return $this->setOptions(['cropExtra' => $value]); }
+	public function setCropping($cropping = true) { return $this->setOptions(['cropping' => $cropping]); }
+	public function setDefaultGamma($value = 2.2) { return $this->setOptions(['defaultGamma' => $value]); }
+	public function setFlip($flip) { return $this->setOptions(['flip' => $flip]); }
+	public function setHidpi($hidpi = true) { return $this->setOptions(['hidpi' => $hidpi]); }
+	public function setQuality($n) { return $this->setOptions(['quality' => $n]); }
+	public function setRotate($degrees) { return $this->setOptions(['rotate' => $degrees]); }
+	public function setScale($scale) { return $this->setOptions(['scale' => $scale]); }
+	public function setSharpening($value) { return $this->setOptions(['sharpening' => $value]); }
+	public function setTimeLimit($value = 30) { return $this->setOptions(['timeLimit' => $value]); }
+	public function setUpscaling($value = true) { return $this->setOptions(['upscaling' => $value]); }
+	public function setUseUSM($value = true) { return $this->setOptions(['useUSM' => $value]); }	
 	public function getWidth() { 
 		$image = $this->getEngine()->get('image');
 		return $image['width']; 
