@@ -115,32 +115,31 @@ abstract class ModuleJS extends WireData implements Module {
 		$modulePath = $config->paths->$class;
 		$moduleUrl = $config->urls->$class;
 		$useVersionUrls = $config->useVersionUrls;
+		$assets = [];
 		
-		$assetUrls = [];
-		$assets = [
-			'css' => "$class.css",
-			'jsMin' => "$class.min.js",
-			'js' => "$class.js", 
-		];
-		
-		if($debug) unset($assets['jsMin']);
+		if($this->loadStyles) $assets['css'] = "$class.css";
+		if($this->loadScripts && !$debug) $assets['jsMin'] = "$class.min.js";
+		if($this->loadScripts) $assets['js'] = "$class.js";
 		
 		foreach($assets as $key => $basename) {
-			if($basename === 'JqueryCore.min.js' || $basename === 'JqueryUI.min.js') continue;
 			$file = $modulePath . $basename;
 			if(!is_file($file)) unset($assets[$key]); 
 		}
 		
 		if(isset($assets['jsMin'])) unset($assets['js']); 
 		
-		foreach($assets as $basename) {
+		foreach($assets as $key => $basename) {
 			$file = $modulePath . $basename;
 			$fileUrl = $moduleUrl . $basename;
 			if($useVersionUrls === null) {
 				if($debug) $version = filemtime($file);
 				$fileUrl .= "?v=$version";
 			}
-			$assetUrls[] = $fileUrl;
+			if($key === 'css') {
+				$config->styles->add($fileUrl);
+			} else {
+				$config->scripts->add($fileUrl);
+			}
 		}
 	
 		if(count($this->requested)) {
