@@ -250,6 +250,9 @@ class Selectors extends WireArray {
 	 *
 	 */
 	protected function extractString($str) {
+	
+		// ignore newlines in selector strings
+		$str = str_replace([ "\n", "\r" ], " ", $str); 
 
 		while(strlen($str)) {
 
@@ -898,7 +901,8 @@ class Selectors extends WireArray {
 		} else if(is_string($data)) {
 			$dataType = 'string';
 		} else if(is_array($data)) {
-			$dataType = ctype_digit(implode('', array_keys($data))) ? 'array' : 'assoc';
+			$test = implode('', array_keys($data));
+			$dataType = ctype_digit($test) ? 'array' : 'assoc';
 			if($dataType == 'assoc' && isset($data['field'])) $dataType = 'verbose';
 		} 
 		return $dataType;	
@@ -1084,10 +1088,25 @@ class Selectors extends WireArray {
 			
 			// Non-verbose selector, where $key is the field name and $data is the value
 			// The $key field name may have an optional operator appended to it
-		
+			
 			$operators = $this->getOperatorsFromField($key);
 			$_fields = strpos($key, '|') ? explode('|', $key) : array($key);
 			$_values = is_array($data) ? $data : array($data);
+			
+		} else if($dataType === 'string' && is_int($key) && self::stringHasOperator($data)) {
+			
+			// Array with just a self-contained string like "key=value" 
+			// Example: $pages->find([ "template=article", "sort=-date", "limit=3" ]); 
+			// Also okay to mix with assoc array type, i.e. [ "template=article", "limit' => 3 ]
+			
+			$s = new Selectors($data); 
+			if(count($s) !== 1) {
+				throw new WireException("Please specify only one key=value per array selector item in: $data");
+			}
+			$s = $s->first(); /** @var Selector $s */
+			$operators = [ $s->operator() ];
+			$_fields = $s->fields();
+			$_values = $s->values();
 			
 		} else if($dataType == 'array') {
 			
