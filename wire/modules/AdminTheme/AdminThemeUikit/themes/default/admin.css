@@ -4,6 +4,13 @@ a, .uk-link { /* RJC */
 	color: var(--pw-main-color); 
 }
 
+.PageList .ProcessListerTable tr.open,
+.PageList .ProcessListerTable tr.open > td { /* RJC */
+	background: var(--pw-main-background); 
+}
+.PageList .ProcessListerTable tr.open > td:first-child { /* RJC */
+	padding-left: 10px !important;
+}
 .PageList .ProcessListerTable tr.open>td:first-child a.actions_toggle { /* RJC */
 	color: var(--pw-main-color);
 }
