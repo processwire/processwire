@@ -5561,7 +5561,7 @@ ins {
 
 /* Hamburger Helper added 7 Jan 2026: */
 
-.fa-navicon:before, .fa-reorder:before, .fa-bars:before {
+#offcanvas-toggle .fa-bars:before {
 	color: var(--pw-masthead-active-color);
 }
 
