@@ -95,8 +95,9 @@ ErrorDocument 404 /index.php
   # you will need to remove this one if you want to allow external iframes
   Header always append X-Frame-Options SAMEORIGIN 
 
-  # To prevent cross site scripting (IE8+ proprietary)
-  Header set X-XSS-Protection "1; mode=block"
+  # To prevent cross site scripting (IE8+ proprietary), see link before using:
+  # https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-XSS-Protection
+  # Header set X-XSS-Protection "1; mode=block"
 
   # Optionally (O) prevent mime-based attacks via content sniffing (IE+Chrome)
   # Header set X-Content-Type-Options "nosniff" 
