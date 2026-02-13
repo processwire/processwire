@@ -537,7 +537,15 @@ class WireUpload extends Wire {
 			}
 
 			if($ajax) {
-				$success = @rename($tmp_name, $destination);
+				try {
+					$success = $this->wire()->files->rename($tmp_name, $destination, ['retry' => true, 'throw' => true]);
+				} catch(\Exception $e) {
+					if($this->wire()->user->isSuperuser() || $this->wire()->config->debug) {
+						$error = $e->getMessage();
+					} else {
+						$error = "Unable to move uploaded file to destination";
+					}
+				}
 			} else {
 				$success = move_uploaded_file($tmp_name, $destination);
 			}
