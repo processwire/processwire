@@ -264,8 +264,9 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		}
 		
 		if(count($errors)) {
+			$className = $this->className();
 			foreach($errors as $error) {
-				$this->error($error);
+				$this->error("$error ($className)");
 			}
 			return false;
 		}
