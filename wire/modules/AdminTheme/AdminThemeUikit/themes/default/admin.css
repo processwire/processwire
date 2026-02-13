@@ -4037,7 +4037,7 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 
 .pw .tox.tox-tinymce .tox-editor-header,
 .pw .tox.tox-tinymce-inline.tox-tinymce--toolbar-sticky-off .tox-editor-header {
-	translate: 0 1.5px;
+	translate: 0 1px; /* RJC was 1.5px */
 }
 .pw .tox.tox-tinymce.tox-tinymce--toolbar-sticky-on .tox-editor-header {
 	transition: translate 0.3s ease;
