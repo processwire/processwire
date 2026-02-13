@@ -297,6 +297,7 @@ class Sanitizer extends Wire {
 		'intArrayVal' => 'a',
 		'intSigned' => 'i',
 		'intUnsigned' => 'i',
+		'json' => 's', 
 		'kebabCase' => 's',
 		'line' => 's',
 		'lines' => 's',
@@ -333,6 +334,7 @@ class Sanitizer extends Wire {
 		'templateName' => 's',
 		'text' => 's',
 		'textarea' => 's',
+		'textArray' => 'a',
 		'textdomain' => 's', 
 		'trim' => 's',
 		'truncate' => 's',
@@ -2055,6 +2057,55 @@ class Sanitizer extends Wire {
 			$options['maxLength'] = $maxLength;
 		}
 		return $this->textarea($value, $options);
+	}
+	
+	/**
+	 * Sanitize value to formatted and readable JSON string 
+	 * 
+	 * If you do not need formatted/readable JSON string then use PHP’s `json_encode()` function instead. 
+	 *
+	 * #pw-group-strings
+	 * 
+	 * @param mixed $value
+	 * @param array $options
+	 *  - `pretty` (bool): Make it readable/pretty (default=true)
+	 *  - `escaped` (bool): Escape unicode, slashes and line terminators? (default=true)
+	 * @return false|string
+	 * @since 3.0.256
+	 * 
+	 */
+	public function json($value, array $options = []) {
+		$defaults = [
+			'pretty' => true, 
+			'escaped' => false, 
+			'_recursive' => false,
+		];
+		$options = array_merge($defaults, $options);
+		$flags = JSON_INVALID_UTF8_IGNORE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION; 
+		if($options['pretty']) $flags |= JSON_PRETTY_PRINT;
+		if(!$options['escaped']) $flags |= JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS;
+	
+		if(is_string($value)) {
+			$value = trim($value); 
+			$c1 = substr($value, 0, 1); 
+			$c2 = substr($value, -1); 
+			if(($c1 === '{' && $c2 === '}') || ($c1 === '[' && $c2 === ']')) {
+				// existing JSON string, decode before re-encode
+				$v = json_decode($value, true); 
+				if(is_array($v)) $value = $v;
+				unset($v);
+			}
+		}
+		
+		$json = json_encode($value, $flags); 
+		if(strpos($json, '{}') !== false && empty($options['_recursive'])) {
+			// value contained objects that json_encode left as empty '{}'
+			// so try again after converting those objects to arrays
+			$value = $this->textArray($value, [ 'sanitizer' => '', 'types' => true ]);
+			$options['_recursive'] = true;
+			$json = $this->json($value, $options); 
+		}
+		return $json;
 	}
 
 	/**
@@ -4722,6 +4773,148 @@ class Sanitizer extends Wire {
 		);
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		return $this->___array($value, $options);
+	}
+	
+	/** 
+	 * Sanitize given value to array of text strings 
+	 * 
+	 * One use case is if if the array might have objects in it and you want
+	 * them converted to text for a normalized array without surprises. 
+	 * 
+	 * #pw-group-arrays
+	 * 
+	 * @param mixed $value
+	 * @param array $options
+	 *  - `verbose` (bool): Convert object values to arrays (rather than class names) when possible? (default=true)
+	 *  - `assoc` (bool): Allow associative arrays? (default=true)
+	 *  - `types` (bool): Keep int, float and boolean types as-is rather than text/string? (default=false)
+	 *  - `maxItems` (int): Maximum items allowed in array or 0 for no max (default=0)
+	 *  - `maxDepth` (int): Maximum depth of nested array or 0 for no max (default=5)
+	 *  - `maxItemLength` (int): Maximum length of any string in the array or 0 for no max (default=0)
+	 *  - `sanitizer` (string): Sanitizer method to use on items (default='text')
+	 *  - `keySanitizer` (string): Sanitizer method to use on item keys, if 'assoc' option is true (default='auto')
+	 * @return array
+	 * @since 3.0.256
+	 * 
+	 */
+	public function textArray($value, array $options = []) {
+		
+		$defaults = [
+			'maxItems' => 0, 
+			'maxDepth' => 5, 
+			'maxItemLength' => 0, 
+			'sanitizer' => 'text', 
+			'keySanitizer' => 'auto',
+			'verbose' => true, // expands objects
+			'types' => false, 
+			'assoc' => true, 
+			'_depth' => 0,
+		];
+		
+		$options = array_merge($defaults, $options);
+		$maxDepth = (int) $options['maxDepth'];
+		$maxItemLength = (int) $options['maxItemLength'];
+		$keySanitizer = $options['keySanitizer'];
+		$options['_depth']++;
+		$returnValue = [];
+		
+		if(is_bool($value)) {
+			if($options['types']) return [ $value ]; 
+			return [($value ? 'true' : 'false')];
+			
+		} else if(empty($value)) {
+			if($value === null || is_array($value)) return [];
+			if($options['types'] && $value === 0) return [ $value ];
+			if("$value" === "0") return [ "0" ];
+			if(trim("$value") === '') return [ '' ];
+			
+		} else if(is_object($value)) {
+			if(!$options['verbose']) {
+				$v = 'object:' . wireClassName($value);
+				if($value instanceof PageArray || $value instanceof Page) $v .= "($value)";
+				$value = $v;
+			} else if($value instanceof Page) {
+				$value = $value->__debugInfo();
+			} else if($value instanceof WireArray || $value instanceof WireData) {
+				$value = $value->getArray();
+			} else if($value instanceof \Iterator || $value instanceof \IteratorAggregate) {
+				$a = [];
+				foreach($value as $k => $v) {
+					$a[$k] = $v;
+				}
+				$value = $a;
+			} else {
+				$class = wireClassName($value);
+				$k = "object:$class";
+				if(method_exists($value, '__toString')) {
+					$v = (string) $value; 
+					$value = [$k => $v];
+				} else {
+					$value = [$k => $class];
+				}
+			}
+		}
+
+		if(!is_array($value)) $value = [ $value ];
+		
+		if($keySanitizer === 'auto') {
+			if(ctype_digit(implode('0', array_keys($value)))) {
+				$keySanitizer = 'int';
+			} else {
+				$keySanitizer = 'text';
+			}
+		}
+		
+		foreach($value as $k => $v) {
+			if(is_object($v)) {
+				if($options['_depth'] >= $maxDepth) {
+					$o = 'object:' . wireClassName($v);
+					$v = [ $o => $o ];
+				} else {
+					$v = $this->textArray($v, $options);
+				}
+			} else if(is_array($v)) {
+				if($maxDepth > 0 && $options['_depth'] >= $maxDepth) {
+					$v = 'array(' . count($v) . ')';
+				} else {
+					$v = $this->textArray($v, $options);
+				}
+			}
+			
+			unset($value[$k]);
+		
+			if(!is_array($v)) {
+				if($options['types'] && (is_int($v) || is_float($v) || is_bool($v))) {
+					// keep existing int, float or bool for value
+				} else if(is_bool($v)) {
+					$v = $v ? 'true' : 'false';
+				} else if(is_int($v) || is_float($v)) {
+					$v = "$v";
+				} else {
+					$v = "$v";
+					if($options['sanitizer']) {
+						$v = $this->sanitize($v, $options['sanitizer']);
+					}
+					if($maxItemLength && strlen($v) > $maxItemLength) {
+						$v = substr($v, 0, $maxItemLength) . '… [truncated]';
+					}
+				}
+			}
+			
+			if($keySanitizer === 'int' || !$options['assoc']) {
+				$returnValue[] = $v;
+			} else {
+				if($keySanitizer) {
+					$k = $this->sanitize($k, $keySanitizer);
+					while(isset($returnValue[$k])) $k .= '_';
+				}
+				$returnValue[$k] = $v;
+			}
+		}
+		
+		$options['_depth']--;
+		
+		return $returnValue;
 	}
 	
 	/**
