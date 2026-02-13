@@ -3,7 +3,7 @@
 /**
  * ProcessWire WireMail
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary A module type that handles sending of email in ProcessWire
@@ -253,7 +253,7 @@ class WireMail extends WireData implements WireMailInterface {
 			$delim = '"';  // add quotes
 		}
 		// Encode the name part as quoted printable according to rfc2047
-		return $delim . $this->quotedPrintableString($name) . $delim . " <$email>";
+		return $delim . $this->encodeMimeHeader($name) . $delim . " <$email>";
 	}
 
 	/**
@@ -898,6 +898,20 @@ class WireMail extends WireData implements WireMailInterface {
 	 */
 	public function quotedPrintableString($text) {
 		return '=?utf-8?Q?' . quoted_printable_encode($text) . '?=';
+	}
+	
+	/**
+	 * Return the text encoded as a mime header
+	 *
+	 * #pw-advanced
+	 *
+	 * @param string $text
+	 * @return string
+	 *
+	 */
+	public function encodeMimeHeader($text) {
+		if(!extension_loaded('mbstring')) return $this->quotedPrintableString($text);
+		return mb_encode_mimeheader($text, 'UTF-8', 'Q', "\r\n");
 	}
 
 }
