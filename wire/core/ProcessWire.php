@@ -812,6 +812,7 @@ class ProcessWire extends Wire {
 		$session = $this->fuel->get('session'); /** @var Session $session */
 		$cache = $this->fuel->get('cache'); /** @var WireCache $cache */
 		$profiler = $this->fuel->get('profiler'); /** @var WireProfilerInterface $profiler */
+		$log = $this->fuel->get('log'); /** @var WireLog $log */
 		$exited = !empty($data['exited']);
 		
 		if($data) {} // data for hooks
@@ -822,6 +823,7 @@ class ProcessWire extends Wire {
 		if($session && !$exited) $session->maintenance();
 		if($cache && !$exited) $cache->maintenance();
 		if($profiler) $profiler->maintenance();
+		if($log) $log->finished();
 
 		if($config && !$exited) {
 			if($config->templateCompile) {
