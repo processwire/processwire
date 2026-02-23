@@ -4161,7 +4161,16 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 }
 
 .pw .PageListStatusIcon {
-	margin-right: -0.5em;
+	margin-right: -0.3em;
+}
+
+.pw .PageListStatusIcon {
+	margin-right: -0.3em;
+}
+.PageList .PageListNumChildren, 
+.PageListItemOpen span.PageListNote, 
+.PageListSorting .PageListSortItem span.PageListMoveNote {
+	padding-left: 0.35em;
 }
 
 .PageList .PageListActions a,
@@ -4183,10 +4192,12 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 
 .PageList .PageListItem:not(:hover) .PageListActions.actions {
 	opacity: 0 !important;
+	display: none !important;
 }
 
 .PageList .PageListItem:not(:hover):has(a:focus-visible) .PageListActions.actions {
 	opacity: 1 !important;
+	display: block !important;
 }
 
 body:not(.pw-narrow-width)
@@ -4405,24 +4416,22 @@ body:not(.pw-narrow-width)
 	font-weight: 500;
 }
 
+.PageList .PageListItem {
+	position: relative;
+}
+
 .PageList .PageListItem .PageListLoading {
 	height: 0;
 	opacity: 0;
+	position: absolute;
+	top: .55em;
+	left: -1.25em;
 }
 
 .PageList .PageListItem.PageListItemOpen > .PageListLoading {
 	opacity: 1;
 	transition: opacity 0.5s ease;
 }
-.PageListLoading[style*="block"] {
-	display: inline-block !important;
-}
-
-/* RJC: This causing it to never disappear in some cases (issue #2180)
-.PageListItem:not(:hover) .PageListLoading[style*="block"] {
-	display: none !important;
-}
- */
 
 .uk-description-list dt,
 .uk-description-list dt a {
