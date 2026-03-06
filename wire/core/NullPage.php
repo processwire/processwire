@@ -22,10 +22,10 @@
  * ~~~~~
  * #pw-body
  *
- * Placeholder class for non-existant and non-saveable Page.
+ * Placeholder class for non-existent and non-saveable Page.
  * Many API functions return a NullPage to indicate no match. 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $id The id property will always be 0 for a NullPage. 
@@ -33,6 +33,15 @@
  */
 
 class NullPage extends Page implements WireNull {
+	
+	/**
+	 * Have any values been set to this NullPage?
+	 * 
+	 * @var bool 
+	 * 
+	 */
+	protected $hasSets = false;
+	
 	/**
 	 * #pw-internal
 	 * 
@@ -51,6 +60,8 @@ class NullPage extends Page implements WireNull {
 	public function url($options = array()) { return ''; }
 
 	/**
+	 * Set property
+	 * 
 	 * #pw-internal
 	 * 
 	 * @param string $key
@@ -58,17 +69,33 @@ class NullPage extends Page implements WireNull {
 	 * @return $this
 	 * 
 	 */
-	public function set($key, $value) { return parent::setForced($key, $value); }
+	public function set($key, $value) { 
+		if($key !== 'id') $this->hasSets = true;
+		return parent::setForced($key, $value); 
+	}
+	
+	/**
+	 * Get property
+	 * 
+	 * @param string $key
+	 * @return mixed
+	 * 
+	 */
+	public function get($key) {
+		if($key === 'id') return 0;
+		return parent::get($key);
+	}
 
 	/**
 	 * #pw-internal
 	 * 
 	 * @param string $selector
 	 * @return null
-	 * @todo can this return NullPage instead?
 	 * 
 	 */
-	public function parent($selector = '') { return null; }
+	public function parent($selector = '') {
+		return $this->wire()->pages->newNullPage(true);
+	}
 
 	/**
 	 * #pw-internal
@@ -192,5 +219,5 @@ class NullPage extends Page implements WireNull {
 	 * @return bool
 	 * 
 	 */
-	public function isChanged($what = '') { return false; }
+	public function isChanged($what = '') { return $this->hasSets; }
 }
