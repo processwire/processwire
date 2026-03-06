@@ -6,9 +6,9 @@
  * For pages that are a version, this class represents the `_version` 
  * property of the page. It is also used as the return value for some
  * methods in the PagesVersions class to return version information.
- 
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * 
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $version Version number
@@ -60,7 +60,7 @@ class PageVersionInfo extends WireData {
 			'properties' => [], 
 			'action' => '',
 		];
-		parent::setArray(array_merge($defaults, $data));
+		$this->setArray(array_merge($defaults, $data));
 	}
 
 	/**
@@ -76,7 +76,12 @@ class PageVersionInfo extends WireData {
 			$value = (int) $value;
 		} else if($key === 'created' || $key === 'modified') {
 			if($value) {
-				$value = ctype_digit("$value") ? (int) $value : strtotime($value);
+				if(ctype_digit("$value")) {
+					$value = (int) $value; 
+				} else {
+					$value = strtotime($value);
+					if($value === false) $value = 0;
+				}
 			} else {
 				$value = 0;
 			}
@@ -122,7 +127,7 @@ class PageVersionInfo extends WireData {
 			$this->page = $this->wire()->pages->get($this->pages_id);
 			return $this->page;
 		}
-		return new NullPage();
+		return $this->wire()->pages->newNullPage();
 	}
 
 	/**
@@ -180,7 +185,8 @@ class PageVersionInfo extends WireData {
 	 */
 	public function getFieldNames() {
 		$a = parent::get('fieldNames');
-		if(!empty($a)) return $a; 
+		// if(!empty($a)) return $a;
+		if(is_array($a)) return $a; 
 		$a = $this->wire()->pagesVersions->getPageVersionFields($this->pages_id, $this->version);
 		$a = array_keys($a);
 		parent::set('fieldNames', $a);

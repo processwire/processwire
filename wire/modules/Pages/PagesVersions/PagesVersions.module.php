@@ -3,7 +3,7 @@
 /**
  * PagesVersions
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Provides a version control API for pages in ProcessWire.
@@ -95,14 +95,15 @@ class PagesVersions extends Wire implements Module {
 	 *
 	 */
 	public function getPageVersion(Page $page, $version, array $options = []) {
-		if(!$this->allowPageVersions($page)) return new NullPage();
+		$pages = $this->wire()->pages;
+		if(!$this->allowPageVersions($page)) return $pages->newNullPage();
 		if($this->pageVersionNumber($page)) {
 			$page = $this->wire()->pages->getFresh($page->id);
 		} else {
 			$page = clone $page;
 		}
 		$page->setTrackChanges(true);
-		return ($this->loadPageVersion($page, $version, $options) ? $page : new NullPage());
+		return ($this->loadPageVersion($page, $version, $options) ? $page : $pages->newNullPage());
 	}
 	
 	/**
@@ -388,7 +389,7 @@ class PagesVersions extends Wire implements Module {
 	 * 
 	 */
 	public function hasPageVersion(Page $page, $version = 0) {
-		$database = $this->wire()->database();
+		$database = $this->wire()->database;
 		$table = self::versionsTable;
 		if(empty($version)) {
 			return $this->hasPageVersions($page);
@@ -685,7 +686,7 @@ class PagesVersions extends Wire implements Module {
 		$qty = 0;
 		$versions = $this->getPageVersionInfos($page);
 		foreach($versions as $v) {
-			if($this->deletePageVersion($page, $v['version'])) $qty++;
+			if($this->deletePageVersion($page, $v->version)) $qty++;
 		}
 		return $qty;
 	}
@@ -1068,7 +1069,7 @@ class PagesVersions extends Wire implements Module {
 		if($multi && $numRows) {
 			$value = [];
 			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-				unset($value['pages_id']);
+				unset($row['pages_id']);
 				$value[] = $row;
 			}
 		} else if($numRows) {

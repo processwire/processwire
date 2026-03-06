@@ -284,7 +284,7 @@ class PagesVersionsFiles extends Wire {
 		
 		$options = array_merge($defaults, $options);
 		$fileFields = [];
-		$cacheKey = ($options['populated'] ? "p$page" : "t$page->templates_id");
+		$cacheKey = ($options['populated'] ? "p$page->id" : "t$page->templates_id");
 		
 		if(isset($this->fileFieldsCache[$cacheKey]) && empty($options['names'])) {
 			return $this->fileFieldsCache[$cacheKey];
@@ -292,6 +292,7 @@ class PagesVersionsFiles extends Wire {
 		
 		foreach($page->template->fieldgroup as $field) {
 			if(!$this->fieldSupportsFiles($field)) continue;
+			if(count($options['names']) && !in_array($field->name, $options['names'])) continue;
 			$fieldtype = $field->type;
 			if($options['populated'] && $fieldtype instanceof FieldtypeHasFiles) {
 				if($fieldtype->hasFiles($page, $field)) $fileFields[$field->name] = $field;
@@ -398,7 +399,7 @@ class PagesVersionsFiles extends Wire {
 	 *
 	 * #pw-internal
 	 *
-	 * @param string $path
+	 * @param string|Page $path
 	 * @param int $version
 	 * @return string
 	 *
@@ -428,9 +429,11 @@ class PagesVersionsFiles extends Wire {
 			$path = $page->filesPath();
 		}
 		$size = 0;
-		foreach(new \DirectoryIterator($path) as $file) {
-			if($file->isDir() || $file->isDot()) continue;
-			$size += $file->getSize();
+		if(is_dir($path)) {
+			foreach(new \DirectoryIterator($path) as $file) {
+				if($file->isDir() || $file->isDot()) continue;
+				$size += $file->getSize();
+			}
 		}
 		return $size;
 	}
@@ -460,7 +463,9 @@ class PagesVersionsFiles extends Wire {
 		if($event->method == 'path') {
 			$path = $event->return;
 			if($this->lastMkdir != $path && !is_dir($path)) {
-				$this->wire()->files->mkdir($path, true);
+				if($this->wire()->files->mkdir($path, true)) {
+					$this->lastMkdir = $path;
+				}
 			}
 		}
 	}
