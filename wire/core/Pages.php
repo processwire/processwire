@@ -25,7 +25,7 @@
  * - `$pages->save($page);` Saves given page. 
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
@@ -48,8 +48,9 @@
  * @property-read PagesPathFinder $pathFinder PagesPathFinder instance #pw-internal 3.0.191+
  * @property-read PagesType[] $types Array of all pages type managers. #pw-internal 3.0.191+
  * @property-read Page $newPage Returns new Page instance. #pw-internal 3.0.191+
- * @property-read Page $newPageArray Returns new PageArray instance. #pw-internal 3.0.191+
- * @property-read Page $newNullPage Returns new NullPage instance. #pw-internal 3.0.191+
+ * @property-read PageArray $newPageArray Returns new PageArray instance. #pw-internal 3.0.191+
+ * @property-read NullPage $newNullPage Returns new NullPage instance. #pw-internal 3.0.191+
+ * @property-read PagesExportImport $porter Returns new PagesExportImport instance #pw-internal 3.0.191+
  * 
  * HOOKABLE METHODS
  * ================
@@ -1807,8 +1808,8 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function of($of = null) {
-		if($of !== null) $this->setOutputFormatting($of ? true : false);
-		return $this->outputFormatting;
+		if($of !== null) $this->loader->setOutputFormatting($of ? true : false);
+		return $this->loader->getOutputFormatting();
 	}
 
 	/**
@@ -1861,7 +1862,12 @@ class Pages extends Wire {
 	 *
 	 */
 	public function getPageFinder() {
-		return $this->wire(new PageFinder());
+		$settings = $this->wire()->config->PageFinder;
+		if(isset($settings['version']) && $settings['version'] >= 2) {
+			return PageFinder2::getInstance($this);
+		} else {
+			return $this->wire(new PageFinder());
+		}
 	}
 
 	/**
@@ -1983,17 +1989,35 @@ class Pages extends Wire {
 	}
 
 	/**
-	 * Return a new NullPage
+	 * Return a NullPage
 	 * 
-	 * #pw-internal
+	 * This method returns the same `NullPage` instance for every
+	 * call except if: 
+	 *
+	 * - The ProcessWire version is prior to 3.0.257.
+	 * - You specify `true` for the `$forceNew` argument. 
+	 * - Some value is set to a previously returned `NullPage`,
+	 *   forcing it to generate a new one on the next call.
 	 * 
+	 * @param bool $forceNew Require that it must be a new instance (3.0.257+)
 	 * @return NullPage
 	 * 
 	 */
-	public function newNullPage() {
-		$page = new NullPage();
-		$this->wire($page);
-		return $page;
+	public function newNullPage($forceNew = false) {
+		static $nullPage = null;
+		if($forceNew) {
+			// always create new NullPage instance
+			$newNullPage = new NullPage();
+			$this->wire($newNullPage);
+			return $newNullPage;
+		} else if($nullPage === null || $nullPage->isChanged()) {
+			// create new NullPage instance only when needed
+			$nullPage = new NullPage();
+			$this->wire($nullPage);
+		} else {
+			// reuse existing NullPage instance
+		}
+		return $nullPage;
 	}
 
 	/**
@@ -2367,7 +2391,7 @@ class Pages extends Wire {
 		if(!$oldParent) $oldParent = $this->newNullPage();
 		$newParent = $page->parent;
 		$page->moved($oldParent, $newParent);
-		if($oldParent) {
+		if($oldParent->id) {
 			$this->log("Moved page from $oldParent->path$page->name/ to $newParent->path$page->name/", $page);
 		} else {
 			$this->log("Moved page to $newParent->path$page->name/", $page); 

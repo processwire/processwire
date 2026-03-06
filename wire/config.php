@@ -1236,7 +1236,10 @@ $config->dbEngine = 'MyISAM';
  * Allow MySQL query caching?
  * 
  * Set to false to to disable query caching. This will make everything run slower so should
- * only used for DB debugging purposes.
+ * only used for DB debugging purposes. (default is true)
+ * 
+ * If using MySQL 8 or newer this should always be set to `true` as MySQL 8+ no longer
+ * supports the feature to disable cache using SQL_NO_CACHE. 
  * 
  * @var bool
  *
@@ -1394,6 +1397,31 @@ $config->dbReader = array(
 	// 'name' => 'mydb',
 	// …etc., though most likely you will only need 'host' entry to setup a reader
 );
+
+/**
+ * Settings for PageFinder class
+ * 
+ * These settings specify the defaults. Other than the `version` setting, these may still be overridden
+ * by individual PageFinder instances according to the $options argument passed to the find() method.
+ * 
+ * @var array
+ * @since 3.0.257
+ * 
+ * #property int $version PageFinder version to use, likely a temporary setting (default=1)
+ * #property bool $useSubQueries Use sub-queries for sub-selectors? v2 only. (default=true)
+ * #property bool $reuseInstances Reuse PageFinder instances rather than creating a new instance each time? v2 only. (default=true)
+ * #property string $getTotalType Specify either `calc` or `count` or omit for default (calc on v1, count on v2).
+ * #property bool $allowCustom Allow use of `_custom="another selector"` in Selectors? (default=false)
+ * #property bool $testMode When true it records total execution time for all PageFinder instances, 
+ *   use `$pages->getPageFinder()->getTotalTime()` to retrieve. 
+ * 
+ */
+$config->PageFinder = [
+	'version' => 1,
+	'useSubQueries' => true, // v2 
+	'reuseInstances' => true, // v2
+	'testMode' => false, 
+];
 
 /*** 8. MODULES *********************************************************************************/
 

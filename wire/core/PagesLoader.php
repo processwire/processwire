@@ -11,7 +11,7 @@
  * Please always use `$pages->method()` rather than `$pages->loader->method()` in cases where there is overlap.
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -71,7 +71,7 @@ class PagesLoader extends Wire {
 	protected $debug = false;
 
 	/**
-	 * Are we currenty loading pages?
+	 * Are we currently loading pages?
 	 * 
 	 * @var bool
 	 * 
@@ -181,7 +181,7 @@ class PagesLoader extends Wire {
 			
 		} else if(strpos($selector, ',') === false) {
 			// there is just one “key=value” or “value” selector that needs further processing
-			if(strpos($selector, 'id=')) {
+			if(strpos($selector, 'id=') === 0) {
 				if($convertIDs) {
 					// string like id=123 or id=123|456|789 converted to int or int-array
 					$s = substr($selector, 3); // skip over 'id='
@@ -205,8 +205,8 @@ class PagesLoader extends Wire {
 				}
 			}
 		}
-		
-		if(is_int($selector) || ctype_digit("$selector")) {
+	
+		if(is_int($selector) || (is_string($selector) && ctype_digit("$selector"))) {
 			// page ID integer
 			if($convertIDs) {
 				$selector = (int) $selector;
@@ -458,10 +458,11 @@ class PagesLoader extends Wire {
 		$limit = $pageFinder->getLimit();
 		$start = $pageFinder->getStart();
 		
+		$pages = $this->pages->newPageArray($loadOptions);
+		
 		if($lazy) {
 			// lazy load: create empty pages containing only id and template
 			$templates = $this->wire()->templates;
-			$pages = $this->pages->newPageArray($loadOptions);
 			$pages->finderOptions($options);
 			$pages->setDuplicateChecking(false);
 			$loadPages = false;
@@ -491,11 +492,9 @@ class PagesLoader extends Wire {
 			unset($template, $templatesByID);
 
 		} else if($findIDs) {
-			
+			// Note that $pages PageArray still used for hooks or for findIDs==3 option
 			$loadPages = false;
 			$cachePages = false;
-			// PageArray for hooks or for findIDs==3 option
-			$pages = $this->pages->newPageArray($loadOptions); 
 
 		} else if($loadPages) {
 			// parent_id is null unless a single parent was specified in the selectors
@@ -517,32 +516,28 @@ class PagesLoader extends Wire {
 
 			if(count($idsByTemplate) > 1) {
 				// perform a load for each template, which results in unsorted pages
-				// @todo use $idsUnsorted array rather than $unsortedPages PageArray
-				$unsortedPages = $this->pages->newPageArray($loadOptions);
+				$unsortedPages = [];
 				foreach($idsByTemplate as $tpl_id => $ids) {
 					$opt = $loadOptions;
 					$opt['template'] = $templates->get($tpl_id);
 					$opt['parent_id'] = $parent_id;
-					$unsortedPages->import($this->getById($ids, $opt));
+					$opt['getArray'] = true;
+					$unsortedPages += $this->getById($ids, $opt); 
 				}
 
 				// put pages back in the order that the selectorEngine returned them in, while double checking that the selector matches
-				$pages = $this->pages->newPageArray($loadOptions);
 				foreach($idsSorted as $id) {
-					foreach($unsortedPages as $page) {
-						if($page->id == $id) {
-							$pages->add($page);
-							break;
-						}
-					}
+					if(!isset($unsortedPages[$id])) continue;
+					$page = $unsortedPages[$id];
+					$pages->add($page); 
 				}
 			} else {
 				// there is only one template used, so no resorting is necessary	
-				$pages = $this->pages->newPageArray($loadOptions);
 				reset($idsByTemplate);
 				$opt = $loadOptions;
 				$opt['template'] = $templates->get(key($idsByTemplate));
 				$opt['parent_id'] = $parent_id;
+				$opt['getArray'] = true;
 				$pages->import($this->getById($idsSorted, $opt));
 			}
 			
@@ -555,9 +550,6 @@ class PagesLoader extends Wire {
 					$page->setQuietly('_pfscore', $score); 
 				}
 			}
-
-		} else {
-			$pages = $this->pages->newPageArray($loadOptions);
 		}
 
 		$pageFinder->getPageArrayData($pages); 
@@ -861,7 +853,7 @@ class PagesLoader extends Wire {
 	 * Find pages and cache the result for specified period of time
 	 *
 	 * Use this when you want to cache a slow or complex page finding operation so that it doesn’t
-	 * have to be repated for every web request. Note that this only caches the find operation
+	 * have to be repeated for every web request. Note that this only caches the find operation
 	 * and not the loading of the found pages.
 	 *
 	 * ~~~~~
@@ -929,7 +921,6 @@ class PagesLoader extends Wire {
 			if(strpos($selectorStr, 'template') !== false && empty($options['template'])) {
 				$info = Selectors::selectorHasField($selectors, array('template', 'templates_id'), array('verbose' => true));
 				if($info['result']) $options['template'] = $this->wire()->templates->get($info['value']);
-				echo "template=$options[template]\n";
 			}
 		}
 
@@ -1073,6 +1064,7 @@ class PagesLoader extends Wire {
 	 * - `parent_id` (int): See $parent_id argument for details (default=null)
 	 * - `getNumChildren` (bool): Specify false to disable retrieval and population of 'numChildren' Page property. (default=true)
 	 * - `getOne` (bool): Specify true to return just one Page object, rather than a PageArray. (default=false)
+	 * - `getArray` (bool|string): Get PHP array (indexed by id) rather than PageArray? (default=false) 3.0.257+
 	 * - `autojoin` (bool): Allow use of autojoin option? (default=true)
 	 * - `joinFields` (array): Autojoin the field names specified in this array, regardless of field settings, requires `autojoin=true`. (default=empty)
 	 * - `joinSortfield` (bool): Whether the 'sortfield' property will be joined to the page. (default=true)
@@ -1099,7 +1091,7 @@ class PagesLoader extends Wire {
 	 *  just those used by the template. Optionally specify an $options array instead, see the method notes above.
 	 * @param int|null $parent_id Specify a parent to make the load faster, as it reduces the possibility for full table scans.
 	 *	This argument is ignored when an options array is supplied for the $template.
-	 * @return PageArray|Page|NullPage Returns Page only if the 'getOne' option is specified, otherwise always returns a PageArray.
+	 * @return PageArray|Page|NullPage|array Returns `Page|NullPage` if `getOne` option, `array` if `getArray` option, or PageArray otherwise.
 	 * @throws WireException
 	 *
 	 */
@@ -1120,7 +1112,8 @@ class PagesLoader extends Wire {
 			'pageClass' => '',  // blank = auto detect
 			'pageArray' => null, // PageArray to populate to
 			'pageArrayClass' => 'PageArray',
-			'caller' => '', 
+			'getArray' => false,
+			'caller' => '',
 		);
 	
 		$templates = $this->wire()->templates;
@@ -1166,7 +1159,9 @@ class PagesLoader extends Wire {
 
 		if(!WireArray::iterable($_ids) || !count($_ids)) {
 			// return blank if $_ids isn't iterable or is empty
-			return $options['getOne'] ? $this->pages->newNullPage() : $this->pages->newPageArray($options);
+			if($options['getOne']) return $this->pages->newNullPage(); 
+			if($options['getArray']) return [];
+			return $this->pages->newPageArray($options);
 		}
 
 		if(is_object($_ids)) $_ids = $_ids->getArray(); // ArrayObject or the like
@@ -1234,6 +1229,10 @@ class PagesLoader extends Wire {
 			if($options['getOne']) {
 				$page = count($loaded) ? reset($loaded) : null;
 				return $page instanceof Page ? $page : $this->pages->newNullPage();
+			} 
+			if($options['getArray']) {
+				foreach($loaded as $k => $v) if(empty($v)) unset($loaded[$k]);
+				return $loaded;
 			}
 			$pages = $this->pages->newPageArray($options);
 			$pages->setDuplicateChecking(false);
@@ -1397,7 +1396,7 @@ class PagesLoader extends Wire {
 					}
 					$this->totalPagesLoaded++;
 				}
-			} catch(\Exception $e) {
+			} catch(\Throwable $e) {
 				$error = $e->getMessage() . " [pageClass=$class, template=$template]";
 				$user = $this->wire()->user;
 				if($user && $user->isSuperuser()) $this->error($error);
@@ -1414,17 +1413,21 @@ class PagesLoader extends Wire {
 			$page = count($loaded) ? reset($loaded) : null;
 			return $page instanceof Page ? $page : $this->pages->newNullPage();
 		}
-		
-		$pages = $this->pages->newPageArray($options);
-		$pages->setDuplicateChecking(false);
-		$pages->import($loaded);
-		$pages->setDuplicateChecking(true);
+	
+		if($options['getArray']) {
+			$pages =& $loaded;
+		} else {
+			$pages = $this->pages->newPageArray($options);
+			$pages->setDuplicateChecking(false);
+			$pages->import($loaded);
+			$pages->setDuplicateChecking(true);
+		}
 		if(!$loading) $this->loading = false;
 
 		// debug mode only
 		if($this->debug) {
 			$page = $this->wire()->page;
-			if($page && $page->template == 'admin') {
+			if($page && $page->template->name === 'admin') {
 				if(empty($options['caller'])) {
 					$_template = is_null($template) ? '' : ", $template";
 					$_parent_id = is_null($parent_id) ? '' : ", $parent_id";
@@ -1440,7 +1443,6 @@ class PagesLoader extends Wire {
 				}
 			}
 		}
-		
 
 		return $pages;
 	}
@@ -1578,7 +1580,7 @@ class PagesLoader extends Wire {
 	 *
 	 * @param int|Page $id ID of the page you want the path to
 	 * @param null|array|Language|int|string $options Specify $options array or Language object, id or name. Allowed options:
-	 *  - language (int|string|anguage): To retrieve in non-default language, specify language object, ID or name (default=null)
+	 *  - language (int|string|Language): To retrieve in non-default language, specify language object, ID or name (default=null)
 	 *  - useCache (bool): Allow pulling paths from already loaded pages? (default=true)
 	 *  - usePagePaths (bool): Allow pulling paths from PagePaths module, if installed? (default=true)
 	 * @return string Path to page or blank on error/not-found
@@ -2068,7 +2070,6 @@ class PagesLoader extends Wire {
 		$options['getTotal'] = true;
 		$options['caller'] = 'pages.count';
 		$options['returnVerbose'] = false;
-		//if($this->wire('config')->debug) $options['getTotalType'] = 'count'; // test count method when in debug mode
 		if(is_string($selector)) {
 			$selector .= ", limit=1";
 		} else if(is_array($selector)) {
@@ -2229,7 +2230,7 @@ class PagesLoader extends Wire {
 				continue; // force to getBlankValue in loop below this
 			}
 			if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) { 
-				if(strrpos($sleepValue, FieldtypeMulti::multiValueSeparator)) {
+				if(strpos($sleepValue, FieldtypeMulti::multiValueSeparator) !== false) {
 					$sleepValue = explode(FieldtypeMulti::multiValueSeparator, $sleepValue);
 				}
 			}
@@ -2493,7 +2494,7 @@ class PagesLoader extends Wire {
 	 * 
 	 * #pw-group-native
 	 * 
-	 * @param $columnName
+	 * @param string $columnName
 	 * @return bool
 	 * 
 	 */

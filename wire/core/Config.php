@@ -154,6 +154,7 @@
  * @property bool $usePageClasses Use custom Page classes in `/site/classes/[TemplateName]Page.php`? #pw-group-system @since 3.0.152
  * @property bool|int|string|null $useVersionUrls Default value for $useVersion argument of $config->versionUrls() method #pw-group-system @since 3.0.227
  * @property int $lazyPageChunkSize Chunk size for for $pages->findMany() calls. #pw-group-system
+ * @property array $PageFinder Settings for the PageFinder class. #pw-group-system @since 3.0.257
  * 
  * @property string $userAuthSalt Salt generated at install time to be used as a secondary/non-database salt for the password system. #pw-group-session
  * @property string $userAuthHashType Default is 'sha1' - used only if Blowfish is not supported by the system. #pw-group-session
