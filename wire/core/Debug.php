@@ -79,12 +79,32 @@ class Debug {
 	);
 
 	/**
-	 * Measure time between two events
+	 * Measure time between two events 
 	 *
-	 * First call should be to $key = Debug::timer() with no params, or provide your own key that's not already been used
-	 * Second call should pass the key given by the first call to get the time elapsed, i.e. $time = Debug::timer($key).
-	 * Note that you may make multiple calls back to Debug::timer() with the same key and it will continue returning the 
-	 * elapsed time since the original call. If you want to reset or remove the timer, call removeTimer or resetTimer.
+	 * First call should be to `$timer = Debug::timer();` with no arguments, 
+	 * or provide your own key/name as an argument.
+	 * 
+	 * Second call should pass the `$timer` given by the first call to get the time elapsed, 
+	 * i.e. `$elapsed = Debug::timer($timer);`.
+	 * 
+	 * Note that you may make multiple calls back to `Debug::timer($timer)` with the same key 
+	 * and it will continue returning the elapsed time since the original call. If you want 
+	 * to reset or remove the timer, call removeTimer or resetTimer.
+	 * 
+	 * ~~~~~
+	 * // typical usage
+	 * $timer = Debug::timer(); 
+	 * some_code_that_you_want_to_time();
+	 * $seconds = Debug::timer($timer); 
+	 * 
+	 * // using a named timer
+	 * Debug::timer('foobar'); 
+	 * some_code_that_you_want_to_time();
+	 * $seconds = Debug::timer('foobar');
+	 * 
+	 * // optionally remove the timer
+	 * Debug::removeTimer('foobar');
+	 * ~~~~~
 	 *
 	 * @param string $key 
 	 * 	Leave blank to start timer. 
