@@ -12,7 +12,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property array $select
@@ -49,10 +49,26 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	/**
 	 * DB cache setting from $config
 	 * 
-	 * @var null
+	 * @var null|bool
 	 * 
 	 */
 	static $dbCache = null;
+	
+	/**
+	 * Indent level for debug logging
+	 * 
+	 * @var int 
+	 * 
+	 */
+	protected $indentLevel = 0;
+	
+	/**
+	 * Cached SQL from getQuery()
+	 * 
+	 * @var null|string
+	 * 
+	 */
+	protected $sql = null;
 
 	/**
 	 * Setup the components of a SELECT query
@@ -69,12 +85,29 @@ class DatabaseQuerySelect extends DatabaseQuery {
 		$this->addQueryMethod('limit', " \nLIMIT ", ',');
 		$this->set('comment', ''); 
 	}
+	
+	public function __call($method, $arguments) {
+		$this->sql = null;
+		return parent::__call($method, $arguments);
+	}
+	
+	public function set($key, $value) {
+		if(isset($this->queryMethods[$key])) $this->sql = null;
+		return parent::set($key, $value);
+	}
+	
+	public function __set($key, $value) {
+		if(isset($this->queryMethods[$key])) $this->sql = null;
+		return parent::__set($key, $value);
+	}
 
 	/**
 	 * Return the resulting SQL ready for execution with the database
  	 *
 	 */
 	public function getQuery() {
+		if($this->sql !== null) return $this->sql;
+		$debug = $this->wire()->config->debug;
 
 		$sql = trim(	
 			$this->getQueryMethod('select') . 
@@ -86,14 +119,21 @@ class DatabaseQuerySelect extends DatabaseQuery {
 			$this->getQueryMethod('orderby') . 
 			$this->getQueryMethod('limit')
 		) . ' ';
-
-		if($this->get('comment') && $this->wire()->config->debug) {
+		
+		if($debug && $this->get('comment')) {
 			// NOTE: PDO thinks ? and :str param identifiers in /* comments */ are real params
 			// so we str_replace them out of the comment, and only support comments in debug mode
 			$comment = str_replace(array('*/', '?', ':'), '', $this->comment); 
 			$sql .= "/* $comment */";
 		}
-
+		
+		if($debug && $this->indentLevel) {
+			$indent = str_repeat("\t", $this->indentLevel); 
+			$sql = $indent . str_replace("\n", "\n$indent", $sql);
+		}
+		
+		$this->sql = $sql;
+			
 		return $sql; 
 	}
 
@@ -107,6 +147,13 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	 *
 	 */
 	public function orderby($value, $prepend = false) {
+		
+		$this->sql = null;
+		
+		if($value === null) {
+			$this->set('orderby', []); 
+			return $this;
+		}
 	
 		if(is_object($value)) {
 			if($value instanceof DatabaseQuerySelect) {
@@ -167,28 +214,30 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	 */
 	protected function getQueryGroupby() {
 		if(!count($this->groupby)) return '';
-		$sql = "\nGROUP BY ";
-		$having = array();
+	
+		$sql = [ 'GROUP BY' ];
+		$groups = [];
+		$haves = [];
+		
 		foreach($this->groupby as $s) {
 			// if it starts with 'HAVING' then we will determine placement
 			// this is a shortcut to combine multiple HAVING statements with ANDs
 			if(stripos($s, 'HAVING ') === 0) {
-				$having[] = substr($s, 7); 
-				continue; 
+				$have = substr($s, 7);
+				$haves[] = $have;
+			} else {
+				$groups[] = $s;
 			}
-			$sql .= "$s,";
 		}
+		
+		$sql[] = implode(',', $groups);
 
-		if(count($having)) {
+		if(count($haves)) {
 			// place in any having statements that weren't placed
-			$sql = rtrim($sql, ",") . " HAVING ";
-			foreach($having as $n => $h) {
-				if($n > 0) $sql .= " AND ";
-				$sql .= $h;
-			}
+			$sql[] = 'HAVING ' . implode(' AND ', $haves);
 		}
 
-		return rtrim($sql, ",") . " ";
+		return "\n" . implode(' ', $sql) . " ";
 	}
 
 	/**
@@ -210,6 +259,19 @@ class DatabaseQuerySelect extends DatabaseQuery {
 			$limit = (int) $limit;
 		}
 		return "\nLIMIT $limit ";
+	}
+	
+	/**
+	 * Set the indent level for debug logging
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param int $level
+	 * @since 3.0.257
+	 * 
+	 */
+	public function setIndentLevel($level) {
+		$this->indentLevel = (int) $level;
 	}
 }
 

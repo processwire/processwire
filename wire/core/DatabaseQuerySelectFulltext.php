@@ -20,7 +20,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property-read $tableField
@@ -51,7 +51,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	/**
 	 * Current field/column name
 	 * 
-	 * @var $fieldName
+	 * @var string 
 	 *
 	 */
 	protected $fieldName = '';
@@ -135,6 +135,8 @@ class DatabaseQuerySelectFulltext extends Wire {
 		'matchCommands' => array('#='), 
 	);
 	
+	static protected $operatorsMethod = [];
+	
 	/**
 	 * Alternate operators to substitute when LIKE match is forced due to no FULLTEXT index
 	 * 
@@ -156,7 +158,15 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected $forceLike = false;
-
+	
+	/**
+	 * mbstring available?
+	 *
+	 * @var null|bool
+	 *
+	 */
+	static protected $mbstr = null;
+	
 	/**
 	 * Construct
 	 *
@@ -309,13 +319,18 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 		
 		$this->operator = $operator;
-		
-		foreach($this->methodOperators as $name => $operators) {
-			if(in_array($operator, $operators)) $this->method = $name;
-			if($this->method) break;
+	
+		if(empty(self::$operatorsMethod)) {
+			foreach($this->methodOperators as $name => $ops) {
+				foreach($ops as $op) {
+					self::$operatorsMethod[$op] = $name;
+				}
+			}
 		}
 		
-		if(!$this->method) {
+		if(isset(self::$operatorsMethod[$operator])) {
+			$this->method = self::$operatorsMethod[$operator];
+		} else {
 			throw new WireException("Unimplemented operator in $this::match()");
 		}
 		
@@ -394,12 +409,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function matchArrayValue(array $value) {
 	
-		/*
-		if(strpos($this->operator, '~') !== false) {
-			throw new WireException("Operator $this->operator is not supported for $this->fieldName with OR value condition");
-		}
-		*/
-		
 		// convert *= operator to %= to make the query possible (avoiding matchContains method)
 		// if($this->operator === '*=') $this->operator = '%='; 
 		
@@ -978,7 +987,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		);
 
 		$options = array_merge($defaults, $options);
-		$minWordLength = (int) $this->database->getVariable('ft_min_word_len');
+		$minWordLength = (int) $this->getMinWordLength();
 		$originalValue = $value;
 		$value = $this->escapeAgainst($value);
 		$booleanValues = array();
@@ -1225,7 +1234,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 		);
 		
 		$options = count($options) ? array_merge($defaults, $options) : $defaults;
-		if($options['minWordLength'] === true) $options['minWordLength'] = (int) $this->database->getVariable('ft_min_word_len');
+		if($options['minWordLength'] === true) {
+			$options['minWordLength'] = (int) $this->getMinWordLength();
+		}
 		$words = $this->wire()->sanitizer->wordsArray($value, $options);
 		
 		if($options['alternates']) {
@@ -1320,8 +1331,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected function strlen($value) {
+		if(self::$mbstr === null) self::$mbstr = function_exists('mb_strlen');
 		$value = (string) $value;
-		if(function_exists('mb_strlen')) {
+		if(self::$mbstr) {
 			return mb_strlen($value);
 		} else {
 			return strlen($value);
@@ -1376,7 +1388,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function getScoreFieldName() {
 		$key = $this->tableName . '_' . $this->fieldName;
 		self::$scoreCnts[$key] = isset(self::$scoreCnts[$key]) ? self::$scoreCnts[$key] + 1 : 0;
-		return '_score_' . $key . self::$scoreCnts[$key];
+		$scoreField = '_score_' . $key . self::$scoreCnts[$key];
+		$this->query->set('_useScoreField', $scoreField);
+		return $scoreField;
 	}
 	
 	/**
