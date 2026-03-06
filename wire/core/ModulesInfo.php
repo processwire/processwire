@@ -1306,11 +1306,23 @@ class ModulesInfo extends ModulesClass {
 
 		$namespace = null;
 
-		if(is_object($moduleName) || strpos($moduleName, "\\") !== false) {
-			$className = is_object($moduleName) ? get_class($moduleName) : $moduleName;
-			if(strpos($className, "ProcessWire\\") === 0) return "ProcessWire\\";
-			if(strpos($className, "\\") === false) return "\\";
-			$parts = explode("\\", $className);
+		if($moduleName instanceof Module) {
+			if($moduleName instanceof ModulePlaceholder) {
+				$namespace = $moduleName->getNamespace();
+				if($namespace) return $namespace; 
+			}
+			$moduleName = get_class($moduleName);
+		} else {
+			$moduleName = (string) $moduleName;
+		}
+		
+		$pos = strpos($moduleName, "\\"); 
+		
+		if($pos !== false) {
+			if($pos && strpos($moduleName, "ProcessWire\\") === 0) return "ProcessWire\\";
+			if($pos === 0 && strrpos($moduleName, "\\") === 0) return "\\";
+			// the following is rare:
+			$parts = explode("\\", $moduleName);
 			array_pop($parts);
 			$namespace = count($parts) ? implode("\\", $parts) : "";
 			$namespace = $namespace == "" ? "\\" : "\\$namespace\\";
