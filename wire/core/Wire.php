@@ -101,14 +101,6 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	/*******************************************************************************************************
 	 * API VARIABLE/FUEL INJECTION AND ACCESS
 	 * 
-	 * PLEASE NOTE: All the following fuel related variables/methods will be going away in PW 3.0.
-	 * You should use the $this->wire() method instead for compatibility with PW 3.0. The only methods
-	 * and variables sticking around for PW 3.0 are:
-	 * 
-	 * $this->wire(...);
-	 * $this->useFuel(bool);
-	 * $this->useFuel
-	 * 
 	 */
 
 	/**
@@ -1198,8 +1190,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	public function getChanges($getValues = false) {
 		if($getValues === 2) {
 			$changes = array();
-			foreach($this->changes as $name => $value) {
-				if($value) {} // value ignored
+			foreach(array_keys($this->changes) as $name) {
 				$changes[$name] = $name;
 			}
 			return $changes;
@@ -1808,7 +1799,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			// return ProcessWire instance
 			$value = $wire;
 			
-		} else if($name === '*' || $name === 'all' || $name == 'fuel') {
+		} else if($name === '*' || $name === 'all' || $name === 'fuel') {
 			// return Fuel instance
 			$value = $wire->fuel();
 			
@@ -1895,7 +1886,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		/** @var WireDebugInfo $debugInfo */
 		require_once(__DIR__ . '/WireDebugInfo.php');
 		$debugInfo = $this->wire(new WireDebugInfo());
-		return $debugInfo->getDebugInfo($this, true);
+		return $debugInfo->getDebugInfo($this, false);
 	}
 
 	/**
