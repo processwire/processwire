@@ -10,7 +10,7 @@
  * #pw-body =
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -188,10 +188,7 @@ class PagesLoaderCache extends Wire {
 	 */
 	public function uncacheAll(?Page $page = null, array $options = array()) {
 
-		if($page) {} // to ignore unused parameter inspection
-		$user = $this->wire()->user;
-		$language = $this->wire()->languages ? $user->language : null;
-		$cnt = 0;
+		$cnt = count($this->pageIdCache);
 
 		$this->pages->sortfields(true); // reset
 
@@ -200,12 +197,14 @@ class PagesLoaderCache extends Wire {
 				count($this->pageSelectorCache));
 		}
 
-		foreach($this->pageIdCache as $id => $page) {
-			if($id == $user->id || ($language && $language->id == $id)) continue;
-			if($page->numChildren) continue; 
-			if(empty($options['shallow'])) $page->uncache();
-			unset($this->pageIdCache[$page->id]);
-			$cnt++;
+		if(empty($options['shallow'])) {
+			$user = $this->wire()->user;
+			$userId = $user->id;
+			$languageId = $this->wire()->languages ? $user->language->id : null;
+			foreach($this->pageIdCache as $id => $page) {
+				if($id === $userId || $id === $languageId || $page->numChildren) continue;
+				$page->uncache();
+			}
 		}
 
 		$this->pageIdCache = array();
