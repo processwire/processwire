@@ -13,10 +13,11 @@
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
- * @version 3.0.2
+ * @version 3.0.3
  *
  * Index Versions
  * ==============
+ * 303 Updated to use separate boot() call to ProcessWire to ensure $shutdown is built.
  * 302 Updated for PHP 8.4 deprecation notices, upgrade not necessary w/prior PHP versions.
  * 300 Moved much of this file to a ProcessWire::buildConfig() method.
  * 252 Extract all fuel to local API vars when in external or cli mode.
@@ -25,7 +26,7 @@
  *
  */
 
-if(!defined("PROCESSWIRE")) define("PROCESSWIRE", 302); // index version
+if(!defined("PROCESSWIRE")) define("PROCESSWIRE", 303); // index version
 $rootPath = __DIR__;
 if(DIRECTORY_SEPARATOR != '/') $rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
 $composerAutoloader = $rootPath . '/vendor/autoload.php'; // composer autoloader
@@ -50,7 +51,8 @@ $wire = null;
 
 try { 
 	// Bootstrap ProcessWire's core and make the API available with $wire
-	$wire = new ProcessWire($config);
+	$wire = new ProcessWire($config, '/', false);
+	$wire->boot($config);
 	$process = $wire->modules->get('ProcessPageView'); /** @var ProcessPageView $process */
 	$wire->wire('process', $process); 
 	echo $process->execute($config->internal);

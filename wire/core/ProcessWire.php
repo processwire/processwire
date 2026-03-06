@@ -86,7 +86,7 @@ class ProcessWire extends Wire {
 	 * Version suffix string (when applicable)
 	 * 
 	 */
-	const versionSuffix = '';
+	const versionSuffix = 'dev';
 
 	/**
 	 * Minimum required index.php version, represented by the PROCESSWIRE define
@@ -276,10 +276,11 @@ class ProcessWire extends Wire {
 	 *  - This is only used if $config is omitted or a path string.
 	 *  - May also include scheme & hostname, i.e. "http://hostname.com/url" to force use of scheme+host.
 	 *  - If omitted, it is determined automatically. 
+	 * @param bool $boot Specify false if you will call $wire->boot(); on your own (default=true) 3.0.257+
 	 * @throws WireException if given invalid arguments
  	 *
 	 */ 
-	public function __construct($config = null, $rootURL = '/') {
+	public function __construct($config = null, $rootURL = '/', $boot = true) {
 		parent::__construct();
 	
 		if(empty($config)) $config = getcwd();
@@ -312,9 +313,27 @@ class ProcessWire extends Wire {
 
 		$this->setConfig($config);
 		$this->shutdown = $this->wire(new WireShutdown($config));
+	
+		if($boot) $this->boot($config);
+	}
+	
+	/**
+	 * Boot ProcessWire
+	 * 
+	 * This is called automatically, unless you specified false 
+	 * for the `$boot` constructor argument.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Config $config
+	 * @throws WireDatabaseException
+	 * @throws WireException
+	 * 
+	 */
+	public function boot($config = null) {
+		if($config === null) $config = $this->wire()->config;
 		$this->setStatus(self::statusBoot);
 		$this->load($config);
-		
 		if(self::getNumInstances() > 1) {
 			// this instance is not handling the request and needs a mock $page API var and pageview
 			/** @var ProcessPageView $view */
@@ -330,9 +349,10 @@ class ProcessWire extends Wire {
 	public function __destruct() {
 		if($this->status < self::statusFinished) {
 			// call finished hook if it wasn’t already
+			$prevStatus = $this->status;
 			$this->status = self::statusExited;
 			$this->finished(array(
-				'prevStatus' => $this->status,
+				'prevStatus' => $prevStatus,
 				'exited' => true, 
 			));
 		}
@@ -541,7 +561,7 @@ class ProcessWire extends Wire {
 			$database = $this->wire('database', WireDatabasePDO::getInstance($config), true);
 			/** @noinspection PhpUnusedLocalVariableInspection */
 			$db = $this->wire('db', new DatabaseMysqli($config), true);
-		} catch(\Exception $e) {
+		} catch(\Throwable $e) {
 			// catch and re-throw to prevent DB connect info from ever appearing in debug backtrace
 			$this->trackException($e, true, 'Unable to load WireDatabasePDO');
 			throw new WireDatabaseException($e->getMessage()); 
@@ -891,13 +911,16 @@ class ProcessWire extends Wire {
 		}
 		$this->pathSave = getcwd();
 		chdir(dirname($this->fileSave));
-		if(count($data)) extract($data);
-		$fuel = $this->fuel->getArray();
-		extract($fuel);
-		/** @noinspection PhpIncludeInspection */
-		include($this->fileSave);
-		chdir($this->pathSave);
-		$this->fileSave = '';
+		try {
+			if(count($data)) extract($data);
+			$fuel = $this->fuel->getArray();
+			extract($fuel);
+			/** @noinspection PhpIncludeInspection */
+			include($this->fileSave);
+		} finally {
+			chdir($this->pathSave);
+			$this->fileSave = '';
+		}
 		return true; 
 	}
 
