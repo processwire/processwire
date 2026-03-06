@@ -6,7 +6,7 @@
  * Holds the place for a Module until it is included and instantiated.
  * As used by the Modules class. 
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://.processwire.com
  * 
  * @property bool $autoload
@@ -44,11 +44,35 @@ class ModulePlaceholder extends WireData implements Module {
 	public function ___uninstall() { }
 
 	public function setClass($class) {
-		$this->class = (string) $class; 
+		$class = (string) $class;
+		$pos = strrpos($class, "\\"); 
+		if($pos !== false) {
+			$this->ns = $pos === 0 ? "\\" : substr($class, 0, $pos); 
+			$class = substr($class, $pos+1);
+		}
+		$this->class = $class; 
+	}
+	
+	/**
+	 * @return string
+	 * @since 3.0.257
+	 *
+	 */
+	public function getClass() {
+		return $this->class;
 	}
 	
 	public function setNamespace($ns) {
 		$this->ns = (string) $ns;
+	}
+	
+	/**
+	 * @return string
+	 * @since 3.0.257
+	 * 
+	 */
+	public function getNamespace() {
+		return $this->ns;
 	}
 
 	public function get($key) {
