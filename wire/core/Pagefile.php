@@ -12,7 +12,7 @@
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read string $url URL to the file on the server.
@@ -357,7 +357,7 @@ class Pagefile extends WireData implements WireArrayItem {
 		$key = $type === 'created' ? '_createdUser' : '_modifiedUser';
 		if(!$this->$key) {
 			$id = (int) parent::get($type . '_users_id');
-			$this->$key = $id ? $this->wire('users')->get($id) : new NullPage(); 
+			$this->$key = ($id ? $this->wire()->users->get($id) : new NullPage()); 
 		}
 		return $this->$key;
 	}
@@ -421,11 +421,11 @@ class Pagefile extends WireData implements WireArrayItem {
 	 * Set a description, optionally parsing JSON language-specific descriptions to separate properties
 	 *
 	 * @param string|array $value
-	 * @param Page|Language Langage to set it for. Omit to determine automatically. 
+	 * @param Language|null Langage to set it for. Omit to determine automatically. 
 	 * @return $this
 	 *
 	 */
-	protected function setDescription($value, Page $language = null) {
+	protected function setDescription($value, ?Page $language = null) {
 		
 		$languages = $this->wire()->languages;
 		
@@ -577,7 +577,7 @@ class Pagefile extends WireData implements WireArrayItem {
 
 		if(is_null($language)) {	
 			// return description for current user language, or inherit from default if not available
-			$user = $this->wire('user'); 
+			$user = $this->wire()->user; 
 			$value = null;
 			if($user->language && $user->language->id) {
 				$value = parent::get("description{$user->language}");
@@ -707,6 +707,7 @@ class Pagefile extends WireData implements WireArrayItem {
 				$value = $this->uploadName();
 				break;
 			default:
+				if(strpos($key, '|')) return parent::get($key);
 				$value = $this->getFieldValue($key);
 		}
 		
@@ -1386,12 +1387,12 @@ class Pagefile extends WireData implements WireArrayItem {
 	 * #pw-internal
 	 * 
 	 * @param string $name
-	 * @param PagefileExtra $value
+	 * @param PagefileExtra|null $value
 	 * @return PagefileExtra[]|PagefileExtra|null
 	 * @since 3.0.132
 	 * 
 	 */
-	public function extras($name = null, PagefileExtra $value = null) {
+	public function extras($name = null, ?PagefileExtra $value = null) {
 		if($name === null) return $this->extras;
 		if($value instanceof PagefileExtra) {
 			$this->extras[$name] = $value;
@@ -1459,6 +1460,45 @@ class Pagefile extends WireData implements WireArrayItem {
 		
 		return true;
 	}
+	
+	/**
+	 * Get all filenames associated with this file
+	 *
+	 * @return array
+	 *  @since 3.0.233
+	 *
+	 */
+	public function getFiles() {
+		$filename = $this->filename();
+		$filenames = array($filename);
+		foreach($this->extras() as $extra) {
+			if($extra->exists()) $filenames[] = $extra->filename();
+		}
+		return $filenames;
+	}
+
+	/**
+	 * Get or set hidden state of this file
+	 * 
+	 * Files that are hidden do not appear in the formatted field value,
+	 * but do appear in the unformatted value. 
+	 * 
+	 * @param bool|null $set
+	 * @since 3.0.237
+	 * 
+	 */
+	public function hidden($set = null) {
+		$value = (bool) $this->filedata('_hide');
+		if($set === null || $set === $value) return $value;
+		if($set === false) {
+			$this->filedata(false, '_hide');
+		} else if($set === true) {
+			$this->filedata('_hide', true);
+		} else {
+			throw new WireException('Invalid arg for Pagefile::hidden(arg)');
+		}
+		return $set;
+	}
 
 	/**
 	 * Ensures that isset() and empty() work for dynamic class properties
@@ -1511,4 +1551,3 @@ class Pagefile extends WireData implements WireArrayItem {
 		return $info;
 	}
 }
-

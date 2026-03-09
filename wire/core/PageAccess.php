@@ -5,7 +5,7 @@
  *
  * Provides implementation for Page access functions.
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -85,7 +85,7 @@ class PageAccess {
 		
 		$parent = null;
 
-		if($type === 'edit' && $page->isTrash() && $page->id != $page->wire('config')->trashPageID) {
+		if($type === 'edit' && $page->isTrash() && $page->id != $page->wire()->config->trashPageID) {
 			// pages in trash have an edit access parent as whatever it was prior to being trashed
 			$info = $pages->trasher()->parseTrashPageName($page->name);
 			if(!empty($info['parent_id'])) $parent = $pages->get((int) $info['parent_id']);
@@ -160,9 +160,13 @@ class PageAccess {
 	 *
 	 */
 	public function wire($name = '', $value = null, $lock = false) {
-		if(!is_null($value)) return $this->wire->wire($name, $value, $lock);
-			else if($name instanceof WireFuelable && $this->wire) $name->setWire($this->wire);
-			else if($name) return $this->wire->wire($name); 
+		if(!is_null($value)) {
+			return $this->wire->wire($name, $value, $lock);
+		} else if($name instanceof WireFuelable && $this->wire) {
+			$name->setWire($this->wire);
+		} else if($name) {
+			return $this->wire->wire($name);
+		}
 		return $this->wire; 
 	}
 

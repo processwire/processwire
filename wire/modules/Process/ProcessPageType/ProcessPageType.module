@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property array $showFields Names of fields to show in the main list table  (default=['name'])
@@ -29,7 +29,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			'permanent' => true, 
 			'useNavJSON' => true, 
 			'addFlag' => Modules::flagsNoUserConfig
-			); 
+		); 
 	}
 
 	/**
@@ -49,7 +49,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	/**
 	 * ProcessPageEdit or ProcessPageAdd
 	 * 
-	 * @var WirePageEditor|ProcessPageEdit|WirePageEditor|null
+	 * @var WirePageEditor|ProcessPageEdit|null
 	 * 
 	 */
 	protected $editor = null;
@@ -86,15 +86,16 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 * 
 	 */
 	public function init() {
+	
+		$config = $this->wire()->config;
 		
-		$this->config->scripts->add($this->config->urls('ProcessPageType') . 'ProcessPageType.js'); 
-		$this->config->styles->add($this->config->urls('ProcessPageType') . 'ProcessPageType.css');
+		$config->scripts->add($config->urls('ProcessPageType') . 'ProcessPageType.js'); 
+		$config->styles->add($config->urls('ProcessPageType') . 'ProcessPageType.css');
 
 		$this->pages = $this->wire($this->page->name); 
 		
-		if(is_null($this->pages) || !$this->pages instanceof PagesType) {
-			// $this->error("Unable to find API variable named '{$this->page->name}' (of type: PagesType)", Notice::debug); 
-			$this->pages = $this->wire('pages'); 
+		if(!$this->pages instanceof PagesType) {
+			$this->pages = $this->wire()->pages; 
 		}
 	
 		if($this->pages instanceof PagesType) {
@@ -127,8 +128,9 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		
 		// init lister, but only if executing an action that will use it
 		$modules = $this->wire()->modules;
-		$segment = $this->wire('input')->urlSegment1;
-		$user = $this->wire('user');
+		$segment = $this->wire()->input->urlSegment1;
+		$user = $this->wire()->user;
+		
 		$listerSegments = array(
 			'list',
 			'config',
@@ -155,11 +157,15 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 				}
 			}
 			if(!$this->lister && $modules->isInstalled('ProcessPageLister')) {
-				$this->lister = $modules->get('ProcessPageLister');
+				// for regular Lister we init() in the getLister() method instead
+				$this->lister = $modules->getModule('ProcessPageLister', array('noInit' => true));
 			}
 		}
 		
 		if($this->lister && $bookmarkID) {
+			if($this->lister->className() === 'ProcessPageLister') {
+				$this->lister->set('_' . $this->className(), true)->init();
+			}
 			$bookmarks = $this->lister->getBookmarksInstance();
 			$bookmarkID = $bookmarks->_bookmarkID(ltrim($bookmarkID, 'bm'));
 			$this->listerBookmarkID = $this->lister->checkBookmark($bookmarkID);
@@ -183,7 +189,6 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 *
 	 */
 	public function ___executeUnknown() {
-		$lister = null;
 		if($this->useLister()) {
 			$this->initLister();
 			$lister = $this->getLister();
@@ -209,8 +214,8 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 * 
 	 */
 	public function ___executeList() {
-		$templateID = (int) $this->wire('input')->get('templates_id');
-		if(!$templateID) $templateID = (int) $this->wire('session')->get($this->className() . 'TemplatesID');
+		$templateID = (int) $this->wire()->input->get('templates_id');
+		if(!$templateID) $templateID = (int) $this->wire()->session->get($this->className() . 'TemplatesID');
 		$selector = $templateID ? "templates_id=$templateID, " : "";
 		return $this->renderList($selector . "limit=100, status<" . Page::statusMax);
 	}
@@ -225,9 +230,10 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	public function ___executeNavJSON(array $options = array()) {
 	
 		if(!isset($options['items'])) {
-			$limit = (int) $this->wire('input')->get('limit');
+			$input = $this->wire()->input;
+			$limit = (int) $input->get('limit');
 			if(!$limit || $limit > 100) $limit = 100;
-			$start = (int) $this->wire('input')->get('start');
+			$start = (int) $input->get('start');
 			$pages = $this->pages->find("start=$start, limit=$limit");
 			foreach($pages as $page) {
 				if(!$page->editable()) $pages->remove($page);
@@ -237,7 +243,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 				if($icon) $page->setQuietly('_labelIcon', $icon);
 			}
 			$options['items'] = $pages;
-			$parent = $this->pages->getParent();
+			$parent = $this->pages instanceof PagesType ? $this->pages->getParent() : null;
 			if($parent && $parent->id && $parent->addable()) {
 				$options['add'] = 'add/';
 			} else {
@@ -245,6 +251,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			}
 			$options['edit'] = "edit/?id={id}"; 
 		}
+		
 		if(!isset($options['itemLabel'])) $options['itemLabel'] = $this->jsonListLabel;
 		if(!isset($options['iconKey'])) $options['iconKey'] = '_labelIcon';
 		
@@ -311,12 +318,16 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		}
 		
 		if($lister->className() == 'ProcessPageListerPro') {
-			$data = $this->wire('modules')->getModuleConfigData('ProcessPageListerPro');
+			// ProcessPageListerPro only
+			$data = $this->wire()->modules->getConfig('ProcessPageListerPro');
 			if(isset($data['settings'][$this->page->name])) {
 				foreach($data['settings'][$this->page->name] as $key => $value) {
 					$lister->$key = $value;
 				}
 			}
+		} else if(!$lister->get('_' . $this->className())) {
+			// ProcessPageLister only
+			$lister->set('_'. $this->className(), true)->init(); // because it used noInit option on get()
 		}
 		
 		return $lister;
@@ -384,7 +395,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 				$templates = $this->pages->getTemplates();
 				$parents = $this->pages->getParentIDs();
 				$this->editor->setPredefinedTemplates($templates);
-				$this->editor->setPredefinedParents($this->wire('pages')->getById($parents));
+				$this->editor->setPredefinedParents($this->wire()->pages->getById($parents));
 			}
 		}
 		return $this->editor;
@@ -401,7 +412,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		$pageTitle = $this->page->get('title|name');
 		$this->breadcrumb('../', $pageTitle); 
 		$editor = $this->getEditor('ProcessPageEdit'); 
-		$urlSegment = ucfirst($this->wire('input')->urlSegment2);
+		$urlSegment = ucfirst($this->wire()->input->urlSegment2);
 		$editPage = $this->getPage(); 
 		$this->browserTitle("$pageTitle > " . $editPage->name); 
 		
@@ -503,7 +514,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		}
 
 		/** @var MarkupAdminDataTable $table */
-		$table = $this->modules->get("MarkupAdminDataTable"); 
+		$table = $this->wire()->modules->get("MarkupAdminDataTable"); 
 		$table->setEncodeEntities(false); 
 		$fieldNames = $this->showFields; 
 		$fieldLabels = $fieldNames; 
@@ -513,7 +524,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 				$fieldLabels[$key] = $this->_('Name'); // Label for 'name' field
 				continue; 
 			}
-			$field = $this->wire('fields')->get($name); 	
+			$field = $this->wire()->fields->get($name); 	
 			if($field) { 
 				$label = $field->getLabel();
 				$fieldLabels[$key] = htmlentities($label, ENT_QUOTES, "UTF-8");
@@ -545,7 +556,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			$numRows++;
 		}
 
-		if($this->wire('page')->addable()) $table->action(array($this->addLabel => 'add/')); 
+		if($this->wire()->page->addable()) $table->action(array($this->addLabel => 'add/')); 
 
 		if($pages->getTotal() > count($pages)) {
 			/** @var MarkupPagerNav $pager */
@@ -568,7 +579,6 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 * 
 	 */
 	protected function renderEmptyList(PageArray $pages) {
-		if($pages) {} // ignore
 		$out = "<p>" . $this->_('No items to display yet.') . "</p>";
 		return $out; 
 	}
@@ -645,12 +655,13 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		}
 
 		$filterName = $this->className . 'TemplatesID';
-		if(isset($_GET['templates_id'])) {
-			$this->session->set($filterName, (int) $this->input->get('templates_id')); 
+		$templatesId = (int) $this->wire()->input->get('templates_id');
+		if($templatesId) {
+			$this->wire()->session->set($filterName, (int) $templatesId); 
 		}
 
-		$filterValue = (int) $this->session->$filterName; 
-		if($filterValue) $this->template = $this->templates->get($filterValue); 
+		$filterValue = (int) $this->wire()->session->get($filterName); 
+		if($filterValue) $this->template = $this->wire()->templates->get($filterValue); 
 
 		$field->attr('value', $filterValue); 
 		$form->append($field); 
@@ -669,12 +680,14 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 
 		$showFields = isset($data['showFields']) ? $data['showFields'] : array();
 		$fields = array('name'); 
-		foreach($this->wire('fields') as $field) $fields[] = $field->name; 
+		foreach($this->wire()->fields as $field) {
+			$fields[] = $field->name;
+		}
 
 		/** @var InputfieldWrapper $inputfields */
 		$inputfields = $this->wire(new InputfieldWrapper());
 		/** @var InputfieldAsmSelect $f */
-		$f = $this->wire('modules')->get('InputfieldAsmSelect'); 
+		$f = $this->wire()->modules->get('InputfieldAsmSelect'); 
 		$f->label = $this->_("What fields should be displayed in the page listing?");
 		$f->attr('id+name', 'showFields'); 
 		foreach($fields as $name) $f->addOption($name); 
@@ -692,7 +705,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 */
 	public function getPage() {
 		if($this->editor) return $this->editor->getPage();
-		return $this->wire('pages')->newNullPage();
+		return $this->wire()->pages->newNullPage();
 	}
 	
 	/**
@@ -735,7 +748,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			return $result;
 		}
 		
-		$text = $this->wire('sanitizer')->selectorValue($text);
+		$text = $this->wire()->sanitizer->selectorValue($text);
 		$property = empty($options['property']) ? 'name' : $options['property'];
 		$operator = isset($options['operator']) ? $options['operator'] : '%=';
 		$selector = "$property$operator$text, ";
@@ -763,4 +776,3 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	}
 	
 }
-

@@ -147,12 +147,12 @@ class InputfieldSubmit extends Inputfield {
 	/**
 	 * Render ready
 	 * 
-	 * @param Inputfield|InputfieldWrapper|null The parent InputfieldWrapper that is rendering it, or null if no parent.
+	 * @param Inputfield|null The parent InputfieldWrapper that is rendering it, or null if no parent.
 	 * @param bool $renderValueMode Specify true only if this is for `Inputfield::renderValue()` rather than `Inputfield::render()`.
 	 * @return bool True if assets were just added, false if already added.
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$class = $this->attr('class');	
 		if(strpos($class, 'head_button_clone') !== false) {
 			// if legacy class name used, convert to updated pw- class name to accomodate 3rd party usages

@@ -624,7 +624,7 @@ class PageTraversal {
 			'host' => '', 
 			'pageNum' => is_int($options) || (is_string($options) && in_array($options, array('+', '-'))) ? $options : 1,
 			'data' => array(),
-			'urlSegmentStr' => is_string($options) ? $options : '',
+			'urlSegmentStr' => (is_string($options) && !in_array($options, array('+', '-'))) ? $options : '',
 			'urlSegments' => array(),
 			'language' => is_object($options) && wireInstanceOf($options, 'Language') ? $options : null,
 		);
@@ -650,13 +650,14 @@ class PageTraversal {
 			$options['pageNum'] = $input->pageNum();
 		}
 
-		if(count($options['urlSegments'])) {
+		if(is_array($options['urlSegments']) && count($options['urlSegments'])) {
 			$str = '';
-			if(is_string($options['urlSegments'][0])) {
+			reset($options['urlSegments']); 
+			if(is_string(key($options['urlSegments']))) {
 				// associative array converts to key/value style URL segments
 				foreach($options['urlSegments'] as $key => $value) {
 					$str .= "$key/$value/";
-					if(is_int($key)) $str = '';
+					if(is_int($key)) $str = ''; // abort assoc array option if any int key found
 					if($str === '') break;
 				}
 			}
@@ -702,11 +703,11 @@ class PageTraversal {
 			if((int) $options['pageNum'] > 1) {
 				$prefix = '';
 				if($language && $languages && $languages->hasPageNames()) {
-					$prefix = $languages->pageNames()->get("pageNumUrlPrefix$language");
+					$prefix = (string) $languages->pageNames()->get("pageNumUrlPrefix$language");
 				}
 				if(!strlen($prefix)) $prefix = $config->pageNumUrlPrefix;
 				$url = rtrim($url, '/') . '/' . $prefix . ((int) $options['pageNum']);
-				if($template->slashPageNum) $url .= '/';
+				if(((int) $template->slashPageNum) === 1) $url .= '/';
 			}
 		}
 
@@ -851,6 +852,7 @@ class PageTraversal {
 	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
 	 *  - `language` (Language|bool): Optionally specify Language to start editor in, or boolean true to force current user language.
 	 *  - `find` (string): Name of field to find in the editor (3.0.151+)
+	 *  - `vars` (array): Additional variables to include in query string (3.0.239+)
 	 * @return string URL for editing this page
 	 *
 	 */
@@ -861,6 +863,7 @@ class PageTraversal {
 		$https = $adminTemplate && ($adminTemplate->https > 0) && !$config->noHTTPS;
 		$url = ($https && !$config->https) ? 'https://' . $config->httpHost : '';
 		$url .= $config->urls->admin . "page/edit/?id=$page->id";
+		$optionsArray = is_array($options) ? $options : array();
 
 		if($options === true || (is_array($options) && !empty($options['http']))) {
 			if(strpos($url, '://') === false) {
@@ -871,14 +874,21 @@ class PageTraversal {
 		$languages = $page->wire()->languages;
 		if($languages) {
 			$language = $page->wire()->user->language;
-			if(empty($options['language'])) {
+			if(empty($optionsArray['language'])) {
 				if($page->wire()->page->template->id == $adminTemplate->id) $language = null;
-			} else if($options['language'] instanceof Page) {
-				$language = $options['language'];
-			} else if($options['language'] !== true) {
-				$language = $languages->get($options['language']);
+			} else if($optionsArray['language'] instanceof Page) {
+				$language = $optionsArray['language'];
+			} else if($optionsArray['language'] !== true) {
+				$language = $languages->get($optionsArray['language']);
 			}
 			if($language && $language->id) $url .= "&language=$language->id";
+		}
+		
+		$version = (int) ((string) $page->get('_version|_repeater_version'));
+		if($version) $url .= "&version=$version";
+		
+		if(!empty($optionsArray['vars'])) {
+			$url .= '&' . http_build_query($optionsArray['vars']); 
 		}
 
 		$append = $page->wire()->session->getFor($page, 'appendEditUrl');
@@ -1137,11 +1147,11 @@ class PageTraversal {
 	 *
 	 * @param Page $page
 	 * @param string|array $selector Optional selector. When specified, will find nearest next sibling that matches.
-	 * @param PageArray $siblings Optional siblings to use instead of the default. May also be specified as first argument when no selector needed.
+	 * @param PageArray|null $siblings Optional siblings to use instead of the default. May also be specified as first argument when no selector needed.
 	 * @return Page|NullPage Returns the next sibling page, or a NullPage if none found.
 	 *
 	 */
-	public function nextSibling(Page $page, $selector = '', PageArray $siblings = null) {
+	public function nextSibling(Page $page, $selector = '', ?PageArray $siblings = null) {
 		if($selector instanceof PageArray) {
 			// backwards compatible to when $siblings was first argument
 			$siblings = $selector;
@@ -1181,11 +1191,11 @@ class PageTraversal {
 	 *
 	 * @param Page $page
 	 * @param string|array $selector Optional selector. When specified, will find nearest previous sibling that matches. 
-	 * @param PageArray $siblings Optional siblings to use instead of the default. May also be specified as first argument when no selector needed.
+	 * @param PageArray|null $siblings Optional siblings to use instead of the default. May also be specified as first argument when no selector needed.
 	 * @return Page|NullPage Returns the previous sibling page, or a NullPage if none found. 
 	 *
 	 */
-	public function prevSibling(Page $page, $selector = '', PageArray $siblings = null) {
+	public function prevSibling(Page $page, $selector = '', ?PageArray $siblings = null) {
 		if($selector instanceof PageArray) {
 			// backwards compatible to when $siblings was first argument
 			$siblings = $selector;
@@ -1212,11 +1222,11 @@ class PageTraversal {
 	 *
 	 * @param Page $page
 	 * @param string|array $selector Optional selector. When specified, will filter the found siblings.
-	 * @param PageArray $siblings Optional siblings to use instead of the default. 
+	 * @param PageArray|null $siblings Optional siblings to use instead of the default. 
 	 * @return PageArray Returns all matching pages after this one.
 	 *
 	 */
-	public function nextAllSiblings(Page $page, $selector = '', PageArray $siblings = null) {
+	public function nextAllSiblings(Page $page, $selector = '', ?PageArray $siblings = null) {
 
 		if(is_null($siblings)) {
 			$siblings = $page->parent()->children();
@@ -1246,11 +1256,11 @@ class PageTraversal {
 	 *
 	 * @param Page $page
 	 * @param string|array $selector Optional selector. When specified, will filter the found siblings.
-	 * @param PageArray $siblings Optional siblings to use instead of the default. 
+	 * @param PageArray|null $siblings Optional siblings to use instead of the default. 
 	 * @return PageArray
 	 *
 	 */
-	public function prevAllSiblings(Page $page, $selector = '', PageArray $siblings = null) {
+	public function prevAllSiblings(Page $page, $selector = '', ?PageArray $siblings = null) {
 
 		if(is_null($siblings)) {
 			$siblings = $page->parent()->children();
@@ -1281,7 +1291,7 @@ class PageTraversal {
 	 * @return PageArray
 	 *
 	 */
-	public function nextUntilSiblings(Page $page, $selector = '', $filter = '', PageArray $siblings = null) {
+	public function nextUntilSiblings(Page $page, $selector = '', $filter = '', ?PageArray $siblings = null) {
 
 		if(is_null($siblings)) {
 			$siblings = $page->parent()->children();
@@ -1333,7 +1343,7 @@ class PageTraversal {
 	 * @return PageArray
 	 *
 	 */
-	public function prevUntilSiblings(Page $page, $selector = '', $filter = '', PageArray $siblings = null) {
+	public function prevUntilSiblings(Page $page, $selector = '', $filter = '', ?PageArray $siblings = null) {
 
 		if(is_null($siblings)) {
 			$siblings = $page->parent()->children();

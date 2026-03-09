@@ -22,7 +22,22 @@
  * @property int $toggleBehavior (0=Standard, 1=Consistent)
  * @property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
  * @property int $cssVersion Current version number of core CSS/LESS files
+ * @property string $themeName One of blank (original) or name of theme style
+ * @property array $themeInfos where theme style files are located
+ * @property int $askTheme When non-zero, ask superuser if they want to try an updated theme. 
+ *
+ * Settings specific to default theme 
+ * ----------------------------------
+ * @property string $defaultMainColor Main color or 'custom' (default='red')
+ * @property string $defaultMainColorCustom Main custom color hex code when `defaultMainColor=custom` (default='#eb1d61')
+ * @property string $defaultMainColorCustomDark Same as above but when used, applies only to dark mode. 
+ * @property string $defaultStyleName Style name, one of 'dark', 'light' or 'auto' (default='auto')
+ * @property array $defaultToggles Toggles for specific behaviors (default=[])
+ * @property string $defaultCustomCss Custom CSS rules string  (default='')
+ * @property string $defaultCustomCssFile URL to custom CSS file, relative to installation root (default='')
  * 
+ * Hookable methods
+ * ----------------
  * @method string renderBreadcrumbs()
  * @method string getUikitCSS()
  * 
@@ -33,9 +48,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 33,
+			'version' => 36,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
+			'icon' => 'smile-o', 
 		); 
 	}
 
@@ -59,7 +75,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * Increment on core less file changes that will also require a recompile of /site/assets/admin.css
 	 * 
 	 */
-	const requireCssVersion = 1;
+	const requireCssVersion = 2;
 
 	/**
 	 * Default logo image file (relative to this dir)
@@ -104,6 +120,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('ukGrid', false); 
 		$this->set('configPhpHash', '');
 		$this->set('cssVersion', 0);
+		$this->set('themeName', '');
+		$this->set('themeInfos', array('z' => 'z')); // z=sleeping
+		$this->set('askTheme', 1);
 		$this->setClasses(array(
 			'input' => 'uk-input',
 			'input-small' => 'uk-input uk-form-small',
@@ -117,12 +136,28 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'table' => 'uk-table uk-table-divider uk-table-justify uk-table-small',
 			'dl' => 'uk-description-list uk-description-list-divider',
 		));
-		
+	
+		// settings specific to default theme/style
+		$this->setArray([
+			'defaultStyleName' => 'light',
+			'defaultMainColor' => 'red', 
+			'defaultMainColorCustom' => '#eb1d61',
+			'defaultMainColorCustomDark' => '',
+			'defaultToggles' => [ 'useInputFocus' ], 
+			'defaultCustomCss' => '', 
+			'defaultCustomCssFile' => '', 
+		]);
 	}
 	
 	public function wired() {
 		parent::wired();
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax');
+		$settings = $this->wire()->config->AdminThemeUikit; 
+		if(is_array($settings) && !empty($settings['themeName'])) {
+			// used by new installations that selected theme during installation
+			$this->setQuietly('themeName', $settings['themeName']);
+			$this->setQuietly('askTheme', 0);
+		}
 	}
 	
 	/**
@@ -135,14 +170,23 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		// if this is not the current admin theme, exit now so no hooks are attached
 		if(!$this->isCurrent()) return;
 	
-		/** @var Page $page */
-		$page = $this->wire('page');
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
-		/** @var Modules $modules */
-		$session = $this->wire('session');
+		$page = $this->wire()->page;
+		$pages = $this->wire()->pages;
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		$user = $this->wire()->user;
+
+		$themeName = $this->themeName;
 		
-		$sidenav = strpos($this->layout, 'sidenav') === 0;
+		if($themeName && $themeName != 'auto') {
+			$sidenav = false;
+			$this->layout = '';
+		} else {
+			$sidenav = strpos($this->layout, 'sidenav') === 0;
+			$themeName = '';
+		}
 
 		// disable sidebar layout if SystemNotifications is active
 		if($sidenav && $modules->isInstalled('SystemNotifications')) {
@@ -154,7 +198,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			}
 		}
 		
-		if(!$page || $page->template != 'admin') {
+		if(!$page || $page->template->name !== 'admin') {
 			// front-end
 			if($sidenav) {
 				// ensure that page edit links on front-end load the sidenav-init 
@@ -179,7 +223,11 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$this->addBodyClass('AdminThemeUikit');
 		}
 		
+		if(empty($themeName)) $themeName = 'original';
+		$this->addBodyClass('AdminThemeUikit' . ucfirst($themeName)); 
+		
 		$session->removeFor('Page', 'appendEditUrl');
+		
 		/** @var JqueryUI $jqueryUI */
 		$jqueryUI = $modules->get('JqueryUI');
 		$jqueryUI->use('panel');
@@ -196,29 +244,30 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$this->addHookAfter('ProcessLogin::afterLoginURL', $this, 'hookAfterLoginURL');
 			if(strpos($this->layout, 'sidenav-tree') === 0) {
 				// page-edit breadcrumbs go to page editor when page tree is always in sidebar
-				$this->wire('config')->pageEdit('editCrumbs', true);
+				$config->pageEdit('editCrumbs', true);
 			}
 		}
 		
 		// add cache clearing hooks
-		$this->wire('pages')->addHookAfter('saved', $this, 'hookClearCaches');
+		$pages->addHookAfter('saved', $this, 'hookClearCaches');
 		$modules->addHookAfter('refresh', $this, 'hookClearCaches');
+	
+		if($themeName && $themeName != 'original') {
+			$themeInfo = $this->getThemeInfo($themeName);
+			if($themeInfo && $themeInfo['path']) {
+				$adminTheme = $this;
+				include($themeInfo['path'] . 'init.php');
+			}
+		}
+
+		if($this->askTheme && $themeName != 'default') { 
+			if($user->isSuperuser() && !$input->requestMethod('post')) {
+				$adminTheme = $this;
+				include_once(__DIR__ . '/themes/default/ask.php');
+			}
+		}
 	}
 	
-	/**
-	 * Render an extra markup region
-	 *
-	 * @param string $for
-	 * @return mixed|string
-	 *
-	 */
-	public function renderExtraMarkup($for) {
-		$out = parent::renderExtraMarkup($for);
-		if($for === 'notices') {
-		}
-		return $out;
-	}
-
 	/**
 	 * Test all notice types
 	 * 
@@ -233,6 +282,81 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Test all Uikit v3 features using current admin CSS
+	 * 
+	 * This is for testing admin.less themes, Original, and themes in /themes/ dir. 
+	 * To use, append "?test_uikit=1" to your admin URL while logged in as superuser.
+	 * 
+	 * @throws WireException
+	 * 
+	 */
+	public function testUikit() {
+		
+		$config = $this->wire()->config;
+		$url = $config->urls($this);
+		$path = $config->paths->root . 'wire/modules/AdminTheme/AdminThemeUikit/';
+		$testsUrl = $url . 'uikit-pw/tests/';
+		$testsPath = $path . 'uikit-pw/tests/';
+		$testName = (string) $this->wire()->input->get('test_uikit');
+		$cssUrl = '';
+		$s = 'script';
+		
+		if($this->themeName && $this->themeName != 'original') {
+			$themeInfo = $this->getThemeInfo($this->themeName);
+			if($themeInfo && $themeInfo['path']) {
+				$cssUrl = $themeInfo['url'] . 'admin.css';
+			}
+		}
+	
+		if(empty($cssUrl)) $cssUrl = $this->getUikitCSS();
+		
+		if(strpos($testName, '.html')) {
+			list($testName,) = explode('.html', $testName, 2);
+			$value = $testName;
+			$testName = $this->wire()->sanitizer->pageName($testName);
+			if($testName !== $value || strpos($testName, '.') !== false) $testName = '';
+		} else {
+			$testName = '';
+		}
+		
+		if(!$testName) $testName = 'index';
+	
+		$fileName = $testsPath . $testName . '.html';
+		if(!is_file($fileName)) return;
+		
+		$out = file_get_contents($fileName);
+		$head = $this->wire()->files->render(__DIR__ . '/_head.php', [
+			'layout' => '', 
+		], [ 
+			'allowedPaths' => [ $path, __DIR__ . '/' ]
+		]);
+		
+		$items = [];
+		preg_match_all('/(<link[^>]+>)/', $head, $matches); 
+		foreach($matches[1] as $item) {
+			if(strpos($item, '/Process/') === false) $items[] = $item;
+		}
+		preg_match_all('!(<' . $s . '[^>]+?src=[^<]+?</' . $s . '>)!', $head, $matches);
+		foreach($matches[1] as $item) {
+			if(strpos($item, '/Process/') === false) $items[] = $item; 
+		}
+		if(strpos($out, '/test.js') === false) {
+			$items[] = "<script src='{$testsUrl}js/test.js'></script>";
+		}
+		$items[] = "<link rel='stylesheet' type='text/css' href='{$testsUrl}css/index.css' />";
+		$head = "<$s>var ProcessWire = {}, testsUrl = '$testsUrl', adminThemeUrl = '$url', cssUrl = '$cssUrl';</$s>";
+		$a = [
+			'src="' => 'src="' . $testsUrl,
+			"value=\"$testName.html\"" => "value='$testName.html' selected", 
+		];
+		$out = str_replace(array_keys($a), array_values($a), $out);
+		$out = str_replace('<head>', '<head>' . $head . implode("\n", $items), $out);
+		ob_end_clean();
+		echo $out;
+		exit;
 	}
 
 	/**
@@ -363,7 +487,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		} else if($inputfield instanceof InputfieldSelect && !$inputfield instanceof InputfieldHasArrayValue) {
 			$inputClasses[] = $this->getClass('select');
 		} else if($inputfield instanceof InputfieldFile) {
-			$themeColor = 'secondary';
+			// $themeColor = 'secondary';
 		}
 		
 		if($field) {
@@ -441,11 +565,13 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			case 'highlight': $wrapClasses[] = 'InputfieldIsHighlight'; break;
 			case 'none': break;
 		}
-		
-		switch($themeBorder) {
-			case 'none': $wrapClasses[] = 'InputfieldNoBorder'; break;
-			case 'hide': $wrapClasses[] = 'InputfieldHideBorder'; break;
-			case 'card': $wrapClasses[] = 'uk-card uk-card-default'; break;
+
+		if(strpos($inputfield->attr('name'), '_repeater') === false || $themeBorder === 'card') {
+			switch($themeBorder) {
+				case 'none': $wrapClasses[] = 'InputfieldNoBorder'; break;
+				case 'hide': $wrapClasses[] = 'InputfieldHideBorder'; break;
+				case 'card': $wrapClasses[] = 'uk-card uk-card-default'; break;
+			}
 		}
 		
 		if($themeOffset && $themeOffset !== 'none') {
@@ -521,14 +647,22 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		/** @var MarkupAdminDataTable $table */
 		$table = $event->object;
 		$classes = array();
-		if($table->responsive) $classes[] = 'pw-table-responsive uk-overflow-auto';
-		if($table->sortable) $classes[] = 'pw-table-sortable'; 
-		if($table->resizable) $classes[] = 'pw-table-resizable'; 
+		if($table->responsive) {
+			$classes[] = 'pw-table-responsive';
+			if(!wireInstanceOf($this->wire()->process, array('ProcessPageLister', 'ProcessUser'))) {
+				$classes[] = 'uk-overflow-auto';
+			}
+		}
+		if($table->sortable) {
+			$classes[] = 'pw-table-sortable';
+		}
+		if($table->resizable) {
+			$classes[] = 'pw-table-resizable'; 
+		}	
 		if(count($classes)) {
 			$class = implode(' ', $classes);
 			$event->return = "<div class='$class'>$event->return</div>";
 		}
-		
 	}
 	
 	/**
@@ -539,19 +673,15 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function hookClearCaches(HookEvent $event) {
 
-		/** @var Page|User|null $page */
-		$page = $event->arguments(0); 
-		/** @var array $changes */
-		$changes = $event->arguments(1);
-		/** @var User $user */
-		$user = $this->wire('user'); 
+		$page = $event->arguments(0); /** @var Page|User|null $page */
+		$changes = $event->arguments(1); /** @var array $changes */
+		$user = $this->wire()->user; 
 		
 		if($page !== null && !($page instanceof Page)) return;
 		if(!is_array($changes)) $changes = array();
 		
-		if($page === null || $page->template == 'admin' || ($page->id === $user->id && in_array('language', $changes))) {
-			/** @var Session $session */
-			$session = $this->wire('session'); 
+		if($page === null || $page->template->name === 'admin' || ($page->id === $user->id && in_array('language', $changes))) {
+			$session = $this->wire()->session; 
 			$session->removeFor($this, 'prnav');
 			$session->removeFor($this, 'sidenav');
 			$session->message("Cleared the admin theme navigation cache (primary nav)", Notice::debug);
@@ -560,6 +690,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 
 	/**
 	 * Hook to ProcessLogin::afterLoginURL()
+	 * 
+	 * Used by sidenav layouts only
 	 * 
 	 * @param HookEvent $event
 	 * 
@@ -587,7 +719,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public function ___renderBreadcrumbs() {
 
 		if(!$this->isLoggedIn || $this->isModal) return '';
-		$process = $this->wire('page')->process;
+		$process = $this->wire()->page->process;
 		if($process == 'ProcessPageList') return '';
 		$breadcrumbs = $this->wire('breadcrumbs');
 		$out = '';
@@ -598,10 +730,12 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		if(strpos($this->layout, 'sidenav') === false) {
 			$out = "<li>" . $this->renderQuickTreeLink() . "</li>";
 		}
+		
+		$sanitizer = $this->wire()->sanitizer;
 
 		foreach($breadcrumbs as $breadcrumb) {
 			$title = $breadcrumb->get('titleMarkup');
-			if(!$title) $title = $this->wire('sanitizer')->entities1($this->_($breadcrumb->title));
+			if(!$title) $title = $sanitizer->entities1($this->_($breadcrumb->title));
 			$out .= "<li><a href='$breadcrumb->url'>$title</a></li>";
 		}
 
@@ -717,6 +851,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	protected function renderPrimaryNavItemChildren(array $items) {
+		$sanitizer = $this->wire()->sanitizer;
 		$out = '';
 
 		foreach($items as $item) {
@@ -731,7 +866,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 					"<ul>" . $this->renderPrimaryNavItemChildren($item['children']) . "</ul>";
 
 			} else if(!empty($item['navJSON'])) {
-				$item['navJSON'] = $this->wire('sanitizer')->entities($item['navJSON']); 
+				$item['navJSON'] = $sanitizer->entities($item['navJSON']); 
 				$out .=
 					"<a class='pw-has-items pw-has-ajax-items' " .
 						"data-from='prnav-page-$item[parent_id]' " .
@@ -756,7 +891,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function renderPrimaryNavItems() {
 
-		$cache = self::dev ? '' : $this->wire('session')->getFor($this, 'prnav');
+		$session = $this->wire()->session;
+		
+		$cache = self::dev ? '' : $session->getFor($this, 'prnav');
 		if($cache) {
 			$this->markCurrentNavItems($cache);
 			return $cache;
@@ -769,7 +906,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$out .= $this->renderPrimaryNavItem($item);
 		}
 
-		if(!self::dev) $this->wire('session')->setFor($this, 'prnav', $out);
+		if(!self::dev) $session->setFor($this, 'prnav', $out);
 		$this->markCurrentNavItems($out);
 
 		return $out;
@@ -785,13 +922,15 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	public function renderSidebarNavItems() {
+		
+		$session = $this->wire()->session;
 
 		// see if we can get it from the cache
-		$out = self::dev ? '' : $this->wire('session')->getFor($this, 'sidenav');
+		$out = self::dev ? '' : $session->getFor($this, 'sidenav');
 		
 		if(empty($out)) {
 			$out = $this->renderSidebarNavCache();
-			$this->wire('session')->setFor($this, 'sidenav', $out);
+			$session->setFor($this, 'sidenav', $out);
 		}
 		
 		$out = str_replace('<!--pw-user-nav-label-->', $this->renderUserNavLabel(), $out);
@@ -807,6 +946,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	protected function renderSidebarNavCache() {
+		
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$out = '';
 		$items = $this->getPrimaryNavArray();
@@ -832,7 +973,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 							$childNavList .
 						"</ul>";
 				} else if($child['navJSON']) {
-					$child['navJSON'] = $this->wire('sanitizer')->entities($child['navJSON']); 
+					$child['navJSON'] = $sanitizer->entities($child['navJSON']); 
 					$childClass .= ' uk-parent';
 					$childAttr = " class='pw-has-items pw-has-ajax-items' data-json='$child[navJSON]'";
 					$childNav = "<ul $ulAttrs></ul>";
@@ -877,7 +1018,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	protected function markCurrentNavItems(&$out) {
-		$page = $this->wire('page');
+		$page = $this->wire()->page;
 		foreach($page->parents()->and($page) as $p) {
 			$out = str_replace("page-$p-", "page-$p- uk-active", $out);
 		}
@@ -890,8 +1031,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	public function renderUserNavLabel() {
-		/** @var User $user */
-		$user = $this->wire('user');
+		$sanitizer = $this->wire()->sanitizer;
+		$fields = $this->wire()->fields;
+		$user = $this->wire()->user;
 		$userLabel = $this->get('userLabel');
 		$userAvatar = $this->get('userAvatar');
 		$defaultIcon = 'user-circle';
@@ -906,7 +1048,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$userLabel = $user->getText($userLabel, true, true);
 			}
 		} else {
-			$userLabel = $this->wire('sanitizer')->entities($userLabel);
+			$userLabel = $sanitizer->entities($userLabel);
 		}
 		
 		if($userAvatar) {
@@ -922,9 +1064,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$userAvatar = $this->renderNavIcon("$icon fa-lg"); 
 			} else if(strpos($userAvatar, ':')) {
 				list($fieldID, $fieldName) = explode(':', $userAvatar); 
-				$field = $this->wire('fields')->get($fieldName);
+				$field = $fields->get($fieldName);
 				if(!$field || !$field->type instanceof FieldtypeImage) {
-					$field = $this->wire('fields')->get((int) $fieldID); 
+					$field = $fields->get((int) $fieldID); 
 				}
 				if($field && $field->type instanceof FieldtypeImage) {
 					$value = $user->get($field->name); 
@@ -954,14 +1096,22 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function renderUserNavItems() {
 
+		$sanitizer = $this->wire()->sanitizer;
 		$items = $this->getUserNavArray();
+		$allowAttrs = [ 'href', 'target', 'class', 'id' ];
 		$out = '';
 
 		foreach($items as $item) {
-			$label = $this->wire('sanitizer')->entities($item['title']);
+			if(isset($item['url'])) $item['href'] = $item['url'];
+			$label = $sanitizer->entities($item['title']);
 			$icon = isset($item['icon']) ? $this->renderNavIcon($item['icon']) : ' ';
-			$target = isset($item['target']) ? " target='$item[target]'" : '';
-			$out .= "<li><a$target href='$item[url]'>$icon$label</a></li>";
+			$attrs = '';
+			foreach($item as $name => $value) {
+				if(in_array($name, $allowAttrs) || strpos($name, 'data-') === 0 || strpos($name, 'on') === 0) {
+					$attrs .= " $name='" . $sanitizer->entities($value) . "'";
+				}
+			}
+			$out .= "<li><a$attrs>$icon<span>$label</span></a></li>";
 		}
 
 		return $out;
@@ -978,7 +1128,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function renderQuickTreeLink($icon = 'tree', $text = '') {
 		$tree = $this->_('Tree');
-		$url = $this->wire('urls')->admin . 'page/';
+		$url = $this->wire()->urls->admin . 'page/';
 		return
 			"<a class='pw-panel' href='$url' data-tab-text='$tree' data-tab-icon='$icon' title='$tree'>" .
 				$this->renderNavIcon($icon) . $text .
@@ -998,10 +1148,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function getLogo(array $options = array()) {
 		
-		/** @var Config $config */
-		$config = $this->wire('config');
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$config = $this->wire()->config;
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$defaults = array(
 			'getURL' => false, 
@@ -1014,8 +1162,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$logoURL = $this->get('logoURL');
 		$logoQS = '';
 		$svg = false;
-		
-		if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
+		$svgName = 'logo.svg';
+		$themeName = $this->themeName;
+		$themeInfo = $themeName && $themeName != 'original' ? $this->getThemeInfo() : [];
+		$themeLogo = empty($themeInfo) ? '' : $themeInfo['path'] . $svgName;
+
+		if($themeLogo && (empty($logoURL) || $options['getNative']) && file_exists($themeLogo)) {
+			if($options['getURL']) return $themeInfo['url'] . $svgName;
+			return file_get_contents($themeLogo);
+
+		} else if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
 			$native = true;
 			$logoURL = $this->url() . self::logo;
 		} else {
@@ -1035,6 +1191,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$attr = "class='$class' alt='$alt' ";
 
 		if($svg) {
+			if($logoURL && !$options['getURL'] && strpos($logoURL, '//') === false) {
+				$file = $config->paths->root . str_replace('/', DIRECTORY_SEPARATOR, ltrim($this->get('logoURL'), '/')); 
+				if(is_file($file)) {
+					$data = (string) file_get_contents($file);
+					if(stripos($data, '<svg') === 0 && stripos($data, 'fill="currentColor"')) {
+						// use inline SVG if its color can be manipulated from CSS
+						return $data;
+					}
+				}
+			}
 			if($options['height']) $attr .= "style='height:$options[height]' ";
 			if(strpos($logoQS, 'uk-svg') === 0) {
 				// if logo has "?uk-svg" query string, add uk-svg attribute which makes it styleable via CSS/LESS (PR#77)
@@ -1044,7 +1210,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}
 		
 		if($logoQS) $logoURL .= '?' . $sanitizer->entities($logoQS);
-		
+
 		$img = "<img src='$logoURL' $attr/>";
 		
 		return $options['getURL'] ? $logoURL : $img;
@@ -1139,10 +1305,69 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$data['logoAction'] = (int) $this->logoAction;
 		$data['toggleBehavior'] = (int) $this->toggleBehavior; 
 		$config->js('adminTheme', $data);
+		$config->js('AdminThemeUikit', [
+			'labels' => [
+				'ok' => $this->_('Ok'), // Dialog box text for "Ok" // If not translated it will pull from common translations
+				'cancel' => $this->_('Cancel'), // Dialog box text for "Cancel" // If not translated it will pull from common translations
+			],
+		]); 
 		
 		return parent::getHeadJS();
 	}
 
+	/**
+	 * Get info for theme style
+	 * 
+	 * @param string $themeName Optionally specify name of theme style, or omit to use current
+	 * @return array
+	 * @throws WireException
+	 * 
+	 */
+	public function getThemeInfo($themeName = '') {
+		
+		if(empty($themeName)) $themeName = $this->themeName;
+		if(empty($themeName) || $themeName === 'original') return [];
+		
+		$themeInfos = $this->themeInfos;
+		
+		if(empty($themeInfos) || isset($themeInfos['z'])) {
+			$session = $this->wire()->session;
+			$themeInfos = $session->getFor($this, 'themeInfos');
+			if(empty($themeInfos)) {
+				// wakeup
+				$config = $this->wire()->config;
+				$thisPath = $config->paths($this);
+				$themesPath = $thisPath . 'themes/';
+				$rootLen = strlen($config->paths->root);
+				if(is_dir($themesPath)) {
+					foreach(new \DirectoryIterator($themesPath) as $file) {
+						if(!$file->isDir() || $file->isDot()) continue;
+						$basename = $file->getBasename();
+						if(strpos($basename, '.') === 0) continue;
+						$themePath = $thisPath . "themes/$basename/";
+						$themeUrl = $config->urls->root . substr($themePath, $rootLen);
+						$themeInfo = ['name' => $basename, 'path' => $themePath, 'url' => $themeUrl];
+						$infoFile = $themePath . 'info.php';
+						if(is_file($infoFile)) {
+							$a = include($infoFile);
+							$themeInfo = array_merge($a, $themeInfo);
+						}
+						$themeInfos[$basename] = $themeInfo;
+					}
+				}
+				unset($themeInfos['z']);
+				$this->themeInfos = $themeInfos;
+				$session->setFor($this, 'themeInfos', $themeInfos);
+			} else {
+				$this->themeInfos = $themeInfos;
+			}
+		}
+		
+		if($themeName === 'all') return $themeInfos;
+		
+		return $themeName && isset($themeInfos[$themeName]) ? $themeInfos[$themeName] : [];
+	}
+	
 	/**
 	 * Module configuration
 	 * 
@@ -1156,4 +1381,3 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$configHelper->configModule($inputfields);
 	}
 }
-

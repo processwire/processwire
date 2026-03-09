@@ -2,8 +2,15 @@
 
 /**
  * ProcessWire Pages Raw Tools
+ * 
+ * #pw-headline Pages Raw
+ * #pw-var $pages->raw
+ * #pw-breadcrumb Pages
+ * #pw-summary Methods for finding and loading raw page data
+ * #pw-body =
+ * #pw-body
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -837,7 +844,7 @@ class PagesRawFinder extends Wire {
 					if(!isset($templatesById[$templateId])) $templatesById[$templateId] = $templates->get($templateId);
 					$template = $templatesById[$templateId]; /** @var Template $template */
 					$slash = $template->slashUrls ? '/' : '';
-					$path = strlen($value) && $value !== '/' ? "$value$slash" : '';
+					$path = strlen("$value") && $value !== '/' ? "$value$slash" : '';
 					if(isset($this->runtimeFields['url'])) {
 						$this->values[$id]['url'] = $rootUrl . $path;
 					}
@@ -861,11 +868,11 @@ class PagesRawFinder extends Wire {
 	protected function findCustom() {
 		if(count($this->customFields)) {
 			// one or more custom fields requested
-			if($this->ids === null) {
+			if($this->ids === null && !empty($this->selector)) {
 				// only find IDs if we didn’t already in the nativeFields section
 				$this->setIds($this->findIDs($this->selector, false));
 			}
-			if(!count($this->ids)) return;
+			if(empty($this->ids)) return;
 			foreach($this->customFields as $fieldName => $field) {
 				/** @var Field $field */
 				$cols = isset($this->customCols[$fieldName]) ? $this->customCols[$fieldName] : array();
@@ -1144,11 +1151,12 @@ class PagesRawFinder extends Wire {
 		$this->wire($finder);
 		$options = $this->options;
 		$options['indexed'] = true;
-		$pageRefRows = $finder->find($pageRefIds, $pageRefCols, $options);
+		$pageRefRows = count($pageRefIds) ? $finder->find($pageRefIds, $pageRefCols, $options) : array();
 
 		foreach($this->values as $pageId => $pageRow) {
 			if(!isset($pageRow[$fieldName])) continue;
 			foreach($pageRow[$fieldName] as $pageRefId) {
+				if(!isset($pageRefRows[$pageRefId])) continue;
 				$this->values[$pageId][$fieldName][$pageRefId] = $pageRefRows[$pageRefId];
 			}
 			if(!$this->getMultiple && $field->get('derefAsPage') > 0) {

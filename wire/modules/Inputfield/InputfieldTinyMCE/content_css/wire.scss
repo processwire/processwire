@@ -1,0 +1,17 @@
+/**
+ * content.scss
+ *
+ * All styles should be wrapped in a .mce-content-body element in order for this to
+ * be compatible with both normal and inline modes.  
+ *
+ */
+
+@import "vars";
+
+$text-color: #333;
+$text-color-muted: #999;
+$headline-color: #222;
+$border-color: #ccc;
+$link-color: #0782C1;
+
+@import "common";

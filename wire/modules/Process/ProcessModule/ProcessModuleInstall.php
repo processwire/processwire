@@ -167,7 +167,7 @@ class ProcessModuleInstall extends Wire {
 		if(!$modulePath) $modulePath = $this->wire()->config->paths->siteModules;
 		$tempDir = $this->getTempDir();
 
-		foreach($files as $key => $f) {
+		foreach($files as $f) {
 			// determine which file should be responsible for the name
 			if(strpos($f, '/') !== false) {
 				$dir = dirname($f);
@@ -294,7 +294,9 @@ class ProcessModuleInstall extends Wire {
 		$fileTools = $this->wire()->files;
 
 		try {
-			$files = $fileTools->unzip($zipFile, $tempDir);
+			$files = $fileTools->unzip($zipFile, $tempDir, [
+				'requireFiles' => [ '![a-zA-Z0-9]+\.(module|module\.php)$!' ]
+			]);
 			if(is_file($zipFile)) $fileTools->unlink($zipFile, true);
 			$qty = count($files);
 			if($qty < 100 && $config->debug) {
@@ -454,7 +456,7 @@ class ProcessModuleInstall extends Wire {
 		if(count($files)) {
 			$file = $tempDir . reset($files);
 			$destinationDir = $this->unzipModule($file, $destinationDir);
-			if($destinationDir) $this->modules->resetCache();
+			if($destinationDir) $this->modules->refresh();
 
 		} else {
 			$this->error($this->_('No uploads found'));
@@ -502,7 +504,7 @@ class ProcessModuleInstall extends Wire {
 			$destinationDir = $this->unzipModule($file, $destinationDir);
 			if($destinationDir) {
 				$success = true;
-				$this->modules->resetCache();
+				$this->modules->refresh();
 			}
 
 		} catch(\Exception $e) {
@@ -576,4 +578,3 @@ class ProcessModuleInstall extends Wire {
 	}
 
 }
-

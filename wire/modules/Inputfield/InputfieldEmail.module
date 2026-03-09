@@ -6,9 +6,9 @@
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
- * @property int $confirm Specify 1 to make it include a second input for confirmation
- * @property string $confirmLabel label to accompany second input
- * @property int maxlength Max length of email address (default=512)
+ * @property int $confirm Specify 1 to make it include a second input for confirmation (default=0)
+ * @property string $confirmLabel label to accompany second input (default=Confirm)
+ * @property int $maxlength Max length of email address (default=512)
  * @property int|bool $allowIDN Allow IDN emails? 1=yes for domain, 2=yes for domain+local part (default=0) 3.0.212+
  * 
  * @method string renderConfirm(array $attrs)

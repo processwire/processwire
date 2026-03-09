@@ -3,7 +3,7 @@
 /**
  * ProcessWire shutdown handler
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  *  
  * Look for errors at shutdown and log them, plus echo the error if the page is editable
  *
@@ -91,6 +91,25 @@ class WireShutdown extends Wire {
 	protected $error = array();
 
 	/**
+	 * Methods that should have their arguments suppressed from PHP backtraces
+	 * 
+	 * - Each method must include a `->`. 
+	 * - Methods should not include parenthesis. 
+	 * - If for specific class, include the class name before the `->`.
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $banBacktraceMethods = array(
+		'->___login', // Session or ProcessLogin
+		'->___start', // i.e. Tfa
+		'->___setPass', // Password.php
+		'Session->___authenticate',
+		'Password->matches',
+		'Password->hash',
+	);
+
+	/**
 	 * Default HTML to use for error message
 	 * 
 	 * Can be overridden with $config->fatalErrorHTML in /site/config.php
@@ -115,6 +134,7 @@ class WireShutdown extends Wire {
 		register_shutdown_function(array($this, 'shutdown'));
 		// If script is being called externally, add an extra shutdown function 
 		if(!$config->internal) register_shutdown_function(array($this, 'shutdownExternal'));
+		parent::__construct();
 	}
 
 	/**
@@ -157,7 +177,7 @@ class WireShutdown extends Wire {
 			E_USER_ERROR        => $this->_('Error'),
 			E_USER_WARNING      => $this->_('User Warning'),
 			E_USER_NOTICE       => $this->_('User Notice'),
-			E_STRICT            => $this->_('Strict Warning'),
+			2048 => $this->_('Strict Warning'), // 2048=E_STRICT (deprecated in PHP 8.4)
 			E_RECOVERABLE_ERROR => $this->_('Recoverable Fatal Error')
 		);
 
@@ -186,23 +206,41 @@ class WireShutdown extends Wire {
 	 */
 	protected function getErrorMessage(array $error) {
 		
-		$type = $error['type'];
-		
-		if(isset($this->types[$type])) {
-			$errorType = $this->types[$type];
-		} else {
-			$errorType = $this->types[E_USER_ERROR];
-		}
-		
+		$config = $this->config;
 		$message = str_replace("\t", ' ', $error['message']);
 		
-		if($type != E_USER_ERROR) {
-			$detail = sprintf($this->labels['line-of-file'], $error['line'], $error['file']) . ' ';
-		} else {
-			$detail = '';
+		if(PROCESSWIRE < 302) {
+			$type = $error['type'];
+			if(isset($this->types[$type])) {
+				$errorType = $this->types[$type];
+			} else {
+				$errorType = $this->types[E_USER_ERROR];
+			}
+			if($type != E_USER_ERROR) {
+				$detail = sprintf($this->labels['line-of-file'], $error['line'], $error['file']) . ' ';
+			} else {
+				$detail = '';
+			}
+			$message = "$errorType: \t$message $detail ";
+		}
+
+		if(strpos($message, '#1') !== false && stripos($message, '):')) {
+			// backtrace likely present in $message
+			// methods that should have their arguments excluded from backtrace
+			foreach($this->banBacktraceMethods as $name) {
+				if(strpos($message, "$name(") === false) continue;
+				if(!preg_match_all('!' . $name . '\([^\n]+\)!', $message, $matches)) continue;
+				foreach($matches[0] as $match) {
+					$message = str_replace($match, '->' . $name . '(...)', $message);
+				}
+			}
+		}
+	
+		if(strlen((string) $config->dbPass) > 4) {
+			$message = str_replace((string) $config->dbPass, '[...]', $message);
 		}
 		
-		return "$errorType: \t$message $detail ";
+		return $message;
 	}
 
 	/**
@@ -212,8 +250,7 @@ class WireShutdown extends Wire {
 	 * 
 	 */
 	protected function getWireInput() {
-		/** @var WireInput $input */
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
 		if($input) return $input;
 		$input = $this->wire(new WireInput());
 		return $input;
@@ -227,8 +264,7 @@ class WireShutdown extends Wire {
 	 */
 	protected function getCurrentUrl() {
 		
-		/** @var Page|null $page */
-		$page = $this->wire('page');
+		$page = $this->wire()->page;
 		$input = $this->getWireInput();
 		$http = isset($_SERVER['HTTP_HOST']) || isset($_SERVER['REQUEST_URI']); 
 		
@@ -396,7 +432,7 @@ class WireShutdown extends Wire {
 		$http = new WireHttp();
 		$codes = $http->getHttpCodes();
 		$code = 500;
-		if($this->fatalErrorResponse['code']) {;
+		if($this->fatalErrorResponse['code']) {
 			$code = (int) $this->fatalErrorResponse['code'];
 		} else if($this->config) {
 			$code = (int) $this->config->fatalErrorCode;
@@ -458,7 +494,7 @@ class WireShutdown extends Wire {
 		}
 		*/
 		
-		$out = ob_get_level() ? ob_get_clean() : '';
+		$out = ob_get_level() ? (string) ob_get_clean() : '';
 		if(!strlen(trim($out))) return false;
 		
 		// if error message isn't in existing output, then return as-is
@@ -491,7 +527,7 @@ class WireShutdown extends Wire {
 		$out = str_replace($message, $token, $out);
 		
 		// replace anything else on the same line as the PHP error (error type, file, line-number)
-		$out = preg_replace('/([\r\n]|^)[^\r\n]+' . $token . '[^\r\n]*/', '', $out);
+		$out = (string) preg_replace('/([\r\n]|^)[^\r\n]+' . $token . '[^\r\n]*/', '', $out);
 
 		// ensure certain tags that could interfere with error message output are closed
 		$tags = array(
@@ -523,6 +559,48 @@ class WireShutdown extends Wire {
 	protected function ___fatalError($error) { }
 
 	/**
+	 * Set shutdown fatal error
+	 * 
+	 * Used only for index version >= 302 
+	 *
+	 * @param \Throwable $e
+	 * @param string $message
+	 * @since 3.0.253
+	 * 
+	 */
+	public function setFatalError(\Throwable $e, $message = '') {
+		if(empty($message)) {
+			$user = $this->wire()->user; 
+			$message = $e->getMessage();
+			if($this->config->debug || ($user && $user->isSuperuser())) {
+				$longMessage = (string) $e; 
+				if(strlen($longMessage) > strlen($message)) $message = $longMessage;
+			}
+		}
+		$this->error = [
+			'file' => $e->getFile(),
+			'line' => $e->getLine(), 
+			'message' => $message, 
+			'type' => E_USER_ERROR,
+			'throwable' => $e,
+		];
+	}
+	
+	/**
+	 * Get last error
+	 * 
+	 * @return array
+	 * @since 3.0.253
+	 * 
+	 */
+	protected function getError() {
+		if(empty($this->error)) {
+			$this->error = error_get_last();
+		}
+		return $this->error;
+	}
+
+	/**
 	 * Shutdown function registered with PHP
 	 * 
 	 * @return bool
@@ -530,13 +608,11 @@ class WireShutdown extends Wire {
 	 */
 	public function shutdown() {
 		
-		$error = error_get_last();
+		$error = $this->getError();
 		
-		if(!$error) return true;
-		if(!in_array($error['type'], $this->fatalTypes)) return true;
+		if(empty($error) || !in_array($error['type'], $this->fatalTypes)) return true;
 		
-		if(empty($this->error)) $this->fatalError($error);
-		$this->error = $error; 
+		$this->fatalError($error);
 		$this->prepareLabels();
 		$config = $this->config;
 		$user = $this->wire()->user; /** @var User|null $user */
@@ -551,9 +627,12 @@ class WireShutdown extends Wire {
 		if($useHTML && $config->ajax) $useHTML = false;
 
 		// include IP address is user name if configured to do so
-		if($config->logIP && $this->wire('session')) {
-			$ip = $this->wire('session')->getIP();
-			if(strlen($ip)) $name = "$name ($ip)";
+		if($config->logIP) { 
+			$session = $this->wire()->session;
+			if($session) {
+				$ip = $session->getIP();
+				if(strlen($ip)) $name = "$name ($ip)";
+			}
 		}
 
 		// save to errors.txt log file
@@ -650,6 +729,7 @@ class WireShutdown extends Wire {
 		if(!$config->paths->logs) return false;
 		$message = str_replace(array("\n", "\t"), " ", $message);
 		try {
+			/** @var FileLog $log */
 			$log = $this->wire(new FileLog($config->paths->logs . 'errors.txt'));
 			$log->setDelimeter("\t");
 			$saved = $log->save("$userName\t$url\t$message"); 
@@ -777,10 +857,10 @@ class WireShutdown extends Wire {
 	 * 
 	 */
 	public function shutdownExternal() {
-		if(error_get_last()) return;
+		$error = $this->getError();
+		if(!empty($error)) return; 
 		/** @var ProcessPageView $process */
-		$process = $this->wire('process');
+		$process = $this->wire()->process;
 		if($process == 'ProcessPageView') $process->finished();
 	}
 }
-

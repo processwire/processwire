@@ -572,6 +572,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			if(substr($filename, -1 * strlen($ext)) != $ext) continue; 
 			if($ignoreRegex && preg_match($ignoreRegex, $filename)) continue;
 			$basename = basename($file->getFilename(), $ext); 
+			if(strpos($basename, '.') === 0) continue;
 			if($sanitizer->name($basename) !== $basename) continue;
 			if(ctype_digit($basename)) continue;
 			// if(count($templates->find("name=$basename"))) continue; 
@@ -767,11 +768,14 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		}
 		
 		$min = $config->debug ? '' : '.min';
-		$config->scripts->add($config->urls('ProcessTemplate') . "ProcessTemplateFieldCreator$min.js?v=1");
+		$config->scripts->add($config->urls('ProcessTemplate') . "ProcessTemplateFieldCreator$min.js?v=$config->version");
 		
 		$label = $this->template->getLabel();
 		if(!$label) $label = $this->template->name;
 		if($label != $this->template->name) $label = "$label ({$this->template->name})";
+		
+		$icon = $this->template->icon;
+		if($icon) $label = "<icon-$icon> $label";
 		
 		$headline = sprintf($this->_('Edit Template: %s'), $label); // Headline when editing a template
 
@@ -2479,11 +2483,11 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	/**
 	 * Build the "roles" field for "access" tab in edit form
 	 * 
-	 * @param Template $template
+	 * @param Template|null $template
 	 * @return InputfieldMarkup
 	 * 
 	 */
-	protected function buildEditFormAccessRoles(Template $template = null) {
+	protected function buildEditFormAccessRoles(?Template $template = null) {
 
 		$config = $this->wire()->config;
 		$modules = $this->wire()->modules;
@@ -3157,19 +3161,30 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	 */
 	protected function importFieldgroup(Fieldgroup $fieldgroup, Template $template) {
 		$total = 0;
+		$hasContext = false;
+		$templateFieldgroup = $template->fieldgroup;
 		foreach($fieldgroup as $field) {
 			/** @var Field $field */
 			// if template already has the field, leave it, unless it's a closing fieldset.
 			// necessary because the fieldAdded hook may automatically add a closing fieldset, 
 			// so this prevents things from getting out of order. 
-			if(!$template->fieldgroup->has($field) || $field->type instanceof FieldtypeFieldsetClose) {
+			if(!$templateFieldgroup->has($field) || $field->type instanceof FieldtypeFieldsetClose) {
 				$total++;
-				$template->fieldgroup->add($field); 
+				$templateFieldgroup->add($field); 
 				$this->fieldAdded($field, $template); 
 			}
+			$contextData = $fieldgroup->getFieldContextArray($field->id);
+			if(!empty($contextData)) {
+				$templateFieldgroup->setFieldContextArray($field->id, $contextData);
+				$hasContext = true;
+			}
+		}
+		if($hasContext) {
+			$templateFieldgroup->save();
+			$templateFieldgroup->saveContext();
 		}
 
-		$this->message(sprintf($this->_('Duplicated fields from "%1$s" to "%2$s"'), $fieldgroup, $template->fieldgroup)); 
+		$this->message(sprintf($this->_('Duplicated fields from "%1$s" to "%2$s"'), $fieldgroup, $templateFieldgroup)); 
 	}
 
 	/**
@@ -3839,7 +3854,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	 */
 	public function search($text, array $options = array()) {
 
-		$languages = $this->wire()->langauges;
+		$languages = $this->wire()->languages;
 		$page = $this->getProcessPage();
 		$property = isset($options['property']) ? $options['property'] : '';
 
@@ -3931,4 +3946,3 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) { }
 
 }
-

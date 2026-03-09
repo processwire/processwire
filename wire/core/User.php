@@ -41,10 +41,10 @@ class User extends Page {
 	/**
 	 * Create a new User page in memory. 
 	 *
-	 * @param Template $tpl Template object this page should use. 
+	 * @param Template|null $tpl Template object this page should use. 
 	 *
 	 */
-	public function __construct(Template $tpl = null) {
+	public function __construct(?Template $tpl = null) {
 		if(!$tpl) $this->template = $this->wire()->templates->get('user');
 		$this->_parent_id = $this->wire()->config->usersPageID; 
 		parent::__construct($tpl); 
@@ -234,11 +234,11 @@ class User extends Page {
 	 * #pw-group-access
 	 *
 	 * @param string|Permission
-	 * @param Page $page Optional page to check against
+	 * @param Page|null $page Optional page to check against
 	 * @return bool
 	 *
 	 */
-	protected function ___hasPagePermission($name, Page $page = null) {
+	protected function ___hasPagePermission($name, ?Page $page = null) {
 
 		if($this->isSuperuser()) return true; 
 		$permissions = $this->wire()->permissions;
@@ -261,6 +261,10 @@ class User extends Page {
 				// code later on will make sure they exist in the template's addRoles/createRoles
 				$p = 'page-edit';
 			} else if(!$permissions->has($name)) {
+				if($page) {
+					$method = $permissions->getDelegatedMethod($name, $page);
+					if($method) return $page->$method(); // i.e. $page->editable()
+				}
 				$delegated = $permissions->getDelegatedPermissions();
 				$p = isset($delegated[$name]) ? $delegated[$name] : $name;
 			} else {
@@ -400,11 +404,11 @@ class User extends Page {
 	 * 
 	 * #pw-group-access
 	 *
-	 * @param Page $page Optional page to check against
+	 * @param Page|null $page Optional page to check against
 	 * @return PageArray of Permission objects
 	 *
 	 */
-	public function getPermissions(Page $page = null) {
+	public function getPermissions(?Page $page = null) {
 		// Does not currently include page-add or page-create permissions (runtime).
 		if($this->isSuperuser()) return $this->wire()->permissions->getIterator(); // all permissions
 		$userPermissions = $this->wire()->pages->newPageArray();

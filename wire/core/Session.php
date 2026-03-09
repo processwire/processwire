@@ -311,6 +311,9 @@ class Session extends Wire implements \IteratorAggregate {
 			} else {
 				ini_set("session.save_path", rtrim($this->config->paths->sessions, '/'));
 			}
+		} else {
+			if(!ini_get('session.gc_probability')) ini_set('session.gc_probability', 1);
+			if(!ini_get('session.gc_divisor')) ini_set('session.gc_divisor', 100);
 		}
 		
 		$options = array();
@@ -378,7 +381,7 @@ class Session extends Wire implements \IteratorAggregate {
 			// if valid, update last request time
 			$this->set('_user', 'ts', time());
 			
-		} else if($reason && $userID && $userID != $this->wire('config')->guestUserPageID) {
+		} else if($reason && $userID && $userID != $this->config->guestUserPageID) {
 			// otherwise log the invalid session
 			$user = $this->wire()->users->get((int) $userID);
 			if($user && $user->id) $reason = "User '$user->name' - $reason";
@@ -449,7 +452,13 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		if($useFingerprint === true || $useFingerprint === 1 || "$useFingerprint" === "1") {
 			// default (boolean true or int 1)
-			$useFingerprint = self::fingerprintRemoteAddr | self::fingerprintUseragent;
+			if($this->config->installed > 1761944926) {
+				// new installations after 5pm on 31 October 2025 
+				$useFingerprint = self::fingerprintUseragent;
+			} else {
+				// existing installations
+				$useFingerprint = self::fingerprintRemoteAddr | self::fingerprintUseragent;
+			}
 			if($debug) $debugInfo[] = 'default';
 		}
 
@@ -1703,7 +1712,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * @since 3.0.166
 	 *
 	 */
-	public function sessionHandler(WireSessionHandler $sessionHandler = null) {
+	public function sessionHandler(?WireSessionHandler $sessionHandler = null) {
 		if($sessionHandler) $this->sessionHandler = $sessionHandler;
 		return $this->sessionHandler;
 	}

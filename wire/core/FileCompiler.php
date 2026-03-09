@@ -187,6 +187,7 @@ class FileCompiler extends Wire {
 		}
 		
 		$this->addExclusion($config->paths->wire);
+		$this->addExclusion($config->paths->root . 'vendor/');
 
 		$rootPath = $config->paths->root;
 		$targetPath = $this->cachePath; 
@@ -1202,4 +1203,3 @@ class FileCompiler extends Wire {
 	}
 
 }
-

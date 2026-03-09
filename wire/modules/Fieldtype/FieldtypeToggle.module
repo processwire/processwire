@@ -69,7 +69,7 @@
  * For documentation about the fields used in this class, please see:
  * /wire/core/Fieldtype.php
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -117,7 +117,7 @@ class FieldtypeToggle extends Fieldtype {
 	 *
 	 * @param Page $page
 	 * @param Field $field
-	 * @return mixed
+	 * @return string
 	 *
 	 */
 	public function getDefaultValue(Page $page, Field $field) {
@@ -142,8 +142,8 @@ class FieldtypeToggle extends Fieldtype {
 	 *
 	 */
 	public function isEmptyValue(Field $field, $value) {
-		if($field) {}
 		// 0 is allowed because it represents "no/off" selection
+		if($value instanceof Selector) return true;
 		if($value === 0 || $value === "0") return false; 
 		if($value === 'unknown' || "$value" === "-1") return true;
 		$value = trim($value, '"\''); 
@@ -180,7 +180,7 @@ class FieldtypeToggle extends Fieldtype {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param int|object|WireArray|string $value
-	 * @return int|object|WireArray|string
+	 * @return string
 	 * 
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
@@ -202,8 +202,7 @@ class FieldtypeToggle extends Fieldtype {
 	 * @param Field $field
 	 * @param int|string|null $value
 	 * @param string $property
-	 *
-	 * @return MarkupFieldtype|string
+	 * @return string
 	 * 
 	 */
 	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
@@ -224,7 +223,7 @@ class FieldtypeToggle extends Fieldtype {
 	 */
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldToggle $f */
-		$f = $this->wire('modules')->get('InputfieldToggle');
+		$f = $this->wire()->modules->get('InputfieldToggle');
 		return $f;
 	}
 
@@ -243,34 +242,60 @@ class FieldtypeToggle extends Fieldtype {
 	}
 
 	/**
-	 * @param DatabaseQuerySelect $query
+	 * @param DatabaseQuerySelect|PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
 	 * @param mixed $value
-	 *
-	 * @return DatabaseQuery|DatabaseQuerySelect
+	 * @return DatabaseQuerySelect|PageFinderDatabaseQuerySelect
 	 * @throws WireException
 	 * 
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
-		
+
+		$originalValue = strtolower("$value");
 		$value = $this->_sanitizeValue($value); // 0, 1, 2 or ''
 		$matchNull = false;
+		$matchTemplates = false;
+		$defaultOption = $query->field->get('defaultOption');
+		$defaultNo = $defaultOption === 'no';
 		
-		if($value === '' && $operator === '=') {
-			// match only no-selection
-			$matchNull = true;
-			
-		} else if($value === '' && $operator === '>') {
-			// match all except no-selection
-			$value = 0;
-			$operator = '>=';
-			
-		} else if($value !== '' && $operator === '!=') {
-			// match value as well as no-selection
-			$matchNull = true;
-		} 
+		if($value === '') {
+			// blank/null value specified
+			if($operator === '=') {
+				// match no-selection or "no"
+				$matchNull = true;
+				if($originalValue === 'unknown') {
+					// if literal string 'unknown' specified then match null but only for pages having field
+					$matchTemplates = true;
+				} else if($defaultNo) {
+					// experimental: if default is "no" then allow both "no" and null values to match
+					// $value = 0;
+				}
+				if($originalValue === '' && $this->wire()->config->installed < 1709225722) {
+					// maintain original behavior for existing installations
+					// which will match both null and "no" when value is blank string
+					$value = 0;
+				}
+			} else if(strpos($operator, '>') === 0 || $operator === '!=') {
+				// match all except no-selection
+				$value = 0;
+				$operator = '>=';
+			}
+		} else {
+			// value -1, 0, 1, or 2
+			if($operator === '<' && ((int) $value) > 0) {
+				// match less than as well as no-selection
+				$matchNull = true;
+			} else if($operator === '!=' && $value > -1) {
+				// match value as well as no-selection
+				$matchNull = true;
+			} else if($operator === '=' && ($value === 0 && $defaultNo)) {
+				// experimental: match 0 or null for templates having field when default is "no"
+				// $matchNull = true;
+				// $matchTemplates = true;
+			}
+		}
 		
 		if($value === '' && ($operator[0] === '<' || $operator[0] === '>')) {
 			throw new WireException("Operator $operator not supported here for non-value");
@@ -283,7 +308,12 @@ class FieldtypeToggle extends Fieldtype {
 			$query->leftjoin("$table AS $_table ON $_table.pages_id=pages.id");
 			$where = "$_table.pages_id IS NULL ";
 			if($value !== '') $where .= "OR $_table.data$operator" . ((int) $value);
-			$query->where(trim($where));
+			if($matchTemplates) {
+				// limit match to templates having the field 
+				$templateIds = $query->field->getTemplates()->implode(',', 'id');
+				$where = "pages.templates_id IN($templateIds) AND ($where)";
+			}
+			$query->parentQuery->where("($where)");
 		} else {
 			$query = parent::getMatchQuery($query, $table, $subfield, $operator, $value);
 		}
@@ -323,9 +353,8 @@ class FieldtypeToggle extends Fieldtype {
 	 *
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
-		if($field) {}
 		$fieldtypes = $this->wire(new Fieldtypes());
-		foreach($this->wire('fieldtypes') as $fieldtype) {
+		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if($fieldtype instanceof FieldtypeToggle || $fieldtype instanceof FieldtypeCheckbox) {
 				$fieldtypes->add($fieldtype);
 			}
@@ -339,12 +368,11 @@ class FieldtypeToggle extends Fieldtype {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|float|array|object $value
-	 * @return string|int|float|array
+	 * @return string
 	 * @see Fieldtype::wakeupValue()
 	 *
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
-		if($page && $field) {}
 		return $this->_sanitizeValue($value);
 	}
 	
@@ -371,11 +399,11 @@ class FieldtypeToggle extends Fieldtype {
 		} else if($formatType === self::formatString || $formatType === self::formatEntities) {
 			/** @var InputfieldToggle $f */
 			$f = $field->getInputfield($page, $field);
-			if($f && $f instanceof InputfieldToggle) {
+			if($f instanceof InputfieldToggle) {
 				$value = $f->getValueLabel($value);
 				if($formatType == self::formatEntities) $value = $f->formatLabel($value, false);
 			} else if($formatType == self::formatEntities) {
-				$value = $this->wire('sanitizer')->entities1($value);
+				$value = $this->wire()->sanitizer->entities1($value);
 			}
 		}
 		
@@ -393,7 +421,7 @@ class FieldtypeToggle extends Fieldtype {
 		$inputfields = parent::___getConfigInputfields($field);
 
 		/** @var InputfieldRadios $f */
-		$f = $this->modules->get('InputfieldRadios'); 
+		$f = $this->wire()->modules->get('InputfieldRadios'); 
 		$f->attr('name', 'formatType'); 
 		$f->attr('value', (int) $field->get('formatType')); 
 		$f->label = $this->_('What do you want the formatted value of your toggle field to be?'); 
@@ -418,4 +446,3 @@ class FieldtypeToggle extends Fieldtype {
 	}
 
 }
-

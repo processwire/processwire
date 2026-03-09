@@ -5,16 +5,18 @@
  *
  * Maintains a collection of fields that are repeated for any number of times.
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
- * @property int $repeaterMaxItems
- * @property int $repeaterMinItems
- * @property int $repeaterDepth
- * @property bool|int $familyFriendly
- * @property bool|int $accordionMode
- * @property bool|int $singleMode
- * @property bool|int $loudControls Always show controls regardless of hover?
+ * @property int $repeaterMaxItems Maximum repeater items or 0 for no max (default=0)
+ * @property int $repeaterMinItems Minimum repeater items or 0 for no min (default=0)
+ * @property int $repeaterDepth Maximum allowed depth for repeater items or 0 to disable (default=0)
+ * @property bool|int $familyFriendly This setting makes the admin page editor treat item depth as a parent/child relationship when it comes to sorting/moving items. (default=false)
+ * @property bool|int $familyToggle When enabled, opening (or closing) a repeater item also opens (or closes) the next items that are visually children of it, when combined with familyFriendly mode.  (default=false)
+ * @property bool|int $accordionMode When enabled, only one repeater item will be open at a time. (default=false)
+ * @property bool|int $singleMode Limit repeater to a single item, primarily for the extending FieldsetPage module. (default=false)
+ * @property bool|int $loudControls Always show controls regardless of hover? (default=false)
+ * @property bool|int $noScroll Do not scroll to newly added items? (default=false)
  * 
  * @method string renderRepeaterLabel($label, $cnt, Page $page)
  * 
@@ -25,8 +27,8 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => __('Repeater', __FILE__), // Module Title
-			'summary' => __('Repeats fields from another template. Provides the input for FieldtypeRepeater.', __FILE__), // Module Summary
+			'title' => 'Repeater', 
+			'summary' => 'Repeats fields from another template. Provides the input for FieldtypeRepeater.', 
 			'version' => 111,
 			'requires' => 'FieldtypeRepeater',
 		);
@@ -103,9 +105,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->set('repeaterMinItems', 0); 
 		$this->set('repeaterDepth', 0);
 		$this->set('familyFriendly', 0); 
+		$this->set('familyToggle', 0);
 		$this->set('accordionMode', false);
 		$this->set('singleMode', false); 
 		$this->set('loudControls', false);
+		$this->set('noScroll', false);
 	}
 
 	/**
@@ -142,17 +146,24 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		
 		$out = '';
 		$repeaterTitle = $this->field ? $this->field->get('repeaterTitle') : '';
-		
+		$colorPrefix = "\tC/O/L/O/R:"; 
+		$hasColorPrefix = false;
+
 		if($page->id && $repeaterTitle) {
 			// custom repeater titles specified
 			$hasCnt = stripos($repeaterTitle, '#n') !== false;
+			
+			if(strpos($repeaterTitle, '#') !== false) {
+				$repeaterTitle = preg_replace('/#([a-f\d]{3,})/i', "$colorPrefix$1", $repeaterTitle);
+				if(strpos($repeaterTitle, $colorPrefix) !== false) $hasColorPrefix = true;
+			}
 			
 			// update index numbers?
 			if($hasCnt) {
 				// replace "#n" with index number of repeater item
 				$repeaterTitle = str_replace("#n", "#$cnt", $repeaterTitle);
 			}
-			
+
 			if(strpos($repeaterTitle, '{') !== false) {
 				// formatted {label}
 				$out = $page->getText($repeaterTitle, true);
@@ -197,6 +208,15 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$out = substr($out, 0, $maxlen);
 			$pos = strrpos($out, ' '); 
 			if($pos > ($maxlen / 2)) $out = substr($out, 0, $pos);
+		}
+
+		if(strpos($out, '#') !== false) {
+			$sp = html_entity_decode('&#8203;', 0, 'UTF-8');
+			$out = str_replace('#', "#$sp", $out);
+		}
+	
+		if($hasColorPrefix && strpos($out, $colorPrefix) === strrpos($out, $colorPrefix)) {
+			$out = str_replace($colorPrefix, '#', $out);
 		}
 		
 		return $out;
@@ -243,7 +263,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		
 		$fields = $this->wire()->fields;
 		$items = $this->attr('value');
-		$item = count($items) ? $items->first() : null;
+		$item = wireCount($items) ? $items->first() : null;
 		
 		$templateId = $this->field ? (int) $this->field->get('template_id') : 0;
 		$template = $templateId ? $this->wire()->templates->get($templateId) : null;
@@ -373,12 +393,17 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$minItems = $this->repeaterMinItems;
 	
 		// if there are a minimum required number of items, set them up now
-		if(!$itemID && $minItems > 0) {
-			$notIDs = $value->explode('id');
-			while($value->count() < $minItems) {
-				$item = $this->getNextReadyPage($notIDs);
-				$value->add($item);
-				$notIDs[] = $item->id;
+		if(!$itemID && $minItems > 0 && $value instanceof PageArray) {
+			$process = $this->wire()->process; 
+			if($process instanceof WirePageEditor && $process->getPage()->id === $this->page->id) {
+				// do not enforce minItems when repeater page being edited directly
+			} else {
+				$notIDs = $value->explode('id');
+				while($value->count() < $minItems) {
+					$item = $this->getNextReadyPage($notIDs);
+					$value->add($item);
+					$notIDs[] = $item->id;
+				}
 			}
 		}
 		
@@ -465,6 +490,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			
 			$itemType = $this->getRepeaterItemType($page);
 			$itemTypeName = $this->getRepeaterItemTypeName($itemType);
+			$hasCustomColor = false;
 			
 			if(!$isPost) {
 				$wrap->entityEncodeLabel = false;
@@ -480,10 +506,25 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 					// background-color definition
 					if(strlen($matches[1]) === 3 || strlen($matches[1]) === 6) {
 						$wrapLabel = str_replace($matches[0], '', $wrapLabel);
+						$hasCustomColor = true;
 						$typeStyles[$itemTypeName] = 
 							".Inputfield_$this->name .InputfieldContent " . 
-							".InputfieldRepeaterItem[data-typeName=\"$itemTypeName\"] > .InputfieldHeader " . 
-							"{ background-color: #$matches[1]; outline-color: #$matches[1] }";
+							".InputfieldRepeaterItem[data-typeName=\"$itemTypeName\"]:not(.InputfieldRepeaterDeletePending) > " . 
+							".InputfieldHeader {" . 
+								"background-color: #$matches[1]; " . 
+								"outline-color: #$matches[1]; " . 
+								"color: #fff; " . 
+								"--pw-inputs-background: #$matches[1]; " . 
+								"--pw-border-color: #$matches[1]; " . 	
+								"--pw-text-color: #fff; " . 
+							"} " . 
+							".Inputfield_$this->name .InputfieldContent " .
+							".InputfieldRepeaterItem[data-typeName=\"$itemTypeName\"]:not(.InputfieldRepeaterDeletePending) > " . 
+							".InputfieldHeader .ui-priority-secondary {" .
+								"color: #fff; " . 
+								"--pw-text-color: #fff; " .
+								"opacity: 0.8" . 
+							"}";
 					}
 				}
 
@@ -497,6 +538,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$wrap->wrapAttr('data-typeName', $itemTypeName);
 			$wrap->wrapAttr('data-fnsx', "_repeater$page->id");  // fnsx=field name suffix
 			$wrap->wrapAttr('data-depth', $depth ? $depth->val() : '0'); 
+			if($hasCustomColor) $wrap->addClass('InputfieldRepeaterColor'); 
 			if($wrapIcon) $wrap->wrapAttr('data-icon', $wrapIcon);
 			//$wrap->wrapAttr('data-editorPage', $this->page->id);
 			//$wrap->wrapAttr('data-parentPage', $page->parent->id);
@@ -614,8 +656,13 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->form = $form;
 		
 		if(!$isPost && count($typeStyles)) {
-			$styles = "<style type='text/css'>" . implode("\n", $typeStyles) . "</style>";
-			$this->wire()->adminTheme->addExtraMarkup('head', $styles);
+			$styles = "<style>" . implode("\n", $typeStyles) . "</style>";
+			if($this->wire()->config->ajax && ($this->page instanceof RepeaterPage || $this->hasPage instanceof RepeaterPage)) {
+				// ajax-rendered nested repeater page
+				$this->prependMarkup .= $styles;
+			} else {
+				$this->wire()->adminTheme->addExtraMarkup('head', $styles);
+			}
 		}	
 
 		return $form; 
@@ -652,6 +699,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$clonePage = null;
 		$cloneToParent = null;
 		$readyPage = null;
+		$version = (int) ((string) $this->page->get("_repeater_version|_version"));
 	
 		if($cloneItemID) {
 			foreach($value as $item) {
@@ -662,6 +710,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			}
 			if($cloneToParentID && $cloneToParentID != $this->page->id) {
 				$cloneToParent = $this->wire()->pages->get((int) $cloneToParentID);
+				if($version) $cloneToParent->setQuietly("_repeater_version", $version);
 				if($cloneToParent->id && $cloneToParent->hasField($this->field) && $cloneToParent->editable($this->field)) {
 					// ok
 					$fieldtype = $this->field->type; /** @var FieldtypeRepeater $fieldtype */
@@ -689,8 +738,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$notIDs = $this->wire()->sanitizer->intArray(explode(',', trim((string) $this->wire()->input->get('repeater_not'), ',')));
 			$readyPage = $this->getNextReadyPage($notIDs);
 			$readyPage->removeStatus(Page::statusHidden);
-		} 
-	
+		}
+		
+		if($version) $readyPage->set('_repeater_version', $version);
+
 		if($readyPage) {
 			// ensure editing page doesn't get saved (just in case) since we're removing all items
 			$this->page->addStatus(Page::statusCorrupted);
@@ -734,12 +785,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	/**
 	 * Called before render() or renderValue() method by InputfieldWrapper, before Inputfield-specific CSS/JS files added
 	 *
-	 * @param Inputfield|InputfieldWrapper|null The parent Inputfield/wrapper that is rendering it or null if no parent.
+	 * @param Inputfield|null The parent Inputfield/wrapper that is rendering it or null if no parent.
 	 * @param bool $renderValueMode Whether renderValueMode will be used.
 	 * @return bool
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 	
 		$user = $this->wire()->user;
 		$modules = $this->wire()->modules;
@@ -778,6 +829,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($this->loudControls || $this->wire()->session->get('touch')) {
 			$this->addClass('InputfieldRepeaterLoudControls', 'wrapClass');
 		}
+		if($this->noScroll) {
+			$this->addClass('InputfieldRepeaterNoScroll', 'wrapClass');
+		}
+		if($this->familyToggle) {
+			$this->addClass('InputfieldRepeaterFamilyToggle', 'wrapClass');
+		}
 		if(!empty($_COOKIE[$this->copyPasteCookieName()])) {
 			$this->addClass('InputfieldRepeaterCanPaste', 'wrapClass'); 
 		}
@@ -799,6 +856,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 
 		$this->wire()->config->js('InputfieldRepeater', array(
 			'editorUrl' => $editorUrl,
+			'pageVersion' => (int) ((string) $this->page->get('_version')), 
 			'labels' => array(
 				'remove' => $this->_x('Click to delete this item, or double-click to delete all', 'repeater-item-action'),
 				'removeAll' => $this->_x('Delete all items?', 'repeater-item-action'),

@@ -10,9 +10,9 @@ $(document).ready(function() {
 	var $tabs = $('.WireTabs');
 	$tabs.css('opacity', 1.0); 
 	$tabs.find('.uk-active').removeClass('uk-active');
-	$tabs.find('a.on').parent('li').click().addClass('uk-active');
+	$tabs.find('a.on').parent('li').trigger('click').addClass('uk-active');
 
-	$("a.CommentTextEdit").click(function() {
+	$("a.CommentTextEdit").on('click', function() {
 		var $textarea = $("<textarea></textarea>");
 		var $parent = $(this).closest('.CommentTextEditable');
 		$parent.parent('.CommentText').removeClass('CommentTextOverflow');
@@ -26,8 +26,8 @@ $(document).ready(function() {
 		return false; 
 	}); 
 
-	$(".CommentText").click(function() {
-		$(this).find('a.CommentTextEdit').click();
+	$(".CommentText").on('click', function() {
+		$(this).find('a.CommentTextEdit').trigger('click');
 		return false;
 	}); 
 
@@ -43,7 +43,7 @@ $(document).ready(function() {
 
 	/*
 	// for cite, email and website editor inputs (@todo)
-	$("a.CommentToggleSiblings").click(function() {
+	$("a.CommentToggleSiblings").on('click', function() {
 		$(this).siblings().each(function() {
 			var $item = $(this);
 			if($item.attr('hidden')) {
@@ -55,10 +55,10 @@ $(document).ready(function() {
 	}); 
 	*/
 	
-	$("#CommentLimitSelect").change(function() {
+	$("#CommentLimitSelect").on('change', function() {
 		window.location = './?limit=' + parseInt($(this).val());
 	});
-	$("#CommentListSort").change(function() {
+	$("#CommentListSort").on('change', function() {
 		window.location = './?sort=' + $(this).val();
 	}); 
 	
@@ -71,11 +71,11 @@ $(document).ready(function() {
 		}
 	};
 
-	$(".CommentCheckbox").click(function() {
+	$(".CommentCheckbox").on('click', function() {
 		commentCheckboxClicked($(this));
 	}); 
 	
-	$("#CommentCheckAll").click(function() {
+	$("#CommentCheckAll").on('click', function() {
 		var $items = $(".CommentCheckbox");
 		if($(this).is(":checked")) {
 			// $items.attr('checked', 'checked'); // JQM
@@ -89,7 +89,7 @@ $(document).ready(function() {
 		});
 	});
 	
-	$("#CommentActions").change(function() {
+	$("#CommentActions").on('change', function() {
 		var val = $(this).val();
 		if(!val.length) return;
 		var $checkedItems = $(".CommentChecked");
@@ -97,13 +97,13 @@ $(document).ready(function() {
 			$checkedItems.each(function() {
 				if(val == 'reset-upvotes') {
 					// upvotes
-					$(this).find(".CommentUpvotes > input").val(0).change();
+					$(this).find(".CommentUpvotes > input").val(0).trigger('change');
 				} else if(val == 'reset-downvotes') {
 					// downvotes
-					$(this).find(".CommentDownvotes > input").val(0).change();
+					$(this).find(".CommentDownvotes > input").val(0).trigger('change');
 				} else {
 					// status
-					// $(this).find(".CommentStatus > input[value='" + val + "']").click(); // radios
+					// $(this).find(".CommentStatus > input[value='" + val + "']").trigger('click'); // radios
 					$(this).find("select.CommentStatus").val(val); // select
 				}
 			});
@@ -120,7 +120,7 @@ $(document).ready(function() {
 		$(this).closest('.CommentItem').addClass('CommentItemChanged');
 	});
 
-	$("#CommentListForm").submit(function() {
+	$("#CommentListForm").on('submit', function() {
 		$(this).addClass('CommentListFormSubmitted');
 	});
 	

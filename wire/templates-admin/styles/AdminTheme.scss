@@ -32,24 +32,27 @@
 // class applied to <button> elements that should automatically repeat in the header
 .pw-head-button { }
 
-// alignment: left
-.pw-align-left, .align_left, .align-left {
-	float: left;
-	margin: 0 1em 0.5em 0;
+// alignment for block level elements that can have widths
+img, figure, div, table {
+	// alignment: left
+	&.pw-align-left, &.align_left, &.align-left {
+		float: left;
+		margin: 0 1em 0.5em 0;
+	}
+	// alignment: right
+	&.pw-align-right, &.align_right, &.align-right {
+		float: right;
+		margin: 0 0 0.5em 1em;
+	}
+	// alignment: center
+	&.pw-align-center, &.align_center, &.align-center {
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+	}
 }
 
-// alignment: right
-.pw-align-right, .align_right, .align-right {
-	float: right;
-	margin: 0 0 0.5em 1em;
-}
 
-// alignment: center
-.pw-align-center, .align_center, .align-center {
-	display: block;
-	margin-left: auto;
-	margin-right: auto;
-}
 
 // added to elements that should not be selectable via highlight
 .pw-no-select {
@@ -72,4 +75,3 @@
 .pw-notices .pw-notice-group-child {
 	display: none;	
 }
-

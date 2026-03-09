@@ -23,22 +23,20 @@
 
 .uk-close {
     color: @close-color;
-    .hook-close;
+    .hook-close();
 }
 
-/* Hover + Focus */
-.uk-close:hover,
-.uk-close:focus {
+/* Hover */
+.uk-close:hover {
     color: @close-hover-color;
-    outline: none;
-    .hook-close-hover;
+    .hook-close-hover();
 }
 
 
 // Hooks
 // ========================================================================
 
-.hook-close-misc;
+.hook-close-misc();
 
 .hook-close() {}
 .hook-close-hover() {}
@@ -55,13 +53,12 @@
 
     .uk-close {
         color: @inverse-close-color;
-        .hook-inverse-close;
+        .hook-inverse-close();
     }
 
-    .uk-close:hover,
-    .uk-close:focus {
+    .uk-close:hover {
         color: @inverse-close-hover-color;
-        .hook-inverse-close-hover;
+        .hook-inverse-close-hover();
     }
 
 }

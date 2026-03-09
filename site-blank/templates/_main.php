@@ -11,8 +11,8 @@
 /** @var Page $page */
 /** @var Pages $pages */
 /** @var Config $config */
-
-$home = $pages->get('/'); // homepage
+	
+$home = $pages->get('/'); /** @var HomePage $home */
 
 ?><!DOCTYPE html>
 <html lang="en">

@@ -141,10 +141,10 @@
 
 				buildSelect();
 
-				$select.change(selectChangeEvent)
-					.click(selectClickEvent); 
+				$select.on('change', selectChangeEvent)
+					.on('click', selectClickEvent); 
 
-				$original.change(originalChangeEvent)
+				$original.on('change', originalChangeEvent)
 					.wrap($container).before($select).before($ol);
 
 				if(options.sortable) makeSortable();
@@ -158,11 +158,10 @@
 
 				if(options.fieldset) {
 					setupFieldsets();
-					$original.children('option').each(function() {
-						var name = $(this).text();
-						if(name.indexOf('_END') > 0 && name.substring(name.length - 4) == '_END') {
-							fieldsetCloseItems[name] = $(this);
-						}
+					findFieldsetCloseItems($original);
+					$original.on('rebuild', function(e) { 
+						console.log('asmSelect REBUILD');
+						findFieldsetCloseItems($(this)); 
 					});
 				}
 
@@ -337,8 +336,7 @@
 					// collapse any existing parents that are open (behave as accordion)
 					if(!$option.hasClass(options.optionChildClass)) {
 						$select.find('.' + options.optionParentOpenClass).each(function() {
-							// $(this).attr('selected', 'selected').change(); // trigger close if any existing open
-							$(this).prop('selected', true).change(); // trigger close if any existing open
+							$(this).prop('selected', true).trigger('change'); // trigger close if any existing open
 						});
 					}
 					// make the parent selected, encouraging them to click to select a child
@@ -377,7 +375,7 @@
 			 */
 			function selectClickEvent() {
 				// IE6 lets you scroll around in a select without it being pulled down
-				// making sure a click preceded the change() event reduces the chance
+				// making sure a click preceded the change event reduces the chance
 				// if unintended items being added. there may be a better solution?
 				ieClick = true; 
 			}
@@ -585,8 +583,7 @@
 			 * 
 			 */
 			function selectFirstItem() {
-				// $select.children(":eq(0)").attr("selected", true);
-				$select.children(":eq(0)").prop("selected", true); 
+				$select.children().first().prop("selected", true); 
 			}
 
 			/**
@@ -618,7 +615,7 @@
 			 */
 			function enableSelectOption($option) {
 
-				$option.removeClass(options.optionDisabledClass).attr("disabled", false);
+				$option.removeClass(options.optionDisabledClass).prop("disabled", false);
 				
 				if(options.hideWhenEmpty) $select.show();
 				if(options.hideWhenAdded) $option.show();
@@ -644,7 +641,7 @@
 					.attr("href", "#")
 					.addClass(options.removeClass)
 					.prepend(options.removeLabel)
-					.click(function() { 
+					.on('click', function() { 
 						dropListItem($(this).parent('li').attr('rel')); 
 						return false; 
 					}); 
@@ -667,7 +664,7 @@
 					if(options.editLinkModal === "longclick") {
 						$editLink.addClass('asmEditLinkModalLongclick');
 					} else if(options.editLinkModal) {
-						$editLink.click(clickEditLink);
+						$editLink.on('click', clickEditLink);
 					}
 					
 					$itemLabel.addClass(options.editClass).append($editLink);
@@ -681,7 +678,7 @@
 						if(options.editLinkModal === "longclick") {
 							$editLink2.addClass('asmEditLinkModalLongclick');
 						} else if(options.editLinkModal) {
-							$editLink2.click(clickEditLink);
+							$editLink2.on('click', clickEditLink);
 						}
 					}
 
@@ -701,9 +698,9 @@
 
 				if(options.jQueryUI) {
 					$item.addClass('ui-state-default')
-					.hover(function() {
+					.on('mouseenter', function() {
 						$(this).addClass('ui-state-hover').removeClass('ui-state-default'); 
-					}, function() {
+					}).on('mouseleave', function() {
 						$(this).addClass('ui-state-default').removeClass('ui-state-hover'); 
 					}); 
 					if(options.sortable) {
@@ -939,7 +936,12 @@
 				var href = $(this).attr('href'); 
 				var $iframe = pwModalWindow(href, {}, 'medium'); 
 
-				$iframe.load(function() {
+				$iframe.on('load', function() {
+					// slight delay is necessary in jQuery 3.x, otherwise visible buttons found to be not visible
+					setTimeout(function() { iframeLoaded(); }, 100); 
+				});
+				
+				var iframeLoaded = function() {
 
 					var $icontents = $iframe.contents();	
 					var buttons = [];
@@ -962,12 +964,16 @@
 								'class': (secondary ? 'ui-priority-secondary' : ''),
 								click: function() {
 									if($button.attr('type') == 'submit') {
-										$button.click(); 
+										var updated = false;
+										$button.trigger('click'); 
 										$asmItem.effect('highlight', {}, 500); 
 										
 										var $asmSetStatus = $icontents.find('#' + options.listItemStatusClass); // first try to find by ID
 										if($asmSetStatus.length == 0) $asmSetStatus = $icontents.find(':input.' + options.listItemStatusClass); // then by class, if not ID
-										if($asmSetStatus.length > 0) $asmItem.find('.' + options.listItemStatusClass).html($asmSetStatus.eq(0).val());
+										if($asmSetStatus.length > 0) {
+											$asmItem.find('.' + options.listItemStatusClass).html($asmSetStatus.eq(0).val());
+											updated = true;
+										}
 										
 										var $asmSetDesc = $icontents.find('#' + options.listItemDescClass); // first try to find by ID
 										if($asmSetDesc.length == 0) $asmSetDesc = $icontents.find(':input.' + options.listItemDescClass); // then by class, if not ID
@@ -981,7 +987,9 @@
 											} else {
 												$desc.html(asmSetDesc);
 											}
+											updated = true;
 										}
+										if(updated) $asmItem.trigger('asmItemUpdated');
 									}
 									$iframe.dialog('close'); 
 								}
@@ -991,7 +999,8 @@
 						$button.hide();
 					}); 
 					$iframe.setButtons(buttons); 
-				}); 
+				}; 
+				
 				return false; 
 			}
 
@@ -1024,6 +1033,21 @@
 							break;
 						}
 						$span.prepend($('<span class="asmFieldsetIndent"></span>'));
+					}
+				});
+			}
+			
+			/**
+			 * Find all options with a name that ends with _END and populate to fieldsetCloseItems
+			 * 
+			 * @param $select
+			 * 
+			 */
+			function findFieldsetCloseItems($select) {
+				$select.children('option').each(function() {
+					var name = $(this).text();
+					if(name.indexOf('_END') > 0 && name.substring(name.length - 4) == '_END') {
+						fieldsetCloseItems[name] = $(this);
 					}
 				});
 			}

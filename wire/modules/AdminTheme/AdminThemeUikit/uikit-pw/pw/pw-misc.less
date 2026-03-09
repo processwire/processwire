@@ -67,23 +67,24 @@ em {
 // Pop-out panel for PageList, PageView, debug, etc. 
 body .pw-panel-container {
   .pw-panel-button.ui-button {
-    // background: @global-primary-background;
-    background: @pw-body-background;
-    padding: 3px 12px 3px 15px !important; 
+    top: 30%;
+    background: @pw-button-background;
+    padding: 3px 11px 3px 11px !important;
+	
     small.ui-button-text {
       > span {
-        display: none;
-        // font-size: @global-small-font-size;
-        // line-height: @global-small-font-size;
-        // text-transform: uppercase;
+        color: @pw-button-color;
+        font-size: @global-font-size;
+        text-transform: uppercase;
       }
     }
     i.fa {
-      transform: rotate(-90deg);
-      color: @global-link-color;
-      font-size: 20px;
-      position: relative;
-      bottom: -4px;
+      color: @pw-button-color;
+      font-size: 16px;
+      &:has(+ span) {
+        // rotate so it displays in upwards orientation when combined with text label
+        transform: rotate(-90deg);
+      }
     }
   }
 }

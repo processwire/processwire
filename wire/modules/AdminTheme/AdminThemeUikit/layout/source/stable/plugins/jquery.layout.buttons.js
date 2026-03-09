@@ -127,7 +127,7 @@ $.layout.buttons = {
 	*/
 ,	addToggle: function (inst, selector, pane, slide) {
 		$.layout.buttons.get(inst, selector, pane, "toggle")
-			.click(function(evt){
+			.on('click', function(evt){
 				inst.toggle(pane, !!slide);
 				evt.stopPropagation();
 			});
@@ -144,7 +144,7 @@ $.layout.buttons = {
 ,	addOpen: function (inst, selector, pane, slide) {
 		$.layout.buttons.get(inst, selector, pane, "open")
 			.attr("title", lang.Open)
-			.click(function (evt) {
+			.on('click', function (evt) {
 				inst.open(pane, !!slide);
 				evt.stopPropagation();
 			});
@@ -160,7 +160,7 @@ $.layout.buttons = {
 ,	addClose: function (inst, selector, pane) {
 		$.layout.buttons.get(inst, selector, pane, "close")
 			.attr("title", lang.Close)
-			.click(function (evt) {
+			.on('click', function (evt) {
 				inst.close(pane);
 				evt.stopPropagation();
 			});
@@ -184,7 +184,7 @@ $.layout.buttons = {
 		var $E = $.layout.buttons.get(inst, selector, pane, "pin");
 		if ($E.length) {
 			var s = inst.state[pane];
-			$E.click(function (evt) {
+			$E.on('click', function (evt) {
 				$.layout.buttons.setPinState(inst, $(this), pane, (s.isSliding || s.isClosed));
 				if (s.isSliding || s.isClosed) inst.open( pane ); // change from sliding to open
 				else inst.close( pane ); // slide-closed

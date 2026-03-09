@@ -78,6 +78,7 @@
  * @method install($filename)
  * @method render($markup = '', $options = array())
  * @method void createdVariation(Pageimage $image, array $data) Called after new image variation created (3.0.180+)
+ * @method bool filenameDoesNotExist($filename) Hook called when a filename does not exist
  *
  */
 
@@ -154,7 +155,7 @@ class Pageimage extends Pagefile {
 	 * $pageimage = new Pageimage($page->images, '/path/to/file.png');
 	 * ~~~~~
 	 *
-	 * @param Pageimages|Pagefiles $pagefiles 
+	 * @param Pagefiles $pagefiles 
 	 * @param string $filename Full path and filename to this pagefile
 	 * @throws WireException
 	 *
@@ -543,10 +544,17 @@ class Pageimage extends Pagefile {
 		if(!$filename) $filename = $this->filename;
 		$xml = @file_get_contents($filename);
 		
-		if($xml) {
-			$a = @simplexml_load_string($xml)->attributes();
+		if($xml && false !== ($a = @simplexml_load_string($xml))) {
+			$a = $a->attributes();
 			if((int) $a->width > 0) $width = (int) $a->width;
 			if((int) $a->height > 0) $height = (int) $a->height;
+			if((!$width || !$height) && $a->viewBox) {
+				$values = explode(' ', $a->viewBox);
+				if(count($values) === 4) {
+					$width = (int) round($values[2]);
+					$height = (int) round($values[3]);
+				}
+			}
 		}
 		
 		if((!$width || !$height) && (extension_loaded('imagick') || class_exists('\IMagick'))) {
@@ -867,7 +875,7 @@ class Pageimage extends Pagefile {
 		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) $options['forceNew'] = true;
 		
 		// create a new resize if it doesn't already exist or forceNew option is set
-		if(!$filenameFinalExists && !file_exists($this->filename())) {
+		if(!$filenameFinalExists && !file_exists($this->filename()) && !$this->filenameDoesNotExist($this->filename())) {
 			// no original file exists to create variation from 
 			$this->error = "Original image does not exist to create size variation: " . $this->url();
 			
@@ -1629,8 +1637,7 @@ class Pageimage extends Pagefile {
 			}
 		}
 
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		$image = $this;
 		$original = null;
 		$replacements = array();
@@ -1663,7 +1670,7 @@ class Pageimage extends Pagefile {
 		}
 		
 		if(strpos($markup, '{class}')) {
-			$class = isset($options['class']) ? $this->wire('sanitizer')->entities($options['class']) : 'pw-pageimage';
+			$class = isset($options['class']) ? $sanitizer->entities($options['class']) : 'pw-pageimage';
 			$replacements["{class}"] = $class; 
 		}
 		
@@ -1703,17 +1710,26 @@ class Pageimage extends Pagefile {
 	/**
 	 * Get WebP "extra" version of this Pageimage
 	 *
+	 * @param array $webpOptions Optionally override certain defaults from `$config->webpOptions` (requires 3.0.229+):
+	 *  - `useSrcUrlOnSize` (bool): Fallback to source file URL when webp file is larger than source? (default=true)
+	 *  - `useSrcUrlOnFail` (bool): Fallback to source file URL when webp file fails for some reason? (default=true)
+	 *  - `quality' (int): Quality setting of 1-100 where higher is better but larger in file size (default=90)
+	 *     Note that his quality setting is only used if the .webp file does not already exist. 
 	 * @return PagefileExtra
 	 * @since 3.0.132
 	 *
 	 */
-	public function webp() {
+	public function webp(array $webpOptions = array()) {
 		$webp = $this->extras('webp');
 		if(!$webp) {
 			$webp = new PagefileExtra($this, 'webp');
-			$webp->setArray($this->wire('config')->webpOptions);
+			$webpOptions = array_merge($this->wire()->config->webpOptions, $webpOptions);
+			$webp->setArray($webpOptions);
 			$this->extras('webp', $webp);
 			$webp->addHookAfter('create', $this, 'hookWebpCreate'); 
+		} else if(count($webpOptions)) {
+			/** @var PagefileExtra $webp */
+			$webp->setArray($webpOptions);
 		}
 		return $webp;
 	}
@@ -1748,6 +1764,8 @@ class Pageimage extends Pagefile {
 			$width = $this->width;
 			$height = 0;
 		}
+		$quality = (int) $webp->get('quality');
+		if($quality > 0) $options['webpQuality'] = $quality;
 		$options['webpAdd'] = true;
 		try {
 			$original->size($width, $height, $options);
@@ -1765,12 +1783,12 @@ class Pageimage extends Pagefile {
 	 * #pw-internal
 	 *
 	 * @param string $name
-	 * @param PagefileExtra $value
+	 * @param PagefileExtra|null $value
 	 * @return PagefileExtra[]
 	 * @since 3.0.132
 	 *
 	 */
-	public function extras($name = null, PagefileExtra $value = null) {
+	public function extras($name = null, ?PagefileExtra $value = null) {
 		if($name) return parent::extras($name, $value); 
 		$extras = parent::extras();
 		$extras['webp'] = $this->webp();
@@ -1836,6 +1854,44 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
+	 * Get all filenames associated with this image
+	 * 
+	 * @return array
+	 * @since 3.0.233
+	 * 
+	 */
+	public function getFiles() {
+		$filenames = parent::getFiles();
+		foreach($this->extras() as $extra) {
+			if($extra->exists()) $filenames[] = $extra->filename();
+		}
+		foreach($this->getVariations() as $pagefile) {
+			/** @var Pagefile $pagefile */
+			$filenames[] = $pagefile->filename();
+			foreach($pagefile->extras() as $extra) {
+				if($extra->exists()) $filenames[] = $extra->filename();
+			}
+		}
+		return $filenames;
+	}
+	
+	/**
+	 * Hook called by the size() method when a source/original filename does not exist
+	 * 
+	 * For the return value, override the default `false` return value and set 
+	 * it to `true` in order to make it continue as if the filename did exist,
+	 * such as if your hook copied a file to $filename. 
+	 *
+	 * @param string $filename
+	 * @return bool 
+	 * @since 3.0.254
+	 *
+	 */
+	protected function ___filenameDoesNotExist($filename) {
+		return false;
+	}
+
+	/**
 	 * Basic debug info
 	 * 
 	 * @return array
@@ -1874,4 +1930,3 @@ class Pageimage extends Pagefile {
 	}
 
 }
-

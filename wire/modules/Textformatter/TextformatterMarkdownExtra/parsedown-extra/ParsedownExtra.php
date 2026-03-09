@@ -331,7 +331,7 @@ class ParsedownExtra extends Parsedown
     #
     # Setext
 
-    protected function blockSetextHeader($Line, array $Block = null)
+    protected function blockSetextHeader($Line, ?array $Block = null)
     {
         $Block = parent::blockSetextHeader($Line, $Block);
 
@@ -508,7 +508,8 @@ class ParsedownExtra extends Parsedown
             ),
         );
 
-        uasort($this->DefinitionData['Footnote'], 'self::sortFootnotes');
+	    // RJC https://github.com/processwire/processwire/pull/279
+	    uasort($this->DefinitionData['Footnote'], self::class . '::sortFootnotes');
 
         foreach ($this->DefinitionData['Footnote'] as $definitionId => $DefinitionData)
         {
@@ -625,7 +626,10 @@ class ParsedownExtra extends Parsedown
         $DOMDocument = new DOMDocument;
 
         # http://stackoverflow.com/q/11309194/200145
-        $elementMarkup = mb_convert_encoding($elementMarkup, 'HTML-ENTITIES', 'UTF-8');
+        // $elementMarkup = mb_convert_encoding($elementMarkup, 'HTML-ENTITIES', 'UTF-8');
+	    // https://github.com/processwire/processwire-issues/issues/1801
+	    $elementMarkup = htmlentities($elementMarkup, ENT_NOQUOTES, 'UTF-8');
+	    $elementMarkup = htmlspecialchars_decode($elementMarkup, ENT_NOQUOTES);
 
         # http://stackoverflow.com/q/4879946/200145
         $DOMDocument->loadHTML($elementMarkup);

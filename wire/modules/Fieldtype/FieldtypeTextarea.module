@@ -5,17 +5,16 @@
  *
  * Stores a large block of multi-line text.
  *
- * For documentation about the fields used in this class, please see:  
- * /wire/core/Fieldtype.php
- * 
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
- * Properties set to $field that is using this type, acceessed by $field->get('property'):
+ * #pw-body = 
+ * Properties set to `$field` that is using this type, acceessed by `$field->get('property')` 
  *
- * - contentType (int): Content type of field output using a self::contentType* constant (default=self::contentTypeUnknown)
- * - htmlOptions (array): Options for content-type Markup/HTML using self::html* constants (default=null or blank array)
- * - inputfieldClass (string): Inputfield class/module name to use for this field (default=InputfieldTextarea)
+ * - `contentType` (int): Content type of field output using a self::contentType* constant (default=0)
+ * - `htmlOptions` (array): Options for content-type Markup/HTML using self::html* constants (default=[])
+ * - `inputfieldClass` (string): Inputfield class/module name to use for this field (default=InputfieldTextarea)
+ * #pw-body
  *
  */
 
@@ -79,6 +78,12 @@ class FieldtypeTextarea extends FieldtypeText {
 	const htmlImageRemoveNoAccess = 16;
 
 	/**
+	 * HTML options: Update <img> tags to be <img loading='lazy'>
+	 *
+	 */
+	const htmlImageLoadingLazy = 32;
+
+	/**
 	 * Instance of MarkupQA 
 	 * 
 	 * @var MarkupQA
@@ -113,6 +118,14 @@ class FieldtypeTextarea extends FieldtypeText {
 	
 	public function ___formatValue(Page $page, Field $field, $value) {
 		$value = parent::___formatValue($page, $field, $value);
+		if($field->get('contentType') >= self::contentTypeHTML) {
+			$htmlOptions = $field->get('htmlOptions');
+			if($htmlOptions && in_array(self::htmlImageLoadingLazy, $htmlOptions)) {
+				if(strpos($value, 'loading="lazy"') === false) {
+					$value = str_replace('<img ', '<img loading="lazy" ', $value);
+				}
+			}
+		}
 		return $value; 
 	}
 
@@ -143,13 +156,13 @@ class FieldtypeTextarea extends FieldtypeText {
 	/**
 	 * Get the MarkupQA instance
 	 * 
-	 * @param Page $page
-	 * @param Field $field
+	 * @param Page|null $page
+	 * @param Field|null $field
 	 * @return MarkupQA
 	 * @throws WireException If called the first time without page or field arguments
 	 * 
 	 */
-	public function markupQA(Page $page = null, Field $field = null) {
+	public function markupQA(?Page $page = null, ?Field $field = null) {
 		if(is_null($this->markupQA)) {
 			$this->markupQA = $this->wire(new MarkupQA($page, $field));
 		} else {
@@ -497,4 +510,3 @@ class FieldtypeTextarea extends FieldtypeText {
 	}
 
 }
-

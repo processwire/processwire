@@ -5,7 +5,7 @@
  *
  * Matches selector strings to pages
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  * Hookable methods: 
@@ -187,6 +187,12 @@ class PageFinder extends Wire {
 		 * 
 		 */
 		'bindOptions' => array(),
+		
+		/**
+		 * Test mode to time all find() operations across entire request
+		 *
+		 */
+		'testMode' => false,
 	);
 
 	/**
@@ -398,6 +404,25 @@ class PageFinder extends Wire {
 		'start',
 	);
 	
+	/**
+	 * Total time for all PageFinder find() operations for entire request
+	 *
+	 * (applies only if testMode==true)
+	 *
+	 * @var float
+	 *
+	 */
+	static protected $totalTime = 0.0;
+	
+	/**
+	 * Nesting level
+	 *
+	 * @var int
+	 *
+	 */
+	static protected $level = 0;
+	
+	
 	// protected $extraSubSelectors = array(); // subselectors that are added in after getQuery()
 	// protected $extraJoins = array();
 	// protected $nativeWheres = array(); // where statements for native fields, to be reused in subselects where appropriate.
@@ -431,7 +456,7 @@ class PageFinder extends Wire {
 		$this->getQueryNumChildren = 0;
 		$this->pageArrayData = array();
 
-		$options = array_merge($this->defaultOptions, $options);
+		$options = array_merge($this->defaultOptions, $this->config->PageFinder, $options);
 		$options = $this->initSelectors($selectors, $options);
 
 		// move getTotal option to a class property, after initStatusChecks
@@ -787,6 +812,8 @@ class PageFinder extends Wire {
 	 */
 	public function ___find($selectors, array $options = array()) {
 		
+		self::$level++;
+		
 		if(is_string($selectors) || is_array($selectors)) {
 			list($s, $selectors) = array($selectors, $this->wire(new Selectors())); 
 			/** @var Selectors $selectors */
@@ -796,13 +823,18 @@ class PageFinder extends Wire {
 		}
 		
 		$options = $this->init($selectors, $options);
+		$timer = empty($options['testMode']) || self::$level > 1 ? null : Debug::startTimer('PageFinder');
 		$stopBeforeID = (int) $options['stopBeforeID'];
 		$startAfterID = (int) $options['startAfterID'];
 		$database = $this->database;
 		$matches = array();
 		$query = $this->getQuery($selectors, $options); /** @var DatabaseQuerySelect $query */
 		
-		if($options['returnQuery']) return $query; 
+		if($options['returnQuery']) {
+			if($timer) self::$totalTime += Debug::stopTimer($timer);
+			self::$level--;
+			return $query;
+		}
 
 		if($options['loadPages'] || $this->getTotalType === 'calc') {
 
@@ -905,6 +937,10 @@ class PageFinder extends Wire {
 		$this->lastOptions = $options; 
 		
 		if($this->reverseAfter) $matches = array_reverse($matches);
+		
+		if($timer) self::$totalTime += Debug::stopTimer($timer);
+		
+		self::$level--;
 
 		return $matches; 
 	}
@@ -1496,7 +1532,14 @@ class PageFinder extends Wire {
 		// Example: "field=[id>0, name=something, this=that]" converts to "field.id=123|456|789"
 
 		$selectors = $selector->getValue();
-		if(!$selectors instanceof Selectors) return;
+		if(!$selectors instanceof Selectors) {
+			if(is_string($selectors)) {
+				// potential custom variable provided by Selectors::getCustomVariableValue hook
+				$value = $parentSelectors->getCustomVariableValue($selectors);
+				if($value !== null) $selector->setValue($value); 
+			}
+			return;
+		}
 		
 		$hasTemplate = false;
 		$hasParent = false;
@@ -1817,6 +1860,7 @@ class PageFinder extends Wire {
 				$tableAlias = $database->escapeTable($tableAlias);
 
 				$join = '';
+				$joinType = '';
 				$numEmptyValues = 0; 
 				$valueArray = $selector->values(true); 
 				$fieldtype = $field->type; 
@@ -1828,13 +1872,20 @@ class PageFinder extends Wire {
 					// shortcut for blank value condition: this ensures that NULL/non-existence is considered blank
 					// without this section the query would still work, but a blank value must actually be present in the field
 					$isEmptyValue = $fieldtype->isEmptyValue($field, $value);
-					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $value < 0 && $operator[0] === '>');	
+					$v = substr("$value", 0, 3);
+					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $v < 0 && $operator[0] === '>') 
+						|| ($operator === '!=' && $isEmptyValue === false);	
 					if($useEmpty && strpos($subfield, 'data') === 0) { // && !$fieldtype instanceof FieldtypeMulti) {
 						if($isEmptyValue) $numEmptyValues++;
 						if(in_array($operator, array('=', '!=', '<', '<=', '>', '>='))) {
 							// we only accommodate this optimization for single-value selectors...
 							if($this->whereEmptyValuePossible($field, $subfield, $selector, $query, $value, $whereFields)) {
-								if(count($valueArray) > 1 && $operator == '=') $whereFieldsType = 'OR';
+								if(count($valueArray) > 1) {
+									if($operator == '=') $whereFieldsType = 'OR';
+								} else {
+									$fieldCnt[$field->table]--;
+									if($fieldCnt[$field->table] < 1) unset($fieldCnt[$field->table]);
+								}
 								continue;
 							}
 						}
@@ -1845,6 +1896,7 @@ class PageFinder extends Wire {
 						$q = $subqueries[$tableAlias];
 					} else {
 						$q = $this->wire(new DatabaseQuerySelect());
+						// $subqueries[$tableAlias] = $q;
 					}
 
 					/** @var PageFinderDatabaseQuerySelect $q */
@@ -1854,12 +1906,25 @@ class PageFinder extends Wire {
 					$q->set('selectors', $selectors); // original selectors (all) if required by the fieldtype
 					$q->set('parentQuery', $query);
 					$q->set('pageFinder', $this);
+					$q->set('joinType', $joinType);
 					$q->bindOption('global', true); // ensures bound value key are globally unique
 					$q->bindOption('prefix', 'pf'); // pf=PageFinder
-					
+			
+					/*	@todo To be implemented after 3.0.245
+					if(strpos($subfields, 'JSON.') === 0) {
+						if($this->getMatchQueryJSON($q, $tableAlias, $subfields, $selector->operator, $value)) {
+							continue;
+						}
+					}
+					*/
+						
 					$q = $fieldtype->getMatchQuery($q, $tableAlias, $subfield, $selector->operator, $value);
 					$q->copyTo($query, array('select', 'join', 'leftjoin', 'orderby', 'groupby')); 
 					$q->copyBindValuesTo($query);
+					
+					if($q->joinType && $q->joinType != $joinType) {
+						$joinType = strtolower((string) $q->joinType);
+					}
 
 					if(count($q->where)) { 
 						// $and = $selector->not ? "AND NOT" : "AND";
@@ -1882,9 +1947,8 @@ class PageFinder extends Wire {
 				}
 
 				if($join) {
-					$joinType = 'join';
-
-					if(count($fields) > 1 
+					if($joinType === 'leftjoin' 
+						|| count($fields) > 1 
 						|| !empty($options['startAfterID']) || !empty($options['stopBeforeID'])
 						|| (count($valueArray) > 1 && $numEmptyValues > 0)
 						|| ($subfield == 'count' && !$this->isRepeaterFieldtype($field->type))
@@ -1892,7 +1956,7 @@ class PageFinder extends Wire {
 						|| $selector->operator == '!=') {
 						// join should instead be a leftjoin
 
-						$joinType = "leftjoin";
+						$joinType = 'leftjoin';
 
 						if($where) {
 							$whereType = $lastSelector->str == $selector->str ? "OR" : ") AND (";
@@ -1904,6 +1968,8 @@ class PageFinder extends Wire {
 							// removes condition from join, but ensures we still have a $join
 							$join = '1=1'; 
 						}
+					} else {
+						$joinType = 'join';
 					}
 
 					// we compile the joins after going through all the selectors, so that we can 
@@ -1970,6 +2036,22 @@ class PageFinder extends Wire {
 		$this->finalSelectors = $selectors;
 		
 		return $query; 
+	}
+
+	/**
+	 * Get match query when data is stored in a JSON DB column (future use)
+	 * 
+	 * @param PageFinderDatabaseQuerySelect DatabaseQuerySelect $q
+	 * @param string $tableAlias
+	 * @param string $subfields
+	 * @param string $operator
+	 * @param string|int|array $value
+	 * @return bool
+	 * 
+	 */
+	protected function getMatchQueryJSON(DatabaseQuerySelect $q, $tableAlias, $subfields, $operator, $value) {
+		// @todo to be implemented after 3.0.245
+		return false;
 	}
 
 	/**
@@ -2137,23 +2219,55 @@ class PageFinder extends Wire {
 			
 		} else if($operator === '!=' || $operator === '<>') {
 			// not equals
-			// $whereType = 'AND';
-			if($value === "0" && !$ft->isEmptyValue($field, "0")) {
-				// may match rows with no value present
+			$whereType = count($selector->fields()) > 1 && $ft->isEmptyValue($field, $value) ? 'OR' : 'AND';
+			// alternate and technically more consistent behavior, but doesn't seem useful:
+			// $whereType = count($selector->fields()) > 1 ? 'OR' : 'AND'; 
+			$zeroIsEmpty = $ft->isEmptyValue($field, "0"); 
+			$zeroIsNotEmpty = !$zeroIsEmpty;
+			$value = (string) $value;
+			$blankValue = (string) $blankValue;
+			if($value === '') {
+				// match present rows that do not contain a blank string (or 0, when applicable)
+				$sql = "$tableAlias.$col IS NOT NULL AND ($tableAlias.$col!=''";
+				if($zeroIsEmpty) {
+					$sql .= " AND $tableAlias.$col!='0'";
+				} else {
+					$sql .= " OR $tableAlias.$col='0'";
+				}
+				$sql .= ')';
+				
+			} else if($value === "0" && $zeroIsNotEmpty) {
+				// may match non-rows (no value present) or row with value=0
 				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!='0'";
+
+			} else if($value !== "0" && $zeroIsEmpty) {
+				// match all rows except empty and those having specific non-empty value
+				$bindKey = $query->bindValueGetKey($value);
+				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!=$bindKey";
 				
 			} else if($blankIsObject) {
+				// match all present rows
 				$sql = "$tableAlias.$col IS NOT NULL";
 				
 			} else {
-				$bindKey = $query->bindValueGetKey($blankValue);
-				$sql = "$tableAlias.$col IS NOT NULL AND ($tableAlias.$col!=$bindKey";
-				if($blankValue !== "0" && !$ft->isEmptyValue($field, "0")) {
+				// match all present rows that are not blankValue and not given blank value...
+				$bindKeyBlank = $query->bindValueGetKey($blankValue);
+				$bindKeyValue = $query->bindValueGetKey($value);
+				$sql = "$tableAlias.$col IS NOT NULL AND $tableAlias.$col!=$bindKeyValue AND ($tableAlias.$col!=$bindKeyBlank";
+				if($zeroIsNotEmpty && $blankValue !== "0" && $value !== "0") {
+					// ...allow for 0 to match also if 0 is not considered empty value
 					$sql .= " OR $tableAlias.$col='0'";
 				}
 				$sql .= ")";
 			}
-			
+			if($ft instanceof FieldtypeMulti && !$ft->isEmptyValue($field, $value)) {
+				// when a multi-row field is in use, exclude match when any of the rows contain $value
+				$tableMulti = $table . "__multi$tableCnt";
+				$bindKey = $query->bindValueGetKey($value);
+				$query->leftjoin("$table AS $tableMulti ON $tableMulti.pages_id=pages.id AND $tableMulti.$col=$bindKey");
+				$query->where("$tableMulti.$col IS NULL");
+			}
+
 		} else if($operator == '<' || $operator == '<=') {
 			// less than 
 			if($value > 0 && $ft->isEmptyValue($field, "0")) {
@@ -2412,6 +2526,24 @@ class PageFinder extends Wire {
 					$value = "if(pages.name$language!='', pages.name$language, pages.name)";
 				} else {
 					$value = "pages." . $database->escapeCol($value);
+				}
+				
+			} else if(($value === 'path' || $value === 'url') && $this->wire()->modules->isInstalled('PagePaths')) {
+				static $pathN = 0;
+				$pathN++;
+				$pathsTable = "_sort_pages_paths$pathN";
+				if($language && !$language->isDefault() && $this->supportsLanguagePageNames()) {
+					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id AND $pathsTable.language_id=0");
+					$lid = (int) $language->id;
+					$asc = $descending ? 'DESC' : 'ASC';
+					$pathsLangTable = $pathsTable . "_$lid";
+					$s = "pages_paths AS $pathsLangTable ON $pathsLangTable.pages_id=pages.id AND $pathsLangTable.language_id=$lid";
+					$query->leftjoin($s);
+					$query->orderby("if($pathsLangTable.pages_id IS NULL, $pathsTable.path, $pathsLangTable.path) $asc");
+					$value = false;
+				} else {
+					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id");
+					$value = "$pathsTable.path";
 				}
 
 			} else {
@@ -3528,10 +3660,11 @@ class PageFinder extends Wire {
 		if(count($fields) > 1) {
 			// OR fields present
 			array_shift($fields);
-			$subfields = array($subfields);
+			$subfields = array($subfields); // 1. subfields is definitely an array…
 			foreach($fields as $name) {
 				if(strpos($name, "$fieldName.") === 0) {
-					list(,$name) = explode('__owner.', $name); 	
+					list(,$name) = explode('__owner.', $name);
+					/** @var array $subfields 2. …but PhpStorm in PHP8 mode can't tell it's an array without this */
 					$subfields[] = $name;
 				} else {
 					$this->syntaxError(
@@ -3603,7 +3736,7 @@ class PageFinder extends Wire {
 	 * @return array
 	 * 
 	 */
-	public function getPageArrayData(PageArray $pageArray = null) {
+	public function getPageArrayData(?PageArray $pageArray = null) {
 		if($pageArray !== null && count($this->pageArrayData)) {
 			$pageArray->data($this->pageArrayData); 
 		}
@@ -3683,17 +3816,15 @@ class PageFinder extends Wire {
 	public function syntaxError($message) {
 		throw new PageFinderSyntaxException($message); 
 	}
+	
+	/**
+	 * Get total execution time for all PageFinder instances
+	 *
+	 * @return float
+	 * @since 3.0.257
+	 *
+	 */
+	public static function getTotalTime() {
+		return self::$totalTime;
+	}
 }
-
-/**
- * Typehinting class for DatabaseQuerySelect object passed to Fieldtype::getMatchQuery()
- *
- * @property Field $field Original field
- * @property string $group Original group of the field
- * @property Selector $selector Original Selector object
- * @property Selectors $selectors Original Selectors object
- * @property DatabaseQuerySelect $parentQuery Parent database query
- * @property PageFinder $pageFinder PageFinder instance that initiated the query
- */
-abstract class PageFinderDatabaseQuerySelect extends DatabaseQuerySelect { }
-

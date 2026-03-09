@@ -254,7 +254,7 @@
 		var $iframe = pwModalWindow(modalUrl, modalSettings, 'medium'); 
 	
 		// modal window load event
-		$iframe.load(function() {
+		$iframe.on('load', function() {
 			
 			var $i = $iframe.contents();
 			$i.find("#ProcessPageEditLinkForm").data('iframe', $iframe);
@@ -262,7 +262,7 @@
 			// capture enter key in main URL text input
 			jQuery("#link_page_url_input", $i).keydown(function(event) {
 				var $this = jQuery(this);
-				var val = jQuery.trim($this.val());
+				var val = $this.val().trim();
 				if (event.keyCode == 13) {
 					event.preventDefault();
 					if(val.length > 0) clickInsert();

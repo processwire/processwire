@@ -6,7 +6,7 @@
  * #pw-summary Maintains a collection of Fieldtype modules.
  * #pw-var $fieldtypes
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * @property FieldtypeCheckbox $FieldtypeCheckbox
@@ -89,12 +89,23 @@ class Fieldtypes extends WireArray {
 	protected $isAPI = false;
 
 	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->usesNumericKeys = false;
+		$this->indexedByName = true;
+		$this->nameProperty = 'className';
+	}
+
+	/**
 	 * Construct the $fieldtypes API var (load all Fieldtype modules into it)
 	 *
  	 */
 	public function init() {
 		$this->isAPI = true;
-		foreach($this->wire()->modules->findByPrefix('Fieldtype', 3) as $name => $module) {
+		foreach($this->wire()->modules->findByPrefix('Fieldtype', 3) as /* $name => */ $module) {
 			$this->add($module); 
 		}
 	}
@@ -151,16 +162,6 @@ class Fieldtypes extends WireArray {
 	 */
 	public function getItemKey($item) {
 		return $item->className();
-	}
-
-	/**
-	 * Does this WireArray use numeric keys only? 
-	 *
-	 * @return bool
-	 *
-	 */
-	protected function usesNumericKeys() {
-		return false;
 	}
 
 	/**
@@ -229,5 +230,3 @@ class Fieldtypes extends WireArray {
 	public function getNext($item, $strict = true) { $this->preload(); return parent::getNext($item, $strict); }
 	public function getPrev($item, $strict = true) { $this->preload(); return parent::getPrev($item, $strict); }
 }
-
-

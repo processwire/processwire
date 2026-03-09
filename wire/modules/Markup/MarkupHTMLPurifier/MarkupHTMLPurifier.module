@@ -78,7 +78,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 */
 	public function init() {
 		$this->settings->set('Cache.SerializerPath', $this->getCachePath());
-		$this->settings->set('Attr.AllowedRel', array('nofollow'));
+		$this->settings->set('Attr.AllowedRel', array('nofollow', 'noopener', 'noreferrer'));
 		$this->settings->set('HTML.DefinitionID', 'html5-definitions');
 		$this->settings->set('HTML.DefinitionRev', 1);
 		$this->def = $this->settings->maybeGetRawHTMLDefinition();
@@ -93,7 +93,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 * Method to allow hooks to further initialize HTMLPurifier config/settings
 	 * 
 	 * ~~~~~
-	 * $wire->addHook('MarkupHTMLPurifier::initSettings', function($event) {
+	 * $wire->addHook('MarkupHTMLPurifier::initConfig', function($event) {
 	 *   $def = $event->arguments(1); 
 	 *   $def->addAttribute('a', 'data-ext', 'Text');
 	 * }); 

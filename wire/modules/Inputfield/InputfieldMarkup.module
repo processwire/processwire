@@ -5,10 +5,10 @@
  * 
  * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
- * 
- * @property callable|string|null $markupFunction
- * @property array $textformatters
- * @property string $markupText
+ *
+ * @property string $markupText Markup/text to display (default='')
+ * @property callable|string|null $markupFunction Closure or name of function that returns markup/text, receives $this InputfieldMarkup as first argument. (default=null)
+ * @property array $textformatters Names of Textformatter modules to apply to value (default=[])
  *
  */ 
 
@@ -57,7 +57,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 	 * @return bool
 	 * 
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 		$label = $this->getSetting('label');
 		
 		if(!strlen($label) && $this->skipLabel == Inputfield::skipLabelBlank) {
@@ -85,7 +85,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 		$markupFunction = $this->getSetting('markupFunction');
 		$markupText = $this->getSetting('markupText');
 		$textformatters = $this->getSetting('textformatters');
-		$description = $this->getSetting('description');
+		$description = (string) $this->getSetting('description');
 		
 		if($markupFunction !== null & is_callable($markupFunction)) {
 			$out .= "\n" . call_user_func($markupFunction, $this);
@@ -181,4 +181,3 @@ class InputfieldMarkup extends InputfieldWrapper {
 	}
 	
 }
-

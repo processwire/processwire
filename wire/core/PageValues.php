@@ -48,7 +48,7 @@ class PageValues extends Wire {
 				$index = rtrim($index, ']');
 				if(ctype_digit($index)) $index = (int) $index;
 			}
-			if($value instanceof Page) {
+			if($value instanceof Page && !in_array($key, $wireArrayProperties)) {
 				// value is a Page
 				if(isset(PageProperties::$traversalReturnTypes[$k])) {
 					// traversal property: Page or PageArray
@@ -879,7 +879,7 @@ class PageValues extends Wire {
 		$template = $page->template();
 		if(!$template) return $page->_parentGet($key);
 
-		$field = $this->getField($page, $key);
+		$field = $page->getField($key);
 		$value = $page->_parentGet($key);
 
 		if(!$field) return $value;  // likely a runtime field, not part of our data
@@ -1021,7 +1021,16 @@ class PageValues extends Wire {
 	public function setFieldValue(Page $page, $key, $value, $load = true) {
 
 		if(!$page->template()) {
-			throw new WireException("You must assign a template to the page before setting field values ($key)");
+			$config = $page->wire()->config;
+			$name = strpos($key, '__') ? substr($key, 0, strpos($key, '__')) : $key;
+			$error = "You must assign a template to page $page before setting '$name' field.";
+			if($config->debug) {
+				// allow page to proceed in debug mode so that it's possible to delete it if needed
+				$page->error($error);
+				$page->template($page->wire()->pages->get($config->http404PageID)->template);
+			} else {
+				throw new WireException($error);
+			}
 		}
 		
 		$isLoaded = $page->isLoaded();
@@ -1038,7 +1047,7 @@ class PageValues extends Wire {
 		}
 
 		// check if the given key resolves to a Field or not
-		$field = $this->getField($page, $key);
+		$field = $page->getField($key);
 		if(!$field) {
 			// not a known/saveable field, let them use it for runtime storage
 			$valPrevious = $page->_parentGet($key);

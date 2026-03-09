@@ -20,7 +20,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property-read $tableField
@@ -51,7 +51,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	/**
 	 * Current field/column name
 	 * 
-	 * @var $fieldName
+	 * @var string 
 	 *
 	 */
 	protected $fieldName = '';
@@ -135,6 +135,8 @@ class DatabaseQuerySelectFulltext extends Wire {
 		'matchCommands' => array('#='), 
 	);
 	
+	static protected $operatorsMethod = [];
+	
 	/**
 	 * Alternate operators to substitute when LIKE match is forced due to no FULLTEXT index
 	 * 
@@ -156,7 +158,15 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected $forceLike = false;
-
+	
+	/**
+	 * mbstring available?
+	 *
+	 * @var null|bool
+	 *
+	 */
+	static protected $mbstr = null;
+	
 	/**
 	 * Construct
 	 *
@@ -245,7 +255,7 @@ class DatabaseQuerySelectFulltext extends Wire {
  	 *
 	 */
 	protected function escapeLike($str) {
-		return str_replace(array('%', '_'), array('\\%', '\\_'), $str);
+		return str_replace(array('%', '_'), array('\\%', '\\_'), "$str");
 	}
 
 	/**
@@ -258,7 +268,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *
 	 */
 	protected function escapeAgainst($str) {
-		$str = str_replace(array('@', '+', '-', '*', '~', '<', '>', '(', ')', ':', '"', '&', '|', '=', '.'), ' ', $str);
+		$str = str_replace(array('@', '+', '-', '*', '~', '<', '>', '(', ')', ':', '"', '&', '|', '=', '.'), ' ', "$str");
 		while(strpos($str, '  ')) $str = str_replace('  ', ' ', $str);
 		return $str;
 	}
@@ -270,7 +280,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function value($value) {
 		$maxLength = self::maxQueryValueLength;
-		$value = trim($value);
+		$value = trim("$value");
 		if(strlen($value) < $maxLength && strpos($value, "\n") === false && strpos($value, "\r") === false) return $value;
 		$value = $this->sanitizer->trunc($value, $maxLength); 
 		return $value;
@@ -309,13 +319,18 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 		
 		$this->operator = $operator;
-		
-		foreach($this->methodOperators as $name => $operators) {
-			if(in_array($operator, $operators)) $this->method = $name;
-			if($this->method) break;
+	
+		if(empty(self::$operatorsMethod)) {
+			foreach($this->methodOperators as $name => $ops) {
+				foreach($ops as $op) {
+					self::$operatorsMethod[$op] = $name;
+				}
+			}
 		}
 		
-		if(!$this->method) {
+		if(isset(self::$operatorsMethod[$operator])) {
+			$this->method = self::$operatorsMethod[$operator];
+		} else {
 			throw new WireException("Unimplemented operator in $this::match()");
 		}
 		
@@ -327,6 +342,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$this->matchArrayFieldName($fieldName, $value);
 		} else {
 			$this->matchFieldName($fieldName, $value);
+		}
+
+		if(!count($this->query->where) && (strpos($operator, '~') !== false || $operator === '*+=')) {
+			$this->query->where('(1>2)'); // force non-match 
 		}
 		
 		return $this;
@@ -390,12 +409,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function matchArrayValue(array $value) {
 	
-		/*
-		if(strpos($this->operator, '~') !== false) {
-			throw new WireException("Operator $this->operator is not supported for $this->fieldName with OR value condition");
-		}
-		*/
-		
 		// convert *= operator to %= to make the query possible (avoiding matchContains method)
 		// if($this->operator === '*=') $this->operator = '%='; 
 		
@@ -720,9 +733,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$wordsAlternates = array();
 		
 		$phraseWords = $this->words($value); // including non-indexable
-		$lastPhraseWord = array_pop($phraseWords);
+		$lastPhraseWord = (string) array_pop($phraseWords);
 		$scoreField = $this->getScoreFieldName();
 		$againstValues = array();
+		$matchAgainst = null;
 		
 		// BOOLEAN PHRASE: full phrase matches come before expanded matches
 		if(count($phraseWords)) {
@@ -748,19 +762,20 @@ class DatabaseQuerySelectFulltext extends Wire {
 				}
 			}
 		}
-		
-		$againstValues[] = ($this->isIndexableWord($lastPhraseWord) ? '+' : '') . $this->escapeAgainst($lastPhraseWord) . '*';
-		$bindKey = $this->query->bindValueGetKey(implode(' ', $againstValues));
-		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
-		
-		if($this->allowOrder) {
-			$this->query->select("$matchAgainst + 333.3 AS $scoreField");
-			$this->query->orderby("$scoreField DESC");
+	
+		if(strlen($lastPhraseWord)) {
+			$againstValues[] = ($this->isIndexableWord($lastPhraseWord) ? '+' : '') . $this->escapeAgainst($lastPhraseWord) . '*';
+			$bindKey = $this->query->bindValueGetKey(implode(' ', $againstValues));
+			$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
+			if($this->allowOrder) {
+				$this->query->select("$matchAgainst + 333.3 AS $scoreField");
+				$this->query->orderby("$scoreField DESC");
+			}
 		}
 		
 		if(!count($words)) {
 			// no words to work with for query expansion (not likely, unless stopwords or too-short)
-			$this->query->where($matchAgainst);
+			if($matchAgainst) $this->query->where($matchAgainst);
 			return;
 		}
 		
@@ -972,7 +987,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		);
 
 		$options = array_merge($defaults, $options);
-		$minWordLength = (int) $this->database->getVariable('ft_min_word_len');
+		$minWordLength = (int) $this->getMinWordLength();
 		$originalValue = $value;
 		$value = $this->escapeAgainst($value);
 		$booleanValues = array();
@@ -1215,10 +1230,13 @@ class DatabaseQuerySelectFulltext extends Wire {
 			'stopwords' => true, // allow stopwords
 			'indexable' => false, // include only indexable words?
 			'alternates' => false, // include alternate versions of words?
+			'truncate' => true, 
 		);
 		
 		$options = count($options) ? array_merge($defaults, $options) : $defaults;
-		if($options['minWordLength'] === true) $options['minWordLength'] = (int) $this->database->getVariable('ft_min_word_len');
+		if($options['minWordLength'] === true) {
+			$options['minWordLength'] = (int) $this->getMinWordLength();
+		}
 		$words = $this->wire()->sanitizer->wordsArray($value, $options);
 		
 		if($options['alternates']) {
@@ -1269,7 +1287,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		if(strpos($likeValue, "'") !== false || strpos($likeValue, "’") !== false) {
 			// match either straight or curly apostrophe
-			$likeValue = preg_replace('/[\'’]+/', '(\'|’)', $likeValue);
+			$likeValue = str_replace([ "'", "’" ], "('|’)", $likeValue);
 			// if word ends with apostrophe then apostrophe is optional
 			$likeValue = rtrim(str_replace("('|’) ", "('|’)? ", "$likeValue "));
 		}
@@ -1291,16 +1309,17 @@ class DatabaseQuerySelectFulltext extends Wire {
 			
 		} else {
 			// given value can match at beginning of any word boundary in value
-			if($this->wire()->database->getRegexEngine() === 'ICU') {
-				list($a, $b) = array("\\b", "\\b"); 
+			// depending on engine, different characters identify word boundaries
+			$regexEngine = $this->wire()->database->getRegexEngine();
+			if($regexEngine === 'ICU') {
+				// ICU (MySQL 8+)
+				list($a, $b) = [ "\\b", "\\b" ];
 			} else {
-				list($a, $b) = array('[[:<:]]', '[[:>:]]'); 
+				// HenrySpencer
+				list($a, $b) = [ '[[:<:]]', '[[:>:]]' ];
 			}
-
-			$likeValue = "($a|[[:blank:]]|[[:punct:]]|[[:space:]]|^|[-]|>|‘|“|„|«|‹|¿|¡)" . $likeValue;
-			
-			// if not doing partial matching then must also end at word boundary
-			if(!$options['partial']) $likeValue .= "($b|[[:blank:]]|[[:punct:]]|[[:space:]]|$|[-]|<|’|”|»|›)";
+			$likeValue = $a . $likeValue;
+			if(!$options['partial']) $likeValue .= $b; 
 		}
 
 		return $likeValue;
@@ -1312,7 +1331,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected function strlen($value) {
-		if(function_exists('mb_strlen')) {
+		if(self::$mbstr === null) self::$mbstr = function_exists('mb_strlen');
+		$value = (string) $value;
+		if(self::$mbstr) {
 			return mb_strlen($value);
 		} else {
 			return strlen($value);
@@ -1367,7 +1388,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function getScoreFieldName() {
 		$key = $this->tableName . '_' . $this->fieldName;
 		self::$scoreCnts[$key] = isset(self::$scoreCnts[$key]) ? self::$scoreCnts[$key] + 1 : 0;
-		return '_score_' . $key . self::$scoreCnts[$key];
+		$scoreField = '_score_' . $key . self::$scoreCnts[$key];
+		$this->query->set('_useScoreField', $scoreField);
+		return $scoreField;
 	}
 	
 	/**

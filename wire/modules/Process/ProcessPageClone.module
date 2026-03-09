@@ -6,25 +6,27 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * Optional GET variables: 
  * - redirect_page (int): Contains ID of page to redirect to after clone.
- * 
+ *
+ * @property bool|int $alwaysUseForm Disable the ajax shortcut for cloning pages and always use full form? 3.0.238+
  * @method InputfieldForm buildForm()
  * @method string render()
  * @method void process()
+ * @method array getSuggestedNameAndTitle(Page $page) Return array with suggested 'name' and 'title' elements for given $page (3.0.238)
  *
  */
 
-class ProcessPageClone extends Process {
+class ProcessPageClone extends Process implements ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Page Clone', __FILE__),
 			'summary' => __('Provides ability to clone/copy/duplicate pages in the admin. Adds a "copy" option to all applicable pages in the PageList.', __FILE__), 
-			'version' => 104, 
+			'version' => 106, 
 			'autoload' => "template=admin",  // Note: most Process modules should not be 'autoload', this is an exception.
 			'permission' => 'page-clone',
 			'permissions' => array(
@@ -63,6 +65,15 @@ class ProcessPageClone extends Process {
 	protected $adminUrl = '';
 
 	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		$this->set('alwaysUseForm', false);
+		parent::__construct();
+	}
+
+	/**
 	 * Called when the API and $page loaded are ready
 	 *
 	 * We use this to determine whether we should add a hook or not.
@@ -91,7 +102,7 @@ class ProcessPageClone extends Process {
 				'name' => $this->pageListActionLabel,
 				'url'  => "{$this->adminUrl}page/clone/?id={$page->id}",
 			);
-			if(!$page->numChildren) {
+			if(!$page->numChildren && !$this->alwaysUseForm) {
 				$actions['copy']['url'] = "{$this->adminUrl}page/?action=clone&id={$page->id}";
 				$actions['copy']['ajax'] = true;
 			}
@@ -139,34 +150,19 @@ class ProcessPageClone extends Process {
 	 *
 	 */
 	public function hasPermission(Page $page) {
-		$user = $this->user; 
-		$parent = $page->parent();
-		$parentTemplate = $parent->template;
-		$pageTemplate = $page->template;
-		
-		if(!$parentTemplate) return false;
-
-		if($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID)) return false; 
-		if($parentTemplate->noChildren) return false; 
-		if($pageTemplate->noParents) return false; 
-
-		if(count($parentTemplate->childTemplates) && !in_array($pageTemplate->id, $parentTemplate->childTemplates)) return false; 
-		if(count($pageTemplate->parentTemplates) && !in_array($parentTemplate->id, $pageTemplate->parentTemplates)) return false; 
-		
-		if($user->isSuperuser()) return true; 
-		if($user->hasPermission('page-create', $page) && $user->hasPermission('page-clone', $page) && $parent->addable()) return true; 
-
-		return false; 
+		return $page->cloneable(false);
 	}
 
 	/**
 	 * Return array with suggested 'name' and 'title' elements for given $page
 	 * 
+	 * Hookable as of 3.0.238. 
+	 * 
 	 * @param Page $page
 	 * @return array
 	 * 
 	 */
-	protected function getSuggestedNameAndTitle(Page $page) {
+	protected function ___getSuggestedNameAndTitle(Page $page) {
 	
 		$pages = $this->wire()->pages;
 		
@@ -232,11 +228,13 @@ class ProcessPageClone extends Process {
 		$titleField->attr('name', 'clone_page_title'); 
 		$titleField->attr('value', $suggested['title']);
 		$titleField->label = $this->_("Title of new page"); // Label for title field
+		$titleField->icon = 'file-text-o';
 
 		/** @var InputfieldPageName $nameField */
 		$nameField = $modules->get("InputfieldPageName"); 
 		$nameField->attr('name', 'clone_page_name'); 
 		$nameField->attr('value', $suggested['name']);
+		$nameField->icon = 'bookmark-o';
 		$nameField->parentPage = $page->parent;
 
 		$languages = $this->wire()->languages; 
@@ -260,7 +258,7 @@ class ProcessPageClone extends Process {
 					$titleField->set("value$language->id", $value);
 				}
 				if($nameUseLanguages) {
-					$value = $page->get("name$language->id"); 
+					$value = (string) $page->get("name$language->id"); 
 					if(strlen($value)) {
 						if(!empty($suggested["name$language"])) {
 							$nameLang = $suggested["name$language"];
@@ -280,26 +278,47 @@ class ProcessPageClone extends Process {
 		$field = $modules->get("InputfieldCheckbox"); 
 		$field->attr('name', 'clone_page_unpublished'); 
 		$field->attr('value', 1); 
+		$field->icon = 'eye-slash';
 		$field->label = $this->_("Make the new page unpublished?");
-		$field->collapsed = Inputfield::collapsedYes; 
+		if($this->wire()->input->requestMethod('GET')) $field->attr('checked', 'checked');
 		$field->description = $this->_("If checked, the cloned page will be given an unpublished status so that it can't yet be seen on the front-end of your site."); 
 		$form->add($field);
 
 		if($page->numChildren && $this->user->hasPermission('page-clone-tree', $page)) { 
+			$numDescendents = $this->wire()->pages->count("has_parent=$page"); 
 			/** @var InputfieldCheckbox $field */
 			$field = $modules->get("InputfieldCheckbox"); 
 			$field->attr('name', 'clone_page_tree'); 
 			$field->attr('value', 1); 
-			$field->label = $this->_("Copy children too?");
+			$field->icon = 'child';
+			$label = $this->_("Copy children too?");
+			$field->label = $label . ' ' . sprintf($this->_n('(~%d page)', '(~%d pages)', $numDescendents), $numDescendents);
+			$field->label2 = $label;
 			$field->description = $this->_("If checked, all children, grandchildren, etc., will also be cloned with this page."); 
-			$field->notes = $this->_("Warning: if there is a very large structure of pages below this, it may be time consuming or impossible to complete.");
-			$field->collapsed = Inputfield::collapsedYes; 
+			if($numDescendents > 20) {
+				$field->notes = $this->_("Warning: if there is a very large structure of pages below this, it may be time consuming or impossible to complete.");
+			}
+			$form->add($field);
+		
+			/** @var InputfieldCheckbox $field */
+			$field = $modules->get("InputfieldCheckbox");
+			$field->attr('name', 'clone_tree_unpublished');
+			$field->attr('value', 1);
+			$field->label = $this->_("Make cloned children unpublished?");
+			$field->icon = 'eye-slash';
+			$field->description = $this->_("If checked, all cloned children, grandchildren, etc., will also be unpublished.");
+			$field->showIf = 'clone_page_tree=1';
 			$form->add($field);
 		}
 
 		/** @var InputfieldSubmit $field */
+		$submitLabel = $this->wire('processHeadline');
 		$field = $modules->get("InputfieldSubmit"); 
 		$field->attr('name', 'submit_clone'); 
+		$field->icon = 'copy';
+		$field->value = $submitLabel;
+		$field->addActionValue('list', sprintf($this->_('%s + List'), $submitLabel), 'tree');
+		$field->addActionValue('edit', sprintf($this->_('%s + Edit'), $submitLabel), 'edit');
 		$form->add($field); 
 	
 		$redirectPageID = (int) $this->wire()->input->get('redirect_page');
@@ -332,7 +351,7 @@ class ProcessPageClone extends Process {
 	protected function ___process() {
 
 		$page = clone $this->page; 
-		$input = $this->input; 
+		$input = $this->wire()->input; 
 		$languages = $this->wire()->languages;
 		$originalName = $page->name; 
 
@@ -342,7 +361,7 @@ class ProcessPageClone extends Process {
 		
 		$titleField = $form->get('clone_page_title');
 		$nameField = $form->get('clone_page_name');
-		$cloneTree = $input->post('clone_page_tree') && $this->user->hasPermission('page-clone-tree', $this->page);
+		$cloneTree = $input->post('clone_page_tree') && $this->page->cloneable(true);
 		
 		if($input->post('clone_page_unpublished')) {
 			$page->addStatus(Page::statusUnpublished);
@@ -361,6 +380,13 @@ class ProcessPageClone extends Process {
 		}
 
 		set_time_limit(3600);
+
+		if($cloneTree && $input->post('clone_tree_unpublished')) {
+			$this->wire()->pages->addHook('cloneReady', function(HookEvent $event) use($page) {
+				$child = $event->arguments(1); /** @var Page $child */
+				if($page->id !== $child->id) $child->addStatus(Page::statusUnpublished);
+			}); 
+		}
 		
 		$clone = $this->pages->clone($page, $page->parent, $cloneTree);
 		
@@ -388,20 +414,21 @@ class ProcessPageClone extends Process {
 		$redirectURL = null;
 		$redirectID = (int) $input->post('redirect_page');
 		
-		if($redirectID) {
+		if($input->post('submit_clone') === 'edit' && $clone->id && $clone->editable()) {
+			$redirectURL = $clone->editUrl();
+		} else if($redirectID) {
 			$redirectPage = $this->wire()->pages->get($redirectID);
 			if($redirectPage->viewable()) {
 				$redirectURL = $redirectPage->url();
 			}
+			$redirectURL .= "?open=$clone->id";
 		}
 		
 		if(!$redirectURL) {
-			$redirectURL = $this->adminUrl . "page/list/";
+			$redirectURL = $this->adminUrl . "page/list/?open=$clone->id";
 		}
-		
-		$redirectURL .= "?open=$clone->id";
 
-		$this->session->redirect($redirectURL);
+		$this->wire()->session->location($redirectURL);
 	}
 
 	/**
@@ -409,12 +436,12 @@ class ProcessPageClone extends Process {
 	 * 
 	 * Outputs JSON result and exits
 	 * 
-	 * @param Page $original
+	 * @param Page|null $original
 	 * @param bool $returnArray
 	 * @return array|null
 	 * 
 	 */
-	public function processAjax(Page $original = null, $returnArray = false) {
+	public function processAjax(?Page $original = null, $returnArray = false) {
 		
 		$error = null;
 		if($original === null) $original = $this->page;
@@ -507,5 +534,23 @@ class ProcessPageClone extends Process {
 		return $this->page; 
 	}
 
-}
+	/**
+	 * Module configuration
+	 * 
+	 * @param InputfieldWrapper $inputfields
+	 * @since 3.0.238
+	 * 
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		$f = $inputfields->InputfieldCheckbox;
+		$f->attr('name', 'alwaysUseForm');
+		$f->label = $this->_('Always use full clone form?'); 
+		$f->description = 
+			$this->_('When a page has no children, this module will use a time-saving shortcut to clone the page without leaving the page tree.') . ' ' . 
+			$this->_('If you always want it to use the full clone options form (so that you can enter name, title, etc. before clone) then check this box.'); 
+		$f->themeOffset = 1;
+		if($this->alwaysUseForm) $f->attr('checked', 'checked');
+		$inputfields->add($f);
+	}
 
+}

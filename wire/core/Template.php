@@ -59,8 +59,8 @@
  * @property string $sortfield Field that children of templates using this page should sort by (leave blank to let page decide, or specify "sort" for manual drag-n-drop). #pw-group-family
  * @property int $noChildren Set to 1 to cancel use of childTemplates. #pw-group-family
  * @property int $noParents Set to 1 to cancel use of parentTemplates, set to -1 to only allow one page using this template to exist. #pw-group-family
- * @property array $childTemplates Array of template IDs that are allowed for children. Blank array indicates "any".  #pw-group-family
- * @property array $parentTemplates Array of template IDs that are allowed for parents. Blank array indicates "any". #pw-group-family
+ * @property int[] $childTemplates Array of template IDs that are allowed for children. Blank array indicates "any".  #pw-group-family
+ * @property int[] $parentTemplates Array of template IDs that are allowed for parents. Blank array indicates "any". #pw-group-family
  * @property string $childNameFormat Name format for child pages. when specified, the page-add UI step can be skipped when adding children. Counter appended till unique. Date format assumed if any non-pageName chars present. Use 'title' to pull from title field. #pw-group-family
  * 
  * URLs
@@ -1171,7 +1171,6 @@ class Template extends WireData implements Saveable, Exportable {
 	 * Given an array of export data, import it
 	 * 
 	 * @param array $data
-	 * @return bool True if successful, false if not
 	 * @return array Returns array(
 	 * 	[property_name] => array(
 	 * 		'old' => 'old value', // old value (in string comparison format)
@@ -1222,7 +1221,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * #pw-group-family
 	 *
 	 * @param array|TemplatesArray|null $setValue Specify only when setting, an iterable value containing Template objects, IDs or names
-	 * @return TemplatesArray
+	 * @return TemplatesArray|Template[]
 	 * @since 3.0.153
 	 *
 	 */
@@ -1237,7 +1236,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 * @param string $property Specify either 'childTemplates' or 'parentTemplates'
 	 * @param array|TemplatesArray|null $setValue Iterable value containing Template objects, IDs or names
-	 * @return TemplatesArray
+	 * @return TemplatesArray|Template[]
 	 * @since 3.0.153
 	 * 
 	 */
@@ -1267,6 +1266,7 @@ class Template extends WireData implements Saveable, Exportable {
 				if($template) $value->add($template);
 			}
 		}
+		/** @var TemplatesArray|Template[] $value */
 		
 		return $value; 
 	}
@@ -1299,8 +1299,8 @@ class Template extends WireData implements Saveable, Exportable {
 	 * This is based on family settings, when applicable. 
 	 * It also takes into account user access, if requested (see arg 1). 
 	 *
-	 * If there is no shortcut parent, NULL is returned. 
-	 * If there are multiple possible shortcut parents, a NullPage is returned.
+	 * If there is no defined parent, NULL is returned. 
+	 * If there are multiple defined parents, a NullPage is returned.
 	 * 
 	 * #pw-group-family
 	 *
@@ -1313,7 +1313,7 @@ class Template extends WireData implements Saveable, Exportable {
 	}
 
 	/**
-	 * Return all possible parent pages for this template
+	 * Return all defined parent pages for this template
 	 * 
 	 * #pw-group-family
 	 * 
@@ -1617,5 +1617,3 @@ class Template extends WireData implements Saveable, Exportable {
 	}
 
 }
-
-

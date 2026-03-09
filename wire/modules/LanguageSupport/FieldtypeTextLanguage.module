@@ -5,7 +5,7 @@ require_once(dirname(__FILE__) . '/FieldtypeLanguageInterface.php');
 /**
  * Multi-language capable text field
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -20,7 +20,7 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 			'summary' => 'Field that stores a single line of text in multiple languages',
 			'permanent' => false,
 			'requires' => array('LanguageSupportFields'),
-			);
+		);
 	}
 
 	/**
@@ -34,7 +34,7 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
 
-		if(is_object($value) && $value instanceof LanguagesPageFieldValue) {
+		if($value instanceof LanguagesPageFieldValue) {
 			// great, already what we wanted
 			return $value;
 		}
@@ -78,8 +78,9 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 	public function getDatabaseSchema(Field $field) {
 	
 		$schema = parent::getDatabaseSchema($field);
-		$languageSupport = $this->wire('modules')->get('LanguageSupport'); 
-		$maxIndex = (int) $this->wire('database')->getMaxIndexLength();
+		/** @var LanguageSupport $languageSupport */
+		$languageSupport = $this->wire()->modules->get('LanguageSupport'); 
+		$maxIndex = (int) $this->wire()->database->getMaxIndexLength();
 	
 		// note that we use otherLanguagePageIDs rather than wire('languages') because
 		// it's possible that this method may be called before the languages are known 
@@ -113,10 +114,11 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 	 * @param Field $field
 	 * @param string|int|float|array|object|null $value
 	 * @param array $options Optional settings to shape the exported value, if needed.
-	 * @return string|float|int|array
+	 * @return array
 	 *
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		$languages = $this->wire()->languages;
 		if(isset($options['sleepValue'])) {
 			// allow a sleepValue option, for use by other language Fieldtypes that delegate
 			// their exportValue to this one, like FieldtypeTextareaLanguage
@@ -130,7 +132,7 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 				$exportValue['default'] = $v;
 			} else if(strpos($k, 'data') === 0) {
 				$languageID = substr($k, 4);
-				$language = $this->wire('languages')->get((int) $languageID);
+				$language = $languages->get((int) $languageID);
 				$exportValue[$language->name] = $v;
 			} else {
 				$exportValue[$k] = $v;
@@ -149,8 +151,7 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 		if(!is_array($value)) {
 			throw new WireException("Array value expected for multi-language importValue");
 		}
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		/** @var LanguagesPageFieldValue $importValue */
 		$importValue = $page->get($field->name); 
 		foreach($value as $languageName => $languageValue) {
@@ -162,4 +163,3 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 	}
 
 }
-

@@ -86,7 +86,7 @@ users can choose from your editor.**
    `mystyles:/site/modules/InputfieldCKEditor/mystyles.js`
    
    - ProcessWire's default profile comes with a
-     [ready-to-go mystyles.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/mystyles.js)
+     [ready-to-go mystyles.js](https://github.com/processwire/site-default/blob/main/modules/InputfieldCKEditor/mystyles.js)
      in the exact location mentioned above. Feel free to use this. 
 
    - The term **mystyles** is just something we made up, and you
@@ -186,4 +186,3 @@ If you will use the same `contents-inline.css` file for all of your
 inline fields, then just make sure it is specified with the settings for 
 each of your CKEditor inline textarea fields, otherwise you may end up 
 reverting back to the default `contents-inline.css`.
-  

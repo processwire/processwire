@@ -18,7 +18,7 @@
  * 
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @property LanguageTabs|null $tabs Current LanguageTabs module instance, if installed #pw-internal
@@ -196,7 +196,7 @@ class Languages extends PagesType {
 		$template = $this->getTemplate();
 		$parent_id = $this->getParentID();
 		$selector = "parent_id=$parent_id, template=$template, include=all, sort=sort";
-		$languagesAll = $this->wire('pages')->find($selector, array(
+		$languagesAll = $this->wire()->pages->find($selector, array(
 				'loadOptions' => $this->getLoadOptions(), 
 				'caller' => $this->className() . '.getAll()'
 			)
@@ -219,10 +219,10 @@ class Languages extends PagesType {
 				$excludeLanguage = $selector;
 				$selector = '';
 			} else {
-				$excludeLanguage = $this->wire('user')->language;
+				$excludeLanguage = $this->wire()->user->language;
 			}
 		}
-		$languages = $this->wire('pages')->newPageArray();
+		$languages = $this->wire()->pages->newPageArray();
 		foreach($this as $language) {
 			if($language->id == $excludeLanguage->id) continue;
 			if($selector && !$language->matches($selector)) continue;
@@ -254,7 +254,7 @@ class Languages extends PagesType {
 	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		if($this->languages && count($this->languages)) return $this->languages; 
-		$languages = $this->wire('pages')->newPageArray();
+		$languages = $this->wire()->pages->newPageArray();
 		foreach($this->getAll() as $language) { 
 			if($language->hasStatus(Page::statusUnpublished) || $language->hasStatus(Page::statusHidden)) continue; 
 			$languages->add($language); 
@@ -300,18 +300,16 @@ class Languages extends PagesType {
 	 * $languages->unsetDefault();
 	 * ~~~~~
 	 * 
-	 * @param Language $language
+	 * @param Language|null $language
 	 * @return void
-	 * 
 	 * @see Languages::unsetDefault(), Languages::setLanguage()
 	 * 
 	 */
-	public function setDefault(Language $language = null) {
+	public function setDefault(?Language $language = null) {
 		if(is_null($language)) {
 			// save current user language setting and make current language default
 			if(!$this->defaultLanguage) return;
-			/** @var User $user */
-			$user = $this->wire('user');
+			$user = $this->wire()->user;
 			if($user->language->id == $this->defaultLanguage->id) return; // already default
 			$this->savedLanguage = $user->language;
 			$previouslyChanged = $user->isChanged('language');	
@@ -332,8 +330,7 @@ class Languages extends PagesType {
 	 */
 	public function unsetDefault() { 
 		if(!$this->savedLanguage || !$this->defaultLanguage) return;
-		/** @var User $user */
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		$previouslyChanged = $user->isChanged('language');
 		$user->language = $this->savedLanguage; 
 		if(!$previouslyChanged) $user->untrackChange('language');
@@ -381,13 +378,15 @@ class Languages extends PagesType {
 	 *   method may be preferable in some contexts, depending on how your IDE understands API calls. 
 	 * 
 	 * @param string|int $name Specify language name (or ID) to get a specific language, or omit to get current language
-	 * @return Language|NullPage|null
+	 * @return Language|null
 	 * @since 3.0.127 
 	 * 
 	 */
 	public function getLanguage($name = '') {
-		if($name !== '') return ($name instanceof Language ? $name : $this->get($name));
-		return $this->wire()->user->language;
+		if(empty($name)) return $this->wire()->user->language;
+		if($name instanceof Language) return $name; 
+		$language = parent::get($name);
+		return ($language instanceof Language ? $language : null);
 	}
 
 	/**
@@ -432,7 +431,7 @@ class Languages extends PagesType {
 	 * $languages->setLocale(LC_ALL, 'en_US.UTF-8'); 
 	 * 
 	 * // Set locale for specific category (CTYPE)
-	 * $langauges->setLocale(LC_CTYPE, 'en_US.UTF-8'); 
+	 * $languages->setLocale(LC_CTYPE, 'en_US.UTF-8'); 
 	 * 
 	 * // Try multiple locales till one works (in order) using array
 	 * $languages->setLocale(LC_ALL, [ 'en_US.UTF-8', 'en_US', 'en' ]);
@@ -597,7 +596,7 @@ class Languages extends PagesType {
 	 * 
 	 */
 	public function getParent() {
-		return $this->wire('pages')->get($this->parent_id, array('loadOptions' => array('autojoin' => false)));
+		return $this->wire()->pages->get($this->parent_id, array('loadOptions' => array('autojoin' => false)));
 	}
 
 	/**
@@ -610,7 +609,7 @@ class Languages extends PagesType {
 	 */
 	public function getParents() {
 		if(count($this->parents)) {
-			return $this->wire('pages')->getById($this->parents, array('autojoin' => false));
+			return $this->wire()->pages->getById($this->parents, array('autojoin' => false));
 		} else {
 			return parent::getParents();
 		}
@@ -674,10 +673,10 @@ class Languages extends PagesType {
 		if(!is_array($this->pageEditPermissions)) {
 			$this->pageEditPermissions = array();
 			$langNames = array();
-			foreach($this->wire('languages') as $language) {
+			foreach($this as $language) {
 				$langNames[$language->name] = $language->name;
 			}
-			foreach($this->wire('permissions') as $permission) {
+			foreach($this->wire()->permissions as $permission) {
 				if(strpos($permission->name, $prefix) !== 0) continue;
 				if($permission->name === $prefix . 'none') {
 					$this->pageEditPermissions['none'] = $permission->name;
@@ -722,7 +721,7 @@ class Languages extends PagesType {
 		$permissions = $this->getPageEditPermissions();
 		if($language === 'none' && isset($permissions['none'])) return $permissions['none'];
 		if(!$language instanceof Language) {
-			$language = $this->get($this->wire('sanitizer')->pageNameUTF8($language));
+			$language = $this->get($this->wire()->sanitizer->pageNameUTF8($language));
 		}
 		if(!$language || !$language->id) return '';
 		return isset($permissions[$language->name]) ? $permissions[$language->name] : '';
@@ -737,7 +736,7 @@ class Languages extends PagesType {
 	 */
 	public function editable($language) {
 		
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		if($user->isSuperuser()) return true; 
 		if(empty($language)) return false;
 		$cacheKey = "$user->id.$language";
@@ -757,11 +756,10 @@ class Languages extends PagesType {
 				// if the page-edit-lang-none permission doesn't exist, then it's not applicable
 				$has = $user->hasPermission('page-edit');
 			}
-			$this->editableCache[$cacheKey] = $has;
 			
 		} else {
 			
-			if(!$language instanceof Language) $language = $this->get($this->wire('sanitizer')->pageNameUTF8($language));
+			if(!$language instanceof Language) $language = $this->get($this->wire()->sanitizer->pageNameUTF8($language));
 			if(!$language || !$language->id) return false;
 		
 			$cacheKey = "$user->id.$language->id";
@@ -782,10 +780,10 @@ class Languages extends PagesType {
 					$has = $user->hasPermission($permissionName);
 				}
 			}
-			
-			$this->editableCache[$cacheKey] = $has; 
 		}
 		
+		$this->editableCache[$cacheKey] = $has;
+
 		return $has; 
 	}
 
@@ -895,8 +893,4 @@ class Languages extends PagesType {
 			}
 		}
 	}
-
-
-
 }
-

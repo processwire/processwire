@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -68,8 +68,9 @@
  * @property string $filesPath Get the disk path to store files for this page, creating it if it does not exist. #pw-group-files
  * @property string $filesUrl Get the URL to store files for this page, creating it if it does not exist. #pw-group-files
  * @property bool $hasFiles Does this page have one or more files in its files path? #pw-group-files
- * @property bool $outputFormatting Whether output formatting is enabled or not. #pw-advanced
+ * @property bool $outputFormatting Whether output formatting is enabled or not. Same as calling $page->of() with no arguments. #pw-advanced
  * @property int $sort Sort order of this page relative to siblings (applicable when manual sorting is used). #pw-group-system
+ * @property int|null $sortPrevious Previous sort order, if changed (3.0.235+) #pw-group-system
  * @property int $index Index of this page relative to its siblings, regardless of sort (starting from 0). #pw-group-traversal
  * @property string $sortfield Field that a page is sorted by relative to its siblings (default="sort", which means drag/drop manual) #pw-group-system
  * @property null|array _statusCorruptedFields Field names that caused the page to have Page::statusCorrupted status. #pw-internal
@@ -102,10 +103,6 @@
  * @property bool|null $_forceSaveParents Internal runtime/debugging use, force a page to refresh its pages_parents DB entries on save(). #pw-internal
  * @property float|null $_pfscore Internal PageFinder fulltext match score when page found/loaded from relevant query. #pw-internal
  * 
- * Methods added by PageRender.module: 
- * -----------------------------------
- * @method string|mixed render($fieldName = '') Returns rendered page markup. If given a $fieldName argument, it behaves same as the renderField() method. #pw-group-output-rendering
- * 
  * Methods added by PagePermissions.module: 
  * ----------------------------------------
  * @method bool viewable($field = '', $checkTemplateFile = true) Returns true if the page (and optionally field) is viewable by the current user, false if not. #pw-group-access
@@ -119,6 +116,7 @@
  * @method bool addable($pageToAdd = null) Returns true if the current user can add children to the page, false if not. Optionally specify the page to be added for additional access checking. #pw-group-access
  * @method bool moveable($newParent = null) Returns true if the current user can move this page. Optionally specify the new parent to check if the page is moveable to that parent. #pw-group-access
  * @method bool sortable() Returns true if the current user can change the sort order of the current page (within the same parent). #pw-group-access
+ * @method bool cloneable($recursive = null) Can current user clone this page? Specify false for $recursive argument to ignore whether children are cloneable. @since 3.0.239 #pw-group-access
  * @property bool $viewable #pw-group-access
  * @property bool $editable #pw-group-access
  * @property bool $publishable #pw-group-access
@@ -129,6 +127,7 @@
  * @property bool $moveable #pw-group-access
  * @property bool $sortable #pw-group-access
  * @property bool $listable #pw-group-access
+ * @property bool $cloneable @since 3.0.239 #pw-group-access 
  * 
  * Methods added by PagePathHistory.module (installed by default)
  * --------------------------------------------------------------
@@ -139,7 +138,9 @@
  * Methods added by LanguageSupport.module (not installed by default) 
  * -----------------------------------------------------------------
  * @method Page setLanguageValue($language, $field, $value) Set value for field in language (requires LanguageSupport module). $language may be ID, language name or Language object. Field should be field name (string). #pw-group-languages
- * @method Page getLanguageValue($language, $field) Get value for field in language (requires LanguageSupport module). $language may be ID, language name or Language object. Field should be field name (string). #pw-group-languages
+ * @method Page setLanguageValues($field, array $values) Set value for field in one or more languages (requires LanguageSupport module). $field should be field/property name (string), $values should be array of values indexed by language name. @since 3.0.236 #pw-group-languages
+ * @method mixed getLanguageValue($language, $field) Get value for field in language (requires LanguageSupport module). $language may be ID, language name or Language object. Field should be field name (string). #pw-group-languages
+ * @method array getLanguageValues($field, array $langs = []) Get values for field or one or more languages (requires LanguageSupport module). $field should be field/property name (string), $langs should be array of language names, or omit for all languages. Returns array of values indexed by language name. @since 3.0.236 #pw-group-languages
  * 
  * Methods added by LanguageSupportPageNames.module (not installed by default)
  * ---------------------------------------------------------------------------
@@ -147,6 +148,10 @@
  * @method string localPath($language = null) Return the page path in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages #pw-group-urls
  * @method string localUrl($language = null) Return the page URL in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages #pw-group-urls
  * @method string localHttpUrl($language = null) Return the page URL (including scheme and hostname) in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages #pw-group-urls
+ * @method Page setLanguageStatus($language, $status = null) Set active status for language(s), can be called as `$page->setLanguageStatus('es', true);` or `$page->setLanguageStatus([ 'es' => true, 'br' => false ]);` to set multiple. @since 3.0.236 #pw-group-languages 
+ * @method array|bool getLanguageStatus($language = []) Get active status for language(s). If given a $language (Language or name of language) it returns a boolean. If given multiple language names (array), or argument omitted, it returns array like `[ 'default' => true, 'fr' => false ];`. @since 3.0.236 #pw-group-languages 
+ * @method Page setLanguageName($language, $name = null) Set page name for language with `$page->setLanguageName('es', 'hola');` or set multiple with `$page->setLanguageName([ 'default' => 'hello', 'es' => 'hola' ]);` @since 3.0.236 #pw-group-languages 
+ * @method array|string getLanguageName($language = []) Get page name for language(s). If given a Language object, it returns a string. If given array of language names, or argument omitted, it returns an array like `[ 'default' => 'hello', 'es' => 'hola' ];`. @since 3.0.236 #pw-group-languages 
  *
  * Methods added by PageFrontEdit.module (not always installed by default)
  * -----------------------------------------------------------------------
@@ -154,21 +159,44 @@
  * 
  * Methods added by ProDrafts.module (if installed)
  * ------------------------------------------------
- * @method ProDraft|\ProDraft|int|string|Page|array draft($key = null, $value = null) Helper method for drafts (added by ProDrafts). #pw-advanced
+ * @method ProDraft|int|string|Page|array draft($key = null, $value = null) Helper method for drafts (added by ProDrafts). #pw-advanced
  * 
  * Hookable methods
  * ----------------
  * @method mixed getUnknown($key) Last stop to find a property that we haven't been able to locate. Hook this method to provide a handler. #pw-hooker
  * @method Page rootParent() Get parent closest to homepage. #pw-internal
- * @method void loaded() Called when page is loaded. #pw-internal
+ * @method void loaded() Called when page is loaded into memory and is ready to use.
  * @method void setEditor(WirePageEditor $editor) #pw-internal
  * @method string getIcon() #pw-internal
  * @method string getMarkup($key) Return the markup value for a given field name or {tag} string. #pw-internal
- * @method string|mixed renderField($fieldName, $file = '') Returns rendered field markup, optionally with file relative to templates/fields/. #pw-internal
+ * @method string|mixed render($options = [], $options2 = null) Render page or field. #pw-group-output-rendering
+ * @method string|mixed renderPage(array $options = []) Render page. #pw-group-output-rendering
+ * @method string|mixed renderField($fieldName, $file = '') Render field markup, optionally with file relative to templates/fields/. #pw-group-output-rendering
  * @method string|mixed renderValue($value, $file) Returns rendered markup for $value using $file relative to templates/fields/. #pw-internal
  * @method PageArray references($selector = '', $field = '') Return pages that are pointing to this one by way of Page reference fields. #pw-group-traversal
  * @method PageArray links($selector = '', $field = '') Return pages that link to this one contextually in Textarea/HTML fields. #pw-group-traversal
  * @method string|mixed if($key, $yes, $no = '') If value is available for $key return or call $yes condition (with optional $no condition)
+ * 
+ * Hookable action methods called before or after a page is saved (3.0.253+)
+ * -------------------------------------------------------------------------
+ * @method void editReady(InputfieldWrapper $form)
+ * @method void saveReady(array $changes, $name = false)
+ * @method void saved(array $changes, $name = false)
+ * @method void addReady()
+ * @method void added()
+ * @method void moveReady(Page $oldParent, Page $newParent)
+ * @method void moved(Page $oldParent, Page $newParent)
+ * @method void deleteReady(array $options)
+ * @method void deleted(array $options)
+ * @method void cloneReady(Page $copy)
+ * @method void cloned(Page $copy)
+ * @method void renameReady(string $oldName, string $newName)
+ * @method void renamed(string $oldName, string $newName)
+ * @method void addStatusReady($name, $value)
+ * @method void addedStatus(string $name, int $value)
+ * @method void removeStatusReady($name, $value)
+ * @method void removedStatus(string $name, int $value)
+ * 
  * 
  * Alias/alternate methods
  * -----------------------
@@ -377,7 +405,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @var string
 	 *
 	 */
-	private $namePrevious; 
+	private $namePrevious;
+
+	/**
+	 * The previous sort value used by page, if changed during runtime.
+	 * 
+	 * @var int
+	 * 
+	 */
+	private $sortPrevious;
 
 	/**
 	 * The previous status used by this page, if it changed during runtime.
@@ -588,10 +624,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Create a new page in memory. 
 	 *
-	 * @param Template $tpl Template object this page should use. 
+	 * @param Template|null $tpl Template object this page should use. 
 	 *
 	 */
-	public function __construct(Template $tpl = null) {
+	public function __construct(?Template $tpl = null) {
 		parent::__construct();
 		if($tpl !== null) {
 			$tpl->wire($this);
@@ -601,6 +637,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$this->parentPrevious = null;
 		$this->templatePrevious = null;
 		$this->statusPrevious = null;
+		$this->sortPrevious = null;
 	}
 
 	/**
@@ -700,7 +737,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$this->setStatus($value); 
 				break;
 			case 'statusPrevious':
-				$this->statusPrevious = is_null($value) ? null : (int) $value; 
+			case 'sortPrevious':	
+				$this->$key = is_null($value) ? null : (int) $value; 
 				break;
 			case 'name':
 				$this->setName($value);
@@ -1148,6 +1186,58 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	protected function getFieldSubfieldValue($key) {
 		return $this->values()->getDotValue($this, $key);
+	}
+
+	/**
+	 * Preload multiple fields together as a group (experimental)
+	 * 
+	 * This is an optimization that enables you to load the values for multiple fields into
+	 * a page at once, and often in a single query. For fields where it is supported, and
+	 * for cases where you have a lot of fields to load at once, it can be up to 50% faster 
+	 * than the default of lazy-loading fields. 
+	 * 
+	 * To use, call `$page->preload([ 'field1', 'field2', 'etc.' ])` before accessing 
+	 * `$page->field1`, `$page->field2`, etc.
+	 *
+	 * The more fields you give this method, the more performance improvement it can offer.
+	 * As a result, don't bother if with only a few fields, as it's less likely to make 
+	 * a difference at small scale. You will also see a more measurable benefit if preloading
+	 * fields for lots of pages at once. 
+	 * 
+	 * Preload works with some Fieldtypes and not others. For details on what it is doing,
+	 * specify `true` for the `debug` option which will make it return array of what it
+	 * loaded and what it didn't. Have a look at this array with TracyDebugger or output
+	 * a print_r() call on it, and the result is self explanatory. 
+	 * 
+	 * NOTE: This function is currently experimental, recommended for testing only. 
+	 * 
+	 * ~~~~~
+	 * // Example usage
+	 * $page->preload([ 'headline', 'body', 'sidebar', 'intro', 'summary' ]);
+	 * echo "
+	 *   <h1 id='headline'>$page->headline</h1>"; 
+	 *   <div id='intro'>$page->intro</div>
+	 *   <div id='body'>$page->body</div>
+	 *   <aside id='sidebar' pw-append>$page->sidebar</aside>
+	 *   <meta id='meta-description'>$page->summary</meta>
+	 * ";
+	 * ~~~~~
+	 *
+	 * @param array $fieldNames Names of fields to preload or omit (or blank array) 
+	 *   to preload all supported fields. 
+	 * @param array $options Options to modify default behavior:
+	 * - `debug` (bool): Specify true to return additional info in returned array (default=false). 
+	 * - See the `PagesLoader::preloadFields()` method for additional options.
+	 * @return array Array of details 
+	 * @since 3.0.243
+	 *
+	 */
+	public function preload(array $fieldNames = array(), $options = array()) {
+		if(empty($fieldNames)) {
+			return $this->wire()->pages->loader()->preloadAllFields($this, $options);
+		} else {
+			return $this->wire()->pages->loader()->preloadFields($this, $fieldNames, $options);
+		}
 	}
 
 	/**
@@ -1788,7 +1878,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-common
 	 * #pw-group-traversal
 	 *
-	 * @param string $selector Selector to use, or omit to return all children.
+	 * @param string|array $selector Selector to use, or omit to return all children.
 	 * @param array $options Optional options to modify behavior, the same as those provided to Pages::find.
 	 * @return PageArray|array Returns PageArray for most cases. Returns regular PHP array if using the findIDs option.
 	 * @see Page::child(), Page::find(), Page::numChildren(), Page::hasChildren()
@@ -1819,6 +1909,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - When a string or array, a selector is assumed and quantity will be counted based on selector.
 	 * - When boolean true, number includes only visible children (excludes unpublished, hidden, no-access, etc.)
 	 * - When boolean false, number includes all children without conditions, including unpublished, hidden, no-access, etc.
+	 * - When integer 1 number includes “viewable” children (as opposed to “visible” children, viewable children includes 
+	 *   hidden pages and also includes unpublished pages if user has page-edit permission).
 	 * @return int Number of children
 	 * @see Page::hasChildren(), Page::children(), Page::child()
 	 *
@@ -2122,7 +2214,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return Page|NullPage Returns the next sibling page, or a NullPage if none found. 
 	 *
 	 */
-	public function next($selector = '', PageArray $siblings = null) {
+	public function next($selector = '', ?PageArray $siblings = null) {
 		if($selector instanceof PageArray) {
 			$siblings = $selector;
 			$selector = '';
@@ -2179,7 +2271,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return PageArray
 	 *
 	 */
-	public function nextUntil($selector = '', $filter = '', PageArray $siblings = null) {
+	public function nextUntil($selector = '', $filter = '', ?PageArray $siblings = null) {
 		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->nextUntilSiblings($this, $selector, $filter, $siblings); 
 		return $this->traversal()->nextUntil($this, $selector, $filter); 
@@ -2203,7 +2295,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return Page|NullPage Returns the previous sibling page, or a NullPage if none found. 
 	 *
 	 */
-	public function prev($selector = '', PageArray $siblings = null) {
+	public function prev($selector = '', ?PageArray $siblings = null) {
 		if($selector instanceof PageArray) {
 			$siblings = $selector;
 			$selector = '';
@@ -2242,7 +2334,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return PageArray
 	 *
 	 */
-	public function prevUntil($selector = '', $filter = '', PageArray $siblings = null) {
+	public function prevUntil($selector = '', $filter = '', ?PageArray $siblings = null) {
 		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->prevUntilSiblings($this, $selector, $filter, $siblings);
 		return $this->traversal()->prevUntil($this, $selector, $filter); 
@@ -2329,7 +2421,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param array $options See Pages::save() documentation for options. You may also specify $options as the first argument if no $field is needed.
 	 * @return bool Returns true on success false on fail
 	 * @throws WireException on database error
-	 * @see Pages::save(), Pages::saveField(), Pages::saveReady(), Pages::saveFieldReady(), Pages::saved(), Pages::fieldSaved()
+	 * @see Pages::save(), Page::saveFields(), Pages::saveField(), Pages::saveReady(), Pages::saveFieldReady(), Pages::saved(), Pages::fieldSaved()
 	 *
 	 */
 	public function save($field = null, array $options = array()) {
@@ -2354,6 +2446,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$options['noFields'] = true; 
 		
 		return $pages->save($this, $options);
+	}
+
+	/**
+	 * Save only the given named fields for this page
+	 * 
+	 * @param array|string $fields Array of field name(s) or string (CSV or space separated)
+	 * @param array $options See Pages::save() documentation for options.
+	 * @return array Names of fields that were saved
+	 * @throws WireException on database error
+	 * @see Page::save()
+	 * @since 3.0.242
+	 * 
+	 */
+	public function saveFields($fields, array $options = array()) {
+		return $this->wire()->pages->saveFields($this, $fields, $options);
 	}
 	
 	/**
@@ -2406,6 +2513,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($of) $this->of(false);
 		foreach($values as $k => $v) {
 			$this->set($k, $v);
+			if(!$property) $this->trackChange($k);
 		}
 		if($property) {
 			$result = $this->save($property, $options);
@@ -2843,6 +2951,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
 	 *  - `language` (Language|bool): Optionally specify Language to start editor in, or boolean true to force current user language.
 	 *  - `find` (string): Name of field to find in the editor (3.0.151+)
+	 *  - `vars` (array): Additional variables to include in query string (3.0.239+)
 	 * @return string URL for editing this page
 	 * 
 	 */
@@ -2921,7 +3030,130 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Render given $fieldName using site/templates/fields/ markup file 
+	 * Render output of this Page or a Field 
+	 *
+	 * You may optionally specify 1-2 arguments to the method. The first argument may be any of the following:
+	 *
+	 * 1. An `$options` array with predefined options or custom variables (see arguments definition).
+	 * 2. A filename to use for render (in /site/templates/). When used, you can optionally specify an `$options` array as the 2nd argument.
+	 * 3. A field name to render. An optional 2nd argument can be a filename (in /site/templates/fields/) to use to render the field, 
+	 *    though we'd recommend just using the `renderField()` method instead. 
+	 *
+	 * If using the `$options` array argument (whether 1st or 2nd argument), you may use it to specify your own variables to pass along to the
+	 * template file, and those values will be available in a variable named `$options` within the scope of the template file
+	 * (see examples below).
+	 *
+	 * ~~~~~
+	 * // regular page render call
+	 * $out = $page->render();
+	 *
+	 * // render using given file (in /site/templates/)
+	 * $out = $page->render('basic-page.php');
+	 *
+	 * // render while passing in custom variables
+	 * $out = $page->render([
+	 *   'firstName' => 'Ryan',
+	 *   'lastName' => 'Cramer'
+	 * ]);
+	 * 
+	 * // in your template file, you can access the passed-in variables like this:
+	 * echo "<p>Full name: $options[firstName] $options[lastName]</p>";
+	 * ~~~~~
+	 *
+	 * Note: If the page’s template has caching enabled, then this method will return a cached page render (when available)
+	 * or save a new cache. Caches are only saved on guest users.
+	 * 
+	 * For simpler and more specific methods, we recommend using, hooking or overriding `renderPage()` or `renderField()` instead.
+	 * 
+	 * #pw-group-output-rendering
+	 *
+	 * @param array|string $options String of filename to use for render, field name to render, or array of options:
+	 *  - `foo_bar` (mixed): Specify any of your own variable names and values to send to the template file (foo_bar is just an example, use your own).
+	 *	- `filename` (string): Filename to render, typically relative to /site/templates/. But absolute paths must resolve somewhere in PW’s install. (default='')
+	 *	- `prependFile` (string): Filename to prepend to output, must be in /site/templates/ (default=$config->prependTemplateFile)
+	 * 	- `prependFiles` (array): Array of additional filenames to prepend to output, must be relative to /site/templates/.
+	 *	- `appendFile` (string): Filename to append to output, must be in /site/templates/.
+	 * 	- `appendFiles` (array): Array of additional filenames to append to output, must be relative to /site/templates/.
+	 *	- `pageStack` (array): An array of pages, when recursively rendering. Used internally. You can examine it but not change it.
+	 *	- `allowCache` (bool): Allow cache to be used when template settings ask for it? (default=true)
+	 * 	- `forceBuildCache` (bool): If true, the cache will be re-created for this page, regardless of whether it’s expired or not. (default=false)
+	 *  -  Note that the prepend and append options above have default values in `$config` or with the Template.
+	 * @param array $options2 If a filename or field name was used for $options then you may optionally specify options array here instead.
+	 * @return string|mixed
+	 * @throws WireException
+	 * @see Page::renderPage(), Page::renderField(), Page::renderValue()
+	 * 
+	 */ 
+	public function ___render($options = [], $options2 = null) {
+		if(is_string($options) && strlen($options)) {
+			if(ctype_alnum(str_replace('_', '', $options))) { 
+				return $this->renderField($options, is_string($options2) ? $options2 : ''); // options is a field name
+			} else { 
+				$options = [ 'filename' => $options ]; // options is a filename
+			}
+		}
+		if(!is_array($options)) $options = [];
+		if(is_array($options2)) $options = array_merge($options2, $options);
+		return $this->renderPage($options);
+	}
+
+	/**
+	 * Render page output
+	 * 
+	 * This method is essentially the same as the `render()` method except that the `render()` method
+	 * is a gateway to this method or the `renderField()` method, and this one is not. More specifically:
+	 * 
+	 * - This method has only one purpose, which is rendering page output.
+	 * - This method has only has one argument, which is always an array.
+	 * - This method is available only in ProcessWire 3.0.253+. 
+	 * 
+	 * This method is preferable to `render()` when it comes hooks or overriding in custom page classes,
+	 * as you don't need to figure out anything about the arguments. 
+	 * 
+	 * ~~~~~
+	 * // regular page render call
+	 * echo $page->renderPage();
+	 *
+	 * // render while passing in custom variables
+	 * echo $page->renderPage([
+	 *   'firstName' => 'Ryan',
+	 *   'lastName' => 'Cramer'
+	 * ]);
+	 *
+	 * // in your template file, you can access the passed-in variables like this:
+	 * echo "<p>Full name: $options[firstName] $options[lastName]</p>";
+	 * 
+	 * // hoooking this method
+	 * $wire->addHookAfter('Page::renderPage', function(HookEvent $event) {
+	 *   $event->return = str_replace("</body>", "<p>Hello</p></body>", $event->return); 
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-group-output-rendering
+	 * 
+	 * @param array $options Custom variables to pass to template file, and/or options as described below:
+	 *  - `foo_bar` (mixed): Specify any of your own variable names and values to send to the template file (foo_bar is just an example, use your own).
+	 *	- `filename` (string): Filename to render, typically relative to /site/templates/. Absolute paths must resolve somewhere in PW’s install. (default='')
+	 *	- `prependFile` (string): Filename to prepend to output, must be in /site/templates/.
+	 * 	- `prependFiles` (array): Array of additional filenames to prepend to output, must be relative to /site/templates/.
+	 *	- `appendFile` (string): Filename to append to output, must be in /site/templates/.
+	 * 	- `appendFiles` (array): Array of additional filenames to append to output, must be relative to /site/templates/.
+	 *	- `allowCache` (bool): Allow cache to be used when template settings ask for it? (default=true)
+	 * 	- `forceBuildCache` (bool): If true, the cache will be re-created for this page. (default=false)
+	 *  -  Note that the prepend and append options above have default values in `$config` or with the Template.
+	 * @return string|mixed Renders the rendered output
+	 * @throws WireException
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___renderPage(array $options = []) {
+		/** @var PageRender $pageRender */
+		$pageRender = $this->wire()->modules->get('PageRender');
+		return $pageRender->render($this, $options);
+	}
+	
+	/**
+	 * Render given field using site/templates/fields/ markup file 
 	 * 
 	 * Shorter aliases of this method include:
 	 * 
@@ -2929,16 +3161,18 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - `$page->render->fieldName;`
 	 * - `$page->_fieldName_;`
 	 * 
-	 * This method expects that there is a file in `/site/templates/fields/` to render the field with:
+	 * This method expects that there is a file in `/site/templates/fields/` to render the field with
+	 * one of the following:
 	 * 
 	 * - `/site/templates/fields/fieldName.php`
 	 * - `/site/templates/fields/fieldName.templateName.php`
-	 * - `/site/templates/fields/fieldName/$file.php` (using $file argument)
-	 * - `/site/templates/fields/$file.php` (using $file argument)
-	 * - `/site/templates/fields/$file/fieldName.php` (using $file argument, must have trailing slash)
-	 * - `/site/templates/fields/$file.fieldName.php` (using $file argument, must have trailing period)
+	 * - `/site/templates/fields/fieldName/$file.php`
+	 * - `/site/templates/fields/$file.php`
+	 * - `/site/templates/fields/$file/fieldName.php`
+	 * - `/site/templates/fields/$file.fieldName.php`
 	 * 
-	 * Note that the examples above showing $file require that the `$file` argument is specified. 
+	 * Note that the examples above showing $file require that the `$file` argument is specified
+	 * in the `renderField()` method call. 
 	 * 
 	 * ~~~~~
 	 * // Render output for the 'images' field (assumes you have implemented an output file)
@@ -2948,10 +3182,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-output-rendering
 	 * 
 	 * @param string $fieldName May be any custom field name or native page property.
-	 * @param string $file Optionally specify file (in site/templates/fields/) to render with (may omit .php extension).
-	 * @param mixed|null $value Optionally specify value to render, otherwise it will be pulled from this $page. 
+	 * @param string $file Optionally specify file (in site/templates/fields/) to render with (may optionally omit .php extension).
+	 * @param mixed|null $value Optionally specify value to render, otherwise it will be pulled from this page. 
 	 * @return mixed|string Returns the rendered value of the field
-	 * @see Page::render(), Page::renderValue()
+	 * @see Page::renderValue()
 	 * 
 	 */
 	public function ___renderField($fieldName, $file = '', $value = null) {
@@ -2961,7 +3195,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Render given $value using /site/templates/fields/ markup file
+	 * Render given value using /site/templates/fields/ markup file
 	 * 
 	 * See the documentation for the `Page::renderField()` method for information about the `$file` argument. 
 	 * 
@@ -3000,6 +3234,23 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function getInputfields($fieldName = '') {
+		if($this->wire()->hooks->isMethodHooked($this, 'getInputfields')) {
+			return $this->__call('getInputfields', array($fieldName));
+		} else {
+			return $this->___getInputfields($fieldName);
+		}
+	}
+
+	/**
+	 * Hookable version of getInputfields() method. 
+	 * 
+	 * See the getInputfields() method above for documentation details. 
+	 * 
+	 * @param string|array $fieldName
+	 * @return null|InputfieldWrapper Returns an InputfieldWrapper array of Inputfield objects, or NULL on failure.
+	 * 
+	 */
+	protected function ___getInputfields($fieldName = '') {
 		return $this->values()->getInputfields($this, $fieldName);
 	}
 
@@ -3188,13 +3439,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 	
 	/**
-	 * Given a selector, return whether or not this Page matches it
+	 * Given a selector, return whether or not this Page matches using runtime/memory comparison
 	 *
 	 * ~~~~~
 	 * if($page->matches("created>=" . strtotime("today"))) {
 	 *   echo "This page was created today";
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-traversal
 	 * 
 	 * @param string|Selectors|array $s Selector to compare against (string, Selectors object, or array).
 	 * @return bool Returns true if this page matches, or false if it doesn't. 
@@ -3204,6 +3457,26 @@ class Page extends WireData implements \Countable, WireMatchable {
 		// This method implements the WireMatchable interface
 		return $this->comparison()->matches($this, $s);
 	}
+	
+	/**
+	 * Given a selector, return whether or not this Page matches by querying the database
+	 *
+	 * ~~~~~
+	 * if($page->matchesDatabase("created>=today")) {
+	 *   echo "This page was created today";
+	 * }
+	 * ~~~~~
+	 * 
+	 * #pw-group-traversal
+	 *
+	 * @param string|Selectors|array $s Selector to compare against (string, Selectors object, or array).
+	 * @return bool Returns true if this page matches, or false if it doesn't.
+	 * @since 3.0.225
+	 *
+	 */
+	public function matchesDatabase($s) {
+		return $this->comparison()->matches($this, $s, array('useDatabase' => true));
+	}
 
 	/**
 	 * Does this page have the specified status number or template name?
@@ -3211,7 +3484,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * See status flag constants at top of Page class.
 	 * You may also use status names: hidden, locked, unpublished, system, systemID
 	 * 
-	 * #pw-internal
+	 * #pw-group-status
 	 *
 	 * @param int|string|Selectors $status Status number, status name, or Template name or selector string/object
 	 * @return bool
@@ -3437,20 +3710,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * For hooks to listen to, triggered when page is loaded and ready
-	 * 
-	 * #pw-hooker
-	 *
-	 */
-	public function ___loaded() { }
-
-
-	/**
 	 * Set output formatting state of page
 	 * 
 	 * The output formatting state determines if a page's output is allowed to be filtered by runtime formatters. 
 	 * Pages used for output should have output formatting on. Pages you intend to manipulate and save should 
-	 * have it off. 
+	 * have it off. See this post about [output formatting](https://processwire.com/blog/posts/output-formatting/).
 	 * 
 	 * ~~~~~
 	 * // Set output formatting state off, for page manipulation
@@ -3467,6 +3731,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param bool $outputFormatting Optional, default true
 	 * @return $this
 	 * @see Page::outputFormatting(), Page::of()
+	 * @link https://processwire.com/blog/posts/output-formatting/
 	 *
 	 */
 	public function setOutputFormatting($outputFormatting = true) {
@@ -3497,6 +3762,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - Pages used for front-end output should have output formatting turned ON. 
 	 * 
 	 * - Pages that you are manipulating and saving should have output formatting turned OFF. 
+	 * 
+	 * See this post about [output formatting](https://processwire.com/blog/posts/output-formatting/).
 	 *
 	 * ~~~~~ 
 	 * // Set output formatting state off, for page manipulation
@@ -3511,6 +3778,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param bool $outputFormatting If specified, sets output formatting state ON or OFF. If not specified, nothing is changed. 
 	 * @return bool Current output formatting state (before this function call, if it was changed)
+	 * @link https://processwire.com/blog/posts/output-formatting/
 	 *
 	 */
 	public function of($outputFormatting = null) {
@@ -3861,7 +4129,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * If you are looking for a hookable version, you should instead hook
 	 * `ProcessPageListRender::getPageLabel` which receives the Page as its first argument.
 	 * 
-	 * #pw-internal
+	 * #pw-group-output-rendering
 	 * 
 	 * @return string
 	 * @since 3.0.206
@@ -3963,7 +4231,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * ~~~~~
 	 * // set and save a meta value 
-	 * $page->meta()->set('colors', [ 'red, 'green', 'blue' ]); 
+	 * $page->meta()->set('colors', [ 'red', 'green', 'blue' ]); 
 	 * 
 	 * // get a meta value
 	 * $colors = $page->meta()->get('colors');
@@ -4018,6 +4286,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$this->namePrevious = $old;
 			} else if($what === 'status' && $old !== null) {
 				$this->statusPrevious = (int) $old;
+			} else if($what === 'sort' && $old !== null && $this->sortPrevious === null) {
+				$this->sortPrevious = (int) $old;
 			}
 		}
 		return parent::trackChange($what, $old, $new);
@@ -4176,6 +4446,377 @@ class Page extends WireData implements \Countable, WireMatchable {
 	public function __toString() {
 		return "$this->id";
 	}
+	
+	/**
+	 * Called when this page has been loaded and is now ready and use
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::loaded', function($e) {
+	 *   $e->message("Loaded page $e->object"); 
+	 * }); 
+	 * ~~~~~
+	 *
+	 * #pw-hooker
+	 *
+	 */
+	public function ___loaded() { }
+	
+	/**
+	 * Called when this page has been loaded into the Page editor (ProcessPageEdit)
+	 * 
+	 * ~~~~~
+	 * // hook example in /site/templates/admin.php
+	 * $wire->addHook('Page::editReady', function($e) {
+	 *   $form = $e->arguments(0);
+	 *   $f = $form->getByName('title');
+	 *   if($f) $f->notes = 'Hello World!';
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param InputfieldWrapper $form The page editing form
+	 * @todo Determine if this can also apply to the front-end editor. 
+	 * @since 3.0.253
+	 * 
+	 */	
+	public function ___editReady(InputfieldWrapper $form) { }
 
+	/**
+	 * Called right before this Page is saved
+	 * 
+	 * If the `$name` argument is populated then only that field/property will be saved.
+	 * But if `$name` is false, then the whole page will be saved, including any
+	 * changes in the `$changes` array, and any more you make when this method is called. 
+	 * This is different from the `Pages::saveReady` hookable method, which is only called
+	 * when the entire page is saved.
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page:saveReady', function($e) {
+	 *   $page = $e->object;
+	 *   $name = $e->arguments(1);
+	 *   if($name) {
+	 *     $e->message("Ready to save field $name on page $page");
+	 *   } else {
+	 *     $e->message("Ready to save page $page"); 
+	 *   }
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param array $changes Names of changed field names and/or properties
+	 * @param string|false $name Indicates whether entire page was saved or just a field/property:
+	 *  - Populated with `string` field or property name if `$page->save($name)` was used rather than `$page->save();`
+	 *  - Populated with `false` if entire page is to be saved, i.e. `$page->save()`
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___saveReady(array $changes, $name = false) { }
+	
+	/**
+	 * Called right after this Page is saved
+	 * 
+	 * Note that if the `$name` argument is populated then only that field/property was saved.
+	 * This is different from the `Pages::saved` hookable method, which is only called
+	 * when the entire page is saved.
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page:saved', function($e) {
+	 *   $page = $e->object;
+	 *   $changes = $e->arguments(0);
+	 *   $name = $e->arguments(1);
+	 *   if($name) {
+	 *     $e->message("Saved field $name on page $page");
+	 *   } else {
+	 *     $e->message("Saved page $page: " . implode(', ', $changes));
+	 *   }
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param array $changes Names of changed field names and/or properties
+	 * @param string|false $name Indicates whether entire page was saved or just a field:
+	 *  - Populated with `string` field or property name if `$page->save($name)` was used rather than `$page->save();`
+	 *  - Populated with `false` if entire page was saved, i.e. `$page->save()`
+	 * @since 3.0.253
+	 *
+	 */
+	public function ___saved(array $changes, $name = false) {}
+
+	/**
+	 * Called when this new Page about to be added and saved to the database
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::addReady', function($e) {
+	 *   $page = $e->object;
+	 *   $e->message("Ready to add new $page->template page"); 
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___addReady() {}
+
+	/**
+	 * Called after this new Page has been added
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::added', function($e) {
+	 *   $page = $e->object;
+	 *   $e->message("Added new $page->template page: $page->path");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___added() {}
+	
+	/**
+	 * Called when this Page is about to be moved to another parent
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::moveReady', function($e) {
+	 *   $page = $e->object;
+	 *   list($oldParent, $newParent) = $e->arguments;
+	 *   $e->log->message("Moving page $page from $oldParent->path into $newParent->path");
+	 *   if($newParent->isTrash()) $e->log->save("trash", "Trashing page $page"); 
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param Page $oldParent
+	 * @param Page $newParent
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___moveReady($oldParent, $newParent) {}
+	
+	/**
+	 * Called after this Page has been moved to another parent
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::moved', function($e) {
+	 *   $page = $e->object;
+	 *   list($oldParent, $newParent) = $e->arguments;
+	 *   $e->log->message("Moved page $page from $oldParent->path into $newParent->path");
+	 *   if($newParent->isTrash()) $e->log->save("trash", "Trashed page $page");
+	 * });
+	 * ~~~~~
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $oldParent
+	 * @param Page $newParent
+	 * @since 3.0.253
+	 *
+	 */
+	public function ___moved($oldParent, $newParent) {}
+
+	/**
+	 * Called right before this page is deleted (and before any of its data is touched)
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::deleteReady', function($e) {
+	 *   $page = $e->object;
+	 *   $e->warning("Page $page WILL be deleted");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___deleteReady() {}
+	
+	/**
+	 * Called after this page and its data has been deleted
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::deleted', function($e) {
+	 *   $page = $e->object;
+	 *   $e->warning("Page $page has been deleted");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @since 3.0.253
+	 *
+	 */
+	public function ___deleted() {}
+
+	/**
+	 * Called right before this page is cloned
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::cloneReady', function($e) {
+	 *  $page = $e->object;
+	 *  $e->log->message("Page $page is ready to be cloned");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param Page $copy The copy of this page that it will be cloned to
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___cloneReady(Page $copy) {}
+
+	/**
+	 * Called right after this page has been cloned
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::cloned', function($e) {
+	 *   $page = $e->object;
+	 *   $copy = $e->arguments(1);
+	 *   $e->log->message("Page $page has been closed to page $copy");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param Page $copy The new cloned copy of the page
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___cloned(Page $copy) {}
+
+	/**
+	 * Called right before this page is renamed (i.e. has its name property changed)
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::renameReady', function($e) {
+	 *   $page = $e->object;
+	 *   list($oldName, $newName) = $e->arguments;
+	 *   $e->message("Page $page to be renamed: $oldName => $newName");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param string $oldName The old name
+	 * @param string $newName The new name (read-only)
+	 * @since 3.0.253
+	 *
+	 */
+	public function ___renameReady($oldName, $newName) {}
+	
+	/**
+	 * Called right after this page has been renamed (i.e. had its name property changed)
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::renamed', function($e) {
+	 *   $page = $e->object;
+	 *   list($oldName, $newName) = $e->arguments;
+	 *   $e->message("Page $page renamed: $oldName => $newName");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param string $oldName The old name
+	 * @param string $newName The new name
+	 * @since 3.0.253
+	 *
+	 */
+	public function ___renamed($oldName, $newName) {}
+
+	/**
+	 * Called when new status flag about to be added to page but not yet saved
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::addStatusReady', function($e) {
+	 *   $page = $e->object;
+	 *   $name = $e->arguments(0);
+	 *   if($name === 'unpublished' && $page->id === 1) {
+	 *     $page->removeStatus($name);
+	 *     $e->error("We do not allow unpublish of homepage");
+	 *   }
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param string $name Name of the status flag to be added, i.e. unpublished, hidden, trash, locked
+	 * @param int $value Value of the status flag to be added, a `Page::status*` constant
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___addStatusReady($name, $value) {}
+
+	/**
+	 * Called when a new status flag has been added (and saved)
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::addedStatus', function($e) {
+	 *   $page = $e->object;
+	 *   $name = $e->arguments(0);
+	 *   $e->message("Added status $name to page $page");
+	 *   if($name === 'unpublished') $e->message("Unpublished page $page");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param string $name Name of the status flag that was added, i.e. unpublished, hidden, trash, locked
+	 * @param int $value Value of the status flag that was added, a `Page::status*` constant
+	 * @since 3.0.253
+	 * 
+	 */
+	public function ___addedStatus($name, $value) {}
+
+	/**
+	 * Called when status flag is about to removed from page but not yet saved
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::removeStatusReady', function($e) {
+	 *   $page = $e->object;
+	 *   $name = $e->arguments(0);
+	 *   if($name === 'hidden' && $page->template->name === 'sitemap') {
+	 *     $page->addStatus($name);
+	 *     $e->error("Sitemap must remain hidden");
+	 *   }
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param string $name Name of the status flag to be removed, i.e. unpublished, hidden, trash, locked
+	 * @param int $value Value of the status flag to be removed, a `Page::status*` constant
+	 * @since 3.0.253
+	 *
+	 */
+	public function ___removeStatusReady($name, $value) {}
+	
+	/**
+	 * Called when a status flag has been removed from this page (and saved)
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('Page::removedStatus', function($e) {
+	 *   $page = $e->object;
+	 *   $name = $e->arguments(0);
+	 *   $e->message("Removed status $name from page $page");
+	 *   if($name === 'unpublished') $e->message("Published page $page");
+	 * });
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param string $name Name of the status flag that was removed, i.e. unpublished, hidden, trash, locked
+	 * @param int $value Value of the status flag that was removed, a `Page::status*` constant
+	 * @since 3.0.253
+	 *
+	 */
+	public function ___removedStatus($name, $value) {}
 }
-

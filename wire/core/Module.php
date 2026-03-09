@@ -270,7 +270,7 @@
  * - Singular modules will have their instance active for the entire request after instantiated.
  * - Non-singular modules return a new instance on every `$modules->get("YourModule")` call.
  * - Modules that attach hooks are usually singular.
- * - Modules that may have multiple instances (like `Inputfield` modules) should _not_be singular.
+ * - Modules that may have multiple instances (like `Inputfield` modules) should _not_ be singular.
  *
  * If you are having trouble deciding whether to make your module singular or not, be sure to read 
  * the documentation below for the `isAutoload()` method, because if your module is 'autoload' then 
@@ -588,4 +588,3 @@ interface SearchableModule {
 	 */
 	public function search($text, array $options = array()); 
 }
-

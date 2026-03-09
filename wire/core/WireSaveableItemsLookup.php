@@ -109,7 +109,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 * @since 3.0.194
 	 *
 	 */
-	protected function initItem(array &$row, WireArray $items = null) {
+	protected function initItem(array &$row, ?WireArray $items = null) {
 		
 		$lookupField = $this->getLookupField();
 		$lookupValue = $row[$lookupField];

@@ -282,7 +282,7 @@ class TemplateFile extends WireData {
 	/**
 	 * Render the template: execute it and return its output
 	 *
-	 * @return string The output of the Template File
+	 * @return string|array The output of the Template File
 	 * @throws WireException|\Exception Throws WireException if file not exist + any exceptions thrown by included file(s)
 	 *
 	 */
@@ -351,8 +351,9 @@ class TemplateFile extends WireData {
 
 		if($this->trim) $out = trim($out); 
 		
-		if(!strlen($out) && !$this->halt && $this->returnValue && $this->returnValue !== 1) {
-			return $this->returnValue;
+		if(!strlen($out) && !$this->halt) { 
+			if(is_array($this->returnValue)) return $this->returnValue;
+			if($this->returnValue && $this->returnValue !== 1) return $this->returnValue;
 		}
 		
 		return $out;
@@ -609,14 +610,20 @@ class TemplateFile extends WireData {
 	 * 
 	 * USAGE from template file is: return $this->halt();
 	 * 
-	 * @param bool $halt
+	 * @param bool|string $halt
+	 *  If given boolean, it will set the halt status.
+	 *  If given string, it will be output (3.0.239+)
 	 * @return $this
 	 * 
 	 */
-	protected function halt($halt = true) {
-		$this->halt = $halt ? true : false;
+	public function halt($halt = true) {
+		if(is_bool($halt)) {
+			$this->halt = $halt ? true : false;
+		} else if(is_string($halt)) {
+			$this->halt = true;
+			echo $halt;
+		}
 		return $this;
 	}
 	
 }
-

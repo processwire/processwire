@@ -5,7 +5,7 @@
  *
  * WireArray of Fieldgroup instances as used by Fieldgroups class. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -25,6 +25,7 @@ class FieldgroupsArray extends WireArray {
 	 *
 	 */
 	public function getItemKey($item) {
+		/** @var Fieldgroup $item */
 		return $item->id;
 	}
 

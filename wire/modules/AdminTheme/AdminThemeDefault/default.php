@@ -29,7 +29,7 @@ if($user->hasPermission('page-edit')) {
 	$searchForm = '';
 }
 
-$version = $adminTheme->version . 'k';
+$version = $config->version;
 
 $config->styles->prepend($config->urls->root . "wire/templates-admin/styles/AdminTheme.css?v=$version"); 
 $config->styles->prepend($config->urls->adminTemplates . "styles/" . ($adminTheme->colors ? "main-$adminTheme->colors" : "main-classic") . ".css?v=$version"); 
@@ -59,9 +59,9 @@ $extras = $adminTheme->getExtraMarkup();
 
 	<script type="text/javascript"><?php echo $helpers->renderJSConfig(); ?></script>
 
-	<?php foreach($config->styles as $file) echo "\n\t<link type='text/css' href='$file' rel='stylesheet' />"; ?>
+	<?php foreach($config->styles->urls() as $file) echo "\n\t<link type='text/css' href='$file' rel='stylesheet' />"; ?>
 
-	<?php foreach($config->scripts as $file) echo "\n\t<script type='text/javascript' src='$file'></script>"; ?>
+	<?php foreach($config->scripts->urls() as $file) echo "\n\t<script type='text/javascript' src='$file'></script>"; ?>
 	
 	<?php echo $extras['head']; ?>
 

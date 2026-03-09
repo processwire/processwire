@@ -25,10 +25,10 @@ class Role extends Page {
 	/**
 	 * Create a new Role page in memory. 
 	 * 
-	 * @param Template $tpl
+	 * @param Template|null $tpl
 	 *
 	 */
-	public function __construct(Template $tpl = null) {
+	public function __construct(?Template $tpl = null) {
 		parent::__construct($tpl); 
 	}
 
@@ -107,6 +107,13 @@ class Role extends Page {
 			if(!$permissions->has($name)) {
 				if(!ctype_alnum(str_replace('-', '', $name))) {
 					$name = $this->wire()->sanitizer->pageName($name);
+				}
+				if($context) {
+					$method = $permissions->getDelegatedMethod($name, $context);
+					if($method) {
+						// non-installed permission delegates to a method call such as $page->editable()
+						return $context->$method();
+					}
 				}
 				$delegated = $permissions->getDelegatedPermissions();
 				if(isset($delegated[$name])) $name = $delegated[$name];
@@ -243,4 +250,3 @@ class Role extends Page {
 	}
 
 }
-

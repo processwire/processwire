@@ -80,7 +80,7 @@ class Database extends \mysqli implements WireDatabase {
 
 		if($config) {
 			if($config->dbCharset) $this->set_charset($config->dbCharset); 
-				else if($config->dbSetNamesUTF8) $this->query("SET NAMES 'utf8'");
+				else if($config->get('dbSetNamesUTF8')) $this->query("SET NAMES 'utf8'");
 		}
 	}
 	
@@ -134,12 +134,12 @@ class Database extends \mysqli implements WireDatabase {
 	 *
 	 * Active in ProcessWire debug mode only
 	 *
-	 * @param ProcessWire $wire ProcessWire instance, if omitted returns queries for all instances
+	 * @param ProcessWire|null $wire ProcessWire instance, if omitted returns queries for all instances
 	 * @return array
 	 * @deprecated
 	 *
 	 */
-	static public function getQueryLog(ProcessWire $wire = null) {
+	static public function getQueryLog(?ProcessWire $wire = null) {
 		if($wire) {
 			return $wire->database->queryLog();
 		} else {

@@ -10,6 +10,10 @@
 @dropdown-padding:                              25px;
 @dropdown-background:                           @global-background;
 
+@dropdown-dropbar-padding-top:                  5px;
+
+@dropdown-nav-subtitle-font-size:               12px;
+
 //
 // New
 //
@@ -25,6 +29,14 @@
 .hook-dropdown() { box-shadow: @dropdown-box-shadow; }
 
 
+// Dropbar modifier
+// ========================================================================
+
+.hook-dropdown-dropbar() { box-shadow: none; }
+
+.hook-dropdown-dropbar-large() {}
+
+
 // Nav
 // ========================================================================
 
@@ -33,6 +45,8 @@
 .hook-dropdown-nav-item() {}
 
 .hook-dropdown-nav-item-hover() {}
+
+.hook-dropdown-nav-subtitle() {}
 
 .hook-dropdown-nav-header() {}
 

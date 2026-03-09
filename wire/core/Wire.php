@@ -101,14 +101,6 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	/*******************************************************************************************************
 	 * API VARIABLE/FUEL INJECTION AND ACCESS
 	 * 
-	 * PLEASE NOTE: All the following fuel related variables/methods will be going away in PW 3.0.
-	 * You should use the $this->wire() method instead for compatibility with PW 3.0. The only methods
-	 * and variables sticking around for PW 3.0 are:
-	 * 
-	 * $this->wire(...);
-	 * $this->useFuel(bool);
-	 * $this->useFuel
-	 * 
 	 */
 
 	/**
@@ -626,7 +618,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * @deprecated 
 	 *
 	 */
-	static public function isHooked($method, Wire $instance = null) {
+	static public function isHooked($method, ?Wire $instance = null) {
 		/** @var ProcessWire $wire */
 		$wire = $instance ? $instance->wire() : ProcessWire::getCurrentInstance();
 		if($instance) return $instance->wire()->hooks->hasHook($instance, $method);
@@ -1198,8 +1190,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	public function getChanges($getValues = false) {
 		if($getValues === 2) {
 			$changes = array();
-			foreach($this->changes as $name => $value) {
-				if($value) {} // value ignored
+			foreach(array_keys($this->changes) as $name) {
 				$changes[$name] = $name;
 			}
 			return $changes;
@@ -1362,24 +1353,28 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	}
 
 	/**
-	 * Hookable method called when an Exception occurs
+	 * Hookable method called when an Exception (or Error) occurs
 	 * 
-	 * - It will log Exception to `exceptions.txt` log if 'exceptions' is in `$config->logs`. 
-	 * - It will re-throw Exception if `$config->allowExceptions` is true. 
+	 * - It will log Exception to `exceptions.txt` log if 'exceptions' is in `$config->logs`.
+	 * - It will log Error to `errors.txt` log if 'errors' is in `$config->logs`.
+	 * - It will re-throw Exception or Error if `$config->allowExceptions` is true. 
 	 * - If additional `$text` is provided, it will be sent to notice method call. 
+	 * 
+	 * Please note that if your root /index.php version is less than 302 it will only receive 
+	 * Exception (and not Error) objects. 
 	 * 
 	 * #pw-hooker
 	 * 
-	 * @param \Exception|WireException $e Exception object that was thrown.
+	 * @param \Throwable $e Exception or Error object that was thrown. 
 	 * @param bool|int $severe Whether or not it should be considered severe (default=true).
 	 * @param string|array|object|true $text Additional details (optional):
 	 * 	- When provided, it will be sent to `$this->error($text)` if $severe is true, or `$this->warning($text)` if $severe is false.
 	 * 	- Specify boolean `true` to just send the `$e->getMessage()` to `$this->error()` or `$this->warning()`. 
 	 * @return $this
-	 * @throws \Exception If `$severe==true` and `$config->allowExceptions==true`
+	 * @throws \Exception|\Error If `$severe==true` and `$config->allowExceptions==true`
 	 * 
 	 */
-	public function ___trackException(\Exception $e, $severe = true, $text = null) {
+	public function ___trackException($e, $severe = true, $text = null) {
 		$config = $this->wire()->config;
 		$log = $this->wire()->log;
 		$msg = $e->getMessage();
@@ -1388,9 +1383,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			$severe ? $this->error($text) : $this->warning($text);
 			if(strlen($msg) && strpos($text, $msg) === false) $msg = "$text - $msg";
 		}
-		if(in_array('exceptions', $config->logs) && $log) {
-			$msg .= " (in " . str_replace($config->paths->root, '/', $e->getFile()) . " line " . $e->getLine() . ")";
-			$log->save('exceptions', $msg);
+		$type = $e instanceof \Exception ? 'exceptions' : 'errors';
+		if(in_array($type, $config->logs) && $log) {
+			$msg .= ' (' . str_replace($config->paths->root, '/', $e->getFile()) . ':' . $e->getLine() . ')';
+			$log->save($type, $msg);
 		}
 		if($severe && $config->allowExceptions) {
 			throw $e; // re-throw, if requested
@@ -1758,7 +1754,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * @param string|object $name Name of API variable to retrieve, set, or omit to retrieve the master ProcessWire object.
 	 * @param null|mixed $value Value to set if using this as a setter, otherwise omit.
 	 * @param bool $lock When using as a setter, specify true if you want to lock the value from future changes (default=false).
-	 * @return ProcessWire|Wire|Session|Page|Pages|Modules|User|Users|Roles|Permissions|Templates|Fields|Fieldtypes|Sanitizer|Config|Notices|WireDatabasePDO|WireHooks|WireDateTime|WireFileTools|WireMailTools|WireInput|string|mixed
+	 * @return ProcessWire|Wire|Session|Page|Pages|Modules|User|Users|Roles|Permissions|Templates|Fields|Fieldtypes|Sanitizer|Config|Notices|WireDatabasePDO|WireHooks|WireDateTime|WireFileTools|WireMailTools|WireInput|PagesVersions|string|mixed
 	 * @throws WireException
 	 *
 	 *
@@ -1803,7 +1799,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			// return ProcessWire instance
 			$value = $wire;
 			
-		} else if($name === '*' || $name === 'all' || $name == 'fuel') {
+		} else if($name === '*' || $name === 'all' || $name === 'fuel') {
 			// return Fuel instance
 			$value = $wire->fuel();
 			
@@ -1890,7 +1886,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		/** @var WireDebugInfo $debugInfo */
 		require_once(__DIR__ . '/WireDebugInfo.php');
 		$debugInfo = $this->wire(new WireDebugInfo());
-		return $debugInfo->getDebugInfo($this, true);
+		return $debugInfo->getDebugInfo($this, false);
 	}
 
 	/**
@@ -1912,4 +1908,3 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 
 
 }
-

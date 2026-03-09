@@ -101,6 +101,23 @@ function page($key = '', $value = null) {
 }
 
 /**
+ * Return id for given page or false if it’s not a page
+ *
+ * Returns positive int (page id) for page that exists, 0 for NullPage,
+ * or false if given $value is not a Page.
+ * 
+ * #pw-group-Functions-API
+ *
+ * @param Page|mixed $value
+ * @return int|false
+ * @since 3.0.224
+ *
+ */
+function pageId($value) {
+	return wirePageId($value);
+}
+
+/**
  * Access a ProcessWire configuration setting ($config API variable as a function)
  * 
  * This function behaves the same as the `$config` API variable, though does support 
@@ -680,4 +697,3 @@ function region($key = '', $value = null) {
 function setting($name = '', $value = null) {
 	return wireSetting($name, $value);
 }
-

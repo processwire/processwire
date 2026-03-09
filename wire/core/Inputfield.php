@@ -3,7 +3,7 @@
 /**
  * ProcessWire Inputfield - base class for Inputfield modules.
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * An Inputfield for an actual form input field widget, and this is provided as the base class
@@ -62,6 +62,7 @@
  * @property string $tabLabel Label for tab if Inputfield rendered in its own tab via Inputfield::collapsedTab* setting. @since 3.0.201 #pw-group-labels
  * @property string|null $prependMarkup Optional markup to prepend to the Inputfield content container. #pw-group-other
  * @property string|null $appendMarkup Optional markup to append to the Inputfield content container. #pw-group-other
+ * @property string|null $footerMarkup Optional markup to add to the '.Inputfield' container, after '.InputfieldContent'. @since 3.0.241 #pw-advanced
  * 
  * @method string|Inputfield label($label = null) Get or set the 'label' property via method. @since 3.0.110 #pw-group-labels
  * @method string|Inputfield description($description = null) Get or set the 'description' property via method. @since 3.0.110  #pw-group-labels
@@ -102,16 +103,16 @@
  * @property null|bool|Fieldtype $hasFieldtype The Fieldtype using this Inputfield, or boolean false when known not to have a Fieldtype, or null when not known. #pw-group-other
  * @property null|Field $hasField The Field object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
  * @property null|Page $hasPage The Page object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
- * @property null|Inputfield $hasInputfield If this Inputfield is owned/managed by another (other than parent/child relationship), it may be set here. 3.0.176+ #pw-group-other 
- * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior
+ * @property null|Inputfield $hasInputfield If this Inputfield is owned/managed by another (other than parent/child relationship), it may be set here. @since 3.0.176 #pw-group-other 
+ * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior #pw-group-languages
  * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label (default=true). #pw-group-output
  * @property null|bool $entityEncodeText Set to boolean false to specifically disable entity encoding for other text: description, notes, etc. (default=true). #pw-group-output
- * @property int $renderFlags Options that can be applied to render, see "render*" constants (default=0). #pw-group-output 3.0.204+
+ * @property int $renderFlags Options that can be applied to render, see "render*" constants (default=0). @since 3.0.204 #pw-group-output 
  * @property int $renderValueFlags Options that can be applied to renderValue mode, see "renderValue" constants (default=0). #pw-group-output
  * @property string $wrapClass Optional class name (CSS) to apply to the HTML element wrapping the Inputfield. #pw-group-other
  * @property string $headerClass Optional class name (CSS) to apply to the InputfieldHeader element #pw-group-other
  * @property string $contentClass Optional class name (CSS) to apply to the InputfieldContent element #pw-group-other
- * @property string $addClass Formatted class string letting you add class to any of the above (see addClass method). #pw-group-other 3.0.204+
+ * @property string $addClass Formatted class string letting you add class to any of the above (see addClass method). @since 3.0.204 #pw-group-other 
  * @property int|null $textFormat Text format to use for description/notes text in Inputfield (see textFormat constants) #pw-group-output
  * 
  * @method string|Inputfield required($required = null) Get or set required state. @since 3.0.110 #pw-group-behavior
@@ -121,7 +122,11 @@
  * @method string|Inputfield headerClass($class = null) Get header class attribute or add a class to it. @since 3.0.110 #pw-group-other
  * @method string|Inputfield contentClass($class = null) Get content class attribute or add a class to it. @since 3.0.110 #pw-group-other
  * 
- *
+ * MULTI-LANGUAGE METHODS (requires LanguageSupport module to be installed)
+ * ======================
+ * @method void setLanguageValue($language, $value) Set language value for Inputfield that supports it. Requires LanguageSupport module. $language can be Language, id (int) or name (string). @since 3.0.238 #pw-group-languages 
+ * @method string|mixed getLanguageValue($language) Get language value for Inputfield that supports it. Requires LanguageSupport module. $language can be Language, id (int) or name (string). @since 3.0.238  #pw-group-languages 
+ * 
  * HOOKABLE METHODS
  * ================
  * @method string render()
@@ -394,6 +399,14 @@ abstract class Inputfield extends WireData implements Module {
 	protected $editable = true;
 
 	/**
+	 * Header icon definitions
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $headerActions = array();
+
+	/**
 	 * Construct the Inputfield, setting defaults for all properties
 	 *
 	 */
@@ -421,8 +434,9 @@ abstract class Inputfield extends WireData implements Module {
 		$this->set('textFormat', self::textFormatBasic); // format applied to description and notes
 		$this->set('renderFlags', 0);  // See render* constants
 		$this->set('renderValueFlags', 0); // see renderValue* constants, applicable to renderValue mode only
-		$this->set('prependMarkup', ''); // markup to prepend to Inputfield output
-		$this->set('appendMarkup', ''); // markup to append to Inputfield output
+		$this->set('prependMarkup', ''); // markup to prepend to InputfieldContent output
+		$this->set('appendMarkup', ''); // markup to append to InputfieldContent output
+		$this->set('footerMarkup', ''); // markup to add to end of Inputfield output
 
 		// default ID attribute if no 'id' attribute set
 		$this->defaultID = $this->className() . self::$numInstances; 
@@ -505,7 +519,7 @@ abstract class Inputfield extends WireData implements Module {
 			if($value === true) $value = self::collapsedYes; 
 			$value = (int) $value;
 			
-		} else if(array_key_exists($key, $this->attributes)) {
+		} else if(array_key_exists($key, $this->attributes) && $key !== 'required') {
 			return $this->setAttribute($key, $value);
 			
 		} else if($key === 'required' && $value && !is_object($value)) {
@@ -936,7 +950,7 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 	protected function ___callUnknown($method, $arguments) {
 		$arg = isset($arguments[0]) ? $arguments[0] : null;
-		if(isset($this->attributes[$method])) {
+		if(isset($this->attributes[$method]) && $method !== 'required') {
 			// get or set an attribute
 			return $arg === null ? $this->getAttribute($method) : $this->setAttribute($method, $arg);
 		} else if(($value = $this->getSetting($method)) !== null) {
@@ -1356,11 +1370,11 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param array $attributes Associative array of attributes to build the string from, or omit to use this Inputfield's attributes.
+	 * @param array|null $attributes Associative array of attributes to build the string from, or omit to use this Inputfield's attributes.
 	 * @return string
 	 *
 	 */
-	public function getAttributesString(array $attributes = null) {
+	public function getAttributesString(?array $attributes = null) {
 
 		$str = '';
 
@@ -1392,7 +1406,7 @@ abstract class Inputfield extends WireData implements Module {
 				continue;
 			}
 
-			$str .= "$attr=\"" . htmlspecialchars($value, ENT_QUOTES, "UTF-8") . '" ';
+			$str .= "$attr=\"" . htmlspecialchars("$value", ENT_QUOTES, "UTF-8") . '" ';
 		}
 
 		return trim($str); 
@@ -1449,13 +1463,17 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * #pw-group-output
 	 * 
-	 * @param Inputfield|InputfieldWrapper|null The parent InputfieldWrapper that is rendering it, or null if no parent.
+	 * @param Inputfield|null The parent InputfieldWrapper that is rendering it, or null if no parent.
 	 * @param bool $renderValueMode Specify true only if this is for `Inputfield::renderValue()` rather than `Inputfield::render()`. 
 	 * @return bool True if assets were just added, false if already added. 
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
-		$result = $this->wire()->modules->loadModuleFileAssets($this) > 0;
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
+		if($this->className() === 'InputfieldWrapper') {
+			$result = false;
+		} else {
+			$result = $this->wire()->modules->loadModuleFileAssets($this) > 0;
+		}
 		if($this->wire()->hooks->isMethodHooked($this, 'renderReadyHook')) {
 			$this->renderReadyHook($parent, $renderValueMode);
 		}
@@ -1467,11 +1485,11 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * Hook this method instead if you want to hook renderReady().
 	 * 
-	 * @param Inputfield $parent
+	 * @param Inputfield|null $parent
 	 * @param bool $renderValueMode
 	 * 
 	 */
-	public function ___renderReadyHook(Inputfield $parent = null, $renderValueMode = false) { }
+	public function ___renderReadyHook(?Inputfield $parent = null, $renderValueMode = false) { }
 
 	/**
 	 * This hook was replaced by renderReady
@@ -2075,6 +2093,87 @@ abstract class Inputfield extends WireData implements Module {
 	public function editable($setEditable = null) {
 		if(!is_null($setEditable)) $this->editable = (bool) $setEditable;
 		return $this->editable;
+	}
+
+	/**
+	 * Add header action
+	 *
+	 * This adds a clickable icon to the right side of the Inputfield header.
+	 * There are three types of actions: 'click', 'toggle' and 'link'. The 'click' 
+	 * action simply triggers your JS event whenever it is clicked. The 'toggle' action
+	 * has an on/off state, and you can specify the JS event to trigger for each. 
+	 * This function will automatically figure out whether you want a `click`,
+	 * `toggle` or 'link' action based on what you provide in the $settings argument.
+	 * Below is a summary of these settings:
+	 * 
+	 * Settings for 'click' or 'link' type actions
+	 * -------------------------------------------
+	 * - `icon` (string): Name of font-awesome icon to use.
+	 * - `tooltip` (string): Optional tooltip text to display when icon hovered. 
+	 * - `event` (string): Event name to trigger in JS when clicked ('click' actions only). 
+	 * - `href` (string): URL to open ('link' actions only). 
+	 * - `modal` (bool): Specify true to open link in modal ('link' actions only). 
+	 * - `target` (string): Optional target attribute i.e. '_blank'.
+	 * 
+	 * Settings for 'toggle' (on/off) type actions 
+	 * -------------------------------------------
+	 * - `on` (bool): Start with the 'on' state? (default=false)
+	 * - `onIcon` (string): Name of font-awesome icon to show for on state. 
+	 * - `onEvent` (string): JS event name to trigger when toggled on. 
+	 * - `onTooltip` (string): Tooltip text to show when on icon is hovered. 
+	 * - `offIcon` (string): Name of font-awesome icon to show for off state. 
+	 * - `offEvent` (string): JS event name to trigger when toggled off. 
+	 * - `offTooltip` (string): Tooltip text to show when off icon is hovered. 
+	 * 
+	 * Other/optional settings (applies to all types) 
+	 * ----------------------------------------------
+	 * - `name` (string): Name of this action (-_a-zA-Z0-9).
+	 * - `parent` (string): Name of parent action, if this action is part of a menu.
+	 * - `overIcon` (string): Name of font-awesome icon to show when hovered. 
+	 * - `overEvent` (string): JS event name to trigger when mouse is over the icon.
+	 * - `downIcon` (string): Icon to display when mouse is down on the action icon (3.0.241+).
+	 * - `downEvent` (string): JS event name to trigger when mouse is down on the icon (3.0.241+).
+	 * - `cursor` (string): CSS cursor name to show when mouse is over the icon. 
+	 * - `setAll` (array): Set all of the header actions in one call, replaces any existing. 
+	 *    Note: to get all actions, call the method and omit the $settings argument. 
+	 * 
+	 * Settings for dropdown menu actions (3.0.241+)
+	 * ---------------------------------------------
+	 *  Note that menu type actions also require jQuery UI and /wire/templates-admin/scripts/main.js,
+	 *  both of which are already present in PW’s admin themes (AdminThemeUikit recommended).
+	 *  Requires ProcessWire 3.0.241 or newer.
+	 *  - `icon` (string): Icon name to use for dropdown toggle, i.e. 'fa-wrench'.
+	 *  - `tooltip` (string): Optional tooltip to describe what the dropdown is for.
+	 *  - `menuAction` (string): Action that toggles the menu to show, one of 'click' or 'hover' (default).
+	 *  - `menuItems` (array): Definition of menu items, each with one or more of the following properties.
+	 *     - `label` (string): Label text for the menu item (required).
+	 *     - `icon` (string): Icon name for the menu item, if desired.
+	 *     - `callback` (function|null): JS callback to execute item is clicked (not applicable in PHP).*
+	 *     - `event` (string): JS event name to trigger when item is clicked.
+	 *     - `tooltip` (string): Tooltip text to show when hovering menu item (title attribute).
+	 *     - `href` (string): URL to go to when menu item clicked.
+	 *     - `target` (string): Target attribute when href is used (i.e. "_blank").
+	 *     - `modal` (bool): Open href in modal window instead?
+	 *     - `active` (function|bool): Callback function that returns true if menu item active, or false.*
+	 *        if disabled. You can also directly specify true or false for this option.
+	 *     - NOTE 1: All `menuItems` properties above are optional, except for 'label'.
+	 *     - NOTE 2: To use `callback` or `active` as functions, you must define your menu in JS instead.
+	 *     - NOTE 3: For examples see the addHeaderAction() method in /wire/templates-admin/scripts/inputfields.js
+	 *
+	 * @param array $settings Specify array containing the appropriate settings above.
+	 * @return array Returns all currently added actions.
+	 * @since 3.0.240
+	 * 
+	 */
+	public function addHeaderAction(array $settings = array()) {
+		if(!empty($settings['setAll'])) {
+			if(is_array($settings['setAll'])) {
+				$this->headerActions = array_values($settings['setAll']);
+			}
+		} else {
+			$this->headerActions[] = $settings; // add new action
+		}
+		return $this->headerActions; // return all
 	}
 
 	/**

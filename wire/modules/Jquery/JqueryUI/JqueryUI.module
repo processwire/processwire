@@ -1,32 +1,64 @@
 <?php namespace ProcessWire;
 
+/**
+ * jQuery UI and optional plugins
+ *
+ */
 class JqueryUI extends ModuleJS { 
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'jQuery UI',
-			'version' => 196,
+			'version' => '1.10.4',
 			'summary' => 'jQuery UI as required by ProcessWire and plugins',
-			'href' => 'http://ui.jquery.com', 
+			'href' => 'https://ui.jquery.com', 
 			'permanent' => true, 
 		);
 	}
 	
 	protected $filesLoaded = array();
-	
+
+	/**
+	 * Wired to API
+	 * 
+	 */
 	public function wired() {
-		$debug = $this->wire('config')->debug;
-		$this->addComponents(array(
+		
+		$config = $this->wire()->config;
+		$debug = $config->debug;
+		
+		$this->loadStyles = false;
+		$this->loadScripts = false;
+		
+		$components = array(
+			'latest' => 'dev/JqueryUI.js',
 			'modal' => $debug ? 'modal.js' : 'modal.min.js',
-			'panel' => $debug ? 'panel.js' : 'panel.min.js', 
-			'touch' => 'touch.js' 
-		));
+			'panel' => $debug ? 'panel.js' : 'panel.min.js',
+			'touch' => 'touch.js'
+		);
+		
+		$this->addComponents($components);
+		$url = $config->urls('JqueryUI');
+
+		if($config->debug === 'dev' && $config->admin) {
+			$this->loadScripts = false;
+			$jQueryUI = $url . $components['latest'];
+		} else {
+			$jQueryUI = $url . 'JqueryUI.js';
+		}
+		$config->scripts->add($jQueryUI);
+		$this->filesLoaded['jquery-ui'] = $jQueryUI;
+
 		parent::wired();
 	}
-	
+
+	/**
+	 * Module init
+	 * 
+	 */
 	public function init() {
 		parent::init();
-		if($this->wire()->session->touch) $this->use('touch'); 
+		if($this->wire()->session->get('touch')) $this->use('touch'); 
 	}
 
 	/**
@@ -50,13 +82,27 @@ class JqueryUI extends ModuleJS {
 	public function ___use($name) {
 		if($name == 'panel') {
 			// also add stylesheet when panel component requested
-			$this->config->styles->add($this->config->urls('JqueryUI') . "panel.css");
+			$this->config->styles->add($this->wire()->config->urls('JqueryUI') . "panel.css");
 		} else if($name == 'vex') {
 			$this->useVex();
 			return $this;
 		} else if(strpos($name, 'selectize') === 0) {
 			$this->useSelectize($name);
 			return $this;	
+		} else if($name === 'latest') {
+			$oldFile = isset($this->filesLoaded['jquery-ui']) ? $this->filesLoaded['jquery-ui'] : null;
+			if($oldFile !== null) {
+				// replace rather than add
+				$config = $this->wire()->config;
+				$url = $config->urls('JqueryUI');
+				$newFile = $url . $this->components['latest'];
+				$config->scripts->replace($oldFile, $newFile);
+				$this->filesLoaded['jquery-ui'] = $newFile;
+				return $this;
+			} else {
+				// let it be added by parent use() method
+			}
+			
 		}
 		return parent::___use($name);
 	}

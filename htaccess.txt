@@ -95,8 +95,9 @@ ErrorDocument 404 /index.php
   # you will need to remove this one if you want to allow external iframes
   Header always append X-Frame-Options SAMEORIGIN 
 
-  # To prevent cross site scripting (IE8+ proprietary)
-  Header set X-XSS-Protection "1; mode=block"
+  # To prevent cross site scripting (IE8+ proprietary), see link before using:
+  # https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-XSS-Protection
+  # Header set X-XSS-Protection "1; mode=block"
 
   # Optionally (O) prevent mime-based attacks via content sniffing (IE+Chrome)
   # Header set X-Content-Type-Options "nosniff" 
@@ -390,7 +391,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
   
   # Block access to any software identifying txt, markdown or textile files
-  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|htaccess)\.(txt|md|textile)$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|htaccess)\.(txt|md|textile)$ [NC,OR]
   
   # Block potential arbitrary backup files within site directories for things like config
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$ [NC,OR]
@@ -448,7 +449,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_FILENAME} !(favicon\.ico|robots\.txt)
 
   # -----------------------------------------------------------------------------------------------
-  # 18. Optionally (O) prevent PW from attempting to serve images or anything in /site/assets/. 
+  # 18. Optionally (O) prevent PW from serving some file types, or anything in /site/assets/. 
   # Both of these lines are optional, but can help to reduce server load. However, they
   # are not compatible with the $config->pagefileSecure option (if enabled) and they 
   # may produce an Apache 404 rather than your regular 404. You may uncomment the two lines
@@ -458,7 +459,7 @@ DirectoryIndex index.php index.html index.htm
   # section #2 above that makes ProcessWire the 404 handler. 
   # ----------------------------------------------------------------------------------------------- 
 
-  # RewriteCond %{REQUEST_URI} !\.(jpg|jpeg|gif|png|ico|webp|svg)$ [NC]
+  # RewriteCond %{REQUEST_URI} !\.(jpg|jpeg|gif|png|ico|webp|svg|js|css)$ [NC]
   # RewriteCond %{REQUEST_FILENAME} !(^|/)site/assets/
 
   # ----------------------------------------------------------------------------------------------- 
@@ -479,4 +480,3 @@ DirectoryIndex index.php index.html index.htm
 #################################################################################################
 # END PROCESSWIRE HTACCESS DIRECTIVES
 #################################################################################################
-

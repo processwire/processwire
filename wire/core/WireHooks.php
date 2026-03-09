@@ -5,7 +5,7 @@
  * 
  * This class is for internal use. You should manipulate hooks from Wire-derived classes instead. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -47,6 +47,7 @@ class WireHooks {
 	 * - fromClass: the name of the class containing the hooked method, if not the object where addHook was executed. Set automatically, but you may still use in some instances.
 	 * - argMatch: array of Selectors objects where the indexed argument (n) to the hooked method must match, order to execute hook.
 	 * - objMatch: Selectors object that the current object must match in order to execute hook
+	 * - retMatch: Selectors object that must match the return value, or a match string to match return value
 	 * - public: auto-assigned to true or false by addHook() as to whether the method is public or private/protected.
 	 *
 	 */
@@ -58,7 +59,10 @@ class WireHooks {
 		'allInstances' => false,
 		'fromClass' => '',
 		'argMatch' => null,
+		'argMatchType' => [], 
 		'objMatch' => null,
+		'retMatch' => null,
+		'retMatchType' => '', 
 	);
 
 	/**
@@ -172,6 +176,22 @@ class WireHooks {
 	 * 
 	 */
 	protected $wire;
+
+	/**
+	 * Conditional argument match types and the PHP function to detect them
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $argMatchTypes = array(
+		'array' => 'is_array',
+		'bool' => 'is_bool',
+		'float' => 'is_float',
+		'int' => 'is_int',
+		'null' => 'is_null',
+		'object' => 'is_object',
+		'string' => 'is_string',
+	);
 
 	/**
 	 * Construct WireHooks
@@ -318,7 +338,7 @@ class WireHooks {
 	 * @see WireHooks::isMethodHooked(), WireHooks::isPropertyHooked(), WireHooks::hasHook()
 	 *
 	 */
-	public function isHooked($method, Wire $instance = null) {
+	public function isHooked($method, ?Wire $instance = null) {
 		if($instance) return $this->hasHook($instance, $method);
 		if(strpos($method, ':') !== false) {
 			$hooked = isset($this->hookClassMethodCache[$method]); // fromClass::method() or fromClass::property
@@ -612,11 +632,42 @@ class WireHooks {
 				}
 				if($objMatch) $options['objMatch'] = $objMatch;
 			}
+			if(strpos($method, '*') !== false) try {
+				// Wildcard method hooks
+				// i.e. addHook('Pages::*') for all hookable methods in $pages
+				// i.e. addHook('Pages::save*') for Pages::saved, Pages::saveReady, Pages::save, etc.
+				$ref = new \ReflectionClass("\\ProcessWire\\$fromClass");
+				$hookIds = [];
+				$findMethod = '___' . trim($method, '*');
+				foreach($ref->getMethods() as $item) {
+					if(strpos($item->name, '___') !== 0) continue;
+					if($method === '*' || ($findMethod && strpos($item->name, $findMethod) === 0)) {
+						$hookableName = substr($item->name, 3);
+						$hookIds[] = $this->addHook($object, "$fromClass::$hookableName", $toObject, $toMethod, $options);
+					}
+				}
+				return implode(',', $hookIds);
+			} catch(\Exception $e) {
+				// wildcard hook cannot be attached	
+			}
 			$options['fromClass'] = $fromClass;
 		}
 
+		$retMatch = '';
 		$argOpen = strpos($method, '(');
-		if($argOpen) { 
+	
+		if($argOpen) {
+			if(strpos($method, ':(')) {
+				list($method, $retMatch) = explode(':(', $method, 2);
+				$retMatch = rtrim($retMatch, ') ');
+			} else if(strpos($method, ':<') && substr(trim($method), -1) === '>') {
+				list($method, $retMatch) = explode(':<', $method, 2);
+				$retMatch = "<$retMatch";
+			}
+			$argOpen = strpos($method, '(');
+		}
+		
+		if($argOpen) {
 			// arguments to match may be specified in method name
 			$argClose = strpos($method, ')'); 
 			if($argClose === $argOpen+1) {
@@ -643,18 +694,31 @@ class WireHooks {
 					// just single argument specified, so argument 0 is assumed
 				}
 				if(is_string($argMatch)) $argMatch = array(0 => $argMatch);
+				$argMatchType = [];
 				foreach($argMatch as $argKey => $argVal) {
-					if(Selectors::stringHasSelector($argVal)) {
-						/** @var Selectors $selectors */
-						$selectors = $this->wire->wire(new Selectors());
-						$selectors->init($argVal);
-						$argMatch[$argKey] = $selectors;
-					}
+					list($argVal, $argValType) = $this->prepareArgMatch($argVal);
+					$argMatch[$argKey] = $argVal;
+					$argMatchType[$argKey] = $argValType;
 				}
-				if(count($argMatch)) $options['argMatch'] = $argMatch;
+				if(count($argMatch)) {
+					$options['argMatch'] = $argMatch;
+					$options['argMatchType'] = $argMatchType;
+				}
 			}
+		} else if(strpos($method, ':')) {
+			list($method, $retMatch) = explode(':', $method, 2);
 		}
 		
+		if($retMatch) {
+			// match return value
+			if($options['before'] && !$options['after']) {
+				throw new WireException('You cannot match return values with “before” hooks'); 
+			}
+			list($retMatch, $retMatchType) = $this->prepareArgMatch($retMatch);
+			$options['retMatch'] = $retMatch;
+			$options['retMatchType'] = $retMatchType;
+		}
+
 		$localHooks = $object->getLocalHooks();
 		
 		if($options['allInstances'] || $options['fromClass']) {
@@ -936,6 +1000,8 @@ class WireHooks {
 			'replace' => false,
 		);
 		
+		if(self::___debug) $result['hooksRun'] = [];
+		
 		if($type === 'method' || $type === 'property' || $type === 'either') {
 			if(!$methodExists && !$this->isHookedOrParents($object, $method, $type)) {
 				return $result; // exit quickly when we can
@@ -980,30 +1046,23 @@ class WireHooks {
 				if($type == 'method' && !empty($hook['options']['argMatch'])) {
 					// argument comparison to determine at runtime whether to execute the hook
 					$argMatches = $hook['options']['argMatch'];
+					$argMatchTypes = $hook['options']['argMatchType'];
 					$matches = true;
 					foreach($argMatches as $argKey => $argMatch) {
 						/** @var Selectors $argMatch */
+						$argMatchType = isset($argMatchTypes[$argKey]) ? $argMatchTypes[$argKey] : '';
 						$argVal = isset($arguments[$argKey]) ? $arguments[$argKey] : null;
-						if(is_object($argMatch)) {
-							// Selectors object
-							if(is_object($argVal)) {
-								$matches = $argMatch->matches($argVal);
-							} else {
-								// we don't work with non-object here
-								$matches = false;
-							}
-						} else {
-							if(is_array($argVal)) {
-								// match any array element
-								$matches = in_array($argMatch, $argVal);
-							} else {
-								// exact string match
-								$matches = $argMatch == $argVal;
-							}
-						}
+						$matches = $this->conditionalArgMatch($argMatch, $argVal, $argMatchType);
 						if(!$matches) break;
 					}
 					if(!$matches) continue; // don't run hook
+				}
+				
+				if($type === 'method' && $when === 'after' && !empty($hook['options']['retMatch'])) {
+					if(!$this->conditionalArgMatch(
+						$hook['options']['retMatch'], 
+						$result['return'], 
+						$hook['options']['retMatchType'])) continue;
 				}
 				
 				if($this->allowPathHooks && isset($this->pathHooks[$hook['id']])) {
@@ -1080,6 +1139,7 @@ class WireHooks {
 				if(!$toMethodCallable) continue;
 
 				$result['numHooksRun']++;
+				if(self::___debug) $result['hooksRun'][] = $hook['options']; 
 				
 				if($event->cancelHooks === true) $cancelHooks = true;
 
@@ -1101,9 +1161,104 @@ class WireHooks {
 	}
 
 	/**
-	 * Allow given path hook to run?
+	 * Prepare argument match
 	 * 
-	 * This checks if the hook’s path matches the request path, allowing for both 
+	 * @param string $argMatch
+	 * @return array
+	 * @since 3.0.247
+	 * 
+	 */
+	protected function prepareArgMatch($argMatch) {
+		$argMatch = trim($argMatch, '()');
+		$argMatchType = '';
+		
+		list($c1, $c2, $c3) = [ substr($argMatch, 0, 1), substr($argMatch, -1), substr($argMatch, 0, 2) ];
+		
+		if($c1 === '<' && $c2 === '>') {
+			// i.e. <WireArray> or <ThisPage|ThatPage>
+			$argMatchType = 'instanceof';
+			$argMatch = trim($argMatch, '<>');
+			
+		} else if($c1 === '=' || $c1 === '<' || $c1 === '>' || Selectors::isOperator($c3)) {
+			// selector that starts with operator and translates to "argVal matches argMatch"
+			$argMatch = "___val$argMatch"; // i.e. ___val=something
+			$argMatchType = 'selector';
+		}
+		
+		if($argMatchType === 'instanceof') {
+			// ok
+			$argMatch = strpos($argMatch, '|') ? explode('|', $argMatch) : [ $argMatch ];
+		} else if(Selectors::stringHasSelector($argMatch)) {
+			/** @var Selectors $selectors */
+			$selectors = $this->wire->wire(new Selectors());
+			$selectors->init($argMatch);
+			$argMatch = $selectors;
+			$argMatchType = 'selector';
+		} else {
+			$argMatchType = 'equals';
+		}
+		
+		return [ $argMatch, $argMatchType ];
+	}
+
+	/**
+	 * Does given value match given match condition?
+	 * 
+	 * @param Selectors|string $argMatch
+	 * @param mixed $argVal
+	 * @return bool
+	 * @since 3.0.247
+	 * 
+	 */
+	protected function conditionalArgMatch($argMatch, $argVal, $argMatchType) {
+		
+		$matches = false;
+		
+		if($argMatch instanceof Selectors) {
+			// Selectors object
+			/** @var Selector $s */
+			$s = $argMatch->first();
+			if($s instanceof Selector && $s->field() === '___val') {
+				$o = WireData();
+				$o->set('value', $argVal);
+				$s->field = 'value';
+				$argVal = $o;
+			} else if(is_array($argVal)) {
+				$argVal = count($argVal) && is_string(key($argVal)) ? WireData($argVal) : WireArray($argVal);
+			}
+			if(is_object($argVal)) {
+				$matches = $argMatch->matches($argVal);
+			}
+
+		} else if($argMatchType === 'instanceof') {
+			if(!is_array($argMatch)) $argMatch = [ $argMatch ];
+			foreach($argMatch as $type) {
+				if(isset($this->argMatchTypes[$type])) {
+					$argMatchFunc = $this->argMatchTypes[$type];
+					$matches = $argMatchFunc($argVal);
+				} else {
+					$matches = wireInstanceOf($argVal, $type);
+				}
+				if($matches) break;
+			}
+			
+		} else if(is_array($argVal)) {
+			// match any array element
+			$matches = in_array($argMatch, $argVal);
+
+		} else {
+			// exact match
+			$matches = $argMatch == $argVal;
+		}
+
+		return $matches;
+		
+	}
+
+	/**
+	 * Allow given path hook to run?
+	 *
+	 * This checks if the hook’s path matches the request path, allowing for both
 	 * regular and regex matches and populating parenthesized portions to arguments
 	 * that will appear in the HookEvent.
 	 * 
@@ -1141,6 +1296,15 @@ class WireHooks {
 			$regexDelim = $matchPath[0];
 		} else {
 			// needs to be in regex format
+			if(strpos($matchPath, '.') !== false) {
+				// preserve some regex sequences containing periods
+				$r = [ '.+' => '•+', '.*' => '•*', '\\.' => '\\•' ];
+				$matchPath = str_replace(array_keys($r), array_values($r), $matchPath);
+				// force any remaining periods to be taken literally
+				$matchPath = str_replace('.', '\\.', $matchPath);
+				// restore regex sequences containing periods
+				$matchPath = str_replace(array_values($r), array_keys($r), $matchPath);
+			}
 			if(strpos($matchPath, '/') === 0) $matchPath = "^$matchPath";
 			$matchPath = "#$matchPath$#";
 		}
@@ -1241,7 +1405,7 @@ class WireHooks {
 		foreach($arguments as $argument) {
 			if(is_object($argument)) $notes[] = get_class($argument);
 			else if(is_array($argument)) $notes[] = "array(" . count($argument) . ")";
-			else if(strlen($argument) > 20) $notes[] = substr($argument, 0, 20) . '...';
+			else if(strlen("$argument") > 20) $notes[] = substr("$argument", 0, 20) . '...';
 		}
 		$timerName .= "(" . implode(', ', $notes) . ")";
 		if(isset($this->debugTimers[$timerName])) {

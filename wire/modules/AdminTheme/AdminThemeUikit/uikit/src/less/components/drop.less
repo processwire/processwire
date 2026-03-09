@@ -3,11 +3,9 @@
 //
 // Component:       `uk-drop`
 //
-// Modifiers:       `uk-drop-top-*`
-//                  `uk-drop-bottom-*`
-//                  `uk-drop-left-*`
-//                  `uk-drop-right-*`
-//                  `uk-drop-stack`
+// Sub-objects:     `uk-drop-parent-icon`
+//
+// Modifiers:       `uk-drop-stack`
 //                  `uk-drop-grid`
 //
 // States:          `uk-open`
@@ -21,8 +19,11 @@
 // ========================================================================
 
 @drop-z-index:                              @global-z-index + 20;
-@drop-width:                                300px;
 @drop-margin:                               @global-margin;
+@drop-viewport-margin:                      15px;
+@drop-width:                                300px;
+
+@drop-parent-icon-margin-left:              0.25em;
 
 
 /* ========================================================================
@@ -41,6 +42,8 @@
     /* 2 */
     position: absolute;
     z-index: @drop-z-index;
+    --uk-position-offset: @drop-margin;
+    --uk-position-viewport-offset: @drop-viewport-margin;
     /* 3 */
     box-sizing: border-box;
     width: @drop-width;
@@ -50,25 +53,26 @@
 .uk-drop.uk-open { display: block; }
 
 
-/* Direction / Alignment modifiers
- ========================================================================== */
-
-/* Direction */
-[class*='uk-drop-top'] { margin-top: -@drop-margin; }
-[class*='uk-drop-bottom'] { margin-top: @drop-margin; }
-[class*='uk-drop-left'] { margin-left: -@drop-margin; }
-[class*='uk-drop-right'] { margin-left: @drop-margin; }
-
-
 /* Grid modifiers
  ========================================================================== */
 
 .uk-drop-stack .uk-drop-grid > * { width: 100% !important; }
 
 
+/* Parent icon
+ ========================================================================== */
+
+.uk-drop-parent-icon {
+    margin-left: @drop-parent-icon-margin-left;
+    transition: transform 0.3s ease-out;
+}
+
+[aria-expanded="true"] > .uk-drop-parent-icon { transform: rotateX(180deg); }
+
+
 // Hooks
 // ========================================================================
 
-.hook-drop-misc;
+.hook-drop-misc();
 
 .hook-drop-misc() {}

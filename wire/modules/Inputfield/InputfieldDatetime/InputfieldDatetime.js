@@ -20,7 +20,6 @@ function InputfieldDatetimeDatepicker($t) {
 	if(pickerVisible) {
 		// datepicker always visible (inline)
 		var $datepicker = $("<div></div>"); 
-		//$t.parent('p').after($datepicker); 
 		$t.after($datepicker); 
 	} else {
 		// datepicker doesn't appear till requested
@@ -36,9 +35,18 @@ function InputfieldDatetimeDatepicker($t) {
 		dateFormat: dateFormat,
 		gotoCurrent: true,
 		defaultDate: tsDate
-		// buttonImage: config.urls.admin_images + 'icons/calendar.gif',
-		// dateFormat: config.date_format
 	}; 
+	
+	var attrOptions = JSON.parse($t.attr('data-datepicker'));
+	
+	var customOptions = {};
+	
+	if(typeof ProcessWire.config.InputfieldDatetimeDatepickerDefaults === 'object') {
+		options = $.extend({}, ProcessWire.config.InputfieldDatetimeDatepickerDefaults, options);
+	}
+	if(typeof ProcessWire.config.InputfieldDatetimeDatepickerOptions === 'object') {
+		customOptions = ProcessWire.config.InputfieldDatetimeDatepickerOptions;
+	}
 
 	if(yearRange && yearRange.length) options.yearRange = yearRange; 
 
@@ -51,13 +59,15 @@ function InputfieldDatetimeDatepicker($t) {
 		}
 		if(timeFormat.indexOf('ss') > -1) options.showSecond = true; 
 		if(timeFormat.indexOf('m') == -1) options.showMinute = false;
+		options = $.extend(options, attrOptions, customOptions);
 		$datepicker.datetimepicker(options); 
 	} else {
+		options = $.extend(options, attrOptions, customOptions);
 		$datepicker.datepicker(options); 
 	}
 
 	if(pickerVisible) {
-		$datepicker.change(function(e) {
+		$datepicker.on('change', function(e) {
 			var d = $datepicker.datepicker('getDate');
 			var str = $.datepicker.formatDate(dateFormat, d); 
 			$t.val(str); 
@@ -70,8 +80,8 @@ function InputfieldDatetimeDatepicker($t) {
 		if($button.length) {
 			var $a = $("<a class='pw-ui-datepicker-trigger' href='#'><i class='fa fa-calendar'></i></a>");
 			$button.after($a).hide();
-			$a.click(function() {
-				$button.click();
+			$a.on('click', function() {
+				$button.trigger('click');
 				return false;
 			});
 		}
@@ -175,6 +185,14 @@ function InputfieldDatetimeSelect() {
  * 
  */
 jQuery(document).ready(function($) {
+	
+	if(typeof $.datepicker !== 'undefined') {
+		var _gotoToday = $.datepicker._gotoToday;
+		$.datepicker._gotoToday = function(id) {
+			_gotoToday.call(this, id);
+			$.datepicker._curInst.input.datepicker('setDate', new Date());
+		};
+	}
 
 	// init datepickers present when document is ready
 	$("input.InputfieldDatetimeDatepicker:not(.InputfieldDatetimeDatepicker3):not(.initDatepicker)").each(function(n) {

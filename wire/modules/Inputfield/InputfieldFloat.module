@@ -3,20 +3,20 @@
 /**
  * Inputfield for floating point numbers
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
- * @property int $precision Decimals precision (or -1 to disable rounding in 3.0.193+)
+ * @property int|null|string $precision Decimals precision (or -1 to disable rounding in 3.0.193+) (default=2)
  * @property int $digits Total digits, for when used in decimal mode (default=0)
- * @property string $inputType Input type to use, one of "text" or "number"
- * @property int|float $min
- * @property int|float $max
- * @property int|float|string $step
- * @property int $size
- * @property string $placeholder
+ * @property string $inputType Input type to use, one of "text" or "number" (default=text)
+ * @property int|float $min Minimum allowed value
+ * @property int|float $max Maximum allowed value
+ * @property int|float|string $step HTML5 step attibute value (default=any)
+ * @property int $size Size attribute for input 
+ * @property string $placeholder Placeholder attribute for input (default='')
  * @property int|float $initValue Initial/default value (when used as independent Inputfield)
  * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger)
- * @property bool|int $noE Convert “123E-3” and “123E3” type numbers to real numbers in the <input>? 3.0.193+
+ * @property bool|int $noE Convert “123E-3” and “123E3” type numbers to real numbers in the <input>? 3.0.193+ (default=false)
  * 
  */
 
@@ -98,7 +98,7 @@ class InputfieldFloat extends InputfieldInteger {
 	 * Typecast value to float, override from InputfieldInteger
 	 *
 	 * @param string|int|float $value
-	 * @return int
+	 * @return float
 	 *
 	 */
 	protected function typeValue($value) {
@@ -125,11 +125,11 @@ class InputfieldFloat extends InputfieldInteger {
 	/**
 	 * Override method from Inputfield to convert locale specific decimals for input[type=number]
 	 * 
-	 * @param array $attributes
+	 * @param array|null $attributes
 	 * @return string
 	 * 
 	 */
-	public function getAttributesString(array $attributes = null) {
+	public function getAttributesString(?array $attributes = null) {
 		if(is_null($attributes)) $attributes = $this->getAttributes();
 		if($attributes['type'] === 'number') { 
 			$value = isset($attributes['value']) ? $attributes['value'] : null;
@@ -140,7 +140,9 @@ class InputfieldFloat extends InputfieldInteger {
 			}
 			if(empty($attributes['step']) || $attributes['step'] === 'any') {
 				$precision = (int) $this->precision;
-				if($precision < 1 && $value !== null) $precision = $this->getPrecision($value);
+				if($precision === 0 && $value !== null) {
+					$precision = $this->getPrecision($value);
+				}
 				if($precision > 0) {
 					$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
 				}
@@ -188,8 +190,7 @@ class InputfieldFloat extends InputfieldInteger {
 		$inputfields = parent::getConfigInputfields();
 		if($this->hasFieldtype === false) {
 			// when used without FieldtypeFloat
-			/** @var InputfieldInteger $f */
-			$f = $this->wire()->modules->get('InputfieldInteger');
+			$f = $inputfields->InputfieldInteger;
 			$f->attr('name', 'precision');
 			$f->label = $this->_('Number of decimal digits to round to');
 			$f->description = $this->_('Or use a negative number like `-1` to disable rounding.');

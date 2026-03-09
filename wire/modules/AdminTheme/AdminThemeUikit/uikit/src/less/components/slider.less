@@ -31,7 +31,7 @@
 .uk-slider {
     /* 1 */
     -webkit-tap-highlight-color: transparent;
-    .hook-slider;
+    .hook-slider();
 }
 
 
@@ -39,10 +39,16 @@
  ========================================================================== */
 
 /*
- * Clip child elements
+ * 1. Clip child elements
+ * 2. Prevent accidental scrolling through elements in slide getting focused
  */
 
-.uk-slider-container { overflow: hidden; }
+.uk-slider-container {
+    /* 1 */
+    overflow: hidden;
+    /* 2 */
+    overflow: clip;
+}
 
 /*
  * Widen container to prevent box-shadows from clipping, `large-box-shadow`
@@ -59,6 +65,7 @@
 /*
  * 1. Optimize animation
  * 2. Create a containing block. In Safari it's neither created by `transform` nor `will-change`.
+ * 3. Disable horizontal panning gestures
  */
 
 .uk-slider-items {
@@ -66,6 +73,8 @@
     will-change: transform;
     /* 2 */
     position: relative;
+    /* 3 */
+    touch-action: pan-y;
 }
 
 /*
@@ -92,29 +101,23 @@
 /*
  * 1. Let items take content dimensions (0 0 auto)
  *    `max-width` needed to keep image responsiveness and prevent content overflow
- * 3. Create position context
- * 4. Disable horizontal panning gestures in IE11 and Edge
- * 5. Suppress outline on focus
+ * 2. Create position context
  */
 
 .uk-slider-items > * {
     /* 1 */
     flex: none;
+    box-sizing: border-box;
     max-width: 100%;
-    /* 3 */
+    /* 2 */
     position: relative;
-    /* 4 */
-    touch-action: pan-y;
 }
-
-/* 5 */
-.uk-slider-items > :focus { outline: none; }
 
 
 // Hooks
 // ========================================================================
 
-.hook-slider-misc;
+.hook-slider-misc();
 
 .hook-slider() {}
 .hook-slider-misc() {}

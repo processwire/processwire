@@ -25,10 +25,6 @@ class FieldtypeURL extends FieldtypeText {
 		);
 	}
 
-	public function init() {
-		parent::init();
-	}
-
 	/**
 	 * Sanitize value for storage
 	 * 
@@ -73,7 +69,7 @@ class FieldtypeURL extends FieldtypeText {
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
 		if($field->get('addRoot') && !$field->get('noRelative') && substr($value, 0, 1) == '/') {
-			$root = rtrim($this->config->urls->root, '/');
+			$root = rtrim($this->wire()->config->urls->root, '/');
 			$value = $root . $value; 
 		}		
 		$value = parent::___formatValue($page, $field, $value);
@@ -159,4 +155,3 @@ class FieldtypeURL extends FieldtypeText {
 	// @todo add markupValue()
 
 }
-

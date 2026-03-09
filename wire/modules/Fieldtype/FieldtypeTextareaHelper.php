@@ -51,6 +51,11 @@ class FieldtypeTextareaHelper extends Wire {
 		$f->label = $this->_('Inputfield Type');
 		$f->description = $this->_('The type of field that will be used to collect input (Textarea is the default). Note that if you change this and submit, the available configuration options in the "input" tab section may change.'); // Inputfield type description
 		$f->required = true;
+		$f->notes = $this->_('We recommend using TinyMCE over CKEditor when creating new rich text fields.');
+		if(!$modules->isInstalled('InputfieldTinyMCE')) {
+			$installUrl = $modules->getModuleInstallUrl('InputfieldTinyMCE'); 
+			$f->notes .= ' [' . $this->_('Click here to install TinyMCE') . "]($installUrl)";
+		}
 
 		$baseClass = "InputfieldTextarea";
 		foreach($modules->find("className^=Inputfield") as $fm) {
@@ -116,6 +121,12 @@ class FieldtypeTextareaHelper extends Wire {
 			$this->_('Image access control:') . ' ' .
 			'[span.description]' .
 			$this->_('Remove images from markup that user does not have view access to') .
+			'[/span]'
+		);
+		$f->addOption(FieldtypeTextarea::htmlImageLoadingLazy,
+			$this->_('Image lazy loading:') . ' ' .
+			'[span.description]' .
+			$this->_('Populate loading="lazy" attribute to img tags at runtime, when page output formatting on') .
 			'[/span]'
 		);
 		$value = $field->get('htmlOptions');
@@ -270,7 +281,7 @@ class FieldtypeTextareaHelper extends Wire {
 	public function getInputfieldError(Field $field) {
 		$config = $this->wire()->config;
 
-		$editURL = $config->urls->admin . "setup/field/edit?id=$field->id";
+		$editURL = $field->editUrl();
 		$modulesURL = $config->urls->admin . "module/";
 		$inputfieldClass = $field->get('inputfieldClass');
 		$findURL = "https://processwire.com/search/?q=$inputfieldClass&t=Modules";

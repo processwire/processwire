@@ -3,19 +3,22 @@
 /**
  * ProcessWire Pages Parents
  *
- * Implements page parents helper methods for the $pages API variable
- * and manages the pages_parents DB table. 
- * 
+ * #pw-headline Pages Parents
+ * #pw-breadcrumb Pages
+ * #pw-var $pages->parents
+ * #pw-summary Implements page parents helper methods for the $pages API variable and manages the pages_parents DB table. 
+ * #pw-body = 
  * This is not intended for the public API and instead used internally by 
- * the $pages classes, but available at $pages->parents()->methodName() if 
+ * the $pages classes, but available at `$pages->parents()->methodName()` if 
  * you want to use anything here. 
+ * #pw-body
  * 
  * ~~~~~~
  * // Rebuild the entire pages_parents table
  * $numRows = $pages->parents()->rebuildAll();
  * ~~~~~~
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.156
@@ -566,8 +569,6 @@ class PagesParents extends Wire {
 	/**
 	 * Rebuild pages_parents table for given page (experimental faster alternative/rewrite of rebuild method)
 	 * 
-	 * #pw-internal
-	 * 
 	 * @param Page $page
 	 * @param Page $oldParent
 	 * @param Page $newParent
@@ -578,7 +579,12 @@ class PagesParents extends Wire {
 	 */
 	public function movePage(Page $page, Page $oldParent, Page $newParent) {
 		
+		$key = "$page,$oldParent,$newParent";
+		if($key === $this->movePageLast) return 0;
+		$this->movePageLast = $key;
+	
 		$database = $this->wire()->database;
+		$numChildren = $page->numChildren();
 		$numRows = 0;
 	
 		$oldParentIds = $oldParent->parents()->explode('id');
@@ -595,7 +601,11 @@ class PagesParents extends Wire {
 		$query->bindValue(':new_parent_id', $newParent->id, \PDO::PARAM_INT);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':old_parent_id', $oldParent->id, \PDO::PARAM_INT);
-		$query->execute();
+		try {
+			$query->execute();
+		} catch(\Exception $e) {
+			if($e->getCode() != 23000) throw $e;
+		}
 		$numRows += $query->rowCount();
 
 		// find children and descendents of the page that moved
@@ -604,7 +614,7 @@ class PagesParents extends Wire {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
 	
-		$ids = array();
+		$ids = array($page->id => $page->id);
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$id = (int) $row[0];
 			$ids[$id] = $id;
@@ -612,17 +622,30 @@ class PagesParents extends Wire {
 		
 		$query->closeCursor();
 		
-		if(!count($ids)) return $numRows;
-
 		$inserts = array();
 
 		foreach($ids as $id) {
 			foreach($newParentIds as $parentId) {
-				$inserts["$id,$parentId"] = array('pages_id' => $id, 'parents_id' => (int) $parentId);
+				if($id === $parentId) continue;
+				$inserts[] = "$id,$parentId";
+			}
+		}
+		
+		// redundancy to capture specific missing parent situations
+		foreach($newParent->parents() as $parent) {
+			if($parent->id < 2) continue;
+			$inserts[] = "$newParent->id,$parent->id";
+			if($parent->parent_id > 1) {
+				$grandParent = $parent->parent();
+				$inserts[] = "$parent->id,$grandParent->id";
 			}
 		}
 
-		if(count($oldParentIds)) {
+		// if page has children also add it to the inserts list
+		if($numChildren) $inserts[] = "$page->id,$newParent->id";
+
+		// delete old parent IDs
+		if(count($oldParentIds) && count($ids)) {
 			$idStr = implode(',', $ids);
 			$oldParentIds = $this->wire()->sanitizer->intArray($oldParentIds);
 			$oldParentIdStr = implode(',', $oldParentIds);
@@ -636,18 +659,25 @@ class PagesParents extends Wire {
 		$query = $database->prepare($sql);
 		
 		foreach($inserts as $insert) {
-			$query->bindValue(':pages_id', $insert['pages_id'], \PDO::PARAM_INT);
-			$query->bindValue(':parents_id', $insert['parents_id'], \PDO::PARAM_INT); 
+			list($id, $parentId) = explode(',', $insert, 2);
+			$query->bindValue(':pages_id', $id, \PDO::PARAM_INT);
+			$query->bindValue(':parents_id', $parentId, \PDO::PARAM_INT); 
 			try {
 				if($query->execute()) $numRows++;
 			} catch(\Exception $e) {
-				$this->error($e->getMessage());
+				if($e->getCode() != 23000) $this->error($e->getMessage());
 			}
 		}
 		
 		return $numRows;
 	}
-	
+
+	/**
+	 * @var string
+	 *
+	 */
+	protected $movePageLast = '';
+
 	/**
 	 * Add rows for a new parent in the pages_parents table
 	 * 

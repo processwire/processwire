@@ -28,7 +28,7 @@
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string getMarkup($key = null) Render a simple/default markup value for each item #pw-internal
@@ -73,6 +73,16 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 */
 	protected $keyIndex = array();
+
+	/**
+	 * Construct
+	 *
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->indexedByName = false;
+		$this->usesNumericKeys = true;
+	}
 
 	/**
 	 * Template method that descendant classes may use to validate items added to this WireArray
@@ -140,18 +150,6 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 			// page is not present here
 			return null;
 		}
-	}
-
-	/**
-	 * Does this PageArray use numeric keys only? (yes it does)
-	 * 
-	 * Defined here to override the slower check in WireArray
-	 * 
-	 * @return bool
-	 *
-	 */
-	protected function usesNumericKeys() {
-		return true;
 	}
 
 	/**
@@ -394,7 +392,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * This is applicable to and destructive to the WireArray.
 	 *
-	 * @param string|Selectors|array $selectors AttributeSelector string to use as the filter.
+	 * @param string|Selectors|array $selectors Selector string to use as the filter.
 	 * @param bool|int $not Make this a "not" filter? Use int 1 for "not all". (default is false)
 	 * @return PageArray|WireArray reference to current [filtered] PageArray
 	 *
@@ -409,7 +407,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $selector AttributeSelector string to use as the filter.
+	 * @param string $selector Selector string to use as the filter.
 	 * @return PageArray|PaginatedArray|WireArray reference to current PageArray instance.
 	 *
 	 */
@@ -418,11 +416,11 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	}
 
 	/**
-	 * Filter out pages that don't match the selector (destructive)
+	 * Filter out pages that DO match the selector (destructive)
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $selector AttributeSelector string to use as the filter.
+	 * @param string $selector Selector string to use 
 	 * @return PageArray|PaginatedArray|WireArray reference to current PageArray instance.
 	 *
 	 */
@@ -454,7 +452,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $selector AttributeSelector string.
+	 * @param string $selector Selector string.
 	 * @return PageArray|WireArray New PageArray instance
 	 * @see WireArray::find()
 	 *
@@ -621,10 +619,16 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function __toString() {
-		$s = '';
-		foreach($this as $page) $s .= "$page|";
-		$s = rtrim($s, "|"); 
-		return $s; 
+		$ids = array();
+		if($this->lazyLoad) {
+			$items = $this;
+		} else {
+			$items = &$this->data;
+		}
+		foreach($items as $page) {
+			if(!$page instanceof NullPage) $ids[] = $page->id;
+		}
+		return implode('|', $ids);
 	}
 
 	/**
@@ -649,7 +653,8 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 			if($out) {
 				$out = "<ul>$out</ul>";
 				if($this->getLimit() && $this->getTotal() > $this->getLimit()) {
-					$pager = $this->wire('modules')->get('MarkupPagerNav');
+					/** @var MarkupPagerNav $pager */
+					$pager = $this->wire()->modules->get('MarkupPagerNav');
 					$out .= $pager->render($this);
 				}
 			}
@@ -729,5 +734,3 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 		}
 	}
 }
-
-

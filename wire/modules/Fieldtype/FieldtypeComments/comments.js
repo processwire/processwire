@@ -89,7 +89,7 @@ function CommentFormStars() {
 		if(value === valuePrev) value = 0; // click on current value to unset
 		$input.val(value).attr('value', value); // redundancy intended, val() not working on webkit mobile for some reason
 		setStars($parent, value);
-		$input.change();
+		$input.trigger('change');
 		return false;
 	});
 
@@ -132,7 +132,7 @@ function CommentActionReplyClick() {
 		$form = jQuery('#CommentForm form').clone().removeAttr('id');
 		$form.addClass('CommentForm' + commentID);
 		$form.hide().find('.CommentFormParent').val(commentID);
-		var $formPlaceholder = $item.find('form:not(.CommentFormReply):eq(0)');
+		var $formPlaceholder = $item.find('form:not(.CommentFormReply)').first();
 		if($formPlaceholder.length) {
 			// use existing <form></form> placed in there as optional target for reply form
 			$formPlaceholder.replaceWith($form);

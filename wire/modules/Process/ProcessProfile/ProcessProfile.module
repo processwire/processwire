@@ -3,7 +3,7 @@
 /**
  * ProcessWire User Profile Editor
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  * @property array $profileFields Names of fields user is allowed to edit in their profile
@@ -63,18 +63,24 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 * 
 	 */
 	public function ___execute() {
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
 		
 		$fieldName = '';
-		if(isset($_SERVER['HTTP_X_FIELDNAME'])) {
+		if(isset($_SERVER['HTTP_X_FIELDNAME']) && $input->requestMethod('POST') && $config->ajax) {
 			$fieldName = $this->wire()->sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
 		}
 
 		$this->user = $this->wire()->user; 
+		$of = $this->user->of();
+		if($of) $this->user->of(false);
+		
 		$this->headline($this->_("Profile:") . ' ' . $this->user->name); // Primary Headline (precedes the username)
 		$form = $this->buildForm($fieldName);
 		
-		if($this->wire()->input->post('submit_save_profile') || $fieldName) {
+		if($input->post('submit_save_profile') || $fieldName) {
 			$this->processInput($form, $fieldName); 
+			if($of) $this->user->of(true);
 			if($fieldName) {
 				// no need to redirect
 			} else {
@@ -82,7 +88,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			}
 				
 		} else { 
-			return $form->render();
+			$out = $form->render();
+			if($of) $this->user->of(true);
+			return $out;
 		}
 		return '';
 	}	
@@ -96,9 +104,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 */
 	protected function buildForm($fieldName = '') {
 	
-		/** @var User $user */
 		$user = $this->user;
 		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
 
 		/** @var InputfieldForm $form */
 		$form = $modules->get('InputfieldForm');
@@ -117,7 +125,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$passRequired = false;
 		// Inputfields where password is required to change
 		$passRequiredInputfields = array();
-		$this->wire()->config->js('ProcessProfile', array(
+		$config->js('ProcessProfile', array(
 			'passRequiredAlert' => $this->_('For security, please enter your current password to save these changes:')
 		));
 		
@@ -141,17 +149,16 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		foreach($user->fields as $field) {
+			/** @var Field $field */
 			if($field->name == 'roles' || !in_array($field->name, $this->profileFields)) continue;
 			if($fieldName && $field->name !== $fieldName) continue;
-			/** @var Field $field */
 			$field = $user->fields->getFieldContext($field);
-			/** @var Inputfield $inputfield */
 			$inputfield = $field->getInputfield($user);
 			if(!$inputfield) continue;
-			$inputfield->value = $user->get($field->name);
+			$inputfield->val($user->get($field->name));
 			
 			if($field->name === 'admin_theme') {
-				if(!$inputfield->value) $inputfield->value = $this->wire('config')->defaultAdminTheme;
+				if(!$inputfield->value) $inputfield->value = $config->defaultAdminTheme;
 				
 			} else if($field->type instanceof FieldtypeImage) {
 				if(!$user->hasPermission('page-edit-images', $user)) {
@@ -225,6 +232,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$user = $this->user; 
 		$input = $this->wire()->input;
 		$languages = $this->wire()->languages;
+		
+		$this->wire()->session->CSRF()->validate();
+		
 		$form->processInput($input->post);
 
 		if(count($form->getErrors())) {
@@ -257,6 +267,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		foreach($user->fields as $field) {
+			/** @var Field $field */
 
 			if($field->name == 'roles' || !in_array($field->name, $this->profileFields)) continue;
 			if($fieldName && $field->name !== $fieldName) continue; 
@@ -469,9 +480,8 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 * 
 	 */
 	public function getPage() {
-		return $this->wire()->user;
+		return $this->user ? $this->user : $this->wire()->user;
 	}
 
 
 }
-

@@ -21,7 +21,7 @@
 .uk-slideshow {
     /* 1 */
     -webkit-tap-highlight-color: transparent;
-    .hook-slideshow;
+    .hook-slideshow();
 }
 
 
@@ -33,6 +33,7 @@
  * 2. Reset list
  * 3. Clip child elements
  * 4. Prevent displaying the callout information on iOS.
+ * 5. Disable horizontal panning gestures
  */
 
 .uk-slideshow-items {
@@ -47,6 +48,8 @@
     overflow: hidden;
     /* 4 */
     -webkit-touch-callout: none;
+    /* 5 */
+    touch-action: pan-y;
 }
 
 
@@ -58,8 +61,6 @@
  * 2. Take the full width
  * 3. Clip child elements, e.g. for `uk-cover`
  * 4. Optimize animation
- * 5. Disable horizontal panning gestures in IE11 and Edge
- * 6. Suppress outline on focus
  */
 
 .uk-slideshow-items > * {
@@ -74,12 +75,7 @@
     overflow: hidden;
     /* 4 */
     will-change: transform, opacity;
-    /* 5 */
-    touch-action: pan-y;
 }
-
-/* 6 */
-.uk-slideshow-items > :focus { outline: none; }
 
 /*
  * Hide not active items
@@ -91,7 +87,7 @@
 // Hooks
 // ========================================================================
 
-.hook-slideshow-misc;
+.hook-slideshow-misc();
 
 .hook-slideshow() {}
 .hook-slideshow-misc() {}

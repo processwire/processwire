@@ -29,11 +29,19 @@
  * - Inputfields.columnWidth(f, w): Set the column width percent of Inputfield, where w is percent width between 1-100.
  * - Inputfields.name(f): Get the name of the given Inputfield
  * - Inputfields.label(f): Get the text label of the given Inputfield
+ * - Inputfields.label(f, 'label text'): Set the label text of the given Inputfield. (3.0.239+)
+ * - Inputfields.icon(f): Get the $icon element if present, or blank jQuery object if not. (3.0.239+)
+ * - Inputfields.icon(f, 'life-ring'): Set the icon for the given Inputfield. (3.0.239+)
  * - Inputfields.input(f): Get the input element(s) within the given Inputfield
  * - Inputfields.insertBefore(f, ff): Insert Inputfield 'f' before Inputfield 'ff'.
  * - Inputfields.insertAfter(f, ff): Insert Inputfield 'f' after Inputfield 'ff'.
  * - Inputfields.startSpinner(f): Start spinner for Inputfield.
  * - Inputfields.stopSpinner(f): Stop spinner for Inputfield. 
+ * - Inputfields.inputfield(f): Given a name, id or any element in an Inputfield, return the Inputfield object.
+ * - Inputfields.header(f): Given a name, id or any element in an Inputfield, return the InputfieldHeader object. (3.0.239+)
+ * - Inputfields.content(f): Given a name, id or any element in an Inputfield, return the InputfieldContent object. (3.0.239+)
+ * - Inputfields.addHeaderAction(f, …) Add an Inputfield header icon action. See function for details and examples. (3.0.239+)
+ * - Inputfields.getHeaderAction(name) Get a previously added Inputfield header icon action by name. (3.0.239+)
  * - Inputfields.init(target): Manually initialize all .Inputfield elements within target.
  *   Calling init() is only necessary for Inputfields not present during page load. 
  * - This file also contains lots of other functions, but they are not part of the public API. 
@@ -81,11 +89,20 @@
  * - InputfieldHeaderHidden: When paired with InputfieldHeader classs, indicate header is hidden.
  * - InputfieldStateToggle: Assigned to element that toggles open/collapsed state (typically InputfieldHeader). 
  * - InputfieldContent: Assigned to the content of the Inputfield, wraps any <input> elements. Hidden when collapsed.
- *     
+ * 
+ * Children of .InputfieldHeader elements may have these classes:
+ * - InputfieldHeaderAction: Class for header icon actions added with the Inputfields.addHeaderAction() function.
+ * - toggle-icon: Assigned to icon that also works as an .InputfieldStateToggle element.
+ * 
+ * Children of .InputfieldContent elements may often have these classes:
+ * - description: Class for description text that appears above the input element(s).
+ * - notes: Class for notes text that appears below the input element(s).
+ * - detail: Class for additional details text that appears below the input elements(s) and notes.
+ * - renderInputfieldAjax: Present in a wapping <div> when Inputfield will be ajax loaded on header click.
+ *
  * Other classes:
- * - Inputfields: Class <ul> or other element that contains .Inputfield children. 
+ * - Inputfields: Class <ul> or other element that contains .Inputfield children, typically with .InputfieldWrapper as a parent.
  * - body.InputfieldColumnWidthsInit: Class assigned to body element when column widths initialized. 
- * - i.toggle-icon: Assigned to icon that also works as an .InputfieldStateToggle element. 
  * - maxColHeightSpacer: Used internally for aligning the height of a row of columns, when applicable. 
  * 
  * EVENTS
@@ -261,7 +278,7 @@ var Inputfields = {
 				var $tabButton = jQuery('#_' + $tabContent.attr('id'));
 				if($tabButton.length) {
 					$tabContent.show();
-					setTimeout(function() { $tabButton.click(); }, 25);
+					setTimeout(function() { $tabButton.trigger('click'); }, 25);
 				}
 			}
 			// inputfield is not visible likely due to parents being hidden
@@ -287,7 +304,7 @@ var Inputfields = {
 
 		// if ajax loaded, force InputfieldStates() click handler to open this one
 		if(isCollapsed && isAjax && !$inputfield.hasClass('InputfieldStateWasCollapsed')) {
-			$toggleIcon.click();
+			$toggleIcon.trigger('click');
 			return $inputfield;
 		}
 	
@@ -413,7 +430,7 @@ var Inputfields = {
 				InputfieldColumnWidths();
 				// jQuery(document).trigger('redrawInputfields', null);
 			}
-			jQuery(window).resize(); // trigger for FormBuilder or similar
+			jQuery(window).trigger('resize'); // trigger for FormBuilder or similar
 		}, delay);
 	},
 
@@ -472,7 +489,7 @@ var Inputfields = {
 			$input = jQuery([]);
 		} else {
 			// find input element within Inputfield
-			$input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus):first");
+			$input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus)").first();
 			// do not attempt to focus absolute positioned inputs or button elements
 			if($input.css('position') == 'absolute' || $input.is('button')) $input = jQuery([]);
 		}
@@ -480,7 +497,7 @@ var Inputfields = {
 		if($input.length) {
 			var t = $input.attr('type');
 			if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
-				$input.focus();
+				$input.trigger('focus');
 				focused = true;
 			}
 		}
@@ -763,21 +780,40 @@ var Inputfields = {
 	},
 
 	/**
-	 * Get header label for given Inputfield
+	 * Get or set header label for given Inputfield
 	 * 
 	 * @param $inputfield
+	 * @param string label Specify to set label value or omit to get value (3.0.239+)
 	 * @return string
 	 * 
 	 */
-	label: function($inputfield) {
+	label: function($inputfield, label) {
 		$inputfield = this.inputfield($inputfield);
 		if(!$inputfield.length) return '';
-		var label = $inputfield.attr('data-label');
-		if(typeof label != "undefined" && label && label.length) return label;
-		var $header = $inputfield.children('.InputfieldHeader');
-		if(!$header.length) return '';
-		label = $header.text();
-		if(label.length) label = jQuery.trim(label);
+		if(typeof label === 'undefined') {
+			// getting
+			var label = $inputfield.attr('data-label');
+			if(typeof label != "undefined" && label && label.length) return label;
+			var $header = $inputfield.children('.InputfieldHeader');
+			if(!$header.length) return '';
+			label = $header.text();
+			if(label.length) label = label.toString().trim();
+		} else {
+			// setting
+			var childNodes = $inputfield.children('.InputfieldHeader')[0].childNodes;
+			var addSpace = false;
+			for(var n = 0; n < childNodes.length; n++) {
+				var node = childNodes[n];
+				if(node.nodeType === Node.TEXT_NODE) { 
+					if(node.nodeValue.length && !node.nodeValue.trim().length) {
+						addSpace = true;
+					} else {
+						childNodes[n].nodeValue = (addSpace ? ' ' : '') + label;
+						break;
+					}
+				}
+			}
+		}
 		return label;
 	}, 
 	
@@ -851,6 +887,8 @@ var Inputfields = {
 				if(!$in.length) $in = jQuery(':input[id=' + $inputfield + ']'); 
 				if(!$in.length) $in = jQuery(':input[name="' + $inputfield + '[]"]'); // array name
 				if(!$in.length) $in = jQuery('#' + $inputfield + '.Inputfield'); 
+				if(!$in.length) $in = jQuery('#wrap_Inputfield_' + $inputfield + '.Inputfield');
+				if(!$in.length) $in = jQuery('#wrap_' + $inputfield + '.Inputfield');
 				$inputfield = $in;
 			} else {
 				$inputfield = jQuery($inputfield)
@@ -862,6 +900,83 @@ var Inputfields = {
 		}
 		return $inputfield;
 	},
+	
+	/**
+	 * Get an Inputfield by name, id or element 
+	 * 
+	 * This is an alias of the inputfield() function and works the same way, 
+	 * but this syntax may be preferred in some cases. 
+	 * 
+ 	 * @param value
+	 * @returns object
+	 * @since 3.0.241
+	 * 
+	 */	
+	get: function(value) {
+		return this.inputfield(value);
+	},
+	
+	/**
+	 * Return the .InputfieldHeader element for given Inputfield (or id, name, element within)
+	 * 
+ 	 * @param $inputfield Can be .Inputfield, id, name, or any element within Inputfield
+	 * @since 3.0.239
+	 * @returns object
+	 * 
+	 */	
+	header: function($inputfield) {
+		return this.inputfield($inputfield).children('.InputfieldHeader');
+	},
+	
+	/**
+	 * Return the .InputfieldContent element for given Inputfield (or id, name, element within)
+	 *
+	 * @param $inputfield Can be .Inputfield, id, name, or any element within Inputfield
+	 * @since 3.0.239
+	 * @returns object
+	 *
+	 */
+	content: function($inputfield) {
+		this.inputfield($inputfield).children('.InputfieldContent');
+	},
+	
+	/**
+	 * Get or set Inputfield icon (fa-icon)
+	 * 
+ 	 * @param $inputfield
+	 * @param icon Specify to add or set icon, i.e. "fa-cog"
+	 * @returns object
+	 * 
+	 */	
+	icon: function($inputfield, icon) {
+		var $header = this.header($inputfield);
+		var $icon, $prevIcon, replaceElement = false;
+		
+		if($header[0].innerHTML.indexOf('<i ') === 0) {
+			$prevIcon = $header.children().eq(0);
+		} else {
+			$prevIcon = jQuery();
+		}
+		
+		// getting current icon element or blank object
+		if(typeof icon === 'undefined') return $prevIcon;
+
+		// get specified icon or create new one
+		$icon = typeof icon === 'object' ? icon : jQuery('<i />'); 
+		
+		if(typeof icon === 'string') {
+			if(icon.indexOf('fa-') !== 0) icon = 'fa-' + icon;
+			$icon.attr('class', 'fa fa-fw ' + icon); // replace class entirely
+		}
+		
+		if($prevIcon.length) {
+			$prevIcon.replaceWith($icon);
+		} else {
+			$header.prepend(' ').prepend($icon);
+		}
+		
+		return $icon;
+	}, 
 
 	/**
 	 * Execute find, focus or highlight action from URL fragment/hash
@@ -961,7 +1076,445 @@ var Inputfields = {
 	getAllInRow: function($inputfield, andHidden) {
 		if(typeof andHidden === "undefined") andHidden = false;
 		return this.getSiblingsInRow($inputfield, true, andHidden);
-	}
+	},
+	
+	/**
+	 * Add an Inputfield header icon action
+	 * 
+	 * This adds a clickable icon to the right side of the Inputfield header. 
+	 * There are three types of actions: 'click', 'toggle' and 'link'. The 'click' action 
+	 * simply executes your callback whenever it is clicked. The 'toggle' action 
+	 * has an on/off state, and you can provide callbacks and icons for either. 
+	 * This function will automatically figure out whether you want a `click`,
+	 * `toggle` or 'link' action based on what you provide in the settings argument.
+	 * Below is a summary of these settings: 
+	 * 
+	 * Settings for 'click' and 'link' type actions
+	 * ============================================
+	 *  - `icon` (string): Class to use for icon, i.e. 'fa-cog'. 
+	 *  - `callback` (function): Callback function when action icon is clicked.
+	 *  - `event` (string): Event name to trigger in JS when clicked ('click' actions only).
+	 *  - `tooltip` (string): Optional tooltip to describe what the action does.
+	 *  - `href` (string): URL to open ('link' actions only).
+	 *  - `modal` (bool): Specify true to make a link open in a modal window ('link' actions only). 
+	 *     (requires that /wire/modules/JqueryUI/JqueryUI/modal.js is loaded)
+	 *
+	 * Settings for 'toggle' (on/off) type actions
+	 * ===========================================
+	 *  - `on` (bool): True if action is currently ON, false if not (default=false).
+	 *  - `onIcon` (string): Icon class when action is ON and clicking would toggle OFF, i.e. 'fa-toggle-off'.
+	 *  - `onCallback` (function): Callback function when action is clicked to turn ON.
+	 *  - `onEvent` (string): JS event name to trigger when toggled ON (alternative to onCallback). 
+	 *  - `onTooltip` (string): Optional tooltip text for when action is ON. 
+	 *  - `offIcon` (string): Icon class when action is OFF and clicking would toggle ON, i.e. 'fa-toggle-on'.
+	 *  - `offCallback` (function): Callback function when action is clicked to turn OFF.
+	 *  - `offEvent` (string): JS event name to trigger when toggled OFF (alternative to offCallback). 
+	 *  - `offTooltip` (string): Optional tooltip text for when action is OFF.
+	 *  -  Note that if 'offIcon' or 'offTooltip' are omitted, they will use their 'on' equivalent.
+	 *  
+	 *  Settings for dropdown 'menu' type actions 
+	 *  =========================================
+	 *  Note that menu type actions also require jQuery UI and /wire/templates-admin/scripts/main.js,
+	 *  both of which are already present in PW’s admin themes (AdminThemeUikit recommended).
+	 *  Dropdown menu actions require ProcessWire 3.0.241 or newer.
+	 *  - `icon` (string): Icon name to use for dropdown toggle, i.e. 'fa-wrench'.
+	 *  - `tooltip` (string): Optional tooltip to describe what the dropdown is for. 
+	 *  - `menuItems` (array): Definition of menu items, each with one or more of the following properties. 
+	 *     - `label` (string): Label text for the menu item (required).
+	 *     - `icon` (string): Icon name for the menu item, if desired.
+	 *     - `callback` (function|null): JS callback function to execute item is clicked. 
+	 *     - `event` (string): JS event name to trigger when item is clicked. 
+	 *     - `tooltip` (string): Tooltip text to show when hovering menu item (title attribute). 
+	 *     - `href` (string): URL to go to when menu item clicked. 
+	 *     - `target` (string): Target attribute when href is used (i.e. "_blank"). 
+	 *     - `modal` (bool): Open href in modal window instead?
+	 *     - `active` (function|bool): Callback function that returns true if menu item active, or false 
+	 *        if disabled. You can also directly specify true or false for this option.
+	 *     - Note that all menuItems properties above are optional, except for 'label'.
+	 *  - `menuAction` (string): Action that toggles the menu to show, one of 'click' or 'hover' (default).
+	 *  - `menuMy` (string): The 'my' jQuery position (default='right top') https://api.jqueryui.com/menu/#option-position
+	 * 	- `menuAt` (string): The 'at' jQuery position (default='right+15 bottom') https://api.jqueryui.com/menu/#option-position
+	 *
+	 * Other/optional settings (applies to all types)
+	 * ==============================================
+	 *  - `name` (string): Name of action using only characters [_-a-zA-Z0-9]. 
+	 *  - `overIcon` (string): Optional icon class when mouse cursor is hovering OVER the action. 
+	 *  - `overCallback` (function): Optional callback function when mouse cursor is hovering OVER the action.
+	 *  - `downIcon` (string): Optional icon class when mouse is down (3.0.241+). 
+	 *  - `downCallback` (function): Optional callback function when mouse is down on the icon (3.0.241+).
+	 *  - `downEvent` (string): Optional JS event to trigger when mouse is down on the icon (3.0.241+). 
+	 *  - `cursor` (function): Optional/alternate mouse cursor to show when hovering over the action. 
+	 *  - `iconTag` (string): Optionally override the default <i> tag used for the icon. You can specify this
+	 *     if you want to use a non-FontAwesome icon.
+	 *  
+	 * Examples: 
+	 * ~~~~~
+	 * // Example of adding click action to 'title' field:
+	 * Inputfields.addHeaderAction('title', {
+	 * 	 icon: 'fa-hand-stop-o',
+	 * 	 overIcon: 'fa-hand-peace-o', // optional
+	 * 	 tooltip: 'Hello world', // optional
+	 * 	 callback: function() {
+	 * 	   ProcessWire.alert('Hello World!'); 
+	 * 	 }
+	 * });
+	 * 	
+	 * // Example of adding a toggle action to 'title' field:
+	 * Inputfields.addHeaderAction('title', {
+	 *   onIcon: 'fa-toggle-on',
+	 *   onTooltip: 'Click to toggle off',
+	 *   onCallback: function() {
+	 *     ProcessWire.alert('You toggled on');
+	 *   },
+	 *   offIcon: 'fa-toggle-off',
+	 *   offTooltip: 'Click to toggle on',
+	 *   offCallback: function() {
+	 *     ProcessWire.alert('You toggled off');
+	 *   }	
+	 * });
+	 * 
+	 * // Add a dropdown menu with select-all/unselect-all for a checkboxes field
+	 * $f = Inputfields.get('checkboxes_field_name');
+	 * Inputfields.addHeaderAction($f, {
+	 * 	 name: 'tools',
+	 * 	 icon: 'fa-wrench',
+	 *   tooltip: 'Select or unselect all',
+	 *   menuItems: [
+	 *     {
+	 *       name: 'select-all',
+	 *       label: 'Select all',
+	 *       icon: 'fa-check-square-o',
+	 *       callback: function() {
+	 *         $f.find('input[type=checkbox]').prop('checked', true);
+	 *         $f.trigger('change');
+	 * 	     },
+	 *       active: function() {
+	 *         return $f.find('input[type=checkbox]').not(':checked').length > 0;
+	 *       }
+	 *     },
+	 *     {
+	 *       name: 'unselect-all',
+	 *       label: 'Unselect all',
+	 *       icon: 'fa-square-o',
+	 *       callback: function() {
+	 *         $f.find('input[type=checkbox]').prop('checked', false);
+	 *         $f.trigger('change');
+	 *       },
+	 *       active: function() {
+	 *         return $f.find('input[type=checkbox]:checked').length > 0;
+	 *       }
+	 *     }
+	 *   ]
+	 * });
+	 * ~~~~~
+	 * 
+	 * Note: all callback functions receive the $icon element returned by this function, 
+	 * as the first and only argument.
+	 * 
+ 	 * @param $inputfield Inputfield element, name, id, or any element within it.
+	 * @param settings Settings to define the action (required), see function notes above. 
+	 * @returns jQuery Returns the <i> icon element if you want to manipulate it further.
+	 * 
+	 */	
+	addHeaderAction: function($inputfield, settings) {
+		
+		var $ = jQuery;
+		var defaults = {
+			// for click actions:
+			icon: '',
+			callback: null, 
+			tooltip: '', 
+			event: '', 
+			// for link actions (addable from PHP side only):
+			href: '', 
+			target: '', 	
+			modal: false,
+			// for toggle actions:
+			on: false, 
+			onIcon: '',
+			onCallback: null,
+			onTooltip: '',
+			onEvent: '', 
+			offIcon: '',
+			offCallback: null,
+			offTooltip: '',
+			offEvent: '', 
+			// for optional mouseover state:
+			overIcon: '',
+			overCallback: null,
+			overEvent: '', 
+			cursor: '',
+			// for optional mousedown state:
+			downIcon: '', 
+			downCallback: null, 
+			downEvent: '',
+			// name of this action (to make getable by getHeaderAction)
+			name: '',
+			// tag to use for icon
+			iconTag: '<i class="fa fa-fw"></i>',
+			// icon element if already present
+			$iconElement: null,
+			// items for menu, see menuItemDefaults in _addHeaderActionMenu()
+			menuItems: [],
+			// type of dropdown menu: 'click' or 'hover' (requires menuItems)
+			menuAction: 'hover',
+			// jQuery UI 'my' and 'at' position values for menu (https://api.jqueryui.com/menu/#option-position)
+			menuMy: 'right top', 
+			menuAt: 'right+15 bottom' 
+		};
+		
+		settings = $.extend(defaults, settings);
+		$inputfield = this.inputfield($inputfield);
+		
+		var $header = this.header($inputfield);
+		var $icon = settings.$iconElement ? settings.$iconElement : $(settings.iconTag);
+		var cls, tooltip, actionType = 'click';
+		var useFA = $icon.hasClass('fa')
+		
+		function fa(cls) {
+			return (useFA && cls.indexOf('fa-') !== 0 ? 'fa-' + cls : cls);
+		}
+	
+		$icon.addClass('InputfieldHeaderAction').removeClass('_InputfieldHeaderAction')
+			.css({ float: 'right', lineHeight: $header.css('line-height') });
+		
+		if(settings.onIcon.length) actionType = 'toggle';
+		if(settings.href.length) actionType = 'link';
+		if(settings.name.length) $icon.addClass('InputfieldHeaderAction-' + settings.name);
+		if(settings.cursor.length) $icon.css('cursor', settings.cursor);
+		
+		if(actionType === 'link') { 
+			if(!settings.tooltip.length) {
+				settings.tooltip = settings.href;
+			}
+		}
+		
+		if(actionType === 'toggle') {
+			if(!settings.offIcon.length) settings.offIcon = settings.onIcon;
+			if(!settings.offTooltip.length) settings.offTooltip = settings.onTooltip;
+			if(settings.on) {
+				$icon.addClass(fa(settings.onIcon)).data('on', true);
+				tooltip = settings.onTooltip;
+			} else {
+				$icon.addClass(fa(settings.offIcon)).data('on', false);
+				tooltip = settings.offTooltip;
+			}
+		} else {
+			$icon.addClass(fa(settings.icon)).data('on', true);
+			settings.onIcon = settings.icon; // for over state
+			tooltip = settings.tooltip;
+		}
+	
+		if(tooltip.length) $icon.attr('title', tooltip).attr('uk-tooltip', tooltip);
+		
+		$icon.on('click', function() {
+			if(actionType === 'link') {
+				if(settings.modal) {
+					pwModalWindow(settings.href);
+				} else if(settings.target) {
+					window.open(settings.href, settings.target);
+				} else {
+					window.location.href = settings.href;
+				}
+			} else if(actionType === 'toggle') {
+				if($icon.data('on')) {
+					$icon.removeClass(fa(settings.onIcon)).addClass(fa(settings.offIcon))
+					if(settings.offTooltip.length) {
+						$icon.attr('title', settings.offTooltip).attr('uk-tooltip', settings.offTooltip); 
+					}
+					if(settings.offCallback) settings.offCallback($icon);
+					$icon.data('on', false);
+					if(settings.offEvent) $icon.trigger(settings.offEvent, [ $icon ]);
+				} else {
+					$icon.removeClass(fa(settings.offIcon)).addClass(fa(settings.onIcon));
+					if(settings.onTooltip.length) {
+						$icon.attr('title', settings.onTooltip).attr('uk-tooltip', settings.onTooltip);
+					}
+					if(settings.onCallback) settings.onCallback($icon);
+					$icon.data('on', true);
+					if(settings.onEvent) $icon.trigger(settings.onEvent, [ $icon ]);
+				}
+			} else {
+				if(settings.callback) settings.callback($icon);
+				if(settings.event) $icon.trigger(settings.event, [ $icon ]);
+			}
+			return false;
+		});
+		
+		if(settings.overIcon.length || settings.overCallback || settings.overEvent) {
+			$icon.on('mouseover', function() {
+				if(settings.overIcon.length) {
+					var cls = $icon.data('on') ? settings.onIcon : settings.offIcon;
+					$icon.removeClass(fa(cls)).addClass(fa(settings.overIcon));
+				}
+				if(settings.overCallback) settings.overCallback($icon);
+				if(settings.overEvent) $icon.trigger(settings.overEvent, [ $icon ]);
+			});
+			if(settings.overIcon.length) {
+				$icon.on('mouseout', function() {
+					var cls = $icon.data('on') ? settings.onIcon : settings.offIcon;
+					$icon.removeClass(fa(settings.overIcon)).addClass(fa(cls));
+				});
+			}
+		}
+	
+		if(settings.downIcon.length || settings.downCallback || settings.downEvent) {
+			$icon.on('mousedown', function() {
+				if(settings.downIcon.length) {
+					$icon.addClass(fa(settings.downIcon));
+				}
+				if(settings.downCallback) settings.downCallback($icon);
+				if(settings.downEvent) $icon.trigger(settings.downEvent, [ $icon ]);
+			});
+			if(settings.downIcon.length) {
+				$icon.on('mouseup', function() {
+					$icon.removeClass(fa(settings.downIcon));
+				});
+			}
+		}
+	
+		// setup dropdown menu if specified
+		if(settings.menuItems.length) {
+			for(var n = 0; n < settings.menuItems.length; n++) {
+				if(typeof settings.menuItems[n].icon === 'undefined') continue;
+				settings.menuItems[n].icon = fa(settings.menuItems[n].icon);
+			}
+			this._addHeaderActionMenu($inputfield, $header, $icon, settings);
+		}
+		
+		$header.append($icon);
+		if($icon.prop('hidden')) $icon.prop('hidden', false);
+
+		return $icon;
+	},
+	
+	/**
+	 * Setup dropdown 'menu' type header actions for addHeaderAction() function
+	 * 
+ 	 * @param $inputfield
+	 * @param settings
+	 * @private
+	 * 
+	 */	
+	_addHeaderActionMenu: function($inputfield, $header, $icon, settings) {
+		
+		var menuItemDefaults = {
+			icon: '', // optional icon
+			label: '', // menu item label (required)
+			callback: null, // function to call on click
+			event: '', // event to trigger on click
+			tooltip: '', // tooltip text (title attribute)
+			href: '', // URL to link to
+			target: '', // if href populated, i.e. '_blank'
+			modal: false, // if href populated, open in modal?
+			active: true, // is item active? Specify callback that returns true or false
+		};
+		
+		if(!settings.name.length) {
+			settings.name = 'act' + ($header.find('.InputfieldHeaderAction').length + 1);
+		}
+		
+		var menuId = $inputfield.attr('id') + '-menu-' + settings.name;
+		var $menu = $('<ul></ul>').attr('id', menuId)
+			.addClass('pw-dropdown-menu').css('display', 'none')
+			.attr('data-my', settings.menuMy)
+			.attr('data-at', settings.menuAt);
+		
+		for(var n = 0; n < settings.menuItems.length; n++) {
+			
+			var item = $.extend(menuItemDefaults, settings.menuItems[n]);
+			var $li = $('<li></li>');
+			var $a = $('<a></a>').text(item.label);
+			
+			if(item.href) $a.attr('href', item.href);
+			if(item.target) $a.attr('target', item.target);
+			if(item.tooltip) $a.attr('title', item.tooltip);
+			
+			if(item.icon) {
+				var $itemIcon = $(settings.iconTag).addClass(item.icon);
+				$a.prepend($itemIcon);
+			}
+			
+			$a.attr('data-n', n);
+			$li.append($a);
+			$menu.append($li);
+			
+			$a.on('click', function() {
+				var $a = $(this);
+				var $li = $a.parent();
+				if($li.hasClass('ui-state-disabled')) return false;
+				var n = parseInt($a.attr('data-n'));
+				// note: cannot use 'item' defined outside this function since 
+				// the 'n' value can be different
+				var item = $.extend(menuItemDefaults, settings.menuItems[n]);
+				if(item.callback) item.callback($a);
+				if(typeof item.event !== 'undefined' && item.event.length) {
+					$icon.trigger(item.event, [$a]);
+				}
+				if(item.href) {
+					if(item.modal) {
+						pwModalWindow(item.href);
+					} else if(item.target.length) {
+						return true;
+					} else {
+						window.location.href = item.href;
+					}
+				}
+				return false;
+			});
+		}
+		
+		$icon.addClass('pw-dropdown-toggle').attr('data-pw-dropdown', '#' + menuId);
+		
+		if(settings.menuAction === 'click') $icon.addClass('pw-dropdown-toggle-click');
+		
+		$inputfield.append($menu);
+		
+		$menu.on('pw-show-dropdown', function() {
+			$(this).children('li').each(function() {
+				var $li = $(this);
+				var $a = $li.children('a');
+				var n = parseInt($a.attr('data-n'));
+				var active = settings.menuItems[n].active;
+				if(typeof active === 'undefined') {
+					active = true; // default
+				} else if(typeof active === 'function') {
+					active = active($a);
+				}
+				if(active) {
+					$li.removeClass('ui-state-disabled');
+				} else {
+					$li.addClass('ui-state-disabled');
+				}
+			});
+		});
+	},
+	
+	/**
+	 * Get a previously added header action by name
+	 * 
+	 * In order to use this to retrieve a single header actino, you must have 
+	 * specified the `name` property in your settings to the addHeaderAction() call.
+	 * 
+	 * ~~~~~
+	 * // Example of get+remove header action w/name 'foo' for field 'title' 
+	 * $action = Inputfields.getHeaderAction('title', 'foo');
+	 * if($action.length) $action.remove();
+	 * ~~~~~
+	 * 
+	 * @param $inputfield Inputfield element, name, id, or any element within it.
+	 * @param string name Name of action or icon name used in action
+	 * @returns jQuery The action element (an <i> icon) or empty jQuery element if not found
+	 * 
+	 */
+	getHeaderAction: function($inputfield, name) {
+		var $header = this.header($inputfield);
+		var cls = '.InputfieldHeaderAction';
+		var $a = $header.find(cls + '-' + name);
+		if(!$a.length) $a = $header.find(cls + '.' + name);
+		if(!$a.length) $a = $header.find(cls + '.fa-' + name);
+		return $a;
+	}, 
 	
 };
 
@@ -1006,7 +1559,7 @@ function InputfieldDependencies($target) {
 	 * 
 	 */
 	function trimValue(value) {
-		value = jQuery.trim(value);
+		value = value.toString().trim();
 		var first = value.substring(0,1);
 		var last = value.substring(value.length-1, value.length);
 		if((first == '"' || first == "'") && first == last) value = value.substring(1, value.length-1);
@@ -1046,9 +1599,15 @@ function InputfieldDependencies($target) {
 	 */
 	function parseValue(str, str2) {
 
-		str = jQuery.trim(str);
-		if(str.length > 0 && !jQuery.isNumeric(str)) {
-			return str;
+		if(typeof str === 'undefined') return '';
+		str = str.toString().trim();
+		
+		if(str.length > 0) {
+			if(/^-?\d[\d.]*$/.test(str)) {
+				// isNumeric
+			} else {
+				return str;
+			}
 		}
 
 		if(str.length == 0) {
@@ -1093,15 +1652,26 @@ function InputfieldDependencies($target) {
 	 * @param operator
 	 * @param value value to match for
 	 * @param conditionValue
+	 * @param $inputfield 
 	 * @return int 0=value didn't match, 1=value matched
 	 *
 	 */
-	function matchValue(field, operator, value, conditionValue) {
+	function matchValue(field, operator, value, conditionValue, $inputfield) {
 		var matched = 0;
+	
+		if(operator === '=' || operator === '!=') {
+			if($inputfield.attr('class').indexOf('InputfieldPage') > -1) {
+				// InputfieldPage, InputfieldPageListSelect, InputfieldPageAutocomplete, etc.
+				// normalizing matching of empty for blank, '', "", 0, etc.
+				// since there is no page ID=0 so all empty values can match each other
+				var v = trimValue(value.toString() + conditionValue.toString());
+				if(v === '0' || v === '') value = conditionValue = '';
+			}
+		}
 
 		switch(operator) {
-			case '=': if(value == conditionValue) matched++; break;
-			case '!=': if(value != conditionValue) matched++; break;
+			case '=': if(value === conditionValue) matched++; break;
+			case '!=': if(value !== conditionValue) matched++; break;
 			case '>': if(value > conditionValue) matched++; break;
 			case '<': if(value < conditionValue) matched++; break;
 			case '>=': if(value >= conditionValue) matched++; break;
@@ -1134,6 +1704,10 @@ function InputfieldDependencies($target) {
 
 		consoleLog('getCheckboxFieldAndValue(see-next-line, ' + conditionField + ', ' + conditionSubfield + ')');
 		consoleLog(condition)
+
+		if(conditionSubfield === '' && trimValue(condition.value) === '') {
+			conditionSubfield = 'count';
+		}
 
 		// first check if we've got a count subfield, because we'll be counting checked inputs for 
 		// those rather than checking the actual values
@@ -1212,7 +1786,7 @@ function InputfieldDependencies($target) {
 				var $checkbox = $checkboxes.eq(cn);
 				var $label = $checkbox.closest('label');
 				if($label.length) {
-					var label = jQuery.trim($label.text());
+					var label = $label.text().trim();
 					if(label == _conditionValue) {
 						consoleLog('Matching checked label found: ' + _conditionValue);
 						value.push(label);
@@ -1328,8 +1902,20 @@ function InputfieldDependencies($target) {
 
 				// special case for 'count' subfield condition, 
 				// where we take the value's length rather than the value
-				if (condition.subfield == 'count') value = value.length;
-
+				if(condition.subfield == 'count') value = value.length;
+			
+				// match custom data attributes (for some types of inputs) when requested to
+				if(condition.subfield.indexOf('data-') === 0) {
+					if($field.is('select') && !$field.prop('multiple')) {
+						var v = $field.find('option[value="' + $field.val() + '"]').attr(condition.subfield);
+					} else if($inputfield.hasClass('InputfieldCheckboxes') || $inputfield.hasClass('InputfieldRadios')) {
+						// @todo
+					} else {
+						var v = $field.attr(condition.subfield);
+					}
+					if(typeof v !== 'undefined' && v !== null) value = v; 
+				}
+				
 				// if value is an object, make it in array
 				// in either case, convert value to an array called values
 				if (typeof value == 'object') {
@@ -1338,7 +1924,8 @@ function InputfieldDependencies($target) {
 				} else if(typeof value == 'array') {
 					// array, already
 					values = value;
-				} else if(typeof value == "string" && $inputfield.hasClass('InputfieldPage') && value.indexOf(',') > -1 && value.match(/^[,0-9]+$/)) {
+				} else if(typeof value == "string" && $inputfield.attr('class').indexOf('InputfieldPage') > -1 
+					&& value.indexOf(',') > -1 && value.match(/^[,0-9]+$/)) {
 					// CSV string of page IDs
 					values = value.split(',');
 				} else {
@@ -1363,7 +1950,7 @@ function InputfieldDependencies($target) {
 				for (var n = 0; n < values.length; n++) {
 					for (var i = 0; i < condition.values.length; i++) {
 						var v = parseValue(values[n], condition.values[i]);
-						matched += matchValue(conditionField, condition.operator, v, condition.values[i]);
+						matched += matchValue(conditionField, condition.operator, v, condition.values[i], $inputfield);
 					}
 				}
 
@@ -1383,8 +1970,8 @@ function InputfieldDependencies($target) {
 				}
 
 			} else if(condition.type == 'required') {
-				if(matched > 0) {
-					// make it required it
+				if(matched >= numMatchesRequired) {
+					// make it required
 					requiredMatches++;
 				} else {
 					notRequiredMatches++;
@@ -1478,7 +2065,7 @@ function InputfieldDependencies($target) {
 
 			// separate out the field, operator and value
 			var part = parts[n];
-			var match = part.match(/^[,\s]*([_.|a-zA-Z0-9]+)(=|!=|<=|>=|<|>|%=)([^,]+),?$/);
+			var match = part.match(/^[,\s]*([-_.|a-zA-Z0-9]+)(=|!=|<=|>=|<|>|%=)([^,]+),?$/);
 			if(!match) continue;
 			var field = match[1];
 			var operator = match[2];
@@ -1486,6 +2073,13 @@ function InputfieldDependencies($target) {
 			var subfield = '';
 			var fields = []; // if multiple
 			var values = [];
+	
+			// For repeaters PR #255
+			if(field.indexOf('forpage_repeater') === 0) {
+				field = field.replace(/forpage_repeater\d+\./g, '');
+			} else if(field.indexOf('forpage.') === 0) {
+				field = field.replace('forpage.', '').replace(/_repeater\d+/g, '');
+			}
 
 			// detect OR selector in field
 			if(field.indexOf("|") > -1) {
@@ -1570,7 +2164,7 @@ function InputfieldDependencies($target) {
 				// attach change event to dependency inputfield
 				if($inputfield.length) {
 					consoleLog('Attaching change event for: ' + $inputfield.attr('name'));
-					$inputfield.change(function() {
+					$inputfield.on('change', function() {
 						inputfieldChange(conditions, $fieldToShow);
 					});
 				} else {
@@ -1893,9 +2487,9 @@ function InputfieldFormBeforeUnloadEvent(e) {
 	var $ = jQuery;
 	var $changes = $(".InputfieldFormConfirm:not(.InputfieldFormSubmitted) .InputfieldStateChanged");
 	if($changes.length == 0) return;
-	var msg = $('.InputfieldFormConfirm:eq(0)').attr('data-confirm') + "\n";
+	var msg = $('.InputfieldFormConfirm').eq(0).attr('data-confirm') + "\n";
 	$changes.each(function() {
-		var $header = $(this).find(".InputfieldHeader:eq(0)");
+		var $header = $(this).find('.InputfieldHeader').eq(0);
 		if($header.length) {
 			name = $header.text();
 		} else {
@@ -1904,7 +2498,7 @@ function InputfieldFormBeforeUnloadEvent(e) {
 				name = $(this).find(':input').attr('name');
 			}
 		}
-		if(name.length) msg += "\n• " + $.trim(name);
+		if(name.length) msg += "\n• " + name.trim();
 	});
 	(e || window.event).returnValue = msg; // Gecko and Trident
 	return msg; // Gecko and WebKit
@@ -2045,6 +2639,7 @@ function InputfieldStates($target) {
 				$inputfields.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
 				InputfieldStates($li);	
 				InputfieldRequirements($li);
+				InputfieldHeaderActions($li);
 				InputfieldColumnWidths();
 			} else {
 				$li.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
@@ -2060,8 +2655,10 @@ function InputfieldStates($target) {
 				if(isTab) {
 					$header.effect('highlight', 500);
 				} else if(Inputfields.toggleBehavior < 1) {
-					$header.click();
+					$header.trigger('click');
 				}
+				var $inputfield = $header.closest('.Inputfield');
+				$inputfield.trigger('opened', $inputfield);
 			}, 500);
 		}, 'html');
 		
@@ -2073,14 +2670,14 @@ function InputfieldStates($target) {
 	
 	// use different icon for open and closed
 	var $icon = $(".Inputfields .InputfieldStateCollapsed > .InputfieldHeader i.toggle-icon, .Inputfields .InputfieldStateCollapsed > .ui-widget-header i.toggle-icon", $target);
-	$icon.toggleClass($icon.attr('data-to'));
+	if($icon.length && typeof $icon.attr('data-to') !== 'undefined') $icon.toggleClass($icon.attr('data-to'));
 	
 	// display a detail with the HTML field name when the toggle icon is hovered
 	if(typeof ProcessWire != "undefined") {
 		var config = ProcessWire.config;
 	} 
 	if(typeof config !== "undefined" && config.debug) {
-		$('.InputfieldHeader > i.toggle-icon', $target).hover(function() {
+		$('.InputfieldHeader > i.toggle-icon:not(.toggle-icon-debug)', $target).on('mouseenter', function() {
 			var $label = $(this).parent('label');
 			if($label.length == 0) return;
 			var forId = $label.attr('for');
@@ -2093,11 +2690,11 @@ function InputfieldStates($target) {
 				$label.append($tip);
 			}
 
-		}, function() {
+		}).on('mouseleave', function() {
 			var $label = $(this).parent('label');
 			if($label.length == 0) return;
 			$label.find('.InputfieldNameTip').remove();
-		});
+		}).addClass('toggle-icon-debug');
 	}
 
 	// no need to apply anything further for ajax-loaded inputfields
@@ -2135,7 +2732,7 @@ function InputfieldStates($target) {
 			Inputfields.toggle($li, null, duration);
 		} else if(Inputfields.toggleBehavior === 1) {
 			// open/close implied by header label click
-			$icon.click();
+			$icon.trigger('click');
 		} else {
 			// Inputfield not collapsible unless toggle icon clicked, so pulsate the toggle icon and focus any inputs
 			if(typeof jQuery.ui != 'undefined') {
@@ -2155,20 +2752,22 @@ function InputfieldStates($target) {
 	 // Make the first field in any form have focus, if it is a text field that is blank
 	var $focusInputs = $('input.InputfieldFocusFirst'); // input elements only
 	if(!$focusInputs.length) {
-		$focusInputs = $('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)')
-			.find('input[type=text]:enabled:first:not(.hasDatepicker):not(.InputfieldNoFocus)');
+		$focusInputs = $('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)').find('input[type=text]:enabled').first();
+		if($focusInputs.hasClass('hasDatepicker') || $focusInputs.hasClass('InputfieldNoFocus')) $focusInputs = null;
 	}
-	if($focusInputs.length) $focusInputs.each(function() {
-		var $t = $(this);
-		// jump to first input, if it happens to be blank
-		if($t.val()) return;
-		// avoid jumping to inputs that fall "below the fold"
-		if($t.offset().top < $(window).height()) {
-			window.setTimeout(function () {
-				if($t.is(":visible")) $t.focus();
-			}, 250);
-		}
-	});
+	if($focusInputs !== null && $focusInputs.length) {
+		$focusInputs.each(function() {
+			var $t = $(this);
+			// jump to first input, if it happens to be blank
+			if($t.val()) return;
+			// avoid jumping to inputs that fall "below the fold"
+			if($t.offset().top < $(window).height()) {
+				window.setTimeout(function() {
+					if($t.is(":visible")) $t.trigger('focus');
+				}, 250);
+			}
+		});
+	}
 
 	// confirm changed forms that user navigates away from before submitting
 	$(document).on('change', '.InputfieldForm :input, .InputfieldForm .Inputfield', function() {
@@ -2240,7 +2839,7 @@ function InputfieldIntentions() {
 		var numButtons = null;
 		var $input = null;
 		
-		$form.submit(function() {
+		$form.on('submit', function() {
 			if(!$(this).hasClass('nosubmit')) return;
 			if(!$input) return;
 			
@@ -2258,7 +2857,7 @@ function InputfieldIntentions() {
 			if($buttons.length > 0) {
 				var $button = $buttons.eq(0);
 				$('html, body').animate({ scrollTop: $button.offset().top }, 'fast');
-				$button.focus();
+				$button.trigger('focus');
 			}
 			
 			return false;
@@ -2321,6 +2920,16 @@ function InputfieldRequirements($target) {
 	});
 }
 
+function InputfieldHeaderActions($target) {
+	jQuery('._InputfieldHeaderAction', $target).each(function() {
+		var $i = $(this);
+		var data = JSON.parse($i.attr('data-action')); 
+		data.$iconElement = $i;
+		var $inputfield = $i.closest('.Inputfield');
+		Inputfields.addHeaderAction($inputfield, data);
+	}); 
+}
+
 /**
  * Event handler called when 'reload' event is triggered on an Inputfield
  * 
@@ -2352,7 +2961,7 @@ function InputfieldReloadEvent(event, extraData) {
 		var $content;
 		if(data.indexOf('{') === 0) {
 			data = JSON.parse(data);
-			console.log(data);
+			// console.log(data);
 			$content = '';
 		} else {
 			$content = jQuery(data).find("#" + id).children(".InputfieldContent");
@@ -2382,6 +2991,7 @@ function InputfieldsInit($target) {
 	InputfieldStates($target);
 	InputfieldDependencies($target);
 	InputfieldRequirements($target);
+	InputfieldHeaderActions($target);
 	setTimeout(function() { InputfieldColumnWidths(); }, 100);
 }
 
@@ -2400,21 +3010,23 @@ jQuery(document).ready(function($) {
 	var windowResized = function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
-		setTimeout('InputfieldWindowResizeActions1()', 1000);
-		setTimeout('InputfieldWindowResizeActions2()', 2000); 	
+		setTimeout(InputfieldWindowResizeActions1, 1000);
+		setTimeout(InputfieldWindowResizeActions2, 2000); 	
 	};
 
-	$(window).resize(windowResized);
+	$(window).on('resize', windowResized);
 	
-	$("ul.WireTabs > li > a").click(function() {
+	$("ul.WireTabs > li > a").on('click', function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
-		setTimeout('InputfieldWindowResizeActions1()', 250);
-		setTimeout('InputfieldWindowResizeActions2()', 500);
+		setTimeout(InputfieldWindowResizeActions1, 250);
+		setTimeout(InputfieldWindowResizeActions2, 500);
 		return true;
 	}); 
-	
-	InputfieldRequirements($('.InputfieldForm'));
+
+	var $form = $('.InputfieldForm');
+	InputfieldRequirements($form);
+	InputfieldHeaderActions($form);
 
 	$(document).on('reload', '.Inputfield', InputfieldReloadEvent);
 	

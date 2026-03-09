@@ -50,7 +50,7 @@ class FieldsetPage extends RepeaterPage {
 	public function get($key) {
 	
 		// mirror the output formatting state of the owning page
-		if($this->forPage && !$this->getOf) {
+		if($this->forPage && !$this->getOf && !$this->isNew) {
 			$of = $this->forPage->of();
 			if($of != $this->of()) $this->of($of); 
 		}

@@ -64,19 +64,28 @@ class ProcessLanguage extends ProcessPageType {
 		$this->set('showFields', $showFields); 
 		$this->set('jsonListLabel', 'title|name'); 
 		require_once(dirname(__FILE__) . '/LanguageParser.php'); 
-	
+	}
+
+	/**
+	 * Wired to ProcessWire instance
+	 *
+	 */
+	public function wired() {
+		parent::wired();
+		$fields = $this->wire()->fields;
+
 		// make sure our files fields have CSV support
 		foreach(array('language_files', 'language_files_site') as $fieldName) {
-			$field = $this->wire('fields')->get($fieldName);
+			$field = $fields->get($fieldName);
 			if(!$field) continue;
-			$extensions = $field->get('extensions'); 
+			$extensions = $field->get('extensions');
 			if(strpos($extensions, 'csv') === false) {
 				$field->set('extensions', "$extensions csv");
 				$field->save();
 				$this->message("Added CSV support to field $fieldName", Notice::debug);
 			}
 		}
-		
+
 		$this->csvImportLabel = $this->_('CSV Import:') . ' ';
 	}
 
@@ -85,7 +94,7 @@ class ProcessLanguage extends ProcessPageType {
 	 *
 	 */
 	public function init() {
-		$this->addHookBefore('InputfieldFile::render', $this, 'renderInputfieldFile');
+		$this->addHookBefore('InputfieldFile(name^=language_files)::render', $this, 'renderInputfieldFile');
 		$this->addHookAfter('InputfieldFile::renderItem', $this, 'renderInputfieldFileItem'); 
 		$this->addHookAfter('InputfieldFile::renderUpload', $this, 'renderInputfieldFileUpload');
 		$this->addHookBefore('InputfieldFile::processInput', $this, 'processInputfieldFileInput');
@@ -647,4 +656,3 @@ class ProcessLanguage extends ProcessPageType {
 		$translator->unloadTextdomain($textdomain);
 	}
 }
-

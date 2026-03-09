@@ -23,13 +23,14 @@
 
 @search-icon-color:                                 @global-muted-color;
 
-@search-default-width:                              180px;
+@search-default-width:                              240px;
 @search-default-height:                             @global-control-height;
-@search-default-padding-horizontal:                 6px;
+@search-default-padding-horizontal:                 10px;
 @search-default-background:                         @global-muted-background;
-@search-default-focus-background:                   @search-default-background;
+@search-default-focus-background:                   darken(@search-default-background, 5%);
 
 @search-default-icon-width:                         @global-control-height;
+@search-default-icon-padding:                       0;
 
 @search-navbar-width:                               400px;
 @search-navbar-height:                              40px;
@@ -37,6 +38,7 @@
 @search-navbar-font-size:                           @global-large-font-size;
 
 @search-navbar-icon-width:                          40px;
+@search-navbar-icon-padding:                        0;
 
 @search-large-width:                                500px;
 @search-large-height:                               80px;
@@ -44,6 +46,7 @@
 @search-large-font-size:                            @global-2xlarge-font-size;
 
 @search-large-icon-width:                           80px;
+@search-large-icon-padding:                         0;
 
 @search-toggle-color:                               @global-muted-color;
 @search-toggle-hover-color:                         @global-color;
@@ -120,24 +123,17 @@
     /* 9 */
     border: none;
     color: @search-color;
-    .hook-search-input;
+    .hook-search-input();
 }
 
 .uk-search-input:focus { outline: none; }
 
 /* Placeholder */
-.uk-search-input:-ms-input-placeholder { color: @search-placeholder-color !important; }
 .uk-search-input::placeholder { color: @search-placeholder-color; }
 
 
 /* Icon (Adopts `uk-icon`)
  ========================================================================== */
-
-/*
- * Remove default focus style
- */
-
-.uk-search-icon:focus { outline: none; }
 
 /*
  * Position above input
@@ -158,6 +154,7 @@
     align-items: center;
     /* 3 */
     color: @search-icon-color;
+    .hook-search-icon();
 }
 
 /*
@@ -196,13 +193,13 @@
     padding-left: @search-default-padding-horizontal;
     padding-right: @search-default-padding-horizontal;
     background: @search-default-background;
-    .hook-search-default-input;
+    .hook-search-default-input();
 }
 
 /* Focus */
 .uk-search-default .uk-search-input:focus {
     background-color: @search-default-focus-background;
-    .hook-search-default-input-focus;
+    .hook-search-default-input-focus();
 }
 
 /*
@@ -211,8 +208,8 @@
 
 .uk-search-default .uk-search-icon { width: @search-default-icon-width; }
 
-.uk-search-default .uk-search-icon:not(.uk-search-icon-flip) ~ .uk-search-input { padding-left: (@search-default-icon-width); }
-.uk-search-default .uk-search-icon-flip ~ .uk-search-input { padding-right: (@search-default-icon-width); }
+.uk-search-default .uk-search-icon:not(.uk-search-icon-flip) ~ .uk-search-input { padding-left: (@search-default-icon-width + @search-default-icon-padding); }
+.uk-search-default .uk-search-icon-flip ~ .uk-search-input { padding-right: (@search-default-icon-width + @search-default-icon-padding); }
 
 
 /* Navbar modifier
@@ -228,7 +225,12 @@
     height: @search-navbar-height;
     background: @search-navbar-background;
     font-size: @search-navbar-font-size;
-    .hook-search-navbar-input;
+    .hook-search-navbar-input();
+}
+
+/* Focus */
+.uk-search-navbar .uk-search-input:focus {
+    .hook-search-navbar-input-focus();
 }
 
 /*
@@ -237,8 +239,8 @@
 
 .uk-search-navbar .uk-search-icon { width: @search-navbar-icon-width; }
 
-.uk-search-navbar .uk-search-icon:not(.uk-search-icon-flip) ~ .uk-search-input { padding-left: (@search-navbar-icon-width); }
-.uk-search-navbar .uk-search-icon-flip ~ .uk-search-input { padding-right: (@search-navbar-icon-width); }
+.uk-search-navbar .uk-search-icon:not(.uk-search-icon-flip) ~ .uk-search-input { padding-left: (@search-navbar-icon-width + @search-navbar-icon-padding); }
+.uk-search-navbar .uk-search-icon-flip ~ .uk-search-input { padding-right: (@search-navbar-icon-width + @search-navbar-icon-padding); }
 
 
 /* Large modifier
@@ -254,7 +256,12 @@
     height: @search-large-height;
     background: @search-large-background;
     font-size: @search-large-font-size;
-    .hook-search-large-input;
+    .hook-search-large-input();
+}
+
+/* Focus */
+.uk-search-large .uk-search-input:focus {
+    .hook-search-large-input-focus();
 }
 
 /*
@@ -263,8 +270,8 @@
 
 .uk-search-large .uk-search-icon { width: @search-large-icon-width; }
 
-.uk-search-large .uk-search-icon:not(.uk-search-icon-flip) ~ .uk-search-input { padding-left: (@search-large-icon-width); }
-.uk-search-large .uk-search-icon-flip ~ .uk-search-input { padding-right: (@search-large-icon-width); }
+.uk-search-large .uk-search-icon:not(.uk-search-icon-flip) ~ .uk-search-input { padding-left: (@search-large-icon-width + @search-large-icon-padding); }
+.uk-search-large .uk-search-icon-flip ~ .uk-search-input { padding-right: (@search-large-icon-width + @search-large-icon-padding); }
 
 
 /* Toggle
@@ -272,27 +279,29 @@
 
 .uk-search-toggle {
     color: @search-toggle-color;
-    .hook-search-toggle;
+    .hook-search-toggle();
 }
 
-/* Hover + Focus */
-.uk-search-toggle:hover,
-.uk-search-toggle:focus {
+/* Hover */
+.uk-search-toggle:hover {
     color: @search-toggle-hover-color;
-    .hook-search-toggle-hover;
+    .hook-search-toggle-hover();
 }
 
 
 // Hooks
 // ========================================================================
 
-.hook-search-misc;
+.hook-search-misc();
 
 .hook-search-input() {}
+.hook-search-icon() {}
 .hook-search-default-input() {}
 .hook-search-default-input-focus() {}
 .hook-search-navbar-input() {}
+.hook-search-navbar-input-focus() {}
 .hook-search-large-input() {}
+.hook-search-large-input-focus() {}
 
 .hook-search-toggle() {}
 .hook-search-toggle-hover() {}
@@ -309,7 +318,7 @@
 @inverse-search-icon-color:                    @inverse-global-muted-color;
 
 @inverse-search-default-background:            @inverse-global-muted-background;
-@inverse-search-default-focus-background:      @inverse-search-default-background;
+@inverse-search-default-focus-background:      fadein(@inverse-search-default-background, 5%);
 
 @inverse-search-navbar-background:             transparent;
 
@@ -326,9 +335,7 @@
 
     .uk-search-input { color: @inverse-search-color; }
 
-    .uk-search-input:-ms-input-placeholder { color: @inverse-search-placeholder-color !important; }
     .uk-search-input::placeholder { color: @inverse-search-placeholder-color; }
-
 
     //
     // Icon
@@ -343,22 +350,30 @@
 
     .uk-search-default .uk-search-input {
         background-color: @inverse-search-default-background;
-        .hook-inverse-search-default-input;
+        .hook-inverse-search-default-input();
     }
-    
+
     .uk-search-default .uk-search-input:focus {
         background-color: @inverse-search-default-focus-background;
-        .hook-inverse-search-default-input-focus;
+        .hook-inverse-search-default-input-focus();
     }
 
     .uk-search-navbar .uk-search-input {
         background-color: @inverse-search-navbar-background;
-        .hook-inverse-search-navbar-input;
+        .hook-inverse-search-navbar-input();
+    }
+
+    .uk-search-navbar .uk-search-input:focus {
+        .hook-inverse-search-navbar-input-focus();
     }
 
     .uk-search-large .uk-search-input {
         background-color: @inverse-search-large-background;
-        .hook-inverse-search-large-input;
+        .hook-inverse-search-large-input();
+    }
+
+    .uk-search-large .uk-search-input:focus {
+        .hook-inverse-search-large-input-focus();
     }
 
     //
@@ -367,13 +382,12 @@
 
     .uk-search-toggle {
         color: @inverse-search-toggle-color;
-        .hook-inverse-search-toggle;
+        .hook-inverse-search-toggle();
     }
 
-    .uk-search-toggle:hover,
-    .uk-search-toggle:focus {
+    .uk-search-toggle:hover {
         color: @inverse-search-toggle-hover-color;
-        .hook-inverse-search-toggle-hover;
+        .hook-inverse-search-toggle-hover();
     }
 
 }
@@ -381,6 +395,8 @@
 .hook-inverse-search-default-input() {}
 .hook-inverse-search-default-input-focus() {}
 .hook-inverse-search-navbar-input() {}
+.hook-inverse-search-navbar-input-focus() {}
 .hook-inverse-search-large-input() {}
+.hook-inverse-search-large-input-focus() {}
 .hook-inverse-search-toggle() {}
 .hook-inverse-search-toggle-hover() {}

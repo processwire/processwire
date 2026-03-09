@@ -1,0 +1,15 @@
+@import "vars";
+
+$text-color: #eee;
+$text-color-muted: #8a8f97;
+$headline-color: #fff;
+$border-color: #6d737b;
+$link-color: #4099ff;
+
+@import "common";
+
+.mce-content-body {
+	background-color: #222f3e;
+	border-color: #222f3e;
+	border-style: solid !important;
+}

@@ -3,6 +3,8 @@
 /**
  * ProcessWire PagesType
  *
+ * #pw-headline Pages Type
+ * #pw-breadcrumb Pages
  * #pw-summary Provides an interface to the Pages class but specific to a given page class/type, with predefined parent and template. 
  * #pw-body = 
  * This class is primarily used by the core as an alternative to `$pages`, providing an API for other Page types like 
@@ -13,10 +15,11 @@
  * #pw-body
  * #pw-use-constructor
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @method Page add($name)
+ * @method Page new(array $options = []) 3.0.249
  * @method bool save(Page $page)
  * @method bool delete(Page $page, $recursive = false)
  * 
@@ -87,6 +90,23 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		$this->addParents($parents); 
 		$wire->pages->types($this);
 		parent::__construct();
+	}
+
+	/**
+	 * Create new instance of this page type
+	 * 
+	 * @param array $options
+	 * @return Page
+	 * @since 3.0.249
+	 * 
+	 */
+	public function ___new(array $options = []) {
+		$defaults = array(
+			'template' => $this->getTemplate(),
+			'parent' => $this->getParent(),
+			'pageClass' => $this->getPageClass()
+		);
+		return $this->wire()->pages->newPage(array_merge($defaults, $options));
 	}
 
 	/**
@@ -333,8 +353,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		if(!isset($options['loadOptions'])) $options['loadOptions'] = array();
 		$options['loadOptions'] = $this->getLoadOptions($options['loadOptions']); 
 		if(empty($options['caller'])) $options['caller'] = $this->className() . ".find($selectorString)";
-		$pages = $this->wire('pages')->find($this->selectorString($selectorString), $options);
-		/** @var PageArray $pages */
+		$pages = $this->wire()->pages->find($this->selectorString($selectorString), $options);
 		foreach($pages as $page) {
 			if(!$this->isValid($page)) {
 				$pages->remove($page);
@@ -358,7 +377,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	public function findIDs($selectorString, $options = array()) {
 		if(!isset($options['findAll'])) $options['findAll'] = true;
 		if(empty($options['caller'])) $options['caller'] = $this->className() . ".findIDs($selectorString)";
-		$ids = $this->wire('pages')->findIDs($this->selectorString($selectorString), $options);
+		$ids = $this->wire()->pages->findIDs($this->selectorString($selectorString), $options);
 		return $ids;
 	}
 
@@ -435,6 +454,11 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * - This is the same as calling $page->save()
 	 * - If the page is new, it will be inserted. If existing, it will be updated. 
 	 * - If you want to just save a particular field in a Page, use `$page->save($fieldName)` instead. 
+	 * 
+	 * Hook note:  
+	 * If you want to hook this method, please hook the `saveReady`, `saved`, or one of 
+	 * the `Pages::save*` methods instead, as hooking this method will not hook relevant pages 
+	 * saved directly through $pages->save(). 
 	 *
 	 * @param Page $page
 	 * @return bool True on success
@@ -443,7 +467,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 */
 	public function ___save(Page $page) {
 		if(!$this->isValid($page)) throw new WireException($this->errors('first'));
-		return $this->wire('pages')->save($page);
+		return $this->wire()->pages->save($page, array('adjustName' => false));
 	}
 	
 	/**
@@ -453,6 +477,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 *
 	 * If you attempt to delete a page with children, and don’t specifically set the `$recursive` argument to `true`, then 
 	 * this method will throw an exception. If a recursive delete fails for any reason, an exception will be thrown.
+	 * 
+	 * Hook note:  
+	 * If you want to hook this method, please hook the `deleteReady`, `deleted`, or `Pages::delete` method
+	 * instead, as hooking this method will not hook relevant pages deleted directly through $pages->delete().
 	 *
 	 * @param Page $page
 	 * @param bool $recursive If set to true, then this will attempt to delete all children too. 
@@ -471,6 +499,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * - If the page has any other fields, they will not be populated, only the name will.
 	 * - Returns a `NullPage` on error, such as when a page of this type already exists with the same name/parent.
 	 *
+	 * Hook note:
+	 * If you want to hook this method, please hook the `addReady`, `Pages::add`, or `Pages::addReady` method
+	 * instead, as hooking this method will not hook relevant pages added directly through $pages->add().
+	 * 
 	 * @param string $name Name to use for the new page
 	 * @return Page|NullPage
 	 *
@@ -479,7 +511,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		
 		$parent = $this->getParent();
 
-		$page = $this->wire('pages')->newPage(array(
+		$page = $this->wire()->pages->newPage(array(
 			'pageClass' => $this->getPageClass(),
 			'template' => $this->template
 		)); 
@@ -492,7 +524,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 
 		} catch(\Exception $e) {
 			$this->trackException($e, false);
-			$page = $this->wire('pages')->newNullPage();
+			$page = $this->wire()->pages->newNullPage();
 		}
 
 		return $page; 
@@ -570,7 +602,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * 
 	 */
 	public function getParent() {
-		return $this->wire('pages')->get($this->parent_id);
+		return $this->wire()->pages->get($this->parent_id);
 	}
 
 	/**
@@ -583,10 +615,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 */
 	public function getParents() {
 		if(count($this->parents)) {
-			return $this->wire('pages')->getById($this->parents);
+			return $this->wire()->pages->getById($this->parents);
 		} else {
 			$parent = $this->getParent();
-			$parents = $this->wire('pages')->newPageArray();
+			$parents = $this->wire()->pages->newPageArray();
 			$parents->add($parent);
 			return $parents; 
 		}
@@ -642,7 +674,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		$selectorString = $this->selectorString($selectorString); 
 		$defaults = array('findAll' => true); 
 		$options = array_merge($defaults, $options); 
-		return $this->wire('pages')->count($selectorString, $options); 
+		return $this->wire()->pages->count($selectorString, $options); 
 	}
 
 	/**
@@ -671,7 +703,6 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 *
 	 */
 	public function ___saveReady(Page $page) { 
-		if($page) {}
 		return array(); 
 	}
 

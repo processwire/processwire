@@ -1,0 +1,17 @@
+/* make InputfieldTable <table> have same background color as its container */
+.Inputfield > .InputfieldContent .AdminDataTable tr {
+	background-color: transparent;
+}
+
+/* more specific to InputfieldTable, if needed
+.InputfieldTable .AdminDataTable tr {
+	background-color: transparent; 
+}
+*/
+
+.InputfieldTableRowSortHandle:hover,
+.InputfieldTableRowDeleteLink:hover,
+.InputfieldTableActionRow:hover {
+	/* make table action links highlight with main color when hovered */
+	color: var(--pw-main-color);
+}

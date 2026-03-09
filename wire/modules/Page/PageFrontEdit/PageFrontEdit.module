@@ -13,6 +13,7 @@
  * @property bool|int $inlineLimitPage Limit editor to current page only
  * @property array $inlineAllowFieldtypes
  * @method Page getPage() Get page being edited (3.0.208+)
+ * @method string getAjaxPostUrl() Get URL that ajax save requests should POST to (3.0.242+)
  * 
  */
 
@@ -201,6 +202,19 @@ class PageFrontEdit extends WireData implements Module {
 	 */
 	public function ___getPage() {
 		return $this->page;
+	}
+
+	/**
+	 * Get URL that ajax save should post to
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @return string
+	 * @since 3.0.242
+	 * 
+	 */
+	public function ___getAjaxPostUrl() {
+		return $this->wire()->page->url;
 	}
 
 	/**
@@ -750,6 +764,9 @@ class PageFrontEdit extends WireData implements Module {
 			$tinymceUrl = '';
 		}
 		
+		$ajaxPostUrl = $this->getAjaxPostUrl();
+		if($draft) $ajaxPostUrl .= (strpos($ajaxPostUrl, '?') ? '&' : '?') . "draft=$draft";
+		
 		$configJS = $config->js();
 		$configJS['modals'] = $config->modals;
 		$configJS['urls'] = array(
@@ -768,7 +785,7 @@ class PageFrontEdit extends WireData implements Module {
 				'fa' => $config->urls->adminTemplates . "styles/font-awesome/css/font-awesome.min.css", 
 			),
 			'adminTheme' => $adminTheme ? $adminTheme : 'AdminThemeDefault',
-			'pageURL' => $this->wire()->page->url . ($draft ? "?draft=$draft" : "")
+			'pageURL' => $ajaxPostUrl
 		);
 	
 		$scripts[] = 
@@ -798,7 +815,7 @@ class PageFrontEdit extends WireData implements Module {
 		// jQuery
 		$loadItems[] = array(
 			'test' => "function() { return (typeof jQuery == 'undefined'); }",
-			'file' => $config->urls('JqueryCore') . 'JqueryCore.js',
+			'file' => $config->urls('JqueryCore') . ($config->debug === 'dev' ? 'dev/' : '') . 'JqueryCore.js',
 			'after' => "function() { " . 
 				"jQuery.noConflict(); " .
 			"}"
@@ -812,7 +829,7 @@ class PageFrontEdit extends WireData implements Module {
 				"});" . 
 				"return (typeof jQuery.ui == 'undefined'); " . 
 			"}",
-			'file' => $config->urls('JqueryUI') . 'JqueryUI.js',
+			'file' => $config->urls('JqueryUI') . ($config->debug === 'dev' ? 'dev/' : '') . 'JqueryUI.js'
 		);
 
 		// add in our PageFrontEdit.js file
@@ -1170,27 +1187,31 @@ class PageFrontEdit extends WireData implements Module {
 			$inputfield = $this->getInputfield($page, $field);
 			$postName = $name;
 		
+			// decode entities and strip tags?
+			$decodeAndStrip = false;
+		
 			// jQuery HTML function entity encodes things like & to &amp; even if they don't appear in the source
 			// so we determine if it's necessary to decode them here
 			if($inputfield instanceof InputfieldTextarea) {
 				if(wireInstanceOf($inputfield, 'InputfieldCKEditor')) {
-					$decode = false;
+					// ok
 				} else if(wireInstanceOf($inputfield, 'InputfieldTinyMCE')) {
 					$postName = "Inputfield_$name";
-					$decode = false;
 				} else if($field->get('contentType') >= FieldtypeTextarea::contentTypeHTML) {
-					$decode = false;
+					// ok
 				} else {
-					$decode = true;
+					// convert browser added div and break tags to newlines
+					$value = str_replace(array('<div><br></div>', '<br>', '<br />'), "\n", $value);
+					$value = str_replace(array('<div>', '</div>'), array("\n", ""), $value);
+					$decodeAndStrip = true;
 				}
 			} else if($inputfield instanceof InputfieldText) {
-				$decode = true;
-			} else {
-				$decode = false;
+				$decodeAndStrip = true;
 			}
 			
-			if($decode) {
+			if($decodeAndStrip) {
 				$value = $sanitizer->unentities($value);
+				$value = strip_tags($value);
 			}
 			
 			$input->post->$postName = $value;
@@ -1235,7 +1256,7 @@ class PageFrontEdit extends WireData implements Module {
 			
 			if(count($changes)) {
 				try {
-					$page->save();
+					$pages->save($page, [ 'uncacheAll' => false ]); 
 					$data['status'] = count($errors) ? 2 : 1;
 				}
 				catch(\Exception $e) {
@@ -1294,6 +1315,7 @@ class PageFrontEdit extends WireData implements Module {
 		if(is_object($unformatted)) $unformatted = (string) $unformatted;
 		
 		$purifyHTML = true;
+		$addBreaks = false;
 
 		if($field && $field->type instanceof FieldtypeTextarea) {
 			$contentType = (int) $field->get('contentType');
@@ -1301,7 +1323,11 @@ class PageFrontEdit extends WireData implements Module {
 			if($cls === 'InputfieldCKEditor' || $cls === 'InputfieldTinyMCE' || $contentType == 1 || $contentType == 2) {
 				// HTML is expected and allowed
 				$purifyHTML = false;
-			}
+			} else if($cls === 'InputfieldTextarea') {
+				$textformatters = $field->get('textformatters');
+				if(in_array('TextformatterNewlineBR', $textformatters)) $addBreaks = true;
+				if(in_array('TextformatterMarkdownExtra', $textformatters)) $addBreaks = true;
+			}	
 		}
 
 		if(is_string($unformatted) && $purifyHTML && (strpos($unformatted, '<') !== false || strpos($unformatted, '&') !== false)) {
@@ -1310,9 +1336,8 @@ class PageFrontEdit extends WireData implements Module {
 			$unformatted = $this->wire()->sanitizer->purify(trim($unformatted));
 		}
 		
+		if($addBreaks) $unformatted = nl2br($unformatted);
+		
 		return $unformatted;
 	}
 }
-
-
-

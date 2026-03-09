@@ -82,7 +82,10 @@ class FieldSelectorInfo extends Wire {
 			// when input=select, page or checkbox, this contains the selectable options (value => label)
 			'options' => array(), 
 			// if field has subfields, this contains array of all above, indexed by subfield name (blank if not applicable)
-			'subfields' => array(), 
+			'subfields' => array(
+				// same as above, plus… DB column name (if different from 'name')
+				// 'col' => '',
+			), 
 		);
 
 		$this->schemaToInput = array(

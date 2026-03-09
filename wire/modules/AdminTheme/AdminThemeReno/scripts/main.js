@@ -28,7 +28,7 @@ var ProcessWireAdminTheme = {
 		$body.removeClass('pw-init').addClass('pw-ready'); 
 		$html.removeClass('pw-init').addClass('pw-ready'); 
 		// this.browserCheck();
-		$('a.notice-remove', '#notices').click(function() {
+		$('a.notice-remove', '#notices').on('click', function() {
 			$('#notices').slideUp('fast', function() { 
 				$(this).remove(); 
 				return false;
@@ -44,16 +44,16 @@ var ProcessWireAdminTheme = {
 		
 		var url = window.location.toString();
 
-		$(document).mouseup(function (e){
+		$(document).on('mouseup', function (e){
 		    var quicklinks = $("ul.quicklinks");
-		    if (!quicklinks.is(e.target) && quicklinks.has(e.target).length === 0){
+		    if (!quicklinks.is(e.target) && quicklinks.has(e.target).length === 0) {
 		        quicklinks.hide();
 		        $('.quicklink-open').removeClass('active');
 		        $('#main-nav .current').removeClass('no-arrow');
 		    }
 		});
 
-		$(document).keydown(function(e) {
+		$(document).on('keydown', function(e) {
 			var type = e.target.tagName.toLowerCase();
 			var firstClass = e.target.className.split(" ")[0];
 			var state;
@@ -85,7 +85,7 @@ var ProcessWireAdminTheme = {
 				var $t = $(this);
 				var $u = $t.next('ul:visible');
 				if($u.length > 0) {
-					if($u.find('.quicklinks-open').length > 0) $u.find('.quicklink-close').click();
+					if($u.find('.quicklinks-open').length > 0) $u.find('.quicklink-close').trigger('click');
 					//$u.slideUp('fast');
 				}
 				//$(this).removeClass('open').removeClass('current'); 
@@ -97,10 +97,10 @@ var ProcessWireAdminTheme = {
 		// on single click it opens or closes the nav
 		
 		var clickTimer = null, numClicks = 0;
-		$("#main-nav a.parent").dblclick(function(e) {
+		$("#main-nav a.parent").on('dblclick', function(e) {
 			e.preventDefault();
 			
-		}).click(function() {
+		}).on('click', function() {
 			var $a = $(this);
 			$a.addClass('just-clicked'); 
 			numClicks++;
@@ -124,57 +124,9 @@ var ProcessWireAdminTheme = {
 				
 		});
 
-		///////////////////////////////////////////////////////////////////
-		/*
-		
-		$("#main-nav > li").mouseover(function() {
-			// hover actions open hovered item, and close others
-			var $li = $(this);
-			var $a = $li.children('a');
-			var $ul = $li.children('ul');
-			if($ul.is(":visible")) {
-				// already open
-			} else {
-				// needs to be opened
-				setTimeout(function() {
-					if(!$a.hasClass('hover-temp')) return;
-					if($a.hasClass('just-clicked')) return;
-					closeOpenSections();
-					$a.addClass('open').next('ul').slideDown('fast');
-				}, 650);
-				$a.addClass('hover-temp'); 
-			}
-		}).mouseout(function() {
-			var $a = $(this).children('a');
-			$a.removeClass('hover-temp'); 
-		});
-		*/
-
-		///////////////////////////////////////////////////////////////////
-	
-		/*
-		$("#main-nav li > ul > li > a").hover(function() {
-			var $a = $(this);
-			var newIcon = $a.attr('data-icon'); 
-			if(newIcon.length == 0) return;
-			var $icon = $a.parent('li').parent('ul').prev('a').children('i');
-			$icon.attr('data-icon', $icon.attr('class'));
-			$icon.attr('class', 'fa fa-' + $a.attr('data-icon')); 
-			
-		}, function() {
-			var $a = $(this);
-			var newIcon = $a.attr('data-icon');
-			if(newIcon.length == 0) return;
-			var $icon = $a.parent('li').parent('ul').prev('a').children('i');
-			$icon.attr('class', $icon.attr('data-icon'));
-		});
-		*/
-
-		///////////////////////////////////////////////////////////////////
-
 		var quicklinkTimer = null;
 		
-		$(".quicklink-open").click(function(event){
+		$(".quicklink-open").on('click', function(event){
 			closeOpenQuicklinks();
 		
 			var $this = $(this);
@@ -216,21 +168,21 @@ var ProcessWireAdminTheme = {
 			
 			return false;
 			
-		}).mouseover(function() {
+		}).on('mouseover', function() {
 			var $this = $(this);
 			if($this.parent().hasClass('quicklinks-open')) return;
 			$this.addClass('hover-temp'); 
 			clearTimeout(quicklinkTimer); 
 			quicklinkTimer = setTimeout(function() {
 				if($this.parent().hasClass('quicklinks-open')) return;
-				if($this.hasClass('hover-temp')) $this.click();
+				if($this.hasClass('hover-temp')) $this.trigger('click');
 			}, 500); 
 				
-		}).mouseout(function() {
+		}).on('mouseout', function() {
 			$(this).removeClass('hover-temp'); 
 		});
 
-		$(".quicklink-close").click(function(){
+		$(".quicklink-close").on('click', function(){
 			$(this).parent().removeClass('quicklinks-open'); 
 			$(this).closest('ul.quicklinks').hide().prev('a').removeClass('quicklinks-open'); 
 			$('.quicklink-open').removeClass('active');
@@ -261,7 +213,7 @@ var ProcessWireAdminTheme = {
 		var $buttons = $("button.pw-head-button, button.head_button_clone");
 
 		// don't continue if no buttons here or if we're in IE
-		if($buttons.length == 0 || $.browser.msie) return;
+		if($buttons.length == 0) return; // || $.browser.msie) return;
 
 		var $head = $("<div id='head_button'></div>").prependTo("#headline").show();
 		$buttons.each(function() {
@@ -277,8 +229,8 @@ var ProcessWireAdminTheme = {
 				$button = $t.clone();
 				$button.attr('data-from_id', $t.attr('id')).attr('id', $t.attr('id') + '_copy');
 				//$a = $("<a></a>").attr('href', '#');
-				$button.click(function() {
-					$("#" + $(this).attr('data-from_id')).click(); // .parents('form').submit();
+				$button.on('click', function() {
+					$("#" + $(this).attr('data-from_id')).trigger('click');
 					return false;
 				});
 				// $head.append($a.append($button));	
@@ -287,18 +239,6 @@ var ProcessWireAdminTheme = {
 			}
 		}); 
 	},
-
-	/**
-	 * Make the first field in any forum have focus, if it is a text field
-	 *
-	setupFieldFocus: function() {
-		// add focus to the first text input, where applicable
-		jQuery('#content input[type=text]:visible:enabled:first:not(.hasDatepicker)').each(function() {
-			var $t = $(this); 
-			if(!$t.val() && !$t.is(".no_focus")) window.setTimeout(function() { $t.focus(); }, 1);
-		});
-	},
-	 */
 
 
 	/**
@@ -383,14 +323,14 @@ var ProcessWireAdminTheme = {
 					window.location = ui.item.edit_url;
 				}
 			}
-		}).blur(function() {
+		}).on('blur', function() {
 			$status.text('');	
 		});
 
 		// Search toggle
 		var $search = $("#search");
 
-		$input.bind('keypress keydown keyup', function(event){
+		$input.on('keypress keydown keyup', function(event){
        		if(event.keyCode == 13) {
        			event.preventDefault(); // Don't submit to the search page on Enter Key
        		}
@@ -404,12 +344,12 @@ var ProcessWireAdminTheme = {
 				// up arrow
        			$search.removeClass("open");
 	    		$(this).val(); // close search on arrow up
-	    		$input.blur();
+	    		$input.trigger('blur');
 	    		$('#ProcessPageSearchAutocomplete').hide().html('');
        		}
 
        		if(event.keyCode == 8) {
-       			if ($.trim($(this).val()) == ''){
+       			if (ProcessWire.trim($(this).val()) == ''){
        				$status.text(''); // remove status if nothing in the input.
        			}
        		}
@@ -419,9 +359,9 @@ var ProcessWireAdminTheme = {
 		$(".search-toggle").on("click", function() {
 			if (!$search.hasClass('open')){
 				$('#masthead').find('ul.open').removeClass('open');
-				$input.focus();
+				$input.trigger('focus');
 			} else {
-				$input.blur();
+				$input.trigger('blur');
 			}
 	    	$search.toggleClass("open");
 	    	$input.val("");
@@ -431,12 +371,12 @@ var ProcessWireAdminTheme = {
 		$(".search-close").on("click", function() {
 	    	$search.removeClass("open");
 	    	$input.val("");
-	    	$input.blur();
+	    	$input.trigger('blur');
 			return false;
 		});
 
 	
-		$('body').click(function(event){
+		$('body').on('click', function(event){
 
 			if (!$search.hasClass('open')) return; // not open, so do nothing
 			
@@ -452,7 +392,7 @@ var ProcessWireAdminTheme = {
    			if (hide){
    				$search.removeClass("open");
     			$input.val("");
-    			$input.blur();
+    			$input.trigger('blur');
    			}
 		});
 	
@@ -489,7 +429,7 @@ var ProcessWireAdminTheme = {
 	 */
 
 	setupSideBarState: function(click, state) {
-		if ($("body").hasClass("id-23") || $("body").hasClass("modal")) return false;
+		if($("body").hasClass("id-23") || $("body").hasClass("modal")) return false;
    		var name = 'pw_sidebar_state';
    		var state = state || localStorage.getItem(name);
    		var toggle = $(".main-nav-toggle");
@@ -500,19 +440,19 @@ var ProcessWireAdminTheme = {
    		var bug = $("#NotificationBug");
    		var elems = toggle.add(sidebar).add(main).add(masthead).add(branding).add(bug);
 
-   		if (state === null && $(window).width() >= 690) localStorage.setItem(name,"open");
+   		if(state === null && $(window).width() >= 690) localStorage.setItem(name,"open");
    		
-   		if (!click && $(window).width() < 690){
+   		if(!click && $(window).width() < 690){
    			localStorage.setItem(name,"closed");
    			state = 'closed';
    		}
 
-   		if (click == true){
-			if (state == 'open'){
-    			localStorage.setItem(name,"closed");
+   		if(click == true){
+			if(state == 'open'){
+    			localStorage.setItem(name, "closed");
     			elems.addClass('closed');
-    		} else if (state =='closed'){
-    			localStorage.setItem(name,"open");
+    		} else if(state == 'closed'){
+    			localStorage.setItem(name, "open");
     			elems.removeClass('closed');
     		}
 
@@ -522,17 +462,14 @@ var ProcessWireAdminTheme = {
 			masthead.removeClass('full');
 			toggle.removeClass('full');
 
-		} else{
-			
-			if (state == 'closed'){
-   				elems.addClass('closed');
-				sidebar.addClass('hide');
-				branding.addClass('hide');
-				main.addClass('full');
-				masthead.addClass('full');
-				toggle.addClass('full');
-        	}	
-		}
+		} else if(state == 'closed'){
+			elems.addClass('closed');
+			sidebar.addClass('hide');
+			branding.addClass('hide');
+			main.addClass('full');
+			masthead.addClass('full');
+			toggle.addClass('full');
+		}	
 	},
 
 	/**
@@ -540,8 +477,7 @@ var ProcessWireAdminTheme = {
 	 *
 	 */
 	browserCheck: function() {
-		if($.browser.msie && $.browser.version < 8) 
-			$("#content .pw-container").html("<h2>ProcessWire does not support IE7 and below at this time. Please try again with a newer browser.</h2>").show();
+		// no longer used
 	}
 };
 

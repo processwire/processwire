@@ -3,9 +3,15 @@
 /**
  * ProcessWire Pages Loader
  * 
- * Implements page finding/loading methods of the $pages API variable
+ * #pw-headline Pages Loader
+ * #pw-var $pages->loader
+ * #pw-breadcrumb Pages
+ * #pw-summary Implements page finding/loading methods for the $pages API variable.
+ * #pw-body =
+ * Please always use `$pages->method()` rather than `$pages->loader->method()` in cases where there is overlap.
+ * #pw-body
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -65,7 +71,7 @@ class PagesLoader extends Wire {
 	protected $debug = false;
 
 	/**
-	 * Are we currenty loading pages?
+	 * Are we currently loading pages?
 	 * 
 	 * @var bool
 	 * 
@@ -96,6 +102,8 @@ class PagesLoader extends Wire {
 	 * Set whether loaded pages have their outputFormatting turned on or off
 	 *
 	 * By default, it is turned on.
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @param bool $outputFormatting
 	 *
@@ -106,6 +114,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get whether loaded pages have their outputFormatting turned on or off
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @return bool
 	 *
@@ -119,6 +129,8 @@ class PagesLoader extends Wire {
 	 *
 	 * Default should always be true, and you may use this to turn it off temporarily, but
 	 * you should remember to turn it back on
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @param bool $autojoin
 	 *
@@ -130,6 +142,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Get whether autojoin is enabled for page loading queries
 	 * 
+	 * #pw-group-settings
+	 * 
 	 * @return bool
 	 * 
 	 */
@@ -139,6 +153,10 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Normalize a selector string 
+	 * 
+	 * This is to reduce the number of unique selectors that produce the same result. 
+	 * It is helpful with caching results, so that we don't cache the same results multiple
+	 * times because they used slightly different selectors. 
 	 * 
 	 * @param string $selector
 	 * @param bool $convertIDs Normalize to integer ID or array of integer IDs when possible (default=true)
@@ -163,7 +181,7 @@ class PagesLoader extends Wire {
 			
 		} else if(strpos($selector, ',') === false) {
 			// there is just one “key=value” or “value” selector that needs further processing
-			if(strpos($selector, 'id=')) {
+			if(strpos($selector, 'id=') === 0) {
 				if($convertIDs) {
 					// string like id=123 or id=123|456|789 converted to int or int-array
 					$s = substr($selector, 3); // skip over 'id='
@@ -187,8 +205,8 @@ class PagesLoader extends Wire {
 				}
 			}
 		}
-		
-		if(is_int($selector) || ctype_digit("$selector")) {
+	
+		if(is_int($selector) || (is_string($selector) && ctype_digit("$selector"))) {
 			// page ID integer
 			if($convertIDs) {
 				$selector = (int) $selector;
@@ -203,7 +221,11 @@ class PagesLoader extends Wire {
 	}
 	
 	/**
-	 * Normalize a selector 
+	 * Normalize a selector
+	 * 
+	 * This is to reduce the number of unique selectors that produce the same result.
+	 * It is helpful with caching results, so that we don't cache the same results multiple
+	 * times because they used slightly different selectors.
 	 * 
 	 * @param string|int|array $selector
 	 * @param bool $convertIDs Convert ID-only selectors to integers or arrays of integers?
@@ -291,8 +313,10 @@ class PagesLoader extends Wire {
 	/**
 	 * Given a Selector string, return the Page objects that match in a PageArray.
 	 *
-	 * Non-visible pages are excluded unless an include=hidden|unpublished|all mode is specified in the selector string,
-	 * or in the $options array. If 'all' mode is specified, then non-accessible pages (via access control) can also be included.
+	 * Non-visible pages are excluded unless an `include=hidden|unpublished|all` mode is specified in the selector string,
+	 * or in the `$options` array. If 'all' mode is specified, then non-accessible pages (via access control) can also be included.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|int|array|Selectors $selector Specify selector (standard usage), but can also accept page ID or array of page IDs.
 	 * @param array|string $options Optional one or more options that can modify certain behaviors. May be assoc array or key=value string.
@@ -434,10 +458,11 @@ class PagesLoader extends Wire {
 		$limit = $pageFinder->getLimit();
 		$start = $pageFinder->getStart();
 		
+		$pages = $this->pages->newPageArray($loadOptions);
+		
 		if($lazy) {
 			// lazy load: create empty pages containing only id and template
 			$templates = $this->wire()->templates;
-			$pages = $this->pages->newPageArray($loadOptions);
 			$pages->finderOptions($options);
 			$pages->setDuplicateChecking(false);
 			$loadPages = false;
@@ -456,6 +481,7 @@ class PagesLoader extends Wire {
 				}
 				$page = $this->pages->newPage($template);
 				$page->_lazy($id);
+				$page->of($this->outputFormatting);
 				$page->loaderCache = false;
 				$pages->add($page);
 			}
@@ -466,11 +492,9 @@ class PagesLoader extends Wire {
 			unset($template, $templatesByID);
 
 		} else if($findIDs) {
-			
+			// Note that $pages PageArray still used for hooks or for findIDs==3 option
 			$loadPages = false;
 			$cachePages = false;
-			// PageArray for hooks or for findIDs==3 option
-			$pages = $this->pages->newPageArray($loadOptions); 
 
 		} else if($loadPages) {
 			// parent_id is null unless a single parent was specified in the selectors
@@ -492,32 +516,28 @@ class PagesLoader extends Wire {
 
 			if(count($idsByTemplate) > 1) {
 				// perform a load for each template, which results in unsorted pages
-				// @todo use $idsUnsorted array rather than $unsortedPages PageArray
-				$unsortedPages = $this->pages->newPageArray($loadOptions);
+				$unsortedPages = [];
 				foreach($idsByTemplate as $tpl_id => $ids) {
 					$opt = $loadOptions;
 					$opt['template'] = $templates->get($tpl_id);
 					$opt['parent_id'] = $parent_id;
-					$unsortedPages->import($this->getById($ids, $opt));
+					$opt['getArray'] = true;
+					$unsortedPages += $this->getById($ids, $opt); 
 				}
 
 				// put pages back in the order that the selectorEngine returned them in, while double checking that the selector matches
-				$pages = $this->pages->newPageArray($loadOptions);
 				foreach($idsSorted as $id) {
-					foreach($unsortedPages as $page) {
-						if($page->id == $id) {
-							$pages->add($page);
-							break;
-						}
-					}
+					if(!isset($unsortedPages[$id])) continue;
+					$page = $unsortedPages[$id];
+					$pages->add($page); 
 				}
 			} else {
 				// there is only one template used, so no resorting is necessary	
-				$pages = $this->pages->newPageArray($loadOptions);
 				reset($idsByTemplate);
 				$opt = $loadOptions;
 				$opt['template'] = $templates->get(key($idsByTemplate));
 				$opt['parent_id'] = $parent_id;
+				$opt['getArray'] = true;
 				$pages->import($this->getById($idsSorted, $opt));
 			}
 			
@@ -530,9 +550,6 @@ class PagesLoader extends Wire {
 					$page->setQuietly('_pfscore', $score); 
 				}
 			}
-
-		} else {
-			$pages = $this->pages->newPageArray($loadOptions);
 		}
 
 		$pageFinder->getPageArrayData($pages); 
@@ -611,7 +628,9 @@ class PagesLoader extends Wire {
 	 * 
 	 * While this method combines what find() and getById() do in one query, there does not
 	 * appear to be any overhead benefit when the two strategies are dealing with identical
-	 * conditions, like the same autojoin fields. 
+	 * conditions, like the same autojoin fields.
+	 * 
+	 * #pw-group-retrieve
 	 * 
 	 * @param string|array|Selectors $selector
 	 * @param array $options
@@ -698,7 +717,8 @@ class PagesLoader extends Wire {
 			foreach($row as $key => $value) {
 				if(strpos($key, '__')) {
 					if($value === null) {
-						$row[$key] = 'null'; // ensure detected by later isset in foreach($joinFields)
+						// $row[$key] = 'null'; // ensure detected by later isset in foreach($joinFields)
+						$row[$key] = new NullField();
 					} else {
 						$page->setFieldValue($key, $value, false);
 					}
@@ -712,7 +732,10 @@ class PagesLoader extends Wire {
 				if(!$template->fieldgroup->hasField($joinField)) continue;
 				$field = $page->getField($joinField);
 				if(!$field || !$field->type) continue;
-				if(isset($row["{$joinField}__data"])) {
+				$v = isset($row["{$joinField}__data"]) ? $row["{$joinField}__data"] : null;
+				if($v instanceof NullField) $v = null;
+				// if(isset($row["{$joinField}__data"])) {
+				if($v !== null) {
 					if(!$field->hasFlag(Field::flagAutojoin)) {
 						$field->addFlag(Field::flagAutojoin);
 						$tmpAutojoinFields[$field->id] = $field;
@@ -765,6 +788,8 @@ class PagesLoader extends Wire {
 	 * override this, where appropriate.
 	 * 
 	 * This method also accepts an `$options` array, whereas `Pages::get()` does not.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|int|array|Selectors $selector
 	 * @param array|string $options See $options for `Pages::find`
@@ -785,25 +810,31 @@ class PagesLoader extends Wire {
 		$options = array_merge($defaults, $options);
 		$items = $this->pages->find($selector, $options);
 		$page = $items->first();
-		
-		if($page && !$page->viewable(false)) {
+
+		if(isset($options['findAll']) && $options['findAll'] === true) {
+			// page is always allowed through when findAll=true
+		} else if(isset($options['include']) && $options['include'] === 'all') {
+			// page is always allowed through when include=all
+		} else if($page && !$page->viewable(false)) {
 			// page found but is not viewable, check if include mode was specified and would allow the page
+			$include = isset($options['include']) ? strtolower($options['include']) : null;
+			$checkAccess = true;
 			$selectors = $items->getSelectors();
 			if($selectors) {
-				$include = $selectors->getSelectorByField('include');
+				if($include === null) {
+					$include = $selectors->getSelectorByField('include');
+					if($include) $include = strtolower($include->value());
+				}
 				$checkAccess = $selectors->getSelectorByField('check_access');
 				if(!$checkAccess) $checkAccess = $selectors->getSelectorByField('checkAccess');
 				$checkAccess = $checkAccess ? (bool) $checkAccess->value() : true;
-			} else {
-				$include = null;
-				$checkAccess = true;
 			}
 			if(!$include) {
 				// there was no “include=” selector present
 				if($checkAccess === true) $page = null;
-			} else if($include->value() === 'all') {
+			} else if($include === 'all') {
 				// allow $page to pass through with include=all mode
-			} else if($include->value() === 'unpublished' && $page->hasStatus(Page::statusUnpublished) && $checkAccess) {
+			} else if($include === 'unpublished' && $page->isUnpublished() && $checkAccess) {
 				// check if user would have access without unpublished status
 				$status = $page->status;
 				$page->setQuietly('status', $status & ~Page::statusUnpublished);
@@ -819,7 +850,113 @@ class PagesLoader extends Wire {
 	}
 	
 	/**
+	 * Find pages and cache the result for specified period of time
+	 *
+	 * Use this when you want to cache a slow or complex page finding operation so that it doesn’t
+	 * have to be repeated for every web request. Note that this only caches the find operation
+	 * and not the loading of the found pages.
+	 *
+	 * ~~~~~
+	 * $items = $pages->findCache("title%=foo"); // 60 seconds (default)
+	 * $items = $pages->findCache("title%=foo", 3600); // 1 hour
+	 * $items = $pages->findCache("title%=foo", "+1 HOUR");  // same as above
+	 * ~~~~~
+	 * 
+	 * #pw-group-retrieve
+	 *
+	 * @param string|array|Selectors $selector
+	 * @param int|string|bool|null $expire When the cache should expire, one of the following:
+	 *  - Max age integer (in seconds).
+	 *  - Any string accepted by PHP’s `strtotime()` that specifies when the cache should be expired.
+	 *  - Any `WireCache::expire…` constant or anything accepted by the `WireCache::get()` $expire argument.
+	 * @param array $options Options to pass to `$pages->getByIDs()`, or:
+	 *  - `findIDs` (bool): Return just the page IDs rather then the actual pages? (default=false)
+	 * @return PageArray|array
+	 * @since 3.0.218
+	 *
+	 */
+	public function findCache($selector, $expire = 60, $options = array()) {
+
+		$user = $this->wire()->user;
+		$cache = $this->wire()->cache;
+		$ns = 'pages.findCache';
+		$items = null;
+
+		if(is_string($selector)) {
+			$selectorStr = $selector;
+			$selectors = $selector;
+		} else {
+			$selectors = $this->wire(new Selectors($selector));
+			$selectorStr = (string) $selectors;
+		}
+
+		$rolesStr = (string) $user->roles;
+		if(strpos($rolesStr, '|')) {
+			$rolesArray = explode('|', $rolesStr);
+			sort($rolesArray);
+			$rolesStr = implode('|', $rolesArray);
+		}
+
+		$optionsStr = '';
+		foreach($options as $key => $value) {
+			if(!is_string($value)) {
+				if(is_array($value)) $value = print_r($value, true);
+				$value = (string) $value;
+			}
+			$optionsStr .= "$key==$value,";
+		}
+
+		$cacheName = "$rolesStr\r$selectorStr\r$optionsStr";
+		$pageNum = $this->wire()->input->pageNum();
+		if($pageNum > 1 && Selectors::selectorHasField($selectors, 'limit')) {
+			if(!Selectors::selectorHasField($selectors, 'start')) $cacheName .= "\r$pageNum";
+		}
+		$cacheName = md5($cacheName);
+		$data = $cache->getFor($ns, $cacheName, $expire);
+		
+		if(!empty($data) && $data['selector'] === $selectorStr && $data['roles'] === $rolesStr) {
+			$ids = $data['pages'];
+		} else {
+			$ids = null;
+			if(strpos($selectorStr, 'template') !== false && empty($options['template'])) {
+				$info = Selectors::selectorHasField($selectors, array('template', 'templates_id'), array('verbose' => true));
+				if($info['result']) $options['template'] = $this->wire()->templates->get($info['value']);
+			}
+		}
+
+		if($ids === null) {
+			if(empty($options['findIDs'])) {
+				$items = $this->find($selectors, $options);
+				$ids = $items->explode('id');
+			} else {
+				$ids = $this->pages->findIDs($selectors, $options);
+			}
+			$data = array(
+				'selector' => $selectorStr,
+				'roles' => $rolesStr,
+				'pages' => $ids
+			);
+			$cache->saveFor($ns, $cacheName, $data, $expire);
+			
+		} else if(empty($options['findIDs'])) {
+			$items = $this->pages->getByIDs($ids, $options);
+		}
+		
+		if(!empty($options['findIDs'])) return $ids;
+
+		foreach($items as $item) {
+			if($item instanceof NullPage || $item->status & Page::statusTrash) {
+				$items->remove($item);
+			}
+		}
+
+		return $items;
+	}
+
+	/**
 	 * Returns the first page matching the given selector with no exclusions
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|int|array|Selectors $selector
 	 * @param array $options See Pages::find method for options
@@ -872,7 +1009,9 @@ class PagesLoader extends Wire {
 	 * - If you need to quickly check if something exists, this method is preferable to using a count() or get().
 	 *
 	 * When `$verbose` option is used, an array is returned instead. Verbose return array includes all columns
-	 * from the matching row in the pages table. 
+	 * from the matching row in the pages table.
+	 * 
+	 * #pw-group-retrieve
 	 * 
 	 * @param string|int|array|Selectors $selector
 	 * @param bool $verbose Return verbose array with all pages columns rather than just page id? (default=false)
@@ -915,32 +1054,36 @@ class PagesLoader extends Wire {
 	 * Given an array or CSV string of Page IDs, return a PageArray
 	 *
 	 * Optionally specify an $options array rather than a template for argument 2. When present, the 'template' and 'parent_id' arguments may be provided
-	 * in the given $options array. These options may be specified:
+	 * in the given `$options` array. These options may be specified:
 	 *
 	 * LOAD OPTIONS (argument 2 array):
-	 * - cache: boolean, default=true. place loaded pages in memory cache?
-	 * - getFromCache: boolean, default=true. Allow use of previously cached pages in memory (rather than re-loading it from DB)?
-	 * - template: instance of Template (see $template argument)
-	 * - parent_id: integer (see $parent_id argument)
-	 * - getNumChildren: boolean, default=true. Specify false to disable retrieval and population of 'numChildren' Page property.
-	 * - getOne: boolean, default=false. Specify true to return just one Page object, rather than a PageArray.
-	 * - autojoin: boolean, default=true. Allow use of autojoin option?
-	 * - joinFields: array, default=empty. Autojoin the field names specified in this array, regardless of field settings (requires autojoin=true).
-	 * - joinSortfield: boolean, default=true. Whether the 'sortfield' property will be joined to the page.
-	 * - findTemplates: boolean, default=true. Determine which templates will be used (when no template specified) for more specific autojoins.
-	 * - pageClass: string, default=auto-detect. Class to instantiate Page objects with. Leave blank to determine from template.
-	 * - pageArrayClass: string, default=PageArray. PageArray-derived class to store pages in (when 'getOne' is false).
-	 * - pageArray: PageArray, default=null. Optional predefined PageArray to populate to. 
-	 * - page (Page|null): Existing Page object to populate (also requires the getOne option to be true). (default=null)
-	 * - caller (string): Name of calling function, for debugging purposes (default=blank).
+	 * 
+	 * - `cache` (bool): Place loaded pages in memory cache? (default=true)
+	 * - `getFromCache` (bool): Allow use of previously cached pages in memory (rather than re-loading it from DB)? (default=true)
+	 * - `template` (Template): See $template argument for details. (default=null)
+	 * - `parent_id` (int): See $parent_id argument for details (default=null)
+	 * - `getNumChildren` (bool): Specify false to disable retrieval and population of 'numChildren' Page property. (default=true)
+	 * - `getOne` (bool): Specify true to return just one Page object, rather than a PageArray. (default=false)
+	 * - `getArray` (bool|string): Get PHP array (indexed by id) rather than PageArray? (default=false) 3.0.257+
+	 * - `autojoin` (bool): Allow use of autojoin option? (default=true)
+	 * - `joinFields` (array): Autojoin the field names specified in this array, regardless of field settings, requires `autojoin=true`. (default=empty)
+	 * - `joinSortfield` (bool): Whether the 'sortfield' property will be joined to the page. (default=true)
+	 * - `findTemplates` (bool): Determine which templates will be used (when no template specified) for more specific autojoins. (default=true)
+	 * - `pageClass` (string): Class to instantiate Page objects with. Leave blank to determine from template. (default=auto-detect)
+	 * - `pageArrayClass` (string): PageArray-derived class to store pages in (when 'getOne' is false). (default=PageArray)
+	 * - `pageArray` (PageArray): Optional predefined PageArray to populate to (default=null)
+	 * - `page` (Page): Existing Page object to populate (also requires the getOne option to be true). (default=null)
+	 * - `caller` (string): Name of calling function, for debugging purposes (default=blank).
 	 *
-	 * Use the $options array for potential speed optimizations:
+	 * Use the `$options` array for potential speed optimizations:
 	 * - Specify a 'template' with your call, when possible, so that this method doesn't have to determine it separately.
 	 * - Specify false for 'getNumChildren' for potential speed optimization when you know for certain pages will not have children.
 	 * - Specify false for 'autojoin' for potential speed optimization in certain scenarios (can also be a bottleneck, so be sure to test).
 	 * - Specify false for 'joinSortfield' for potential speed optimization when you know the Page will not have children or won't need to know the order.
 	 * - Specify false for 'findTemplates' so this method doesn't have to look them up. Potential speed optimization if you have few autojoin fields globally.
 	 * - Note that if you specify false for 'findTemplates' the pageClass is assumed to be 'Page' unless you specify something different for the 'pageClass' option.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param array|WireArray|string|int $_ids Array of page IDs, comma or pipe-separated string of IDs, or single page ID (string or int)
 	 *  or in 3.0.156+ array of associative arrays where each in format: [ 'id' => 123, 'templates_id' => 456 ]
@@ -948,7 +1091,7 @@ class PagesLoader extends Wire {
 	 *  just those used by the template. Optionally specify an $options array instead, see the method notes above.
 	 * @param int|null $parent_id Specify a parent to make the load faster, as it reduces the possibility for full table scans.
 	 *	This argument is ignored when an options array is supplied for the $template.
-	 * @return PageArray|Page|NullPage Returns Page only if the 'getOne' option is specified, otherwise always returns a PageArray.
+	 * @return PageArray|Page|NullPage|array Returns `Page|NullPage` if `getOne` option, `array` if `getArray` option, or PageArray otherwise.
 	 * @throws WireException
 	 *
 	 */
@@ -969,7 +1112,8 @@ class PagesLoader extends Wire {
 			'pageClass' => '',  // blank = auto detect
 			'pageArray' => null, // PageArray to populate to
 			'pageArrayClass' => 'PageArray',
-			'caller' => '', 
+			'getArray' => false,
+			'caller' => '',
 		);
 	
 		$templates = $this->wire()->templates;
@@ -1015,7 +1159,9 @@ class PagesLoader extends Wire {
 
 		if(!WireArray::iterable($_ids) || !count($_ids)) {
 			// return blank if $_ids isn't iterable or is empty
-			return $options['getOne'] ? $this->pages->newNullPage() : $this->pages->newPageArray($options);
+			if($options['getOne']) return $this->pages->newNullPage(); 
+			if($options['getArray']) return [];
+			return $this->pages->newPageArray($options);
 		}
 
 		if(is_object($_ids)) $_ids = $_ids->getArray(); // ArrayObject or the like
@@ -1083,6 +1229,10 @@ class PagesLoader extends Wire {
 			if($options['getOne']) {
 				$page = count($loaded) ? reset($loaded) : null;
 				return $page instanceof Page ? $page : $this->pages->newNullPage();
+			} 
+			if($options['getArray']) {
+				foreach($loaded as $k => $v) if(empty($v)) unset($loaded[$k]);
+				return $loaded;
 			}
 			$pages = $this->pages->newPageArray($options);
 			$pages->setDuplicateChecking(false);
@@ -1213,7 +1363,6 @@ class PagesLoader extends Wire {
 			$_page = $options['getOne'] && $options['page'] instanceof Page ? $options['page'] : null;
 
 			try {
-				// while($page = $stmt->fetchObject($_class, array($template))) {
 				/** @noinspection PhpAssignmentInConditionInspection */
 				while($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
 					if($_page) {
@@ -1247,9 +1396,9 @@ class PagesLoader extends Wire {
 					}
 					$this->totalPagesLoaded++;
 				}
-			} catch(\Exception $e) {
+			} catch(\Throwable $e) {
 				$error = $e->getMessage() . " [pageClass=$class, template=$template]";
-				$user = $this->wire('user');
+				$user = $this->wire()->user;
 				if($user && $user->isSuperuser()) $this->error($error);
 				$this->wire()->log->error($error);
 				$this->trackException($e, false);
@@ -1264,17 +1413,21 @@ class PagesLoader extends Wire {
 			$page = count($loaded) ? reset($loaded) : null;
 			return $page instanceof Page ? $page : $this->pages->newNullPage();
 		}
-		
-		$pages = $this->pages->newPageArray($options);
-		$pages->setDuplicateChecking(false);
-		$pages->import($loaded);
-		$pages->setDuplicateChecking(true);
+	
+		if($options['getArray']) {
+			$pages =& $loaded;
+		} else {
+			$pages = $this->pages->newPageArray($options);
+			$pages->setDuplicateChecking(false);
+			$pages->import($loaded);
+			$pages->setDuplicateChecking(true);
+		}
 		if(!$loading) $this->loading = false;
 
 		// debug mode only
 		if($this->debug) {
 			$page = $this->wire()->page;
-			if($page && $page->template == 'admin') {
+			if($page && $page->template->name === 'admin') {
 				if(empty($options['caller'])) {
 					$_template = is_null($template) ? '' : ", $template";
 					$_parent_id = is_null($parent_id) ? '' : ", $parent_id";
@@ -1290,7 +1443,6 @@ class PagesLoader extends Wire {
 				}
 			}
 		}
-		
 
 		return $pages;
 	}
@@ -1299,7 +1451,9 @@ class PagesLoader extends Wire {
 	 * Find page(s) by name
 	 * 
 	 * This method is optimized just for finding pages by name and it does
-	 * not perform any filtering or access checking. 
+	 * not perform any filtering or access checking.
+	 * 
+	 * #pw-group-retrieve
 	 * 
 	 * @param string $name Match this page name
 	 * @param array $options
@@ -1421,10 +1575,12 @@ class PagesLoader extends Wire {
 	 *    here just for cases where a path is needed without loading the page.
 	 * 4) It's possible for there to be Page::path() hooks, and this method completely bypasses them,
 	 *    which is another reason not to use it unless you know such hooks aren't applicable to you.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param int|Page $id ID of the page you want the path to
 	 * @param null|array|Language|int|string $options Specify $options array or Language object, id or name. Allowed options:
-	 *  - language (int|string|anguage): To retrieve in non-default language, specify language object, ID or name (default=null)
+	 *  - language (int|string|Language): To retrieve in non-default language, specify language object, ID or name (default=null)
 	 *  - useCache (bool): Allow pulling paths from already loaded pages? (default=true)
 	 *  - usePagePaths (bool): Allow pulling paths from PagePaths module, if installed? (default=true)
 	 * @return string Path to page or blank on error/not-found
@@ -1541,6 +1697,8 @@ class PagesLoader extends Wire {
 	
 	/**
 	 * Get a page by its path, similar to $pages->get('/path/to/page/') but with more options
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * Please note
 	 * ===========
@@ -1844,7 +2002,7 @@ class PagesLoader extends Wire {
 	 * $p1 === $p3; // false: same Page but different instance
 	 * ~~~~~
 	 *
-	 * #pw-advanced
+	 * #pw-group-retrieve
 	 *
 	 * @param Page|string|array|Selectors|int $selectorOrPage Specify Page to get copy of, selector or ID
 	 * @param array $options Options to modify behavior
@@ -1865,6 +2023,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Load total number of children from DB for given page
 	 * 
+	 * #pw-group-retrieve
+	 * 
 	 * @param int|Page $page Page or Page ID
 	 * @return int
 	 * @throws WireException
@@ -1884,8 +2044,10 @@ class PagesLoader extends Wire {
 	
 	/**
 	 * Count and return how many pages will match the given selector string
+	 * 
+	 * #pw-group-retrieve
 	 *
-	 * @param string|array $selector Specify selector, or omit to retrieve a site-wide count.
+	 * @param string|array|Selectors $selector Specify selector, or omit to retrieve a site-wide count.
 	 * @param array|string $options See $options in Pages::find
 	 * @return int
 	 *
@@ -1908,13 +2070,344 @@ class PagesLoader extends Wire {
 		$options['getTotal'] = true;
 		$options['caller'] = 'pages.count';
 		$options['returnVerbose'] = false;
-		//if($this->wire('config')->debug) $options['getTotalType'] = 'count'; // test count method when in debug mode
 		if(is_string($selector)) {
 			$selector .= ", limit=1";
 		} else if(is_array($selector)) {
 			$selector['limit'] = 1;
+		} else if($selector instanceof Selectors) {
+			$selector->add(new SelectorEqual('limit', 1));
 		}
 		return $this->pages->find($selector, $options)->getTotal();
+	}
+
+
+	/**
+	 * Preload/Prefetch fields for page together as a group (experimental)
+	 * 
+	 * This is an optimization that enables you to load the values for multiple fields into
+	 * a page at once, and often in a single query. This is similar to the `joinFields` option
+	 * when loading a page, or the `autojoin` option configured with a field, except that it 
+	 * can be used after a page is already loaded. It provides a performance improvement
+	 * relative lazy-loading of fields individually as they are accessed. 
+	 * 
+	 * Preload works only with Fieldtypes that do not override the core’s loading methods. 
+	 * Preload also does not work with FieldtypeMulti types at present, except for the Page
+	 * Fieldtype when configured to load a single page. Though it can be enabled for testing 
+	 * purposes using the `useFieldtypeMulti` $options argument. 
+	 * 
+	 * NOTE: This function is currently experimental, recommended for testing only.
+	 * 
+	 * #pw-group-preload
+	 * 
+	 * @param Page $page Page to preload fields for
+	 * @param array $fieldNames Names of fields to preload
+	 * @param array $options 
+	 *  - `debug` (bool): Specify true to include additional debug info in return value (default=false). 
+	 *  - `useFieldtypeMulti` (bool): Enable FieldtypeMulti for testing purposes (default=false).
+	 *  - `loadPageRefs` (bool): Optimization to early load pages in page reference fields? (default=true)
+	 * @return array Array containing what was loaded and skipped
+	 * @since 3.0.243
+	 * 
+	 */
+	public function preloadFields(Page $page, array $fieldNames, $options = array()) {
+		
+		$defaults = [
+			'debug' => is_bool($options) ? $options : false, 
+			'useFieldtypeMulti' => false, 
+			'loadPageRefs' => true, 
+		];
+		
+		static $level = 0;
+
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		$debug = $options['debug'];
+		$database = $this->wire()->database;
+		$fieldNames = array_unique($fieldNames);
+		$fields = $page->wire()->fields;
+		$loadFields = [];
+		$loadedFields = [];
+		$selects = [];
+		$joins = [];
+		$numJoins = 0;
+		$maxJoins = 60;
+		
+		$log = [
+			'loaded' => [], 
+			'skipped' => [], 
+			'blank' => [], 
+			'queries' => 1, 
+		];
+		
+		if(!$page->id || !$page->template) return $log;
+	
+		foreach($fieldNames as $fieldKey => $fieldName) {
+
+			// identify which fields to load and which to skip
+			$field = $fields->get($fieldName);
+			$fieldName = $field ? $field->name : '';
+			$fieldNames[$fieldKey] = $fieldName; 
+			$error = $field ? $this->skipPreloadField($page, $field, $options) : 'Field not found';
+
+			if($error) {
+				unset($fieldNames[$fieldKey]);
+				if($fieldName) $log['skipped'][] = "$fieldName ($error)";
+				continue;
+			}
+
+			$fieldtype = $field->type;
+			$schema = $fieldtype->trimDatabaseSchema($fieldtype->getDatabaseSchema($field));
+			$numJoins += count($schema);
+			
+			if($numJoins >= $maxJoins) break;
+			
+			$loadFields[$fieldName] = $field;
+			$table = $field->getTable();
+		
+			// build selects and joins
+			foreach(array_keys($schema) as $colName) {
+				if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) {
+					$sep = FieldtypeMulti::multiValueSeparator;
+					$orderBy = "ORDER BY $table.sort";
+					$selects[] = "GROUP_CONCAT($table.$colName $orderBy SEPARATOR '$sep') AS `{$table}__$colName`";
+				} else {
+					$selects[] = "$table.$colName AS {$table}__$colName";
+				}
+				$joins[$table] = "LEFT JOIN $table ON $table.pages_id=pages.id";
+			}
+			
+			unset($fieldNames[$fieldKey]);
+		}
+		
+		if(!count($selects)) return $log;
+
+		$trackChanges = $level ? null : $page->trackChanges();
+		if($trackChanges) $page->setTrackChanges(false);
+		
+		$level++;
+		$timer = $debug ? Debug::timer() : false;
+
+		// build and execute the query
+		$sql = 
+			'SELECT ' . implode(",\n", $selects) . ' ' .
+			"\nFROM pages " .
+			"\n" . implode(" \n", $joins) . ' ' .
+			"\nWHERE pages.id=:pid";
+	
+		$query = $database->prepare($sql);
+		$query->bindValue(':pid', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		
+		$data = [];
+		$row = $query->fetch(\PDO::FETCH_ASSOC);
+		$query->closeCursor();
+		
+		// combine data from DB into column groups by field name
+		if($row) {
+			foreach($row as $key => $value) {
+				list($table, $colName) = explode('__', $key, 2);
+				list(, $fieldName) = explode('_', $table, 2);
+				if(!isset($data[$fieldName])) $data[$fieldName] = [];
+				$data[$fieldName][$colName] = $value;
+			}
+		}
+
+		// wake up loaded values and populate to $page
+		$pageIds = [];
+		
+		foreach($data as $fieldName => $sleepValue) {
+			if(!isset($loadFields[$fieldName])) {
+				unset($data[$fieldName]);
+				continue;
+			}
+			$field = $loadFields[$fieldName];
+			$fieldtype = $field->type;
+			$cols = array_keys($sleepValue);
+			if(count($cols) === 1 && array_key_exists('data', $sleepValue)) {
+				$sleepValue = $sleepValue['data'];
+			}	
+			if($sleepValue === null) {
+				unset($data[$fieldName]); 
+				continue; // force to getBlankValue in loop below this
+			}
+			if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) { 
+				if(strpos($sleepValue, FieldtypeMulti::multiValueSeparator) !== false) {
+					$sleepValue = explode(FieldtypeMulti::multiValueSeparator, $sleepValue);
+				}
+			}
+			if($fieldtype instanceof FieldtypePage && $sleepValue && $options['loadPageRefs']) {
+				if(!is_array($sleepValue)) $sleepValue = [ $sleepValue ];
+				foreach($sleepValue as $pageId) {
+					$pageId = (int) $pageId;
+					if(!$pageId) continue;
+					if($this->pages->cacher()->hasCache($pageId)) continue;
+					$parentId = $field->get('parent_id');
+					$templateId = FieldtypePage::getTemplateIDs($field, true);
+					if(!ctype_digit("$parentId")) $parentId = 0;
+					if(!ctype_digit("$templateId")) $templateId = 0;
+					$groupKey = "$parentId,$templateId";
+					if(!isset($pageIds[$groupKey])) $pageIds[$groupKey] = [];
+					$pageIds[$groupKey][$pageId] = $pageId; 
+				}
+			}
+			
+			$data[$fieldName] = $sleepValue;
+		}
+	
+		// preload all pages in template or parent groups
+		if(count($pageIds)) {
+			foreach($pageIds as $groupKey => $ids) {
+				list($parentId, $templateId) = explode(',', $groupKey);
+				$this->pages->getByID($ids, [ 'template' => $templateId, 'parent_id' => $parentId ]); 
+			}
+		}
+		
+		foreach($data as $fieldName => $sleepValue) {
+			$field = $loadFields[$fieldName];
+			$fieldtype = $field->type;
+			$value = $fieldtype->wakeupValue($page, $field, $sleepValue);
+			$page->_parentSet($field->name, $value);
+			$loadedFields[$field->name] = $fieldName;
+			unset($loadFields[$field->name]);
+			$log['loaded'][] = $fieldName;
+		}
+	
+		// any remaining loadFields not present in DB should get blank value
+		foreach($loadFields as $field) {
+			$value = $field->type->getBlankValue($page, $field); 
+			$fieldName = $field->name;
+			$page->_parentSet($fieldName, $value);
+			$log['blank'][] = $fieldName;
+		}
+	
+		// go recursive for any remaining fields
+		if(count($fieldNames)) {
+			$result = $this->preloadFields($page, $fieldNames, $options);
+			foreach($log as $key => $value) {
+				if(is_array($value)) {
+					$log[$key] = array_merge($value, $result[$key]);
+				} else if(is_int($value)) {
+					$log[$key] += $result[$key];
+				}
+			}
+		}
+	
+		$level--;
+		
+		if($debug && $timer && !$level) $log['timer'] = Debug::timer($timer);
+		
+		if($trackChanges) $page->setTrackChanges($trackChanges);
+		
+		return $log;
+	}
+
+	/**
+	 * Preload all supported fields for given page (experimental)
+	 * 
+	 * NOTE: This function is currently experimental, recommended for testing only.
+	 * 
+	 * #pw-group-preload
+	 * 
+	 * @param Page $page Page to preload fields for
+	 * @param array $options 
+	 *  - `debug` (bool): Specify true to return array of debug info (default=false).
+	 *  - `skipFieldNames` (array): Optional names of fields to skip over (default=[]). 
+	 *  - See the `PagesLoader::preloadFields()` method for additional options. 
+	 * @return array Array of details 
+	 * @since 3.0.243
+	 * 
+	 */
+	public function preloadAllFields(Page $page, $options = array()) {
+		$fieldNames = [];
+		$skipFieldNames = isset($options['skipFieldNames']) ? $options['skipFieldNames'] : false;
+		foreach($page->template->fieldgroup as $field) {
+			if($skipFieldNames && in_array($field->name, $skipFieldNames)) continue;
+			$fieldNames[] = $field->name;
+		}
+		return $this->preloadFields($page, $fieldNames, $options);
+	}
+
+	/**
+	 * Skip preloading of this field or fieldtype?
+	 * 
+	 * Returns populated string with reason if yes, or blank string if no. 
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	protected function skipPreloadField(Page $page, Field $field, array $options) {
+		
+		static $fieldtypeErrors = [];
+
+		$useFieldtypeMulti = isset($options['useFieldtypeMulti']) ? $options['useFieldtypeMulti'] : false;
+		$error = '';
+
+		if($page->_parentGet($field->name) !== null) {
+			$error = 'Already loaded';
+		} else if(!$page->template->fieldgroup->hasField($field)) {
+			$error = "Template '$page->template' does not have field";
+		} else if(!$field->getTable()) {
+			$error = 'Field has no table';
+		}
+		
+		if($error) return $error;
+
+		$fieldtype = $field->type;
+		$shortName = $fieldtype->shortName;
+		$cacheName = $shortName;
+		
+		if($fieldtype instanceof FieldtypePage) {
+			$cacheName .= $field->get('derefAsPage');
+		}
+		
+		if(isset($fieldtypeErrors[$cacheName])) {
+			return $fieldtypeErrors[$cacheName];
+		}
+		
+		// fieldtype status not yet known
+		$schema = $fieldtype->getDatabaseSchema($field);
+		$xtra = isset($schema['xtra']) ? $schema['xtra'] : [];
+
+		if($fieldtype instanceof FieldtypeMulti) {
+			if($useFieldtypeMulti) {
+				// allow group_concat for FieldtypeMulti
+			} else if($fieldtype instanceof FieldtypePage && $field->get('derefAsPage') > 0) {
+				// allow single-page matches
+			} else {
+				$error = "$shortName: Unsupported without useFieldtypeMulti=true";
+			}
+		} else if($fieldtype instanceof FieldtypeFieldsetOpen) {
+			$error = 'Fieldset: Unsupported';
+		}
+
+		if(!$error && isset($xtra['all']) && $xtra['all'] === false) {
+			if($shortName !== 'Repeater' && $shortName !== 'RepeaterMatrix') {
+				$error = "$shortName: External storage";
+			}
+		}
+		
+		if(!$error) {
+			$ref = new \ReflectionClass($fieldtype);
+			// identify parent class that implements loadPageField method
+			$info = $ref->getMethod('___loadPageField'); 
+			$class = wireClassName($info->class); 
+			// whitelist of classes with custom loadPageField methods we support
+			$rootClasses = [ 
+				'Fieldtype', 
+				'FieldtypeMulti', 
+				'FieldtypeTextarea', 
+				'FieldtypeTextareaLanguage' 
+			];
+			if(!in_array($class, $rootClasses)) {
+				$error = "$shortName: Has custom loader";
+			}
+		}
+
+		$fieldtypeErrors[$cacheName] = $error;
+		
+		return $error;
 	}
 
 	/**
@@ -1950,6 +2443,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Returns an array of all columns native to the pages table
 	 * 
+	 * #pw-group-native
+	 * 
 	 * @return array of column names, also indexed by column name
 	 * 
 	 */
@@ -1969,6 +2464,9 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get value of of a native column in pages table for given page ID
+	 * 
+	 * #pw-group-retrieve
+	 * #pw-group-native
 	 *
 	 * @param int|Page $id Page ID
 	 * @param string $column
@@ -1994,7 +2492,9 @@ class PagesLoader extends Wire {
 	/**
 	 * Is the given column name native to the pages table?
 	 * 
-	 * @param $columnName
+	 * #pw-group-native
+	 * 
+	 * @param string $columnName
 	 * @return bool
 	 * 
 	 */
@@ -2005,6 +2505,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get or set debug state
+	 * 
+	 * #pw-group-debug
 	 * 
 	 * @param bool|null $debug
 	 * @return bool
@@ -2019,6 +2521,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Return the total quantity of pages loaded by getById()
 	 * 
+	 * #pw-group-info
+	 * 
 	 * @return int
 	 * 
 	 */
@@ -2028,6 +2532,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get last used instance of PageFinder (for debugging purposes)
+	 * 
+	 * #pw-group-debug
 	 * 
 	 * @return PageFinder|null
 	 * @since 3.0.146
@@ -2039,6 +2545,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Are we currently loading pages?
+	 * 
+	 * #pw-group-info
 	 * 
 	 * @return bool
 	 * @since 3.0.195

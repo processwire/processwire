@@ -298,7 +298,7 @@ class WireInput extends Wire {
 	 * // setting cookies
 	 * $input->cookie->foo = 'bar'; // set with default options (expires with session)
 	 * $input->cookie->set('foo', 'bar'); // same as above
-	 * $input->cookie->set('foo', bar', 86400); // expire after 86400 seconds (1 day)
+	 * $input->cookie->set('foo', 'bar', 86400); // expire after 86400 seconds (1 day)
 	 * $input->cookie->set('foo', 'bar', [ 'age' => 86400, 'path' => $page->url ]); 
 	 * 
 	 * // getting cookies
@@ -1903,4 +1903,3 @@ class WireInput extends Wire {
 	}
 
 }
-

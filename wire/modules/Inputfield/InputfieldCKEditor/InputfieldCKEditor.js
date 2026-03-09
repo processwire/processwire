@@ -75,7 +75,7 @@ function ckeBlurEvent(event) {
 	if(editor.checkDirty()) {
 		// value changed
 		if($textarea.length) {
-			if($textarea.is("textarea")) $textarea.change();
+			if($textarea.is("textarea")) $textarea.trigger('change');
 			$textarea.closest(".Inputfield").addClass('InputfieldStateChanged');
 		}
 	}
@@ -256,7 +256,7 @@ function ckeInlineMouseoverEvent(event) {
 	$t.attr('contenteditable', 'true');
 	if(event.type == 'focusin') {
 		CKEDITOR.once('instanceReady', function(event) {
-			$(':focus').blur();
+			$(':focus').trigger('blur');
 			event.editor.focus();
 		});
 	}

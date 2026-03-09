@@ -35,8 +35,8 @@ function dblclickLanguageTab(e) {
 	var $tab = $(this);
 	var langID = $tab.attr('data-lang');
 	var $tabs = $tab.closest('form').find('a.langTab' + langID).not($tab);
-	$tab.click();
-	$tabs.click();
+	$tab.trigger('click');
+	$tabs.trigger('click');
 	$tabs.effect('highlight', 250);
 	setTimeout(function() {
 		clickLanguageTabActive = false;
@@ -118,7 +118,7 @@ function setupLanguageTabs($form) {
 		}); 
 		
 		if(!cfg.jQueryUI) {
-			$links.eq(cfg.activeTab).click();
+			$links.eq(cfg.activeTab).trigger('click');
 		}
 	});
 	
@@ -126,7 +126,7 @@ function setupLanguageTabs($form) {
 	if(value && value.indexOf('-' + cfg.requestId) > 0) {
 		value = value.split('-'); // i.e. 123-ProcessPageEdit456
 		var languageId = value[0];
-		$('a.langTab' + languageId, $form).click();
+		$('a.langTab' + languageId, $form).trigger('click');
 		if(!languageTabsReady) {
 			languageTabsClickOnReady.push('a.langTab' + languageId);
 		}
@@ -153,7 +153,7 @@ function toggleLanguageTabs() {
 	if($content.hasClass('langTabsContainer')) {
 		$ul.find('.langTabLastActive').removeClass('langTabLastActive');
 		if(cfg.liActiveClass) $ul.find('.' + cfg.liActiveClass).addClass('langTabLastActive');
-		$ul.find('a').click(); // activate all (i.e. for CKEditor)
+		$ul.find('a').trigger('click'); // activate all (i.e. for CKEditor)
 		$content.removeClass('langTabsContainer');
 		$inputfield.removeClass('hasLangTabs').addClass('langTabsOff');
 		$this.addClass('langTabsOff');
@@ -168,7 +168,7 @@ function toggleLanguageTabs() {
 		if(cfg.jQueryUI) $langTabs.tabs();
 		$ul.show();
 		$(this).attr("title", cfg.labelOpen).find('i').addClass("fa-folder-o").removeClass("fa-folder-open-o");
-		$ul.find('.langTabLastActive').removeClass('langTabLastActive').children('a').click();
+		$ul.find('.langTabLastActive').removeClass('langTabLastActive').children('a').trigger('click');
 	}
 	
 	clickLanguageTabActive = false;
@@ -196,9 +196,9 @@ function hideLanguageTabs() {
 	});
 
 	// make sure first tab is clicked
-	var $tab = $(".langTabs").find("li:eq(0)");
+	var $tab = $(".langTabs").find('li').eq(0);
 	var cfg = ProcessWire.config.LanguageTabs;
-	if(cfg.liActiveClass && !$tab.hasClass(cfg.liActiveClass)) $tab.find('a').click();
+	if(cfg.liActiveClass && !$tab.hasClass(cfg.liActiveClass)) $tab.find('a').trigger('click');
 
 	// hide the tab toggler
 	$(".langTabsToggle, .LanguageSupportLabel:visible, .langTabs > ul").addClass('langTabsHidden');
@@ -234,9 +234,8 @@ jQuery(document).ready(function($) {
 	});
 	for(var n = 0; n < languageTabsClickOnReady.length; n++) {
 		var selector = languageTabsClickOnReady[n];
-		$(selector).click();
+		$(selector).trigger('click');
 	}
 	languageTabsClickOnReady = [];
 	languageTabsReady = true;
 }); 
-

@@ -1,6 +1,6 @@
 function InputfieldIcon() {
 	
-	$('.InputfieldIcon select').change(function() {
+	$('.InputfieldIcon select').on('change', function() {
 		var $select = $(this);
 		var val = $select.val();
 		if(val.length > 0) {
@@ -48,13 +48,13 @@ function InputfieldIcon() {
 			var $i = $(this);
 			if($i.hasClass('on')) {
 				$i.removeClass('on');
-				$select.val('').change();
+				$select.val('').trigger('change');
 				return;
 			}
 			$all.find('.on').removeClass('on');
 			$i.addClass('on');
 			if(!$select.hasClass('on')) {
-				$select.val($i.attr('title')).change();
+				$select.val($i.attr('title')).trigger('change');
 			}
 		});
 
@@ -71,4 +71,3 @@ function InputfieldIcon() {
 $(document).ready(function() {
 	InputfieldIcon();
 });
-

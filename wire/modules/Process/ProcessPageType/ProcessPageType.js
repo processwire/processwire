@@ -1,5 +1,5 @@
 $(document).ready(function() {
-	$("#templates_id").change(function() {
-		$("#template_filter_form").submit();
+	$("#templates_id").on('change', function() {
+		$("#template_filter_form").trigger('submit');
 	 }); 
 });

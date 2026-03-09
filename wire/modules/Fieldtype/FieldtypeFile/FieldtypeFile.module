@@ -5,15 +5,11 @@
  *
  * Field that stores one or more files with optional description. 
  *
- * For documentation about the fields used in this class, please see:  
- * /wire/core/Fieldtype.php
- * /wire/core/FieldtypeMulti.php
- * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property array $allowFieldtypes Allowed Fieldtype types for custom fields
- * @property string $defaultFileExtensions
+ * @property string $defaultFileExtensions Default file extensions (default=pdf doc docx xls xlsx gif jpg jpeg png)
  * @method string formatValueString(Page $page, Field $field, $value)
  *
  */
@@ -199,12 +195,12 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$setups['single'] = array(
 			'title' => $this->_('Single file'),
 			'maxFiles' => 1,
-			'textformatters' => 'TextformatterEntities',
+			'textformatters' => [ 'TextformatterEntities' ],
 		);
 		$setups['multiple'] = array(
 			'title' => $this->_('Multiple files'), 
 			'maxFiles' => 0,
-			'textformatters' => 'TextformatterEntities',
+			'textformatters' => [ 'TextformatterEntities' ],
 		);	
 		return $setups;
 	}
@@ -263,7 +259,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$inputfield = $event->object; 	
 		$page = $event->options['page']; /** @var Page $page */
 		$field = $event->options['field']; /** @var Field $field */
-		$pagefiles = $page->get($field->name); 
+		$pagefiles = $page->getUnformatted($field->name); 
 		$inputfield->destinationPath = $pagefiles->path();
 	}
 
@@ -407,7 +403,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$isChanged = $pagefile->isChanged();
 		
 		if($isNew) {
-			$pagefile->createdUser = $this->wire('user');
+			$pagefile->createdUser = $this->wire()->user;
 			if(!$pagefile->isTemp()) $pagefile->created = time();
 		}
 		
@@ -415,7 +411,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			$changes = array_flip($pagefile->getChanges());
 			unset($changes['hash'], $changes['sort'], $changes['modified'], $changes['modified_users_id']); 
 			if($isNew || count($changes)) {
-				$pagefile->modifiedUser = $this->wire('user');
+				$pagefile->modifiedUser = $this->wire()->user;
 				if(!$pagefile->isTemp()) $pagefile->modified = time();
 			}
 		}
@@ -554,6 +550,28 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		
 		return $indexValue;
 	}
+	
+	/**
+	 * Import value
+	 * 
+	 * This does not handle files on the file system, that part is handled by the
+	 * PagesExportImport module. Note that module does not use this importValue method. 
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|float|int|null|object|string $value
+	 * @param array $options
+	 * @return array|float|int|string
+	 *
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		foreach($value as $key => $item) {
+			if(empty($item['filedata'])) continue;
+			$value[$key]['filedata'] = $this->importFiledata($page, $item['filedata'], $options);
+		}
+		$value = parent::___importValue($page, $field, $value, $options);
+		return $value;
+	}
 
 	/**
 	 * Export value
@@ -563,6 +581,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 * @param array|float|int|null|object|string $value
 	 * @param array $options
 	 * @return array|float|int|string
+	 * @since 3.0.254
 	 * 
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
@@ -594,7 +613,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				$exportKey = $k;
 			}
 			
-			unset($v['data']); 
+			unset($v['data']);
+			
+			$v['filedata'] = empty($v['filedata']) ? [] : $this->exportFiledata($page, $v['filedata'], $options);
 	
 			if($options['FieldtypeFile']['noJSON']) {
 				// export version 2 for exported description uses array value for multi-language, rather than JSON string
@@ -606,6 +627,88 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		}
 		
 		return $exportValue; 	
+	}
+	
+	/**
+	 * Export filedata
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param array|string $filedata
+	 * @param array $options
+	 * @return array
+	 * @since 3.0.254
+	 * 
+	 */
+	protected function exportFiledata(Page $page, $filedata, array $options = []) {
+		if(!is_array($filedata)) {
+			$filedata = json_decode($filedata, true);
+			if($filedata === false) return [];
+		}
+		$fields = $this->wire()->fields;
+		foreach($filedata as $key => $value) {
+			if(strpos($key, '_') !== 0) continue;
+			if(strpos($key, '_field.') === 0) {
+				unset($filedata[$key]); 
+				continue;
+			}
+			$fieldId = ltrim($key, '_');
+			if(!ctype_digit($fieldId)) continue;
+			$field = $fields->get((int) $fieldId); /** @var Field $f */
+			if(!$field) continue;
+			unset($filedata[$key]);
+			$key = "_field.{$fieldId}_$field->name";
+			$a = $field->type->exportValue($page, $field, $value, $options);
+			$filedata[$key] = $a;
+		}
+		return $filedata;
+	}
+	
+	/**
+	 * Import filedata (as used by PagesExportImport import)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param array|string $filedata
+	 * @param array $options
+	 * @return array
+	 * 
+	 */
+	public function importFiledata(Page $page, $filedata, array $options) {
+		$languages = $this->wire()->languages;
+		if(!is_array($filedata)) {
+			$filedata = json_decode($filedata, true);
+			if($filedata === false) return [];
+		}
+		$fields = $this->wire()->fields;
+		foreach($filedata as $key => $value) {
+			if(strpos($key, '_field.') !== 0) continue;
+			list(, $k) = explode('.', $key, 2);
+			list(/*$fieldId*/, $fieldName) = explode('_', $k, 2);
+			$field = $fields->get($fieldName);
+			if(!$field) continue;
+			unset($filedata[$key]);
+			if($languages && wireInstanceOf($field->type, 'FieldtypeLanguageInterface')) {
+				if(is_array($value)) {
+					foreach($value as $langName => $langVal) {
+						$language = $languages->get($langName);
+						if(!$language) continue;
+						$langKey = $language->isDefault() ? 'data' : "data$language->id";
+						$value[$langKey] = $langVal;
+						unset($value[$langName]);
+					}
+				} else {
+					$value = ['data' => $value];
+				}
+			} else {
+				$value = $field->type->importValue($page, $field, $value, $options);
+			}
+			$key = "_$field->id";
+			$filedata[$key] = $value;
+		}
+		return $filedata;
 	}
 
 	/**
@@ -730,7 +833,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 
 		foreach($value as $pagefile) {
 			/** @var Pagefile $pagefile */
-			if($pagefile->isTemp()) $value->removeQuietly($pagefile); 
+			if($pagefile->isTemp() || $pagefile->hidden()) $value->removeQuietly($pagefile); 
 		}
 		
 		$textformatters = $field->get('textformatters'); 
@@ -831,6 +934,24 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		}
 		return $out; 
 	}
+	
+	/**
+	 * Render a markup string of the value.
+	 *
+	 * @param Page $page Page that $value comes from
+	 * @param Field $field Field that $value comes from
+	 * @param mixed $value 
+	 * @param string $property 
+	 * @return string|MarkupFieldtype 
+	 *
+	 */
+	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		if($property === 'count') {
+			if($value === null) $value = $page->getUnformatted($field->name);
+			return $value instanceof Pagefiles ? $value->count() : ($value instanceof Pagefile ? 1 : 0);
+		}
+		return parent::___markupValue($page, $field, $value, $property);
+	}
 
 	/**
 	 * Get match query
@@ -875,7 +996,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				} else if(ctype_digit("$value")) {
 					$value = (int) $value;
 				} else {
-					$value = $this->wire('users')->get('name=' . $this->wire('sanitizer')->pageName($value))->id;
+					$value = $this->wire()->users->get('name=' . $this->wire()->sanitizer->pageName($value))->id;
 					if(!$value) {
 						$operator = '=';
 						$value = -1;
@@ -941,8 +1062,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	protected function getMatchQuerySubfield($query, &$subfield, &$operator, &$value) {
 		
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 		$selector = $query->selector;
 		$property = '';
 
@@ -952,7 +1072,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			while(count($parts) > 2) $property = array_pop($parts);
 		}
 
-		$field = $this->wire('fields')->get($subfield);
+		$field = $this->wire()->fields->get($subfield);
 		$fileField = $query->field;
 		
 		if($fileField && !$fileField->type instanceof FieldtypeFile) $fileField = null;
@@ -968,7 +1088,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				throw new PageFinderSyntaxException("Property '$property' not supported in field '" . $selector->field() . "'");
 			} else if(!ctype_digit("$value") && $sanitizer->pagePathName($value) === $value) {
 				// page path to ID
-				$p = $this->wire('pages')->get($value);
+				$p = $this->wire()->pages->get($value);
 				if($p->id && $p->viewable(false)) $value = $p->id;
 			}
 		}
@@ -1037,7 +1157,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	public function getDatabaseSchema(Field $field) {
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$schema = parent::getDatabaseSchema($field);
 		$maxLen = $database->getMaxIndexLength();
 
@@ -1055,9 +1175,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$schema['keys']['created'] = 'index (created)';
 		$schema['keys']['filesize'] = 'index (filesize)'; // 3.0.154+
 		
-		if($field->id) {
+		if($field->id && !$field->prevFieldtype) {
 			if($field->flags & Field::flagFieldgroupContext) {
-				$field = $this->wire('fields')->get($field->name);
+				$field = $this->wire()->fields->get($field->name);
 			}
 			$fileSchema1 = (int) $field->get('fileSchema'); 
 			$fileSchema2 = $this->updateDatabaseSchema($field, $schema, $fileSchema1);
@@ -1084,10 +1204,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	protected function updateDatabaseSchema(Field $field, array &$schema, $fileSchema) {
 
 		$contextField = $field; 
-		if($field->flags & Field::flagFieldgroupContext) $field = $this->wire('fields')->get($field->name);
+		if($field->flags & Field::flagFieldgroupContext) $field = $this->wire()->fields->get($field->name);
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->table);
 
 		$hasFilesize = $fileSchema & self::fileSchemaFilesize;
@@ -1194,8 +1313,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	protected function addColumn(Field $field, $column, array &$schema) {
 		
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		
 		if($database->columnExists($field->table, $column)) return true;
 		
@@ -1310,6 +1428,32 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		return parent::___deleteField($field); 
 	}
 
+	/**
+	 * Return a cloned copy of $field
+	 *
+	 * @param Field $field
+	 * @return Field cloned copy
+	 *
+	 */
+	public function ___cloneField(Field $field) {
+		$this->wire()->fields->addHookAfter('cloned', function(HookEvent $e) {
+			$e->removeHook(null); // run once only
+			$oldField = $e->arguments(0); /** @var Field $oldField */
+			$newField = $e->arguments(1); /** @var Field $newField */
+			if(!$newField->type instanceof FieldtypeFile) return;
+			$templates = $e->wire()->templates;
+			$oldTpl = $templates->get("field-$oldField|field-x-$oldField");
+			if(!$oldTpl) return; // no custom field-* template present
+			$newTpl = $templates->clone($oldTpl, str_replace("$oldField", "$newField", $oldTpl->name));
+			if($newTpl) {
+				$e->message(sprintf(__('Cloned fields template - %1$s => %2$s'), $oldTpl->name, $newTpl->name));
+			} else {
+				$e->warning(sprintf(__('Error cloning template - %1$s => %2$s'), $oldTpl->name, $newTpl->name));
+			}
+		});
+		return parent::___cloneField($field);
+	}
+	
 	/**
 	 * Default list of file extensions supported by this field, and used as the default by getConfigInputfields()
 	 * method. 
@@ -1455,7 +1599,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	public function saveFile(Page $page, Field $field, Pagefile $pagefile, array $columns = array()) {
 		
 		$item = $this->sleepFile($page, $field, $pagefile);
-		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
 		$sets = array();
 		$binds = array(':pages_id' => $page->id);
@@ -1671,13 +1815,8 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 *
 	 */
 	public function getFiles(Page $page, Field $field) {
-		$value = $page->get($field->name); 
-		if($value instanceof Pagefile) {
-			return array($value->filename());
-		}
-		if($value instanceof Pagefiles && $value->count()) {
-			return $value->explode('filename');
-		}
+		$value = $page->get($field->name);
+		if($value instanceof Pageimages || $value instanceof Pageimage) return $value->getFiles();
 		return array();
 	}
 	
@@ -1708,6 +1847,29 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		$pagefiles = $this->getBlankValue($page, $field);
 		if($value instanceof Pagefile) $pagefiles->add($value);
 		return $pagefiles;
+	}
+
+	/**
+	 * Called after field renamed
+	 *
+	 * @param Field $field
+	 * @param string $prevName Previous name (current name can be found in $field->name)
+	 *
+	 */
+	public function ___renamedField(Field $field, $prevName) {
+		// if there is a custom-fields template, rename it
+		$templates = $this->wire()->templates;
+		if($templates->get("field-$field->name")) return;
+		if($templates->get("field-x-$field->name")) return;
+		$template = $templates->get("field-$prevName"); 
+		if($template) {
+			$templates->rename($template, "field-$field->name");
+		} else {
+			$template = $templates->get("field-x-$prevName");
+			if($template) {
+				$templates->rename($template, "field-x-$field->name");
+			}
+		}
 	}
 
 	/**
@@ -1754,4 +1916,3 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		return new FieldtypeFileConfiguration($this);
 	}
 }
-

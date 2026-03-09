@@ -1,0 +1,27 @@
+@import "vars";
+
+$text-color-muted: #999;
+$border-color: #ccc;
+
+@import "common";
+
+.InputfieldTinyMCEInline {
+	border: none !important;
+}
+
+@media screen {
+	html:not(.pw),
+	html.pw .InputfieldTinyMCE .InputfieldContent {
+		background-color: #f4f4f4;
+		min-height: 100%;
+	}
+	.mce-content-body {
+		background-color: #fff;
+		box-shadow: 0 0 4px rgba(0, 0, 0, 0.15);
+		box-sizing: border-box;
+		margin: 1rem auto 0 !important;
+		max-width: 820px;
+		min-height: calc(100vh - 1rem);
+		padding: 4rem 6rem 6rem 6rem;
+	}
+}

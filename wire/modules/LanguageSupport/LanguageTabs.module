@@ -134,6 +134,7 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		
 		$settings = $this->getSettings();
 		$config = $this->wire()->config;
+		$info = self::getModuleInfo();
 		
 		if($settings['jQueryUI']) {
 			$adminTheme = $this->wire()->adminTheme;
@@ -141,10 +142,10 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		}
 		
 		if($settings['loadStyles']) {
-			$config->styles->add($config->urls('LanguageTabs') . 'LanguageTabs.css');
+			$config->styles->add($config->urls('LanguageTabs') . "LanguageTabs.css?v=$config->version-$info[version]");
 		}
 		if($settings['loadScripts']) {
-			$config->scripts->add($config->urls('LanguageTabs') . 'LanguageTabs.js');
+			$config->scripts->add($config->urls('LanguageTabs') . "LanguageTabs.js?v=$config->version-$info[version]");
 		}
 
 		/** @var JqueryCore $jQueryCore */

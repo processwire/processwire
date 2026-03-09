@@ -1,0 +1,37 @@
+/* -------------------------------------------------------------------- */
+/* ---- MINIMAL LIGHT BLUE AND MINIMAL DARK VARIABLES ---------------- */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --pw-text-color: light-dark(blue, white);
+  --pw-main-color: var(--pw-text-color);
+  --pw-main-background:light-dark(white, #222);
+  --pw-border-color: light-dark(var(--pw-text-color), var(--pw-text-color));
+  --pw-text-background: var(--pw-main-background);
+  --pw-inputs-background: var(--pw-text-background);
+  --pw-blocks-background: var(--pw-text-background);
+  --pw-muted-color: light-dark(#7c8efd, #8b8b8b);
+
+  --pw-button-background: var(--pw-text-background);
+  --pw-button-color: light-dark(var(--pw-text-color), var(--pw-text-color));
+  --pw-button-muted-color: var(--pw-muted-color);
+  --pw-button-border: var(--pw-button-color);
+  --pw-button-muted-background: var(--pw-button-background);
+  --pw-button-muted-border: var(--pw-button-muted-color);
+  --pw-button-hover-background: var(--pw-button-color);
+  --pw-button-hover-color: var(--pw-button-background);
+  --pw-button-hover-border: var(--pw-button-color);
+
+  --pw-masthead-background: var(--pw-text-background);
+  --pw-masthead-active-color: light-dark(var(--pw-text-color), var(--pw-text-color));
+  --pw-masthead-text-color: var(--pw-masthead-active-color);
+  --pw-masthead-border-color: var(--pw-masthead-active-color);
+  --pw-masthead-logo-color: var(--pw-masthead-active-color);
+
+  --pw-alert-text-color: var(--pw-text-color);
+  --pw-alert-primary: light-dark(#ffd, var(--pw-text-background));
+  --pw-alert-warning: light-dark(#fcda6d, #d57f00);
+  --pw-alert-success: light-dark(#97ecb2, #139472);
+  --pw-alert-danger: light-dark(#ec9797, #8a1919);
+  --pw-notes-background: light-dark(#ffd, #bdbdbd33);
+}

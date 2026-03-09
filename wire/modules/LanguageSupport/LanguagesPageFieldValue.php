@@ -3,7 +3,7 @@
 /**
  * Serves as a multi-language value placeholder for field values that contain a value in more than one language. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -117,10 +117,11 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		if(strpos($testKey, 'data') !== 0) {
 			// array does not use "data123" indexes, so work with language ID or language name indexes
 			// and convert to "data123" indexes
+			$languages = $this->wire()->languages;
 			$_values = array();
 			foreach($values as $key => $value) {
 				if(ctype_digit("$key")) $key = (int) $key;
-				$language = $this->wire()->languages->get($key);
+				$language = $languages->get($key);
 				if($language && $language->id) {
 					$dataKey = $language->isDefault() ? "data" : "data$language->id";
 					$_values[$dataKey] = $value;
@@ -167,6 +168,36 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 			$this->trackChange('data' . $languageID, $existingValue, $value); 
 		}
 		$this->data[(int)$languageID] = $value;
+		return $this;
+	}
+
+	/**
+	 * Set multiple language values at once
+	 * 
+	 * ~~~~~
+	 * $page->title->setLanguageValues([
+	 *  'default' => 'Hello world',
+	 *  'es' => 'Hola Mundo',
+	 *  'fr' => 'Hei maailma',
+	 * ]);
+	 * ~~~~~
+	 * 
+	 * @param array $values Associative array of values where keys are language names or IDs.
+	 * @param bool $reset Reset any languages not specified to blank? (default=false)
+	 * @return self
+	 * @since 3.0.236
+	 * 
+	 */
+	public function setLanguageValues(array $values, $reset = false) {
+		foreach($this->wire()->languages as $language) {
+			if(isset($values[$language->id])) {
+				$this->setLanguageValue($language->id, $values[$language->id]);
+			} else if(isset($values[$language->name])) {
+				$this->setLanguageValue($language->id, $values[$language->name]);
+			} else if($reset) {
+				$this->setLanguageValue($language->id, '');
+			}
+		}
 		return $this;
 	}
 
@@ -288,13 +319,12 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 
 		$languageValue = (string) (empty($this->data[$language->id]) ? '' : $this->data[$language->id]); 
 		
-		if(!strlen($languageValue)) {
+		if($languageValue === '' && $defaultValue !== '' && $this->field) {
 			// value is blank
-			if($this->field) { 
-				if($this->field->get('langBlankInherit') == self::langBlankInheritDefault) {
-					// inherit value from default language
-					$languageValue = $defaultValue; 
-				}
+			if(((int) $this->field->get('langBlankInherit')) === self::langBlankInheritDefault
+				|| ($this->field->name === 'title' && $template->name === 'admin')) {
+				// inherit value from default language
+				$languageValue = $defaultValue; 
 			}
 		}
 		
@@ -419,5 +449,3 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		return $this->defaultLanguagePageID; 
 	}
 }
-
-

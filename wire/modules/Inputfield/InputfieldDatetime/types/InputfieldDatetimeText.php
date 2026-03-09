@@ -36,16 +36,25 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	 */
 	public function getDefaultSettings() {
 		
+		$languages = $this->wire()->languages;
+
 		$a = array(
 			'datepicker' => self::datepickerNo,
 			'dateInputFormat' => InputfieldDatetime::defaultDateInputFormat,
 			'timeInputFormat' => '',
 			'timeInputSelect' => 0,
 			'yearRange' => '',
+			'showAnim' => 'fade',
+			'changeMonth' => true, 
+			'changeYear' => true,
+			'showButtonPanel' => false, 
+			'numberOfMonths' => 1, 
+			'showMonthAfterYear' => false,
+			'showOtherMonths' => false, 
 		);
-
-		if($this->languages) {
-			foreach($this->languages as $language) {
+		
+		if($languages) {
+			foreach($languages as $language) {
 				/** @var Language $language */
 				// account for alternate formats in other languages
 				if($language->isDefault()) continue;
@@ -67,8 +76,8 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	 */
 	public function renderReady() {
 	
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
+		$modules = $this->wire()->modules;
 
 		// this method only needs to run if datepicker is in use
 		$datepicker = (int) $this->getSetting('datepicker');
@@ -78,10 +87,10 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		if($dateFormat) {} // not used here
 
 		$useTime = false;
-		$language = $this->wire('languages') ? $this->wire('user')->language : null;
+		$language = $this->wire()->languages ? $this->wire()->user->language : null;
 
-		$this->wire('modules')->get('JqueryCore'); // Jquery Core required before Jquery UI
-		$this->wire('modules')->get('JqueryUI');
+		$modules->get('JqueryCore'); // Jquery Core required before Jquery UI
+		$modules->get('JqueryUI');
 		$this->inputfield->addClass("InputfieldDatetimeDatepicker InputfieldDatetimeDatepicker{$datepicker}");
 
 		if(strlen($timeFormat) && $datepicker != self::datepickerInline) {
@@ -128,11 +137,8 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	 */
 	public function render() {
 	
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
-		
-		/** @var WireDateTime $datetime */
-		$datetime = $this->wire('datetime');
+		$sanitizer = $this->wire()->sanitizer;
+		$datetime = $this->wire()->datetime;
 		
 		$datepicker = (int) $this->getSetting('datepicker');
 		
@@ -169,8 +175,31 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 
 		if(strlen($timeFormatJS)) $timeFormatJS = $sanitizer->entities($timeFormatJS);
 		if(empty($value)) $value = '';
+		
 		$yearRange = $sanitizer->entities($this->getSetting('yearRange'));
 		$timeInputSelect = $this->getSetting('timeInputSelect');
+	
+		$datepickerSettings = array();
+		$settingNames = array(
+			'showAnim', 'changeMonth', 'changeYear', 'showButtonPanel', 
+			'numberOfMonths', 'showMonthAfterYear', 'showOtherMonths',
+		);
+		foreach($settingNames as $name) {
+			$val = $this->inputfield->getSetting($name);
+			if($name === 'showAnim') {
+				$val = (string) $val;
+				if($val === 'none') $val = '';
+			} else if($name === 'numberOfMonths') {
+				$val = (int) $val;
+				if($val < 1) $val = 1;
+			} else {
+				$val = (bool) ((int) $val);
+			}
+			$datepickerSettings[$name] = $val;
+		}
+	
+		// merge in any custom settings 
+		$datepickerSettings = array_merge($datepickerSettings, $this->inputfield->datepickerOptions());
 
 		$out =
 			"<input " . $this->inputfield->getAttributesString($attrs) . " " .
@@ -182,6 +211,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 			"data-ts='$valueTS' " .
 			"data-ampm='$ampm' " .
 			(strlen($yearRange) ? "data-yearrange='$yearRange' " : '') .
+			"data-datepicker='" . htmlspecialchars(json_encode($datepickerSettings)) . "' " . 
 			"/>";
 
 		return $out;
@@ -196,7 +226,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	public function renderValue() {
 		$value = $this->getAttribute('value');
 		$format = $this->getSetting('dateInputFormat') . ' ' . $this->getSetting('timeInputFormat');
-		return $format && $value ? $this->wire('datetime')->formatDate($value, trim($format)) : '';
+		return $format && $value ? $this->wire()->datetime->formatDate($value, trim($format)) : '';
 	}
 
 	/**
@@ -218,8 +248,8 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	protected function getInputFormat($getArray = false) {
 
 		$inputFormats = array();
-		$language = $this->wire('user')->language;
-		$useLanguages = $this->wire('languages') && $language && !$language->isDefault();
+		$language = $this->wire()->user->language;
+		$useLanguages = $this->wire()->languages && $language && !$language->isDefault();
 
 		foreach(array('date', 'time') as $type) {
 			$inputFormat = '';
@@ -248,7 +278,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	public function sanitizeValue($value) {
 		// convert date string to unix timestamp
 		$format = $this->getInputFormat();
-		$value = $this->wire('datetime')->stringToTimestamp($value, $format);
+		$value = $this->wire()->datetime->stringToTimestamp($value, $format);
 		return $value;
 	}
 
@@ -258,14 +288,16 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	 */
 	public function getConfigInputfields(InputfieldWrapper $inputfields) {
 
-		$languages = $this->wire('languages');
-		$datetime = $this->wire('datetime');
+		$languages = $this->wire()->languages;
+		$datetime = $this->wire()->datetime;
+		$modules = $this->wire()->modules;
+		
 		$dateInputFormat = $this->getSetting('dateInputFormat');
 		$timeInputFormat = $this->getSetting('timeInputFormat');
 		$timeInputSelect = (int) $this->getSetting('timeInputSelect');
 
 		/** @var InputfieldRadios $f */
-		$f = $this->modules->get('InputfieldRadios');
+		$f = $modules->get('InputfieldRadios');
 		$f->label = $this->_('Date Picker');
 		$f->setAttribute('name', 'datepicker');
 		$f->addOption(self::datepickerNo, $this->_('No date/time picker'));
@@ -278,12 +310,12 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$inputfields->append($f);
 
 		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $this->modules->get('InputfieldFieldset');
+		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->attr('name', '_dateTimeInputFormats');
 		$fieldset->label = $this->_('Date/Time Input Formats');
 
 		/** @var InputfieldSelect $f */
-		$f = $this->modules->get('InputfieldSelect');
+		$f = $modules->get('InputfieldSelect');
 		$f->attr('name', '_dateInputFormat');
 		$f->label = $this->_('Date Input Format');
 		$f->description = $this->_('Select the format to be used for user input to this field. Your selection will populate the field below this, which you may customize further if needed.');
@@ -299,7 +331,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$fieldset->add($f);
 
 		/** @var InputfieldSelect $f */
-		$f = $this->modules->get('InputfieldSelect');
+		$f = $modules->get('InputfieldSelect');
 		$f->attr('name', '_timeInputFormat');
 		$f->label = $this->_('Time Input Format');
 		$f->addOption('', $this->_('None'));
@@ -317,7 +349,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$fieldset->add($f);
 
 		/** @var InputfieldRadios $f */
-		$f = $this->modules->get("InputfieldRadios");
+		$f = $modules->get("InputfieldRadios");
 		$f->attr('name', 'timeInputSelect');
 		$f->label = $this->_('Time Input Type');
 		$f->description = $this->_('Sliders (default) let the user slide controls to choose the time, where as Select lets the user select the time from a drop-down select.');
@@ -331,7 +363,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$fieldset->add($f);
 
 		/** @var InputfieldText $f */
-		$f = $this->modules->get("InputfieldText");
+		$f = $modules->get("InputfieldText");
 		$f->attr('name', 'dateInputFormat');
 		$f->attr('value', $dateInputFormat ? $dateInputFormat : InputfieldDatetime::defaultDateInputFormat);
 		$f->attr('size', 20);
@@ -346,7 +378,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$fieldset->add($f);
 
 		/** @var InputfieldText $f */
-		$f = $this->modules->get("InputfieldText");
+		$f = $modules->get("InputfieldText");
 		$f->attr('name', 'timeInputFormat');
 		$f->attr('value', $timeInputFormat ? $timeInputFormat : '');
 		$f->attr('size', 20);
@@ -372,8 +404,8 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 
 		$inputfields->add($fieldset);
 
-		/** @var InputfieldText $field */
-		$f = $this->modules->get('InputfieldText');
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
 		$f->setAttribute('name', 'placeholder');
 		$f->label = $this->_('Placeholder Text');
 		$f->setAttribute('value', $this->getAttribute('placeholder'));
@@ -382,7 +414,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$inputfields->append($f);
 
 		/** @var InputfieldInteger $f */
-		$f = $this->modules->get('InputfieldInteger');
+		$f = $modules->get('InputfieldInteger');
 		$f->setAttribute('name', 'size');
 		$f->label = $this->_('Size');
 		$f->attr('value', $this->getAttribute('size'));
@@ -390,9 +422,16 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$f->description = $this->_('The displayed width of this field (in characters).');
 		$f->columnWidth = 50;
 		$inputfields->append($f);
+
+		$fieldset = $inputfields->InputfieldFieldset;
+		$fieldset->attr('name', '_datepicker_settings');
+		$fieldset->label = $this->_('Datepicker settings');
+		$fieldset->showIf = "datepicker!=" . self::datepickerNo;
+		$inputfields->add($fieldset);
+		$module = $this->inputfield;
 		
 		/** @var InputfieldText $f */
-		$f = $this->modules->get("InputfieldText");
+		$f = $modules->get("InputfieldText");
 		$f->attr('name', 'yearRange');
 		$f->attr('value', $this->getSetting('yearRange'));
 		$f->attr('size', 10);
@@ -403,8 +442,64 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		$f->notes = $this->_('Default is `-10:+10` which shows a year range 10 years before and after now.');
 		$f->icon = 'arrows-h';
 		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->append($f);
+		$fieldset->append($f);
 
+		$f = $inputfields->InputfieldSelect;
+		$f->attr('name', 'showAnim');
+		$f->label = $this->_('Animation type');
+		$f->addOption('none', $this->_('None'));
+		$f->addOption('fade', $this->_('Fade'));
+		$f->addOption('show', $this->_('Show'));
+		$f->addOption('clip', $this->_('Clip'));
+		$f->addOption('drop', $this->_('Drop'));
+		$f->addOption('puff', $this->_('Puff'));
+		$f->addOption('scale', $this->_('Scale'));
+		$f->addOption('slide', $this->_('Slide'));
+		$f->val($module->get('showAnim'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldInteger;
+		$f->attr('name', 'numberOfMonths');
+		$f->label = $this->_('Number of month to show side-by-side in datepicker');
+		$f->val((int) $module->get('numberOfMonths'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'changeMonth');
+		$f->label = $this->_('Render month as select rather than text?');
+		$f->val($module->get('changeMonth'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'changeYear');
+		$f->label = $this->_('Render year as select rather than text?');
+		$f->val($module->get('changeYear'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'showButtonPanel');
+		$f->label = $this->_('Display “Today” and “Done” buttons under calendar?');
+		$f->val($module->get('showButtonPanel'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'showMonthAfterYear');
+		$f->label = $this->_('Show month after year?');
+		$f->val($module->get('showMonthAfterYear'));
+		$f->columnWidth = 50;
+		$fieldset->add($f);
+
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'showOtherMonths');
+		$f->label = $this->_('Show days in other months at start/end of months?');
+		$f->val($module->get('showOtherMonths'));
+		$f->columnWidth = 100;
+		$fieldset->add($f);
 	}
 
 

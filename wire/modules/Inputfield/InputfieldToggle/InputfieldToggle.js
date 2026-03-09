@@ -87,10 +87,10 @@ function InputfieldToggleInit() {
 		var $button = $('.InputfieldToggleHelper > button');
 		var $input = $('.InputfieldToggleHelper > input');
 		
-		if(!$button.length) $button = $('.InputfieldForm button.ui-priority-secondary:eq(0)');
-		if(!$button.length) $button = $('.InputfieldForm button.ui-button:eq(0)');
+		if(!$button.length) $button = $('.InputfieldForm button.ui-priority-secondary').eq(0);
+		if(!$button.length) $button = $('.InputfieldForm button.ui-button').eq(0);
 		if(!$button.length) $button = $('.InputfieldForm button[type=submit]'); 
-		if(!$input.length) $input = $('.InputfieldForm input[type=text]:eq(0)');
+		if(!$input.length) $input = $('.InputfieldForm input[type=text]').eq(0);
 		if(!$button.length || !$input.length) return;
 		
 		InputfieldToggleSetColors({

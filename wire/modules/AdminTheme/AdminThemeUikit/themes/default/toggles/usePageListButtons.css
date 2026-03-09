@@ -1,0 +1,52 @@
+#pw-content-body .PageList .PageListActions a, 
+#pw-content-body .PageListerActions > a,
+.PageList .PageListItem .PageListActions > li > a {
+	/* make PageList items use action links that look like buttons */
+	display: inline-block;
+	line-height: 1.3;
+	background-color: var(--pw-main-color);
+	color: #fff;
+	padding: 2px 6px;
+	font-weight: bold;
+	text-transform: lowercase;
+	position: relative;
+	top: -1px;
+	border-radius: 3px;
+}
+
+#pw-content-body .PageList .PageListActions a:hover,
+#pw-content-body .PageListerActions > a:hover,
+.PageList .PageListItem .PageListActions > li > a:hover {
+	/* highlight selected action when hovered */
+	filter: brightness(1.08);
+}
+
+#pw-content-body .PageList ul.uk-pagination > li:first-child > a {
+	border-top-left-radius: var(--pw-button-radius) !important;
+	border-bottom-left-radius: var(--pw-button-radius) !important;
+}
+#pw-content-body .PageList ul.uk-pagination > li:last-child > a {
+	border-top-right-radius: var(--pw-button-radius) !important;
+	border-bottom-right-radius: var(--pw-button-radius) !important;
+}
+
+.PageList .PageListItem:hover {
+	/* adjust width to actions */
+	/*
+	display: inline-block;
+	width: auto;
+	 */
+}
+
+#pw-content-body .PageList ul.uk-pagination > li.uk-active > a {
+	/* update active pagination to use main color */
+	background: var(--pw-main-color) !important; 
+	--pw-text-color: #fff; 
+}
+
+.PageList .PageListItem:not(:hover) .PageListActions.actions {
+	display: none !important;
+}
+.PageList .PageListItem:hover .PageListActions.actions {
+	display: inline-block;
+}

@@ -1,13 +1,13 @@
 $(document).ready(function() {
-	$("select.TranslationFileSelect").dblclick(function() {
-		$("#submit_add").click();	
+	$("select.TranslationFileSelect").on('dblclick', function() {
+		$("#submit_add").trigger('click');	
 	});
 
 	var $checkbox = $("input#untranslated");
 
 	if($checkbox.length) {
 
-		$checkbox.click(function() {
+		$checkbox.on('click', function() {
 			if($(this).is(":checked")) {
 				$(".Inputfield.translated").fadeOut();
 			} else {
@@ -17,7 +17,7 @@ $(document).ready(function() {
 
 		if($checkbox.is(":checked")) $(".Inputfield.translated").hide();
 
-		$(":input.translatable").blur(function() {
+		$(":input.translatable").on('blur', function() {
 			if($(this).val().length) {
 				$(this).closest('.Inputfield').removeClass('untranslated').addClass('translated');
 			} else {

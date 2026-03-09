@@ -1,24 +1,45 @@
 <?php namespace ProcessWire;
 
 /**
- * Class MarkupAdminDataTable
+ * MarkupAdminDataTable
+ * 
+ * #pw-summary Module that provides an API for rendering of HTML tables in the ProcessWire admin (or elsewhere)
+ * #pw-var $table
+ * #pw-body = 
+ * This module provides a consistent way for rendering `<table>` elements in the ProcessWire admin. 
+ * It can certainly be used outside of the admin as well, but it gets its default classes from those
+ * defined by the admin theme. For example, if your system uses AdminThemeUikit then this module 
+ * will use `uk-table` classes. 
+ * ~~~~~
+ * $table = $modules->get('MarkupAdminDataTable');
+ * $table->setSortable(true);
+ * $table->headerRow([ 'First name', 'Last name', 'Email' ]); 
+ * foreach($people as $person) {
+ *   $table->row([ $person->first_name, $person->last_name, $person->email ]); 
+ * }
+ * echo $table->render();
+ * ~~~~~
+ * This module populates `$config->styles` and `$config->scripts` with its 
+ * MarkupAdminDatable.css and MarkupAdminDataTable.js files. 
+ * #pw-body
  * 
  * @method string render()
  * 
- * @property-read array $headerRow
- * @property-read array $footerRow
- * @property-read array $rows
- * @property-read array $rowClasses
- * @property-read array $rowAttrs
- * @property-read array $actions
- * @property bool $encodeEntities
- * @property bool $sortable
- * @property bool $resizable
- * @property string $class
- * @property string $caption
- * @property bool $responsive
- * @property array $settings
- * @property string $id
+ * @property-read array $headerRow Table <thead> header row array
+ * @property-read array $footerRow Table <tfoot> footer row array
+ * @property-read array $rows Table rows
+ * @property-read array $rowClasses Classes for table rows indexed by row number (0 is first)
+ * @property-read array $rowAttrs Attributes for table rows indexed by row number (0 is first)
+ * @property-read array $actions Action buttons for under the table
+ * @property bool $encodeEntities Should table content be entity encoded? Set to false if already encoded. 
+ * @property bool $sortable Should table be sortable?
+ * @property bool $resizable Should table be resizable?
+ * @property string $class Class attribute for <table> element
+ * @property string $caption Content for table <caption> tag. 
+ * @property bool $responsive Use responsive mode? 0=off, 1=responsive, 2=responsive stack
+ * @property array $settings Array of table settings
+ * @property string $id HTML id attribute for table
+ * @property int $border Table border attribute
  * 
  */
 
@@ -28,7 +49,7 @@ class MarkupAdminDataTable extends ModuleJS {
 		return array(
 			'title' => 'Admin Data Table',
 			'summary' => 'Generates markup for data tables used by ProcessWire admin',
-			'version' => 107,
+			'version' => 108,
 			'permanent' => true,
 		);
 	}
@@ -65,6 +86,8 @@ class MarkupAdminDataTable extends ModuleJS {
 	
 	protected $colsNotSortable = array();
 	
+	protected $removeClasses = array();
+	
 	/**
 	 * Initialize module and default settings
 	 * 
@@ -85,7 +108,7 @@ class MarkupAdminDataTable extends ModuleJS {
 		);
 	
 		// settings set globally for all tables (when present)
-		$settings = $this->wire('config')->MarkupAdminDataTable;
+		$settings = $this->wire()->config->MarkupAdminDataTable;
 		
 		if(empty($settings)) {
 			$settings = $defaults;
@@ -107,6 +130,7 @@ class MarkupAdminDataTable extends ModuleJS {
 		$this->set('caption', '');
 		$this->set('responsive', self::responsiveYes);
 		$this->set('settings', $settings);
+		$this->set('border', '');
 		$this->set('id', '');
 		
 		parent::init();
@@ -114,6 +138,8 @@ class MarkupAdminDataTable extends ModuleJS {
 
 	/**
 	 * Get property
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param string $key
 	 * @return mixed|null
@@ -128,12 +154,14 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Set the header row for the table
 	 * 
-	 * Given $a array may be either array of labels (strings) or any of the array items may
-	 * be an array, in which case index 0 is the label and index 1 is a class attribute to use 
-	 * for the th element.
+	 * Given `$a` array may be either array of labels (strings) or any of the array items may
+	 * be an array, in which case index `0` is the label and index `1` is a class attribute to use 
+	 * for the `<th>` element.
+	 * 
+	 * #pw-group-content
 	 * 
 	 * @param array $a Array of header row labels 
-	 * @return $this
+	 * @return self
 	 * 
 	 */
 	public function headerRow(array $a) {
@@ -144,8 +172,10 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Set the footer row for the table
 	 * 
+	 * #pw-group-content
+	 * 
 	 * @param array $a Array of footer row labels (strings)
-	 * @return $this
+	 * @return self
 	 * 
 	 */
 	public function footerRow(array $a) {
@@ -154,18 +184,26 @@ class MarkupAdminDataTable extends ModuleJS {
 	}
 
 	/**
-	 * Add a row to the table
+	 * Add a row to the table (see arguments for details)
+	 * 
+	 * ~~~~~
+	 * // Populate 3 columns: first name, last name, email
+	 * $table->row([ 'Ryan', 'Cramer', 'ryan@processwire.com' ]); 
+	 * ~~~~~
+	 * 
+	 * #pw-group-content
 	 * 
 	 * @param array $a Array of columns that will each be a `<td>`, where each element may be one of the following:
 	 *   - `string`: converts to `<td>string</td>`
 	 *   - `$a["key"] = "value"`: converts to `<td><a href='value'>key</a></td>`
-	 *   - `array('label' => 'url')`: converts to `<td><a href='url'>label</a></td>` (same as above, but in nested array with count 1)
-	 *   - `array('label', 'class')`: converts to `<td class='class'>label</td>`
+	 *   - `[ 'label' => 'url' ]`: converts to `<td><a href='url'>label</a></td>` (same as above, but in nested array with count 1)
+	 *   - `[ 'label', 'class') ]`: converts to `<td class='class'>label</td>`
+	 *   - `true` for any column to skip it, making the previous column colspan into it. (3.0.254+)
 	 * @param array $options Optionally specify any one of the following:
-	 *   - separator (bool): specify true to show a stronger visual separator above the column
-	 *   - class (string): specify one or more class names to apply to the `<tr>`
-	 *   - attrs (array): array of attr => value for attributes to add to the `<tr>`
-	 * @return $this
+	 *   - `separator` (bool): specify true to show a stronger visual separator above the column
+	 *   - `class` (string): specify one or more class names to apply to the `<tr>`
+	 *   - `attrs` (array): array of attr => value for attributes to add to the `<tr>`
+	 * @return self
 	 * 
 	 */
 	public function row(array $a, array $options = array()) {
@@ -213,6 +251,8 @@ class MarkupAdminDataTable extends ModuleJS {
 				foreach($v as $kk => $vv) {
 					$v[$kk] = $this->encode($vv);
 				}
+			} else if(is_bool($v)) {
+				// colspan, keep as-is
 			} else {
 				$v = $this->encode($v); 
 			}
@@ -222,7 +262,13 @@ class MarkupAdminDataTable extends ModuleJS {
 	}
 
 	/**
-	 * Add action(s) button underneath the table
+	 * Add action button(s) underneath the table
+	 * 
+	 * ~~~~~
+	 * $table->action([ 'Continue' => '/url/to/continue/' ]); 
+	 * ~~~~~
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param array $action Array in format array('button-label' => 'url')
 	 * @return $this
@@ -238,10 +284,14 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Render the table
 	 * 
+	 * #pw-group-content
+	 * 
 	 * @return string
 	 * 
 	 */
 	public function ___render() {
+		
+		$sanitizer = $this->wire()->sanitizer;
 
 		$tableClass = trim($this->settings('class') . ' ' . $this->class); 
 		if($this->responsive == self::responsiveYes) {
@@ -260,9 +310,19 @@ class MarkupAdminDataTable extends ModuleJS {
 		$out = '';
 		$maxCols = 0;
 		$id = $this->id ? $this->id : "AdminDataTable" . (++self::$instanceCnt);
+		
+		if(count($this->removeClasses)) {
+			$tableClasses = explode(' ', $tableClass);
+			foreach($tableClasses as $key => $cls) {
+				if(in_array($cls, $this->removeClasses)) unset($tableClasses[$key]);
+			}
+			$tableClass = implode(' ', $tableClasses);
+		}
 
 		if(count($this->rows)) { 
-			$out = "\n<table id='$id' class='$tableClass'>";
+			$attr = "id='$id' class='$tableClass'";
+			if($this->border) $attr .= " border='" . ((int) $this->border) . "'";
+			$out = "\n<table $attr>";
 
 			if($this->caption) $out .= "\n\t<caption>{$this->caption}</caption>";
 
@@ -297,15 +357,19 @@ class MarkupAdminDataTable extends ModuleJS {
 				if(isset($this->rowClasses[$n])) $attrs['class'] = $this->rowClasses[$n];
 				$attrStr = '';
 				foreach($attrs as $attrName => $attrVal) {
-					$attrStr .= " $attrName='" . $this->wire('sanitizer')->entities($attrVal) . "'";
+					$attrStr .= " $attrName='" . $sanitizer->entities($attrVal) . "'";
 				}
 				$out .= "\n\t\t<tr$attrStr>";
-				foreach($row as $td) {
+				foreach($row as $nn => $td) {
+					if(is_bool($td)) continue; // colspan
 					$class = '';
 					if(is_array($td)) list($td, $class) = $td;
 					if(strlen("$td") == 0 || $td === '&nbsp;') $class .= ($class ? ' ' : '') . 'blank';
 					if($class) $class = " class='$class'";
-					$out .= "\n\t\t\t<td$class>$td</td>"; 
+					$colspan = 1;
+					while(isset($row[++$nn]) && is_bool($row[$nn])) $colspan++;
+					$colspan = $colspan > 1 ? " colspan='$colspan'" : "";
+					$out .= "\n\t\t\t<td$class$colspan>$td</td>"; 
 				}
 				$out .= "\n\t\t</tr>";
 			}
@@ -347,6 +411,10 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Set whether or not entity encoding is enabled
 	 * 
+	 * Note: entity encoding is enabled by default
+	 * 
+	 * #pw-group-settings
+	 * 
 	 * @param bool $encodeEntities
 	 * 
 	 */
@@ -355,7 +423,9 @@ class MarkupAdminDataTable extends ModuleJS {
 	}
 
 	/**
-	 * Set class(es) to add to table
+	 * Set class(es) to add to <table>
+	 * 
+	 * #pw-group-attributes
 	 * 
 	 * @param string $class
 	 * 
@@ -365,7 +435,9 @@ class MarkupAdminDataTable extends ModuleJS {
 	}
 
 	/**
-	 * Add a class to the table (without replacing existing ones)
+	 * Add a class to the <table> without replacing existing ones
+	 * 
+	 * #pw-group-attributes
 	 * 
 	 * @param string $class
 	 * 
@@ -373,9 +445,28 @@ class MarkupAdminDataTable extends ModuleJS {
 	public function addClass($class) {
 		$this->class = trim($this->class . " " . $this->encode($class)); 
 	}
+	
+	/**
+	 * Remove a class from the <table>
+	 * 
+	 * #pw-group-attributes
+	 *
+	 * @param string $class
+	 * @since 3.0.232
+	 *
+	 */
+	public function removeClass($class) {
+		$classes = strrpos($class, ' ') ? explode(' ', $class) : array($class);
+		$this->removeClasses = array_merge($this->removeClasses, $classes);
+	}
 
 	/**
 	 * Set whether or not table is sortable
+	 * 
+	 * When enabled, tables may be sorted by clicking the labels in the header row. 
+	 * As a result, sortable tables require that the table has a header row.
+	 * 
+	 * #pw-group-settings
 	 * 
 	 * @param bool $sortable
 	 * 
@@ -387,6 +478,8 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Set whether or not table is resizable
 	 * 
+	 * #pw-group-settings
+	 * 
 	 * @param bool $resizable
 	 * 
 	 */
@@ -396,6 +489,8 @@ class MarkupAdminDataTable extends ModuleJS {
 
 	/**
 	 * Set table caption
+	 * 
+	 * #pw-group-content
 	 * 
 	 * @param string $caption
 	 * 
@@ -407,6 +502,8 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Set table id attribute
 	 * 
+	 * #pw-group-attributes
+	 * 
 	 * @param string $id
 	 * 
 	 */
@@ -416,6 +513,8 @@ class MarkupAdminDataTable extends ModuleJS {
 
 	/**
 	 * Set a column as not sortable (first column is 0)
+	 * 
+	 * #pw-group-settings
 	 * 
 	 * @param int $index
 	 * @since 3.0.215
@@ -429,8 +528,11 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Set the responsive mode of this table
 	 * 
-	 * Default behavior is responsiveYes. Specify false or 0 to disable responsive.
-	 * Or specify MarkupAdminDataTable::responsiveAlt for stacked th + td. 
+	 * Default behavior is `MarkupAdminDataTable::responsiveYes`. 
+	 * Specify false or 0 to disable responsive.
+	 * Or specify `MarkupAdminDataTable::responsiveAlt` for stacked `<th>` + `<td>`. 
+	 * 
+	 * #pw-group-settings
 	 * 
 	 * @param int|bool $responsive
 	 * 
@@ -442,7 +544,7 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Get or set an internal setting 
 	 * 
-	 * @pw-internal
+	 * #pw-internal
 	 * 
 	 * @param string $key Setting to get or set
 	 * @param mixed $value Optional value to set
@@ -459,11 +561,23 @@ class MarkupAdminDataTable extends ModuleJS {
 			return $this;
 		}
 	}
-
+	
+	/**
+	 * #pw-internal
+	 * 
+	 * @return false
+	 * 
+	 */
 	public function isSingular() {
 		return false; 
 	}
-
+	
+	/**
+	 * #pw-internal
+	 *
+	 * @return false
+	 *
+	 */
 	public function isAutoload() {
 		return false; 
 	}

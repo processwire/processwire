@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -99,7 +99,7 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 		
 		if(!$hasDimensions) {
 			$numErrors = 0;
-			if($this->wire('database')->tableExists($field->getTable())) {
+			if($this->wire()->database->tableExists($field->getTable())) {
 				$columns = array('width', 'height', 'ratio');
 				foreach($columns as $column) {
 					if(!$this->addColumn($field, $column, $schema)) $numErrors++;
@@ -160,26 +160,33 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 	
 		/** @var Pageimage $pagefile */
 		$pagefile = parent::wakeupFile($page, $field, $pagefiles, $a); 
+		$info = false;
 		
 		if(!empty($a['width'])) {
 			// dimension info already present in DB: populate to Pageimage object
-			/*
-			if($a['width'] < 0) $a['width'] = abs($a['width']) . '%';
-			if($a['height'] < 0) $a['height'] = abs($a['height']) . '%';
-			$pagefile->setImageInfo(array('width' => $a['width'], 'height' => $a['height']));
-			*/
+			$info = array('width' => (int) $a['width'], 'height' => (int) $a['height']);
 		} else if(self::autoUpdateOnWakeup && (((int) $field->get('fileSchema')) & self::fileSchemaDimensions) && $pagefile->width()) {
 			// dimension info not yet in DB: detect and populate in DB
 			list($width, $height, $ratio) = array($pagefile->width(), $pagefile->height(), $pagefile->ratio);
 			if(strpos($width, '%')) $width = (-1 * (int) rtrim($width, '%'));
 			if(strpos($height, '%')) $height = (-1 * (int) rtrim($height, '%'));
-			$this->saveFileCols($page, $field, $pagefile, array(
-				'width' => $width,
-				'height' => $height,
-				'ratio' => $ratio,
-			));
+			$info = array('width' => $width, 'height' => $height, 'ratio' => $ratio);
+			$this->saveFileCols($page, $field, $pagefile, $info);
 		}
 		
+		if($info) {
+			unset($info['ratio']); // ratio not stored in runtime image info
+			$w = isset($info['width']) ? (int) $info['width'] : 0;
+			$h = isset($info['height']) ? (int) $info['height'] : 0;
+			if($w === -100 && $h === -100) {
+				// we were previously unable to determine width and height
+				// so do not populate the cached values, forcing it to re-check
+				// this only occurs on SVG files
+			} else {
+				$pagefile->setImageInfo($info);
+			}
+		}
+
 		return $pagefile;
 	}
 
@@ -241,28 +248,7 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 	 *
 	 */
 	public function getFiles(Page $page, Field $field) {
-		
-		$value = $page->get($field->name);
-		$files = array();
-		
-		if($value instanceof Pageimage) {
-			$value = array($value);
-		} else if(!$value instanceof Pageimages) {
-			return array();
-		}
-		
-		foreach($value as $pageimage) {
-			/** @var Pageimage $pageimage */
-			$file = $pageimage->filename();
-			$path = dirname($file) . '/';
-			$files[] = $file;
-			$variations = $pageimage->getVariations(array('info' => true, 'verbose' => false));
-			foreach($variations as $basename) {
-				$files[] = $path . $basename;
-			}
-		}
-		
-		return $files;
+		return parent::getFiles($page, $field);
 	}
 
 	/**
@@ -337,4 +323,3 @@ class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles, Fieldty
 
 
 }
-

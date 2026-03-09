@@ -7,7 +7,7 @@
  * It provides the interface and some basic functions. For an example, see:
  * /wire/modules/Session/SessionHandlerDB/SessionHandlerDB.module
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -48,14 +48,21 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 *
 	 */
 	public function attach() {
-		session_set_save_handler(
-			array($this, 'open'),
-			array($this, 'close'),
-			array($this, 'read'),
-			array($this, 'write'),
-			array($this, 'destroy'),
-			array($this, 'gc')
-		);
+		if(version_compare(PHP_VERSION, '8.4.0') >= 0) {
+			// Technically can be used in any PHP 8.x version
+			$adaptor = new WireSessionHandlerAdaptor($this);
+			session_set_save_handler($adaptor);
+		} else {
+			// PHP 8.4 deprecated this method of setting save handler: 
+			session_set_save_handler(
+				array($this, 'open'),
+				array($this, 'close'),
+				array($this, 'read'),
+				array($this, 'write'),
+				array($this, 'destroy'),
+				array($this, 'gc')
+			);
+		}
 	}
 
 	/**
@@ -85,7 +92,7 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 * Read and return data for session indicated by $id
 	 *
 	 * @param string $id Session ID
-	 * @return string Serialized data or blank string if none
+	 * @return string|false Serialized data string, blank string if none, or false on fail
 	 *
 	 */
 	abstract public function read($id);
@@ -95,6 +102,7 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 *
 	 * @param string $id Session ID
 	 * @param string Serialized data to write
+	 * @return bool
 	 *
 	 */
 	abstract public function write($id, $data); 

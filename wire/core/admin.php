@@ -6,7 +6,7 @@
  * This file is designed for inclusion by /site/templates/admin.php template and all the variables 
  * it references are from your template namespace. 
  *
- * Copyright 2022 by Ryan Cramer
+ * Copyright 2024 by Ryan Cramer
  * 
  * @var Config $config
  * @var User $user
@@ -77,9 +77,9 @@ function _checkForHttpHostError(Config $config) {
  */
 function _checkForTwoFactorAuth(Session $session) {
 	$tfaUrl = $session->getFor('_user', 'requireTfa'); // contains URL to configure TFA
-	if(!$tfaUrl || strpos($tfaUrl, $session->wire('page')->url()) === 0) return;
-	$sanitizer = $session->wire('sanitizer');
-	$session->wire('user')->warning(
+	if(!$tfaUrl || strpos($tfaUrl, $session->wire()->page->url()) === 0) return;
+	$sanitizer = $session->wire()->sanitizer;
+	$session->wire()->user->warning(
 		'<strong>' . $sanitizer->entities1(__('Action required')) . '</strong> ' .
 		wireIconMarkup('angle-right') . ' ' . 
 		"<a href='$tfaUrl'>" . $sanitizer->entities1(__('Enable two-factor authentication')) . " </a>",
@@ -95,9 +95,27 @@ function _checkForTwoFactorAuth(Session $session) {
  */
 function _checkForMaxInputVars(WireInput $input) {
 	$max = (int) ini_get('max_input_vars');
-	if($max && count($_POST) >= $max) {
+	if($max && count($_POST, COUNT_RECURSIVE) >= $max) {
 		$input->error(sprintf(__('You have reached PHP’s “max_input_vars” setting of %d — please increase it.'), $max)); 
 	}
+}
+
+/**
+ * Setup for demo mode 
+ * 
+ * @param Page $page
+ * @param ProcessWire $wire
+ * 
+ */
+function _setupForDemoMode($page, $wire) {
+	if("$page->process" !== 'ProcessLogin') {
+		if(!empty($_POST)) $wire->error("Features that use POST variables are disabled in this demo");
+		foreach($_POST as $k => $v) unset($_POST[$k]); $_POST = array();
+		$wire->input->post->removeAll();
+		$wire->config->js('demo', true);
+	}
+	unset($_SERVER['HTTP_X_FIELDNAME'], $_SERVER['HTTP_X_FILENAME']);
+	foreach($_FILES as $k => $v) unset($_FILES[$k]); $_FILES = array();
 }
 
 // fallback theme if one not already present
@@ -131,16 +149,12 @@ $demo = $config->demo;
 
 // enable modules to output their own ajax responses if they choose to
 if($ajax) ob_start();
+if($demo) _setupForDemoMode($page, $wire);
 
 if($page->process && $page->process != 'ProcessPageView') {
 	try {
 
-		if($demo && $page->process != 'ProcessLogin') {
-			if(count($_POST)) $wire->error("Features that use POST variables are disabled in this demo"); 
-			foreach($_POST as $k => $v) unset($_POST[$k]); 
-			foreach($_FILES as $k => $v) unset($_FILES[$k]); 
-			$input->post->removeAll();
-		} else if($input->requestMethod('POST') && $user->isLoggedin() && $user->hasPermission('page-edit')) {
+		if($input->requestMethod('POST') && $user->isLoggedin() && $user->hasPermission('page-edit')) {
 			_checkForMaxInputVars($input);
 		}
 
@@ -158,7 +172,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 		}
 		if($modal) $session->addHookBefore('redirect', null, '_hookSessionRedirectModal'); 
 		$content = $controller->execute();
-		$process = $controller->wire('process');
+		$process = $controller->wire()->process;
 		
 		if(!$ajax && !$modal && !$demo && $user->isLoggedin()) _checkForTwoFactorAuth($session);
 		if($process) {} // ignore
@@ -170,7 +184,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 	} catch(WirePermissionException $e) {
 		$wire->setStatusFailed($e, "Permission error from $page->process", $page); 
 
-		if($controller && $controller->isAjax()) {
+		if($controller && $config->ajax) {
 			$content = $controller->jsonMessage($e->getMessage(), true); 
 
 		} else if($user->isGuest()) {
@@ -195,7 +209,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 		} else {
 			$wire->error($msg);
 		}
-		if($controller && $controller->isAjax()) {
+		if($controller && $config->ajax) {
 			$content = $controller->jsonMessage($e->getMessage(), true);
 			$wire->trackException($e, false);
 		} else {
@@ -216,7 +230,7 @@ if($ajax) {
 // config properties that should be mirrored to ProcessWire.config.property in JS
 $config->js(array('httpHost', 'httpHosts', 'https'), true); 
 
-if($controller && $controller->isAjax()) {
+if($controller && $config->ajax) {
 	if(empty($content) && count($notices)) {
 		$notice = $notices->last(); /** @var Notice $notice */
 		$content = $controller->jsonMessage($notice->text, false, $notice->flags & Notice::allowMarkup);
@@ -238,4 +252,3 @@ if($controller && $controller->isAjax()) {
 	$session->removeNotices();
 	if($content) {} // ignore
 }
-

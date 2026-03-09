@@ -11,7 +11,7 @@
  * If that file exists, the installer will not run. So if you need to re-run this installer for any
  * reason, then you'll want to delete that file. This was implemented just in case someone doesn't delete the installer.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo 3.0.190: provide option for command-line options to install
@@ -47,7 +47,7 @@ class Installer {
 	 * Minimum required PHP version to install ProcessWire
 	 *
 	 */
-	const MIN_REQUIRED_PHP_VERSION = '5.3.8';
+	const MIN_REQUIRED_PHP_VERSION = '7.1.0';
 
 	/**
 	 * Test mode for installer development, non destructive
@@ -91,18 +91,19 @@ class Installer {
 	public function execute() {
 		
 		if(self::TEST_MODE) {
-			error_reporting(E_ALL | E_STRICT);
+			error_reporting(E_ALL);
 			ini_set('display_errors', 1);
 		}
 
 		// these two vars used by install-head.inc
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
-		
-		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc"); 
-
 		$step = $this->post('step');
 		
+		if($step === '5') require('./index.php');
+		
+		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc");
+
 		if($step === null) {
 			$this->welcome();
 		} else {
@@ -112,7 +113,7 @@ class Installer {
 				case 1: $this->compatibilityCheck(); break;
 				case 2: $this->dbConfig();  break;
 				case 4: $this->dbSaveConfig();  break;
-				case 5: require("./index.php");
+				case 5: 
 					/** @var ProcessWire $wire */
 					$wire->modules->refresh();
 					$this->adminAccountSave($wire);
@@ -187,7 +188,7 @@ class Installer {
 			if($dir->isDot() || !$dir->isDir()) continue; 
 			$name = $dir->getBasename();
 			$path = rtrim($dir->getPathname(), '/') . '/';
-			if(strpos($name, 'site-') !== 0) continue;
+			if(strpos($name, 'site-') !== 0 && $name !== 'site') continue;
 			$passed = true;
 			foreach($dirTests as $test) if(!is_dir($path . $test)) $passed = false;
 			foreach($fileTests as $test) if(!file_exists($path . $test)) $passed = false; 
@@ -402,11 +403,15 @@ class Installer {
 				$this->warn("Consider making directory $d writable, at least during development."); 
 			}
 		}
-		
-		if(is_writable("./site/config.php")) {
-			$this->ok("/site/config.php is writable");
+	
+		if(file_exists("./site/config.php")) {
+			if(is_writable("./site/config.php")) {
+				$this->ok("/site/config.php is writable");
+			} else {
+				$this->err("/site/config.php must be writable during installation. Please adjust the server permissions before continuing.");
+			}
 		} else {
-			$this->err("/site/config.php must be writable. Please adjust the server permissions before continuing.");
+			$this->err("Site profile is missing a /site/config.php file.");
 		}
 		
 		if(!is_file("./.htaccess") || !is_readable("./.htaccess")) {
@@ -474,11 +479,13 @@ class Installer {
 		if(!isset($values['dbPort'])) $values['dbPort'] = ini_get("mysqli.default_port"); 
 		if(!isset($values['dbUser'])) $values['dbUser'] = ini_get("mysqli.default_user"); 
 		if(!isset($values['dbPass'])) $values['dbPass'] = ini_get("mysqli.default_pw");
-		if(!isset($values['dbEngine'])) $values['dbEngine'] = 'MyISAM';
+		if(!isset($values['dbEngine'])) $values['dbEngine'] = 'InnoDB';
+		if(!isset($values['dbSocket'])) $values['dbSocket'] = ini_get("mysqli.default_socket");
+		if(!isset($values['dbCon'])) $values['dbCon'] = 'Hostname';
 
 		if(!$values['dbHost']) $values['dbHost'] = 'localhost';
 		if(!$values['dbPort']) $values['dbPort'] = 3306;
-		if(empty($values['dbCharset'])) $values['dbCharset'] = 'utf8';
+		if(empty($values['dbCharset'])) $values['dbCharset'] = 'utf8mb4';
 		if($values['dbCharset'] != 'utf8mb4') $values['dbCharset'] = 'utf8';
 		if($values['dbEngine'] != 'InnoDB') $values['dbEngine'] = 'MyISAM';
 
@@ -486,22 +493,45 @@ class Installer {
 			if(strpos($key, 'chmod') === 0) {
 				$values[$key] = (int) $value;
 			} else if($key != 'httpHosts') {
-				$values[$key] = htmlspecialchars($value, ENT_QUOTES, 'utf-8'); 
+				$values[$key] = htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); 
 			}
 		}
 		
 		$this->input('dbName', 'DB Name', $values['dbName']); 
 		$this->input('dbUser', 'DB User', $values['dbUser']);
-		$this->input('dbPass', 'DB Pass', $values['dbPass'], array('type' => 'password', 'required' => false)); 
-		$this->input('dbHost', 'DB Host', $values['dbHost']); 
+		$this->input('dbPass', 'DB Pass', $values['dbPass'], array('type' => 'password', 'required' => false));
+		$this->select('dbCon', 'Connection', $values['dbCon'], array('Hostname', 'Socket'));
+		$this->clear();
+		
+		$this->input('dbHost', 'DB Host', $values['dbHost']);
 		$this->input('dbPort', 'DB Port', $values['dbPort']);
-	
-		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8', 'utf8mb4'));
-		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('MyISAM', 'InnoDB'));
+		$this->input('dbSocket', 'DB Socket', $values['dbSocket'], array('width' => 300));
+		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8mb4', 'utf8'));
+		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('InnoDB', 'MyISAM'));
 		$this->clear();
 	
+		// automatic required states for host, port and socket
+		echo "
+			<script>
+				jQuery(document).ready(function($) {
+					let ho = $('input[name=dbHost]'), po = $('input[name=dbPort]'), 
+						so = $('input[name=dbSocket]'), co = $('select[name=dbCon]');
+					co.on('change', function() {
+						if(co.val() === 'Hostname') {
+							ho.prop('required', true).closest('p').show();
+							po.prop('required', true).closest('p').show();
+							so.prop('required', false).closest('p').hide();
+						} else {
+							ho.prop('required', false).closest('p').hide();
+							po.prop('required', false).closest('p').hide();
+							so.prop('required', true).closest('p').show();
+						}
+					}).change();
+				});
+			</script>
+		";
+	
 		$this->p(
-			"The DB Charset option “utf8mb4” may not be compatible with all 3rd party modules.<br />" . 
 			"The DB Engine option “InnoDB” requires MySQL 5.6.4 or newer.", 
 			array('class' => 'detail', 'style' => 'margin-top:0')
 		);
@@ -596,17 +626,38 @@ class Installer {
 		$yesChecked = empty($noChecked) ? "checked='checked'" : "";
 		$this->p(
 			"<label>" . 
-				"<input type='radio' class='uk-radio' name='debugMode' $yesChecked value='1'> <strong>Enabled</strong> " . 
-				"<span class='uk-text-small uk-text-muted'>(recommended while sites are in development or while testing ProcessWire)</span>" . 
+				"<input type='radio' class='uk-radio' name='debugMode' $yesChecked value='1'> <strong>ON:</strong> " . 
+				"<span>Recommended while site is in development or while testing ProcessWire.</span>" . 
 			"</label><br />" .
 			"<label>" . 
-				"<input type='radio' class='uk-radio' name='debugMode' $noChecked value='0'> <strong>Disabled</strong> " . 
-				"<span class='uk-text-small uk-text-muted'>(recommended once a site goes live or becomes publicly accessible)</span>" . 
+				"<input type='radio' class='uk-radio' name='debugMode' $noChecked value='0'> <strong>OFF:</strong> " . 
+				"<span>Recommended once a site goes live or becomes publicly accessible.</span>" . 
 			"</label> " 
 		);
 		$this->p(
 			"You can also enable or disable debug mode at any time by editing the <u>/site/config.php</u> file and setting " .
 			"<code>\$config->debug = true;</code> or <code>\$config->debug = false;</code>"
+		);
+		$this->sectionStop();
+		
+		$this->sectionStart('fa-smile-o Admin Appearance');
+		$themeName = isset($values['themeName']) ? $values['themeName'] : 'default';
+		$defaultChecked = $themeName === 'default' ? ' checked' : '';
+		$originalChecked = $themeName === 'original' ? ' checked' : '';
+		$this->p(
+			"<label>" .
+				"<input type='radio' class='uk-radio' name='themeName' $defaultChecked value='default'> <strong>Konkat Default:</strong> " .
+				"<span>Modern with light and dark modes, customizable main colors, made by Konkat Studio.</span>" .
+			"</label><br />" .
+			"<label>" .
+				"<input type='radio' class='uk-radio' name='themeName' $originalChecked value='original'> <strong>Core Original:</strong> " .
+				"<span>Classic ProcessWire with colors like this installer, widely used and very stable.</span>" .
+			"</label> "
+		);
+		$this->p(
+			"Not sure which to choose? Select either and you can always change it later. " . 
+			"After installation, login to the admin and go to <code>Modules &gt; Configure &gt; AdminThemeUikit</code> " . 
+			"and experiment with the different options there."
 		);
 		$this->sectionStop();
 		
@@ -666,29 +717,45 @@ class Installer {
 		$values['debugMode'] = $this->post('debugMode', 'int');
 
 		// db configuration
-		$fields = array('dbUser', 'dbName', 'dbPass', 'dbHost', 'dbPort', 'dbEngine', 'dbCharset');
+		$fields = array('dbUser', 'dbName', 'dbPass', 'dbHost', 'dbPort', 'dbSocket', 'dbEngine', 'dbCharset', 'dbCon');
 		
 		foreach($fields as $field) {
 			$value = $this->post($field, 'string');
 			$value = substr($value, 0, 255); 
 			if(strpos($value, "'") !== false) $value = str_replace("'", "\\" . "'", $value); // allow for single quotes (i.e. dbPass)
+			if($field != 'dbPass') $value = str_replace(array(';', '..', '=', '<', '>', '&', '"', "\t", "\n", "\r"), '', $value);
 			$values[$field] = trim($value); 
 		}
 	
 		$values['dbCharset'] = ($values['dbCharset'] === 'utf8mb4' ? 'utf8mb4' : 'utf8'); 
-		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM'); 
+		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM');
 
-		if(!$values['dbUser'] || !$values['dbName'] || !$values['dbPort']) {
+		if(empty($values['dbUser']) || empty($values['dbName'])) {
+			$this->alertErr("Missing database user and/or name");
 			
-			$this->alertErr("Missing database configuration fields"); 
+		} else if($values['dbCon'] === 'Socket' && empty($values['dbSocket'])) {
+			$this->alertErr("Missing database socket");
+			
+		} else if($values['dbCon'] === 'Hostname' && (empty($values['dbHost']) || empty($values['dbPort']))) {
+			$this->alertErr("Missing database host and/or port");
 			
 		} else {
 	
 			error_reporting(0); 
-			
-			$dsn = "mysql:dbname=$values[dbName];host=$values[dbHost];port=$values[dbPort]";
+		
+			if($values['dbCon'] === 'Socket') {
+				$dsn = "mysql:unix_socket=$values[dbSocket];dbname=$values[dbName]";
+			} else {
+				$dsn = "mysql:dbname=$values[dbName];host=$values[dbHost];port=$values[dbPort]";
+			}
+
+			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
+				$initCommand = constant("\\PDO\\Mysql::ATTR_INIT_COMMAND");
+			} else {
+				$initCommand = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+			}
 			$driver_options = array(
-				\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'",
+				$initCommand => "SET NAMES 'UTF8'",
 				\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
 			);
 			
@@ -707,6 +774,11 @@ class Installer {
 				}
 			}
 		}
+	
+		// Uikit admin theme name
+		$themeName = $this->post('themeName');
+		if($themeName !== 'default' && $themeName !== 'original') $themeName = 'default';
+		$values['themeName'] = $themeName;
 
 		if($this->numErrors || !$database) {
 			$this->dbConfig($values);
@@ -830,6 +902,7 @@ class Installer {
 		$file = __FILE__; 
 		$time = time();
 		$host = empty($values['httpHosts']) ? '' : implode(',', $values['httpHosts']);
+		$s = is_file("./site/config.php") ? file_get_contents("./site/config.php") : '';
 
 		if(function_exists('random_bytes')) {
 			$authSalt = sha1(random_bytes(random_int(40, 128)));
@@ -843,17 +916,27 @@ class Installer {
 			"\n/**" . 
 			"\n * Installer: Database Configuration" . 
 			"\n * " . 
-			"\n */" . 
+			"\n */";
+
+		if($values['dbCon'] === 'Socket') {
+			$cfg .= "\n\$config->dbSocket = '$values[dbSocket]';";
+		}
+		
+		$cfg .= 
 			"\n\$config->dbHost = '$values[dbHost]';" . 
 			"\n\$config->dbName = '$values[dbName]';" . 
 			"\n\$config->dbUser = '$values[dbUser]';" . 
 			"\n\$config->dbPass = '$values[dbPass]';" . 
 			"\n\$config->dbPort = '$values[dbPort]';";
 		
-		if(!empty($values['dbCharset']) && strtolower($values['dbCharset']) != 'utf8') $cfg .= "\n\$config->dbCharset = '$values[dbCharset]';";
-		if(!empty($values['dbEngine']) && $values['dbEngine'] == 'InnoDB') $cfg .= "\n\$config->dbEngine = 'InnoDB';";
+		if(!empty($values['dbCharset']) && strtolower($values['dbCharset']) != 'utf8') {
+			$cfg .= "\n\$config->dbCharset = '$values[dbCharset]';";
+		}
+		if(!empty($values['dbEngine']) && $values['dbEngine'] == 'InnoDB') {
+			$cfg .= "\n\$config->dbEngine = 'InnoDB';";
+		}
 		
-		$cfg .= 
+		if(strpos($s, '$config->userAuthSalt') === false) $cfg .= 
 			"\n" . 
 			"\n/**" . 
 			"\n * Installer: User Authentication Salt " . 
@@ -864,7 +947,9 @@ class Installer {
 			"\n * Do not change this value, or user passwords will no longer work." .
 			"\n * " . 
 			"\n */" . 
-			"\n\$config->userAuthSalt = '$authSalt'; " .
+			"\n\$config->userAuthSalt = '$authSalt'; ";
+
+		if(strpos($s, '$config->tableSalt') === false) $cfg .=
 			"\n" .
 			"\n/**" . 
 			"\n * Installer: Table Salt (General Purpose) " .
@@ -874,7 +959,9 @@ class Installer {
 			"\n * this value or it may break internal system comparisons that use it. " . 
 			"\n * " .
 			"\n */" . 
-			"\n\$config->tableSalt = '$tableSalt'; " .
+			"\n\$config->tableSalt = '$tableSalt'; ";
+		
+		$cfg .= 
 			"\n" . 
 			"\n/**" . 
 			"\n * Installer: File Permission Configuration" . 
@@ -888,13 +975,25 @@ class Installer {
 			"\n * " . 
 			"\n */" . 
 			"\n\$config->timezone = '$values[timezone]';" .
-			"\n" .
+			"\n";
+
+		if(strpos($s, '$config->defaultAdminTheme') === false) $cfg .=
 			"\n/**" .
 			"\n * Installer: Admin theme" .
 			"\n * " .
 			"\n */" .
 			"\n\$config->defaultAdminTheme = 'AdminThemeUikit';" .
-			"\n" . 
+			"\n";
+		
+		if(strpos($s, '$config->AdminThemeUikit') === false) $cfg .=
+			"\n/**" .
+			"\n * Installer: Name of Uikit theme to use in admin" .
+			"\n * " .
+			"\n */" .
+			"\n\$config->AdminThemeUikit('themeName', '$values[themeName]');" .
+			"\n";
+
+		if(strpos($s, '$config->installed ') === false) $cfg .=
 			"\n/**" .
 			"\n * Installer: Unix timestamp of date/time installed" .
 			"\n * " .
@@ -903,6 +1002,17 @@ class Installer {
 			"\n * " .
 			"\n */" .
 			"\n\$config->installed = " . time() . ";" .
+			"\n\n";
+		
+		if(strpos($s, '$config->sessionName') === false) $cfg .=
+			"\n/**" .
+			"\n * Installer: Session name " . 
+			"\n * " .
+			"\n * Default session name as used in session cookie. " .
+			"\n * Note that changing this will automatically logout any current sessions. " .
+			"\n * " .
+			"\n */" .
+			"\n\$config->sessionName = 'pw" . mt_rand(0, 999) . "';" .
 			"\n\n";
 
 		if(!empty($values['httpHosts'])) {
@@ -927,7 +1037,9 @@ class Installer {
 			"\n */" .
 			"\n\$config->debug = " . ($values['debugMode'] ? 'true;' : 'false;') . 
 			"\n\n";
-		
+
+		if(strpos($s, '<' . '?php') === false) $cfg = '<' . "?php namespace ProcessWire;\n\n" . $cfg; 
+			
 		if(($fp = fopen("./site/config.php", "a")) && fwrite($fp, $cfg)) {
 			fclose($fp); 
 			$this->alertOk("Saved configuration to ./site/config.php"); 
@@ -1072,27 +1184,28 @@ class Installer {
 	 */
 	protected function profileImportSQL($database, $file1, $file2, array $options = array()) {
 		$defaults = array(
-			'dbEngine' => 'MyISAM',
-			'dbCharset' => 'utf8', 
+			'dbEngine' => 'InnoDB',
+			'dbCharset' => 'utf8mb4', 
 		);
 		$options = array_merge($defaults, $options); 
 		if(self::TEST_MODE) return;
 		$restoreOptions = array();
 		$replace = array();
-		if($options['dbEngine'] != 'MyISAM') {
-			$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
-		}
-		if($options['dbCharset'] != 'utf8') {
-			$replace['CHARSET=utf8'] = "CHARSET=$options[dbCharset]";
-			if(strtolower($options['dbCharset']) === 'utf8mb4') {
-				if(strtolower($options['dbEngine']) === 'innodb') {
-					$replace['(255)'] = '(191)'; 
-					$replace['(250)'] = '(191)'; 
-				} else {
-					$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
-				}
+		$replace['ENGINE=InnoDB'] = "ENGINE=$options[dbEngine]";
+		$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
+		$replace['CHARSET=utf8mb4;'] = "CHARSET=$options[dbCharset];";
+		$replace['CHARSET=utf8;'] = "CHARSET=$options[dbCharset];";
+		$replace['CHARSET=utf8 COLLATE='] = "CHARSET=$options[dbCharset] COLLATE=";
+		
+		if(strtolower($options['dbCharset']) === 'utf8mb4') {
+			if(strtolower($options['dbEngine']) === 'innodb') {
+				$replace['(255)'] = '(191)'; 
+				$replace['(250)'] = '(191)'; 
+			} else {
+				$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
 			}
 		}
+		
 		if(count($replace)) $restoreOptions['findReplaceCreateTable'] = $replace; 
 		require("./wire/core/WireDatabaseBackup.php"); 
 		$backup = new WireDatabaseBackup(); 
@@ -1196,6 +1309,7 @@ class Installer {
 		);
 		
 		foreach($this->findProfiles() as $name => $profile) {
+			if($name === 'site') continue;
 			$title = empty($profile['title']) ? $name : $profile['title'];
 			$items[$name] = array(
 				'label' => "Remove unused $title site profile (/$name/)", 
@@ -1254,7 +1368,14 @@ class Installer {
 
 		$input = $wire->input;
 		$sanitizer = $wire->sanitizer;
-		$adminTheme = $wire->modules->getInstall('AdminThemeUikit');
+		$modules = $wire->modules;
+		$config = $wire->config;
+		$adminTheme = $modules->getInstall('AdminThemeUikit');
+	
+		if($config->defaultAdminTheme === 'AdminThemeUikit' && $modules->isInstalled('AdminThemeDefault')) {
+			// default admin theme module does not need to be installed by default anymore
+			$modules->uninstall('AdminThemeDefault');
+		}
 
 		if(!$input->post('username') || !$input->post('userpass')) $this->err("Missing account information"); 
 		if($input->post('userpass') !== $input->post('userpass_confirm')) $this->err("Passwords do not match");
@@ -1772,10 +1893,6 @@ class Installer {
 		
 		if($value === null && empty($sanitizer)) return null;
 		
-		if(version_compare(PHP_VERSION, "5.4.0", "<") && function_exists('get_magic_quotes_gpc')) {
-			if(get_magic_quotes_gpc()) $value = stripslashes($value);
-		}
-		
 		switch($sanitizer) {
 			case 'intSigned':
 				$value = (int) $value;
@@ -2002,7 +2119,6 @@ class Installer {
 /****************************************************************************************************/
 
 if(!Installer::TEST_MODE && is_file("./site/assets/installed.php")) die("This installer has already run. Please delete it."); 
-error_reporting(E_ALL | E_STRICT); 
+error_reporting(E_ALL); 
 $installer = new Installer();
 $installer->execute();
-

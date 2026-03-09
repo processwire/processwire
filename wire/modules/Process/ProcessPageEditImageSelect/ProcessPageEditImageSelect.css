@@ -224,10 +224,6 @@ small.ui-helper-clearfix {
 	display: inline;
 }
 
-#selected_image_link {
-	display: inline;
-}
-
 #instructions {
 	margin: 1em 0;
 	clear: both; 

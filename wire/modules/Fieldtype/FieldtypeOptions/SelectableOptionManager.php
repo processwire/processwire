@@ -528,7 +528,7 @@ class SelectableOptionManager extends Wire {
 		foreach($existingOptions as $existingOption) {
 			$found = false;
 			foreach($options as $option) {
-				if($option->id == $existingOption->id) {
+				if($option->id == $existingOption->id || $existingOption->id && !$option->id) {
 					$found = true;
 					break;
 				}
@@ -782,7 +782,7 @@ class SelectableOptionManager extends Wire {
 	 * @param HookEvent|null $event
 	 * 
 	 */
-	public function updateLanguages(HookEvent $event = null) {
+	public function updateLanguages(?HookEvent $event = null) {
 		
 		if(!$this->useLanguages || !$this->wire()->languages) return;
 		

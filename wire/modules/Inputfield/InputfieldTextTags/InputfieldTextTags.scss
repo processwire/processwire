@@ -46,7 +46,20 @@ $tag-border-colors: #b1c3d4 #cbd7e3 #cbd7e3 #cbd7e3;
 		// in single selection mode
 		.selectize-input {
 			background: $tag-background-color;
-			font-size: 14px; 
+			font-size: inherit; 
 		}
+	}
+}
+
+.AdminThemeUikit .Inputfield {
+	.selectize-control.single {
+		.selectize-input:not(.uk-form-small) {
+			padding-top: 10px;
+			padding-bottom: 8px;
+			height: 40px;
+		}
+	}
+	.selectize-control.single:has(.selectize-input:not(.uk-form-small)) {
+		height: 40px;
 	}
 }

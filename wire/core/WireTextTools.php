@@ -85,6 +85,9 @@ class WireTextTools extends Wire {
 			),
 			'finishReplacements' => array(), // replacements applied at very end (internal)
 		);
+		
+		$str = (string) $str;
+		if(!strlen($str)) return '';
 
 		// merge options using arrays
 		foreach(array('replacements') as $key) {
@@ -379,7 +382,7 @@ class WireTextTools extends Wire {
 	 *  - `linksToUrls` (bool): Convert links to "(url)" rather than removing entirely? (default=false) Since 3.0.132
 	 *  - `endBlocksWith` (string): Character or string to insert to identify paragraph/header separation (default='')
 	 *  - `convertEntities` (bool): Convert entity-encoded characters to text? (default=true)
-	 * @return mixed|string
+	 * @return string
 	 *
 	 */
 	public function collapse($str, array $options = array()) {
@@ -762,7 +765,7 @@ class WireTextTools extends Wire {
 	 * Get array of punctuation characters
 	 * 
 	 * @param bool $sentence Get only sentence-ending punctuation
-	 * @return array|string
+	 * @return array
 	 * 
 	 */
 	public function getPunctuationChars($sentence = false) {
@@ -902,7 +905,7 @@ class WireTextTools extends Wire {
 	 *  - `has` (bool): Specify true to only return true or false if it has tags (default=false).
 	 * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
 	 *	- `tagClose` (string): The required closing tag character(s), default is '}'
-	 * @return array|bool
+	 * @return array|bool Always returns array unless you specify the `has` option as true.
 	 * @since 3.0.126
 	 *
 	 */
@@ -915,6 +918,7 @@ class WireTextTools extends Wire {
 		);
 		
 		$options = array_merge($defaults, $options);
+		$str = (string) $str;
 		$tags = array();
 		$pos1 = strpos($str, $options['tagOpen']);
 		
@@ -978,7 +982,8 @@ class WireTextTools extends Wire {
 	 * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
 	 *  - `tagClose` (string): The optional closing tag character(s), default is '}'
 	 *  - `recursive` (bool): If replacement value contains tags, populate those too? (default=false)
-	 *  - `removeNullTags` (bool): If a tag resolves to a NULL, remove it? If false, tag will remain. (default=true)
+	 *  - `removeNullTags` (bool): If a tag resolves to a NULL (i.e. field not present), remove it? (default=true)
+	 *  - `removeEmptyTags` (bool): If a tag value resolves to blank string, false or NULL, remove it? (default=true) 3.0.237+
 	 *  - `entityEncode` (bool): Entity encode the values pulled from $vars? (default=false)
 	 *  - `entityDecode` (bool): Entity decode the values pulled from $vars? (default=false)
 	 *  - `allowMarkup` (bool): Allow markup to appear in populated variables? (default=true)
@@ -992,7 +997,8 @@ class WireTextTools extends Wire {
 			'tagOpen' => '{', // opening tag (required)
 			'tagClose' => '}', // closing tag (optional)
 			'recursive' => false, // if replacement value contains tags, populate those too?
-			'removeNullTags' => true, // if a tag value resolves to a NULL, remove it? If false, tag will be left in tact.
+			'removeNullTags' => true, // If a tag resolves to a NULL (i.e. field not present on page), remove it? 
+			'removeEmptyTags' => true, // If a tag value resolves to blank string, false or null, remove it?
 			'entityEncode' => false, // entity encode values pulled from $vars?
 			'entityDecode' => false, // entity decode values pulled from $vars?
 			'allowMarkup' => true, // allow markup to appear in populated variables?
@@ -1012,6 +1018,7 @@ class WireTextTools extends Wire {
 			if(is_object($vars)) {
 				if($vars instanceof Page) {
 					$fieldValue = $options['allowMarkup'] ? $vars->getMarkup($fieldName) : $vars->getText($fieldName);
+					if($fieldValue === '' && $vars->get($fieldName) === null) $fieldValue = null;
 				} else if($vars instanceof WireData) {
 					$fieldValue = $vars->get($fieldName);
 				} else {
@@ -1020,6 +1027,9 @@ class WireTextTools extends Wire {
 			} else if(is_array($vars)) {
 				$fieldValue = isset($vars[$fieldName]) ? $vars[$fieldName] : null;
 			}
+
+			// if value resolves to empty and we are not removing empty tags, then do not add to replacements
+			if(empty($fieldValue) && !strlen("$fieldValue") && !$options['removeEmptyTags']) continue;
 			
 			// if value resolves to null and we are not removing null tags, then do not add to replacements
 			if($fieldValue === null && !$options['removeNullTags']) continue;
@@ -1334,7 +1344,7 @@ class WireTextTools extends Wire {
 
 		$str = array_shift($parts);
 
-		foreach($parts as $key => $part) {
+		foreach($parts as $part) {
 
 			$len = $this->strlen($part);
 			$char = $len > 0 ? $this->substr($part, 0, 1) : ''; // char being escaped

@@ -766,7 +766,7 @@ abstract class Fieldtype extends WireData implements Module {
 		$database = $this->wire()->database;
 
 		if(!$database->isOperator($operator)) {
-			throw new WireException("Operator '$operator' is not implemented in $this->className");
+			throw new PageFinderSyntaxException("Operator '$operator' is not implemented in $this->className");
 		}
 
 		$table = $database->escapeTable($table); 
@@ -1378,12 +1378,13 @@ abstract class Fieldtype extends WireData implements Module {
 			$result = $query->execute();
 			
 		} catch(\PDOException $e) {
-			if($e->getCode() == 23000) {
+			$code = (int) $e->getCode();
+			if($code === 23000) {
 				$message = sprintf(
 					$this->_('Value not allowed for field “%s” because it is already in use'), 
 					$field->name
 				);
-				throw new WireDatabaseException($message, $e->getCode(), $e);
+				throw new WireDatabaseException($message, $code, $e);
 			} else {
 				throw $e;
 			}
@@ -1676,4 +1677,3 @@ abstract class Fieldtype extends WireData implements Module {
 
 	
 }
-

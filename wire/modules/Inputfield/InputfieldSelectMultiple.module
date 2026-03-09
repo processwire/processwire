@@ -54,10 +54,10 @@ class InputfieldSelectMultiple extends InputfieldSelect implements InputfieldHas
 	 * @param string|int $value
 	 * @param string|null $label
 	 * @param array|null $attributes
-	 * @return InputfieldSelect|InputfieldSelectMultiple|self
+	 * @return self
 	 *
 	 */
-	public function addOption($value, $label = null, array $attributes = null) {
+	public function addOption($value, $label = null, ?array $attributes = null) {
 		if(is_null($value) || (is_string($value) && !strlen($value))) return $this; 
 		return parent::addOption($value, $label, $attributes); 
 	}

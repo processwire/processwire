@@ -3,11 +3,10 @@
  *
  * Maintains a collection of fields that are repeated for any number of times.
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  *
  */
-
 
 function InputfieldRepeater($) {
 
@@ -44,7 +43,22 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	var insertTimeout = null;
-
+	
+	/**
+	 * Page version, if PagesVersions active
+	 * 
+	 * @type {number}
+	 * 
+	 */
+	var pageVersion = 0;
+	
+	/**
+	 * Non-false when we are toggling family item visibility
+	 *
+	 * @type {boolean|number}
+	 *
+	 */
+	var togglingItemVisibility = false;
 	
 	/*** EVENTS ********************************************************************************************/
 
@@ -103,7 +117,7 @@ function InputfieldRepeater($) {
 				$checkbox.prop('checked', true);
 				$header.removeClass('ui-state-default').addClass('ui-state-error');
 				if(!$item.hasClass('InputfieldStateCollapsed')) {
-					$header.find('.toggle-icon').click();
+					$header.find('.toggle-icon').trigger('click');
 					//$item.toggleClass('InputfieldStateCollapsed', 100);
 				}
 				$item.addClass('InputfieldRepeaterDeletePending').trigger('repeaterdelete'); 
@@ -133,9 +147,9 @@ function InputfieldRepeater($) {
 				var $item = $(this);
 				var $trashLink = $item.children('.InputfieldHeader').find('.InputfieldRepeaterTrash');
 				if($item.hasClass('InputfieldRepeaterDeletePending')) {
-					if(undelete) $trashLink.click();
+					if(undelete) $trashLink.trigger('click');
 				} else {
-					if(!undelete) $trashLink.click();
+					if(!undelete) $trashLink.trigger('click');
 				}
 			});
 		}
@@ -160,7 +174,7 @@ function InputfieldRepeater($) {
 		ProcessWire.confirm(ProcessWire.config.InputfieldRepeater.labels.clone, function() {
 			var itemID = $item.attr('data-page');
 			var $addLink = $item.closest('.InputfieldRepeater').children('.InputfieldContent')
-				.children('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink:eq(0)');
+				.children('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink').first();
 			// $('html, body').animate({ scrollTop: $addLink.offset().top - 100}, 250, 'swing');
 			
 			$item.siblings('.InputfieldRepeaterInsertItem').remove();
@@ -185,7 +199,7 @@ function InputfieldRepeater($) {
 			}
 			setItemDepth($newItem, depth);
 			$newItem.show();
-			$addLink.attr('data-clone', itemID).click();
+			$addLink.attr('data-clone', itemID).trigger('click');
 		});
 		return false;
 	};
@@ -276,7 +290,7 @@ function InputfieldRepeater($) {
 		}
 		
 		if($item.hasClass('InputfieldStateCollapsed')) {
-			$this.closest('.InputfieldHeader').click(); //find('.InputfieldRepeaterToggle').click();	
+			$this.closest('.InputfieldHeader').trigger('click');
 		}
 		
 		if($settings.is(':visible')) {
@@ -332,6 +346,51 @@ function InputfieldRepeater($) {
 		if(parseInt($loaded.val()) > 0) return; // item already loaded
 		$item.addClass('InputfieldRepeaterItemLoading');	
 	};
+	
+	/**
+	 * Toggle visibility of children/siblings
+	 * 
+	 * @param $item
+	 * @param open
+	 * 
+	 */
+	function toggleItemFamilyVisibility($item, open) {
+		var $inputfield = $item.closest('.InputfieldRepeater');
+		
+		if(!$inputfield.hasClass('InputfieldRepeaterFamilyToggle')) return;
+		if(!$inputfield.hasClass('InputfieldRepeaterDepth')) return;
+		if($inputfield.hasClass('InputfieldRepeaterAccordion')) false;
+		
+		var depth = getItemDepth($item);
+		var $nextItem = $item.next('.InputfieldRepeaterItem');
+		
+		if($nextItem.length) {
+			var nextDepth = getItemDepth($nextItem);
+			if(nextDepth > depth) {
+				// child item
+				togglingItemVisibility = nextDepth;
+				open ? Inputfields.open($nextItem) : Inputfields.close($nextItem);
+			} else if(nextDepth === depth && depth > 0 && togglingItemVisibility) {
+				// next sibling item
+				open ? Inputfields.open($nextItem) : Inputfields.close($nextItem);
+			} else {
+				// finished
+				togglingItemVisibility = false;
+			}
+		} else {
+			togglingItemVisibility = false;
+		}
+	}
+	
+	/**
+	 * Called when an item has finished opening
+	 * 
+	 * @param $item
+	 * 
+	 */
+	function itemOpenComplete($item) {
+		toggleItemFamilyVisibility($item, true);
+	}
 
 	/**
 	 * Event handler for when a repeater item is opened (primarily focused on ajax loaded items)
@@ -346,6 +405,7 @@ function InputfieldRepeater($) {
 
 		if(parseInt($loaded.val()) > 0) {
 			updateAccordion($item);
+			toggleItemFamilyVisibility($item, true);
 			return; // item already loaded
 		}
 
@@ -360,12 +420,20 @@ function InputfieldRepeater($) {
 		var ajaxURL = ProcessWire.config.InputfieldRepeater.editorUrl + '?id=' + pageID + '&field=' + fieldName + '&repeater_edit=' + itemID;
 		var $spinner = $item.find('.InputfieldRepeaterDrag');
 		var $inputfields = $loaded.closest('.Inputfields');
+		var contextStr = $repeater.attr('data-context');
 		
 		if($repeater.hasClass('InputfieldRenderValueMode')) ajaxURL += '&inrvm=1';
 		if($repeater.hasClass('InputfieldNoDraft')) ajaxURL += '&nodraft=1';	
+		if(pageVersion) ajaxURL += '&version=' + pageVersion;
 
-		$spinner.removeClass('fa-arrows').addClass('fa-spin fa-spinner');
+		var iconName = $item.attr('data-icon');
+		if(typeof iconName === 'undefined' || !iconName) iconName = 'fa-arrows';
+		$spinner.removeClass(iconName).addClass('fa-spin fa-spinner');
 		repeaterID = repeaterID.replace(/_repeater\d+$/, '').replace('_LPID' + pageID, '');
+		
+		if(typeof contextStr !== 'undefined' && contextStr.length) {
+			repeaterID = repeaterID.replace(contextStr, '');
+		}
 
 		$.get(ajaxURL, function(data) {
 			var $inputs = $(data).find('#' + repeaterID + ' > ' +
@@ -388,12 +456,13 @@ function InputfieldRepeater($) {
 			}
 
 			$content.slideDown('fast', function() {
-				$spinner.removeClass('fa-spin fa-spinner').addClass('fa-arrows');
+				$spinner.removeClass('fa-spin fa-spinner').addClass(iconName);
 				updateAccordion($item);
 			});
 			
 			setTimeout(function() {
 				$inputfields.find('.Inputfield').trigger('reloaded', ['InputfieldRepeaterItemEdit']);
+				itemOpenComplete($item);
 			}, 50);
 			
 			runScripts(data);	
@@ -407,6 +476,7 @@ function InputfieldRepeater($) {
 	 */
 	var eventItemClosed = function() {
 		updateState($(this));
+		toggleItemFamilyVisibility($(this), false);
 	};
 
 	/**
@@ -486,6 +556,8 @@ function InputfieldRepeater($) {
 		var fieldName = getRepeaterFieldName($inputfieldRepeater);
 		var $spinner = $addLink.parent().find('.InputfieldRepeaterSpinner');
 		var ajaxURL = ProcessWire.config.InputfieldRepeater.editorUrl + '?id=' + pageID + '&field=' + fieldName;
+		
+		if(pageVersion) ajaxURL += '&version=' + pageVersion;
 
 		$spinner.removeClass($spinner.attr('data-off')).addClass($spinner.attr('data-on'));
 
@@ -533,7 +605,7 @@ function InputfieldRepeater($) {
 			if(depth) setItemDepth($addItem, depth);
 			if($addItem.hasClass('InputfieldStateCollapsed')) {
 				// ok
-			} else {
+			} else if(!$inputfieldRepeater.hasClass('InputfieldRepeaterNoScroll')) {
 				$('html, body').animate({
 					scrollTop: $addItem.offset().top
 				}, 500, 'swing');
@@ -586,7 +658,7 @@ function InputfieldRepeater($) {
 		}
 		ProcessWire.confirm(label, function() {
 			$items.filter(selector).each(function() {
-				$(this).children('.InputfieldHeader').find('.toggle-icon').click();	
+				$(this).children('.InputfieldHeader').find('.toggle-icon').trigger('click');	
 			});
 		});
 		return false;
@@ -638,11 +710,10 @@ function InputfieldRepeater($) {
 		
 		if(!insertBefore && !$item.hasClass('InputfieldStateCollapsed')) scrollToItem($insertItem);
 		$insertItem.children('.InputfieldHeader').effect('highlight', {}, 500);
-		// var $addLinks = $item.parent('.Inputfields').siblings('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink:eq(0)').click();
 		var $addLinks = $item.parent('.Inputfields').siblings('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink');
 		if($addLinks.length === 1) {
 			// add new item now
-			$addLinks.eq(0).click();
+			$addLinks.eq(0).trigger('click');
 		} else if($addLinks.length > 1) {
 			// we need to know what type of link to add (i.e. matrix)
 			$item.trigger('repeaterinsert', [ $insertItem, $item, insertBefore ]);
@@ -1071,7 +1142,8 @@ function InputfieldRepeater($) {
 				$item.removeClass('InputfieldRepeaterItemHasDepth');
 			}
 		});
-		$inputfieldRepeater.children('.InputfieldContent').css('position', 'relative');
+		// $inputfieldRepeater.children('.InputfieldContent').css('position', 'relative');
+		$inputfieldRepeater.children('.InputfieldContent').children('.Inputfields').css('position', 'relative');
 	}
 
 	/**
@@ -1186,9 +1258,9 @@ function InputfieldRepeater($) {
 			sortableOptions.axis = 'y';
 		}
 		// apply "ui-state-focus" class when an item is being dragged
-		$(".InputfieldRepeaterDrag", $inputfields).hover(function() {
+		$(".InputfieldRepeaterDrag", $inputfields).on('mouseenter', function() {
 			$(this).parent('label').addClass('ui-state-focus');
-		}, function() {
+		}).on('mouseleave', function() {
 			$(this).parent('label').removeClass('ui-state-focus');
 		});
 
@@ -1288,7 +1360,7 @@ function InputfieldRepeater($) {
 			isItem = true;
 		} else {
 			// enter repeater
-			$inputfields = $this.find('.Inputfields:eq(0)');
+			$inputfields = $this.find('.Inputfields').first();
 			$inputfieldRepeater = $this;
 			isItem = false;
 		}
@@ -1315,18 +1387,18 @@ function InputfieldRepeater($) {
 		}
 
 		// hovering the trash gives a preview of what clicking it would do
-		$(".InputfieldRepeaterTrash", $this).hover(function() {
+		$(".InputfieldRepeaterTrash", $this).on('mouseenter', function() {
 			var $label = $(this).closest('label');
 			if(!$label.parents().hasClass('InputfieldRepeaterDeletePending')) $label.addClass('ui-state-error');
 			$label.find('.InputfieldRepeaterItemControls').css('background-color', $label.css('background-color'));
-		}, function() {
+		}).on('mouseleave', function() {
 			var $label = $(this).closest('label');
 			if(!$label.parent().hasClass('InputfieldRepeaterDeletePending')) $label.removeClass('ui-state-error');
 			$label.find('.InputfieldRepeaterItemControls').css('background-color', $label.css('background-color'));
 		});
 
 		// if we only init'd a single item, now make $inputfields refer to all repeater items for sortable init
-		if(isItem) $inputfields = $inputfieldRepeater.find('.Inputfields:eq(0)');
+		if(isItem) $inputfields = $inputfieldRepeater.find('.Inputfields').first();
 
 		// setup the sortable
 		initSortable($inputfieldRepeater, $inputfields);
@@ -1334,7 +1406,7 @@ function InputfieldRepeater($) {
 		// setup the add links
 		$(".InputfieldRepeaterAddLink:not(.InputfieldRepeaterAddLinkInit)", $inputfieldRepeater)
 			.addClass('InputfieldRepeaterAddLinkInit')
-			.click(eventAddLinkClick);
+			.on('click', eventAddLinkClick);
 
 		// check for maximum items
 		if($inputfieldRepeater.hasClass('InputfieldRepeaterMax')) {
@@ -1428,6 +1500,7 @@ function InputfieldRepeater($) {
 	 * @param $item
 	 */
 	function scrollToItem($item) {
+		if($item.closest('.InputfieldRepeater').hasClass('InputfieldRepeaterNoScroll')) return;
 		$('html, body').animate({scrollTop: $item.offset().top - 10}, 250, 'swing');
 	}
 
@@ -1482,7 +1555,7 @@ function InputfieldRepeater($) {
 		
 		var actionName = pasteValue === null ? 'clone' : 'paste';
 		var $addLink = $item.closest('.InputfieldRepeater').children('.InputfieldContent')
-			.children('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink:eq(0)');
+			.children('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink').first();
 		// $('html, body').animate({ scrollTop: $addLink.offset().top - 100}, 250, 'swing');
 
 		$item.siblings('.InputfieldRepeaterInsertItem').remove();
@@ -1517,10 +1590,10 @@ function InputfieldRepeater($) {
 		
 		if(actionName === 'paste') {
 			// data-clone attribute with 'pageID:itemID' indicates page ID and item ID to clone
-			$addLink.attr('data-clone', pasteValue.page + ':' + pasteValue.item).click();
+			$addLink.attr('data-clone', pasteValue.page + ':' + pasteValue.item).trigger('click');
 		} else {
 			// current page ID is implied when only itemID is supplied
-			$addLink.attr('data-clone', $item.attr('data-page')).click();
+			$addLink.attr('data-clone', $item.attr('data-page')).trigger('click');
 		}
 	}
 
@@ -1575,6 +1648,10 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	function init() {
+		
+		if(typeof ProcessWire.config.PagesVersions !== 'undefined') {
+			pageVersion = ProcessWire.config.PagesVersions.version;
+		}
 		
 		$('.InputfieldRepeater').each(function() {
 			initRepeater($(this));

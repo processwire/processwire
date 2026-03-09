@@ -6,14 +6,14 @@
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
- * @property string $inputType Input type to use, one of "text" or "number"
- * @property int|float $min
- * @property int|float $max
- * @property int|float|string $step
- * @property int $size
- * @property string $placeholder
- * @property int|float $initValue Initial/default value (when used as independent Inputfield)
- * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger)
+ * @property string $inputType Input type to use, one of "text" or "number" (default=text)
+ * @property int|float $min Minimum allowed value (default='')
+ * @property int|float $max Maximum allowed value (default='')
+ * @property int|float|string $step HTML5 step attribute value (default='')
+ * @property int $size Size attribute value (default=10)
+ * @property string $placeholder Placeholder attribute value (default='')
+ * @property int|float $initValue Initial/default value (when used as independent Inputfield) (default='')
+ * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger) (default='')
  * 
  */
 
@@ -70,7 +70,7 @@ class InputfieldInteger extends Inputfield {
 		} else {
 			// input[type=number] unset any that aren't applicable
 			foreach(array('min', 'max', 'step') as $name) {
-				if(!strlen((string) $attrs[$name])) unset($attrs[$name]);
+				if(isset($attrs[$name]) && !strlen((string) $attrs[$name])) unset($attrs[$name]);
 			}
 		}
 
@@ -160,13 +160,14 @@ class InputfieldInteger extends Inputfield {
 		if($key === 'value') {
 			$value = $this->sanitizeValue($value); 
 			if(strlen("$value") && !$this->isInRange($value)) {
-				$min = $this->attr('min');
-				$max = $this->attr('max'); 
+				// apply the following only for non-zero values
+				$min = (string) $this->attr('min');
+				$max = (string) $this->attr('max');
 				$any = $this->_('any'); // referring to “any” minimum or maximum number
 				if(!strlen("$min")) $min = $any;
 				if(!strlen("$max")) $max = $any;
 				$this->error(sprintf($this->_('Specified value %3$s removed because it is out of bounds (min=%1$s, max=%2$s)'), $min, $max, $value));
-				$value = $this->val(); // restore previous value
+				$value = $this->val();
 			}
 		} else if($key === 'min' || $key === 'max') {
 			if(strlen("$value")) {
@@ -232,6 +233,7 @@ class InputfieldInteger extends Inputfield {
 		$f->columnWidth = 50;
 		$inputfields->add($f);
 
+		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'max');
 		$f->attr('value', $this->attr('max')); 
@@ -241,6 +243,7 @@ class InputfieldInteger extends Inputfield {
 		$inputfields->add($f);
 	
 		if($this->hasFieldtype === false) {
+			/** @var InputfieldText $f */
 			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'initValue');
 			$f->attr('value', $this->initValue);

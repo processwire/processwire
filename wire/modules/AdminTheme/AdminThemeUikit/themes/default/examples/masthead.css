@@ -1,0 +1,16 @@
+/* -------------------------------------------------------------------- */
+/* ---- THEME WITH COLOR MASTHEAD VARIABLES -------------------------- */
+/* ---- (these depend on the default theme variables) --------------- */
+/* ----------------------------------------------------------------- */
+
+:root {
+    --pw-masthead-background: var(--pw-main-color);
+    --pw-masthead-active-color: white;
+    --pw-masthead-text-color: rgba(255,255,255,0.8);
+    --pw-masthead-border-color: var(--pw-main-background);
+    --pw-masthead-logo-color: white;
+    --pw-masthead-input-background: var(--pw-masthead-background);
+    --pw-masthead-input-color: var(--pw-masthead-active-color);
+    --pw-masthead-input-border: var(--pw-masthead-text-color);
+    --pw-masthead-menu-item-backgroud-hover: rgba(255,255,255,.2);
+}

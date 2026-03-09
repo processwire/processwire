@@ -3,7 +3,7 @@
  *
  * This Inputfield connects the jQuery UI Autocomplete widget with the ProcessWire ProcessPageSearch AJAX API.
  *
- * ProcessWire 3.x (development), Copyright 2015 by Ryan Cramer
+ * ProcessWire 3.x (development), Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -46,13 +46,13 @@ var InputfieldPageAutocomplete = {
 			var $remove = $input.siblings('.InputfieldPageAutocompleteRemove');
 			InputfieldPageAutocomplete.setIconPosition($remove, 'right');
 			
-			$remove.click(function() {
-				$value.val('').change();
-				$input.val('').attr('placeholder', '').attr('data-selectedLabel', '').change().focus();
+			$remove.on('click', function() {
+				$value.val('').trigger('change');
+				$input.val('').attr('placeholder', '').attr('data-selectedLabel', '').trigger('change').trigger('focus');
 				$input.trigger('keydown');
 			});
 			
-			$input.change(function() {
+			$input.on('change', function() {
 				if($(this).val().length == 0) {
 					$remove.hide();
 				} else {
@@ -60,21 +60,20 @@ var InputfieldPageAutocomplete = {
 				}
 			});
 			
-			$input.focus(function() {
+			$input.on('focus', function() {
 				var val = $value.val();
 				if(!val.length) return;
 				if(hasDisableChar(val)) return;
 				if($(this).hasClass('added_item')) return;
 				$(this).attr('placeholder', $(this).attr('data-selectedLabel'));
 				$(this).val('');
-			}).blur(function() {
-				setTimeout(function() {
-				}, 200);
+			}).on('blur', function() {
+				setTimeout(function() { }, 200);
 			});
 		}
 		
 		
-		$icon.click(function() { $input.focus(); });
+		$icon.on('click', function() { $input.trigger('focus'); });
 		$icon.attr('data-class', $icon.attr('class')); 
 
 		function isAddAllowed() {
@@ -132,20 +131,29 @@ var InputfieldPageAutocomplete = {
 					if(!ui.item) return;
 					var $t = $(this);
 					if($t.hasClass('no_list')) {
-						$t.val(ui.item.label).change();
+						$t.val(ui.item.label).trigger('change');
 						$t.attr('data-selectedLabel', ui.item.label);
 						$t.closest('.InputfieldPageAutocomplete')
-							.find('.InputfieldPageAutocompleteData').val(ui.item.page_id).change();
-						$t.blur();
+							.find('.InputfieldPageAutocompleteData').val(ui.item.page_id).trigger('change');
+						$t.trigger('blur');
 					} else {
 						InputfieldPageAutocomplete.pageSelected($ol, ui.item);
-						$t.val('').focus();
+						$t.val('').trigger('focus');
 					}
 					event.stopPropagation();
 					return false;
+				},
+				open: function(event, ui) {
+					var $items = $('.ui-autocomplete.ui-front');
+					if(!$items.find('a').length) {
+						// newer jQuery UI versions use <div> rather than <a>, but we prefer to keep <a>
+						$items.find('div').each(function() {
+							$(this).parent().html('<a>' + $(this).html() + '</a>');
+						});
+					}
 				}
 
-			}).blur(function() {
+			}).on('blur', function() {
 				var $input = $(this);
 				//if(!$input.val().length) $input.val('');
 				$icon.attr('class', $icon.attr('data-class'));
@@ -160,19 +168,18 @@ var InputfieldPageAutocomplete = {
 					} else {
 						$input.val('').attr('placeholder', '').attr('data-selectedLabel', '');
 					}
-					//$(this).closest('.InputfieldPageAutocomplete').find('.InputfieldPageAutocompleteData').val('').change();
 				}
 				if($input.hasClass('focus-after-blur')) {
 					$input.removeClass('focus-after-blur');
 					setTimeout(function() {
-						$input.focus();
+						$input.trigger('focus');
 					}, 250);
 				}
 
-			}).keyup(function() {
+			}).on('keyup', function() {
 				$icon.attr('class', $icon.attr('data-class'));
 
-			}).keydown(function(event) {
+			}).on('keydown', function(event) {
 				var $addNote;
 				if(event.keyCode == 13) {
 					// prevents enter from submitting the form
@@ -180,19 +187,19 @@ var InputfieldPageAutocomplete = {
 					// instead we add the text entered as a new item
 					// if there is an .InputfieldPageAdd sibling, which indicates support for this
 					if(isAddAllowed()) {
-						if($.trim($input.val()).length < 1) {
-							$input.blur();
+						if($input.val().trim().length < 1) {
+							$input.trigger('blur');
 							return false;
 						}
 						numAdded++;
 						// new items have a negative page_id
-						var page = {page_id: (-1 * numAdded), label: $input.val()};
+						var page = { page_id: (-1 * numAdded), label: $input.val() };
 						// add it to the list
 						if(noList) {
 							// adding new item while using input as the label
 							$value.val(page.page_id);
 							$("#_" + id.replace('Inputfield_', '') + '_add_items').val(page.label);
-							$input.addClass('added_item').blur();
+							$input.addClass('added_item').trigger('blur');
 							$addNote = $note.siblings(".InputfieldPageAutocompleteNoteAdd");
 							if(!$addNote.length) {
 								$addNote = $("<div class='notes InputfieldPageAutocompleteNote InputfieldPageAutocompleteNoteAdd'></div>");
@@ -204,11 +211,11 @@ var InputfieldPageAutocomplete = {
 						} else {
 							// adding new item to list
 							InputfieldPageAutocomplete.pageSelected($ol, page);
-							$input.val('').blur().focus();
+							$input.val('').trigger('blur').trigger('focus');
 						}
 						$note.hide();
 					} else {
-						$(this).addClass('focus-after-blur').blur();
+						$(this).addClass('focus-after-blur').trigger('blur');
 					}
 					return false;
 				}
@@ -234,7 +241,8 @@ var InputfieldPageAutocomplete = {
 				// items: '.InputfieldPageListSelectMultiple ol > li',
 				axis: 'y',
 				update: function(e, data) {
-					InputfieldPageAutocomplete.rebuildInput($(this)); 
+					InputfieldPageAutocomplete.rebuildInput($(this));
+					InputfieldPageAutocomplete.triggerChange($ol)
 					$ol.trigger('sorted', [ data.item ]);
 				},
 				start: function(e, data) {
@@ -317,7 +325,7 @@ var InputfieldPageAutocomplete = {
 		});
 		
 		var $inputText = $('#' + $ol.attr('data-id') + '_input');
-		$inputText.blur();
+		$inputText.trigger('blur');
 
 		if(dup) {
 			dup.effect('highlight'); 
@@ -374,10 +382,10 @@ var InputfieldPageAutocomplete = {
 	
 		$children.each(function() {
 			var v = parseInt($(this).children('.itemValue').text());
-			if(v > 0) {
-				value += ',' + v; 
-			} else if(v < 0) {
-				value += ',' + v; 
+			if(v === 0) return;
+			if(value.length) value += ',';
+			value += v;
+			if(v < 0) {
 				addValue += $(this).children('.itemLabel').text() + "\n";
 			}
 		}); 
@@ -427,5 +435,3 @@ $(document).ready(function() {
 		InputfieldPageAutocomplete.updateIcons($tab); 
 	});
 }); 
-
-

@@ -279,8 +279,15 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			$options[\PDO::ATTR_ERRMODE] = \PDO::ERRMODE_EXCEPTION;
 		}
 
-		if($initCommand && !isset($options[\PDO::MYSQL_ATTR_INIT_COMMAND])) {
-			$options[\PDO::MYSQL_ATTR_INIT_COMMAND] = $initCommand;
+		if($initCommand) {
+			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
+				$attrValue = constant("\\Pdo\\Mysql::ATTR_INIT_COMMAND");
+			} else {
+				$attrValue = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+			}
+			if(!isset($options[$attrValue])) {
+				$options[$attrValue] = $initCommand;
+			}
 		}
 
 		$dsnArray = array(
@@ -476,13 +483,57 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Reset the current PDO connection(s)
+	 * 
+	 * This forces re-creation of the PDO instance(s), whether writer, reader or both. 
+	 * This may be useful to call after a "MySQL server has gone away" error to attempt
+	 * to re-establish the connection.
+	 * 
+	 * #pw-group-connection
+	 * 
+	 * @param string|null $type 
+	 *  - Specify 'writer' to reset writer instance.
+	 *  - Specify 'reader' to reset reader instance.
+	 *  - Omit or null to reset both, or whichever one is in use. 
+	 * @return self
+	 * @since 3.0.240
+	 * 
+	 */
+	public function reset($type = null) {
+		$this->close($type);
+		$this->pdo($type);
+		return $this;
+	}
+
+	/**
+	 * Close the current PDO connection(s)
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string|null $type
+	 *  - Specify 'writer' to close writer instance.
+	 *  - Specify 'reader' to close reader instance.
+	 *  - Omit or null to close both.
+	 * @return self
+	 * @since 3.0.240
+	 *
+	 */
+	public function close($type = null) {
+		if($type === 'reader' || $type === null) {
+			$this->reader['pdo'] = null;
+		}
+		if($type === 'writer' || $type === null) {
+			$this->writer['pdo'] = null;
+		}
+		return $this;
+	}
+
+	/**
 	 * Return the actual current PDO connection instance
 	 *
-	 * If connection is lost, this will restore it automatically.
+	 * #pw-internal
 	 *
-	 * #pw-group-connection
-	 *
-	 * @param string|\PDOStatement|null SQL, statement, or statement type (reader or primary) (3.0.175+)
+	 * @param string|\PDOStatement|null SQL, statement, or statement type (reader or writer) (3.0.175+)
 	 *
 	 * @return \PDO
 	 *
@@ -593,6 +644,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		} else if(stripos($statement, 'select') === 0) {
 			// select query is always reader
 			$type = $reader;
+			// check that this is not an InnoDB 'SELECT' '… FOR UPDATE' or '… FOR SHARE' query
+			$forpos = $this->engine === 'innodb' ? strripos($query, 'for') : 0; 
+			if($forpos) {
+				$for = ltrim(strtolower(substr($query, $forpos+4, 15))); 
+				if(stripos($for, 'update') === 0 || stripos($for, 'share') === 0) {
+					$type = $writer;
+				}
+			}
 		} else if(stripos($statement, 'insert') === 0) {
 			// insert query is always writer
 			$type = $writer;
@@ -810,6 +869,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function commit() {
+		if(!$this->inTransaction()) return false;
 		$this->allowReader(true);
 		return $this->pdoWriter()->commit();
 	}
@@ -824,6 +884,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function rollBack() {
+		if(!$this->inTransaction()) return false;
 		$this->allowReader(true);
 		return $this->pdoWriter()->rollBack();
 	}
@@ -925,31 +986,41 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 * @param \PDOStatement $query
 	 * @param bool $throw Whether or not to throw exception on query error (default=true)
-	 * @param int $maxTries Deprecated/argument does nothing (was: “Max number of times it will attempt to retry query on error”)
+	 * @param int $maxTries Max number of times it will attempt to retry query on lost connection error
 	 * @return bool True on success, false on failure. Note if you want this, specify $throw=false in your arguments.
 	 * @throws \PDOException
 	 *
 	 */
 	public function execute(\PDOStatement $query, $throw = true, $maxTries = 3) {
+		$tries = 0;
 
-		try {
-			$result = $query->execute();
-		} catch(\PDOException $e) {
-			$result = false;
-			if($query->errorCode() == '42S22') {
-				// unknown column error
-				$errorInfo = $query->errorInfo();
-				if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
-					$this->unknownColumnError($matches[1]);
+		do {
+			$tryAgain = false;
+			try {
+				$result = $query->execute();
+			} catch(\PDOException $e) {
+				$result = false;
+				if($query->errorCode() == '42S22') {
+					// unknown column error
+					$errorInfo = $query->errorInfo();
+					if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
+						$this->unknownColumnError($matches[1]);
+					}
+				} else if($e->getCode() === 'HY000' && $tries < $maxTries) {
+					// mysql server has gone away
+					$this->reset();
+					$tryAgain = true;
+					$tries++;
+				}
+				if($tryAgain) {
+					// we will try again on next iteration
+				} else if($throw) {
+					throw $e;
+				} else {
+					$this->error($e->getMessage());
 				}
 			}
-			if($throw) {
-				throw $e;
-			} else {
-				$this->error($e->getMessage());
-			}
-			if($maxTries) {} // ignore, argument no longer used
-		}
+		} while($tryAgain);
 
 		return $result;
 	}
@@ -971,11 +1042,12 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * - To retrieve the query log, call this method with no arguments. 
 	 * - Note the core only populates the query log when `$config->debug` mode is active.
 	 * - Specify boolean true for $sql argument to reset and start query logging (3.0.173+)
+	 * - Specify integer 1 for $sql argument to start query logging without reset (3.0.256+)
 	 * - Specify boolean false for $sql argument to stop query logging (3.0.173+)
 	 * 
 	 * #pw-group-custom
 	 * 
-	 * @param string|bool $sql Query (string) to log, boolean true to reset/start query logging, boolean false to stop query logging
+	 * @param string|bool|int $sql Query to log, `true` to reset+start log, `1` to start w/no reset, `false` to stop, omit to get log.
 	 * @param string $note Any additional debugging notes about the query
 	 * @return array|bool Returns query log array, boolean true on success, boolean false if not
 	 * 
@@ -983,8 +1055,11 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	public function queryLog($sql = '', $note = '') {
 		if($sql === '') return $this->queryLog;
 		if($sql === true) {
-			$this->debugMode = true; 
+			$this->debugMode = true;
 			$this->queryLog = array();
+			return true;
+		} else if($sql === 1) {
+			$this->debugMode = true;
 			return true;
 		} else if($sql === false) {
 			$this->debugMode = false; 
@@ -1907,4 +1982,3 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 }
-

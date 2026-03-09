@@ -1,0 +1,247 @@
+/*
+Expected variables:
+$text-color: #333;
+$text-color-muted: #777;
+$headline-color: #222;
+$border-color: #ccc;
+$link-color: #0782C1;
+$code-color: #222;
+$code-bgcolor: #f5f2f0;
+$code-font-family: Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;
+*/
+
+.mce-content-body {
+	
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+	line-height: 1.5;
+	margin: 1rem;
+	font-size: 16px;
+	color: $text-color;
+	
+	small {
+		font-size: 14px;
+	}
+	
+	strong,
+	strong em,
+	em strong {
+		font-weight: bold;
+	}
+	
+	em {
+		font-style: italic;
+	}
+	
+	h1, h2, h3, h4, h5, h6 {
+		color: $headline-color;
+		font-weight: bold;
+		line-height: 1.2em;
+		text-transform: none;
+		margin: 1rem 0;
+	}
+
+	h1 {
+		font-size: 2.0rem;
+	}
+
+	h2 {
+		font-size: 1.7rem;
+	}
+
+	h3 {
+		font-size: 1.5rem;
+	}
+
+	h4 {
+		font-size: 1.3rem;
+	}
+
+	h5 {
+		font-size: 1.2rem;
+	}
+
+	h6 {
+		font-size: 1.1rem;
+	}
+
+	hr {
+		border-style: solid;
+		border-width: 1px 0 0 0;
+	}
+	
+	code {
+		border-radius: 3px;
+		padding: 0.1rem 0.2rem;
+		background-color: $code-bgcolor;
+		color: $code-color;
+		font-family: $code-font-family;
+	}
+	
+	a {
+		color: $link-color;
+		text-decoration: underline;
+	}
+	
+	table:not([cellpadding]) td,
+	table:not([cellpadding]) th {
+		padding: 0.4rem;
+	}
+
+	table[border]:not([border="0"]):not([style*="border-width"]) td,
+	table[border]:not([border="0"]):not([style*="border-width"]) th {
+		border-width: 1px;
+	}
+
+	table[border]:not([border="0"]):not([style*="border-style"]) td,
+	table[border]:not([border="0"]):not([style*="border-style"]) th {
+		border-style: solid;
+	}
+
+	table[border]:not([border="0"]):not([style*="border-color"]) td,
+	table[border]:not([border="0"]):not([style*="border-color"]) th {
+		border-color: $border-color;
+	}
+
+
+	span[lang] {
+		font-style: italic;
+	}
+	
+	table {
+		border-collapse: collapse;
+	}
+
+	blockquote {
+		color: $text-color;
+		border-color: $border-color;
+		font-style: italic;
+		font-family: Georgia, Times, "Times New Roman", serif;
+		margin: 0;
+		padding: 0 1rem;
+	}
+		&:not([dir="rtl"]) blockquote {
+			border-left: 2px solid;
+			margin-left: 1.5rem;
+			padding-left: 1rem;
+		}
+
+		&[dir="rtl"] blockquote {
+			border-right: 2px solid;
+			margin-right: 1.5rem;
+			padding-right: 1rem;
+		}
+
+
+	figure {
+		display: table;
+		margin-top: 1rem;
+		margin-bottom: 1rem;
+
+		&:first-child {
+			margin-top: 0;
+		}
+
+		figcaption {
+			margin-top: 5px;
+			display: table-caption;
+			caption-side: bottom;
+			line-height: 1.3em;
+			font-size: 14px;
+			color: $text-color-muted;
+		}
+	}
+
+	.align_right, .align-right, .right {
+		text-align: right;
+		float: none;
+	}
+
+	.align_left, .align-left, .left {
+		text-align: left;
+		float: none;
+	}
+
+	.align_center, .align-center, .center {
+		text-align: center;
+	}
+	
+	.align_full, .align-full, .full {
+		text-align: justify;
+	}
+
+	img, figure, table {
+		&.align_right, &.align-right, &.right {
+			text-align: initial;
+			float: right;
+			margin-left: 1rem;
+			margin-right: 0;
+			margin-top: 0;
+		}
+
+		&.align_left, &.align-left, &.left {
+			text-align: initial;
+			float: left;
+			margin-top: 0;
+			margin-left: 0;
+			margin-right: 1rem;
+		}
+
+		&.align_center, &.align-center, &.center {
+			text-align: initial;
+			display: block;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		
+		&.align_full, &.align-full, &.full {
+			text-align: initial;
+			width: 100%;
+		}
+	}
+
+	img {
+		max-width: 100%;
+
+		&.align_center, &.align-center, &.center {
+			display: block;
+		}
+
+		&:hover {
+			opacity: .9;
+			filter: alpha(opacity=90);
+		}
+
+		a > & {
+			padding: 1px;
+			margin: 1px;
+			border: none;
+			outline: 1px solid $link-color;
+		}
+	}
+
+	pre {
+		color: $text-color;
+		border: 1px dashed $border-color;
+		padding: 0.5rem 1rem !important;
+		white-space: pre-wrap;
+		word-wrap: break-word;
+		-moz-tab-size: 4;
+		-o-tab-size: 4;
+		-webkit-tab-size: 4;
+		tab-size: 4;
+		
+		code {
+			background-color: initial;
+		}
+		
+		&[class*=language-] {
+			font-family: $code-font-family; 
+			font-size: 0.9375rem;
+			background: $code-bgcolor;
+			margin: 0.5em 0;
+			padding: 0.5rem 1rem;
+			color: #777;
+		}
+	}
+	
+}

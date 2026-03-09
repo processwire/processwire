@@ -1,0 +1,50 @@
+.InputfieldTinyMCE .InputfieldTinyMCEInline {
+	/* default inline editor style */
+	margin: 0;
+	padding: 20px; 
+	border: 2px solid #eee;
+	overflow: hidden;
+	min-height: 60px;
+}
+
+.InputfieldTinyMCE textarea {
+	/* hides textarea with HTML during init but keeps the height */ 
+	opacity: 0;
+}
+
+.InputfieldTinyMCEPlaceholder {
+	/* Placeholder preview where editor will be (when lazyMode=2) */
+	border: 2px solid #eee;
+	overflow: hidden;
+	overflow-y: auto;
+	cursor: pointer;
+}
+
+.InputfieldTinyMCEPlaceholder + textarea {
+	/* When placeholder is present, textarea should be hidden */
+	display: none;
+}
+
+.InputfieldTinyMCE .tox-statusbar__branding {
+	/* prevents the word "TINY" from appearing in lower right of status bar */
+	display: none;
+}
+
+.InputfieldTinyMCE .tox-tinymce,
+body .tox.tox-tinymce-inline .tox-editor-header {
+	/* prevents border radius as used by some editor skins */
+	border-radius: 0;
+}
+
+.InputfieldTinyMCE .tox .tox-tbtn {
+	/* increase default margins between toolbar tools */
+	margin-right: 5px; 
+}
+.InputfieldTinyMCE .tox .tox-tbtn--select {
+	/* remove seemingly-unnecessary right padding from select toolbar tools */
+	padding-right: 0; 
+}
+.InputfieldTinyMCE .tox .tox-split-button {
+	/* increased margin for split-buttons */
+	margin-right: 10px; 
+}

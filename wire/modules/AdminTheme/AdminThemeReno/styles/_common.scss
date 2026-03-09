@@ -666,7 +666,7 @@ ul.action-group{
 
 	/* AdminDataTableSortable */
 
-	.AdminDataTableSortable th {
+	.AdminDataTableSortable th:not(.sorter-false) {
 		&:after {
 			content: "\f0dc";
 			font-family: fontAwesome;
@@ -689,7 +689,7 @@ ul.action-group{
 			content: none; // newer version of tablesorter has different markup.
 		}
 
-		tr.tablesorter-headerRow th {
+		tr.tablesorter-headerRow th:not(.sorter-false) {
 
 			& .tablesorter-header-inner:after{
 				content: " ";

@@ -27,12 +27,15 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  *   echo "</p>";
  * }
  * ~~~~~
+ * For details on how to use selectors please see [Using Selectors](https://processwire.com/docs/selectors/)
+ * and [Selector Operators](https://processwire.com/docs/selectors/operators/).
  * #pw-body
  * 
- * @link https://processwire.com/api/selectors/ Official Selectors Documentation
+ * @link https://processwire.com/docs/selectors/ Official Selectors Documentation
  * @method Selector[] getIterator()
+ * @method null|string getCustomVariableValue($name, $property = '')
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo Move static helper methods to dedicated API var/class so this class can be more focused
@@ -102,6 +105,15 @@ class Selectors extends WireArray {
 	);
 	
 	/**
+	 * Custom variable values available to all Selectors instances
+	 * 
+	 * @var array 
+	 * @since 3.0.255
+	 * 
+	 */
+	static protected $customVariableValues = [];
+	
+	/**
 	 * Given a selector string, extract it into one or more corresponding Selector objects, iterable in this object.
 	 * 
 	 * @param string|null|array $selector Please omit this argument and use a separate init($selector) call instead. 
@@ -109,6 +121,8 @@ class Selectors extends WireArray {
 	 */
 	public function __construct($selector = null) {
 		parent::__construct();
+		$this->usesNumericKeys = false;
+		$this->indexedByName = false;
 		if(!is_null($selector)) $this->init($selector);
 	}
 
@@ -236,6 +250,9 @@ class Selectors extends WireArray {
 	 *
 	 */
 	protected function extractString($str) {
+	
+		// ignore newlines in selector strings
+		$str = str_replace([ "\n", "\r" ], " ", $str); 
 
 		while(strlen($str)) {
 
@@ -252,7 +269,7 @@ class Selectors extends WireArray {
 			$value = $this->extractValue($str, $quote); 
 
 			if($this->parseVars && $quote === '[' && $this->valueHasVar($value)) {
-				// parse an API variable property to a string value
+				// parse an API or runtime variable to a string value
 				$v = $this->parseValue($value); 
 				if($v !== null) {
 					$value = $v;
@@ -655,8 +672,10 @@ class Selectors extends WireArray {
 	 */
 	public function parseValue($value) {
 		if(!preg_match('/^\$?[_a-zA-Z0-9]+(?:\.[_a-zA-Z0-9]+)?$/', $value)) return null;
+		$v = $this->getCustomVariableValue($value);
+		if($v !== null) return "$v";
 		$property = '';
-		if(strpos($value, '.')) list($value, $property) = explode('.', $value); 
+		if(strpos($value, '.')) list($value, $property) = explode('.', $value, 2); 
 		if(!in_array($value, $this->allowedParseVars)) return null; 
 		$value = $this->wire($value); 
 		if(is_null($value)) return null; // does not resolve to API var
@@ -719,8 +738,9 @@ class Selectors extends WireArray {
 			$name = $value;
 			$subname = '';
 		}
-		if(!in_array($name, $this->allowedParseVars)) return false;
+		if(in_array($name, $this->allowedParseVars)) return true;
 		if(strlen($subname) && $this->wire()->sanitizer->fieldName($subname) !== $subname) return false;
+		if($this->getCustomVariableValue($value) === null) return false;
 		return true; 
 	}
 
@@ -771,38 +791,99 @@ class Selectors extends WireArray {
 	 * @param Wire $item
 	 * @return bool
 	 * 
-	 */
+	 */ 
 	public function matches(Wire $item) {
-		
-		// if item provides it's own matches function, then let it have control
+
+		// if item provides it's own matches function (like Page), then let it have control
 		if($item instanceof WireMatchable) return $item->matches($this);
-	
+
+		$orGroups = array();
 		$matches = true;
+
 		foreach($this as $selector) {
-			$value = array();
-			foreach($selector->fields as $property) {
-				if(strpos($property, '.') && $item instanceof WireData) {
-					$value[] =  $item->getDot($property);
-				} else {
-					$value[] = (string) $item->$property;
-				}
-			}
-			if(!$selector->matches($value)) {
-				$matches = false;
-				// attempt any alternate operators, if present
-				foreach($selector->altOperators as $altOperator) {
-					$altSelector = self::getSelectorByOperator($altOperator); 
-					if(!$altSelector) continue;
-					$this->wire($altSelector);
-					$selector->copyTo($altSelector);
-					$matches = $altSelector->matches($value);
-					if($matches) break;
-				}
-				// if neither selector nor altSelectors match then stop
+			if($selector->quote === '(' && self::stringHasOperator($selector->value())) {
+				$name = $selector->field();
+				if(!isset($orGroups[$name])) $orGroups[$name] = array();
+				$orGroups[$name][] = $selector->value;
+			} else {
+				$matches = $this->matchesSelector($selector, $item);
 				if(!$matches) break;
 			}
 		}
+
+		if($matches && count($orGroups)) {
+			$matches = $this->matchesOrGroups($orGroups, $item);
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * Does the given Wire match these Selector (single)?
+	 *
+	 * @param Selector $selector
+	 * @param Wire $item
+	 * @return bool
+	 * @since 3.0.330
+	 *
+	 */
+	protected function matchesSelector(Selector $selector, Wire $item) {
+		$value = array();
 		
+		foreach($selector->fields as $property) {
+			if(strpos($property, '.') && $item instanceof WireData) {
+				$v = $item->getDot($property);
+			} else {
+				$v = $item->$property;
+			}
+			if(is_array($v)) {
+				$value = array_merge($value, $v);
+			} else {
+				$value[] = (string) $v;
+			}
+		}
+	
+		$matches = $selector->matches($value);
+		if($matches) return true;
+		
+		// attempt any alternate operators, if present
+		foreach($selector->altOperators as $altOperator) {
+			$altSelector = self::getSelectorByOperator($altOperator);
+			if(!$altSelector) continue;
+			$this->wire($altSelector);
+			$selector->copyTo($altSelector);
+			$matches = $altSelector->matches($value);
+			if($matches) break;
+		}
+
+		return $matches;
+	}
+	
+	/**
+	 * Do the given OR-groups match the given Wire?
+	 *
+	 * @param array|string[]|array[] $orGroups
+	 * @param Wire $item
+	 * @return bool
+	 * @since 3.0.330
+	 *
+	 */
+	protected function matchesOrGroups(array $orGroups, Wire $item) {
+		$matches = true;
+		foreach($orGroups as $selectorStrings) {
+			$orGroupMatches = false;
+			foreach($selectorStrings as $s) {
+				/** @var Selectors $orGroupSelectors */
+				$orGroupSelectors = $this->wire(new Selectors($s));
+				if(!$orGroupSelectors->matches($item)) continue;
+				$orGroupMatches = true;
+				break;
+			}
+			if(!$orGroupMatches) {
+				$matches = false;
+				break;
+			}
+		}
 		return $matches;
 	}
 
@@ -820,7 +901,8 @@ class Selectors extends WireArray {
 		} else if(is_string($data)) {
 			$dataType = 'string';
 		} else if(is_array($data)) {
-			$dataType = ctype_digit(implode('', array_keys($data))) ? 'array' : 'assoc';
+			$test = implode('', array_keys($data));
+			$dataType = ctype_digit($test) ? 'array' : 'assoc';
 			if($dataType == 'assoc' && isset($data['field'])) $dataType = 'verbose';
 		} 
 		return $dataType;	
@@ -1006,10 +1088,25 @@ class Selectors extends WireArray {
 			
 			// Non-verbose selector, where $key is the field name and $data is the value
 			// The $key field name may have an optional operator appended to it
-		
+			
 			$operators = $this->getOperatorsFromField($key);
 			$_fields = strpos($key, '|') ? explode('|', $key) : array($key);
 			$_values = is_array($data) ? $data : array($data);
+			
+		} else if($dataType === 'string' && is_int($key) && self::stringHasOperator($data)) {
+			
+			// Array with just a self-contained string like "key=value" 
+			// Example: $pages->find([ "template=article", "sort=-date", "limit=3" ]); 
+			// Also okay to mix with assoc array type, i.e. [ "template=article", "limit' => 3 ]
+			
+			$s = new Selectors($data); 
+			if(count($s) !== 1) {
+				throw new WireException("Please specify only one key=value per array selector item in: $data");
+			}
+			$s = $s->first(); /** @var Selector $s */
+			$operators = [ $s->operator() ];
+			$_fields = $s->fields();
+			$_values = $s->values();
 			
 		} else if($dataType == 'array') {
 			
@@ -1276,8 +1373,8 @@ class Selectors extends WireArray {
 	 *  - `getIndexType` (string): Index type to use in returned array: 'operator', 'className', 'class', or 'none' (default='class')
 	 *  - `getValueType` (string): Value type to use in returned array: 'operator', 'class', 'className', 'label', 'description', 'compareType', 'verbose' (default='operator').
 	 *     If 'verbose' option used then assoc array returned for each operator containing 'class', 'className', 'operator', 'compareType', 'label', 'description'.
-	 * @return array|string|int Returned array where both keys and values are operators (or values are requested 'valueType' option)
-	 *   If 'operator' option specified, return value is string, int or array (requested 'valueType'), and there is no indexType.
+	 * @return array|string|int Returned array where values are operators and keys are class names (or requested 'getIndexType or 'getValueType' options)
+	 *   If 'operator' option specified, return value is string, int or array (of requested 'getValueType'), and there is no index.
 	 * @since 3.0.154
 	 *
 	 */
@@ -1620,7 +1717,7 @@ class Selectors extends WireArray {
 	 *  - `operator` (string): Require this operator (default='' for any) 
 	 *  - `value` (string|int): Require this value (default=null for any)
 	 *  - `remove` (bool): Remove matched Selector from Selectors returned in verbose result? (default=false)
-	 * @return array|bool True of has field, false if not, or array with the following if 'verbose' option requested:
+	 * @return array|bool True if has field, false if not, or array with the following, if 'verbose' option requested:
 	 *  - `result` (bool): Did it match (true or false)
 	 *  - `selector` (Selector|null): Selector object that matched (only if result is true)
 	 *  - `selectors` (Selectors|null): Selectors object that was analyzed or null if not needed
@@ -1811,8 +1908,52 @@ class Selectors extends WireArray {
 		}
 		return rtrim($s, ", ");
 	}
-
-
+	
+	/**
+	 * Set a custom [variable] value available to all Selectors and PageFinder class instances 
+	 * 
+	 * ~~~~
+	 * Selectors::setCustomVariableValue('foo', 'bar'); 
+	 * $s = new Selectors("name=[foo]"); 
+	 * echo $s; // outputs: "name=bar"
+	 * $pages->find("name=[foo]"); // finds pages with name=bar
+	 * ~~~~
+	 *
+	 * @param string $name 
+	 * @param string|int|array|WireData|float|null|bool $value 
+	 * @since 3.0.255
+	 *
+	 */
+	public static function setCustomVariableValue($name, $value) {
+		self::$customVariableValues[$name] = $value;
+	}
+	
+	
+	/**
+	 * Get the value for a custom [var] to populate in a selector (also works in PageFinder)
+	 *
+	 * This can be useful for cases where the variable would be stored somewhere in
+	 * a configuration, like a Lister selector or Page reference field selector, where PHP
+	 * variables typically wouldn't be available.
+	 * 
+	 * If hooking this method, /site/ready.php is recommended.
+	 *
+	 * @param string $name
+	 * @return null|string
+	 * @since 3.0.255
+	 *
+	 */
+	public function ___getCustomVariableValue($name) {
+		if(isset(self::$customVariableValues[$name])) return self::$customVariableValues[$name];
+		switch($name) {
+			case 'timestamp': return time();
+			case 'date': return date('Y-m-d');
+			case 'datetime': return date('Y-m-d H:i:s');
+			case 'year': return date('Y');
+		}
+		return null;
+	}
+	
 }
 
 Selector::loadSelectorTypes();

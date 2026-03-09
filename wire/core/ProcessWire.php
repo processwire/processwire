@@ -17,7 +17,7 @@ require_once(__DIR__ . '/boot.php');
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * Default API vars (A-Z) 
@@ -54,6 +54,7 @@ require_once(__DIR__ . '/boot.php');
  * @property Users $users
  * @property ProcessWire $wire
  * @property WireShutdown $shutdown
+ * @property PagesVersions|null $pagesVersions
  * 
  * @method init()
  * @method ready()
@@ -79,7 +80,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 214;
+	const versionRevision = 257;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -275,10 +276,11 @@ class ProcessWire extends Wire {
 	 *  - This is only used if $config is omitted or a path string.
 	 *  - May also include scheme & hostname, i.e. "http://hostname.com/url" to force use of scheme+host.
 	 *  - If omitted, it is determined automatically. 
+	 * @param bool $boot Specify false if you will call $wire->boot(); on your own (default=true) 3.0.257+
 	 * @throws WireException if given invalid arguments
  	 *
 	 */ 
-	public function __construct($config = null, $rootURL = '/') {
+	public function __construct($config = null, $rootURL = '/', $boot = true) {
 		parent::__construct();
 	
 		if(empty($config)) $config = getcwd();
@@ -287,7 +289,7 @@ class ProcessWire extends Wire {
 		
 		// this is reset in the $this->setConfig() method based on current debug mode
 		ini_set('display_errors', true);
-		error_reporting(E_ALL | E_STRICT);
+		error_reporting(E_ALL);
 
 		$config->setWire($this);
 		
@@ -311,9 +313,27 @@ class ProcessWire extends Wire {
 
 		$this->setConfig($config);
 		$this->shutdown = $this->wire(new WireShutdown($config));
+	
+		if($boot) $this->boot($config);
+	}
+	
+	/**
+	 * Boot ProcessWire
+	 * 
+	 * This is called automatically, unless you specified false 
+	 * for the `$boot` constructor argument.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Config $config
+	 * @throws WireDatabaseException
+	 * @throws WireException
+	 * 
+	 */
+	public function boot($config = null) {
+		if($config === null) $config = $this->wire()->config;
 		$this->setStatus(self::statusBoot);
 		$this->load($config);
-		
 		if(self::getNumInstances() > 1) {
 			// this instance is not handling the request and needs a mock $page API var and pageview
 			/** @var ProcessPageView $view */
@@ -329,9 +349,10 @@ class ProcessWire extends Wire {
 	public function __destruct() {
 		if($this->status < self::statusFinished) {
 			// call finished hook if it wasn’t already
+			$prevStatus = $this->status;
 			$this->status = self::statusExited;
 			$this->finished(array(
-				'prevStatus' => $this->status,
+				'prevStatus' => $prevStatus,
 				'exited' => true, 
 			));
 		}
@@ -448,7 +469,7 @@ class ProcessWire extends Wire {
 		
 		if($debug) {
 			// If debug mode is on then echo all errors
-			error_reporting(E_ALL | E_STRICT);
+			error_reporting(E_ALL);
 			ini_set('display_errors', 1);
 		} else {
 			// disable all error reporting
@@ -540,17 +561,13 @@ class ProcessWire extends Wire {
 			$database = $this->wire('database', WireDatabasePDO::getInstance($config), true);
 			/** @noinspection PhpUnusedLocalVariableInspection */
 			$db = $this->wire('db', new DatabaseMysqli($config), true);
-		} catch(\Exception $e) {
+		} catch(\Throwable $e) {
 			// catch and re-throw to prevent DB connect info from ever appearing in debug backtrace
 			$this->trackException($e, true, 'Unable to load WireDatabasePDO');
 			throw new WireDatabaseException($e->getMessage()); 
 		}
 	
-		/** @var WireCache $cache */
-		$cache = $this->wire('cache', new WireCache(), true); 
-		$cacheNames = $config->preloadCacheNames;
-		if($database->getEngine() === 'innodb') $cacheNames[] = 'InnoDB.stopwords';
-		$cache->preload($cacheNames); 
+		$this->wire('cache', new WireCache(), true); 
 		
 		$modules = null;
 		try { 		
@@ -567,7 +584,7 @@ class ProcessWire extends Wire {
 		}
 		$this->updater = $modules->get('SystemUpdater'); 
 		if(!$this->updater) {
-			$modules->resetCache();
+			$modules->refresh();
 			$this->updater = $modules->get('SystemUpdater');
 		}
 
@@ -604,7 +621,9 @@ class ProcessWire extends Wire {
 		// the current user can only be determined after the session has been initiated
 		$session = $this->wire('session', new Session($this), true); 
 		$this->initVar('session', $session);
-		$this->wire('user', $users->getCurrentUser());
+		$user = $users->getCurrentUser();
+		if($config->userOutputFormatting) $user->of(true);
+		$this->wire('user', $user);
 		
 		$input = $this->wire('input', new WireInput(), true); 
 		if($config->wireInputLazy) $input->setLazy(true);
@@ -813,6 +832,7 @@ class ProcessWire extends Wire {
 		$session = $this->fuel->get('session'); /** @var Session $session */
 		$cache = $this->fuel->get('cache'); /** @var WireCache $cache */
 		$profiler = $this->fuel->get('profiler'); /** @var WireProfilerInterface $profiler */
+		$log = $this->fuel->get('log'); /** @var WireLog $log */
 		$exited = !empty($data['exited']);
 		
 		if($data) {} // data for hooks
@@ -823,6 +843,7 @@ class ProcessWire extends Wire {
 		if($session && !$exited) $session->maintenance();
 		if($cache && !$exited) $cache->maintenance();
 		if($profiler) $profiler->maintenance();
+		if($log) $log->finished();
 
 		if($config && !$exited) {
 			if($config->templateCompile) {
@@ -890,13 +911,16 @@ class ProcessWire extends Wire {
 		}
 		$this->pathSave = getcwd();
 		chdir(dirname($this->fileSave));
-		if(count($data)) extract($data);
-		$fuel = $this->fuel->getArray();
-		extract($fuel);
-		/** @noinspection PhpIncludeInspection */
-		include($this->fileSave);
-		chdir($this->pathSave);
-		$this->fileSave = '';
+		try {
+			if(count($data)) extract($data);
+			$fuel = $this->fuel->getArray();
+			extract($fuel);
+			/** @noinspection PhpIncludeInspection */
+			include($this->fileSave);
+		} finally {
+			chdir($this->pathSave);
+			$this->fileSave = '';
+		}
 		return true; 
 	}
 
@@ -1243,6 +1267,7 @@ class ProcessWire extends Wire {
 			'templates' => "$siteDir/templates/",
 			'fieldTemplates' => "$siteDir/templates/fields/",
 			'adminTemplates' => "$wireDir/$adminTplDir/",
+			'markupRegions' => "$assetsDir/markup-regions/",
 		), true);
 		
 		$cfg['paths'] = clone $cfg['urls'];
@@ -1285,5 +1310,3 @@ class ProcessWire extends Wire {
 	}
 
 }
-
-

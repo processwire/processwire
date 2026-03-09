@@ -33,14 +33,15 @@ class TextformatterStripTags extends Textformatter implements ConfigurableModule
 		$inputfields = $this->wire(new InputfieldWrapper());
 		$name = "allowedTags";
 		if(!isset($data[$name])) $data[$name] = '';
-		$f = $this->wire('modules')->get('InputfieldText');
+		/** @var InputfieldText $f */
+		$f = $this->wire()->modules->get('InputfieldText');
 		$f->attr('name', $name);
 		$f->attr('value', $data[$name]);
 		$f->label = 'Allowed Markup Tags';
 		$f->description = 
-			"Enter any markup tags that are allowed, i.e. '<strong><em>'. " . 
+			"Enter any markup tags that are allowed, i.e. `<strong><em>`. " . 
 			"Note that this does not strip attributes for any tags you allow. " . 
-			"As a result, you should not allow *any* tags unless the user is trusted.";
+			"As a result, you should not allow *any* tags unless all potential users are trusted.";
 		$inputfields->append($f);
 		return $inputfields;
 	}

@@ -5,9 +5,9 @@ class JqueryMagnific extends ModuleJS {
         public static function getModuleInfo() {
 			return array(
 				'title' => 'jQuery Magnific Popup',
-				'version' => 1,
+				'version' => '1.1.0',
 				'summary' => 'Provides lightbox capability for image galleries. Replacement for FancyBox. Uses Magnific Popup by @dimsemenov.',
-				'href' => 'http://dimsemenov.com/plugins/magnific-popup/', 
+				'href' => 'https://github.com/dimsemenov/Magnific-Popup/'
 			);
 		}
 

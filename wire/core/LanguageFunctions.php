@@ -284,7 +284,14 @@ function _x($text, $context, $textdomain = null) {
  *
  */
 function _n($textSingular, $textPlural, $count, $textdomain = null) {
-	return $count == 1 ? __($textSingular, $textdomain) : __($textPlural, $textdomain); 	
+	$count = (int) $count;
+	if($count === 0 && wire()->languages) {
+		$plural = __('0-plural', 'common');
+		$value = strtolower($plural) === '0-singular' ? __($textSingular, $textdomain) : __($textPlural, $textdomain);
+	} else {
+		$value = $count === 1 ? __($textSingular, $textdomain) : __($textPlural, $textdomain);
+	}
+	return $value;
 }
 
 /**
@@ -423,5 +430,3 @@ function wireLangTranslations(array $values = array()) {
 function wireLangReplacements(array $values) {
 	return __(true, 'replacements', $values); 
 }
-
-

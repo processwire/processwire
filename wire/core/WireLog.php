@@ -8,7 +8,7 @@
  * 
  * #pw-summary Enables creation of logs, logging of events, and management of logs. 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool save($name, $text, $options = array())
@@ -18,6 +18,9 @@
  */
 
 class WireLog extends Wire {
+	
+	const defaultMaxLineLength = 8192;
+	const newline = '[br]';
 
 	protected $logExtension = 'txt';
 
@@ -36,6 +39,14 @@ class WireLog extends Wire {
 	 * 
 	 */
 	protected $disabled = array();
+	
+	/**
+	 * Queued log entries to save at finished state
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $queued = array();
 
 	/**
 	 * Record an informational or 'success' message in the message log (messages.txt)
@@ -45,7 +56,7 @@ class WireLog extends Wire {
 	 * $log->message("User updated profile"); 
 	 * ~~~~~
 	 * 
-	 * @param string $text Message to log
+	 * @param string|array|object $text Message to log
 	 * @param bool|int $flags Specify boolean true to also have the message displayed interactively (admin only).
 	 * @return Wire|WireLog
 	 *
@@ -65,7 +76,7 @@ class WireLog extends Wire {
 	 * $log->error("Login attempt failed"); 
 	 * ~~~~~
 	 * 
-	 * @param string $text Text to save in the log
+	 * @param string|array|object $text Text to save in the log
 	 * @param int|bool $flags Specify boolean true to also display the error interactively (admin only).
 	 * @return Wire|WireLog
 	 *
@@ -83,7 +94,7 @@ class WireLog extends Wire {
 	 * $log->warning("This is a warning");
 	 * ~~~~~
 	 * 
-	 * @param string $text Text to save in the log
+	 * @param string|array|object $text Text to save in the log
 	 * @param int|bool $flags Specify boolean true to also display the warning interactively (admin only).
 	 * @return Wire|WireLog
 	 *
@@ -99,6 +110,7 @@ class WireLog extends Wire {
 	 * - If the log doesn't currently exist, it will be created. 
 	 * - The log filename is `/site/assets/logs/[name].txt`
 	 * - Logs can be viewed in the admin at Setup > Logs
+	 * - If given an array it will be saved as a JSON log entry (3.0.256+)
 	 * 
 	 * ~~~~~
 	 * // Save text searches to custom log file (search.txt):
@@ -106,13 +118,17 @@ class WireLog extends Wire {
 	 * ~~~~~
 	 * 
 	 * @param string $name Name of log to save to (word consisting of only `[-._a-z0-9]` and no extension)
-	 * @param string $text Text to save to the log
+	 * @param string|array|object $text Text to save to the log [array or object also supported in 3.0.256+]
 	 * @param array $options Options to modify default behavior:
 	 *   - `showUser` (bool): Include the username in the log entry? (default=true)
 	 *   - `showURL` (bool): Include the current URL in the log entry? (default=true) 
 	 *   - `user` (User|string|null): User instance, user name, or null to use current User. (default=null)
 	 *   - `url` (bool): URL to record with the log entry (default=auto determine)
 	 *   - `delimiter` (string): Log entry delimiter (default="\t" aka tab)
+	 *   - `maxLineLength (int): Maximum length in bytes for log line [3.0.256+] (default=8192)
+	 *   - `allowNewlines (bool): Allow newlines in log text? [3.0.256+] (default=false)
+	 *   - `queue` (bool): Queue to save at end of request? [3.0.256+]
+	 *      This will group log entries with same name/options into one newline-separated entry. (default=false)
 	 * @return bool Whether it was written or not (generally always going to be true)
 	 * @throws WireException
 	 * 
@@ -121,26 +137,67 @@ class WireLog extends Wire {
 		
 		if(isset($this->disabled[$name]) || isset($this->disabled['*'])) return false;
 		
+		$sanitizer = $this->wire()->sanitizer;
+		
 		$defaults = array(
 			'showUser' => true,
 			'showURL' => true,
 			'user' => null, 
 			'url' => '', // URL to show (default=blank, auto-detect)
 			'delimiter' => "\t",
+			'queue' => false, 
+			'maxLineLength' => self::defaultMaxLineLength, 
+			'allowNewlines' => false, 
 		);
 		
+		if(is_array($text) || is_object($text)) {
+			$a = $sanitizer->textArray($text, [
+				'maxItemLength' => 1024, 
+				'types' => true, 
+			]); 
+			$json = $sanitizer->json($a);
+			$json = str_replace(self::newline, ' ', $json);
+			$json = str_replace("\n", self::newline, $json); 
+			if($json) $text = "~~~$json~~~";
+			unset($json, $a);
+			$isFormatted = true;
+		} else {
+			$isFormatted = false;
+		}
+		
+		if(!empty($options['queue'])) {
+			$o = [];
+			unset($options['queue']);
+			foreach($options as $k => $v) {
+				if(!isset($defaults[$k]) || $v !== $defaults[$k]) $o[$k] = $v;
+			}
+			$key = "$name|" . json_encode($o);
+			if(!isset($this->queued[$key])) $this->queued[$key] = [];
+			$this->queued[$key][] = $text;
+			return false;
+		}
+		
 		$options = array_merge($defaults, $options);
+		
 		// showURL option was previously named showPage
 		if(isset($options['showPage'])) $options['showURL'] = $options['showPage'];
-		$log = $this->getFileLog($name, $options); 
-		$text = str_replace(array("\r", "\n", "\t"), ' ', $text);
+		
+		$log = $this->getFileLog($name, $options);
+		
+		if(!$isFormatted && strpos($text, self::newline) !== false) {
+			$text = str_replace(self::newline, ' ', $text);
+		}
+		if(!$isFormatted && $options['allowNewlines']) {
+			$text = str_replace("\n", self::newline, $text);
+		} 
+		$text = str_replace([ "\r\n", "\r", "\n" ], ' ', $text);
+		$text = str_replace("\t", "  ", $text);
 		
 		if($options['showURL']) {
 			if($options['url']) {
 				$url = $options['url'];
 			} else {
 				$input = $this->wire()->input;
-				$sanitizer = $this->wire()->sanitizer;
 				$url = $input ? $input->httpUrl() : '';
 				if(strlen($url) && $input) {
 					if(count($input->get)) {
@@ -171,8 +228,18 @@ class WireLog extends Wire {
 			if(empty($userName)) $userName = '?';
 			$text = "$userName$options[delimiter]$text";
 		}
+	
+		$maxDefault = $log->getMaxLineLength();
+		if($maxDefault != $options['maxLineLength']) {
+			$log->setMaxLineLength($options['maxLineLength']);
+		} else {
+			$maxDefault = 0;
+		}
 		
-		return $log->save($text);
+		$result = $log->save($text);
+		if($maxDefault) $log->setMaxLineLength($maxDefault);
+		
+		return $result;
 	}
 
 	/**
@@ -332,7 +399,8 @@ class WireLog extends Wire {
 		unset($options['pageNum']); 
 		$log = $this->getFileLog($name); 
 		$limit = isset($options['limit']) ? (int) $options['limit'] : 100; 
-		return $log->find($limit, $pageNum, $options); 
+		$lines = $log->find($limit, $pageNum, $options); 
+		return $lines;
 	}
 
 	/**
@@ -414,11 +482,15 @@ class WireLog extends Wire {
 			);
 		}
 		
-		$entry['date'] = wireDate($this->wire('config')->dateFormat, strtotime($entry['date']));
-		$entry['user'] = $this->wire('sanitizer')->pageNameUTF8($entry['user']); 
+		$entry['date'] = wireDate($this->wire()->config->dateFormat, strtotime($entry['date']));
+		$entry['user'] = $this->wire()->sanitizer->pageNameUTF8($entry['user']); 
 		
 		if($entry['url'] == 'page?') $entry['url'] = false;
 		if($entry['user'] == 'user?') $entry['user'] = false;
+		
+		if(strpos($entry['text'], self::newline) !== false) {
+			$entry['text'] = str_replace(self::newline, "\n", $entry['text']);
+		}
 		
 		return $entry; 
 	}
@@ -618,5 +690,30 @@ class WireLog extends Wire {
 	 */
 	public function path() {
 		return $this->wire()->config->paths->logs;
+	}
+	
+	/**
+	 * Process queued log entries at end of request
+	 * 
+	 * This is called by the ProcessWire::finished() method
+	 * 
+	 * #pw-internal
+	 * 
+	 * @since 3.0.256
+	 * 
+	 */
+	public function finished() {
+		if(!count($this->queued)) return;
+		foreach($this->queued as $key => $items) {
+			list($name, $options) = explode('|', $key, 2);
+			$options = json_decode($options, true);
+			$split = count($items) > 1 ? "\n- " : "\n";
+			$text = trim($split . implode($split, $items));
+			$length = strlen($text);
+			if($length > self::defaultMaxLineLength) $options['maxLineLength'] = $length+100;
+			$options['allowNewlines'] = true;
+			$this->save($name, $text, $options);
+			unset($this->queued[$key]);
+		}
 	}
 }

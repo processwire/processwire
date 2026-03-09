@@ -6,7 +6,7 @@
  * Provides functions for managing sitautions where more than one
  * copy of the same module is intalled. This is a helper for the Modules class.
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -40,6 +40,7 @@ class ModulesDuplicates extends Wire {
 	 *
 	 */
 	protected $numNewDuplicates = 0;
+	
 
 	/**
 	 * Return quantity of new duplicates found while loading modules
@@ -73,7 +74,7 @@ class ModulesDuplicates extends Wire {
 	public function hasDuplicate($className, $pathname = '') {
 		if(!isset($this->duplicates[$className])) return false;
 		if($pathname) {
-			$rootPath = $this->wire('config')->paths->root;
+			$rootPath = $this->wire()->config->paths->root;
 			if(strpos($pathname, $rootPath) === 0) $pathname = str_replace($rootPath, '/', $pathname);
 			return in_array($pathname, $this->duplicates[$className]);
 		}
@@ -90,7 +91,7 @@ class ModulesDuplicates extends Wire {
 	 */
 	public function addDuplicate($className, $pathname, $current = false) {
 		if(!isset($this->duplicates[$className])) $this->duplicates[$className] = array();
-		$rootPath = $this->wire('config')->paths->root;
+		$rootPath = $this->wire()->config->paths->root;
 		if(strpos($pathname, $rootPath) === 0) $pathname = str_replace($rootPath, '/', $pathname);
 		if(!in_array($pathname, $this->duplicates[$className])) {
 			$this->duplicates[$className][] = $pathname;
@@ -153,11 +154,12 @@ class ModulesDuplicates extends Wire {
 	public function getDuplicates($className = '') {
 
 		if(!$className) return $this->duplicates;
-
-		$className = $this->wire('modules')->getModuleClass($className);
+		
+		$modules = $this->wire()->modules;
+		$className = $modules->getModuleClass($className);
 		$files = isset($this->duplicates[$className]) ? $this->duplicates[$className] : array();
 		$using = isset($this->duplicatesUse[$className]) ? $this->duplicatesUse[$className] : '';
-		$rootPath = $this->wire('config')->paths->root;
+		$rootPath = $this->wire()->config->paths->root;
 
 		foreach($files as $key => $file) {
 			$file = rtrim($rootPath, '/') . $file;
@@ -167,7 +169,7 @@ class ModulesDuplicates extends Wire {
 		}
 
 		if(count($files) > 1 && !$using) {
-			$using = $this->wire('modules')->getModuleFile($className);
+			$using = $modules->getModuleFile($className);
 			$using = str_replace($rootPath, '/', $using);
 		}
 
@@ -191,8 +193,9 @@ class ModulesDuplicates extends Wire {
 	 *
 	 */
 	public function setUseDuplicate($className, $pathname) {
-		$className = $this->wire('modules')->getModuleClass($className);
-		$rootPath = $this->wire('config')->paths->root;
+		$modules = $this->wire()->modules;
+		$className = $modules->getModuleClass($className);
+		$rootPath = $this->wire()->config->paths->root;
 		if(!isset($this->duplicates[$className])) {
 			throw new WireException("Module $className does not have duplicates");
 		}
@@ -204,9 +207,9 @@ class ModulesDuplicates extends Wire {
 			throw new WireException("Duplicate module file does not exist: $pathname");
 		}
 		$this->duplicatesUse[$className] = $pathname;
-		$configData = $this->wire('modules')->getModuleConfigData($className);
+		$configData = $modules->getModuleConfigData($className);
 		$configData['-dups-use'] = $pathname;
-		$this->wire('modules')->saveModuleConfigData($className, $configData);
+		$modules->saveModuleConfigData($className, $configData);
 	}
 
 	/**
@@ -214,8 +217,9 @@ class ModulesDuplicates extends Wire {
 	 *
 	 */
 	public function updateDuplicates() {
-
-		$rootPath = $this->wire('config')->paths->root;
+		
+		$modules = $this->wire()->modules;
+		$rootPath = $this->wire()->config->paths->root;
 
 		// store duplicate information in each module's data field
 		foreach($this->getDuplicates() as $moduleName => $files) {
@@ -228,7 +232,7 @@ class ModulesDuplicates extends Wire {
 				$files[$key] = $file;
 			}
 			$files = array_unique($files);
-			$configData = $this->wire('modules')->getModuleConfigData($moduleName);
+			$configData = $modules->getModuleConfigData($moduleName);
 			if((empty($configData['-dups']) && !empty($files))
 				|| (empty($configData['-dups-use']) || $configData['-dups-use'] != $using)
 				|| (isset($configData['-dups']) && implode(' ', $configData['-dups']) != implode(' ', $files))
@@ -237,13 +241,13 @@ class ModulesDuplicates extends Wire {
 				$this->duplicatesUse[$moduleName] = $using;
 				$configData['-dups'] = $files;
 				$configData['-dups-use'] = $using;
-				$this->wire('modules')->saveModuleConfigData($moduleName, $configData);
+				$modules->saveModuleConfigData($moduleName, $configData);
 			}
 		}
 
 		// update any modules that no longer have duplicates
 		$removals = array();
-		$query = $this->wire('database')->prepare("SELECT `class`, `flags` FROM modules WHERE `flags` & :flag");
+		$query = $this->wire()->database->prepare("SELECT `class`, `flags` FROM modules WHERE `flags` & :flag");
 		$query->bindValue(':flag', Modules::flagsDuplicate, \PDO::PARAM_INT);
 		$query->execute();
 
@@ -258,10 +262,10 @@ class ModulesDuplicates extends Wire {
 		}
 
 		foreach($removals as $class => $flags) {
-			$this->wire('modules')->setFlags($class, $flags); 
-			$configData = $this->wire('modules')->getModuleConfigData($class);
+			$modules->setFlags($class, $flags); 
+			$configData = $modules->getModuleConfigData($class);
 			unset($configData['-dups'], $configData['-dups-use']);
-			$this->wire('modules')->saveModuleConfigData($class, $configData);
+			$modules->saveModuleConfigData($class, $configData);
 		}
 	}
 
@@ -275,7 +279,9 @@ class ModulesDuplicates extends Wire {
 	 *
 	 */
 	public function recordDuplicate($basename, $pathname, $pathname2, &$installed) {
-		$rootPath = $this->wire('config')->paths->root;
+		$config = $this->wire()->config;
+		$modules = $this->wire()->modules;
+		$rootPath = $config->paths->root;
 		// ensure paths start from root of PW install
 		if(strpos($pathname, $rootPath) === 0) $pathname = str_replace($rootPath, '/', $pathname);
 		if(strpos($pathname2, $rootPath) === 0) $pathname2 = str_replace($rootPath, '/', $pathname2);
@@ -295,7 +301,7 @@ class ModulesDuplicates extends Wire {
 		if(isset($installed[$basename]['flags'])) {
 			$flags = $installed[$basename]['flags'];
 		} else {
-			$flags = $this->wire('modules')->getFlags($basename);
+			$flags = $modules->getFlags($basename);
 		}
 		if($flags & Modules::flagsDuplicate) {
 			// flags already represent duplicate status
@@ -303,14 +309,14 @@ class ModulesDuplicates extends Wire {
 			// make database aware this module has multiple files by adding the duplicate flag
 			$this->numNewDuplicates++; // trigger update needed
 			$flags = $flags | Modules::flagsDuplicate;
-			$this->wire('modules')->setFlags($basename, $flags); 
+			$modules->setFlags($basename, $flags); 
 		}
 		$err = sprintf($this->_('There appear to be multiple copies of module "%s" on the file system.'), $basename) . ' ';
-		$this->wire('log')->save('modules', $err);
-		$user = $this->wire('user');
+		$this->wire()->log->save('modules', $err);
+		$user = $this->wire()->user;
 		if($user && $user->isSuperuser()) {
 			$err .= $this->_('Please edit the module settings to tell ProcessWire which one to use:') . ' ' .
-				"<a href='" . $this->wire('config')->urls->admin . 'module/edit?name=' . $basename . "'>$basename</a>";
+				"<a href='" . $config->urls->admin . 'module/edit?name=' . $basename . "'>$basename</a>";
 			$this->warning($err, Notice::allowMarkup);
 		}
 		//$this->message("recordDuplicate($basename, $pathname) $this->numNewDuplicates"); //DEBUG
@@ -327,10 +333,11 @@ class ModulesDuplicates extends Wire {
 	 *
 	 */
 	public function getDuplicatesConfigData($className, array $configData = array()) {
+		$config = $this->wire()->config;
 		// ensure original duplicates info is retained and validate that it is still current
 		if(isset($this->duplicates[$className])) {
 			foreach($this->duplicates[$className] as $key => $file) {
-				$pathname = rtrim($this->wire('config')->paths->root, '/') . $file;
+				$pathname = rtrim($config->paths->root, '/') . $file;
 				if(!file_exists($pathname)) {
 					unset($this->duplicates[$className][$key]);
 				}
@@ -341,7 +348,7 @@ class ModulesDuplicates extends Wire {
 			} else {
 				$configData['-dups'] = $this->duplicates[$className];
 				if(isset($this->duplicatesUse[$className])) {
-					$pathname = rtrim($this->wire('config')->paths->root, '/') . $this->duplicatesUse[$className];
+					$pathname = rtrim($config->paths->root, '/') . $this->duplicatesUse[$className];
 					if(file_exists($pathname)) {
 						$configData['-dups-use'] = $this->duplicatesUse[$className];
 					} else {
@@ -353,5 +360,12 @@ class ModulesDuplicates extends Wire {
 			unset($configData['-dups'], $configData['-dups-use']);
 		}
 		return $configData;
+	}
+	
+	public function getDebugData() {
+		return array(
+			'duplicates' => $this->duplicates,
+			'duplicatesUse' => $this->duplicatesUse
+		);
 	}
 }

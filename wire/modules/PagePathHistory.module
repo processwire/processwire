@@ -167,7 +167,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$database = $this->wire()->database;
 		$modules = $this->wire()->modules;
 		$table = self::dbTableName;
-		$path = $sanitizer->pagePathName('/' . trim($path, '/'), Sanitizer::toAscii);
+		$path = $sanitizer->pagePathName('/' . trim("$path", '/'), Sanitizer::toAscii);
 		
 		$selector = "path=$path";
 		if($modules->isInstalled('PagePaths')) $selector .= ", id!=$page->id";
@@ -389,7 +389,6 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 * @param Page $page
 	 * @param string|array $path
 	 * @param array $options
-	 *
 	 * @return array
 	 * 
 	 */
@@ -459,6 +458,13 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function getVirtualHistoryParent(Page $page, $pageName, array $pagePathInfo, Page $parent, array $options) {
+
+		static $levels = array();
+		
+		// prevent duplicate recursive calls
+		$levelKey = "$page->id!$pageName";
+		if(isset($levels[$levelKey])) return array(); 
+		$levels[$levelKey] = true;
 		
 		$paths = array();
 		
@@ -479,7 +485,16 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		foreach($pageNamesDates as $name => $date) {
 
 			// iterate through all possible parent paths
-			foreach($parentPaths as $parentPathInfo) {
+			foreach($parentPaths as $parentPathKey => $parentPathInfo) {
+			
+				/*
+				 * @todo determine if this should be applied
+				if(strpos($parentPathInfo['path'], $pagePathInfo['path']) === 0) {
+					// disallow URLs where parent URL is child of page that has the parent
+					unset($parentPaths[$parentPathKey]);
+					continue;
+				}
+				*/
 
 				$parentPath = $options['verbose'] ? $parentPathInfo['path'] : $parentPathInfo;
 
@@ -518,6 +533,8 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				$paths[$path] = $pathInfo;
 			}
 		}
+		
+		unset($levels[$levelKey]); 
 		
 		return $paths;
 	}
@@ -622,14 +639,13 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			}
 			$query->execute();
 			$rowCount = $query->rowCount();
-			$query->closeCursor();
 		} catch(\Exception $e) {
 			if(!$this->checkTableSchema()) throw $e;
 			$rowCount = 0;
 			$query = null;
 		}
 		
-		if(!$rowCount || $query) return $result;
+		if(!$rowCount || !$query) return $result;
 		
 		$rows = array();
 		$pathCounts = array();
@@ -891,6 +907,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				if($language->isDefault()) continue;
 				$namePrevious = $page->get("-name$language");
 				if(!$namePrevious && !$parentPrevious) continue;
+				if(!$namePrevious) $namePrevious = $page->get("name$language");
 				if(!$namePrevious) $namePrevious = $page->name;
 				$languages->setLanguage($language);
 				$pathPrevious = $parentPrevious ? $parentPrevious->path() : $page->parent()->path();

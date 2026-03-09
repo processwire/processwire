@@ -328,7 +328,8 @@ class ProcessController extends Wire {
 	public function ___execute() {
 
 		$debug = $this->wire()->config->debug; 
-		$breadcrumbs = $this->wire()->breadcrumbs; 
+		$breadcrumbs = $this->wire()->breadcrumbs;
+		$adminTheme = $this->wire()->adminTheme;
 		$headline = $this->wire('processHeadline'); 
 		$numBreadcrumbs = $breadcrumbs ? count($breadcrumbs) : null;
 		$process = $this->getProcess();
@@ -343,7 +344,18 @@ class ProcessController extends Wire {
 		if(!$method) {
 			throw new ProcessController404Exception("Unrecognized path");
 		}
-	
+		
+		if($method === 'executeNavJSON' && !$this->wire()->config->ajax && !$debug) {
+			// disallow navJSON output when not ajax and not debug mode
+			if(!$this->wire()->user->isLoggedin()) wire404();
+			$navJSON = substr($this->wire()->input->url(), -8); 
+			if($navJSON === 'navJSON/') {
+				$this->wire()->session->location('../');
+			} else if($navJSON === '/navJSON') {
+				$this->wire()->session->location('./');
+			}
+		}
+
 		// call method from Process (and time it if debug mode enabled)
 		$className = $process->className();
 		if($debug) Debug::timer("$className.$method()"); 
@@ -385,6 +397,20 @@ class ProcessController extends Wire {
 				}
 			} else {
 				$content = '';
+			}
+		}
+		
+		if(!$process instanceof WirePageEditor) {
+			$headline = (string) $this->wire('processHeadline');
+			if(strlen($headline)) {
+				if(strpos($headline, '<icon-') === false) {
+					// $icon = $this->wire()->modules->getModuleInfoProperty('icon');
+					// if($icon) $process->headline("<icon-$icon> $headline");
+				} else {
+					if(!$adminTheme instanceof AdminThemeFramework) {
+						$process->headline(preg_replace('/(?:<|&lt;)icon-[-a-z0-9]+(?:>|&gt;)/', '', $headline));
+					}
+				}
 			}
 		}
 
@@ -475,18 +501,22 @@ class ProcessController extends Wire {
 	/**
 	 * Generate a message in JSON format, for use with AJAX output
 	 * 
-	 * @param string $msg
-	 * @param bool $error
-	 * @param bool $allowMarkup
+	 * @param string|array $msg Message string or in 3.0.246+ also accepts an array of extra data
+	 *   When using an array, please include a 'message' index with text about the error or non-error.
+	 * @param bool $error Is this in error message? Default is true, or specify false if not. 
+	 * @param bool $allowMarkup Allow markup in message? Applies only to $msg string or 'message' index of array (default=false)
 	 * @return string JSON encoded string
 	 *
 	 */
 	public function jsonMessage($msg, $error = false, $allowMarkup = false) {
-		if(!$allowMarkup) $msg = $this->wire()->sanitizer->entities($msg);
-		return json_encode(array(
-			'error' => (bool) $error, 
-			'message' => (string) $msg
-		)); 
+		$a = array('error' => (bool) $error, 'message' => '');
+		if(is_array($msg)) {
+			$a = array_merge($a, $msg);
+		} else {
+			$a['message'] = (string) $msg;
+		}
+		if(!$allowMarkup) $a['message'] = $this->wire()->sanitizer->entities($a['message']);
+		return json_encode($a); 
 	}
 
 	/**
@@ -496,10 +526,7 @@ class ProcessController extends Wire {
 	 * 
 	 */
 	public function isAjax() {
-		return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && ($_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest');
+		return $this->wire()->config->ajax; 
 	}
 
 }	
-
-
-

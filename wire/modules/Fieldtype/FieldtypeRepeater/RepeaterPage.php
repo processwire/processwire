@@ -78,10 +78,10 @@ class RepeaterPage extends Page {
 		if(strpos($parentName, $prefix) === 0) {
 			// determine owner page from parent name in format: for-page-1234
 			$forID = (int) substr($parentName, strlen($prefix));
-			$this->forPage = $this->wire('pages')->get($forID); 
+			$this->forPage = $this->wire()->pages->get($forID); 
 		} else {
 			// this probably can't occur, but here just in case
-			$this->forPage = $this->wire('pages')->newNullPage();
+			$this->forPage = $this->wire()->pages->newNullPage();
 		}
 
 		return $this->forPage;
@@ -113,12 +113,12 @@ class RepeaterPage extends Page {
 
 		// auto-detect forField from its location
 		$grandparent = $this->parent()->parent();
-		$grandparentName = $grandparent->name;
+		$grandparentName = $grandparent ? $grandparent->name : '';
 		$prefix = FieldtypeRepeater::fieldPageNamePrefix;  // for-field-
 		$forField = null;
 		$fields = $this->wire()->fields;
 
-		if(strpos($grandparentName, $prefix) === 0) {
+		if($grandparentName !== '' && strpos($grandparentName, $prefix) === 0) {
 			// determine field from grandparent name in format: for-field-1234
 			$forID = (int) substr($grandparentName, strlen($prefix));
 			$forField = $fields->get($forID); 
@@ -284,4 +284,3 @@ class RepeaterPage extends Page {
 		return $p->id ? $p->getAccessTemplate($type) : parent::getAccessTemplate($type);
 	}
 }
-

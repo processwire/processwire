@@ -251,6 +251,8 @@ abstract class Process extends WireData implements Module {
 	 *
 	 */
 	public function ___breadcrumb($href, $label) {
+		if(is_array($label)) return $this;
+		$label = (string) $label;
 		$pos = strpos($label, '/'); 
 		if($pos !== false && strpos($href, '/') === false) {
 			// arguments got reversed, we'll work with it anyway...
@@ -364,6 +366,7 @@ abstract class Process extends WireData implements Module {
 		$config = $this->wire()->config;
 		$modules = $this->wire()->modules;
 		$sanitizer = $this->wire()->sanitizer;
+		$languages = $this->wire()->languages;
 		
 		$info = $modules->getModuleInfoVerbose($this);
 		$name = $sanitizer->pageName($name);
@@ -375,21 +378,23 @@ abstract class Process extends WireData implements Module {
 			// already have what we  need
 		} else if(ctype_digit("$parent")) {
 			$parent = $pages->get((int) $parent);
-		} else if(strpos($parent, '/') !== false) {
+		} else if(strpos("$parent", '/') !== false) {
 			$parent = $pages->get($parent);
 		} else if($parent) {
 			$parent = $sanitizer->pageName($parent);
-			$parent = $adminPage->child("include=all, name=$parent");
+			if(strlen($parent)) $parent = $adminPage->child("include=all, name=$parent");
 		}
 		if(!$parent || !$parent->id) $parent = $adminPage; // default
 		$page = $parent->child("include=all, name=$name"); // does it already exist?
 		if($page->id && "$page->process" == "$this") return $page; // return existing copy
+		if($languages) $languages->setDefault();
 		$page = $pages->newPage($template ? $template : 'admin');
 		$page->name = $name; 
 		$page->parent = $parent; 
 		$page->process = $this;
 		$page->title = $title ? $title : $info['title'];
 		foreach($extras as $key => $value) $page->set($key, $value); 
+		if($languages) $languages->unsetDefault();
 		$pages->save($page, array('adjustName' => true)); 
 		if(!$page->id) throw new WireException("Unable to create page: $parent->path$name"); 
 		$this->message(sprintf($this->_('Created Page: %s'), $page->path)); 

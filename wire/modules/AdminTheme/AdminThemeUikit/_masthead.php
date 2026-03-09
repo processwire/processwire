@@ -15,10 +15,10 @@ $logoOptions = array('height' => '40px');
 <div id='pw-mastheads'>
 	<header id='pw-masthead-mobile' class='pw-masthead uk-hidden uk-background-muted'>
 		<div class='pw-container uk-container uk-container-expand<?php if(!$adminTheme->isLoggedIn) echo ' uk-text-center'; ?>'>
-				<a href='<?php echo $adminTheme->isLoggedIn ? $config->urls->admin : $config->urls->root; ?>' class='pw-logo-link'>
-					<?php echo $adminTheme->getLogo($logoOptions); ?>
-				</a>
-		</div>	
+			<a href='<?php echo $adminTheme->isLoggedIn ? $config->urls->admin : $config->urls->root; ?>' class='pw-logo-link'>
+				<?php echo $adminTheme->getLogo($logoOptions); ?>
+			</a>
+		</div>
 	</header>
 	<header id='pw-masthead' class='pw-masthead uk-background-muted' data-pw-height='80'> <?php /* data-pw-height='73' */ ?>
 		<div class='pw-container uk-container uk-container-expand'>
@@ -60,11 +60,10 @@ $logoOptions = array('height' => '40px');
 			</nav>
 		</div>
 	</header>
-	<?php 
-	if(strpos($adminTheme->layout, 'sidenav') === false) {
-		echo $adminTheme->renderNotices($notices);
-		echo $adminTheme->renderExtraMarkup('masthead');
-	}
-	?>
-</div>	
-
+	
+<?php
+if($adminTheme->themeName === 'default') echo '</div><!--pw-mastheads-->';
+if(strpos($adminTheme->layout, 'sidenav') === false) {
+	echo $adminTheme->renderNotices($notices) . $adminTheme->renderExtraMarkup('masthead');
+}
+if($adminTheme->themeName != 'default') echo '</div><!--pw-mastheads-->';

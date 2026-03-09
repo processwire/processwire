@@ -40,7 +40,7 @@ development branch.
 ProcessWire is a timeless tool for web professionals that has always been 
 committed to the long term. It started in 2003, gained the name ProcessWire
 in 2006, and has been in active development as an open source project since 2010. 
-Now more than a decade later (2023), we’re just getting started, as ProcessWire 
+Now more than a decade later (2026), we’re just getting started, as ProcessWire 
 continues to grow and develop into the next 10 years and beyond. 
 
 While ProcessWire has been around for a long time, don’t feel bad if you haven’t 
@@ -71,9 +71,7 @@ in the ProcessWire forums, subscribe to our
 [weekly newsletter](https://processwire.com/community/newsletter/subscribe/)
 for the latest ProcessWire news, check out our
 [website showcase](https://processwire.com/sites/)
-to see what others are building with ProcessWire, and read our 
-[blog](https://processwire.com/blog/) 
-to stay up-to-date with the latest ProcessWire versions.
+to see what others are building with ProcessWire.
 
 Weekly ProcessWire news is posted by Teppo Koivula on his site 
 [ProcessWire Weekly](https://weekly.pw). 
@@ -116,6 +114,10 @@ When upgrading from one 3.x version to another, please use the
 This consists primarily of making sure you've got everything backed up and then just 
 replacing your `/wire/` directory with the one from the newer version.
 
+### Version-specific upgrade notes
+
+- If using PHP 8.4+, you might want to replace your /index.php file with a copy from the new version to avoid an unnecessary PHP notification in debug mode. 
+
 - If you are upgrading from a 3.x version prior to 3.0.135 then please also follow 
   [these instructions](https://processwire.com/docs/start/install/upgrade/from-3.x/). 
 
@@ -129,20 +131,20 @@ replacing your `/wire/` directory with the one from the newer version.
 ### Pro module version upgrade notes (if applicable)
 
 - [FormBuilder](https://processwire.com/store/form-builder/)
-  version 0.4.0 or newer required, 0.5.2 or newer recommended.
+  version 0.5.5 or newer recommended.
 - [ListerPro](https://processwire.com/store/lister-pro/)
-  version 1.0.9 or newer required, 1.1.4 or newer recommended. 
+  version 1.1.6 or newer recommended. 
 - [ProFields](https://processwire.com/store/pro-fields/)
   the latest versions of all ProFields (10 modules) are recommended.
 - [LoginRegisterPro](https://processwire.com/store/login-register-pro/)
-  all versions supported but version 5 or newer recommended.   
+  version 8 or newer recommended.   
 - [ProCache](https://processwire.com/store/pro-cache/)
-  version 3.1.4 or newer required, 4.0.0 or newer recommended.
-  After upgrading, go to your ProCache settings in the admin (Setup > ProCache)
-  and see if it suggests any modifications to your .htaccess file.
-- For all other Pro modules not mentioned above (ProMailer, ProDrafts, 
-  ProDevTools, Likes) there are no specific version requirements but we 
-  recommend using the latest available versions when possible.
+  version 4.0.5 or newer recommended. After upgrading, go to your ProCache 
+  settings in the admin (Setup > ProCache) and see if it suggests any 
+  modifications to your .htaccess file.
+ 
+- For all other Pro modules not mentioned above we recommend using the 
+  latest available versions when possible.
 
 ## Debug Mode
 
@@ -156,12 +158,11 @@ we think you'll find it very handy during development or when resolving issues.
 
 1. Edit this file: `/site/config.php`
 2. Find this line: `$config->debug = false;` 
-3. Change the `false` to `true`, like below, and save. 
+3. Change the `false` to `true` like below, and save. 
 
 ```
 $config->debug = true; 
 ```
-
 This can be found near the bottom of the file, or you can add it if not
 already there. It will make PHP and ProcessWire report all errors, warnings,
 notices, etc. Of course, you'll want to set it back to false once you've 
@@ -172,14 +173,12 @@ resolved any issues.
 
 * [ProcessWire Support Forums](https://processwire.com/talk/)
 * [ProcessWire Weekly News](https://weekly.pw/)
-* [ProcessWire Blog](https://processwire.com/blog/)
 * [Sites running ProcessWire](https://processwire.com/sites/)
 * [Subscribe to ProcessWire Weekly email](https://processwire.com/community/newsletter/subscribe/)
 * [Submit your site to our directory](https://processwire.com/sites/submit/)
-* [Follow @processwire on Twitter](http://twitter.com/processwire/)
-* [Contact ProcessWire](https://processwire.com/contact/)
+* [Contact ProcessWire developer](https://processwire.com/contact/)
+* [Report issue](https://github.com/processwire/processwire-issues/issues)
 
 ------
 
-Copyright 2023 by Ryan Cramer / Ryan Cramer Design, LLC
-
+Copyright 2026 by Ryan Cramer / Ryan Cramer Design, LLC

@@ -3,9 +3,14 @@
 /**
  * ProcessWire Pages Loader Cache
  * 
- * Implements page caching of loaded pages and PageArrays for $pages API variable
- *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * #pw-headline Pages Loader Cache
+ * #pw-var $pages->cacher
+ * #pw-breadcrumb Pages 
+ * #pw-summary Implements page caching of loaded pages and PageArrays for $pages API variable
+ * #pw-body =
+ * #pw-body
+ * 
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -54,6 +59,8 @@ class PagesLoaderCache extends Wire {
 	 * 
 	 * Returns count of each cache type, or contents of each cache type of verbose option is specified. 
 	 * 
+	 * #pw-group-get
+	 * 
 	 * @param bool|null $verbose Specify true to get contents of cache, false to get string counts, or omit for array of counts
 	 * @return array|string
 	 * @since 3.0.198
@@ -74,6 +81,8 @@ class PagesLoaderCache extends Wire {
 	 * If no ID is provided, then this will return an array copy of the full cache.
 	 *
 	 * You may also pass in the string "id=123", where 123 is the page_id
+	 * 
+	 * #pw-group-get
 	 *
 	 * @param int|string|null $id
 	 * @return Page|array|null
@@ -84,14 +93,31 @@ class PagesLoaderCache extends Wire {
 		if(!ctype_digit("$id")) $id = str_replace('id=', '', $id);
 		if(ctype_digit("$id")) $id = (int) $id;
 		if(!isset($this->pageIdCache[$id])) return null;
-		/** @var Page $page */
-		$page = $this->pageIdCache[$id];
-		$page->setOutputFormatting($this->pages->outputFormatting);
+		$page = $this->pageIdCache[$id]; /** @var Page $page */
+		$of = $this->pages->loader()->getOutputFormatting();
+		if(!$of && $page === $this->wire()->page) return $page; // skip of() adjustment
+		$page->of($of);
 		return $page;
 	}
 
 	/**
-	 * Cache the given page.
+	 * Is given page ID in the cache?
+	 * 
+	 * #pw-group-get
+	 * 
+	 * @param int page ID
+	 * @return bool
+	 * @since 3.0.243
+	 * 
+	 */
+	public function hasCache($id) {
+		return isset($this->pageIdCache[$id]);
+	}
+
+	/**
+	 * Cache the given page in memory
+	 * 
+	 * #pw-group-save
 	 *
 	 * @param Page $page
 	 * @return void
@@ -103,6 +129,8 @@ class PagesLoaderCache extends Wire {
 
 	/**
 	 * Cache given page into a named group that it can be uncached with
+	 * 
+	 * #pw-group-save
 	 * 
 	 * @param Page $page
 	 * @param string $groupName
@@ -120,6 +148,8 @@ class PagesLoaderCache extends Wire {
 	 * Remove the given page from the cache.
 	 *
 	 * Note: does not remove pages from selectorCache. Call uncacheAll to do that.
+	 * 
+	 * #pw-group-remove
 	 *
 	 * @param Page|int $page Page to uncache or ID of page (prior to 3.0.153 only Page object was accepted)
 	 * @param array $options Additional options to modify behavior:
@@ -147,19 +177,18 @@ class PagesLoaderCache extends Wire {
 
 	/**
 	 * Remove all pages from the cache
+	 * 
+	 * #pw-group-remove
 	 *
-	 * @param Page $page Optional Page that initiated the uncacheAll
+	 * @param Page|null $page Optional Page that initiated the uncacheAll
 	 * @param array $options Additional options to modify behavior:
 	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent call to $page->uncache(), set 'shallow' => true.
 	 * @return int Number of pages uncached
 	 *
 	 */
-	public function uncacheAll(Page $page = null, array $options = array()) {
+	public function uncacheAll(?Page $page = null, array $options = array()) {
 
-		if($page) {} // to ignore unused parameter inspection
-		$user = $this->wire()->user;
-		$language = $this->wire()->languages ? $user->language : null;
-		$cnt = 0;
+		$cnt = count($this->pageIdCache);
 
 		$this->pages->sortfields(true); // reset
 
@@ -168,12 +197,14 @@ class PagesLoaderCache extends Wire {
 				count($this->pageSelectorCache));
 		}
 
-		foreach($this->pageIdCache as $id => $page) {
-			if($id == $user->id || ($language && $language->id == $id)) continue;
-			if($page->numChildren) continue; 
-			if(empty($options['shallow'])) $page->uncache();
-			unset($this->pageIdCache[$page->id]);
-			$cnt++;
+		if(empty($options['shallow'])) {
+			$user = $this->wire()->user;
+			$userId = $user->id;
+			$languageId = $this->wire()->languages ? $user->language->id : null;
+			foreach($this->pageIdCache as $id => $page) {
+				if($id === $userId || $id === $languageId || $page->numChildren) continue;
+				$page->uncache();
+			}
 		}
 
 		$this->pageIdCache = array();
@@ -188,6 +219,8 @@ class PagesLoaderCache extends Wire {
 
 	/**
 	 * Uncache pages that were cached with given group name
+	 * 
+	 * #pw-group-remove
 	 * 
 	 * @param string $groupName
 	 * @param array $options
@@ -211,6 +244,8 @@ class PagesLoaderCache extends Wire {
 
 	/**
 	 * Cache the given selector string and options with the given PageArray
+	 * 
+	 * #pw-group-save
 	 *
 	 * @param string $selector
 	 * @param array $options
@@ -260,6 +295,8 @@ class PagesLoaderCache extends Wire {
 	 * Retrieve any cached page IDs for the given selector and options OR false if none found.
 	 *
 	 * You may specify a third param as TRUE, which will cause this to just return the selector string (with hashed options)
+	 * 
+	 * #pw-group-get
 	 *
 	 * @param string $selector
 	 * @param array $options

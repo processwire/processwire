@@ -5,7 +5,6 @@ $gridMargin: 0 0.6em 0.6em 0;
 $itemPadding: 0.4em;
 $focusPointCircleSize: 40px;
 
-
 .InputfieldImage {
 	.InputfieldHeader {
 		.InputfieldImageListToggle {
@@ -398,6 +397,16 @@ $focusPointCircleSize: 40px;
 
 		&:hover .gridImage__inner {
 			background: rgba($deleteColor, 0.3);
+		}
+	}
+	
+	&.InputfieldFileItemHidden {
+		border-style: dashed !important;
+		img {
+			opacity: 0.3;
+		}
+		.gridImage__overflow {
+			background-image: none;
 		}
 	}
 }
@@ -940,6 +949,23 @@ $focusPointCircleSize: 40px;
 .InputfieldFileActionNote {
 	display: none;
 	white-space: nowrap;
+}
+
+.InputfieldImageList {
+	// for .svg images
+	.gridImage__overflow.landscape {
+		img { height: 100%; }
+	}
+	.gridImage__overflow.portrait {
+		img { width: 100%; }
+	}
+}
+
+.InputfieldImageList[data-ragged="1"] {
+	// for .svg images
+	.gridImage__overflow.portrait {
+		img { width: auto; height: 100%; }
+	}
 }
 
 /* todo: 3.0.190 improves touch support but needs further testing

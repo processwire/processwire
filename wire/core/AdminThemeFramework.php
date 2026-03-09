@@ -17,6 +17,7 @@
  * @property bool $isLoggedIn
  * @property bool|string $isModal
  * @property bool|int $useAsLogin
+ * @property string $browserTitle Optional custom browser title for this request (3.0.217+)
  * @method array getUserNavArray()
  * @method array getPrimaryNavArray()
  * @method string renderFile($basename, array $vars = [])
@@ -93,6 +94,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function __construct() {
 		parent::__construct();
 		$this->set('useAsLogin', false);
+		$this->set('browserTitle', ''); 
 	}
 	
 	public function wired() {
@@ -191,10 +193,16 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function getHeadline() {
-		$headline = $this->wire('processHeadline');
-		if(!$headline) $headline = $this->wire()->page->get('title|name');
+		$headline = (string) $this->wire('processHeadline');
+		if(!strlen($headline)) $headline = $this->wire()->page->get('title|name');
 		if($headline !== 'en' && $this->wire()->languages) $headline = $this->_($headline);
-		return $this->sanitizer->entities1($headline);
+		$headline = $this->sanitizer->entities1($headline);
+		if(strpos($headline, '&lt;icon-') !== false && !$this->wire()->process instanceof WirePageEditor) {
+			if(preg_match('/&lt;icon-([-a-z0-9]+)&gt;/', $headline, $matches)) {
+				$headline = str_replace($matches[0], wireIconMarkup($matches[1]), $headline);
+			}
+		}
+		return $headline;
 	}
 
 	/**
@@ -262,7 +270,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$input = $this->wire()->input;
 
 		if(!$this->isEditor) return array();
-		if($page->name != 'page' || $input->urlSegment1 || $input->get('modal')) return array();
+		if($page->name != 'page' && $page->name != 'list') return array();
+		if($input->urlSegment1 || $input->get('modal')) return array();
 		if(strpos($process, 'ProcessPageList') !== 0) return array();
 
 		/** @var ProcessPageAdd $module */
@@ -540,7 +549,19 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 * This is hookable so that something else could add stuff to it.
 	 * See the method body for details on format used.
-	 *
+	 * 
+	 * Supported properties/attributes as of 3.0.248: 
+	 * 
+	 * - url (href)
+	 * - title (label text)
+	 * - target (html attr)
+	 * - icon (name of icon)
+	 * - permission (required permission)
+	 * - id (html attr)
+	 * - class (html attr)
+	 * - onclick (html attr)
+	 * - data-* (html attr)
+	 * 
 	 * @return array
 	 *
 	 */
@@ -579,6 +600,9 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function getBrowserTitle() {
+		
+		$browserTitle = $this->browserTitle; // custom defined browser title
+		if(strlen($browserTitle)) return $this->sanitizer->entities($browserTitle);
 
 		$browserTitle = $this->wire('processBrowserTitle');
 		$modal = $this->wire()->input->get('modal');
@@ -594,6 +618,10 @@ abstract class AdminThemeFramework extends AdminTheme {
 			if(strpos($httpHost, ':')) $httpHost = preg_replace('/:\d+/', '', $httpHost); // remove port
 			$browserTitle .= " • $httpHost";
 		}
+		
+		if(strpos($browserTitle, '<icon-') !== false) {
+			$browserTitle = preg_replace('/<icon-[-a-z0-9]+>\s*/', '', $browserTitle);
+		}
 
 		return $this->sanitizer->entities1($browserTitle);
 	}
@@ -606,15 +634,24 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function testNotices() {
 		if(!$this->wire()->user->isLoggedin()) return false;
+		
 		$this->message('Message test');
 		$this->message('Message test debug', Notice::debug);
 		$this->message('Message test markup <a href="#">example</a>', Notice::allowMarkup);
+		$this->message('Message test markdown [example](#)', Notice::allowMarkdown);
+		$this->message('Message test superuser', Notice::superuser);
+		$this->message('Message test nogroup', Notice::noGroup);
+		$this->message('icon-female Message test icon');
+		
 		$this->warning('Warning test');
 		$this->warning('Warning test debug', Notice::debug);
 		$this->warning('Warning test markup <a href="#">example</a>', Notice::allowMarkup);
+		$this->warning('Warning test prepend', Notice::prepend);
+		
 		$this->error('Error test');
 		$this->error('Error test debug', Notice::debug);
 		$this->error('Error test markup <a href="#">example</a>', Notice::allowMarkup);
+		
 		return true;
 	}
 	
@@ -669,8 +706,9 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 		foreach($notices as $n => $notice) {
 			/** @var Notice $notice */
+			if(!$notice->viewable()) continue;
 
-			$text = $notice->text;
+			$text = (string) $notice->text;
 			$allowMarkup = $notice->flags & Notice::allowMarkup;
 			$groupByType = $options['groupByType'] && !($notice->flags & Notice::noGroup) && !($notice instanceof NoticeError); 
 			
@@ -793,8 +831,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function renderExtraMarkup($for) {
-		static $extras = array();
-		if(empty($extras)) $extras = $this->getExtraMarkup();
+		$extras = $this->getExtraMarkup();
 		return isset($extras[$for]) ? $extras[$for] : '';
 	}
 	
@@ -936,4 +973,3 @@ abstract class AdminThemeFramework extends AdminTheme {
 	}
 
 }
-

@@ -93,7 +93,7 @@ function PageFrontEditInit($) {
 			}
 		}
 		setTimeout(function() {
-			copy.focus();
+			copy.trigger('focus');
 		}, 250);
 	};
 
@@ -117,17 +117,17 @@ function PageFrontEditInit($) {
 			return false;
 		});
 		
-		orig.dblclick(function(e) {
+		orig.on('dblclick', function(e) {
 			inlineEditEvent(e, t, orig, copy);
 			return false;
 		});
 
 		if(t.is('span')) { // single-line text
 			// via @canrau
-			copy.keydown(function(e) {
+			copy.on('keydown', function(e) {
 				if(e.keyCode == 13){
 					e.preventDefault();
-					$(this).blur();
+					$(this).trigger('blur');
 				}
 			});
 		}
@@ -148,7 +148,7 @@ function PageFrontEditInit($) {
 					timer = setTimeout(function() {
 						clicks = 0;
 						allowClick = true;
-						$a[0].click();
+						$a[0].click(); // JS, not jQuery click() event
 						return true;
 					}, 700);
 				} else {
@@ -166,7 +166,7 @@ function PageFrontEditInit($) {
 
 		// handler for non-cke/mce blur event
 		if(!t.hasClass('pw-edit-InputfieldCKEditor') && !t.hasClass('pw-edit-InputfieldTinyMCE')) {
-			copy.blur(function() {
+			copy.on('blur', function() {
 				var copy = $(this);
 				var t = copy.closest('.pw-editing');
 				if(t.length == 0) return;
@@ -365,7 +365,7 @@ function PageFrontEditInit($) {
 			var viewURL = $('#pw-url').val();
 			viewURL += (viewURL.indexOf('?') > -1 ? '&' : '?') + 'pw_edit_fields=' + target.attr('data-fields');
 			setBusy(true);
-
+			
 			target.load(viewURL + ' #' + targetID, {}, function() {
 				var t = $(this);
 				var children = t.children();
@@ -377,6 +377,43 @@ function PageFrontEditInit($) {
 				setBusy(false);
 			});
 		});
+	}
+	
+	/**
+	 * Paste event 
+	 * 
+	 * @param e
+	 */
+	function pasteEvent(e) {
+		
+		// only intercept pasting to frontend editable text fields
+		if(!document.activeElement.isContentEditable) return;
+		
+		var wrap = $(document.activeElement).closest('.pw-edit');
+		if(!wrap.length) return;
+		
+		var usePlainText = false;
+		var plainTextTypes = [ 'Text', 'Textarea', 'PageTitle', 'Email', 'Float', 'Integer', 'URL' ];
+		
+		for(var n = 0; n < plainTextTypes.length; n++) {
+			usePlainText = wrap.hasClass('pw-edit-Inputfield' + plainTextTypes[n]);
+			if(usePlainText) break;
+		}
+	
+		if(usePlainText) {
+			// Prevent the default paste action
+			e.preventDefault();
+			
+			// Get the clipboard data as plain text
+			var clipboardData = (e.originalEvent || e).clipboardData;
+			var pastedText = clipboardData.getData('text/plain');
+			
+			// Convert any markup in the pasted text to entity-encoded plain text
+			var plainText = $('<textarea />').text(pastedText).html();
+			
+			// Insert the plain text into the contenteditable element or textarea
+			document.execCommand('insertHTML', false, plainText);
+		}
 	}
 	
 	/**
@@ -443,15 +480,17 @@ function PageFrontEditInit($) {
 		}
 
 		// click action to cancel edits
-		$('.pw-edit-cancel').click(inlineCancelClickEvent);
+		$('.pw-edit-cancel').on('click', inlineCancelClickEvent);
 
 		// click action to save edits
-		$('.pw-edit-save').click(function() {
-			$('.pw-editing:not(.pw-edit-InputfieldCKEditor)').blur();
+		$('.pw-edit-save').on('click', function() {
+			$('.pw-editing:not(.pw-edit-InputfieldCKEditor)').trigger('blur');
 			setTimeout(function() {
 				inlineSaveClickEvent();
 			}, 250); 
 		});
+		
+		document.addEventListener('paste', pasteEvent);
 	}
 	
 	init();

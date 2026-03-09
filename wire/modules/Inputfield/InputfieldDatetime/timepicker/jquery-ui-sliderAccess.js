@@ -46,7 +46,7 @@
 											text: o.text, 
 											icons: { primary: $jt.data('icon') }
 										})
-								.click(function(e){
+								.on('click', function(e){
 											var step = $jt.data('step'),
 												curr = $t.slider('value'),
 												newval = curr += step*1,

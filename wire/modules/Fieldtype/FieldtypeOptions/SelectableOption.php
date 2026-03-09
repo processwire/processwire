@@ -3,7 +3,7 @@
 /**
  * ProcessWire Selectable Option class, for FieldtypeOptions
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $id
@@ -86,8 +86,9 @@ class SelectableOption extends WireData { // implements LanguagesValueInterface 
 			'sort' => $this->get('sort'), 
 			'data' => $this->get('data'), 
 		); 
-		if($this->wire('languages')) {
-			foreach($this->wire('languages') as $language) {
+		$languages = $this->wire()->languages;
+		if($languages) {
+			foreach($languages as $language) {
 				if($language->isDefault()) continue; 
 				$values["title$language"] = $this->get("title$language");
 				$values["value$language"] = $this->get("value$language"); 
@@ -105,7 +106,7 @@ class SelectableOption extends WireData { // implements LanguagesValueInterface 
 	 * 
 	 */
 	public function getProperty($property) {
-		if($this->wire('languages')) {
+		if($this->wire()->languages) {
 			$language = $this->wire()->user->language; 
 			if($language->isDefault()) {
 				$value = parent::get($property); 
@@ -117,7 +118,7 @@ class SelectableOption extends WireData { // implements LanguagesValueInterface 
 		} else {
 			$value = parent::get($property); 
 		}
-		if($this->of) $value = $this->wire('sanitizer')->entities($value); 
+		if($this->of) $value = $this->wire()->sanitizer->entities($value); 
 		return $value; 
 	}
 

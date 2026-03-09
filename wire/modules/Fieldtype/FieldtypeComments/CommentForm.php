@@ -188,6 +188,8 @@ class CommentForm extends Wire implements CommentFormInterface {
 	 *
 	 */
 	public function __construct(Page $page, CommentArray $comments, $options = array()) {
+		
+		parent::__construct();
 
 		$this->page = $page;
 		$this->comments = $comments;
@@ -458,7 +460,7 @@ class CommentForm extends Wire implements CommentFormInterface {
 	 * @return string
 	 *
 	 */
-	protected function renderSuccess(Comment $comment = null) {
+	protected function renderSuccess(?Comment $comment = null) {
 
 		$pageID = (int) $this->wire('input')->post('page_id'); 
 		

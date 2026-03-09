@@ -14,6 +14,8 @@
  * @method void added($user) Hook called just after a User is added #pw-hooker
  * @method void deleteReady($user) Hook called before a User is deleted #pw-hooker
  * @method void deleted($user) Hook called after a User is deleted #pw-hooker
+ * @method User new($options = []) Create new User instance in memory (3.0.249+)
+ *  
  *
  */
 
@@ -156,10 +158,14 @@ class Users extends PagesType {
 	 * 
 	 */
 	public function newUser() {
-		return $this->wire()->pages->newPage(array(
-			'template' => 'user',
+		$config = $this->wire()->config;
+		/** @var User $user */
+		$user = $this->wire()->pages->newPage(array(
+			'template' => $this->wire()->templates->get($config->userTemplateID),
+			'parent' => $config->usersPageID, 
 			'pageClass' => $this->getPageClass()
 		));
+		return $user;
 	}
 
 	/**
@@ -214,6 +220,33 @@ class Users extends PagesType {
 		return $qty;
 	}
 	
+	/**
+	 * Save a User 
+	 *
+	 * - This is the same as calling $user->save()
+	 * - If the user is new, it will be inserted. If existing, it will be updated.
+	 * - If you want to just save a particular field for the user, use `$user->save($fieldName)` instead.
+	 *
+	 * **Hook note:**  
+	 * If you want to hook this method, please hook the `Users::saveReady`, `Users::saved`, or any one of 
+	 * the `Pages::save*` hook methods instead, as this method will not capture users saved directly 
+	 * through `$pages->save($user)`. 
+	 * ~~~~~
+	 * // Example of hooking $pages->save() on User objects only
+	 * $wire->addHookBefore('Pages::save(<User>)', function(HookEvent $e) {
+	 *   $user = $event->arguments(0);
+	 * });
+	 * ~~~~~
+	 *
+	 * @param Page $page
+	 * @return bool True on success
+	 * @throws WireException
+	 *
+	 */
+	public function ___save(Page $page) {
+		return parent::___save($page);
+	}
+
 	/**
 	 * Hook called just before a user is saved
 	 *

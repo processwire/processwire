@@ -11,7 +11,7 @@
  * This version also lifts several pieces of code from Soma's Modules Manager
  * specific to the parts involved with downloading modules from the directory.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for module configuration inputfields with useLanguages option
@@ -32,7 +32,7 @@ class ProcessModule extends Process {
 		return array(
 			'title' => __('Modules', __FILE__), // getModuleInfo title          
 			'summary' => __('List, edit or install/uninstall modules', __FILE__), // getModuleInfo summary
-			'version' => 120, 
+			'version' => 121, 
 			'permanent' => true, 
 			'permission' => 'module-admin', 
 			'useNavJSON' => true,
@@ -87,6 +87,7 @@ class ProcessModule extends Process {
 	protected $newCoreModules = array(
 		'SystemNotifications', 
 		'InputfieldCKEditor',
+		'InputfieldTinyMCE',
 		'FieldtypeOptions',
 		'InputfieldIcon', 
 		'ProcessLogger',
@@ -126,6 +127,21 @@ class ProcessModule extends Process {
 	 *
 	 */
 	protected $installer = null;
+
+	/**
+	 * Files support for viewing
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $readmeFiles = array(
+		'readme.md' => 'README.md',
+		'readme.txt' => 'README.txt',
+		'changelog.md' => 'CHANGELOG.md',
+		'changelog.txt' => 'CHANGELOG.txt',
+		'license.md' => 'LICENSE.md',
+		'license.txt' => 'LICENSE.txt'
+	);
 
 	/**
 	 * Construct
@@ -173,6 +189,9 @@ class ProcessModule extends Process {
 		if($this->wire()->input->get('update')) {
 			$this->labels['download_install'] = $this->_('Download and Update');
 		}
+		/** @var JqueryUI $jQueryUI */
+		$jQueryUI = $this->wire()->modules->getModule('JqueryUI');
+		if($jQueryUI) $jQueryUI->use('modal');
 	}
 
 	/**
@@ -248,7 +267,7 @@ class ProcessModule extends Process {
 			
 			if($configurable) { 
 				if(!$info['configurable'] || !$info['installed']) continue;
-				$flags = $modules->getFlags($moduleName);
+				$flags = $modules->flags->getFlags($moduleName);
 				if($flags & Modules::flagsNoUserConfig) continue;
 			}
 			
@@ -331,7 +350,7 @@ class ProcessModule extends Process {
 				} catch(WireException $e) {
 					$this->error($e->getMessage()); 
 				}
-				$session->redirect("./"); 
+				$session->location("./?reset=1"); 
 			}
 		}
 		
@@ -443,7 +462,7 @@ class ProcessModule extends Process {
 			}
 			
 			if($info['configurable'] && $info['installed']) {
-				$flags = $modules->getFlags($name);
+				$flags = $modules->flags->getFlags($name);
 				if(!($flags & Modules::flagsNoUserConfig)) {
 					$configurableArray[$name] = $installed;
 				}
@@ -799,7 +818,7 @@ class ProcessModule extends Process {
 			'allowDelete' => false,
 			'allowSections' => true,
 			'allowDates' => false,
-			'allowClasses' => false,
+			'allowClasses' => true,
 			'allowType' => false,
 			'allowInstall' => true, 
 			'summaries' => array(), 
@@ -958,7 +977,7 @@ class ProcessModule extends Process {
 				$editUrl = '#';
 
 			} else if($configurable) {
-				$flags = $modules->getFlags($name);
+				$flags = $modules->flags->getFlags($name);
 				if(!($flags & Modules::flagsNoUserConfig)) {
 					$buttons .=
 						"<button type='button' class='ProcessModuleSettings ui-state-default ui-button'>" .
@@ -1041,7 +1060,7 @@ class ProcessModule extends Process {
 		$sanitizer = $this->wire()->sanitizer;
 		$session = $this->wire()->session;
 	
-		$name = $sanitizer->name($name); 
+		$name = $sanitizer->name(trim($name)); 
 		$info = self::getModuleInfo();
 		$this->headline($this->labels['download_install']); 
 		$this->breadcrumb('./', $info['title']);
@@ -1290,7 +1309,7 @@ class ProcessModule extends Process {
 
 		$destinationDir = $this->wire()->config->paths->siteModules . $className . '/';
 		
-		$completedDir = $this->installer()->downloadModule($url, $destinationDir);
+		$completedDir = $this->installer()->downloadModuleFromDirectory($url, $destinationDir);
 		if($completedDir) {
 			return $this->buildDownloadSuccessForm($className)->render();
 		} else {
@@ -1397,6 +1416,7 @@ class ProcessModule extends Process {
 		$session = $this->wire()->session;
 		$modules = $this->wire()->modules;
 		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
 
 		$moduleName = $input->post('name');
 		if($moduleName === null) $moduleName = $input->get('name');
@@ -1406,7 +1426,7 @@ class ProcessModule extends Process {
 
 		if(!$moduleName || empty($info)) {
 			$session->message($this->_("No module specified")); 
-			$session->redirect('./'); 
+			$session->redirect($config->urls->admin . 'module/'); 
 		}
 		
 		if($input->get('edit_raw')) return $this->renderEditRaw($moduleName);
@@ -1506,7 +1526,7 @@ class ProcessModule extends Process {
 		if(!$user->isSuperuser()) throw new WirePermissionException('Superuser required');
 		if(!$config->advanced) throw new WireException('This feature requires config.advanced=true;');
 	
-		$moduleData = $modules->getModuleConfigData($moduleName);
+		$moduleData = $modules->getConfig($moduleName);
 		$sinfo = self::getModuleInfo();
 		
 		$this->headline(sprintf($this->_('%s raw config data'), $moduleName));
@@ -1624,15 +1644,16 @@ class ProcessModule extends Process {
 		}
 		
 		$sinfo = self::getModuleInfo();
-		$flags = $modules->getFlags($moduleName);
+		$flags = $modules->flags->getFlags($moduleName);
 		$allowDisabledFlag = 
 			($config->debug && $config->advanced && ($flags & Modules::flagsAutoload)) ||
 			($flags & Modules::flagsDisabled);
 
 		$this->breadcrumb('./', $sinfo['title']); 
-		$this->headline($moduleInfo['title']); 
-		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title'])); 
-
+		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title']));
+		$icon = isset($moduleInfo['icon']) ? $moduleInfo['icon'] : '';
+		$this->headline($icon ? "<icon-$icon> $moduleInfo[title]" : $moduleInfo['title']); 
+	
 		/** @var InputfieldForm $form */
 		$form = $modules->get("InputfieldForm"); 
 		$form->attr('id', 'ModuleEditForm'); 
@@ -1675,6 +1696,11 @@ class ProcessModule extends Process {
 			}
 			$field->attr('value', $duplicates['using']); 
 			$form->add($field); 
+		}
+		
+		if($input->get('upgrade')) {
+			// force it to do an upgrade check
+			$this->wire()->modules->getModule($moduleName, array('configOnly' => true));
 		}
 		
 		$fields = $modules->getModuleConfigInputfields($moduleName, $form); 
@@ -1762,7 +1788,7 @@ class ProcessModule extends Process {
 		if($languages && $fields) {
 			// multi-language support for Inputfield with useLanguages==true
 			// we populate the language values from module config data so module doesn't have to do this
-			$data = $modules->getModuleConfigData($moduleName);
+			$data = $modules->getConfig($moduleName);
 			foreach($fields->getAll() as $field) {
 				if(!$field->getSetting('useLanguages')) continue;
 				foreach($languages as $language) {
@@ -1780,14 +1806,14 @@ class ProcessModule extends Process {
 		// check for submitted form
 		if($submitSave) {
 
-			if(is_null($data)) $data = $modules->getModuleConfigData($moduleName);
+			if(is_null($data)) $data = $modules->getConfig($moduleName);
 			$form->processInput($input->post); 
 			$updatedNames = array();
 			
 			if(wireCount($fields)) foreach($fields->getAll() as $field) {
 				// note field names beginning with '_' will not be stored	
 				if(($name = $field->attr('name')) && strpos($name, '_') !== 0) {
-					if($name === 'submit_save_module') continue;
+					if($name === 'submit_save_module' || $name === 'uninstall') continue;
 					$value = $field->attr('value');
 					if(!isset($data[$name]) || $value != $data[$name]) $updatedNames[] = $name;
 					$data[$name] = $value;
@@ -1828,10 +1854,10 @@ class ProcessModule extends Process {
 					// module is autoload and has an option to diable
 					if($input->post('_flags_disabled')) {
 						// add disabled flag
-						if(!($flags & Modules::flagsDisabled)) $modules->setFlag($moduleName, Modules::flagsDisabled, true);
+						if(!($flags & Modules::flagsDisabled)) $modules->flags->setFlag($moduleName, Modules::flagsDisabled, true);
 					} else {
 						// remove disabled flag
-						if($flags & Modules::flagsDisabled) $modules->setFlag($moduleName, Modules::flagsDisabled, false); 
+						if($flags & Modules::flagsDisabled) $modules->flags->setFlag($moduleName, Modules::flagsDisabled, false); 
 					}
 				}
 				
@@ -1942,11 +1968,11 @@ class ProcessModule extends Process {
 			$table->row(array('* ' . $this->_x('Debug', 'edit'), 
 				"<label class='checkbox'>" . 
 					"<input class='$checkboxClass' type='checkbox' name='_flags_disabled' value='1' $checked /> " . 
-					$this->_('Autoload disabled?') . ' ' .  
-					"<span class='detail'>" . 
-						$this->_('Be careful, checking this box can break the module or your site. Use for temporary testing only.') . 
-					"</span>" . 
-				"</label>"
+					$this->_('Autoload disabled?') . 
+				"</label><br />" . 
+				"<span class='detail'>" .
+					$this->_('Be careful, checking this box can break the module or your site. Use for temporary testing only.') .
+				"</span>"
 			));
 		}
 		
@@ -1958,6 +1984,42 @@ class ProcessModule extends Process {
 			));
 		}
 
+		$readmePath = $config->paths($moduleName);
+		$supportFiles = [];
+		$readmeNowFile = $readmePath . "$moduleName.README.md";
+		
+		if(file_exists($readmeNowFile)) {
+			$f = $form->InputfieldMarkup;
+			$f->attr('id+name', '_readmeNow');
+			$f->attr('title', basename($readmeNowFile));
+			$f->label = basename($readmeNowFile);
+			$f->themeOffset = 1;
+			$readmeNow = $this->renderReadme($moduleName, $readmeNowFile);
+			if(!empty($readmeNow)) {
+				if(preg_match('!\s*<h1>(.+?)</h1>!i', $readmeNow, $matches)) {
+					$f->label = $sanitizer->unentities($matches[1]);
+					$readmeNow = str_replace($matches[0], '', $readmeNow);
+				}
+				$f->val($readmeNow);
+				$f->icon = !empty($moduleInfo['icon']) ? $moduleInfo['icon'] : 'file-text-o';
+				$form->prepend($f);
+			}
+		}
+		
+		foreach($this->readmeFiles as $readmeType => $basename) {
+			$readmeFile = $readmePath . $basename;
+			if(!file_exists($readmeFile)) continue;
+			$icon = wireIconMarkup('file-text-o');
+			$readmeUrl = str_replace(array('/edit/?', '/edit?'), '/readme/?', $modules->getModuleEditUrl($moduleName));
+			$supportFiles[$readmeType] = "<a class='pw-modal' href='$readmeUrl&amp;type=$readmeType'>$icon $basename</a>";
+		}
+		
+		if(count($supportFiles)) {
+			$table->row(array(
+				$sanitizer->entities1($this->_('Support files')), 
+				implode('<br />', $supportFiles)
+			));
+		}
 
 		/** @var InputfieldMarkup $field */
 		$field = $modules->get("InputfieldMarkup"); 
@@ -1965,12 +2027,14 @@ class ProcessModule extends Process {
 		$field->attr('value', $table->render()); 
 		$field->label = $this->labels['module_information'];
 		$field->icon = 'info-circle';
+		$field->themeOffset = 1;
 		if($config->advanced) {
 			$field->appendMarkup .= "<p class='detail' style='text-align:right'>* " . $this->_('Options available in advanced mode only.') . "</p>";
 		}
 		if($collapseInfo) $field->collapsed = Inputfield::collapsedYes;
-		$form->prepend($field); 
+		$form->prepend($field);
 		
+
 		$out .= $form->render();
 
 		return $out; 
@@ -1991,6 +2055,105 @@ class ProcessModule extends Process {
 			$when = "<span class='detail'>$when</span>";
 			$out .= "$when" . ($hook['options']['fromClass'] ? $hook['options']['fromClass'] . '::' : '') . "$hook[method]$suffix";
 		}
+		return $out;
+	}
+
+	/**
+	 * Execute view of supported README type markdown or txt file
+	 * 
+	 * @return string
+	 * @since 3.0.236
+	 * 
+	 */
+	public function ___executeReadme() {
+		
+		$input = $this->wire()->input;
+		$modules = $this->wire()->modules;
+		
+		$moduleName = $input->get->fieldName('name');
+		$name = basename(strtolower($input->get->name('type')));
+		
+		if(empty($moduleName) || !$modules->isInstalled($moduleName)) throw new WireException('Unknown module');	
+		if(empty($name) || !isset($this->readmeFiles[$name])) throw new WireException("Unknown or unsupported file");
+	
+		$out = $this->renderReadme($moduleName, $this->readmeFiles[$name]);
+		if(empty($out)) wire404();
+		
+		$this->headline($this->readmeFiles[$name]);
+		$this->browserTitle("$moduleName - " . $this->readmeFiles[$name]); 
+		
+		return $out;
+	}
+
+	/**
+	 * Render a readme file 
+	 * 
+	 * @param string $moduleName Module name
+	 * @param string $readmeFile File basename
+	 * @return string|false
+	 * 
+	 */
+	protected function renderReadme($moduleName, $readmeFile) {
+		
+		$files = $this->wire()->files;
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+	
+		$readmeFile = basename($readmeFile);
+		$path = $config->paths($moduleName);
+		if(empty($path) || strlen($readmeFile) < 4) return false;
+		
+		$fileName = $path . $readmeFile;
+		if(!$files->exists($fileName)) return false;
+		
+		$ext = pathinfo($fileName, PATHINFO_EXTENSION);
+		$out = $files->fileGetContents($fileName);
+	
+		// allow for {MODULE_INFO.PROPERTY} to be replaced with actual module info value
+		if(stripos($out, '{MODULE_INFO.') !== false) {
+			$moduleInfo = $modules->getModuleInfoVerbose($moduleName);
+			foreach($moduleInfo as $key => $value) {
+				$find = "{MODULE_INFO.$key}";
+				if(stripos($out, $find) === false) continue;
+				$out = str_ireplace($find, (string) $value, $out);
+			}
+		}
+		
+		if($ext !== 'md') return '<pre>' . $sanitizer->entities($out) . '</pre>';
+
+		/** @var TextformatterMarkdownExtra $md*/
+		$md = $modules->get('TextformatterMarkdownExtra');
+		$out = $sanitizer->purify($md->markdownSafe($out));
+	
+		// if there are no <img> or <a> tags then we are finished
+		if(strpos($out, '<img') === false && !strpos($out, '</a>')) return $out;
+		
+		$moduleUrl = $config->urls($moduleName);
+		$readmeUrl = str_replace([ '/edit?', '/edit/?' ], '/readme?', $modules->getModuleEditUrl($moduleName));
+
+		// make <img src=...> and <a href=...> attributes relative to module's URL, so that
+		// src="file.jpg" converts to src="/site/modules/ModuleName/file.jpg"
+		if(preg_match_all('!<(?:a|img)\s[^<>]*?(?:src|href)=["\']([^/#][^"\']+)["\']!', $out, $matches)) {
+			foreach($matches[0] as $key => $tagOld) {
+				$valOld = $matches[1][$key];
+				if(strpos($valOld, '//') !== false) continue;
+				$valNew = $moduleUrl . ltrim($valOld, './'); 
+				$tagNew = str_replace($valOld, $valNew, $tagOld);
+				$out = str_replace($tagOld, $tagNew, $out);
+			}
+		}
+		
+		// if there's a link to a supported README file, then update it to use our viewer
+		foreach($this->readmeFiles as $type => $readmeFile) {
+			$href = 'href="' . $moduleUrl . $readmeFile . '"';
+			if(strpos($out, $href) === false) continue;
+			$out = str_replace($href, "class=\"pw-modal\" href=\"$readmeUrl&amp;type=$type\"", $out);
+		}
+		
+		// make any links open in blank target 
+		$out = str_replace('<a ', '<a target="_blank"', $out);
+			
 		return $out;
 	}
 	
@@ -2130,4 +2293,3 @@ class ProcessModule extends Process {
 	}
 	
 }
-

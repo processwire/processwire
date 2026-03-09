@@ -5,12 +5,20 @@
  *
  * Provides implementation for Page comparison functions.
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 class PageComparison {
+
+	/**
+	 * Selector properties that the matches() method ignores
+	 * 
+	 * @var string[] 
+	 * 
+	 */
+	protected $matchesIgnores = array('limit', 'start', 'sort', 'include');
 
 	/** 
 	 * Is this page of the given type? (status, template, etc.)
@@ -169,8 +177,8 @@ class PageComparison {
 				// action is just a string to return
 				$result = $action;
 			}
-			
-		} else if(is_callable($action)) {
+
+		} else if(is_callable($action) && (!is_object($action) || $action instanceof \Closure)) {
 			// action is callable
 			$result = call_user_func_array($action, array($val, $key, $page));
 			
@@ -186,12 +194,14 @@ class PageComparison {
 	 * Given a Selectors object or a selector string, return whether this Page matches it
 	 *
 	 * @param Page $page
-	 * @param string|Selectors $s
+	 * @param string|array|Selectors $s
+	 * @param array $options Options to modify behavior (3.0.225+ only):
+	 *  - `useDatabase` (bool|null): Use database for matching rather than in-memory? (default=false)
 	 * @return bool
 	 *
 	 */
-	public function matches(Page $page, $s) {
-		
+	public function matches(Page $page, $s, array $options = array()) {
+	
 		$selectors = array();
 
 		if(is_string($s) || is_int($s)) {
@@ -204,7 +214,7 @@ class PageComparison {
 					// exit early for simple path comparison
 					return true;
 				} else if($page->name === $s) {
-					// early exit for simple name atch
+					// early exit for simple name match
 					return true;
 				} else if(Selectors::stringHasOperator($s)) {
 					// selectors string
@@ -220,47 +230,155 @@ class PageComparison {
 			}
 
 		} else if($s instanceof Selectors) {
-			$selectors = $s; 
+			$selectors = $s;
+
+		} else if(is_array($s)) {
+			$selectors = $page->wire(new Selectors($s));
 
 		} else { 
 			// unknown data type to match
 			return false;
 		}
+		
+		if(!empty($options['useDatabase'])) {
+			$selectors->add(new SelectorEqual('id', $page->id))->add(new SelectorEqual('include', 'all'));
+			return $page->wire()->pages->count($selectors) > 0;
+		}
 
-		$matches = false;
-		$ignores = array('limit', 'start', 'sort', 'include');
+		$matchFail = false;
+		$groupSelectors = array(); // same (1) item match group selectors
+		$orGroupSelectors = array(); // OR-group selectors
 
 		foreach($selectors as $selector) {
 			
-			$property = $selector->field;
-			$subproperty = '';
-			
-			if(is_array($property)) $property = reset($property);
-			if(strpos($property, '.')) list($property, $subproperty) = explode('.', $property, 2);
-			if(in_array($property, $ignores)) continue;
-			
-			$matches = true; 
-			$value = $page->getUnformatted($property); 
-		
-			if(is_object($value)) {
-				// convert object to array value(s)
-				$value = $this->getObjectValueArray($value, $subproperty);
-			} else if(is_array($value)) {
-				// ok: selector matches will accept an array
-			} else {
-				// convert to a string value, whatever it may be
-				$value = "$value";
+			if($selector->quote === '(') {
+				// OR-groups are handled below this loop
+				$orGroup = $selector->field() . '.';
+				if(!isset($orGroupSelectors[$orGroup])) $orGroupSelectors[$orGroup] = array();
+				$orGroupSelectors[$orGroup][] = $selector;
+				continue;
 			}
 			
-			if(!$selector->matches($value)) {
-				$matches = false; 
+			if(!$this->selectorMatches($page, $selector)) {
+				$matchFail = true;
 				break;
 			}
+			
+			if($selector->group !== null) {
+				// validate that same (1) item matches from these later
+				$groupName = $selector->group;
+				if(!isset($groupSelectors[$groupName])) $groupSelectors[$groupName] = array();
+				$groupSelectors[$groupName][] = $selector;
+			}
 		}
-
-		return $matches; 
+		
+		// OR-groups
+		if(!$matchFail && count($orGroupSelectors)) {
+			foreach($orGroupSelectors as /* $orGroupName => */ $selectors) {
+				$orGroupMatches = false;
+				foreach($selectors as $selector) {
+					if($this->matches($page, $selector->value)) {
+						// OR-group selector matches
+						$orGroupMatches = true;
+						break;
+					}
+				}
+				if(!$orGroupMatches) {
+					$matchFail = true;
+					break;
+				}
+			}
+		}
+	
+		// same (1) item match groups
+		if(!$matchFail && count($groupSelectors)) {
+			foreach($groupSelectors as /* $groupName => */ $selectors) {
+				$matchGroupKeys = null;
+				foreach($selectors as $selector) {
+					$keys = $selector->get('_matchGroupKeys'); // populated by selectorMatchesProperty
+					if($matchGroupKeys === null) {
+						$matchGroupKeys = $keys;
+					} else {
+						$matchGroupKeys = array_intersect($matchGroupKeys, $keys);
+					}
+				}
+				if(empty($matchGroupKeys)) {
+					$matchFail = true;
+					break;
+				}
+			}
+		}
+		
+		return !$matchFail;
 	}
 
+	/**
+	 * Return whether individual Selector object matches Page
+	 * 
+	 * @param Page $page
+	 * @param Selector $selector
+	 * @return bool
+	 * @since 3.0.231
+	 * 
+	 */
+	protected function selectorMatches(Page $page, Selector $selector) {
+		$match = false;
+		$properties = $selector->fields();
+		foreach($properties as $property) {
+			$match = $this->selectorMatchesProperty($page, $selector, $property);
+			if($match) break;
+		}
+		return $match;
+	}
+
+	/**
+	 * Return whether single property from individual Selector matches Page
+	 *
+	 * @param Page $page
+	 * @param Selector $selector
+	 * @param string $property
+	 * @return bool
+	 * @since 3.0.231
+	 *
+	 */
+	protected function selectorMatchesProperty(Page $page, Selector $selector, $property) {
+		
+		$subproperty = '';
+		if(strpos($property, '.')) list($property, $subproperty) = explode('.', $property, 2);
+		if(in_array($property, $this->matchesIgnores)) return true;
+
+		if($selector->quote === '[' && Selectors::stringHasOperator($selector->value())) {
+			$selector->value = $page->wire()->pages->findIDs($selector->value());
+		}
+		
+		$value = $page->getUnformatted($property);
+
+		if(is_object($value)) {
+			// convert object to array value(s)
+			$value = $this->getObjectValueArray($value, $subproperty);
+
+		} else if(is_array($value)) {
+			// ok: selector matches will accept an array
+
+		} else {
+			// convert to a string value, whatever it may be
+			$value = "$value";
+		}
+		
+		if(!$selector->matches($value)) return false;
+		
+		if($selector->group !== null && is_array($value)) {
+			// see which individual values match and record their keys for later comparison
+			$matchGroupKeys = array();
+			foreach($value as $key => $val) {
+				if($selector->matches($val)) $matchGroupKeys[] = $key;
+			}
+			$selector->setQuietly('_matchGroupKeys', $matchGroupKeys); // used by matches() method
+		}
+		
+		return true;
+	}
+	
 	/**
 	 * Given an object, return the value(s) it represents (optionally from a property in the object)
 	 * 
@@ -397,4 +515,3 @@ class PageComparison {
 
 
 }
-

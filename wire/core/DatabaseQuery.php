@@ -10,7 +10,7 @@
  * of what other methods/objects have done to it. It also means being able
  * to build a complex query without worrying about correct syntax placement.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * This file is licensed under the MIT license
@@ -201,6 +201,7 @@ abstract class DatabaseQuery extends WireData {
 		
 		if(is_int($type) || ctype_digit("$type")) {
 			$this->bindTypes[$key] = (int) $type;
+			return;
 		}
 		
 		switch(strtolower(substr($type, 0, 3))) {
@@ -254,7 +255,7 @@ abstract class DatabaseQuery extends WireData {
 			// auto-generate key
 			$key = ':';
 			$prefix = (isset($options['prefix']) ? $options['prefix'] : $this->bindOptions['prefix']);
-			$suffix = isset($option['suffix']) && $options['suffix'] ? $options['suffix'] : $this->bindOptions['suffix'];
+			$suffix = isset($options['suffix']) && $options['suffix'] ? $options['suffix'] : $this->bindOptions['suffix'];
 			$value = isset($options['value']) ? $options['value'] : null;
 			$global = isset($options['global']) ? $options['global'] : $this->bindOptions['global'];
 			
@@ -412,18 +413,18 @@ abstract class DatabaseQuery extends WireData {
 	 * Examples (all in context of DatabaseQuerySelect): 
 	 * ~~~~~
 	 * $query->select("id")->from("mytable")->orderby("name"); 
-	 * ~~~~~
-	 * To bind one or more named parameters, specify associative array as second argument: 
-	 * ~~~~~
+	 * 
+	 * // To bind one or more named parameters, specify associative array as second argument: 
 	 * $query->where("name=:name", [ ':name' => $page->name ]); 
-	 * ~~~~~
-	 * To bind one or more implied parameters, use question marks and specify regular array:
-	 * ~~~~~
+	 * 
+	 * // To bind one or more implied parameters, use question marks and specify regular array:
 	 * $query->where("name=?, id=?", [ $page->name, $page->id ]);
-	 * ~~~~~
-	 * When there is only one implied parameter, specifying an array is optional:
-	 * ~~~~~
+	 * 
+	 * // When there is only one implied parameter, specifying an array is optional:
 	 * $query->where("name=?", $page->name); 
+	 * 
+	 * // Specify null to reset and clear out any existing values (3.0.257+)
+	 * $query->where(null);
 	 * ~~~~~
 	 * 
 	 * The "select" or "where" methods above may be any method supported by the class. 
@@ -437,9 +438,9 @@ abstract class DatabaseQuery extends WireData {
 	public function __call($method, $arguments) {
 		$args = &$arguments;
 		
-		// if(!$this->has($method)) return parent::__call($method, $args);
 		if(!isset($this->queryMethods[$method])) return parent::__call($method, $args);
 		if(!count($args)) return $this;
+		
 		$curValue = $this->get($method);
 		if(!is_array($curValue)) $curValue = array();
 		$value = $args[0];
@@ -447,7 +448,7 @@ abstract class DatabaseQuery extends WireData {
 		if($value instanceof DatabaseQuery) {
 			// if we've been given another DatabaseQuery, load from its $method
 			// note that if using bindValues you should also copy them separately
-			// behavior deprecated in 3.l0.157+, please use the copyTo() method instead
+			// behavior deprecated in 3.0.157+, please use the copyTo() method instead
 			$query = $value;
 			$value = $query->$method; // array
 			if(!is_array($value) || !count($value)) return $this; // nothing to import
@@ -464,8 +465,10 @@ abstract class DatabaseQuery extends WireData {
 		
 		if(is_array($value)) {
 			$curValue = array_merge($curValue, $value);
+		} else if($value === null) {
+			$curValue = []; // clear existing value
 		} else {
-			$curValue[] = trim($value, ", ");
+			$curValue[] = trim("$value", ", ");
 		}
 		
 		$this->set($method, $curValue); 
@@ -539,7 +542,11 @@ abstract class DatabaseQuery extends WireData {
 	 * 
 	 */
 	public function __set($key, $value) {
-		if(is_array($this->$key)) $this->__call($key, array($value)); 
+		if(isset($this->queryMethods[$key])) {
+			$this->__call($key, array($value));
+		} else {
+			parent::__set($key, $value);
+		}
 	}
 
 	/**
@@ -643,7 +650,7 @@ abstract class DatabaseQuery extends WireData {
 			$values = $this->$method;
 			if(!is_array($values)) return ''; 
 			foreach($values as $key => $value) {
-				if(!strlen(trim($value))) unset($values[$key]); // remove any blank values
+				if(!strlen(trim("$value"))) unset($values[$key]); // remove any blank values
 			}
 			if(!count($values)) return '';
 			$sql = trim(implode($split, $values)); 
@@ -653,17 +660,6 @@ abstract class DatabaseQuery extends WireData {
 		
 		return $sql;	
 	}
-
-	/**
-	 * Get the WHERE portion of the query
-	 * 
-	protected function getQueryWhere() {
-		$where = $this->where; 
-		if(!count($where)) return '';
-		$sql = "\nWHERE " . implode(" \nAND ", $where)  . " ";
-		return $sql;
-	}
-	 */
 
 	/**
 	 * Prepare and return a PDOStatement
@@ -745,15 +741,10 @@ abstract class DatabaseQuery extends WireData {
 		
 		if($exception && $options['throw']) {
 			if($this->wire()->config->allowExceptions) throw $exception; // throw original
-			$message = (string) $exception->getMessage();
-			$code = (int) $exception->getCode();
-			// note: re-throw below complains about wrong arguments if the above two 
-			// lines are called in the line below, so variables are intermediary
-			throw new WireDatabaseQueryException($message, $code, $exception);
+			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $exception ]); 
 		}
 		
 		return $options['returnQuery'] ? $query : $result;
 	}
 
 }
-

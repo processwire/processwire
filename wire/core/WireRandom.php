@@ -5,7 +5,7 @@
  * 
  * Includes methods for random strings, numbers, arrays and passwords. 
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.111
@@ -300,6 +300,60 @@ class WireRandom extends Wire {
 	public function numeric($length = 0, array $options = array()) {
 		$options['alpha'] = false;
 		return $this->alphanumeric($length, $options);
+	}
+
+	/**
+	 * Generate a random string using given characters
+	 * 
+	 * @param int $length Length of string or specify 0 for random length 
+	 * @param string $characters Charaacters to use for random string or omit for partial ASCII set
+	 * @param array $options
+	 *  - `minLength` (int): Minimum allowed length if length argument is 0 (default=10)
+	 *  - `maxLength` (int): Maximum allowed length if length argument is 0 (default=40)
+	 *  - `fast` (bool): Use a faster randomization method? (default=false)
+	 * @return string
+	 * @since 3.0.251
+	 * 
+	 */
+	public function string($length = 0, $characters = '', array $options = []) {
+		
+		$defaults = [
+			'minLength' => 10, 
+			'maxLength' => 40, 
+			'fast' => false, 
+		];
+		
+		$options = array_merge($defaults, $options);
+		
+		if(empty($characters)) {
+			$characters = 'abcdefghijklmnopqrstuvwxyz';
+			$characters .= strtoupper($characters);
+			$characters .= '0123456789';
+			$characters .= '-_;:/.,!@$%^*()-+~|';
+		}
+
+		if($length < 1) {
+			if($options['fast']) {
+				$length = mt_rand($options['minLength'], $options['maxLength']); 
+			} else {
+				$length = $this->integer($options['minLength'], $options['maxLength']);
+			}
+		}
+		
+		$str = '';
+		$L = strlen($characters) - 1;
+		
+		for($n = 0; $n < $length; $n++) {
+			if($options['fast']) {
+				$v = mt_rand(0, $L);
+			} else {
+				$v = $this->integer(0, $L);
+			}
+			$c = substr($characters, $v, 1);
+			$str .= $c;
+		}
+		
+		return $str;
 	}
 
 	/**
@@ -640,7 +694,7 @@ class WireRandom extends Wire {
 			$numUpper = $this->integer($options['minUpper'], $options['maxUpper']);
 			if($numUpper) {
 				$value = strtolower($value);
-				$test = $this->wire('sanitizer')->alpha($value);
+				$test = $this->wire()->sanitizer->alpha($value);
 				if(strlen($test) < $numUpper) {
 					// there aren't enough characters present to meet requirements, so add some	
 					$value .= $this->alpha($numUpper - strlen($test), array('disallow' => $disallow));
@@ -672,7 +726,7 @@ class WireRandom extends Wire {
 
 		// manage quantity of required digits
 		if($options['minDigits'] > 0) {
-			$test = $this->wire('sanitizer')->digits($value);
+			$test = $this->wire()->sanitizer->digits($value);
 			$test = str_replace($options['disallow'], '', $test);
 			$numDigits = $options['minDigits'] - strlen($test);
 			if($numDigits > 0) {

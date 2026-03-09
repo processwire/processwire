@@ -54,7 +54,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  * This file is licensed under the MIT license
@@ -66,6 +66,7 @@
  * @property string $adminTemplates Admin theme template files: /wire/templates-admin/ or /site/templates-admin/ #pw-internal
  * @property string $modules Core modules: /wire/modules/
  * @property string $siteModules Site-specific modules: /site/modules/
+ * @property string $markupRegions Site-specific files added by Markup Regions: /site/assets/markup-regions/ (3.0.254+)
  * @property string $core ProcessWire core files: /wire/core/
  * @property string $site ProcessWire site files /site/
  * @property string $assets Site-specific assets: /site/assets/
@@ -89,6 +90,7 @@
  * @property-read string $httpAdminTemplates Full http/https URL to admin templates. #pw-internal
  * @property-read string $httpModules Full http/https URL to core (wire) modules. #pw-group-urls-only
  * @property-read string $httpSiteModules Full http/https URL to site modules. #pw-group-urls-only
+ * @property-read string $httpMarkupRegions Full http/https URL to files added by Markup Regions. #pw-group-urls-only (3.0.254+)
  * @property-read string $httpAssets Full http/https URL to site assets (i.e. https://domain.com/site/assets/). #pw-group-urls-only
  * @property-read string $httpFiles Full http/https URL to site assets files (i.e. https://domain.com/site/assets/files/). #pw-group-urls-only
  * @property-read string $httpNext Full http/https URL to next pagination of current page (when applicable). #pw-group-urls-only #pw-group-pagination
@@ -109,6 +111,14 @@ class Paths extends WireData {
 	protected $_root = '';
 
 	/**
+	 * As used by get() method
+	 * 
+	 * @var null 
+	 * 
+	 */
+	protected $_http = null;
+
+	/**
 	 * Construct the Paths
 	 *
 	 * @param string $root Path of the root that will be used as a base for stored paths.
@@ -117,6 +127,7 @@ class Paths extends WireData {
 	public function __construct($root) {
 		$this->_root = $root;
 		$this->useFuel(false);
+		parent::__construct();
 	}
 
 	/**
@@ -165,20 +176,19 @@ class Paths extends WireData {
 	 *
 	 */
 	public function get($key) {
-		static $_http = null;
 		if($key === 'root') return $this->_root;
 		$http = '';
 		$altKey = '';
 		if(is_object($key)) {
 			$key = "$key";
 		} else if(strpos($key, 'http') === 0) {
-			if(is_null($_http)) {
+			if($this->_http === null) {
 				$scheme = $this->wire()->input->scheme;
 				if(!$scheme) $scheme = 'http';
 				$httpHost = $this->wire()->config->httpHost; 
-				if($httpHost) $_http = "$scheme://$httpHost";
+				if($httpHost) $this->_http = "$scheme://$httpHost";
 			}
-			$http = $_http;
+			$http = $this->_http;
 			$key = substr($key, 4); // httpTemplates => Templates
 			$altKey = $key; // no lowercase conversion (useful for keys like module names, i.e. 'ProcessPageEdit')
 			$key[0] = strtolower($key[0]);  // first character lowercase: Templates => templates

@@ -3,6 +3,9 @@
 /**
  * ProcessWire Pages Path Finder
  * 
+ * #pw-headline Pages Path Finder
+ * #pw-var $pages->pathFinder
+ * #pw-breadcrumb Pages
  * #pw-summary Enables finding pages by path, optionally with URL segments, pagination numbers, language prefixes, etc.
  * #pw-body = 
  * This is built for use by the PagesRequest class and ProcessPageView module, but can also be useful from the public API.
@@ -15,7 +18,7 @@
  * afterwards when appropriate.
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo:
@@ -131,9 +134,9 @@ class PagesPathFinder extends Wire {
 	protected function init($path, array $options) {
 		
 		$this->options = array_merge($this->defaults, $options);
-		$this->verbose = $this->options['verbose'];
 		$this->methods = array();
 		$this->useLanguages = $this->options['useLanguages'] ? $this->languages(true) : array();
+		$this->verbose = $this->options['verbose'] || !empty($this->useLanguages);
 		$this->result = $this->getBlankResult(array('request' => $path));
 		$this->template = null;
 		$this->admin = null;
@@ -380,8 +383,10 @@ class PagesPathFinder extends Wire {
 	 * 
 	 */
 	protected function applyPagesRow(array $parts, $row) {
-		
-		$maxUrlSegmentLength = $this->wire()->config->maxUrlSegmentLength;
+	
+		$config = $this->wire()->config;
+		$maxUrlSegmentLength = $config->maxUrlSegmentLength;
+		$maxUrlSegments = $config->maxUrlSegments;
 		$result = &$this->result;
 		
 		// array of [language name] => [ 'a', 'b', 'c' ] (from /a/b/c/)
@@ -396,14 +401,28 @@ class PagesPathFinder extends Wire {
 
 			if(!$id) {
 				// if it didn’t resolve to DB page name then it is a URL segment
-				if(strlen($name) > $maxUrlSegmentLength) $name = substr($name, 0, $maxUrlSegmentLength);
-				$result['urlSegments'][] = $name;
-				if($this->verbose) {
-					$result['parts'][] = array(
-						'type' => 'urlSegment',
-						'value' => $name,
-						'language' => ''
-					);
+				if(strlen($name) > $maxUrlSegmentLength) {
+					$name = substr($name, 0, $maxUrlSegmentLength);
+					if($config->longUrlResponse >= 300) {
+						$result['response'] = $config->longUrlResponse;
+						$this->addResultError('urlSegmentLength', 'URL segment length > config.maxUrlSegmentLength');
+					}
+				}
+				if(count($result['urlSegments']) + 1 > $maxUrlSegments) {
+					if($config->longUrlResponse >= 300) {
+						$this->addResultError('urlSegmentMAX', 'Number of URL segments exceeds config.maxUrlSegments');
+						$result['response'] = $config->longUrlResponse;
+						break;
+					}
+				} else {
+					$result['urlSegments'][] = $name;
+					if($this->verbose) {
+						$result['parts'][] = array(
+							'type' => 'urlSegment',
+							'value' => $name,
+							'language' => ''
+						);
+					}
 				}
 				continue;
 			}
@@ -480,7 +499,7 @@ class PagesPathFinder extends Wire {
 	 * If language segment detected then remove it and populate language to result
 	 * 
 	 * @param string $path
-	 * @return array|bool
+	 * @return array
 	 * 
 	 */
 	protected function getPathParts($path) {
@@ -497,7 +516,7 @@ class PagesPathFinder extends Wire {
 		$lastPart = '';
 		
 		if($this->strlen($path) > $maxPathLength) {
-			$result['response'] = 414; // 414=URI too long
+			$result['response'] = $config->longUrlResponse; // 414=URI too long
 			$this->addResultError('pathLengthMAX', "Path length exceeds max allowed $maxPathLength");
 			$path = substr($path, 0, $maxPathLength);
 		}
@@ -506,7 +525,7 @@ class PagesPathFinder extends Wire {
 
 		if(count($parts) > $maxDepth) {
 			$parts = array_slice($parts, 0, $maxDepth);
-			$result['response'] = 414;
+			$result['response'] = $config->longUrlResponse;
 			$this->addResultError('pathDepthMAX', 'Path depth exceeds config.maxUrlDepth');
 		} else if($path === '/' || $path === '' || !count($parts)) {
 			return array();
@@ -721,7 +740,7 @@ class PagesPathFinder extends Wire {
 		$_path = $path;
 		if(strlen($appendPath)) $path = rtrim($path, '/') . $appendPath;
 		
-		if($fail || $_path !== $path) {
+		if($fail || $_path !== $path || ($hadTrailingSlash && $useTrailingSlash < 0)) {
 			if($fail && isset($result['errors']['indexFile']) && count($result['urlSegments']) === 1) {
 				// allow for an /index.php or /index.html type urlSegmentStr to redirect rather than fail
 				$fail = false;
@@ -789,7 +808,7 @@ class PagesPathFinder extends Wire {
 		
 		// if there were any non-default language segments, let that dictate the language
 		if(empty($result['language']['segment'])) {
-			$useLangName = 'default';
+			$useLangName = count($result['parts']) ? 'default' : $result['language']['name'];
 			foreach($result['parts'] as $part) {
 				$langName = $part['language'];
 				if(empty($langName) || $langName === 'default') continue;
@@ -934,7 +953,7 @@ class PagesPathFinder extends Wire {
 
 		$result['methods'] = $this->methods;
 
-		if(!$this->verbose) unset($result['parts'], $result['methods']);
+		if(!$this->options['verbose']) unset($result['parts'], $result['methods']);
 
 		if(empty($errors)) {
 			// force errors placeholder to end if there aren’t any
@@ -1484,7 +1503,7 @@ class PagesPathFinder extends Wire {
 	 * 
 	 */
 	protected function addResultError($name, $message, $force = false) {
-		if(!$this->verbose && !$force) return;
+		//if(!$this->verbose && !$force) return;
 		$this->result['errors'][$name] = $message;
 	}
 

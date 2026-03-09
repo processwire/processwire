@@ -32,8 +32,9 @@
 
 /*
  * 1. Allow items to wrap into the next line
- * 2. Gutter
- * 3. Reset list
+ * 2. Center items vertically if they have a different height
+ * 3. Gutter
+ * 4. Reset list
  */
 
 .uk-pagination {
@@ -41,11 +42,13 @@
     /* 1 */
     flex-wrap: wrap;
     /* 2 */
-    margin-left: -@pagination-margin-horizontal;
+    align-items: center;
     /* 3 */
+    margin-left: -@pagination-margin-horizontal;
+    /* 4 */
     padding: 0;
     list-style: none;
-    .hook-pagination;
+    .hook-pagination();
 }
 
 /*
@@ -68,44 +71,47 @@
  ========================================================================== */
 
 /*
- * 1. Prevent gap if child element is `inline-block`, e.g. an icon
- * 2. Style
+ * 1. Center content vertically, e.g. an icon
+ * 2. Imitate white space gap when using flexbox
+ * 3. Style
  */
 
 .uk-pagination > * > * {
     /* 1 */
-    display: block;
+    display: flex;
+    align-items: center;
     /* 2 */
+    column-gap: 0.25em;
+    /* 3 */
     padding: @pagination-item-padding-vertical @pagination-item-padding-horizontal;
     color: @pagination-item-color;
-    .hook-pagination-item;
+    .hook-pagination-item();
 }
 
-/* Hover + Focus */
-.uk-pagination > * > :hover,
-.uk-pagination > * > :focus {
+/* Hover */
+.uk-pagination > * > :hover {
     color: @pagination-item-hover-color;
     text-decoration: @pagination-item-hover-text-decoration;
-    .hook-pagination-item-hover;
+    .hook-pagination-item-hover();
 }
 
 /* Active */
 .uk-pagination > .uk-active > * {
     color: @pagination-item-active-color;
-    .hook-pagination-item-active;
+    .hook-pagination-item-active();
 }
 
 /* Disabled */
 .uk-pagination > .uk-disabled > * {
     color: @pagination-item-disabled-color;
-    .hook-pagination-item-disabled;
+    .hook-pagination-item-disabled();
 }
 
 
 // Hooks
 // ========================================================================
 
-.hook-pagination-misc;
+.hook-pagination-misc();
 
 .hook-pagination() {}
 .hook-pagination-item() {}
@@ -127,23 +133,22 @@
 
     .uk-pagination > * > * {
         color: @inverse-pagination-item-color;
-        .hook-inverse-pagination-item;
+        .hook-inverse-pagination-item();
     }
 
-    .uk-pagination > * > :hover,
-    .uk-pagination > * > :focus {
+    .uk-pagination > * > :hover {
         color: @inverse-pagination-item-hover-color;
-        .hook-inverse-pagination-item-hover;
+        .hook-inverse-pagination-item-hover();
     }
 
     .uk-pagination > .uk-active > * {
         color: @inverse-pagination-item-active-color;
-        .hook-inverse-pagination-item-active;
+        .hook-inverse-pagination-item-active();
     }
 
     .uk-pagination > .uk-disabled > * {
         color: @inverse-pagination-item-disabled-color;
-        .hook-inverse-pagination-item-disabled;
+        .hook-inverse-pagination-item-disabled();
     }
 
 }

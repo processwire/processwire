@@ -4,14 +4,13 @@
 +keyframes-vex-pulse
 
 $blue: #3288e6
-$green: #93BF0D // RJC
 
 .vex.vex-theme-plain
     padding-top: 160px
     padding-bottom: 160px
 
     .vex-content
-        // font-family: "Helvetica Neue", sans-serif
+        font-family: "Helvetica Neue", sans-serif
         background: #fff
         color: #444
         padding: 1em
@@ -57,7 +56,7 @@ $green: #93BF0D // RJC
         .vex-dialog-input
             margin-bottom: 1em
 
-            textarea, input[type="date"], input[type="datetime"], input[type="datetime-local"], input[type="email"], input[type="month"], input[type="number"], input[type="password"], input[type="search"], input[type="tel"], input[type="text"], input[type="time"], input[type="url"], input[type="week"]
+            select, textarea, input[type="date"], input[type="datetime"], input[type="datetime-local"], input[type="email"], input[type="month"], input[type="number"], input[type="password"], input[type="search"], input[type="tel"], input[type="text"], input[type="time"], input[type="url"], input[type="week"]
                 background: #f0f0f0
                 width: 100%
                 padding: .25em .67em
@@ -69,19 +68,19 @@ $green: #93BF0D // RJC
                 margin: 0 0 .25em
 
                 &:focus
-                    +box-shadow(inset 0 0 0 2px rgba(0, 0, 0, .2))
+                    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .2)
                     outline: none
 
         .vex-dialog-buttons
             +pie-clearfix()
 
     .vex-dialog-button
-        +border-radius(0)
+        border-radius: 0
         border: 0
         float: right
         margin: 0 0 0 .5em
         font-family: inherit
-        // text-transform: uppercase
+        text-transform: uppercase
         letter-spacing: .1em
         font-size: .8em
         line-height: 1em
@@ -91,16 +90,16 @@ $green: #93BF0D // RJC
             margin-left: 0
 
         &:focus
-            +vex-animation(vex-pulse 1.1s infinite)
+            animation: vex-pulse 1.1s infinite
             outline: none
 
             // vex-pulse uses -webkit-filter which
             // doesn't play so nice in mobile webkit
             @media (max-width: 568px)
-                +vex-animation(none)
+                animation: none
 
         &.vex-dialog-button-primary
-            background: $green // RJC
+            background: $blue
             color: #fff
 
         &.vex-dialog-button-secondary

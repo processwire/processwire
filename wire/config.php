@@ -12,7 +12,7 @@
  * You may also make up your own configuration options by assigning them 
  * in /site/config.php 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -183,9 +183,12 @@ $config->useFunctionsAPI = false;
  *
  * When enabled, HTML elements with an "id" attribute that are output before the opening 
  * `<!doctype>` or `<html>` tag can replace elements in the document that have the same id. 
- * Also supports append, prepend, replace, remove, before and after options. 
+ * Also supports append, prepend, replace, remove, before and after options. For more 
+ * details see [Markup Regions](https://processwire.com/docs/front-end/output/markup-regions/).
+ * 
+ * Specify true to enable, or integer 2 to enable also with file regions. 
  *
- * @var bool
+ * @var bool|int
  *
  */
 $config->useMarkupRegions = false;
@@ -225,6 +228,36 @@ $config->usePageClasses = false;
  * 
  */
 $config->useLazyLoading = true;
+
+/**
+ * Default value for $useVersion argument of $config->versionUrls() method
+ * 
+ * Controls the cache busting behavior of the `$config->versionUrls()` method as used by
+ * ProcessWire’s admin themes (but may be used independently as well). When no 
+ * `$useVersion` argument is specified to the versionUrls() method, it will use the 
+ * default value specified here. If not specified, null is the default. 
+ * 
+ * - `true` (bool): Get version from filemtime.
+ * - `false` (bool): Never get file version, just use `$config->version`.
+ * - `foobar` (string): Specify any string to be the version to use on all URLs needing it.
+ * - `?foo=bar` (string): Optionally specify your own query string variable=value. 
+ * - `null` (null): Auto-detect: use file version in debug mode or dev branch only, 
+ *    otherwise use `$config->version`.
+ * 
+ * ~~~~~
+ * // choose one to start with, copy and place in /site/config.php to enable
+ * $config->useVersionUrls = null; // default setting
+ * $config->useVersionUrls = true; // always use filemtime based version URLs
+ * $config->useVersionUrls = false; // only use core version in URLs
+ * $config->versionUrls = 'hello-world'; // always use this string as the version
+ * $config->versionUrls = '?version=123'; // optionally specify query string var and value
+ * ~~~~~
+ * 
+ * @var null|bool|string
+ * @since 3.0.227
+ *
+ * $config->useVersionUrls = null;
+ */
 
 /**
  * Disable all HTTPS requirements?
@@ -366,7 +399,9 @@ $config->sessionChallenge = true;
  * Predefined settings:
  * 
  * - 0 or false: Fingerprint off
- * - 1 or true: Fingerprint on with default setting (remote IP & useragent)
+ * - 1 or true: Fingerprint on with system default settings
+ *   (Useragent for installations after Oct 31 2025 at 5pm)
+ *   (Useragent + Remote IP for existing installations)
  * 
  * Custom settings:
  * 
@@ -492,6 +527,18 @@ $config->sessionHistory = 0;
  *
  */
 $config->userAuthHashType = 'sha1';
+
+/**
+ * Enable output formatting for current $user API variable at boot?
+ * 
+ * EXPERIMENTAL: May not be compatible with with all usages, so if setting to `true` 
+ * then be sure to test thoroughly on anything that works with $user API variable. 
+ * 
+ * @var bool
+ * @since 3.0.241
+ * 
+ */
+$config->userOutputFormatting = false;
 
 /**
  * Names (string) or IDs (int) of roles that are not allowed to login
@@ -700,7 +747,7 @@ $config->contentTypes = array(
 	'txt' => 'text/plain', 
 	'json' => 'application/json',
 	'xml' => 'application/xml', 
-	);
+);
 
 /**
  * File content types
@@ -733,7 +780,7 @@ $config->fileContentTypes = array(
 	'webp' => 'image/webp',
 	'zip' => '+application/zip',
 	'mp3' => 'audio/mpeg',
-	);
+);
 
 /**
  * Named predefined image sizes and options
@@ -797,7 +844,7 @@ $config->imageSizerOptions = array(
 	'hidpiQuality' => 60, // Same as above quality setting, but specific to hidpi images
 	'defaultGamma' => 2.0, // defaultGamma: 0.5 to 4.0 or -1 to disable gamma correction (default=2.0)
 	'webpAdd' => false, // set this to true, if the imagesizer engines should create a Webp copy with every (new) image variation
-	);
+);
 
 /**
  * Options for webp images
@@ -815,7 +862,7 @@ $config->webpOptions = array(
 	'useSrcExt' => false, // Use source file extension in webp filename? (file.jpg.webp rather than file.webp)
 	'useSrcUrlOnSize' => true, // Fallback to source file URL when webp file is larger than source?
 	'useSrcUrlOnFail' => true, // Fallback to source file URL when webp file fails for some reason?
-	);
+);
 
 /**
  * Admin thumbnail image options
@@ -846,7 +893,7 @@ $config->adminThumbOptions = array(
 	'sharpening' => 'soft', // sharpening: none | soft | medium | strong
 	'quality' => 90,
 	'suffix' => '', 
-	);
+);
 
 /**
  * File compiler options (as used by FileCompiler class)
@@ -875,7 +922,7 @@ $config->fileCompilerOptions = array(
 	'exclusions' => array(), // exclude filenames or paths that start with any of these
 	'extensions' => array('php', 'module', 'inc'), // file extensions we compile
 	'cachePath' => '', // path where compiled files are stored, or blank for $config->paths->cache . 'FileCompiler/'
-	);
+);
 
 /**
  * Temporary directory for uploads
@@ -943,7 +990,7 @@ $config->protectCSRF = true;
  * @var int
  *
  */
-$config->maxUrlSegments = 4;
+$config->maxUrlSegments = 20;
 
 /**
  * Maximum length for any individual URL segment (default=128)
@@ -962,7 +1009,23 @@ $config->maxUrlSegmentLength = 128;
  * @var int
  * 
  */
-$config->maxUrlDepth = 30; 
+$config->maxUrlDepth = 30;
+
+/**
+ * Long URL response (URL depth, length or segments overflow)
+ *
+ * HTTP code that ProcessWire should respond with when it receives more URL segments,
+ * more URL depth, or longer URL length than what is allowed. Suggested values:
+ *
+ * - `404`: Page not found
+ * - `301`: Redirect to closest allowed URL (permanent)
+ * - `302`: Redirect to closest allowed URL (temporary)
+ *
+ * @var int
+ * @since 3.0.243
+ *
+ */
+$config->longUrlResponse = 404;
 
 /**
  * Pagination URL prefix
@@ -1006,6 +1069,14 @@ $config->pageNameCharset = 'ascii';
  * If 'pageNameCharset' is 'UTF8' then specify the whitelist of allowed characters here
  * 
  * Please note this whitelist is only used if pageNameCharset is 'UTF8'. 
+ * 
+ * If your ProcessWire version is 3.0.244+ AND your installation date was before 10 Jan 2025, 
+ * AND you are enabling UTF8 page names now, please add the text `v3` (without the quotes) 
+ * at the beginning or end of your pageNameWhitelist. This will ensure that it uses a 
+ * newer/better UTF-8 page name conversion. The older version is buggy on PHP versions 7.4+, 
+ * but is used for existing installations so as not to unexpectedly change any existing page 
+ * names. When a new ProcessWire installation occurs after 5 Jan 2025 it automatically uses 
+ * the newer/better version and does not require anything further. 
  * 
  * @var string
  * 
@@ -1165,7 +1236,10 @@ $config->dbEngine = 'MyISAM';
  * Allow MySQL query caching?
  * 
  * Set to false to to disable query caching. This will make everything run slower so should
- * only used for DB debugging purposes.
+ * only used for DB debugging purposes. (default is true)
+ * 
+ * If using MySQL 8 or newer this should always be set to `true` as MySQL 8+ no longer
+ * supports the feature to disable cache using SQL_NO_CACHE. 
  * 
  * @var bool
  *
@@ -1324,6 +1398,31 @@ $config->dbReader = array(
 	// …etc., though most likely you will only need 'host' entry to setup a reader
 );
 
+/**
+ * Settings for PageFinder class
+ * 
+ * These settings specify the defaults. Other than the `version` setting, these may still be overridden
+ * by individual PageFinder instances according to the $options argument passed to the find() method.
+ * 
+ * @var array
+ * @since 3.0.257
+ * 
+ * #property int $version PageFinder version to use, likely a temporary setting (default=1)
+ * #property bool $useSubQueries Use sub-queries for sub-selectors? v2 only. (default=true)
+ * #property bool $reuseInstances Reuse PageFinder instances rather than creating a new instance each time? v2 only. (default=true)
+ * #property string $getTotalType Specify either `calc` or `count` or omit for default (calc on v1, count on v2).
+ * #property bool $allowCustom Allow use of `_custom="another selector"` in Selectors? (default=false)
+ * #property bool $testMode When true it records total execution time for all PageFinder instances, 
+ *   use `$pages->getPageFinder()->getTotalTime()` to retrieve. 
+ * 
+ */
+$config->PageFinder = [
+	'version' => 1,
+	'useSubQueries' => true, // v2 
+	'reuseInstances' => true, // v2
+	'testMode' => false, 
+];
+
 /*** 8. MODULES *********************************************************************************/
 
 /**
@@ -1375,8 +1474,8 @@ $config->moduleServiceKey = 'pw301';
  */
 $config->moduleInstall = array(
 	'directory' => 'debug', // allow install from ProcessWire modules directory? 
-	'upload' => 'debug', // allow install by module file upload?
-	'download' => 'debug', // allow install by download from URL?
+	'upload' => false, // allow install by module file upload?
+	'download' => false, // allow install by download from URL?
 );
 
 /**
@@ -1519,7 +1618,15 @@ $config->markupQA = array(
  * Additional core logs
  * 
  * All activities from the API functions corresponding with the given log names will be logged. 
- * Options that can be specified are: pages, fields, templates, modules, exceptions, deprecated.
+ * Options that can be specified are: 
+ * 
+ * - pages
+ * - fields
+ * - templates
+ * - modules
+ * - exceptions
+ * - deprecated
+ * - http404 (3.0.255+)
  * 
  * Use log "deprecated" to log deprecated calls (during development only).
  * 
@@ -1582,6 +1689,9 @@ $config->adminEmail = '';
  * #property bool compress Compress compiled CSS?
  * #property array customLessFiles Custom .less files to include, relative to PW installation root.
  * #property string customCssFile Target custom .css file to compile custom .less file(s) to. 
+ * #property bool noDarkMode If theme supports a dark mode, specify true to disable it as an option.
+ * #property bool noTogcbx If theme supports toggle style checkboxes, disable them. 
+ * #property string themeName Name of AdminThemeUikit theme to use when one not yet selected (original, default, auto)
  * 
  */
 $config->AdminThemeUikit = array(
@@ -1590,6 +1700,9 @@ $config->AdminThemeUikit = array(
 	'compress' => true, 
 	'customLessFiles' => array('/site/templates/admin.less'), 
 	'customCssFile' => '/site/assets/admin.css',
+	'noDarkMode' => false, 
+	'noTogcbx' => false,
+	'themeName' => 'auto', 
 );
 
 /**
@@ -1662,22 +1775,23 @@ $config->modals = array(
  * This is an optimization that can reduce some database overhead. 
  *
  * @var array
+ * @deprecated No longer in use as of 3.0.218
  *
  */
 $config->preloadCacheNames = array(
-	'Modules.info',
+	//'Modules.info',
 	//'ModulesVerbose.info',
-	'ModulesVersions.info',
-	'Modules.wire/modules/',
-	'Modules.site/modules/',
+	//'ModulesVersions.info',
+	//'Modules.wire/modules/',
+	//'Modules.site/modules/',
 );
 
 /**
  * Allow Exceptions to propagate?
  * 
- * When true, ProcessWire will not capture Exceptions and will instead let them fall
+ * When true, ProcessWire will not capture Throwables and will instead let them fall
  * through in their original state. Use only if you are running ProcessWire with your
- * own Exception handler. Most installations should leave this at false.
+ * own Exception/Error handler. Most installations should leave this at false.
  * 
  * @var bool
  * 

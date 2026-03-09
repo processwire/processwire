@@ -56,8 +56,12 @@ class Password extends Wire {
 		}
 
 		if(strlen($hash) < 29) return false;
-
-		$matches = ($hash === $this->data['hash']);
+		
+		if(function_exists("\\hash_equals")) {
+			$matches = hash_equals($this->data['hash'], $hash);
+		} else {
+			$matches = ($hash === $this->data['hash']);
+		}
 
 		if($matches && $updateNotify) {
 			$this->message($this->_('The password system has recently been updated. Please change your password to complete the update for your account.'));
@@ -71,13 +75,13 @@ class Password extends Wire {
 	 * 
 	 * #pw-group-internal
 	 * 
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed
 	 *
 	 */
-	public function __get($key) {
-		if($key == 'salt' && !$this->data['salt']) $this->data['salt'] = $this->salt();
-		return isset($this->data[$key]) ? $this->data[$key] : null;
+	public function __get($name) {
+		if($name === 'salt' && empty($this->data['salt'])) $this->data['salt'] = $this->salt();
+		return isset($this->data[$name]) ? $this->data[$name] : null;
 	}
 
 	/**
@@ -91,7 +95,7 @@ class Password extends Wire {
 	 */
 	public function __set($key, $value) {
 
-		if($key == 'pass') {
+		if($key === 'pass') {
 			// setting the password
 			$this->setPass($value);
 
@@ -358,4 +362,3 @@ class Password extends Wire {
 	}
 
 }
-

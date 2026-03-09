@@ -288,6 +288,7 @@ class ProcessLanguageTranslator extends Process implements ConfigurableModule {
 				$untranslated => array(),
 			);
 			$maxLength = 0;
+			sort($value);
 			foreach($value as $file) {
 				$textdomain = $this->translator->filenameToTextdomain($file);
 				$label = substr($file, 5);
@@ -461,6 +462,17 @@ class ProcessLanguageTranslator extends Process implements ConfigurableModule {
 			$rows = 3;
 		}
 		
+		if(stripos($comment, 'options=[') !== false && preg_match('!\boptions=\[([^\]]+)\]!', $comment, $matches)) {
+			// Options for select or radios
+			// i.e. "options=[r,b,g]" or "options[r:Red,b:Blue,g:Green]"
+			$c = strpos($matches[1], '|') ? '|' : ',';
+			$options = explode($c, $matches[1]); 
+			$comment = str_replace($matches[0], '', $comment);
+			if(empty($type)) $type = 'Radios';
+		} else {
+			$options = array();
+		}
+		
 		if(empty($type)) {
 			$type = $rows > 1 ? 'InputfieldTextarea' : 'InputfieldText';
 		} else if(strpos($type, 'Inputfield') !== 0) {
@@ -470,24 +482,53 @@ class ProcessLanguageTranslator extends Process implements ConfigurableModule {
 		$field = $this->wire()->modules->get($type);
 		if(!$field) $field = $this->wire()->modules->get('InputfieldText');
 		if($rows > 1 && $field instanceof InputfieldTextarea) $field->attr('rows', $rows);
+		
+		if(count($options) && $field instanceof InputfieldSelect) {
+			foreach($options as $option) {
+				if(strpos($option, ':') !== false) {
+					// separate "value:label"
+					list($option, $label) = explode(':', $option, 2);
+					$field->addOption(trim($option), trim($label));
+				} else {
+					// just "value"
+					$field->addOption(trim($option));
+				}
+			}
+		}
 
-		/** @var InputfieldText $field */
+		/** @var InputfieldText|InputfieldSelect $field */
 		$field->attr('id+name', $hash);
 		$field->set('textFormat', Inputfield::textFormatNone);
-		$field->attr('value', $translated);
+		if($field instanceof InputfieldSelect) {
+			$v = strlen($translated) ? $translated : $untranslated;
+			$field->val($v);
+		} else {
+			$field->val($translated);
+		}
 		$field->label = $untranslated;
 		$field->addClass(strlen($translated) ? 'translated' : 'untranslated', 'wrapClass');
 		$field->addClass('translatable');
 
 		if($comment) {
-			if(preg_match('{^(.*?)//(.*)$}', $comment, $m)) {
-				if(trim($m[1]) != trim($untranslated)) {
-					$field->notes = "$m[1]\n$m[2]";
+			if($field instanceof InputfieldSelect) {
+				if(strpos($comment, '//')) {
+					list($label, $notes) = explode('//', $comment, 2);
 				} else {
-					$field->notes = $m[2];
+					$label = $comment;
+					$notes = '';
 				}
-			} else if(trim($comment) != trim($untranslated)) {
-				$field->notes = $comment;
+				$field->description = $label;
+				$field->notes = $notes;
+			} else {
+				if(preg_match('{^(.*?)//(.*)$}', $comment, $m)) {
+					if(trim($m[1]) != trim($untranslated)) {
+						$field->notes = "$m[1]\n$m[2]";
+					} else {
+						$field->notes = $m[2];
+					}
+				} else if(trim($comment) != trim($untranslated)) {
+					$field->notes = $comment;
+				}
 			}
 		}
 
@@ -523,7 +564,7 @@ class ProcessLanguageTranslator extends Process implements ConfigurableModule {
 		}
 
 		$field->skipLabel = Inputfield::skipLabelHeader;
-		$field->description = $untranslated;
+		if(!strlen($field->description)) $field->description = $untranslated;
 
 		return $field;
 	}
@@ -957,4 +998,3 @@ class ProcessLanguageTranslator extends Process implements ConfigurableModule {
 		$inputfields->add($f);
 	}
 }
-

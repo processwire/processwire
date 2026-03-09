@@ -67,11 +67,11 @@ class MarkupQA extends Wire {
 	/**
 	 * Construct
 	 * 
-	 * @param Page $page
-	 * @param Field $field
+	 * @param Page|null $page
+	 * @param Field|null $field
 	 *
 	 */
-	public function __construct(Page $page = null, Field $field = null) {
+	public function __construct(?Page $page = null, ?Field $field = null) {
 		parent::__construct();
 		if($page) {
 			$this->setPage($page);
@@ -509,7 +509,6 @@ class MarkupQA extends Wire {
 		$replacements = array();
 		$languages = $this->wire()->languages;
 		$config = $this->wire()->config;
-		$pages = $this->wire()->pages;
 		$rootURL = $config->urls->root;
 		$adminURL = $config->urls->admin;
 		$adminPath = $rootURL === '/' ? $adminURL : str_replace($rootURL, '/', $adminURL);
@@ -542,10 +541,8 @@ class MarkupQA extends Wire {
 			} else {
 				$language = null;
 			}
-			
-			$livePath = $pages->getPath($pageID, array(
-				'language' => $language
-			));
+		
+			$livePath = $this->getPagePathFromId($pageID, $language);
 			
 			if($urlSegmentStr) {
 				$livePath = rtrim($livePath, '/') . "/$urlSegmentStr";
@@ -609,7 +606,7 @@ class MarkupQA extends Wire {
 	/**
 	 * Find pages linking to another
 	 * 
-	 * @param Page $page Page to find links to, or omit to use page specified in constructor
+	 * @param Page|null $page Page to find links to, or omit to use page specified in constructor
 	 * @param array $fieldNames Field names to look in or omit to use field specified in constructor
 	 * @param string $selector Optional selector to use as a filter
 	 * @param array $options Additional options
@@ -620,7 +617,7 @@ class MarkupQA extends Wire {
 	 * @return PageArray|array|int
 	 * 
 	 */
-	public function findLinks(Page $page = null, $fieldNames = array(), $selector = '', array $options = array()) {
+	public function findLinks(?Page $page = null, $fieldNames = array(), $selector = '', array $options = array()) {
 		
 		$pages = $this->wire()->pages;
 		$fields = $this->wire()->fields;
@@ -1024,6 +1021,69 @@ class MarkupQA extends Wire {
 	 */
 	public function setVerbose($verbose) {
 		$this->settings['verbose'] = $verbose ? true : false;
+	}
+
+	/**
+	 * Given page ID return the path to it
+	 * 
+	 * @param int $pageID
+	 * @param Language|null $language
+	 * @return string
+	 * @since 3.0.231
+	 * 
+	 */
+	protected function getPagePathFromId($pageID, $language = null) {
+		
+		$pages = $this->wire()->pages;
+		$path = null;
+		
+		if($this->isPagePathHooked()) {
+			$page = $pages->get($pageID);
+			if($page->id) {
+				if($language && $language->id) {
+					$languages = $this->wire()->languages;
+					$languages->setLanguage($language);
+					$path = $page->path();
+					$languages->unsetLanguage();
+				} else {
+					$path = $page->path();
+				}
+			}
+		}
+		
+		if($path === null) {
+			$path = $pages->getPath($pageID, array(
+				'language' => $language
+			));
+		}
+		
+		return $path;
+	}
+
+	/**
+	 * Is the Page::path method hooked in a manner that might affect MarkupQA? 
+	 * 
+	 * @return bool
+	 * @since 3.0.231
+	 * 
+	 */
+	protected function isPagePathHooked() {
+		$config = $this->wire()->config;
+		$property = '_MarkupQA_pagePathHooked';
+		$hooked = $config->get($property);
+		if($hooked !== null) return $hooked;
+		$hooks = $this->wire()->hooks;
+		$hooked = $hooks->isHooked('Page::path()');
+		if($hooked) {
+			// only consider Page::path hooked if something other than LanguageSupportPageNames hooks it
+			$hookItems = $hooks->getHooks($this->page, 'path', WireHooks::getHooksStatic);
+			foreach($hookItems as $key => $hook) {
+				if(((string) $hook['toObject']) === 'LanguageSupportPageNames') unset($hookItems[$key]);
+			}
+			$hooked = count($hookItems) > 0;
+		}
+		$config->setQuietly($property, $hooked);
+		return $hooked;
 	}
 
 }

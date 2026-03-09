@@ -261,13 +261,13 @@ var pwPanels = {
 		}
 
 		// delegate events from toggler to pw-panel-button
-		$toggler.click(function() {
-			$btn.click();
+		$toggler.on('click', function() {
+			$btn.trigger('click');
 			return false;
 		}).on('mouseover', function() {
-			$btn.mouseover();
+			$btn.trigger('mouseover');
 		}).on('mouseout', function() {
-			$btn.mouseout();
+			$btn.trigger('mouseout');
 		});
 	},
 
@@ -345,7 +345,7 @@ var pwPanels = {
 		if($('.pw-panel-container-init').length == 0) {
 			// attach window resize event only if no panels have been opened before
 			// so that we attach it only if needed, and not more than once
-			$(window).resize(pwPanels.windowResizeEvent);
+			$(window).on('resize', pwPanels.windowResizeEvent);
 		}
 
 		if(isOpen) {
@@ -414,10 +414,10 @@ var pwPanels = {
 			$('body').css('overflow', 'hidden');
 
 			// if shade is clicked, exit the panel
-			$shade.click(function() {
+			$shade.on('click', function() {
 				var $panel = $('.pw-panel-container-open');
 				if(!$panel.length) return false;
-				$panel.find('.pw-panel-button').click();
+				$panel.find('.pw-panel-button').trigger('click');
 			});
 
 			// enable panel to be resized

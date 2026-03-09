@@ -1,0 +1,130 @@
+// Name:            Dropbar
+// Description:     Component to create a dropbar based on Drop component
+//
+// Component:       `uk-dropbar`
+//
+// Modifiers:       `uk-dropbar-large`
+//                  `uk-dropbar-top`
+//                  `uk-dropbar-bottom`
+//                  `uk-dropbar-left`
+//                  `uk-dropbar-right`
+//
+// ========================================================================
+
+
+// Variables
+// ========================================================================
+
+@dropbar-margin:                                0;
+@dropbar-padding-top:                           15px;
+@dropbar-padding-bottom:                        @dropbar-padding-top;
+@dropbar-padding-horizontal:                    15px;
+@dropbar-padding-horizontal-s:                  @global-gutter;
+@dropbar-padding-horizontal-m:                  @global-medium-gutter;
+@dropbar-background:                            @global-muted-background;
+@dropbar-color:                                 @global-color;
+@dropbar-color-mode:                            none;
+@dropbar-focus-outline:                         @base-focus-outline;
+
+@dropbar-large-padding-top:                     40px;
+@dropbar-large-padding-bottom:                  @dropbar-large-padding-top;
+
+
+/* ========================================================================
+   Component: Dropbar
+ ========================================================================== */
+
+/*
+ * Adopts `uk-drop`
+ * 1. Reset drop
+ * 2. Style
+ */
+
+.uk-dropbar {
+    --uk-position-offset: @dropbar-margin;
+    --uk-position-shift-offset: 0;
+    --uk-position-viewport-offset: 0;
+    /* 1 */
+    width: auto;
+    /* 2 */
+    padding: @dropbar-padding-top @dropbar-padding-horizontal @dropbar-padding-bottom @dropbar-padding-horizontal;
+    background: @dropbar-background;
+    color: @dropbar-color;
+    .hook-dropbar();
+}
+
+/*
+ * Remove margin from the last-child
+ */
+
+.uk-dropbar > :last-child { margin-bottom: 0; }
+
+/* Phone landscape and bigger */
+@media (min-width: @breakpoint-small) {
+
+    .uk-dropbar {
+        padding-left: @dropbar-padding-horizontal-s;
+        padding-right: @dropbar-padding-horizontal-s;
+    }
+
+}
+
+/* Tablet landscape and bigger */
+@media (min-width: @breakpoint-medium) {
+
+    .uk-dropbar {
+        padding-left: @dropbar-padding-horizontal-m;
+        padding-right: @dropbar-padding-horizontal-m;
+    }
+
+}
+
+// Color Mode
+.uk-dropbar:extend(.uk-light all) when (@dropbar-color-mode = light) {}
+.uk-dropbar:extend(.uk-dark all) when (@dropbar-color-mode = dark) {}
+
+.uk-dropbar :focus-visible when not (@dropbar-color-mode = @inverse-global-color-mode) {
+    outline-color: @dropbar-focus-outline !important;
+}
+
+
+/* Size modifier
+ ========================================================================== */
+
+.uk-dropbar-large {
+    padding-top: @dropbar-large-padding-top;
+    padding-bottom: @dropbar-large-padding-bottom;
+}
+
+
+/* Direction modifier
+ ========================================================================== */
+
+.uk-dropbar-top {
+    .hook-dropbar-top();
+}
+
+.uk-dropbar-bottom {
+    .hook-dropbar-bottom();
+}
+
+.uk-dropbar-left {
+    .hook-dropbar-left();
+}
+
+.uk-dropbar-right {
+    .hook-dropbar-right();
+}
+
+
+// Hooks
+// ========================================================================
+
+.hook-dropbar-misc();
+
+.hook-dropbar() {}
+.hook-dropbar-top() {}
+.hook-dropbar-bottom() {}
+.hook-dropbar-left() {}
+.hook-dropbar-right() {}
+.hook-dropbar-misc() {}

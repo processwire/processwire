@@ -181,6 +181,18 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$f->val((int) $field->get('familyFriendly'));
 		$f->columnWidth = 50;
 		$fs->add($f);
+		
+		/** @var InputfieldToggle $f */
+		$f = $modules->get('InputfieldToggle');
+		$f->attr('name', 'familyToggle');
+		$f->label = $this->_('Open/close items as a family?');
+		$f->description =
+			$this->_('When enabled, opening (or closing) a repeater item also opens (or closes) the next items that are visually children of it.') . ' ' . 
+			$this->_('This is best combined with family-friendly item depth mode.'); 
+		$f->notes = 
+			$this->_('Note that this setting is not compatible with accordion mode.');
+		$f->val((int) $field->get('familyToggle'));
+		$fs->add($f);
 
 		// -------------------------------------------------
 
@@ -286,6 +298,19 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$fs->add($f);
 		
 		// -------------------------------------------------
+		
+		/** @var InputfieldToggle $f */
+		$f = $modules->get('InputfieldToggle');
+		$f->attr('name', 'noScroll');
+		$f->label = $this->_('Scroll to new item when added?');
+		$f->labelType = InputfieldToggle::labelTypeCustom;
+		$f->yesLabel = $this->_('Disabled');
+		$f->noLabel = $this->_('Enabled');
+		$f->icon = 'arrow-down';
+		$f->val((int) $field->get('noScroll'));
+		$fs->add($f);
+
+		// -------------------------------------------------
 	
 		$maxItems = (int) $field->get('repeaterMaxItems');
 		$minItems = (int) $field->get('repeaterMinItems');
@@ -368,6 +393,9 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 			$this->_('Currently an experimental option for testing (lazyParents), but will later become default.');
 		if($this->field->get('lazyParents')) $f->attr('checked', 'checked');
 		$fs->add($f);
+		
+		// @todo setting focus first visible input in repeater item on open 
+		// @todo setting to disable the auto-scroll when adding an item
 
 		/** @var InputfieldCheckbox $f */
 		$f = $modules->get('InputfieldCheckbox');

@@ -6,7 +6,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -22,7 +22,7 @@ class ProcessPermission extends ProcessPageType {
 			'permission' => 'permission-admin', // add this permission if you want this Process available for roles other than Superuser
 			'icon' => 'gear', 
 			'useNavJSON' => true,
-			); 
+		); 
 	}
 
 	/**
@@ -33,28 +33,33 @@ class ProcessPermission extends ProcessPageType {
 	 */
 	protected function getOptionalPermissionsForm() {
 		
-		$form = $this->wire('modules')->get('InputfieldForm');
+		$modules = $this->wire()->modules;
+		$permissions = $this->wire()->permissions;
+	
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
 		$form->action = '../install-permissions/';
 		$form->method = 'post';
 		$form->attr('id', 'ProcessPermissionAddSystem');
-		
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+	
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->label = $this->_('Install predefined system permissions');
 		$fieldset->collapsed = Inputfield::collapsedYes;
 		$fieldset->icon = 'gear';
 		
 		$form->add($fieldset);
 
-		$optionalPermissions = $this->wire('permissions')->getOptionalPermissions();
+		$optionalPermissions = $permissions->getOptionalPermissions();
 		
 		if(count($optionalPermissions)) {
-			$reducerPermissions = $this->wire('permissions')->getReducerPermissions();
-			
-			$f = $this->wire('modules')->get('InputfieldCheckboxes');
+			$reducerPermissions = $permissions->getReducerPermissions();
+		
+			/** @var InputfieldCheckboxes $f */
+			$f = $modules->get('InputfieldCheckboxes');
 			$f->name = 'install_permissions';
 			$f->label = $this->_('Check the box next to each optional permission you would like to install.');
 			$f->table = true;
-			
 			
 			foreach($optionalPermissions as $name => $label) {
 				$displayName = $name;
@@ -69,7 +74,8 @@ class ProcessPermission extends ProcessPageType {
 			
 			$fieldset->add($f);
 
-			$button = $this->wire('modules')->get('InputfieldSubmit');
+			/** @var InputfieldSubmit $button */
+			$button = $modules->get('InputfieldSubmit');
 			$button->name = 'submit_install_permissions';
 			$button->value = $this->_('Install');
 			
@@ -100,7 +106,7 @@ class ProcessPermission extends ProcessPageType {
 	public function ___executeAdd() {
 		
 		// hide the title field, since it is counterproductive when adding a new permission
-		$template = $this->wire('templates')->get('permission');
+		$template = $this->wire()->templates->get('permission');
 		$titleField = $template->fieldgroup->getField('title');
 		$titleCollapsed = $titleField->collapsed;
 		$titleField->collapsed = Inputfield::collapsedYesLocked;
@@ -111,8 +117,8 @@ class ProcessPermission extends ProcessPageType {
 		$form = $this->getOptionalPermissionsForm();
 		
 		if($form) {
-			$fieldset = $this->wire(new InputfieldWrapper());
-			$f = $this->wire('modules')->get('InputfieldMarkup');
+			$fieldset = $this->wire(new InputfieldWrapper()); /** @var InputfieldWrapper $fieldset */
+			$f = $this->wire()->modules->get('InputfieldMarkup'); /** @var InputfieldMarkup $f */
 			$f->attr('id', 'ProcessPermissionAddCustom');
 			$f->value = $out;
 			$f->label = $this->_('Add a new custom permission');
@@ -127,28 +133,30 @@ class ProcessPermission extends ProcessPageType {
 	
 	protected function ___executeInstallPermissions() {
 
-		$user = $this->wire('user');
-		$languages = $this->wire('languages');
+		$user = $this->wire()->user;
+		$permissions = $this->wire()->permissions;
+		$languages = $this->wire()->languages;
 		$userLanguage = null;
+		
 		if($languages) {
 			$userLanguage = $user->language;
 			$user->language = $languages->getDefault(); 
 		}
 		
-		$installPermissions = $this->wire('input')->post->array('install_permissions', 'pageName');
-		$optionalPermissions = $this->wire('permissions')->getOptionalPermissions();
+		$installPermissions = $this->wire()->input->post->array('install_permissions', 'pageName');
+		$optionalPermissions = $permissions->getOptionalPermissions();
 		
 		foreach($installPermissions as $name) {
 			if(!isset($optionalPermissions[$name])) continue;
-			if($this->wire('permissions')->has($name)) continue; // already installed
-			$permission = $this->wire('permissions')->add($name);
+			if($permissions->has($name)) continue; // already installed
+			$permission = $permissions->add($name);
 			if(!$permission->id) continue;
 			$permission->title = $optionalPermissions[$name];
 			if($languages && $permission->title instanceof LanguagesValueInterface) {
 				// if the permission titles have been translated, ensure that the translation goes in for each language
 				foreach($languages as $language) {
 					if($language->isDefault()) continue;
-					$a = $this->wire('permissions')->getOptionalPermissions();
+					$a = $permissions->getOptionalPermissions();
 					if($a[$name] == $optionalPermissions[$name]) continue;
 					$permission->title->setLanguageValue($language, $a[$name]);
 				}
@@ -159,8 +167,7 @@ class ProcessPermission extends ProcessPageType {
 
 		if($userLanguage) $user->language = $userLanguage;
 		
-		$this->wire('session')->redirect('../');
+		$this->wire()->session->location('../');
 	}
 	
 }
-

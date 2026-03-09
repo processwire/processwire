@@ -49,7 +49,7 @@
  * ~~~~~
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -179,12 +179,12 @@ class WireDatabaseBackup {
 		// find and replace in row data (not supported by exec/mysql method)
 		'findReplace' => array( 
 			// Example: 'databass' => 'database'
-			),
+		),
 		
 		// find and replace in create table statements (not supported by exec/mysql)
 		'findReplaceCreateTable' => array( 
 			// Example: 'DEFAULT CHARSET=latin1;' => 'DEFAULT CHARSET=utf8;', 
-			),
+		),
 
 		// EXEC MODE IS CURRRENTLY EXPERIMENTAL AND NOT RECOMMEND FOR USE YET
 		// if true, we will try to use mysql via exec first (faster). if false, we won't attempt that.
@@ -218,7 +218,7 @@ class WireDatabaseBackup {
 		'dbPath' => '', // optional mysql/mysqldump path on file system
 		'dbSocket' => '', 
 		'dbCharset' => 'utf8',
-		);
+	);
 
 	/**
 	 * Array of text indicating details about what methods were used (primarily for debugging)
@@ -376,9 +376,15 @@ class WireDatabaseBackup {
 			$dsn = "mysql:dbname=$config[dbName];host=$config[dbHost]";
 			if($config['dbPort']) $dsn .= ";port=$config[dbPort]";
 		}
+
+		if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
+			$initCommand = constant("\\PDO\\Mysql::ATTR_INIT_COMMAND");
+		} else {
+			$initCommand = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+		}
 		
 		$options = array(
-			\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES '$config[dbCharset]'",
+			$initCommand => "SET NAMES '$config[dbCharset]'",
 			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
 		);
 		
@@ -534,7 +540,13 @@ class WireDatabaseBackup {
 		$filename = $this->sanitizeFilename($filename); 
 		if(!file_exists($filename)) return array();
 
-		$fp = fopen($filename, "r+");
+		$fp = fopen($filename, 'r');
+		
+		if($fp === false) {
+			$this->error('Unable to open file for reading: ' . basename($filename));
+			return array();
+		}
+		
 		$line = fgets($fp);
 		if(strpos($line, self::fileHeader) === 0 || strpos($line, "# " . self::fileHeader) === 0) {
 			$pos = strpos($line, '{');
@@ -828,10 +840,14 @@ class WireDatabaseBackup {
 			if(in_array($table, $options['excludeExportTables'])) continue; 
 			$numTables++;
 			$columns = array();
+			$columnTypes = array();
 			$query = $database->prepare("SHOW COLUMNS FROM `$table`");
 			$query->execute();
 			/** @noinspection PhpAssignmentInConditionInspection */
-			while($row = $query->fetch(\PDO::FETCH_NUM)) $columns[] = $row[0];
+			while($row = $query->fetch(\PDO::FETCH_NUM)) {
+				$columns[] = $row[0];
+				$columnTypes[] = $row[1];
+			}
 			$query->closeCursor();
 			$columnsStr = '`' . implode('`, `', $columns) . '`';
 
@@ -856,9 +872,12 @@ class WireDatabaseBackup {
 			while($row = $query->fetch(\PDO::FETCH_NUM)) {
 				$numInserts++;
 				$out = "\nINSERT INTO `$table` ($columnsStr) VALUES(";
-				foreach($row as $value) {
+				foreach($row as $key => $value) {
+					$columnType = $columnTypes[$key];
 					if(is_null($value)) {
 						$value = 'NULL';
+					} else if(stripos($columnType, 'bit') === 0 && ctype_digit("$value")) {
+						// leave bit column value unquoted
 					} else {
 						if($hasReplace) foreach($options['findReplace'] as $find => $replace) {
 							if(strpos($value, $find)) $value = str_replace($find, $replace, $value);

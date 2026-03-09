@@ -60,8 +60,8 @@ var ProcessWireAdminTheme = {
 				$button = $t.clone(true);
 				$button.attr('data-from_id', $t.attr('id')).attr('id', $t.attr('id') + '_copy');
 				//$a = $("<a></a>").attr('href', '#');
-				$button.click(function() {
-					$("#" + $(this).attr('data-from_id')).click(); // .parents('form').submit();
+				$button.on('click', function() {
+					$("#" + $(this).attr('data-from_id')).trigger('click');
 					return false;
 				});
 				//$head.prepend($a.append($button));
@@ -159,9 +159,9 @@ var ProcessWireAdminTheme = {
 					window.location = ui.item.edit_url;
 				}
 			}
-		}).focus(function() {
+		}).on('focus', function() {
 			$(this).siblings('label').find('i').hide(); // hide icon
-		}).blur(function() {
+		}).on('blur', function() {
 			$status.text('');	
 			$(this).siblings('label').find('i').show(); // show icon
 		});
@@ -195,13 +195,13 @@ var ProcessWireAdminTheme = {
 				}
 			}
 
-			$topnav.children('.collapse-topnav-menu').children('a').click(function() {
+			$topnav.children('.collapse-topnav-menu').children('a').on('click', function() {
 				if($(this).is(".hover")) {
 					// already open? close it. 
-					$(this).mouseleave();
+					$(this).trigger('mouseleave');
 				} else {
 					// open it again
-					$(this).mouseenter();
+					$(this).trigger('mouseenter');
 				}
 				return false;
 			}); 
@@ -231,7 +231,7 @@ var ProcessWireAdminTheme = {
 		};
 
 		windowResize();
-		$(window).resize(windowResize);
+		$(window).on('resize', windowResize);
 
 	}
 
@@ -240,7 +240,7 @@ var ProcessWireAdminTheme = {
 $(document).ready(function() {
 	ProcessWireAdminTheme.init();
 
-	$('a.notice-remove', '#notices').click(function() {
+	$('a.notice-remove', '#notices').on('click', function() {
 		$('#notices').slideUp('fast', function() {
 			$(this).remove();
 		});

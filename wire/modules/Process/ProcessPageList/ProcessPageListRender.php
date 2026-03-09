@@ -360,8 +360,7 @@ abstract class ProcessPageListRender extends Wire {
 		}
 		
 		if(!empty($options['noTags']) && strpos($value, '<') !== false) {
-			// legacy code, appears to be impossible to reach
-			$value = strip_tags($value);
+			$value = strip_tags(str_replace('<', ' <', $value));
 		}
 
 		return $icon . trim($value);
@@ -464,9 +463,10 @@ abstract class ProcessPageListRender extends Wire {
 				$value .= "<span class='label_$field'>";
 			} else if(strlen($value)) {
 				$value .= ", ";
+				$v = strip_tags("$v");
 			}
 
-			$value .= htmlspecialchars(strip_tags("$v"), ENT_QUOTES, "UTF-8", false);
+			$value .= htmlspecialchars("$v", ENT_QUOTES, "UTF-8", false);
 
 			if(empty($options['noTags'])) $value .= "</span>";
 		}
@@ -573,4 +573,3 @@ abstract class ProcessPageListRender extends Wire {
 	}
 
 }
-
