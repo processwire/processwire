@@ -780,6 +780,8 @@ $config->fileContentTypes = array(
 	'webp' => 'image/webp',
 	'zip' => '+application/zip',
 	'mp3' => 'audio/mpeg',
+	'mp4' => 'video/mp4',
+	'mov' => 'video/quicktime',
 );
 
 /**

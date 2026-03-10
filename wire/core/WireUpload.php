@@ -562,6 +562,13 @@ class WireUpload extends Wire {
 		}
 
 		$this->wire()->files->chmod($destination);
+		
+		if(!$this->hasValidMimeType($destination)) {
+			$fname = $this->wire()->sanitizer->name(basename($destination));
+			$this->error("$fname - " . $this->_('File content does not match its extension'));
+			$this->wire()->files->unlink($destination);
+			return false;
+		}
 
 		if($p['extension'] == 'zip' && ($this->maxFiles == 0) && $this->extractArchives) {
 			if($this->saveUploadZip($destination)) {
@@ -902,5 +909,66 @@ class WireUpload extends Wire {
 	 */
 	public static function isAjaxUploading() {
 		return !empty($_SERVER['HTTP_X_FILENAME']);
+	}
+	
+	/**
+	 * Does given file extension have a valid mime type?
+	 * 
+	 * @param string $filename
+	 * @param array $mimeTypes Optionally specify [ 'ext' => 'type', 'ext' => [ 'type1', 'type2' ]
+	 *   If argument omitted then $config->fileContentTypes is used. 
+	 * @return bool
+	 * @since 3.0.258
+	 * 
+	 */
+	public function hasValidMimeType($filename, $mimeTypes = []) {
+		
+		if(!function_exists('finfo_open')) return true;
+		if(!is_file($filename)) return false;
+		
+		if(empty($mimeTypes)) $mimeTypes = $this->wire()->config->fileContentTypes;
+		if(empty($mimeTypes)) return true;
+	
+		// trim off the force download "+" used by $config->fileContentTypes
+		foreach($mimeTypes as $key => $mimeType) {
+			$mimeTypes[$key] = ltrim($mimeType, '+');
+		}
+	
+		// mime-types where multiple types can apply to one extension
+		$multiMimeTypes = [
+			'svg' => [ 'image/svg+xml', 'text/xml', 'text/html', 'text/plain', 'application/xml' ],
+			'docx' => [ 'application/vnd.openxmlformats-officedocument', 'application/zip' ],
+			'xlsx' => [ 'application/vnd.openxmlformats-officedocument', 'application/zip' ],
+			'zip' => [ 'application/zip', 'application/x-zip' ],
+			'mp3' => [ 'audio/mpeg', 'audio/mp3' ],
+		];
+		
+		foreach(array_keys($multiMimeTypes) as $ext) {
+			if(!isset($mimeTypes[$ext])) unset($multiMimeTypes[$ext]);
+		}
+		
+		$extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+		if(!isset($mimeTypes[$extension])) return true;
+		
+		$finfo = finfo_open(FILEINFO_MIME_TYPE);
+		if(!$finfo) return true; // finfo failed to initialize
+		
+		$mimeType = finfo_file($finfo, $filename);
+		if(version_compare(PHP_VERSION, '8.5.0', '<')) finfo_close($finfo);
+		if($mimeType === false) return true; // detection failed
+	
+		$allowed = false;	
+		$allowedType = $mimeTypes[$extension];
+		
+		if(stripos($mimeType, $allowedType) === 0) return true;
+		
+		if(isset($multiMimeTypes[$extension])) {
+			foreach($multiMimeTypes[$extension] as $allowedType) {
+				if(stripos($mimeType, $allowedType) === 0) $allowed = true;
+				if($allowed) break;
+			}
+		}
+		
+		return $allowed;
 	}
 }
