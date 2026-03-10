@@ -142,9 +142,7 @@ if(!$browserTitle) $browserTitle = __(strip_tags($page->get('title|name')), __FI
 	<div id="content" class="content fouc_fix">
 		<div class="container">
 
-			<?php if(trim($page->get('summary'))) echo "<h2>" . $page->get('summary') . "</h2>"; ?>
-
-			<?php if($page->get('body')) echo $page->get('body'); ?>
+			<?php if(trim($page->get('summary'))) echo "<h2>" . $sanitizer->entities1($page->get('summary')) . "</h2>"; ?>
 
 			<?php echo $content?>
 

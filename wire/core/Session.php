@@ -1359,7 +1359,9 @@ class Session extends Wire implements \IteratorAggregate {
 	public function ___redirect($url, $status = 301) {
 		
 		$page = $this->wire()->page;
-
+		
+		$url = str_replace([ "\r", "\n", "\0" ], '', $url);
+		
 		if($status === true || "$status" === "301" || "$status" === "1") {
 			$status = 301;
 		} else if($status === false || "$status" === "302" || "$status" === "0") {

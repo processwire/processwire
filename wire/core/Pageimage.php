@@ -544,7 +544,12 @@ class Pageimage extends Pagefile {
 		if(!$filename) $filename = $this->filename;
 		$xml = @file_get_contents($filename);
 		
-		if($xml && false !== ($a = @simplexml_load_string($xml))) {
+		// Disable external entity loading to prevent XXE attacks on uploaded SVGs
+		// FileValidatorSVG already does this so this isn’t technically necessary
+		$xmlFlags = LIBXML_NONET | LIBXML_NOENT;
+		if(LIBXML_VERSION >= 20912) $xmlFlags |= LIBXML_NO_XXE;
+		
+		if($xml && false !== ($a = @simplexml_load_string($xml, 'SimpleXMLElement', $xmlFlags))) {
 			$a = $a->attributes();
 			if((int) $a->width > 0) $width = (int) $a->width;
 			if((int) $a->height > 0) $height = (int) $a->height;

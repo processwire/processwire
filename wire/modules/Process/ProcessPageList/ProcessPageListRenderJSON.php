@@ -117,9 +117,11 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			if($numChildren > 0 && !$this->superuser) {
 				// manually count quantity that are listable in the trash
 				$numChildren = 0;
-				foreach($page->children("include=all") as $child) {
+				$trashChildren = $page->children("include=all");
+				foreach($trashChildren as $child) {
 					if($child->listable()) $numChildren++;
 				}
+				$this->wire()->pages->uncacheAll($trashChildren);
 			}
 			if(strpos($this->qtyType, 'total') !== false) {
 				$numTotal = $this->wire()->pages->trasher()->getTrashTotal();
