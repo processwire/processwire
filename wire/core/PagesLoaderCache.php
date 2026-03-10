@@ -28,6 +28,14 @@ class PagesLoaderCache extends Wire {
 	 *
 	 */
 	protected $pageSelectorCache = array();
+	
+	/**
+	 * Maximum number of selector cache entries before LRU eviction
+	 *
+	 * @var int
+	 *
+	 */
+	protected $maxSelectorCacheSize = 200; 
 
 	/**
 	 * [ 'cache group name' => [ page IDs ] ]
@@ -260,6 +268,14 @@ class PagesLoaderCache extends Wire {
 
 		// optimization: don't cache single pages that have an unpublished status or higher
 		if(count($pages) && !empty($options['findOne']) && $pages->first()->status >= Page::statusUnpublished) return false;
+		
+		// LRU eviction: when cache exceeds max size, remove oldest entries
+		if(count($this->pageSelectorCache) >= $this->maxSelectorCacheSize) {
+			// Remove the oldest 25% of entries to avoid evicting on every insert
+			$evictCount = (int) ($this->maxSelectorCacheSize * 0.25);
+			if($evictCount < 1) $evictCount = 1;
+			$this->pageSelectorCache = array_slice($this->pageSelectorCache, $evictCount, null, true);
+		}
 
 		$this->pageSelectorCache[$selector] = clone $pages;
 
@@ -352,7 +368,14 @@ class PagesLoaderCache extends Wire {
 		}
 
 		if($returnSelector) return $selector;
-		if(isset($this->pageSelectorCache[$selector])) return $this->pageSelectorCache[$selector];
+		
+		if(isset($this->pageSelectorCache[$selector])) {
+			// LRU touch: move accessed entry to end so it's evicted last
+			$value = $this->pageSelectorCache[$selector];
+			unset($this->pageSelectorCache[$selector]);
+			$this->pageSelectorCache[$selector] = $value;
+			return $value;
+		}
 
 		return null;
 	}
