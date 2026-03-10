@@ -9,7 +9,7 @@
  * API variables can also be accessed as local properties in most cases. Wire also provides basic methods 
  * for tracking changes and managing runtime notices specific to the instance. 
  * 
- * Wire derived classes can specify which methods are “hookable” by precending the method name with 
+ * Wire derived classes can specify which methods are “hookable” by preceding the method name with 
  * 3 underscores like this: `___myMethod()`. Other classes can then hook either before or after that method, 
  * modifying arguments or return values. Several other hook methods are also provided for Wire derived 
  * classes that are hooking into others. 
@@ -19,7 +19,7 @@
  * #pw-summary-changes Methods to support tracking and retrieval of changes made to the object.
  * #pw-summary-hooks Methods for managing hooks for an object instance or class. 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-use-constants
@@ -446,7 +446,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	/**
 	 * Provides the gateway for calling hooks in ProcessWire
 	 * 
-	 * When a non-existant method is called, this checks to see if any hooks have been defined and sends the call to them. 
+	 * When a non-existent method is called, this checks to see if any hooks have been defined and sends the call to them. 
 	 * 
 	 * Hooks are defined by preceding the "hookable" method in a descending class with 3 underscores, like __myMethod().
 	 * When the API calls $myObject->myMethod(), it gets sent to $myObject->___myMethod() after any 'before' hooks have been called. 
@@ -496,7 +496,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	protected function _callWireAPI($method, $arguments) {
 		$var = $this->_wire ? $this->_wire->fuel()->$method : null;
-		if(!$var) return false;
+		if($var === null) return false;
 		// requested method maps to an API variable
 		$result = array('return' => null);
 		if(count($arguments)) {
@@ -839,7 +839,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function addHookProperty($property, $toObject, $toMethod = null, $options = array()) {
 		// This is the same as calling addHook with the 'type' option set to 'property' in the $options array. 
-	    // Note that descending classes that override __get must call getHook($property) and/or runHook($property).
+		// Note that descending classes that override __get must call getHook($property) and/or runHook($property).
 		$options['type'] = 'property'; 
 		return $this->_wireHooks()->addHook($this, $property, $toObject, $toMethod, $options); 
 	}
@@ -1208,7 +1208,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 
 	/**
-	 * @var Notices[]
+	 * @var array<string, Notices|null>
 	 * 
 	 */
 	protected $_notices = array(
