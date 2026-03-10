@@ -21,7 +21,7 @@
  * 
  * May also be accessed as array. 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method WireArray and($items = null)
@@ -108,7 +108,6 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 *
 	 */
 	protected function isEqual($key, $value1, $value2) {
-		if($key) {} // intentional to avoid unused argument notice
 		// $key intentionally not used here, but may be used by descending classes
 		return $value1 === $value2; 	
 	}
@@ -359,9 +358,11 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 *
 	 */
 	public function remove($key) {
-		$value = isset($this->data[$key]) ? $this->data[$key] : null;
-		$this->trackChange("unset:$key", $value, null); 
-		unset($this->data[$key]); 
+		if(!isset($this->data[$key])) return $this;
+		if($this->trackChanges) {
+			$this->trackChange("unset:$key", $this->data[$key], null);
+		}
+		unset($this->data[$key]);
 		return $this;
 	}
 
@@ -385,7 +386,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	}
 
 	/**
-	 * Does this object have the given property?
+	 * Does this object have the given property with a non-null value?
 	 * 
 	 * ~~~~~
 	 * if($item->has('some_property')) {

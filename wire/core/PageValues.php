@@ -118,7 +118,7 @@ class PageValues extends Wire {
 	 * @param Page $page
 	 * @param string $key
 	 * @param mixed $value Value to use rather than pulling from $page
-	 * @return array|mixed|Page|PageArray|Wire|WireArray|WireData|string|\Traversable
+	 * @return array|mixed|Page|PageArray|Wire|WireArray|WireData|string|\Traversable|null
 	 *
 	 */
 	public function getBracketValue(Page $page, $key, $value = null) {
@@ -139,14 +139,17 @@ class PageValues extends Wire {
 		}
 
 		if(ctype_digit($index)) {
+			// i.e. field_name[0] or field_name[selector][0] where 0 is index
 			$index = (int) $index;
 			$getIterable = false;
 		}
 
 		if($index !== '' && !is_int($index)) {
 			if(ctype_alnum(str_replace('_', '', $index))) {
+				// property, i.e. field[property]
 				$property = $index;
 			} else {
+				// selector, i.e. field[a=b]
 				$selector = $index;
 			}
 			$index = '';
@@ -192,7 +195,9 @@ class PageValues extends Wire {
 				$value = $value->find($selector);
 				$value->resetTrackChanges();
 			}
-		} else if(is_int($index)) {
+		} 
+		
+		if(is_int($index)) {
 			if($value instanceof WireArray){
 				$value = $value->eq($index);
 			} else if(is_array($value) || $value instanceof \ArrayAccess) {
@@ -275,18 +280,22 @@ class PageValues extends Wire {
 	 * Example: browser_title|headline|title - Return the value of the first field that is non-empty
 	 *
 	 * @param page $page
-	 * @param string $multiKey
+	 * @param string|array $multiKey
 	 * @param bool $getKey Specify true to get the first matching key (name) rather than value
 	 * @return null|mixed Returns null if no values match, or if there aren't multiple keys split by "|" chars
 	 *
 	 */
 	public function getFieldFirstValue(Page $page, $multiKey, $getKey = false) {
 
-		// looking multiple keys split by "|" chars, and not an '=' selector
-		if(strpos($multiKey, '|') === false || strpos($multiKey, '=') !== false) return null;
+		if(is_array($multiKey)) {
+			$keys = $multiKey;
+		} else {
+			// looking for multiple keys split by "|" chars, and not an '=' selector
+			if(strpos($multiKey, '|') === false || strpos($multiKey, '=') !== false) return null;
+			$keys = explode('|', $multiKey);
+		}
 
 		$value = null;
-		$keys = explode('|', $multiKey);
 
 		foreach($keys as $key) {
 			$v = $page->getUnformatted($key);
@@ -1022,7 +1031,8 @@ class PageValues extends Wire {
 
 		if(!$page->template()) {
 			$config = $page->wire()->config;
-			$name = strpos($key, '__') ? substr($key, 0, strpos($key, '__')) : $key;
+			$pos = strpos($key, '__'); 
+			$name = $pos ? substr($key, 0, $pos) : $key;
 			$error = "You must assign a template to page $page before setting '$name' field.";
 			if($config->debug) {
 				// allow page to proceed in debug mode so that it's possible to delete it if needed

@@ -1572,7 +1572,7 @@ class Selectors extends WireArray {
 	 *
 	 * @param string $str String that might contain an operator
 	 * @param bool $getOperator Specify true to return the operator that was found, or false if not (since 3.0.108)
-	 * @return bool
+	 * @return bool|string
 	 *
 	 */
 	static public function stringHasOperator($str, $getOperator = false) {
@@ -1582,7 +1582,9 @@ class Selectors extends WireArray {
 
 		$has = false;
 		$str = (string) $str;
-
+		
+		if(strpbrk($str, '<>=') === false) return false;
+		
 		foreach(self::$selectorTypes as $operator => $unused) {
 
 			if($operator == '&') continue; // this operator is too common in other contexts

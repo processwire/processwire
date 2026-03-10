@@ -398,7 +398,9 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	protected function filterData($selectors, $not = false) {
-		if(is_string($selectors) && $selectors[0] === '/') $selectors = "path=$selectors";
+		if(is_string($selectors) && isset($selectors[0]) && $selectors[0] === '/') {
+			$selectors = "path=$selectors";
+		}
 		return parent::filterData($selectors, $not); 
 	}
 
@@ -556,10 +558,14 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 */
 	protected function filterDataSelectors(Selectors $selectors) { 
 		$disallowed = array('include', 'check_access', 'checkAccess');
+		$removals = [];
 		foreach($selectors as $selector) {
 			if(in_array($selector->field(), $disallowed)) {
-				$selectors->remove($selector);
+				$removals[] = $selector; 
 			}
+		}
+		foreach($removals as $selector) {
+			$selectors->remove($selector);
 		}
 		parent::filterDataSelectors($selectors);
 	}
@@ -615,7 +621,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	/**
 	 * PageArrays always return a string of the Page IDs separated by pipe "|" characters
 	 *
-	 * Pipe charactesr are used for compatibility with Selector OR statements
+	 * Pipe characters are used for compatibility with Selector OR statements
 	 *
 	 */
 	public function __toString() {
@@ -645,7 +651,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	public function ___getMarkup($key = null) {
 		if($key && !is_string($key)) {
 			$out = $this->each($key);
-		} else if(strpos($key, '{') !== false && strpos($key, '}')) {
+		} else if(is_string($key) && strpos($key, '{') !== false && strpos($key, '}')) {
 			$out = $this->each($key);
 		} else {
 			if(empty($key)) $key = "<li>{title|name}</li>";

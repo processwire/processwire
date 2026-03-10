@@ -56,7 +56,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	/**
 	 * Array containing the items that have been removed from this WireArray while trackChanges is on
 	 * 
-	 * @see getRemovedKeys()
+	 * @see getItemsRemoved()
 	 *
 	 */
 	protected $itemsRemoved = array(); 
@@ -64,7 +64,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	/**
 	 * Array containing the items that have been added to this WireArray while trackChanges is on
 	 * 
-	 * @see getRemovedKeys()
+	 * @see getItemsAdded()
 	 *
 	 */
 	protected $itemsAdded = array();
@@ -313,7 +313,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 
 		if(!$this->isValidItem($item)) {
 			if($item instanceof WireArray) {
-				foreach($item as $i) $this->prepend($i); 
+				foreach($item as $i) $this->add($i); 
 				return $this; 
 			} else {
 				throw new WireException("Item added to " . get_class($this) . " is not an allowed type"); 
@@ -709,7 +709,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			'values' => 'getValues',
 		);
 		
-		if(!in_array($property, $properties)) return $this->data($property); 
+		if(!isset($properties[$property])) return $this->data($property);
 		$func = $properties[$property];
 		return $this->$func();
 	}
@@ -949,12 +949,15 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	public function findRandomTimed($num, $seed = 'Ymd') {
 
 		if(is_string($seed)) $seed = crc32(date($seed));
-		srand($seed);
+		$seed = (int) $seed;
 		$keys = $this->getKeys();
 		$items = $this->makeNew();
 		
 		while(count($keys) > 0 && count($items) < $num) {
-			$index = rand(0, count($keys)-1);
+			// Use a self-contained Linear Congruential Generator (LCG) rather than
+			// srand()/rand() to avoid modifying global PHP RNG state
+			$seed = (1103515245 * $seed + 12345) & 0x7fffffff;
+			$index = $seed % count($keys);
 			$key = $keys[$index];
 			$items->add($this->get($key));
 			array_splice($keys, $index, 1);
@@ -2463,7 +2466,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				// if keys are already numeric, we use them
 				return $this->get((int) $key); 
 			} else {
-				// if keys are not numeric, we delegete numbers to eq(n)
+				// if keys are not numeric, we delegate numbers to eq(n)
 				return $this->eq((int) $key);
 			}
 		} else if(is_callable($key) || (is_string($key) && strpos($key, '{') !== false && strpos($key, '}'))) {
