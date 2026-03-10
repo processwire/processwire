@@ -5,7 +5,7 @@
  *
  * Manages collection of ALL Field instances, not specific to any particular Fieldgroup
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages all custom fields in ProcessWire, independently of any Fieldgroup. 
@@ -98,6 +98,15 @@ class Fields extends WireSaveableItems {
 		'url',
 		'_custom',
 	);
+	
+	/**
+	 * Field names in format [ 'name' => id ]
+	 *
+	 * @var array
+	 * @since 3.0.258
+	 *
+	 */
+	protected $namesToIds = [];
 
 	/**
 	 * Flag names in format [ flagInt => 'flagName' ]
@@ -202,6 +211,7 @@ class Fields extends WireSaveableItems {
 			$this->flagsToIds[$flag] = array();
 		}
 		foreach($rows as $row) {
+			$this->namesToIds[$row['name']] = (int) $row['id']; 
 			$flags = (int) $row['flags'];
 			if(empty($flags)) continue;
 			foreach($this->flagsToIds as $flag => $ids) {
@@ -1563,10 +1573,22 @@ class Fields extends WireSaveableItems {
 		} else if(ctype_digit("$field")) {
 			$fieldId = (int) $field;
 		} else {
-			$field = $this->get($field);
-			$fieldId = $field ? $field->id : 0;
+			$fieldId = isset($this->namesToIds[$field]) ? $this->namesToIds[$field] : 0;
 		}
 		return $fieldId;
 	}
 
+	/**
+	 * Does given field name exist as a custom field? 
+	 * 
+	 * This is for situations where you need to perform a quick test without lazy loading.
+	 * 
+	 * @param string $name
+	 * @return bool
+	 * @since 3.0.258
+	 * 
+	 */
+	public function fieldNameExists($name) {
+		return isset($this->namesToIds[$name]);
+	}
 }
