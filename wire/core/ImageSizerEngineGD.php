@@ -234,7 +234,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$imageTemp = imagecreatetruecolor(imagesx($image), imagesy($image));  // create an intermediate memory image
 			$this->prepareImageLayer($imageTemp, $image);
 			imagecopy($imageTemp, $image, 0, 0, 0, 0, imagesx($image), imagesy($image)); // copy our initial image into the intermediate one
-			imagedestroy($image); // release the initial image
+			$this->imagedestroy($image); // release the initial image
 
 			// get crop values and create a new initial image
 			list($x, $y, $w, $h) = $this->cropExtra;
@@ -251,7 +251,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$isModified = true;
 
 			// now release the intermediate image and update settings
-			imagedestroy($imageTemp);
+			$this->imagedestroy($imageTemp);
 			$imageTemp = null;
 			$this->setImageInfo(imagesx($image), imagesy($image));
 			// $this->cropping = false; // ?? set this to prevent overhead with the following manipulation ??
@@ -274,7 +274,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			
 			if(!$isModified && !$this->webpOnly && !$this->webpAdd && ($this->imageType == \IMAGETYPE_PNG || $this->imageType == \IMAGETYPE_GIF)) {
 				$result = @copy($srcFilename, $dstFilename);
-				if(isset($image) && is_resource($image)) @imagedestroy($image); // clean up
+				if(isset($image) && is_resource($image)) $this->imagedestroy($image); // clean up
 				if(isset($image)) $image = null;
 				return $result; // early return !
 			}
@@ -346,12 +346,12 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 				$finalWidth, // source width
 				$finalHeight // source height
 			);
-			imagedestroy($thumb2);
+			$this->imagedestroy($thumb2);
 		}
 
 		// early release of obsolete GD image object(s) to free memory before processing sharpening
-		if(isset($image) && is_resource($image)) @imagedestroy($image); // @horst
-		if(isset($thumb2) && is_resource($thumb2)) @imagedestroy($thumb2);
+		if(isset($image) && is_resource($image)) $this->imagedestroy($image); // @horst
+		if(isset($thumb2) && is_resource($thumb2)) $this->imagedestroy($thumb2);
 		if(isset($image)) $image = null;
 		if(isset($thumb2)) $thumb2 = null;
 
@@ -418,7 +418,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 		}
 		
 		// release the last GD image object
-		if(isset($thumb) && is_resource($thumb)) @imagedestroy($thumb);
+		if(isset($thumb) && is_resource($thumb)) $this->imagedestroy($thumb);
 		if(isset($thumb)) $thumb = null;
 		if($result === null) $result = $this->webpResult; // if webpOnly option used
 
@@ -769,8 +769,8 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 				}
 			}
 		}
-		imagedestroy($imgCanvas);
-		imagedestroy($imgBlur);
+		$this->imagedestroy($imgCanvas);
+		$this->imagedestroy($imgBlur);
 
 		return $img;
 	}
@@ -1049,7 +1049,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$this->error($this->className() . ".$method(img, $value) returned fail", Notice::debug);
 		} else if($imgNew !== $img) {
 			// a new img object was created
-			imagedestroy($img);
+			$this->imagedestroy($img);
 			$img = $imgNew;
 			if($useTransparency) {
 				imagealphablending($img, true);
@@ -1071,7 +1071,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			if(!$success) $this->error("image{$ext}() failed", Notice::debug);
 		}
 
-		imagedestroy($img);
+		$this->imagedestroy($img);
 
 		return $success;
 	}
@@ -1180,5 +1180,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 		return $this->processAction($this->filename, $dstFilename, 'sepia', $sepia);
 	}
 
-
+	public function imagedestroy($image) {
+		if(version_compare(PHP_VERSION, '8.5.0', '<')) @imagedestroy($image);
+	}
 }

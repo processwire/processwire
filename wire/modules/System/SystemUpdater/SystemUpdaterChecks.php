@@ -332,7 +332,7 @@ class SystemUpdaterChecks extends Wire {
 			// language support installed
 			$textdomain = 'wire--modules--languagesupport--languagesupport-module';
 			$locale = __('C', $textdomain);
-			if(empty($locale)) $locale = setlocale(LC_CTYPE, 0);
+			if(empty($locale)) $locale = setlocale(LC_CTYPE, '0');
 			$msg .= ' ' . 
 				sprintf($localeLabel, $locale) . ' ' . 
 				sprintf(
@@ -358,7 +358,7 @@ class SystemUpdaterChecks extends Wire {
 			
 		} else {
 			// no language support installed
-			$locale = setlocale(LC_CTYPE, 0);
+			$locale = setlocale(LC_CTYPE, '0');
 			$msg .=
 				sprintf($localeLabel, $locale) .
 				sprintf(

@@ -378,7 +378,7 @@ class WireDatabaseBackup {
 		}
 
 		if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
-			$initCommand = constant("\\PDO\\Mysql::ATTR_INIT_COMMAND");
+			$initCommand = constant("\\Pdo\\Mysql::ATTR_INIT_COMMAND");
 		} else {
 			$initCommand = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
 		}
@@ -928,17 +928,17 @@ class WireDatabaseBackup {
 		$cmd = str_replace('[tables]', implode(' ', $options['tables']), $cmd); 
 		
 		foreach($options['excludeTables'] as $table) {
-			$cmd .= " --ignore-table=$table";
+			$cmd .= " --ignore-table=" . escapeshellarg($table);
 		}
 		
 		if(strpos($cmd, '[dbFile]')) {
 			$cmd = str_replace('[dbFile]', $file, $cmd); 
 		} else {
-			$cmd .= " > $file";
+			$cmd .= " > " . escapeshellarg($file);
 		}
 		
 		foreach($this->databaseConfig as $key => $value) {
-			$cmd = str_replace("[$key]", $value, $cmd); 
+			$cmd = str_replace("[$key]", escapeshellarg($value), $cmd);
 		}
 		
 		exec($cmd); 
@@ -1118,10 +1118,10 @@ class WireDatabaseBackup {
 
 		$cmd = $options['execCommand'];
 		$cmd = str_replace(array("\n", "\t"), ' ', $cmd);
-		$cmd = str_replace('[dbFile]', $filename, $cmd);
+		$cmd = str_replace('[dbFile]', escapeshellarg($filename), $cmd);
 
 		foreach($this->databaseConfig as $key => $value) {
-			$cmd = str_replace("[$key]", $value, $cmd);
+			$cmd = str_replace("[$key]", escapeshellarg($value), $cmd);
 		}
 
 		$o = array();

@@ -750,7 +750,7 @@ class Installer {
 			}
 
 			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
-				$initCommand = constant("\\PDO\\Mysql::ATTR_INIT_COMMAND");
+				$initCommand = constant("\\Pdo\\Mysql::ATTR_INIT_COMMAND");
 			} else {
 				$initCommand = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
 			}
