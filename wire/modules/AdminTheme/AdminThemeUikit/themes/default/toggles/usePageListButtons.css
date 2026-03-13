@@ -21,32 +21,45 @@
 	filter: brightness(1.08);
 }
 
+#pw-content-body ul.MarkupPagerNav > li.MarkupPagerNavFirst > a, 
 #pw-content-body .PageList ul.uk-pagination > li:first-child > a {
+	/* pagination border radius on next/prev links */ 
 	border-top-left-radius: var(--pw-button-radius) !important;
 	border-bottom-left-radius: var(--pw-button-radius) !important;
 }
+#pw-content-body ul.MarkupPagerNav > li.MarkupPagerNavLast > a,
 #pw-content-body .PageList ul.uk-pagination > li:last-child > a {
+	/* pagination border radius on next/prev links */
 	border-top-right-radius: var(--pw-button-radius) !important;
 	border-bottom-right-radius: var(--pw-button-radius) !important;
 }
 
-.PageList .PageListItem:hover {
-	/* adjust width to actions */
-	/*
-	display: inline-block;
-	width: auto;
-	 */
-}
-
+#pw-content-body ul.MarkupPagerNav > li.MarkupPagerNavOn > a, 
 #pw-content-body .PageList ul.uk-pagination > li.uk-active > a {
 	/* update active pagination to use main color */
 	background: var(--pw-main-color) !important; 
-	--pw-text-color: #fff; 
+	color: #fff !important; 
 }
 
-.PageList .PageListItem:not(:hover) .PageListActions.actions {
+#pw-content-body .PageList .PageListItem {
+	margin: 1px 0;
+}
+#pw-content-body .PageList .PageListItem:not(:hover):not(.PageListItemOpen) .PageListActions.actions {
+	/* do not show actions on pages that aren't hovered or "open" */
 	display: none !important;
 }
+#pw-content-body .PageList .PageListItemOpen:not(.PageListID1):not(:hover) > .PageListActions,
 .PageList .PageListItem:hover .PageListActions.actions {
-	display: inline-block;
+	/* show actions when hovered */
+	display: inline-block !important;
+	opacity: 1 !important;
+}
+#pw-content-body .PageList .PageListItem.PageListItemOpen:not(.PageListID1) {
+	/* when item is "open" (selected), indicate with background */
+	background: var(--pw-inputs-background);
+	border-radius: 4px;
+}
+#pw-content-body .PageList .PageListItem:hover {
+	/* slight border radius on open or hovered items */
+	border-radius: 4px;
 }
