@@ -340,12 +340,14 @@ class WireHooks {
 	 */
 	public function isHooked($method, ?Wire $instance = null) {
 		if($instance) return $this->hasHook($instance, $method);
-		if(strpos($method, ':') !== false) {
-			$hooked = isset($this->hookClassMethodCache[$method]); // fromClass::method() or fromClass::property
-		} else {
-			$hooked = isset($this->hookMethodCache[$method]); // method() or property
-		}
-		return $hooked;
+		
+		// fromClass::method() or fromClass::property
+		if(isset($this->hookClassMethodCache[$method])) return true;
+		
+		// method() or property
+		if(isset($this->hookMethodCache[$method])) return true;
+		
+		return false;
 	}
 
 	/**
