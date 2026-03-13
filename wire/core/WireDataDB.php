@@ -64,7 +64,54 @@ class WireDataDB extends WireData implements \Countable {
 		parent::set($key, $value);
 		return $value;
 	}
-
+	
+	/**
+	 * Get and/or set cached value 
+	 * 
+	 * Sets value from callable function and caches it so that later calls do not 
+	 * call the callable function again until it expires.
+	 * 
+	 * ~~~~~
+	 * // returns same random number for 1 hour (3600 seconds)
+	 * echo $page->meta->getCache('my_rand_num', 3600, function() {
+	 *   return mt_rand();
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * @param string $key Name of property to get or set
+	 * @param int $maxAge Maximum age in seconds
+	 * @param callable $func Function that returns the value when creating (when new or after expiration)
+	 * @return array|mixed|null
+	 * @since 3.0.258
+	 * 
+	 */
+	public function getCache(string $key, int $maxAge, callable $func) {
+		
+		$getValue = $this->get($key);
+	
+		if(is_array($getValue)) {
+			$v = $this->decodeCacheValue($getValue, $maxAge); 
+			if($v === null) {
+				// expired
+				$setValue = $func();
+				$getValue = $setValue;
+			} else {
+				$getValue = $v;
+				$setValue = null;
+			}
+		} else {
+			$setValue = $func();
+			$getValue = $setValue;
+		}
+		
+		if($setValue !== null) {
+			$setValue = $this->encodeCacheValue($setValue, $maxAge);
+			$this->set($key, $setValue);
+		}
+		
+		return $getValue;
+	}
+	
 	/**
 	 * Get all values in an associative array 
 	 * 
@@ -167,17 +214,20 @@ class WireDataDB extends WireData implements \Countable {
 	 */
 	protected function load($name) {
 		if(empty($name)) return null;
-		if($this->fullyLoaded) return $name === true ? parent::getArray() : parent::get($name);
+		$loadAll = $name === true; 
+		if($this->fullyLoaded) {
+			return ($loadAll ? parent::getArray() : parent::get($name));
+		}
 		$table = $this->table();
 		$sql = "SELECT name, data FROM `$table` WHERE source_id=:source_id ";
-		if($name !== true) $sql .= "AND name=:name ";
+		if(!$loadAll) $sql .= "AND name=:name ";
 		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
-		if($name !== true) $query->bindValue(':name', $name);
+		if(!$loadAll) $query->bindValue(':name', $name);
 		try {
 			$query->execute();
 		} catch(\Exception $e) {
-			return $name === true ? array() : null;
+			return $loadAll ? array() : null;
 		}
 		if($query->rowCount()) {
 			$meta = array();
@@ -185,13 +235,17 @@ class WireDataDB extends WireData implements \Countable {
 				list($key, $data) = $row;
 				$meta[$key] = json_decode($data, true);
 				parent::set($key, $meta[$key]);
-				if($name !== true) break;
+				if(!$loadAll) {
+					// make meta just the requested property value
+					$meta = $meta[$name];
+					break;
+				}
 			}
-			if($name !== true) $meta = empty($meta) ? null : $meta[$name];
 		} else {
-			$meta = null;
+			// no rows found
+			$meta = $loadAll ? [] : null;
 		}
-		if($name === true) $this->fullyLoaded = true;
+		if($loadAll) $this->fullyLoaded = true;
 		$query->closeCursor();
 		return $meta;
 	}
@@ -291,7 +345,42 @@ class WireDataDB extends WireData implements \Countable {
 		$this->sourceID($sourceID); // set back
 		return count($data);
 	}
-
+	
+	/**
+	 * Encode a cache value for saving
+	 *
+	 * @param array|string $value
+	 * @param int $maxAge
+	 * @return array
+	 * @since 3.0.258
+	 *
+	 */
+	protected function encodeCacheValue($value, $maxAge) {
+		return [
+			'_cre' => time(), // created
+			'_exp' => time() + $maxAge, // expires
+			'_val' => $value, // value 
+		];
+	}
+	
+	/**
+	 * Decode/extract cache value, returning null if it is expired
+	 *
+	 * @param array $a Array in format: [ '_cre' => int, '_exp' => int, '_val' => mixed ];
+	 * @param int|null $maxAge
+	 * @return mixed|null
+	 * @since 3.0.258
+	 *
+	 */
+	protected function decodeCacheValue(array $a, $maxAge = null) {
+		if(!isset($a['_cre']) || !isset($a['_exp']) || !array_key_exists('_val', $a)) return null;
+		list($created, $expires, $val) = [ $a['_cre'], $a['_exp'], $a['_val'] ];
+		if($maxAge === null && $expires < time()) return null; // expired
+		if(is_int($maxAge) && $created + $maxAge < time()) return null; // expired
+		return $val;
+	}
+	
+	
 	/**
 	 * Get the current table name
 	 * 
@@ -341,7 +430,7 @@ class WireDataDB extends WireData implements \Countable {
 		if($database->tableExists($table)) return false;
 		$schema = implode(', ', $this->schema());
 		$sql = "CREATE TABLE `$table` ($schema) ENGINE=$engine DEFAULT CHARSET=$charset";
-		$this->database->exec($sql);
+		$database->exec($sql);
 		$this->message("Added '$table' table to database");
 		return true;
 	}
