@@ -547,6 +547,7 @@ class Pageimage extends Pagefile {
 		// Disable external entity loading to prevent XXE attacks on uploaded SVGs
 		// FileValidatorSVG already does this so this isn’t technically necessary
 		$xmlFlags = LIBXML_NONET | LIBXML_NOENT;
+		if(!defined('LIBXML_NO_XXE')) define('LIBXML_NO_XXE', 0);
 		if(LIBXML_VERSION >= 20912) $xmlFlags |= LIBXML_NO_XXE;
 		
 		if($xml && false !== ($a = @simplexml_load_string($xml, 'SimpleXMLElement', $xmlFlags))) {
