@@ -268,7 +268,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 
 	/**
 	 * Page is flagged as incomplete, needing review, or having some issue
-	 * ProcessPageEdit uses this status to indicate an error message occurred during last internactive save
+	 * ProcessPageEdit uses this status to indicate an error message occurred during last interactive save
 	 * #pw-internal
 	 * @since 3.0.127
 	 * 
@@ -948,7 +948,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		// if lazy load pending, load the page now
 		if($this->lazyLoad && $key !== 'id' && is_int($this->lazyLoad)) $this->_lazy(true);
 
-		if(is_array($key)) $key = implode('|', $key);
+		$key = is_array($key) ? implode('|', $key) : (string) $key;
+		
 		if(empty($key)) return null;
 		if(isset(PageProperties::$basePropertiesAlternates[$key])) {
 			$key = PageProperties::$basePropertiesAlternates[$key];
@@ -978,47 +979,43 @@ class Page extends WireData implements \Countable, WireMatchable {
 		
 		switch($key) {
 			case 'parent':
-				$value = $this->_parent ? $this->_parent : $this->parent();
-				break;
+				return $this->_parent ? $this->_parent : $this->parent();
 			case 'parent_id':
-				$value = $this->_parent ? $this->_parent->id : 0; 
-				if(!$value) $value = $this->_parent_id;
-				break;
+				$value = $this->_parent ? $this->_parent->id : 0;
+				return $value ? $value : $this->_parent_id;
 			case 'templates_id':
 				$template = $this->template();
-				$value = $template ? $template->id : 0;
-				break;
+				return $template ? $template->id : 0;
 			case 'fieldgroup':
 				$template = $this->template();
-				$value = $template ? $template->fieldgroup : null;
-				break;
+				return $template ? $template->fieldgroup : null;
 			case 'modifiedUser':
 			case 'createdUser':
 				$value = $this->getUser($key);
 				if($value->id) $value->of($this->of());
-				break;
+				return $value;
 			case 'urlSegment':
 				// deprecated, but kept for backwards compatibility
-				$value = $this->wire()->input->urlSegment1; 
-				break;
+				return $this->wire()->input->urlSegment1;
 			case 'statusStr':
-				$value = implode(' ', $this->status(true)); 
-				break;
+				return implode(' ', $this->status(true));
 			case 'modifiedStr':
 			case 'createdStr':
 			case 'publishedStr':
 				$value = $this->settings[str_replace('Str', '', $key)];
-				$value = $value ? wireDate($this->wire()->config->dateFormat, $value) : '';
-				break;
+				return $value ? wireDate($this->wire()->config->dateFormat, $value) : '';
 			case 'render':
-				$value = $this->wire()->modules->get('PageRender');	/** @var PageRender $value */
+				$value = $this->wire()->modules->get('PageRender');
+				/** @var PageRender $value */
 				$value->setPropertyPage($this);
-				break;
+				return $value;
 			case 'loaderCache':
-				$value = $this->loaderCache;
-				break;
-			case '_meta':		
-				$value = $this->_meta; // null or WireDataDB
+				return $this->loaderCache;
+			case '_meta':
+				return $this->_meta; // null or WireDataDB
+			case 'meta':
+				if(!$this->wire()->fields->fieldNameExists('meta')) return $this->meta();
+				$value = $this->values()->getFieldValue($this, $key);
 				break;
 			case 'wakeupNameQueue': 	
 				$value = &$this->wakeupNameQueue;
@@ -1026,64 +1023,72 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'fieldDataQueue':	
 				$value = &$this->fieldDataQueue;
 				break;
-			
 			default:
-				if($key && isset($this->settings[(string)$key])) return $this->settings[$key];
-				if($key === 'meta' && !$this->wire()->fields->get('meta')) return $this->meta(); // always WireDataDB
-			
-				$ulpos = strpos($key, '_');
+				$value = null;
+				if($key && isset($this->settings[(string) $key])) return $this->settings[$key];
 				
-				if($ulpos === 0 && substr($key, -1) === '_' && !$this->wire()->fields->get($key)) {
-					if($this->wire()->sanitizer->fieldName($key) === $key) {
-						return $this->renderField(substr($key, 1, -1));
-					}
-				}
-				
-				$k = $ulpos ? str_replace('_', '', $key) : $key;
-			
-				if(!ctype_alnum("$k")) {
-					// key has formatting beyond just a field/property name
-					
-					if(strpos($key, '{') !== false && strpos($key, '}')) {
-						// populate a formatted string with {tag} vars
-						return $this->getMarkup($key);
-					}
-
-					if(strpos($key, '|') !== false) {
-						$value = $this->values()->getFieldFirstValue($this, $key);
-						if($value !== null) return $value; 
-					}
-
-					if(strpos($key, '[')) { 
-						return $this->values()->getBracketValue($this, $key);
-					}
-
-					$value = $this->values()->getFieldValue($this, $key); 
+				if($this->wire()->fields->fieldNameExists($key)) {
+					// key refers to a ProcessWire field name
+					$value = $this->values()->getFieldValue($this, $key);
 					if($value !== null) return $value;
-
-					if(Selectors::stringHasOperator($key)) {
-						// if there is a selector, assume they are using the get() method to get a child
-						return $this->child($key);
-					}
-
-					// check if it's a field.subfield property
-					if(strpos($key, '.')) {
-						return $this->values()->getDotValue($this, $key);
-					}
 					
-					if($ulpos !== false && strpos($key, '_OR_')) {
-						// convert '_OR_' to '|'
-						$value = $this->values()->getFieldFirstValue($this, str_replace('_OR_', '|', $key));
+				} else if(!ctype_alnum($key)) {
+					// key contains something more than [a-z0-9]
+					$ulpos = strpos($key, '_');
+					if($ulpos === false || !ctype_alnum(str_replace('_', '', $key))) {
+						// key has more than just field/property name
+						
+						if(strpos($key, '{') !== false && strrpos($key, '}')) {
+							// key is formatted string with {tag} vars i.e. "Hello {first_name}"
+							return $this->getMarkup($key);
+							
+						} else if(strpos($key, '|') !== false) {
+							// key is OR-condition string like: foo|bar|baz
+							$value = $this->values()->getFieldFirstValue($this, $key);
+							if($value !== null) return $value;
+						}
+						
+						if(strpos($key, '[')) {
+							// Square brackets to get iterable value, filtered value or property value:
+							// returns iterable: `field[]`, or selector-filtered iterable: `field[foo=bar]`
+							// returns value at index 0: `field[0]` or filter first: `field[foo=bar][0]`
+							// returns value of property: `field[property]` same as `field.property`
+							return $this->values()->getBracketValue($this, $key);
+						}
+						
+						// handles custom runtime values set to page
+						$value = $this->values()->getFieldValue($this, $key);
 						if($value !== null) return $value;
+						
+						// if there is a selector, assume they are using the get() method to get a child
+						if(Selectors::stringHasOperator($key)) return $this->child($key);
+						
+						if(strpos($key, '.')) {
+							// this is a "field.subfield" key
+							$value = $this->values()->getDotValue($this, $key);
+							if($value !== null) return $value;
+						}
+						
+						if($ulpos !== false && strpos($key, '_OR_')) {
+							// key like "headline_OR_title_OR_subtitle
+							$value = $this->values()->getFieldFirstValue($this, str_replace('_OR_', '|', $key));
+							if($value !== null) return $value;
+						}
+						
+					} else if($ulpos === 0 && substr($key, -1) === '_') {
+						// `_field_` to render value of `field`
+						if($this->wire()->sanitizer->fieldName($key) === $key) {
+							return $this->renderField(substr($key, 1, -1));
+						}
 					}
-					
 				} else {
+					// handles custom runtime values set to page
 					$value = $this->values()->getFieldValue($this, $key);
 					if($value !== null) return $value;
 				}
-
-				// optionally let a hook look at it
+				
 				if($this->wire()->hooks->isHooked('Page::getUnknown()')) {
+					// if still nothing found, see if a hook wants to handle it
 					$value = $this->getUnknown($key);
 				}
 		}
@@ -1765,7 +1770,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		} else if(strpos($userType, 'modified') === 0) {
 			$userType = 'modified';
 		} else {
-			return $this->wire(new NullPage());
+			return $this->wire()->pages->newNullPage();
 		}
 		
 		$property = '_' . $userType . 'User';
@@ -1776,7 +1781,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		
 		$key = $userType . '_users_id';
 		$uid = (int) $this->settings[$key];
-		if(!$uid) return $this->wire(new NullPage());
+		if(!$uid) return $this->wire()->pages->newNullPage();
 	
 		$u = $this->wire()->user;
 		if($u && $uid === $u->id) {
@@ -1788,7 +1793,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			if($users) $user = $users->get($uid);
 		}
 		
-		if(!$user) $user = $this->wire(new NullPage());
+		if(!$user) $user = $this->wire()->pages->newNullPage();
 		
 		$this->$property = $user; // cache to _createdUser or _modifiedUser
 		
@@ -1840,7 +1845,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-traversal
 	 *
 	 * @param string|array $selector Selector string or array
-	 * @param array $options Optional options to modify default bheavior, see options for `Pages::find()`.
+	 * @param array $options Optional options to modify default behavior, see options for `Pages::find()`.
 	 * @return Page|NullPage Returns Page when found, or NullPage when nothing found. 
 	 * @see Pages::findOne(), Page::child()
 	 * @since 3.0.116
@@ -4249,6 +4254,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * // ...such as, get all values in an array:
 	 * $values = $meta->getArray();
+	 * 
+	 * // return same random number for 1 hour (3600 seconds), requires 3.0.258+
+	 * $page->meta()->getCache('my_rand_num', 3600, function() {
+	 *   return mt_rand();
+	 * });
 	 * ~~~~~
 	 * 
 	 * #pw-advanced
