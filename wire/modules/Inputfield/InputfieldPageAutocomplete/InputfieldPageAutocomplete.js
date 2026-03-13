@@ -3,7 +3,7 @@
  *
  * This Inputfield connects the jQuery UI Autocomplete widget with the ProcessWire ProcessPageSearch AJAX API.
  *
- * ProcessWire 3.x (development), Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x (development), Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -67,8 +67,6 @@ var InputfieldPageAutocomplete = {
 				if($(this).hasClass('added_item')) return;
 				$(this).attr('placeholder', $(this).attr('data-selectedLabel'));
 				$(this).val('');
-			}).on('blur', function() {
-				setTimeout(function() { }, 200);
 			});
 		}
 		
@@ -97,7 +95,7 @@ var InputfieldPageAutocomplete = {
 
 					if($input.hasClass('and_words') && term.indexOf(' ') > 0) {
 						// AND words mode
-						term = term.replace(/\s+/, ',');
+						term = term.replace(/\s+/g, ',');
 					}
 					term = encodeURIComponent(term);
 					var ajaxURL = url + '&' + searchField + operator + term;
@@ -336,7 +334,16 @@ var InputfieldPageAutocomplete = {
 
 		$li.removeClass("itemTemplate"); 
 		$li.children('.itemValue').text(page.page_id); 
-		$li.children('.itemLabel').text(page.label); 
+	
+		var $itemLabel = $li.children('.itemLabel');
+		var $a = $itemLabel.children('a');
+		if($a.length) {
+			$a.text(page.label).attr('href', $a.attr('href') + page.page_id); 
+		} else {
+			// note: newly added items do not have the edit link until saved, 
+			// since we can only determine whether it's editable or not at the server side. 
+			$itemLabel.text(page.label);
+		}
 
 		$ol.append($li);
 
@@ -381,8 +388,11 @@ var InputfieldPageAutocomplete = {
 		}
 	
 		$children.each(function() {
-			var v = parseInt($(this).children('.itemValue').text());
+			var $item = $(this);
+			if($item.hasClass('delete')) return;
+			var v = parseInt($item.children('.itemValue').text());
 			if(v === 0) return;
+			
 			if(value.length) value += ',';
 			value += v;
 			if(v < 0) {
@@ -420,11 +430,17 @@ $(document).ready(function() {
 	});
 
 	$(document).on('click', '.InputfieldPageAutocomplete ol a.itemRemove', function() {
-		// $(".InputfieldPageAutocomplete ol").on('click', 'a.itemRemove', function() {
 		var $li = $(this).parent(); 
-		var $ol = $li.parent(); 
+		var $ol = $li.parent();
 		var id = $li.children(".itemValue").text();
-		$li.remove();
+		var hideDeleted = $ol.hasClass('hideDeleted');
+		if(hideDeleted) {
+			$li.remove();
+		} else if($li.hasClass('delete')) {
+			$li.removeClass('delete');
+		} else {
+			$li.addClass('delete');
+		}
 		InputfieldPageAutocomplete.rebuildInput($ol);
 		InputfieldPageAutocomplete.triggerChange($ol);
 		return false; 

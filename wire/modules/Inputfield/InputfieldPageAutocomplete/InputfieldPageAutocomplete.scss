@@ -43,11 +43,18 @@
 .InputfieldPageAutocomplete {
 	ol {
 		li {
+			&.delete {
+				text-decoration: line-through;
+				opacity: 0.5;
+			}
 			.itemLabel {
 				/* this is a span that surrounds the text in the item, except for the remove link */
 				display: block;
 				padding: 3px 0 3px 5px;
 				cursor: move;
+				a:hover {
+					text-decoration: underline;
+				}
 			}
 			
 			.itemRemove {

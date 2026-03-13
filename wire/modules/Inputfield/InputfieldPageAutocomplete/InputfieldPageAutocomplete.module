@@ -5,7 +5,7 @@
  *
  * This Inputfield connects the jQuery UI Autocomplete widget with the ProcessWire ProcessPageSearch AJAX API.
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $parent_id Limit results to this parent ID, or if combined with findPagesSelector, the search is performed as $pages->get($parent_id)->find() rather than $pages->find(). (default=0)
@@ -22,9 +22,12 @@
  * @property string $disableChars Autocomplete won't be triggered if input contains any of the characters in this string. (default=blank)
  * @property bool $useAndWords When true, each word will be isolated to a separate searchFields=searchValue, which enables it to duplicate ~= operator behavior while using a %= operator (default=false).
  * @property int $lang_id Force use of this language ID for results (default=0)
+ * @property string $usePageEdit Use page editor links for selected Page items, when user has edit permission? Use 'small', 'medium', 'large', 'tab', or '' to disable. 3.0.258+ (default='')
+ * @property bool $hideDeleted Hide items when deleted. If false, items remain but are marked for deletion 3.0.258+ (default=false)
  * 
+ * @method PageArray getSelectedPages()
  * @method string renderList()
- * @method string renderListItem($label, $value, $class = '')
+ * @method string renderListItem($label, $value, $class = '', Page $page = null)
  * @method string getAjaxUrl() Hookable since 3.0.223
  *
  */
@@ -32,9 +35,9 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => __('Page Auto Complete', __FILE__), // Module Title
-			'summary' => __('Multiple Page selection using auto completion and sorting capability. Intended for use as an input field for Page reference fields.', __FILE__), // Module Summary
-			'version' => 113,
+			'title' => 'Page Auto Complete', 
+			'summary' => 'Multiple Page selection using auto completion and sorting capability. Intended for use as an input field for Page reference fields.', 
+			'version' => 114,
 		);
 	}
 
@@ -92,6 +95,38 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	
 		// Whether to allow unpublished pages (null=not set, 0|false=no, 1|true=yes)
 		$this->set('allowUnpub', null);
+	
+		// Use page editor links for selected Page items, when user has edit permission? 
+		$this->set('usePageEdit', ''); 
+	
+		// Hide items when deleted. If false, items remain but are marked for deletion 
+		$this->set('hideDeleted', false);
+	}
+	
+	/**
+	 * Get selected pages
+	 * 
+	 * @return PageArray
+	 * @since 2.0.258
+	 * 
+	 */
+	protected function ___getSelectedPages() {
+		$pages = $this->wire()->pages;
+		$pageIds = $this->val();
+		
+		if($pageIds instanceof PageArray) return $pageIds;
+		if(empty($pageIds)) return $pages->newPageArray();
+		
+		if(is_string($pageIds)) $pageIds = explode('|', $pageIds);
+		$pageIds = $this->wire()->sanitizer->intArray($pageIds);
+		
+		$templateId = (int) $this->template_id;
+		$templateIds = $this->template_ids;
+		if($templateIds && count($templateIds) === 1) $templateId = (int) reset($templateIds);
+		$template = $templateId ? $this->wire()->templates->get($templateId) : null;
+		$parentId = $this->parent_id ? (int) $this->parent_id : null;
+		
+		return $pages->getById($pageIds, $template, $parentId);
 	}
 
 	/**
@@ -100,21 +135,39 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 * @param string $label
 	 * @param string $value
 	 * @param string $class
+	 * @param Page|null $page
 	 * @return string
 	 *
 	 */
-	protected function ___renderListItem($label, $value, $class = '') {
+	protected function ___renderListItem($label, $value, $class = '', $page = null) {
+		$sanitizer = $this->wire()->sanitizer;
+		
 		if($class) $class = " $class";
-		if(strpos($label, '&') !== false) $label = $this->wire()->sanitizer->unentities($label);
-		$label = $this->wire()->sanitizer->entities($label);
-		$out = 	
+		if(strpos($label, '&') !== false) $label = $sanitizer->unentities($label);
+		
+		$label = $sanitizer->entities($label);
+		$value = ctype_digit("$value") ? (int) $value : $sanitizer->entities1($value);
+		
+		$trashIcon = wireIconMarkup('trash');
+		$usePageEdit = $this->usePageEdit;
+		
+		if($usePageEdit && $page && $page->editable()) {
+			if(ctype_digit("$usePageEdit")) $usePageEdit = 'medium';
+			if($usePageEdit === 'tab') {
+				$editAttr = 'target="_blank"';
+			} else {
+				$editAttr = "class='pw-modal pw-modal-$usePageEdit' data-autoclose='1' data-buttons='#ProcessPageEdit button[type=submit]'";
+			}
+			$label = "<a href='$page->editUrl' $editAttr>$label</a>";
+		}
+	
+		return
 			"<li class='ui-state-default$class'>" . 
 				"<i class='itemSort fa fa-arrows fa-fw'></i> " . 
 				"<span class='itemValue'>$value</span>" . 
 				"<span class='itemLabel'>$label</span> " . 
-				"<a class='itemRemove' href='#'><i class='fa fa-trash'></i></a>" . 
+				"<a class='itemRemove' href='#'>$trashIcon</a>" . 
 			"</li>";
-		return $out; 
 	}
 
 	/**
@@ -125,21 +178,36 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 */
 	protected function ___renderList() { 
 		
-		$pages = $this->wire()->pages;
-
-		$out = $this->renderListItem('Label', '1', 'itemTemplate'); 
+		$sanitizer = $this->wire()->sanitizer;
 		
-		foreach($this->val() as $pageId) {
-			if(!$pageId) continue; 
-			$page = $pages->get((int) $pageId); 
+		$out = $this->renderListItem('Label', '1', 'itemTemplate'); 
+	
+		foreach($this->getSelectedPages() as $page) {
 			if(!$page || !$page->id) continue; 
-			$value = $this->labelFieldFormat ? $page->getText($this->labelFieldFormat, true, false) : $page->get($this->labelFieldName); 
-			$value = strip_tags($value);
-			if(!strlen($value)) $value = $page->get('title|name');
-			$out .= $this->renderListItem($value, $page->id); 
+			$label = $this->labelFieldFormat ? $page->getText($this->labelFieldFormat, true, false) : $page->get($this->labelFieldName); 
+			$label = strip_tags($label);
+			if(!strlen($label)) $label = $page->get('title|name');
+			$out .= $this->renderListItem($label, $page->id, '', $page); 
 		}
 
-		return "<ol id='{$this->id}_items' data-id='$this->id' data-name='$this->name'>$out</ol>";
+		$cls = $this->hideDeleted ? " class='hideDeleted'" : '';
+		$id = $sanitizer->entities($this->attr('id'));
+		$name = $sanitizer->entities($this->attr('name'));
+		
+		return "<ol id='{$id}_items' data-id='$id' data-name='$name'$cls>$out</ol>";
+	}
+	
+	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield|null $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 * 
+	 */
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
+		if($this->hideDeleted) $this->addClass('hideDeleted', 'wrapClass');
+		return parent::renderReady($parent, $renderValueMode);
 	}
 
 	/**
@@ -150,6 +218,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$sanitizer = $this->wire()->sanitizer;
 
 		if($this->maxSelectedItems == 1) $this->useList = false;
+		
 		$out = $this->useList ? $this->renderList() : '';
 		$value = implode(',', $this->value); 
 		$url = $this->getAjaxUrl();
@@ -157,11 +226,12 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		// convert our list of search fields to a CSV string for use in the ProcessPageSearch query
 		$searchField = '';
 		$searchFields = str_replace(array(',', '|'), ' ', $this->searchFields);
+		
 		foreach(explode(' ', $searchFields) as /* $key => */ $name) {
 			$name = trim($name); 
 			// @esrch pr#994 --
 			if(strpos($name, '.')) {
-				list($name, $subname) = explode('.', $name);
+				list($name, $subname) = explode('.', $name, 2);
 				$name = $sanitizer->fieldName($name);
 				$subname = $sanitizer->fieldName($subname);
 				if($name && $subname) $name .= "-$subname";
@@ -179,6 +249,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$operator = $this->operator; 
 		$id = $this->id; 
 		$max = (int) $this->maxSelectedItems; 
+		
 		$class = 'ui-autocomplete-input ' . ($this->useList ? 'has_list' : 'no_list');
 		if($this->useAndWords) $class .= " and_words";
 		if($this->allowAnyValue) $class .= " allow_any";
@@ -192,8 +263,11 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 				$this->error("disableChars cannot have both double and single quotes"); 
 				$disableChars = str_replace('"', '', $disableChars); 
 			}
-			if($hasSingleQuote) $disableChars = "data-disablechars=\"$disableChars\" ";
-				else $disableChars = "data-disablechars='$disableChars' ";
+			if($hasSingleQuote) {
+				$disableChars = "data-disablechars=\"$disableChars\" ";
+			} else {
+				$disableChars = "data-disablechars='$disableChars' ";
+			}
 		}
 		
 		$attrs =
@@ -201,10 +275,11 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			"data-url='" . $sanitizer->entities($url) . "' " . 
 			"data-label='" . $sanitizer->entities($labelField) . "' " . 
 			"data-search='" . $sanitizer->entities($searchField) . "' " . 
-			"data-operator='$operator'";
+			"data-operator='" . $sanitizer->entities($operator) . "'";
 		
 		$textValue = '';
 		$remove = '';
+		
 		if(!$this->useList) { 
 			if(count($this->value)) {
 				$item = $this->wire()->pages->getById($this->value)->first();
@@ -216,17 +291,19 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 					$textValue = $sanitizer->entities($textValue);
 				}
 			}
-			$remove = "<i class='fa fa-fw fa-times-circle InputfieldPageAutocompleteRemove'></i>";
+			//$remove = "<i class='fa fa-fw fa-times-circle InputfieldPageAutocompleteRemove'></i>";
+			$remove = wireIconMarkup('times-circle', 'fw InputfieldPageAutocompleteRemove'); 
 		}
 		
 		$addingLabel = $sanitizer->entities1($this->_('New item:'));
 		$dataClass = $sanitizer->entities(trim('InputfieldPageAutocompleteData ' . $this->attr('class')));
+		$icon = wireIconMarkup('angle-double-right', 'fw InputfieldPageAutocompleteStatus');
 		
 		$out .= "
 			<p>
 				<input type='hidden' name='{$this->name}[]' id='$id' class='$dataClass' value='$value' $attrs/>
 				<input type='text' data-parent-input='$id' id='{$id}_input' class='$class' value='$textValue' $disableChars/>
-				<i class='fa fa-fw fa-angle-double-right InputfieldPageAutocompleteStatus'></i>
+				$icon
 				$remove
 				<span class='notes InputfieldPageAutocompleteNote' data-adding='$addingLabel'><br />$addNote</span>
 			</p>
@@ -246,7 +323,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		
 		parent::___processInput($input);
 		
-		$value = $this->attr('value');
+		$value = $this->val();
 		if(is_array($value)) $value = reset($value);
 		$value = trim($value);
 		
@@ -266,7 +343,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			}
 		}
 		
-		$this->attr('value', $value);
+		$this->val($value);
 		
 		return $this;
 	}
@@ -353,9 +430,10 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 *
 	 */
 	public function ___install() {
-		$data = $this->wire()->modules->getConfig('InputfieldPage'); 	
+		$modules = $this->wire()->modules;
+		$data = $modules->getConfig('InputfieldPage'); 	
 		$data['inputfieldClasses'][] = $this->className();
-		$this->wire()->modules->saveConfig('InputfieldPage', $data); 
+		$modules->saveConfig('InputfieldPage', $data); 
 	}
 
 	/**
@@ -365,11 +443,12 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 *
 	 */
 	public function ___uninstall() {
-		$data = $this->wire()->modules->getConfig('InputfieldPage'); 	
+		$modules = $this->wire()->modules;
+		$data = $modules->getConfig('InputfieldPage'); 	
 		foreach($data['inputfieldClasses'] as $key => $value) {
 			if($value == $this->className()) unset($data['inputfieldClasses'][$key]); 
 		}
-		$this->wire()->modules->saveConfig('InputfieldPage', $data); 
+		$modules->saveConfig('InputfieldPage', $data); 
 	}
 
 	/**
@@ -377,48 +456,72 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 *
 	 */
 	public function ___getConfigInputfields() {
-		$modules = $this->wire()->modules;
 		$inputfields = parent::___getConfigInputfields();
 
 		/** @var InputfieldRadios $field */
-		$field = $modules->get('InputfieldRadios');
-		$field->setAttribute('name', 'operator');
-		$field->label = $this->_('Autocomplete search operator');
-		$field->description = $this->_("The search operator that is used in the API when performing autocomplete matches.");
-		$field->notes = $this->_("If you aren't sure what you want here, leave it set at the default: *="); 
-		$field->required = false;
+		$f = $inputfields->InputfieldRadios;
+		$f->setAttribute('name', 'operator');
+		$f->label = $this->_('Autocomplete search operator');
+		$f->description = $this->_('The search operator that is used in the API when performing autocomplete matches.');
+		$f->notes = $this->_("If you aren't sure what you want here, leave it set at the default: *="); 
+		$f->required = false;
+		
 		$operators = Selectors::getOperators(array(
 			'compareType' => Selector::compareTypeFind, 
 			'getIndexType' => 'operator', 
 			'getValueType' => 'verbose', 
 		));
+		
 		foreach($operators as $operator => $info) {
 			if($operator === '#=') continue;
 			$opLabel = str_replace('*', '\*', $operator); 
-			$field->addOption($operator, "`$opLabel` **$info[label]** — $info[description]"); 
+			$f->addOption($operator, "`$opLabel` **$info[label]** — $info[description]"); 
 		}
-		$field->addOption('=', "`=` **" . SelectorEqual::getLabel() . "** — " . SelectorEqual::getDescription());
-		$field->attr('value', $this->operator);
-		$field->collapsed = Inputfield::collapsedNo; 
-		$inputfields->add($field);
+		
+		$f->addOption('=', "`=` **" . SelectorEqual::getLabel() . "** — " . SelectorEqual::getDescription());
+		$f->attr('value', $this->operator);
+		$f->collapsed = Inputfield::collapsedNo; 
+		$inputfields->add($f);
 
 		/** @var InputfieldText $field */
-		$field = $modules->get('InputfieldText'); 
-		$field->attr('name', 'searchFields'); 
-		$field->label = $this->_('Fields to query for autocomplete');
-		$field->description = $this->_('Enter the names of the fields that should have their text queried for autocomplete matches.');
-		$field->description .= ' ' . $this->_('Typically this would just be the title field, but you may add others by separating each with a space.'); 
-		$field->description .= ' ' . $this->_('Note that this is different from the “label field” because you are specifying what fields will be searched, not what fields will be shown.');
-		$field->collapsed = Inputfield::collapsedNo; 
-		$field->attr('value', $this->searchFields);
+		$f = $inputfields->InputfieldText;
+		$f->attr('name', 'searchFields'); 
+		$f->label = $this->_('Fields to query for autocomplete');
+		$f->description = 
+			$this->_('Enter the names of the fields that should have their text queried for autocomplete matches.') . ' ' . 
+			$this->_('Typically this would just be the title field, but you may add others by separating each with a space.') . ' '  . 
+			$this->_('Note that this is different from the “label field” because you are specifying what fields will be searched, not what fields will be shown.');
+		$f->collapsed = Inputfield::collapsedNo; 
+		$f->attr('value', $this->searchFields);
 		$notes = $this->_('Indexed text fields include:');
-		foreach($this->wire()->fields as $f) {
-			/** @var Field $f */
-			if(!$f->type instanceof FieldtypeText) continue; 
-			$notes .= ' ' . $f->name . ','; 
+		foreach($this->wire()->fields->findByType('FieldtypeText') as $field) {
+			/** @var Field $field */
+			$notes .= ' ' . $field->name . ','; 
 		}
-		$field->notes = rtrim($notes, ','); 
-		$inputfields->add($field); 
+		$f->notes = rtrim($notes, ','); 
+		$inputfields->add($f); 
+	
+		$f = $inputfields->InputfieldRadios;
+		$f->attr('name', 'usePageEdit'); 
+		
+		$f->label = $this->_('Allow click-to-edit for selected pages?');
+		$f->addOption('small', $this->_('Edit in small modal window'));
+		$f->addOption('medium', $this->_('Edit in medium modal window'));
+		$f->addOption('large', $this->_('Edit in large modal window'));
+		$f->addOption('tab', $this->_('Edit in new tab/window (target=_blank)'));
+		$f->addOption('', $this->_('Disabled'));
+		$value = $this->usePageEdit;
+		if(ctype_digit("$value")) $value = 'medium';
+		$f->val($value);
+		$inputfields->add($f);
+		
+		$f = $inputfields->InputfieldRadios; 
+		$f->attr('name', 'hideDeleted'); 
+		$f->label = $this->_('Delete behavior'); 
+		$f->addOption(0, $this->_('Mark item for deletion (with optional undo)'));
+		$f->addOption(1, $this->_('Immediately remove item (legacy behavior)')); 
+		$f->val((int) $this->hideDeleted); 
+		$inputfields->add($f);
 
 		return $inputfields; 
 	}
