@@ -102,7 +102,9 @@ class ProcessPageView extends Process {
 		$request = $pages->request();
 		$timerKey = $config->debug ? 'ProcessPageView.getPage()' : ''; 
 		
-		if($config->usePoweredBy !== null) header('X-Powered-By:' . ($config->usePoweredBy ? ' ProcessWire CMS' : ''));
+		if($config->usePoweredBy !== null && !headers_sent()) {
+			header('X-Powered-By: ProcessWire CMS');
+		}
 		
 		$pages->setOutputFormatting(true); 
 		
@@ -347,7 +349,9 @@ class ProcessPageView extends Process {
 			// hook returned array to convert to JSON
 			$jsonFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 			$contentTypes = $config->contentTypes;
-			if(isset($contentTypes['json'])) header("Content-Type: $contentTypes[json]");
+			if(isset($contentTypes['json']) && !headers_sent()) {
+				header("Content-Type: $contentTypes[json]");
+			}
 			$out = json_encode($out, $jsonFlags);
 		}
 		
@@ -496,7 +500,9 @@ class ProcessPageView extends Process {
 			}
 		}
 		
-		if($contentType && $send) header("Content-Type: $contentType");
+		if($contentType && $send && !headers_sent()) {
+			header("Content-Type: $contentType");
+		}
 		
 		return $contentType;
 	}
