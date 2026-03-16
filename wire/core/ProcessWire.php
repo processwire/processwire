@@ -77,7 +77,7 @@ class ProcessWire extends Wire {
 	const versionMinor = 0;
 	
 	/**
-	 * Reversion revision number
+	 * Version revision number
 	 * 
 	 */
 	const versionRevision = 257;
@@ -645,7 +645,7 @@ class ProcessWire extends Wire {
 	 */
 	protected function initVar($name, $value) {
 		if($this->debug) Debug::timer("boot.load.$name");
-		if($name != 'session') $value->init();
+		if($name !== 'session') $value->init();
 		if($this->debug) Debug::saveTimer("boot.load.$name"); 
 	}
 
@@ -728,7 +728,7 @@ class ProcessWire extends Wire {
 		static $lastThrowable = null;
 		if($lastThrowable === $e) return;
 		$isException = $e instanceof \Exception;
-		if(!$page instanceof Page) $page = new NullPage();
+		if(!$page instanceof Page) $page = $this->wire()->pages->newNullPage();
 		$this->setStatus(ProcessWire::statusFailed, array(
 			'throwable' => $e, 
 			'exception' => $isException ? $e : null,
@@ -835,8 +835,6 @@ class ProcessWire extends Wire {
 		$log = $this->fuel->get('log'); /** @var WireLog $log */
 		$exited = !empty($data['exited']);
 		
-		if($data) {} // data for hooks
-	
 		// if a hook cancelled maintenance then exit early 
 		if(isset($data['maintenance']) && $data['maintenance'] === false) return;
 		
@@ -963,7 +961,7 @@ class ProcessWire extends Wire {
 	 * #pw-internal
 	 * 
 	 * @param Wire $obj Object that accessed API var without being assigned ProcessWire instance
-	 * @param string|Wire The $name argument that was passed to $obj->wire($name, $value)
+	 * @param string|Wire $name The $name argument that was passed to $obj->wire($name, $value)
 	 * @param mixed $value The $value argument passed to $object->wire($name, $value)
 	 * @since 3.0.158
 	 * 
@@ -996,7 +994,7 @@ class ProcessWire extends Wire {
 	/**
 	 * Current ProcessWire instance
 	 * 
-	 * @var null
+	 * @var ProcessWire|null
 	 * 
 	 */
 	static protected $currentInstance = null;

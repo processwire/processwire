@@ -1138,5 +1138,77 @@ class PageValues extends Wire {
 		
 		return $page;
 	}
+	
+	/**
+	 * Get value for special property that contains more than alphanumeric characters
+	 *
+	 * - `Hello {first_name}` - Curly bracket format properties sent to getMarkup().
+	 * - `foo|bar|baz` - OR-property keys sent to getFirstFieldValue().
+	 * - `field[]`, `field[0]`, `field[foo=bar][0]` - Square bracket keys to getBracketValue().
+	 * - `_property` - Keys for custom runtime properties sent to getFieldValue().
+	 * - `foo=bar` - Selector keys sent as selector argument to child() method.
+	 * - `field.subfield` - Keys for directly accessing subfield sent to getDotValue().
+	 * - `foo_OR_bar` - Named OR-property keys sent to getFirstFieldValue().
+	 * - `_field_` - Underlined keys sent to renderField().
+	 *
+	 * @param Page $page
+	 * @param string $key
+	 * @return mixed Returns value or null if not found
+	 * @since 3.0.258
+	 *
+	 */
+	public function getSpecial(Page $page, $key) {
+		$ulpos = strpos($key, '_');
+		
+		if($ulpos === false || !ctype_alnum(str_replace('_', '', $key))) {
+			// key has more than just field/property name
+			
+			if(strpos($key, '{') !== false && strrpos($key, '}')) {
+				// key is formatted string with {tag} vars i.e. "Hello {first_name}"
+				return $page->getMarkup($key);
+				
+			} else if(strpos($key, '|') !== false) {
+				// key is OR-condition string like: foo|bar|baz
+				$value = $this->getFieldFirstValue($page, $key);
+				if($value !== null) return $value;
+			}
+			
+			if(strpos($key, '[')) {
+				// Square brackets to get iterable value, filtered value or property value:
+				// returns iterable: `field[]`, or selector-filtered iterable: `field[foo=bar]`
+				// returns value at index 0: `field[0]` or filter first: `field[foo=bar][0]`
+				// returns value of property: `field[property]` same as `field.property`
+				return $this->getBracketValue($page, $key);
+			}
+			
+			// handles custom runtime values set to page
+			$value = $this->getFieldValue($page, $key);
+			if($value !== null) return $value;
+			
+			// if there is a selector, assume they are using the get() method to get a child
+			if(Selectors::stringHasOperator($key)) return $page->child($key);
+			
+			if(strpos($key, '.')) {
+				// this is a "field.subfield" key
+				$value = $this->getDotValue($page, $key);
+				if($value !== null) return $value;
+			}
+			
+			if($ulpos !== false && strpos($key, '_OR_')) {
+				// key like "headline_OR_title_OR_subtitle
+				$value = $this->getFieldFirstValue($page, str_replace('_OR_', '|', $key));
+				if($value !== null) return $value;
+			}
+			
+		} else if($ulpos === 0 && substr($key, -1) === '_') {
+			// `_field_` to render value of `field`
+			$fieldName = substr($key, 1, -1);
+			if($page->wire()->fields->fieldNameExists($fieldName)) {
+				return $page->renderField($fieldName); 
+			}
+		}
+		
+		return null;
+	}
 
 }

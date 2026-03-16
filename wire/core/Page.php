@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -964,13 +964,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 				return $this->{$key}();
 			} else if($type === 'n') {
 				// local method, possibly overridden by $field
-				if(!$this->wire()->fields->get($key)) return $this->{$key}();
+				if(!$this->wire()->fields->fieldNameExists($key)) return $this->{$key}();
 			} else if($type === 's') {
 				// settings property
 				return $this->settings[$key];
 			} else if($type === 't') {
 				// map to method in PageTraversal, if not overridden by field
-				if(!$this->wire()->fields->get($key)) return $this->traversal()->{$key}($this);
+				if(!$this->wire()->fields->fieldNameExists($key)) return $this->traversal()->{$key}($this);
 			} else if($type) {
 				// defined local method
 				return $this->{$type}();
@@ -1005,8 +1005,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$value = $this->settings[str_replace('Str', '', $key)];
 				return $value ? wireDate($this->wire()->config->dateFormat, $value) : '';
 			case 'render':
-				$value = $this->wire()->modules->get('PageRender');
-				/** @var PageRender $value */
+				$value = $this->wire()->modules->get('PageRender'); /** @var PageRender $value */
 				$value->setPropertyPage($this);
 				return $value;
 			case 'loaderCache':
@@ -1024,70 +1023,20 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$value = &$this->fieldDataQueue;
 				break;
 			default:
-				$value = null;
 				if($key && isset($this->settings[(string) $key])) return $this->settings[$key];
 				
 				if($this->wire()->fields->fieldNameExists($key)) {
-					// key refers to a ProcessWire field name
-					$value = $this->values()->getFieldValue($this, $key);
-					if($value !== null) return $value;
-					
+					// key refers to a ProcessWire field name, handled by getFieldValue() below
 				} else if(!ctype_alnum($key)) {
 					// key contains something more than [a-z0-9]
-					$ulpos = strpos($key, '_');
-					if($ulpos === false || !ctype_alnum(str_replace('_', '', $key))) {
-						// key has more than just field/property name
-						
-						if(strpos($key, '{') !== false && strrpos($key, '}')) {
-							// key is formatted string with {tag} vars i.e. "Hello {first_name}"
-							return $this->getMarkup($key);
-							
-						} else if(strpos($key, '|') !== false) {
-							// key is OR-condition string like: foo|bar|baz
-							$value = $this->values()->getFieldFirstValue($this, $key);
-							if($value !== null) return $value;
-						}
-						
-						if(strpos($key, '[')) {
-							// Square brackets to get iterable value, filtered value or property value:
-							// returns iterable: `field[]`, or selector-filtered iterable: `field[foo=bar]`
-							// returns value at index 0: `field[0]` or filter first: `field[foo=bar][0]`
-							// returns value of property: `field[property]` same as `field.property`
-							return $this->values()->getBracketValue($this, $key);
-						}
-						
-						// handles custom runtime values set to page
-						$value = $this->values()->getFieldValue($this, $key);
-						if($value !== null) return $value;
-						
-						// if there is a selector, assume they are using the get() method to get a child
-						if(Selectors::stringHasOperator($key)) return $this->child($key);
-						
-						if(strpos($key, '.')) {
-							// this is a "field.subfield" key
-							$value = $this->values()->getDotValue($this, $key);
-							if($value !== null) return $value;
-						}
-						
-						if($ulpos !== false && strpos($key, '_OR_')) {
-							// key like "headline_OR_title_OR_subtitle
-							$value = $this->values()->getFieldFirstValue($this, str_replace('_OR_', '|', $key));
-							if($value !== null) return $value;
-						}
-						
-					} else if($ulpos === 0 && substr($key, -1) === '_') {
-						// `_field_` to render value of `field`
-						if($this->wire()->sanitizer->fieldName($key) === $key) {
-							return $this->renderField(substr($key, 1, -1));
-						}
-					}
-				} else {
-					// handles custom runtime values set to page
-					$value = $this->values()->getFieldValue($this, $key);
+					$value = $this->values()->getSpecial($this, $key);
 					if($value !== null) return $value;
-				}
+				} 
 				
-				if($this->wire()->hooks->isHooked('Page::getUnknown()')) {
+				// handles custom runtime values set to page
+				$value = $this->values()->getFieldValue($this, $key);
+				
+				if($value === null && $this->wire()->hooks->isHooked('Page::getUnknown()')) {
 					// if still nothing found, see if a hook wants to handle it
 					$value = $this->getUnknown($key);
 				}
@@ -1546,13 +1495,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Direct access get method
 	 * 
-	 * @param string $key
+	 * @param string $name
 	 * @return mixed
 	 * @see get()
 	 *
 	 */
-	public function __get($key) {
-		return $this->get($key); 
+	public function __get($name) {
+		return $this->get($name); 
 	}
 
 	/**
@@ -2214,7 +2163,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-traversal
 	 *
 	 * @param string|array $selector Optional selector. When specified, will find nearest next sibling that matches. 
-	 * @param PageArray $siblings Optional siblings to use instead of the default. Avoid using this argument
+	 * @param PageArray|null $siblings Optional siblings to use instead of the default. Avoid using this argument
 	 *   as it forces this method to use the older/slower functions. 
 	 * @return Page|NullPage Returns the next sibling page, or a NullPage if none found. 
 	 *
@@ -2272,7 +2221,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string|Page|array $selector May either be a selector or Page to stop at. Results will not include this. 
 	 * @param string|array $filter Optional selector to filter matched pages by
-	 * @param PageArray $siblings Optional PageArray of siblings to use instead (avoid).
+	 * @param PageArray|null $siblings Optional PageArray of siblings to use instead (avoid).
 	 * @return PageArray
 	 *
 	 */
