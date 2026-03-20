@@ -3,19 +3,21 @@
 /**
  * Random generators for ProcessWire 
  * 
- * Includes methods for random strings, numbers, arrays and passwords. 
+ * #pw-summary Includes methods for random strings, numbers, arrays and passwords.
+ * #pw-var $rand
+ * #pw-body =
+ * Usage example
+ * ~~~~~
+ * $rand = new WireRandom();
+ * $s = $rand->alphanumeric(10);
+ * $i = $rand->integer(0, 10);
+ * ~~~~~
+ * #pw-body
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.111
- * 
- * Usage example
- * ~~~~~
- * $random = new WireRandom();
- * $s = $random->alphanumeric(10);
- * $i = $random->integer(0, 10); 
- * ~~~~~
  * 
  */
 
@@ -50,7 +52,7 @@ class WireRandom extends Wire {
 	 *  - `maxLength` (int): If $length argument is 0, maximum length of returned string. (default=40)
 	 *  - `noRepeat` (bool): Prevent same character from appearing more than once in sequence? (default=false)
 	 *  - `noStart` (string|array): Do not start string with these characters. (default='')
-	 *  - 'noEnd` (string|array): Do not end string with these characters. (default='')
+	 *  - `noEnd` (string|array): Do not end string with these characters. (default='')
 	 *  - `fast` (bool): Use faster method? (default=true if PHP7 or mcrypt available, false if not)
 	 * @return string
 	 * @throws WireException
@@ -187,7 +189,7 @@ class WireRandom extends Wire {
 		for($x = 0; $x < $length; $x++) {
 			$n = $this->integer(0, strlen($allowed) - 1);
 			$c = $allowed[$n];
-			if($options['noRepeat'] && $c === $lastChar) {
+			if($options['noRepeat'] && $c === $lastChar && strlen($allowed) > 1) {
 				$x--;
 				continue;
 			}
@@ -306,7 +308,7 @@ class WireRandom extends Wire {
 	 * Generate a random string using given characters
 	 * 
 	 * @param int $length Length of string or specify 0 for random length 
-	 * @param string $characters Charaacters to use for random string or omit for partial ASCII set
+	 * @param string $characters Characters to use for random string or omit for partial ASCII set
 	 * @param array $options
 	 *  - `minLength` (int): Minimum allowed length if length argument is 0 (default=10)
 	 *  - `maxLength` (int): Maximum allowed length if length argument is 0 (default=40)
@@ -393,8 +395,10 @@ class WireRandom extends Wire {
 			$value = random_int($min, $max);
 			$type = 'random_int';
 
-		} else if(function_exists('mcrypt_create_iv')) {
+			/* No longer applicable but kept in comment for reference:
+		} else if(function_exists('mcrypt_create_iv') && defined('MCRYPT_DEV_URANDOM')) {
 			// via user contributed notes at: http://php.net/manual/en/function.random-int.php
+			// this is likely no longer needed as it is no longer in PHP and we require PHP 7.2+
 			$range = $counter = $max - $min;
 			$bits = 1;
 			while($counter >>= 1) ++$bits;
@@ -406,6 +410,7 @@ class WireRandom extends Wire {
 			} while($result > $range);
 			$value = $result + $min;
 			$type = 'mcrypt';
+			*/
 
 		} else if($options['cryptoSecure']) {
 			throw new WireException('cryptoSecure required and neither PHP7 random_int() or mcrypt available');
@@ -587,8 +592,8 @@ class WireRandom extends Wire {
 	 * tend to have readability issues, and using only ASCII characters (for broadest keyboard compatibility).
 	 *
 	 * @param array $options Specify any of the following options (all optional):
-	 *  - `minLength` (int): Minimum lenth of returned value (default=7).
-	 *  - `maxLength` (int): Maximum lenth of returned value, will be exceeded if needed to meet other options (default=15).
+	 *  - `minLength` (int): Minimum length of returned value (default=7).
+	 *  - `maxLength` (int): Maximum length of returned value, will be exceeded if needed to meet other options (default=15).
 	 *  - `minLower` (int): Minimum number of lowercase characters required (default=1).
 	 *  - `minUpper` (int): Minimum number of uppercase characters required (default=1).
 	 *  - `maxUpper` (int): Maximum number of uppercase characters allowed (0=any, -1=none, default=3).
@@ -673,8 +678,7 @@ class WireRandom extends Wire {
 			} else {
 				$numSymbols = $this->integer($options['minSymbols'], $options['maxSymbols']);
 			}
-			$symbols = $options['useSymbols'];
-			shuffle($symbols);
+			$symbols = $this->shuffle($options['useSymbols']);
 			for($n = 0; $n < $numSymbols; $n++) {
 				$symbol = array_shift($symbols);
 				$value .= $symbol;
@@ -734,7 +738,7 @@ class WireRandom extends Wire {
 			}
 		}
 
-		if($options['maxDigits'] > 0 || $options['maxDigits'] == -1) {
+		if($options['maxDigits'] > 0 || $options['maxDigits'] === -1) {
 			// a maximum number of digits specified
 			$numDigits = 0;
 			for($n = 0; $n < strlen($value); $n++) {
@@ -796,8 +800,9 @@ class WireRandom extends Wire {
 		);
 
 		$value = str_split($value);
+		$count = count($value);
 
-		for($n = 0; $n < count($value); $n++) {
+		for($n = 0; $n < $count; $n++) {
 			$c = $value[$n];
 			if($c >= 'a' && $c <= 'z') {
 				$chars['minLower'][$n] = $c;
@@ -822,9 +827,11 @@ class WireRandom extends Wire {
 			}
 		}
 
+		/*
 		if($cnt >= $max) {
 			// impossible to accommodate length request with given options
 		}
+		*/
 
 		return implode('', $value);
 	}
@@ -884,8 +891,9 @@ class WireRandom extends Wire {
 				$tests['random_bytes'] = '';
 			}
 
-			// mcrypt_create_iv 
-			if((!$valid || $test) && function_exists('mcrypt_create_iv') && !defined('PHALANGER')) {
+			/*
+			// mcrypt_create_iv: no longer applicable but kept as a comment for reference
+			if((!$valid || $test) && function_exists('mcrypt_create_iv') && !defined('PHALANGER') && defined('MCRYPT_DEV_URANDOM')) {
 				// @operator added for PHP 7.1 which throws deprecated notice on this function call
 				$buffer = @mcrypt_create_iv($rawLength, MCRYPT_DEV_URANDOM);
 				if($buffer) $valid = true;
@@ -893,6 +901,7 @@ class WireRandom extends Wire {
 			} else if($test) {
 				$tests['mcrypt_create_iv'] = '';
 			}
+			*/
 
 			// openssl_random_pseudo_bytes
 			if((!$valid || $test) && function_exists('openssl_random_pseudo_bytes')) {
@@ -980,7 +989,7 @@ class WireRandom extends Wire {
 	 * 
 	 */
 	public function cryptoSecure() {
-		return function_exists('random_int') || function_exists('mcrypt_create_iv');
+		return function_exists('random_int'); // || function_exists('mcrypt_create_iv');
 	}
 	
 	/**

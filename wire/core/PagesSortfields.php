@@ -9,7 +9,7 @@
  * #pw-body = 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -53,7 +53,7 @@ class PagesSortfields extends Wire {
 		if(!$page->isChanged('sortfield')) return true; 
 
 		$page_id = (int) $page->id; 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$sortfield = $this->encode($page->sortfield); 
 
 		if($sortfield == 'sort' || !$sortfield) return $this->delete($page); 
@@ -78,7 +78,7 @@ class PagesSortfields extends Wire {
 	 *
 	 */
 	public function delete(Page $page) {
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM pages_sortfields WHERE pages_id=:page_id"); // QA
 		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT); 
 		$result = $query->execute();
@@ -105,8 +105,9 @@ class PagesSortfields extends Wire {
 			$reverse = true; 	
 		}
 
-		if(ctype_digit("$sortfield") || !Fields::isNativeName($sortfield)) {
-			$field = $this->wire()->fields->get(ctype_digit($sortfield) ? (int) $sortfield : $sortfield);
+		$fields = $this->wire()->fields;
+		if(ctype_digit("$sortfield") || !$fields->isNative($sortfield)) {
+			$field = $fields->get(ctype_digit($sortfield) ? (int) $sortfield : $sortfield);
 			$sortfield = $field ? $field->name : '';
 		}
 
@@ -138,9 +139,13 @@ class PagesSortfields extends Wire {
 			$sortfield = substr($sortfield, 1); 
 		}
 
-		if($sortfield && !Fields::isNativeName($sortfield)) { 
-			if($field = $this->wire('fields')->get($sortfield)) $sortfield = $field->id; 
-				else $sortfield = '';
+		$fields = $this->wire()->fields;
+		if($sortfield && !$fields->isNative($sortfield)) { 
+			if($field = $fields->get($sortfield)) {
+				$sortfield = $field->id;
+			} else {
+				$sortfield = '';
+			}
 		}
 
 		if($sortfield) {

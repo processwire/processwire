@@ -783,7 +783,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'sortfield':
 				$template = $this->template();
 				if($template && $template->sortfield) break;
-				$value = $this->wire()->pages->sortfields()->decode($value); 
+				$value = empty($value) ? 'sort' : $this->wire()->pages->sortfields()->decode($value); 
 				if($this->isLoaded && $this->settings[$key] != $value) $this->trackChange($key, $this->settings[$key], $value); 
 				$this->settings[$key] = $value; 
 				break;

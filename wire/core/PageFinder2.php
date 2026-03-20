@@ -1527,7 +1527,7 @@ class PageFinder2 extends Wire {
 			// determine if it is referencing any tags that should be coverted to field1|field2|field3
 			foreach($parts as $partKey => $part) {
 				if($tags !== null && empty($tags)) continue;
-				if($this->fields->get($part)) continue; // maps to Field object
+				if($this->fields->fieldNameExists($part)) continue; // maps to Field object
 				if($this->fields->isNative($part)) continue; // maps to native property
 				if($tags === null) $tags = $this->fields->getTags(true); // determine tags
 				if(!isset($tags[$part])) continue; // not a tag

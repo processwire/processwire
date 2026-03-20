@@ -51,6 +51,7 @@
  * @property-read PageArray $newPageArray Returns new PageArray instance. #pw-internal 3.0.191+
  * @property-read NullPage $newNullPage Returns new NullPage instance. #pw-internal 3.0.191+
  * @property-read PagesExportImport $porter Returns new PagesExportImport instance #pw-internal 3.0.191+
+ * @property-read PagesParents $parents PagesParents instance #pw-internal 3.0.191+
  * 
  * HOOKABLE METHODS
  * ================
@@ -223,6 +224,7 @@ class Pages extends Wire {
 		$this->trasher = null;
 		$this->editor = null;
 		$this->raw = null;
+		$this->parents = null;
 	}
 	
 	/**
@@ -1280,7 +1282,7 @@ class Pages extends Wire {
 	 *
 	 * @param int|Page $id ID of the page you want the path to
 	 * @param null|array|Language|int|string $options Specify $options array or Language object, id or name. Allowed options include: 
-	 *  - `language` (int|string|anguage): To retrieve in non-default language, specify language object, ID or name (default=null)
+	 *  - `language` (int|string|Language): To retrieve in non-default language, specify language object, ID or name (default=null)
 	 *  - `useCache` (bool): Allow pulling paths from already loaded pages? (default=true)
 	 *  - `usePagePaths` (bool): Allow pulling paths from PagePaths module, if installed? (default=true)
 	 * @return string Path to page or blank on error/not-found.

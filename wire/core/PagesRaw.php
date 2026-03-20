@@ -1354,14 +1354,10 @@ class PagesRawFinder extends Wire {
 	protected function findReferences(array $colNames) {
 		
 		$database = $this->wire()->database;
-		$pageFields = array();
 		
 		if(empty($this->ids)) return;
-		
-		foreach($this->wire()->fields as $field) {
-			if($field->type instanceof FieldtypePage) $pageFields[$field->name] = $field;
-		}
-		
+	
+		$pageFields = $this->wire()->fields->findByType('FieldtypePage', [ 'indexType' => 'name' ]);
 		if(empty($pageFields)) return;
 		
 		foreach($this->values as $id => $data) {
