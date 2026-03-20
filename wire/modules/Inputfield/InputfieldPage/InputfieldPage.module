@@ -1384,8 +1384,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 		$field->addOption('path', 'path'); 
 
-		foreach($this->wire()->fields as $f) {
-			if(!$f->type instanceof FieldtypeText) continue;
+		foreach($this->wire()->fields->findByType('FieldtypeText') as $f) {
 			if($f->type instanceof FieldtypeTextarea) continue; 
 			if($titleIsDefault && $f->name == 'title') continue;
 			$field->addOption($f->name);

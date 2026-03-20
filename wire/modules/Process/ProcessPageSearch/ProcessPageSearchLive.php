@@ -994,7 +994,7 @@ class ProcessPageSearchLive extends Wire {
 				'subtitle' => implode(', ', array_keys($operators)), 
 				'summary' => $summary, 
 				'group' => 'help',
-				'url' => 'https://processwire.com/api/selectors/#operators'
+				'url' => 'https://processwire.com/docs/selectors/operators/'
 			);
 			if($this->wire()->user->isSuperuser() && $this->process) {
 				$items[] = array(
@@ -1119,7 +1119,7 @@ class ProcessPageSearchLive extends Wire {
 				$url .= "&operator=" . urlencode($liveSearch['operator']);
 			}
 		} else {
-			$url = $this->wire('page')->url() . 'live/' . 
+			$url = $this->wire()->page->url() . 'live/' . 
 				'?q=' . urlencode($liveSearch['q']) .
 				'&type=' . urlencode($type) .
 				'&property=' . urlencode($liveSearch['property']) .

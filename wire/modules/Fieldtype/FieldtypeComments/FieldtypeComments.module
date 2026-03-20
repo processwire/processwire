@@ -1437,14 +1437,8 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * 
 	 */
 	public function getCommentsFields($one = false) {
-		$fields = array();
-		foreach($this->wire()->fields as $field) {
-			if($field->type instanceof FieldtypeComments) {
-				$fields[] = $field;
-				if($one) break;
-			}
-		}
-		if($one) return count($fields) ? $fields[0] : null;
+		$fields = $this->wire()->fields->findByType('FieldtypeComments'); 
+		if($one) return count($fields) ? reset($fields) : null;
 		return $fields;
 	}
 

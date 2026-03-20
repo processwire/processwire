@@ -490,7 +490,7 @@ class FieldtypeTextarea extends FieldtypeText {
 		$searchFields = array();
 		if($selector === true) $selector = "include=all";
 		
-		foreach($this->wire()->fields as $f) {
+		foreach($this->wire()->fields->findByType('FieldtypeTextarea') as $f) {
 			if($field) {
 				if("$f" != "$field") continue;
 			} else {

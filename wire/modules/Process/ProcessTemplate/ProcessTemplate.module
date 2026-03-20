@@ -599,11 +599,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		} else {
 			// find global fields
 			$importFieldgroup = null;
-			foreach($this->wire()->fields as $field) {
-				if($field->flags & Field::flagGlobal) {
-					$importFields[] = $field; 
-				}
-			}
+			$importFields = $this->wire()->fields->findByFlag(Field::flagGlobal);
 		}
 
 		$postTemplates = $input->post('templates');

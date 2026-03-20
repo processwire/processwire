@@ -1581,12 +1581,7 @@ class ProcessCommentsManager extends Process {
 		
 		$sanitizer = $this->wire()->sanitizer;
 		$page = $this->getProcessPage();
-		$commentFields = array();
-		
-		foreach($this->wire()->fields as $field) {
-			/** @var Field $field */
-			if($field->type instanceof FieldtypeComments) $commentFields[$field->name] = $field;
-		}
+		$commentFields = $this->wire()->fields->findByType('FieldtypeComments', [ 'indexType' => 'name' ]);
 
 		$result = array(
 			'title' => $page->id ? (string) $page->title : $this->className(),

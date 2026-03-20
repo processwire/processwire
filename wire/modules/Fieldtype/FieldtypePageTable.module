@@ -60,8 +60,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	public function hookPagesDelete(HookEvent $event) {
 		$database = $this->wire()->database;
 		$page = $event->arguments(0); /** @var Page $page */
-		foreach($this->wire()->fields as $field) {
-			if(!$field->type instanceof FieldtypePageTable) continue; 
+		foreach($this->wire()->fields->findByType('FieldtypePageTable') as $field) {
 			$table = $database->escapeTable($field->table); 
 			$sql = "DELETE FROM `$table` WHERE pages_id=:pages_id OR data=:data";
 			$query = $database->prepare($sql); 

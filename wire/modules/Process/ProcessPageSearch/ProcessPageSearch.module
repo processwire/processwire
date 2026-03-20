@@ -126,23 +126,6 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$this->nativeSorts = $sorts;
 	}
 
-	/**
-	 * Initialize module
-	 * 
-	 */
-	public function init() {
-
-		foreach($this->fields as $field) {
-			if($field->type instanceof FieldtypeFieldsetOpen) continue;
-			if($field->type instanceof FieldtypePassword) continue;
-			// @todo add field access control checking
-			$this->fieldOptions[$field->name] = $field->name;
-		}
-
-		ksort($this->fieldOptions);
-		parent::init();
-	}
-	
 	public function set($key, $value) {
 		if($key == 'searchFields' || $key == 'searchFields2') {
 			if(is_array($value)) $value = implode(' ', $value); 
@@ -181,6 +164,22 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		}
 		$this->wire('processHeadline', $headline); 
 		$this->operators = self::getOperators();
+	}
+	
+	/**
+	 * Is given field allowed for search?
+	 * 
+	 * @param Field $field
+	 * @return bool
+	 * @since 3.0.258
+	 * 
+	 */
+	protected function isAllowedField(Field $field) {
+		$fieldtype = $field->type;
+		if(wireInstanceOf($fieldtype, 'FieldtypePassword')) return false;
+		if(wireInstanceOf($fieldtype, 'FieldtypeFieldsetOpen')) return false;
+		if(!$field->viewable()) return false;
+		return true;		
 	}
 
 	/**
@@ -827,6 +826,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 		$user = $this->wire()->user;
 		$input = $this->wire()->input;
+		$fields = $this->wire()->fields;
 		$sanitizer = $this->wire()->sanitizer;
 
 		// search query
@@ -841,7 +841,9 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$field = '';
 			foreach($fieldArray as $f) {
 				$f = $sanitizer->fieldName($f);
-				if(!isset($this->fieldOptions[$f]) && !isset($this->nativeSorts[$f])) continue;
+				if(!$fields->fieldNameExists($f) && !isset($this->nativeSorts[$f])) continue;
+				$fieldObj = $fields->get($f);
+				if($fieldObj && !$this->isAllowedField($fieldObj)) continue;
 				$field .= $f . " ";
 			}
 			$field = rtrim($field, " ");
@@ -873,8 +875,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$sort = $input->get('sort');
 		if($sort) {
 			$sort = $sanitizer->fieldName($sort);
-			if($sort && (isset($this->nativeSorts[$sort]) || isset($this->fieldOptions[$sort]))) {
+			if($sort && (isset($this->nativeSorts[$sort]))) {
 				$input->whitelist('sort', $sort);
+			} else {
+				$fieldObj = $sort ? $fields->get($sort) : null;
+				if($fieldObj && $this->isAllowedField($fieldObj)) {
+					$input->whitelist('sort', $sort);
+				}
 			}
 			if($input->get('reverse')) {
 				$input->whitelist('reverse', 1);
@@ -999,6 +1006,8 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 */
 	protected function isSelectableFieldName($name, $level = 0) {
 		
+		$fields = $this->wire()->fields;
+		
 		$selectable = array(
 			'parent', 
 			'template', 
@@ -1048,10 +1057,9 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			if(in_array(strtolower($subname), $noSubnames)) return false;
 			if(in_array(strtolower($subname), $notSelectable)) return false;
 			if(!$this->isSelectableFieldName($name, $level + 1)) return false;
-			$field = isset($this->fieldOptions[$name]) ? $this->wire()->fields->get($name) : null;
-			if($field && $field->type) {
-				if(!$field->viewable()) return false;
-				if(strpos($subname, 'owner.') === 0 && wireInstanceOf($field->type, array('FieldtypePage', 'FieldtypeRepeater'))) {
+			$field = $fields->get($name);
+			if($field && $field->type && $this->isAllowedField($field)) {
+				if(strpos($subname, 'owner.') === 0 && wireInstanceOf($field->type, [ 'FieldtypePage', 'FieldtypeRepeater' ])) {
 					list(, $tername) = explode('.', $subname, 2); 
 					if($this->isSelectableFieldName($tername, $level + 1)) return true;
 				}
@@ -1084,10 +1092,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		} else if(!$level && in_array($name, array('include', 'status', 'check_access'))) {
 			// selectable, but only if not OR’d with other fields (level=0), and must be access checked outside this method
 			$is = true;
-		} else if(isset($this->fieldOptions[$name])) {
+		} else if($fields->fieldNameExists($name)) {
 			// custom fields
-			$field = $this->wire()->fields->get($name);
-			$is = $field && $field->viewable();
+			$field = $fields->get($name);
+			$is = $field && $this->isAllowedField($field); 
 		}
 
 		if($is && in_array($lowerName, $notSelectable)) {
@@ -1185,7 +1193,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			"\n\t<label for='search_sort'>" . $this->_('Sort by:') . "</label>" .
 			"\n\t<select id='search_sort' name='sort'>";
 
-		$sorts = $this->nativeSorts + $this->fieldOptions;
+		$sorts = $this->nativeSorts + $this->wire()->fields->getAllNames(); 
 
 		$sort = $input->whitelist('sort');
 		if($sort && $sort != 'relevance') $advCollapsed = false;
@@ -1474,7 +1482,6 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 		$adminLiveSearchLabel = $this->_('Admin live search');
 		$inputfields = $this->wire(new InputfieldWrapper());
-		$textFields = array();
 		$allSearchTypes = array('pages', 'trash', 'modules');
 		$textOperators = Selectors::getOperators(array(
 			'compareType' => Selector::compareTypeFind,
@@ -1491,10 +1498,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$noSearchTypes = &$data['noSearchTypes'];
 	
 		// find all text fields
-		foreach($this->wire()->fields as $field) {
-			if(!$field->type instanceof FieldtypeText) continue;
-			$textFields[$field->name] = $field;
-		}
+		$textFields = $this->wire()->fields->findByType('FieldtypeText', [ 'indexType' => 'name' ]); 
 	
 		// ensure that base/built-in search types are present 
 		foreach($allSearchTypes as $key) {

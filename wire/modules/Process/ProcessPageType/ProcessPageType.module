@@ -610,12 +610,14 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 				return $out;
 			} else if($value instanceof WireArray) {
 				$out = '';	
-				foreach($value as $k => $v) {
+				foreach($value as $v) {
+					/** @var Page|WireData $v */
 					$out .= $v->name . ", ";
 				}
 				return nl2br(rtrim($out, ", ")); 
 
 			} else if($value instanceof Wire) {
+				/** @var Wire|Page|WireData $value */
 				if($value->name) return $value->name; 
 				return (string) $value; 
 			}
@@ -679,10 +681,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	public function getModuleConfigInputfields(array $data) {
 
 		$showFields = isset($data['showFields']) ? $data['showFields'] : array();
-		$fields = array('name'); 
-		foreach($this->wire()->fields as $field) {
-			$fields[] = $field->name;
-		}
+		$fieldNames = array_merge([ 'name' ], $this->wire()->fields->getAllNames()); 
 
 		/** @var InputfieldWrapper $inputfields */
 		$inputfields = $this->wire(new InputfieldWrapper());
@@ -690,7 +689,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		$f = $this->wire()->modules->get('InputfieldAsmSelect'); 
 		$f->label = $this->_("What fields should be displayed in the page listing?");
 		$f->attr('id+name', 'showFields'); 
-		foreach($fields as $name) $f->addOption($name); 
+		foreach($fieldNames as $name) $f->addOption($name); 
 		$f->attr('value', $showFields); 
 		$inputfields->add($f);
 

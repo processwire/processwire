@@ -1000,8 +1000,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$thisName = $this->hasField ? $this->hasField->name : $this->name;
 		
 		// find all CKEditor fields
-		foreach($this->wire()->fields as $field) {
-			if(!$field->type instanceof FieldtypeTextarea) continue;
+		foreach($this->wire()->fields->findByType('FieldtypeTextarea') as $field) {
 			if($field->get('inputfieldClass') != $ckeClass) continue;
 			if($field->name === $thisName) continue;
 			if($field->get('inheritField')) continue;

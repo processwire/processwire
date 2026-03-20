@@ -85,8 +85,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if(!$event->return) return; // if delete failed, then don't continue
 		$page_id = $event->arguments[0]->id; 
 		$database = $this->wire()->database;
-		foreach($this->wire()->fields as $field) {
-			if(!$field->type instanceof FieldtypePage) continue; 
+		foreach($this->wire()->fields->findByType('FieldtypePage') as $field) {
 			$table = $database->escapeTable($field->table);
 			// delete references to this page
 			$query = $database->prepare("DELETE FROM `$table` WHERE data=:page_id");
@@ -1723,9 +1722,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$database = $this->wire()->database; 
 		$totalCleaned = 0; 
 
-		foreach($this->wire()->fields as $field) {
+		foreach($this->wire()->fields->findByType('FieldtypePage') as $field) {
 
-			if(!$field->type instanceof FieldtypePage) continue; 
 			$table = $database->escapeTable($field->getTable()); 
 
 			foreach(array('data', 'pages_id') as $key) {
