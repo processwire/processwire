@@ -207,7 +207,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$this->addHookAfter('Inputfield::processInput', $this, 'hookInputfieldAfterProcessInput'); 
 		$this->addHookBefore('Inputfield::processInput', $this, 'hookInputfieldBeforeProcessInput'); 
 		$this->addHookMethod('Inputfield::getLanguageValue', $this, 'hookInputfieldGetLanguageValue');
-		$this->addHookMethod('Inputfield::setLanguageValue', $this, 'hookInputfieldGetLanguageValue');
+		$this->addHookMethod('Inputfield::setLanguageValue', $this, 'hookInputfieldSetLanguageValue');
 		$this->addHookAfter('Field::getInputfield', $this, 'hookFieldGetInputfield');
 		$pages->addHook('added', $this, 'hookPageAdded'); 
 		$pages->addHook('deleteReady', $this, 'hookPageDeleteReady'); 
