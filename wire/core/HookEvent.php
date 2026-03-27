@@ -3,7 +3,7 @@
 /**
  * ProcessWire HookEvent
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * Instances of HookEvent are passed to Hook handlers when their requested method has been called.
@@ -29,8 +29,9 @@
  * @property bool $replace Set to boolean true in a 'before' hook if you want to prevent execution of the original hooked function. In such a case, your hook is replacing the function entirely. Not recommended, so be careful with this.
  * @property array $options An optional array of user-specified data that gets sent to the hooked function. The hook handling method may access it from $event->data. Also includes all the default hook properties. 
  * @property-read string $id A unique identifier string that may be used with a call to `Wire::removeHook()`.
+ * @property-read int $eid Hook event id, a unique number for this instance of HookEvent, @since 3.0.258.
  * @property-read string $when In an active hook, contains either the string 'before' or 'after', indicating whether it is executing before or after the hooked method. 
- * @property bool $cancelHooks When true, all remaining hooks will be cancelled, making this HookEvent the last one (be careful with this).
+ * @property bool|string $cancelHooks If boolean true all remaining hooks in method call are cancelled. If 'before' or 'after' (in 3.0.258+) then only hooks of that type are cancelled. (default=false)
  *
  */
 class HookEvent extends WireData {
@@ -40,24 +41,54 @@ class HookEvent extends WireData {
 	 *
 	 */
 	static protected $argumentNames = array();
-
+	
+	/**
+	 * Total quantity of HookEvent instances, used to assign each a unique event ID (eid)
+	 * 
+	 * @var int 
+	 * 
+	 */
+	static private $eids = 0;
+	
+	/**
+	 * Names of custom keys set to HookEvent that should carry to related HookEvent instances
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $customKeys = [];
+	
+	/**
+	 * Default values for new HookEvent 
+	 * 
+	 * @var array 
+	 * 
+	 */
+	static protected $defaults = [
+		'object' => null,
+		'method' => '',
+		'arguments' => array(),
+		'return' => null,
+		'replace' => false,
+		'options' => array(),
+		'when' => '',
+		'id' => '',
+		'eid' => 0,
+		'cancelHooks' => false
+	];
+	
 	/**
 	 * Construct the HookEvent and establish default values
+	 * 
+	 * Constructor should only be used for setting properties that appear in 
+	 * `self::$defaults` and should not be used for setting custom data. 
 	 * 
 	 * @param array $eventData Optional event data to start with
 	 *
 	 */
 	public function __construct(array $eventData = array()) {
-		$data = array(
-			'object' => null,
-			'method' => '',
-			'arguments' => array(),
-			'return' => null,
-			'replace' => false,
-			'options' => array(),
-			'id' => '',
-			'cancelHooks' => false
-		);
+		$data = self::$defaults;
+		$data['eid'] = ++self::$eids;
 		if(!empty($eventData)) $data = array_merge($data, $eventData);
 		$this->data = $data;
 		parent::__construct();
@@ -92,11 +123,11 @@ class HookEvent extends WireData {
 	 */
 	public function arguments($n = null, $value = null) {
 		if($n === null) return $this->data['arguments'];
-		if($value !== null) {
+		if(func_num_args() > 1) {
 			$this->setArgument($n, $value); 
 			return $value;
 		}
-		if(isset($this->data['arguments'][$n])) return $this->data['arguments'][$n];
+		if(array_key_exists($n, $this->data['arguments'])) return $this->data['arguments'][$n];
 		if(is_string($n)) return $this->argumentsByName($n);
 		return null;
 	}
@@ -184,9 +215,13 @@ class HookEvent extends WireData {
 
 		if(isset(self::$argumentNames[$key])) return self::$argumentNames[$key];
 
-		$argumentNames = array();
-		$method = new \ReflectionMethod($o, '___' . $m); 
-		$arguments = $method->getParameters();
+		$argumentNames = [];
+		$arguments = [];
+		
+		if(method_exists($o, '___' . $m)) {
+			$method = new \ReflectionMethod($o, '___' . $m);
+			$arguments = $method->getParameters();
+		}
 
 		foreach($arguments as $a) {
 			$pos = $a->getPosition();
@@ -238,17 +273,65 @@ class HookEvent extends WireData {
 		}
 		return $value;
 	}
-
+	
+	/**
+	 * Set
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return self
+	 * 
+	 */
+	public function set($key, $value) {
+		if(!array_key_exists($key, self::$defaults)) {
+			$this->customKeys[$key] = $key;
+		}
+		return parent::set($key, $value);
+	}
+	
+	/**
+	 * Get any custom data set to this HookEvent
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * @since 3.0.258
+	 * 
+	 */
+	public function getCustomData() {
+		if(empty($this->customKeys)) return [];
+		$data = [];
+		foreach($this->customKeys as $key) {
+			$data[$key] = parent::get($key);
+		}
+		return $data;
+	}
+	
 	/**
 	 * Return a string representing the HookEvent
 	 *
 	 */
 	public function __toString() {
-		$s = $this->object->className() . '::' . $this->method . '(';
-		foreach($this->arguments as $a) $s .= is_string($a) ? '"' . $a . '", ' : "$a, ";
-		$s = rtrim($s, ", ") . ")";
-		return $s; 	
+		$a = [];
+		foreach($this->arguments as $v) {
+			if(is_object($v)) {
+				$a[] = wireClassName($v);
+			} else if(is_array($v)) {
+				$a[] = 'array(' . count($v) . ')';
+			} else if(is_int($v) || is_float($v)) {
+				$a[] = "$v";
+			} else if($v === null) {
+				$a[] = 'null';
+			} else if(is_bool($v)) {
+				$a[] = $v ? 'true' : 'false';
+			} else {
+				$a[] = '"' . "$v" . '"';
+			}
+		}
+		return
+			$this->object->className() . '::' .
+			$this->method . '(' . implode(', ', $a) . ")";
 	}
-
+	
 }
 

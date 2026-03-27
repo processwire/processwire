@@ -200,7 +200,7 @@ echo
 		<?php
 		$o = '';
 		$oc = 0;
-		$hooks = array_merge($this->wire()->getHooks('*'), $this->wire('hooks')->getAllLocalHooks());
+		$hooks = array_merge($this->wire()->hooks->getHooks($wire, '*'));
 		$hooksSorted = array();
 		foreach($hooks as $hook) {
 			$whenKey = $hook['options']['before'] ? '0' : '1';

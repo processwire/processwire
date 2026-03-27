@@ -5,7 +5,7 @@
  * 
  * This class is for internal use. You should manipulate hooks from Wire-derived classes instead. 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -124,6 +124,12 @@ class WireHooks {
 	 *
 	 */
 	protected $allLocalHooks = array();
+	
+	/**
+	 * Cache of all static hooks combined, for debugging purposes
+	 *
+	 */
+	protected $allStaticHooks = array();
 
 	/**
 	 * Cached parent classes and interfaces
@@ -170,6 +176,14 @@ class WireHooks {
 	 * 
 	 */
 	protected $pathHookRedirect = '';
+	
+	/**
+	 * Enable experimental getHooks() cache?
+	 * 
+	 * @var bool 
+	 * 
+	 */
+	protected $useGetHooksCache = false;
 
 	/**
 	 * @var ProcessWire
@@ -203,13 +217,17 @@ class WireHooks {
 	public function __construct(ProcessWire $wire, Config $config) {
 		$this->wire = $wire;
 		$this->config = $config;
+		if($config->debug === 'dev') $this->useGetHooksCache = true;
 	}
 	
 	/**
 	 * Return all hooks associated with $object or method (if specified)
 	 *
 	 * @param Wire $object
-	 * @param string $method Optional method that hooks will be limited to. Or specify '*' to return all hooks everywhere.
+	 * @param string $method Optional method that hooks will be limited to. 
+	 *  - Or specify blank string to return all hooks for $object. 
+	 *  - Or specify '*' to return all hooks for all objects ($object ignored so use NullPage).
+	 *    Note that this option is available when ProcessWire is in debug mode only. 
 	 * @param int $getHooks Get hooks of type, specify one of the following constants:
 	 * 	- WireHooks::getHooksAll returns all hooks [0] (default)
 	 * 	- WireHooks::getHooksLocal returns local hooks [1] only
@@ -218,24 +236,32 @@ class WireHooks {
 	 *
 	 */
 	public function getHooks(Wire $object, $method = '', $getHooks = self::getHooksAll) {
-
+		
+		if($method === '*') {
+			return array_merge($this->allStaticHooks, $this->allLocalHooks);
+		}
+	
 		$hooks = array();
 
 		// see if we can do a quick exit
-		if($method && $method !== '*' && !$this->isHookedOrParents($object, $method)) return $hooks;
-
+		if($method && !$this->isHookedOrParents($object, $method)) {
+			return $hooks;
+		}
+		
 		// first determine which local hooks when should include
 		if($getHooks !== self::getHooksStatic) {
 			$localHooks = $object->getLocalHooks();
-			if($method && $method !== '*') {
+			if($method) {
 				// populate all local hooks for given method
 				if(isset($localHooks[$method])) $hooks = $localHooks[$method];
+				
 			} else {
 				// populate all local hooks, regardless of method
 				// note: sort of return hooks is no longer priority based
-				// @todo account for '*' method, which should return all hooks regardless of instance
-				foreach($localHooks as $method => $methodHooks) {
-					$hooks = array_merge(array_values($hooks), array_values($methodHooks));
+				foreach($localHooks as /* methodName => */ $methodHooks) {
+					foreach($methodHooks as $methodHook) {
+						$hooks[] = $methodHook;
+					}
 				}
 			}
 		}
@@ -246,16 +272,16 @@ class WireHooks {
 		$needSort = false;
 		$namespace = __NAMESPACE__ ? __NAMESPACE__ . "\\" : "";
 		$objectParentNamespaces = array();
-
+	
 		// join in static hooks
 		foreach($this->staticHooks as $className => $staticHooks) {
 			$_className = $namespace . $className;
-			if(!$object instanceof $_className && $method !== '*') {
+			if(!$object instanceof $_className) {
 				$_namespace = wireClassName($object, 1) . "\\";
 				if($_namespace !== $namespace) {
 					// objects in other namespaces
 					$_className = $_namespace . $className;
-					if(!$object instanceof $_className) { // && $method !== '*') {
+					if(!$object instanceof $_className) {
 						// object likely extends a class not in PW namespace, so check class parents instead
 						if(empty($objectParentNamespaces)) {
 							foreach(wireClassParents($object) as $nscn => $cn) {
@@ -277,7 +303,7 @@ class WireHooks {
 				}
 			}
 			// join in any related static hooks to the local hooks
-			if($method && $method !== '*') {
+			if($method) {
 				// retrieve all static hooks for method
 				if(!empty($staticHooks[$method])) {
 					if(count($hooks)) {
@@ -297,11 +323,13 @@ class WireHooks {
 					}
 				}
 			} else {
-				// no method specified, retrieve all for class
-				// note: priority-based array indexes are no longer in tact
+				// no method specified, or '*' method specified, retrieve all 
+				// note: priority-based array indexes are no longer intact
 				$hooks = array_values($hooks);
-				foreach($staticHooks as /* $_method => */ $methodHooks) {
-					$hooks = array_merge($hooks, array_values($methodHooks));
+				foreach($staticHooks as /* methodName => */ $methodHooks) {
+					foreach($methodHooks as $methodHook) {
+						$hooks[] = $methodHook;
+					}
 				}
 			}
 		}
@@ -405,21 +433,21 @@ class WireHooks {
 				if($type == 'method') {
 					if(isset($this->hookClassMethodCache["$parentClass::$method"])) {
 						$hooked = true;
-						$this->hookClassMethodCache["$class::$method"] = true;
+						$this->hookClassMethodCache["$className::$method"] = true;
 					}
 				} else if($type == 'property') {
 					if(isset($this->hookClassMethodCache["$parentClass::$property"])) {
 						$hooked = true;
-						$this->hookClassMethodCache["$class::$property"] = true;
+						$this->hookClassMethodCache["$className::$property"] = true;
 					}
 				} else {
 					if(isset($this->hookClassMethodCache["$parentClass::$method"])) {
 						$hooked = true;
-						$this->hookClassMethodCache["$class::$method"] = true;
+						$this->hookClassMethodCache["$className::$method"] = true;
 					}
 					if(!$hooked && isset($this->hookClassMethodCache["$parentClass::$property"])) {
 						$hooked = true;
-						$this->hookClassMethodCache["$class::$property"] = true;
+						$this->hookClassMethodCache["$className::$property"] = true;
 					}
 				}
 				if($hooked) break;	
@@ -564,9 +592,14 @@ class WireHooks {
 	 */
 	public function addHook(Wire $object, $method, $toObject, $toMethod = null, $options = array()) {
 		
-		if(empty($options['noAddHooks']) && (is_array($method) || strpos($method, ',') !== false)) {
-			// potentially multiple methods to hook in $method argument
-			return $this->addHooks($object, $method, $toObject, $toMethod, $options);
+		$methodOriginal = $method;
+		if(empty($options['noAddHooks'])) { 
+			if(is_array($method) || strpos($method, ',') !== false) {
+				// potentially multiple methods to hook in $method argument
+				return $this->addHooks($object, $method, $toObject, $toMethod, $options);
+			}
+		} else {
+			unset($options['noAddHooks']);
 		}
 		
 		if(is_array($toMethod)) {
@@ -588,7 +621,10 @@ class WireHooks {
 		}
 		
 		if($toMethod === null) {
-			throw new WireException("Method to call is required and was not specified (toMethod)");
+			throw new WireException(
+				"Method to call (\$toMethod) is required and was not specified " . 
+				"in hook to " . $object->className()
+			);
 		}
 		
 		if(strpos($method, '___') === 0) {
@@ -598,7 +634,11 @@ class WireHooks {
 		}
 		
 		if(method_exists($object, $method)) {
-			throw new WireException("Method " . $object->className() . "::$method is not hookable");
+			$class = $object->className();
+			throw new WireException(
+				"Method '$class::$method' is a regular (non-hookable) method. Hookable method " . 
+				"names must begin with '___', i.e. public function ___example() { … }"
+			);
 		}
 		
 		$options = array_merge($this->defaultHookOptions, $options);
@@ -714,7 +754,16 @@ class WireHooks {
 		if($retMatch) {
 			// match return value
 			if($options['before'] && !$options['after']) {
-				throw new WireException('You cannot match return values with “before” hooks'); 
+				$error = 
+					"Your your hook is attempting to match a return value " . 
+					"with a “before” hook (which is not possible) ";
+				$pos = strpos($methodOriginal, ':'); 
+				if($pos && $pos === strrpos($methodOriginal, ':')) {
+					$error .= 
+						"OR your `Class::method` is not properly separated with `::` " . 
+						"in `addHookBefore('$methodOriginal', …)`";
+				}
+				throw new WireException($error); 
 			}
 			list($retMatch, $retMatchType) = $this->prepareArgMatch($retMatch);
 			$options['retMatch'] = $retMatch;
@@ -786,13 +835,20 @@ class WireHooks {
 		}
 
 		// keep track of all local hooks combined when debug mode is on
-		if($local && $this->config->debug) {
-			$debugClass = $object->className();
-			$debugID = $debugClass . $id;
-			while(isset($this->allLocalHooks[$debugID])) $debugID .= "_";
-			$debugHook = $hooks[$method][$priority];
-			$debugHook['method'] = $debugClass . "->" . $debugHook['method'];
-			$this->allLocalHooks[$debugID] = $debugHook;
+		if($this->config->debug) {
+			if($local) {
+				$debugClass = $object->className();
+				$debugID = $debugClass . $id;
+				$typeHooks = &$this->allLocalHooks;
+			} else {
+				$debugClass = $hookClass;
+				$debugID = $id;
+				$typeHooks = &$this->allStaticHooks;
+			}
+			$debugHook = $hook;
+			$debugHook['method'] = ($local ? $debugClass . '->' : '') . $debugHook['method'];
+			while(isset($typeHooks[$debugID])) $debugID .= "_";
+			$typeHooks[$debugID] = $debugHook;
 		}
 
 		// sort by priority, if more than one hook for the method
@@ -810,7 +866,7 @@ class WireHooks {
 
 		return $id;
 	}
-
+	
 	/**
 	 * Add a hooks to multiple methods at once
 	 *
@@ -840,7 +896,7 @@ class WireHooks {
 			if(strpos($str, '()') !== false) $str = str_replace('()', '', $str); 
 			
 			if(strpos($str, '(') === false) {
-				// If there is a parenthesis then it is multi-method definition without arguments
+				// If there is no parenthesis then it is multi-method definition without arguments
 				// Example: "Pages::saveReady, Pages::saved" 
 				$methods = explode(',', $str);
 				
@@ -960,6 +1016,7 @@ class WireHooks {
 	 * @param string|array $type May be any one of the following: 
 	 *  - method: for hooked methods (default)
 	 *  - property: for hooked properties
+	 *  - either: hooked methods or hooked properties
 	 *  - before: only run before hooks and do nothing else
 	 *  - after: only run after hooks and do nothing else
 	 *  - Or array[] of hooks (from getHooks method) to run (does not call hooked method)
@@ -974,11 +1031,11 @@ class WireHooks {
 
 		$hookTimer = self::___debug ? $this->hookTimer($object, $method, $arguments) : null;
 		$realMethod = "___$method";
-		$cancelHooks = false;
+		$cancelHooks = []; // [ 'before' => bool, 'after' => bool ] 
 		$profiler = $this->wire->wire()->profiler;
 		$hooks = null;
 		$methodExists = false;
-		$useHookReturnValue = false; // allow use of "return $value;" in hook in addition to $event->return ?
+		$customEventData = [];
 		
 		if($type === 'method') {
 			$methodExists = method_exists($object, $realMethod); 
@@ -1027,12 +1084,16 @@ class WireHooks {
 			} else if($type === 'before') {
 				if($when === 'after') break;
 			}
+			
+			if($when === 'after' && !empty($cancelHooks['after'])) break;
 
 			foreach($hooks as /* $priority => */ $hook) {
 
 				if(!$hook['options'][$when]) continue;
 				if($type === 'property' && $hook['options']['type'] === 'method') continue;
 				if($type === 'method' && $hook['options']['type'] === 'property') continue;
+				
+				$useHookReturnValue = false; // allow use of "return $value;" in hook in addition to $event->return ?
 
 				if(!empty($hook['options']['objMatch'])) {
 					/** @var Selectors $objMatch */
@@ -1084,6 +1145,7 @@ class WireHooks {
 					'options' => $hook['options']
 				));
 				$this->wire->wire($event);
+				if(!empty($customEventData)) $event->setArray($customEventData);
 
 				$toObject = $hook['toObject'];
 				$toMethod = $hook['toMethod'];
@@ -1097,7 +1159,7 @@ class WireHooks {
 					$profilerEvent = false;
 				}
 
-				if(is_null($toObject)) {
+				if($toObject === null) {
 					$toMethodCallable = is_callable($toMethod);
 					if(!$toMethodCallable && strpos($toMethod, "\\") === false && __NAMESPACE__) {
 						$_toMethod = $toMethod;
@@ -1125,6 +1187,8 @@ class WireHooks {
 					}
 					$toMethodCallable = true; 
 				}
+				
+				$customEventData = $event->getCustomData();
 
 				if($returnValue !== null) {
 					// hook method/func had an explicit 'return $value;' statement 
@@ -1143,19 +1207,35 @@ class WireHooks {
 				$result['numHooksRun']++;
 				if(self::___debug) $result['hooksRun'][] = $hook['options']; 
 				
-				if($event->cancelHooks === true) $cancelHooks = true;
-
-				if($when == 'before') {
+				if($when === 'before') {
 					$arguments = $event->arguments;
 					$result['replace'] = $event->replace === true || $result['replace'] === true;
 					if($result['replace']) $result['return'] = $event->return;
 				}
-
-				if($when == 'after') $result['return'] = $event->return;
-				if($cancelHooks) break;
-			}
-			if($cancelHooks) break;
-		}
+				
+				if($when === 'after') $result['return'] = $event->return;
+		
+				/** @var bool|string $cancel Can be boolean or string of 'before' or 'after' */
+				$cancel = $event->cancelHooks;
+				if($cancel) {
+					// if $cancel === true: both before and after hooks cancelled
+					// if $cancel === 'before' or 'after': only that type is cancelled
+					if($cancel === true) {
+						// both before and after hooks cancelled 
+						$cancelHooks = ['after' => true];
+						break;
+					} else if($cancel === $when) {
+						// only hooks of current type (before or after) are cancelled
+						break;
+					} else if($cancel === 'after' && $when === 'before') {
+						// we are executing 'before' hooks and will cancel 'after' hooks
+						$cancelHooks['after'] = true;
+					}
+				}
+				
+			} // foreach($hooks as $hook)
+		
+		} // foreach(['before','after'] as $when)
 		
 		if($hookTimer) Debug::saveTimer($hookTimer);
 
@@ -1222,8 +1302,7 @@ class WireHooks {
 			$s = $argMatch->first();
 			if($s instanceof Selector && $s->field() === '___val') {
 				$o = WireData();
-				$o->set('value', $argVal);
-				$s->field = 'value';
+				$o->set('___val', $argVal);
 				$argVal = $o;
 			} else if(is_array($argVal)) {
 				$argVal = count($argVal) && is_string(key($argVal)) ? WireData($argVal) : WireArray($argVal);
@@ -1396,7 +1475,7 @@ class WireHooks {
 	 * Start timing a hook and return the timer name
 	 * 
 	 * @param Wire $object
-	 * @param String $method
+	 * @param string $method
 	 * @param array $arguments
 	 * @return string
 	 * 
