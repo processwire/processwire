@@ -91,8 +91,7 @@ class WireSessionHandlerAdaptor implements \SessionHandlerInterface {
 	 * 
 	 */
 	public function open(string $path, string $name): bool {
-		wire()->message("open: $name"); 
-		return (bool) $this->handler->open($path, $name); 
+		return (bool) $this->handler->open($path, $name);
 	}
 	
 	/**
