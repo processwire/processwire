@@ -428,7 +428,7 @@ class PageFrontEdit extends WireData implements Module {
 		$hasEditTags = strpos($out, "<$this->editRegionTag") !== false; // i.e. <edit title>
 		$hasEditAttr = strpos($out, " $this->editRegionAttr=") !== false; // i.e. <div edit='title'>
 		
-		if(strpos($out, "id=pw-edit-") === false && !$hasEditTags && !$hasEditAttr) return;
+		if(strpos($out, 'id=pw-edit-') === false && strpos($out, 'id="pw-edit-') === false && strpos($out, "id='pw-edit-") === false && !$hasEditTags && !$hasEditAttr) return;
 		
 		/** @var Page $page */
 		$page = $event->object;
