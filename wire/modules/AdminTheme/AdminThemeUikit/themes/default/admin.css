@@ -1,5 +1,11 @@
 /* END Set general color to work in light and dark */
 
+::selection {
+	background: var(--pw-main-color);
+	color: #fff;
+	text-shadow: none;
+}
+
 a, .uk-link { /* RJC */
 	color: var(--pw-main-color); 
 }
@@ -2132,6 +2138,9 @@ table,
 .uk-modal.uk-open {
 	display: flex !important;
 	align-items: center;
+}
+.uk-modal-dialog {
+	transition: none !important;
 }
 
 .pw .ui-dialog .ui-dialog-content,
