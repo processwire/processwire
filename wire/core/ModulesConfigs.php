@@ -693,9 +693,9 @@ class ModulesConfigs extends ModulesClass {
 				$numVisible++;
 			}
 			$flags = $this->modules->flags->getFlags($moduleName);
+			$info = $this->modules->info->getModuleInfoVerbose($moduleName);
 			if($numVisible) {
 				if($flags & Modules::flagsNoUserConfig) {
-					$info = $this->modules->info->getModuleInfoVerbose($moduleName);
 					if(empty($info['addFlag']) || !($info['addFlag'] & Modules::flagsNoUserConfig)) {
 						$this->modules->flags->setFlag($moduleName, Modules::flagsNoUserConfig, false); // remove flag
 					}

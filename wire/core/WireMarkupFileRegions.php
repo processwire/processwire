@@ -267,7 +267,8 @@ class WireMarkupFileRegions extends Wire {
 	public function findRegions(&$html, array $options) {
 		
 		$action = $options['action'];
-		
+		$exts = $options['exts'];
+
 		$this->errors = [];
 		$this->notes = [];
 		
