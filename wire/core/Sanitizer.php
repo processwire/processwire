@@ -2352,13 +2352,21 @@ class Sanitizer extends Wire {
 			// OR it is already rawurlencode()'d
 			// Example: https://de.wikipedia.org/wiki/Linksh%C3%A4nder
 			// we convert the URL to be FILTER_SANITIZE_URL compatible
-			// if already encoded, first remove encoding: 
-			if($pathIsEncoded) $domainPath = rawurldecode($domainPath);
-			// Next, encode it, for example: https%3A%2F%2Fde.wikipedia.org%2Fwiki%2FLinksh%C3%A4nder
-			$domainPath = rawurlencode($domainPath);
-			// restore characters allowed in domain/path
-			$domainPath = str_replace(array('%2F', '%3A'), array('/', ':'), $domainPath);
+			// Split authority from path to preserve userinfo @ separator during encode/decode
+			$authorityLen = 0;
+			if(preg_match('!^[a-z][a-z0-9+\-.]*://[^/?#]*!i', $domainPath, $m)) {
+				$authorityLen = strlen($m[0]);
+			}
+			$authority = substr($domainPath, 0, $authorityLen);
+			$pathPart = substr($domainPath, $authorityLen);
+			// if already encoded, first remove encoding:
+			if($pathIsEncoded) $pathPart = rawurldecode($pathPart);
+			// Next, encode it
+			$pathPart = rawurlencode($pathPart);
+			// restore characters allowed in path
+			$pathPart = str_replace(array('%2F', '%3A'), array('/', ':'), $pathPart);
 			// restore value that is now FILTER_SANITIZE_URL compatible
+			$domainPath = $authority . $pathPart;
 			$pathIsEncoded = true;
 		}
 		
