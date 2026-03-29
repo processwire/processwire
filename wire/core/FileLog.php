@@ -522,8 +522,9 @@ class FileLog extends Wire {
 		
 		if($options['toFile']) {
 			$toFile = $this->path() . basename($options['toFile']); 
-			$fp = fopen($toFile, 'w'); 
-			if(!$fp) throw new \Exception("Unable to open file for writing: $toFile"); 
+			$fp = fopen($toFile, 'w');
+			if(!$fp) throw new \Exception("Unable to open file for writing: $toFile");
+			flock($fp, LOCK_EX);
 		} else {
 			$toFile = '';
 			$fp = null;
@@ -573,8 +574,9 @@ class FileLog extends Wire {
 		if(count($lines) < $limit && $total > $end) $total = $end; 
 		
 		if($fp) {
+			flock($fp, LOCK_UN);
 			fclose($fp);
-			$this->wire()->files->chmod($toFile); 
+			$this->wire()->files->chmod($toFile);
 			return $cnt;
 		}
 			
@@ -644,10 +646,11 @@ class FileLog extends Wire {
 
 		if(!$filename || !file_exists($filename) || filesize($filename) <= $bytes) return 0; 
 
-		$fpr = fopen($filename, "r"); 	
-		$fpw = fopen("$filename.new", "w"); 
+		$fpr = fopen($filename, "r");
+		$fpw = fopen("$filename.new", "w");
 		if(!$fpr || !$fpw) return false;
 
+		flock($fpr, LOCK_EX);
 		fseek($fpr, ($bytes * -1), SEEK_END); 
 		fgets($fpr, $this->maxLineLength); // first line likely just a partial line, so skip it
 		$cnt = 0;
@@ -658,9 +661,10 @@ class FileLog extends Wire {
 			$cnt++;
 		}
 
+		flock($fpr, LOCK_UN);
 		fclose($fpw);
-		fclose($fpr); 
-		
+		fclose($fpr);
+
 		$files = $this->wire()->files;
 
 		if($cnt) {
