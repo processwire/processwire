@@ -101,6 +101,20 @@ class FieldtypeDecimal extends Fieldtype {
 	}
 
 	/**
+	 * Wakeup value from DB storage
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return string
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		if(!strlen("$value")) return '';
+		return $this->sanitizeValue($page, $field, $value);
+	}
+
+	/**
 	 * Sleep value for DB storage
 	 *
 	 * @param Page $page
