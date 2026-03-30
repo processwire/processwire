@@ -405,16 +405,21 @@ $config->sessionChallenge = true;
  * 
  * Custom settings:
  * 
- * - 2: Remote IP
- * - 4: Forwarded/client IP (can be spoofed)
- * - 8: Useragent
+ * - 2:  Remote IP
+ * - 4:  Forwarded/client IP (can be spoofed)
+ * - 8:  Useragent
  * - 16: Accept header
+ * - 32: Use partial IP: the 1.2.3 part of 1.2.3.4, ignoring 4.
+ *       May be combined with either remote IP (2) or client IP (4)
  * 
  * To use the custom settings above, select one or more of those you want 
  * to fingerprint, note the numbers, and use them like in the examples:
  * ~~~~~~ 
- * // to fingerprint just remote IP
- * $config->sessionFingerprint = 2; 
+ * // to fingerprint the entire remote IP
+ * $config->sessionFingerprint = 2;
+ * 
+ * // to fingerprint partial IP (the '4' is ignored in '1.2.3.4') 
+ * $config->sessionFingerprint = 2 | 32;
  * 
  * // to fingerprint remote IP and useragent: 
  * $config->sessionFingerprint = 2 | 8;
@@ -426,10 +431,20 @@ $config->sessionChallenge = true;
  * If using fingerprint in an environment where the user’s IP address may 
  * change during the session, you should fingerprint only the useragent 
  * and/or accept header, or disable fingerprinting.
- *
- * If using fingerprint with an AWS load balancer, you should use one of 
- * the options that uses the “client IP” rather than the “remote IP”, 
- * fingerprint only useragent and/or accept header, or disable fingerprinting.
+ * 
+ * When using the partial IP address option (32) for IPv4 addresses it
+ * uses the first 3 octets (i.e. 111.222.333 in a 111.222.333.444 IP).
+ * And for IPv6 the first 6 groups (/96 prefix) are used.
+ * 
+ * Note that cellular/mobile connections typically use carrier-grade NAT, meaning 
+ * the IP address may change completely when moving between cell towers, regardless 
+ * of proximity. For sites used primarily on mobile devices, IP-based fingerprinting 
+ * (flags 2, 4, and 32) is not recommended - use flag 8 (User-Agent) instead.
+ * 
+ * If using fingerprint behind a reverse proxy or load balancer (e.g. AWS ALB, 
+ * Nginx proxy, Cloudfront in proxy mode), use client IP (flag 4) rather than 
+ * remote IP (flag 2), as the remote IP will be the proxy's address rather than 
+ * that of the user. Or disable fingerprinting of IP. 
  * 
  * @var int
  *

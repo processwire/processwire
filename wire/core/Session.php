@@ -13,7 +13,7 @@
  * and likewise a value set in $session won't appear in $_SESSION.  It's also good to use this class
  * over the $_SESSION superglobal just in case we ever need to replace PHP's session handling in the future.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @see https://processwire.com/api/ref/session/ Session documentation
@@ -73,7 +73,17 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	const fingerprintAccept = 16;
-
+	
+	/**
+	 * Fingerprint bitmask: Use partial address (either remote or client)
+	 * 
+	 * Please combine with either fingerprintRemoteAddr OR fingerprintClientAddr
+	 * 
+	 * @since 3.0.258
+	 *
+	 */
+	const fingerprintPartialAddr = 32;
+	
 	/**
 	 * Suffix applied to challenge cookies
 	 * 
@@ -362,7 +372,7 @@ class Session extends Wire implements \IteratorAggregate {
 
 		// check fingerprint
 		if(!$this->isValidFingerprint()) {
-			$reason = "Error: Session fingerprint changed (IP address or useragent)";
+			$reason = "Error: Session fingerprint changed";
 			$valid = false;
 		}
 	
@@ -411,16 +421,21 @@ class Session extends Wire implements \IteratorAggregate {
 	 * If the `$mode` argument is omitted, the mode is pulled from `$config->sessionFingerprint`. 
 	 * If using the mode argument, specify one of the following:
 	 * 
-	 * - 2: Remote IP
-	 * - 4: Forwarded/client IP (can be spoofed)
-	 * - 8: Useragent
+	 * - 2:  Remote IP
+	 * - 4:  Forwarded/client IP (can be spoofed)
+	 * - 8:  Useragent
 	 * - 16: Accept header
+	 * - 32: Partial IP (the 1.2.3 part of 1.2.3.4)
+	 *       Please combine with either remote IP (2) or client IP (4)
 	 *
 	 * To use the custom `$mode` settings above, select one or more of those you want
 	 * to fingerprint, note the numbers, and determine the `$mode` like this:
 	 * ~~~~~~
 	 * // to fingerprint just remote IP
 	 * $mode = 2;
+	 * 
+	 * // to fingerprint partial IP (the '4' is ignored in '1.2.3.4')
+	 * $config->sessionFingerprint = 2 | 32;
 	 *
 	 * // to fingerprint remote IP and useragent:
 	 * $mode = 2 | 8;
@@ -432,9 +447,19 @@ class Session extends Wire implements \IteratorAggregate {
 	 * change during the session, you should fingerprint only the useragent
 	 * and/or accept header, or disable fingerprinting.
 	 *
-	 * If using fingerprint with an AWS load balancer, you should use one of
-	 * the options that uses the “client IP” rather than the “remote IP”,
-	 * fingerprint only useragent and/or accept header, or disable fingerprinting.
+	 * When using the partial IP address option (32) for IPv4 addresses it
+	 * uses the first 3 octets (i.e. 111.222.333 in a 111.222.333.444 IP).
+	 * And for IPv6 the first 6 groups (/96 prefix) are used.
+	 *
+	 * Note that cellular/mobile connections typically use carrier-grade NAT, meaning
+	 * the IP address may change completely when moving between cell towers, regardless
+	 * of proximity. For sites used primarily on mobile devices, IP-based fingerprinting
+	 * (flags 2, 4, and 32) is not recommended - use flag 8 (User-Agent) instead.
+	 *
+	 * If using fingerprint behind a reverse proxy or load balancer (e.g. AWS ALB,
+	 * Nginx proxy, Cloudfront in proxy mode), use client IP (flag 4) rather than
+	 * remote IP (flag 2), as the remote IP will be the proxy's address rather than
+	 * that of the user. Or disable fingerprinting of IP.
 	 * 
 	 * #pw-internal
 	 * 
@@ -461,18 +486,28 @@ class Session extends Wire implements \IteratorAggregate {
 			}
 			if($debug) $debugInfo[] = 'default';
 		}
-
+		
+		$partial = (bool) ($useFingerprint & self::fingerprintPartialAddr);
 		$fingerprint = '';
+		$ip = null;
 		
 		if($useFingerprint & self::fingerprintRemoteAddr) {
-			$fingerprint .= $this->getIP(true);
 			if($debug) $debugInfo[] = 'remote-addr';
+			$ip = $this->getIP($partial ? false : true);
 		}
 		
 		if($useFingerprint & self::fingerprintClientAddr) {
-			$fingerprint .= $this->getIP(false, 2);
 			if($debug) $debugInfo[] = 'client-addr';
+			$ip = $this->getIP(false, 2);
 		}
+		
+		if($partial) {
+			if($ip === null) $ip = $this->getIP(false); // in case they forgot to specify addr type
+			if($debug) $debugInfo[] = 'partial';
+			$ip = $this->getPartialIP(3, $ip);
+		}
+		
+		if($ip !== null) $fingerprint .= $ip;
 		
 		if($useFingerprint & self::fingerprintUseragent) {
 			$fingerprint .= isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
@@ -521,7 +556,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 * @param string|object $key Name of session variable to retrieve (or object if using namespaces)
 	 * @param string $_key Name of session variable to get if first argument is namespace, omit otherwise.
-	 * @return mixed Returns value of seession variable, or NULL if not found. 
+	 * @return mixed Returns value of session variable, or NULL if not found. 
 	 *
 	 */
 	public function get($key, $_key = null) {
@@ -559,7 +594,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 * @param string $key Name of session variable to retrieve.
 	 * @param mixed $val Fallback value to return if session does not have it.
-	 * @return mixed Returns value of seession variable, or NULL if not found. 
+	 * @return mixed Returns value of session variable, or $val argument if not found (default null).
 	 * @since 3.0.133
 	 * 
 	 */
@@ -860,7 +895,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 * ~~~~~
 	 * $ip = $session->getIP();
-	 * echo $ip; // outputs 111.222.333.444
+	 * echo $ip; // outputs 1.2.3.4
 	 * ~~~~~
 	 * 
 	 * #pw-group-info
@@ -868,15 +903,21 @@ class Session extends Wire implements \IteratorAggregate {
 	 * @param bool $int Return as a long integer? (default=false)
 	 *  - IPv6 addresses cannot be represented as an integer, so please note that using this int option makes it return a CRC32
 	 *    integer when using IPv6 addresses (3.0.184+).
+	 *  - Note that collapsed IPv6 addresses are normalized to fully expanded form in 3.0.258+. 
 	 * @param bool|int $useClient Give preference to client headers for IP? HTTP_CLIENT_IP and HTTP_X_FORWARDED_FOR (default=false)
 	 * 	- Specify integer 2 to include potential multiple CSV separated IPs (when provided by client).
+	 * @param int $numParts Get partial IP starting from beginning? Specify num of parts for IP to include or omit (0) for full IP. 
+	 *  - Note that for IPv6 addresses this value is doubled. 
+	 *  - This argument does not apply if the $int argument is true. 
+	 *  - This argument is available in ProcessWire 3.0.258 or newer. 
 	 * @return string|int Returns string by default, or integer if $int argument indicates to.
 	 *
 	 */
-	public function getIP($int = false, $useClient = false) {
+	public function getIP($int = false, $useClient = false, $numParts = 0) {
 
 		$ip = $this->config->sessionForceIP;
 		$ipv6 = false;
+		$multi = false; // are there multiple comma-separated IP addresses in return value?
 
 		if(!empty($ip)) {
 			// use IP address specified in $config->sessionForceIP and disregard other options
@@ -932,14 +973,21 @@ class Session extends Wire implements \IteratorAggregate {
 			foreach(explode(',', $ip) as $ip) {
 				if($ipv6) {
 					$ip = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
-					if($ip !== false && $int) $ip = crc32($ip);
+					if($ip !== false) {
+						$ip = $this->normalizeIPv6($ip);
+						if($int) $ip = crc32($ip);
+					}
 				} else {
 					$ip = ip2long(trim($ip));
 					if(!$int) $ip = long2ip($ip);
 				}
-				if($ip !== false) $ips[] = $ip;
+				if($ip !== false) {
+					if($numParts > 0 && !$int) $ip = $this->getPartialIP($numParts, $ip);
+					$ips[] = $ip;
+				}
 			}
 			$ip = implode(',', $ips);
+			$multi = count($ips) > 1; 
 
 		} else if($ipv6) {
 			$ip = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
@@ -947,6 +995,8 @@ class Session extends Wire implements \IteratorAggregate {
 				$ip = $int ? 0 : '0.0.0.0';
 			} else if($int) {
 				$ip = crc32($ip);
+			} else {
+				$ip = $this->normalizeIPv6($ip);
 			}
 
 		} else {
@@ -954,8 +1004,81 @@ class Session extends Wire implements \IteratorAggregate {
 			$ip = ip2long(trim($ip));
 			if(!$int) $ip = long2ip($ip);
 		}
+		
+		if($numParts > 0 && !$int && !$multi) {
+			$ip = $this->getPartialIP($numParts, $ip);
+		}
 
 		return $ip;
+	}
+	
+	/**
+	 * Normalize IPv6 address to fully expanded lowercase form 
+	 * 
+	 * Note that this method excludes localhost `::1` from normalization
+	 * and only normalizes case for IPv4-mapped addresses.
+	 * 
+	 * @param string $ip IPv6 address
+	 * @return string Returns normalized IP on success or original given string on fail
+	 * @since 3.0.258
+	 * 
+	 */
+	protected function normalizeIPv6($ip) {
+		if($ip === '::1') return $ip; // localhost, universally recognized
+		$binary = inet_pton($ip);
+		if($binary === false) return $ip; // fail, return original
+		if(substr($binary, 0, 12) === "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff") {
+			// IPv4-mapped: preserve as ::ffff:x.x.x.x (normalize case only)
+			$ip = '::ffff:' . long2ip(unpack('N', substr($binary, 12))[1]);
+		} else {
+			// Reconstruct IPv6
+			$ip = implode(':', str_split(bin2hex($binary), 4));
+		}
+		return $ip;
+	}
+	
+	/**
+	 * Get partial IP address (for fingerprinting)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param int $numParts Specify `1` to get "111", `2` to get "111.222" or `3` to get "111.222.333"
+	 *  Please note that the $numParts value is automatically doubled for IPv6 addresses. 
+	 * @param bool|int|string $ip IP address option, one of the following:
+	 *  - `111.222.333.444` (string): Specify IP address to use.
+	 *  - `false` (bool): Use remote IP address (default). 
+	 *  - `true` (bool): Give preference to client headers for IP? HTTP_CLIENT_IP and HTTP_X_FORWARDED_FOR.
+	 *  -  Omit the `$ip` argument for the default, which is false (to use current remote IP). 
+	 * @return string Returns partial IP on success or original given string on fail
+	 * @since 3.0.258
+	 * 
+	 */
+	protected function getPartialIP($numParts = 2, $ip = false) {
+		
+		if($numParts < 1) $numParts = 1;
+		if($numParts > 4) $numParts = 4;
+		
+		if(is_bool($ip)) $ip = $this->getIP(false, $ip);
+		
+		if(strpos($ip, ':') !== false) {
+			// IPv6: expand to full form and take first $numParts groups                                                                                                                                                     
+			// Note that numParts auto-translates to double the groups (16-bit vs 8-bit units)
+			$binary = inet_pton($ip);
+			if($binary === false) {
+				// keep original string
+			} else {
+				$parts = min($numParts * 2, 8);
+				$groups = str_split(bin2hex($binary), 4);
+				$ip = implode(':', array_slice($groups, 0, $parts));
+			}
+		} else if(strpos($ip, '.') !== false) {
+			// IPv4
+			$ip = implode('.', array_slice(explode('.', $ip), 0, $numParts)); 
+		} else {
+			// Keep original invalid string
+		}
+		
+		return $ip;	
 	}
 	
 	/**
