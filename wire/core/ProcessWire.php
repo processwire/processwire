@@ -616,8 +616,11 @@ class ProcessWire extends Wire {
 
 		if($this->debug) Debug::timer('boot.load.users'); 
 		$users = $this->wire('users', new Users($this, $config->userTemplateIDs, $config->usersPageIDs), true); 
-		if($this->debug) Debug::saveTimer('boot.load.users'); 
-
+		if($this->debug) Debug::saveTimer('boot.load.users');
+		
+		// populate admin URL before modules init()
+		$config->urls->admin = $config->urls->root . ltrim($pages->getPath($config->adminRootPageID), '/');
+		
 		// the current user can only be determined after the session has been initiated
 		$session = $this->wire('session', new Session($this), true); 
 		$this->initVar('session', $session);
@@ -627,9 +630,6 @@ class ProcessWire extends Wire {
 		
 		$input = $this->wire('input', new WireInput(), true); 
 		if($config->wireInputLazy) $input->setLazy(true);
-
-		// populate admin URL before modules init()
-		$config->urls->admin = $config->urls->root . ltrim($pages->getPath($config->adminRootPageID), '/');
 
 		$notices->init();
 		if($this->debug) Debug::saveTimer('boot.load', 'includes all boot.load timers');

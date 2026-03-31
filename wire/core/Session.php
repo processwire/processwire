@@ -336,8 +336,27 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			$options['cookie_samesite'] = $cookieSameSite;
 		}
+	
+		$cacheLimiter = $this->getSessionCacheLimiter(); 
+		$cacheHeaders = [];
+		
+		if(is_array($cacheLimiter)) {
+			// custom array of headers specified
+			$cacheHeaders = $cacheLimiter;
+			// the following prevents PHP from sending cache-control header
+			session_cache_limiter(''); 
+			
+		} else if($cacheLimiter !== false) {
+			// nocache, private, public, or blank string
+			session_cache_limiter($cacheLimiter);
+		}
 
 		@session_start($options);
+	
+		// if custom cache headers specified, send them now
+		foreach($cacheHeaders as $headerName => $headerValue) {
+			header("$headerName: $headerValue"); 
+		}
 		
 		if(!empty($this->data)) {
 			foreach($this->data as $key => $value) $this->set($key, $value);
@@ -527,7 +546,83 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		return $fingerprint;
 	}
-
+	
+	/**
+	 * Get the session cache limiter setting
+	 *
+	 * Possible return values:
+	 *
+	 * - Setting string of: `nocache`, `private`, `private_no_expire`, `public`
+	 *   blank string.
+	 *
+	 * - Associative array of headers, i.e. `[ 'Cache-Control' => 'no-store', … ]`
+	 *
+	 * - Boolean `false` to fallback to skip `session_cache_limiter()` which leaves
+	 *   it to the default PHP behavior (nocache, or however php.ini is configured).
+	 *
+	 * @return false|array|string
+	 * @since 3.0.258
+	 *
+	 */
+	protected function getSessionCacheLimiter() {
+		
+		$method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
+		if($method !== 'GET' && $method !== 'HEAD') return false;
+		
+		$cacheLimiter = $this->config->sessionCacheLimiter;
+		
+		if(isset($_SERVER['REQUEST_URI'])) {
+			$root = $this->config->urls->root;
+			$url = $this->config->urls->admin;
+			if($root !== '/') $url = substr($url, strlen($root)-1);
+			$isAdmin = strpos($_SERVER['REQUEST_URI'], $url) === 0;
+		} else {
+			$isAdmin = false;
+		}
+		
+		if($isAdmin) {
+			// cache control for admin (and login page)
+			$context = 'admin';
+			
+		} else if($this->hasLoginCookie()) {
+			// cache control for potentially logged in user
+			$context = 'loggedin';
+			
+		} else {
+			// cache control for guest, outside of admin
+			$context = 'guest';
+		}
+		
+		if(is_callable($cacheLimiter)) {
+			// callable returns string (setting) or array (headers)
+			$value = $cacheLimiter($context);
+			
+		} else if(is_array($cacheLimiter)) {
+			// array of [ context => setting ] or [ header => value ]
+			if(isset($cacheLimiter[$context])) {
+				// array of [ admin|loggedin|guest => setting|callable ]
+				$value = $cacheLimiter[$context];
+				
+				if(is_callable($value)) {
+					// callable returns string (setting: nocache, private, etc.) or array (headers)
+					$value = $value(); /** @var string|array $value */
+				} else {
+					// value is setting (nocache, private, etc.) or array of headers
+				}
+			} else  {
+				// missing setting for this $context
+				$value = false;
+			}
+		} else {
+			// string setting (nocache, private, etc.)
+			$value = $cacheLimiter;
+		}
+		
+		if($value === 'none') $value = '';
+		
+		return $value;
+	}
+	
 	/**
 	 * Get a session variable
 	 * 

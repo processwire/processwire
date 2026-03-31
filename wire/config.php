@@ -452,6 +452,110 @@ $config->sessionChallenge = true;
 $config->sessionFingerprint = 1;
 
 /**
+ * Session cache limiter setting for guest, login and admin contexts
+ * 
+ * Applies to GET or HEAD requests only.
+ * 
+ * Configuration options:
+ * 
+ * 1) Associative array of setting to use, indexed by context, i.e. 
+ * ~~~~~
+ * $config->sessionCacheLimiter = [ 
+ *   'guest' => 'private_no_expire',
+ *   'loggedin' => 'nocache',
+ *   'admin' => 'nocache',
+ * ];
+ * ~~~~~
+ * 
+ * 2) Boolean `false` to prevent ProcessWire from using the session cache 
+ * limiter (for behavior prior to 3.0.258); 
+ * ~~~~~
+ * $config->sessionCacheLimiter = false;
+ * ~~~~~
+ * 
+ * 3) A callable which receives a string `$context` argument containing 
+ * 'guest', 'loggedin' or 'admin' and it should return a string one of 
+ * the "allowed values" below, or an array containing http headers you 
+ * want to send. When specifying http headers, it should be an associative 
+ * array like: `[ 'header-name' => 'header-value' ]`
+ * ~~~~~
+ * $config->sessionCacheLimiter = function($context) {
+ *   if($context === 'guest') return [ // headers example
+ *     'Cache-Control' => 'no-store, no-cache, must-revalidate',
+ *     'Expires' => 'Thu, 19 Nov 1981 08:52:00 GMT',
+ *   ];
+ *   return 'nocache';
+ * }); 
+ * ~~~~~
+ * 
+ * Contexts:
+ * 
+ * - `guest`: Applies to non-logged in users that are not in an admin URL.
+ * - `admin`: Applies to anything in the admin, including login page before logged-in.
+ * - `loggedin`: Applies to users that are currently (or recently were) logged in.
+ * 
+ *  Please note that the `loggedin` context used when a login cookie is present, 
+ *  and does not always guarantee a user is currently logged in. That's because 
+ *  cache control headers must be sent before the session is started (and before 
+ *  we know whether a user is actually logged in). 
+ * 
+ * Allowed values (choose one for each context): 
+ * 
+ * - `nocache`: Disallows any client/proxy caching by sending headers like 
+ *    Cache-Control: no-store, no-cache, must-revalidate and an Expires header 
+ *    with a date in the past.
+ * 
+ * - `private`: Disallows caching by proxies but permits the client (browser) to 
+ *    cache the content. The Expires header is sent to the client in this mode.
+ * 
+ * - `private_no_expire`: Similar to private, but the Expires header is never 
+ *    sent to the client. This avoids potential confusion for some browsers.
+ * 
+ * - `public`: Permits caching by both proxies and the client.
+ * 
+ * - `none`: Prevent PHP and ProcessWire from sending any cache headers. 
+ * 
+ * - `false` (bool): Use the `session_cache_limiter` setting defined in the php.ini. 
+ * 
+ * - You may optionally use an array with the headers you want to be sent, i.e. 
+ *   ~~~~~
+ *   $config->sessionCacheLimiter = [
+ *     'guest' => [ 
+ *       'Cache-Control' => 'no-store, no-cache, must-revalidate', 
+ *       'Expires' => 'Thu, 19 Nov 1981 08:52:00 GMT', 
+ *       'Pragma' => 'no-cache',
+ *     ], 
+ *     'loggedin' => 'nocache', 
+ *     'admin' => 'nocache',
+ *   ];
+ *   ~~~~~
+ * 
+ * - You may optionally use a callable that returns the cache setting (nocache, 
+ *   private, etc.) or returns an array of http headers, like described above.
+ *   ~~~~~
+ *   $config->sessionCacheLimiter = [
+ *     'guest' => function() {
+ *        if(strpos($_SERVER['REQUEST_URI'], '/products/') !== false) {
+ *          return 'nocache';
+ *        } else {
+ *          return 'private_no_expire';
+ *        }
+ *     },
+ *     'loggedin' => 'nocache',
+ *     'admin' => 'nocache',
+ *   ];
+ *   ~~~~~
+ * 
+ * @var array|callable
+ * 
+ */ 
+$config->sessionCacheLimiter = [ 
+	'guest' => 'private_no_expire',
+	'loggedin' => 'nocache',
+	'admin' => 'nocache',
+];
+
+/**
  * Force current session IP address (overriding auto-detect)
  * 
  * This overrides the return value of `$session->getIP()` method.
