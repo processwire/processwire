@@ -456,14 +456,18 @@ $config->sessionFingerprint = 1;
  * 
  * Applies to GET or HEAD requests only.
  * 
+ * Note: prior to 3.0.258, ProcessWire did not set any cache limiter, deferring
+ * entirely to PHP’s default. If your site relies on the previous behavior, set 
+ * `$config->sessionCacheLimiter = false`.
+ * 
  * Configuration options:
  * 
  * 1) Associative array of setting to use, indexed by context, i.e. 
  * ~~~~~
  * $config->sessionCacheLimiter = [ 
  *   'guest' => 'private_no_expire',
- *   'loggedin' => 'nocache',
  *   'admin' => 'nocache',
+ *   'loggedin' => 'nocache',
  * ];
  * ~~~~~
  * 
@@ -485,7 +489,7 @@ $config->sessionFingerprint = 1;
  *     'Expires' => 'Thu, 19 Nov 1981 08:52:00 GMT',
  *   ];
  *   return 'nocache';
- * }); 
+ * }; 
  * ~~~~~
  * 
  * Contexts:
@@ -546,13 +550,13 @@ $config->sessionFingerprint = 1;
  *   ];
  *   ~~~~~
  * 
- * @var array|callable
+ * @var array|callable|false
  * 
  */ 
 $config->sessionCacheLimiter = [ 
 	'guest' => 'private_no_expire',
-	'loggedin' => 'nocache',
 	'admin' => 'nocache',
+	'loggedin' => 'nocache',
 ];
 
 /**
