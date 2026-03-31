@@ -5592,3 +5592,372 @@ ins {
 		display: none;
 	}
 }
+
+/* ==========================================================================
+   PROCESSWIRE ADMIN THEME: PATCH April 2026
+   Responsive spacing system, structural shielding, and module leakage fixes.
+   ========================================================================== */
+
+/**
+ * RESPONSIVE SPACING VARIABLE
+ */
+:root {
+	--pw-spacing: 25px;
+}
+@media (max-width: 960px) {
+	:root {
+		--pw-spacing: 20px;
+	}
+}
+@media (max-width: 640px) {
+	:root {
+		--pw-spacing: 15px;
+	}
+}
+
+/**
+ * STRUCTURAL SHIELDING
+ * Keeps core skeleton elements at the standard 15/30/40px padding scale
+ * regardless of any generic .uk-container overrides.
+ */
+.uk-container {
+	padding-left: 0;
+	padding-right: 0;
+	max-width: none;
+}
+.uk-card > .uk-container,
+.uk-section > .uk-container,
+.uk-container > .uk-container {
+	padding-left: var(--pw-spacing);
+	padding-right: var(--pw-spacing);
+	max-width: none;
+}
+
+#pw-masthead .uk-container,
+#pw-footer .uk-container,
+#pw-masthead-mobile .uk-container,
+#notices .uk-container,
+#main.uk-container,
+#main.pw-container,
+#main > .uk-container,
+#main > .pw-container {
+	padding-left: 15px !important;
+	padding-right: 15px !important;
+}
+
+@media (min-width: 640px) {
+	#pw-masthead .uk-container,
+	#pw-footer .uk-container,
+	#pw-masthead-mobile .uk-container,
+	#notices .uk-container,
+	#main.uk-container,
+	#main.pw-container,
+	#main > .uk-container,
+	#main > .pw-container {
+		padding-left: 30px !important;
+		padding-right: 30px !important;
+	}
+}
+
+@media (min-width: 960px) {
+	#pw-masthead .uk-container,
+	#pw-footer .uk-container,
+	#pw-masthead-mobile .uk-container,
+	#notices .uk-container,
+	#main.uk-container,
+	#main.pw-container,
+	#main > .uk-container,
+	#main > .pw-container {
+		padding-left: 40px !important;
+		padding-right: 40px !important;
+	}
+}
+
+/**
+ * LAYOUT UTILITIES
+ */
+.uk-section {
+	padding-top: var(--pw-spacing);
+	padding-bottom: var(--pw-spacing);
+}
+
+.pw-wrap {
+	background: var(--pw-blocks-background);
+	border: 1px solid var(--pw-border-color);
+	padding: var(--pw-spacing);
+	margin-bottom: var(--pw-spacing);
+}
+
+/**
+ * 3. COLOR UTILITIES
+ */
+
+.pw .pw-text-main-color {
+	color: var(--pw-main-color) !important;
+}
+.pw .pw-bg-main-color {
+	background-color: var(--pw-main-color) !important;
+	border-color: var(--pw-main-color) !important;
+	color: var(--pw-blocks-background) !important;
+}
+
+/**
+ * Z-INDEX STACKING REPAIRS
+ */
+#pw-masthead,
+#pw-masthead-mobile {
+	z-index: 100 !important;
+}
+.select2-container--open,
+.ui-datepicker-div,
+.ui-autocomplete {
+	z-index: 900 !important;
+}
+
+/* ==========================================================================
+   MODULE CSS LEAKAGE OVERRIDES
+   Hardcoded colors in PW core module CSS files that escape the theme system.
+   Each block is scoped to its source file for traceability.
+   ========================================================================== */
+
+/* --- ProcessPageList.css ---
+ * Sort-drag highlight and sort placeholder use hardcoded yellows.
+ * The commented-out .PageListItemOpen rule (line 123) is already inactive.
+ */
+.PageListSortItem > a.PageListPage {
+	background-color: var(--pw-notes-background);
+}
+.PageListSortPlaceholder {
+	background-color: var(--pw-notes-background);
+	border-left-color: var(--pw-border-color);
+}
+
+/* --- MarkupAdminDataTable.css ---
+ * Table header text colors are hardcoded (#777 / #000).
+ * The .uk-table th rule in the main patch already covers uk-table,
+ * but AdminDataList uses its own class outside uk-table scope.
+ */
+table.AdminDataList th,
+table.AdminDataList .th {
+	color: var(--pw-muted-color);
+}
+table.AdminDataList th.headerSortDown,
+table.AdminDataList th.headerSortUp {
+	color: var(--pw-text-color);
+}
+
+/* --- LanguageTabs.css (minified) ---
+ * Active language tab uses hardcoded #fff for background and border.
+ */
+.langTabs.ui-tabs .ui-tabs-nav li.ui-state-active.ui-state-default {
+	border-color: var(--pw-border-color);
+}
+.langTabs.ui-tabs .ui-tabs-nav li.ui-state-active,
+.langTabs.ui-tabs .ui-tabs-nav li.ui-state-active a {
+	background: var(--pw-blocks-background);
+}
+
+/* --- InputfieldCKEditor.css ---
+ * Inline CKEditor container uses hardcoded #fff background.
+ */
+.InputfieldForm .InputfieldCKEditorInline {
+	background: var(--pw-blocks-background);
+}
+.InputfieldForm div.cke_editable_inline.cke_focus {
+	border-color: var(--pw-border-color);
+}
+
+/* --- InputfieldTextTags.css (selectize) ---
+ * Selectize widget uses hardcoded light-mode colors (#f0f3f7, #b1c3d4, #555).
+ * The main patch already overrides .pw .Inputfield .selectize-* with higher
+ * specificity; these rules catch the bare .Inputfield selectors from the module.
+ */
+.InputfieldTextTags input.InputfieldTextTagsSelect:not(.selectized),
+.InputfieldTextTags input.InputfieldTextTagsInput:not(.selectized) {
+	color: var(--pw-text-color);
+}
+.Inputfield .selectize-input {
+	border-color: var(--pw-border-color);
+}
+.Inputfield .selectize-input:not(.has-items) {
+	background: var(--pw-inputs-background);
+}
+.Inputfield .selectize-control.multi .selectize-input.has-items > div {
+	background: var(--pw-inputs-background);
+	border-color: var(--pw-border-color);
+}
+.Inputfield .selectize-control.multi .selectize-input.has-items > div a.remove {
+	color: var(--pw-muted-color);
+}
+.Inputfield .selectize-control.single .selectize-input {
+	background: var(--pw-inputs-background);
+}
+
+/* --- InputfieldToggle.css ---
+ * Toggle group labels use hardcoded #eee / rgba(0,0,0,0.6) / #999 / #fff.
+ * The .pw .InputfieldToggleGroup rules in the main patch already handle the
+ * .pw-scoped versions; these bare selectors catch the module's own output.
+ */
+.InputfieldToggleGroup label {
+	background-color: var(--pw-blocks-background);
+	color: var(--pw-muted-color);
+}
+.InputfieldToggleGroup label.InputfieldToggleCurrent,
+.InputfieldToggleGroup input:checked + label {
+	background-color: var(--pw-main-color);
+	color: var(--pw-blocks-background);
+}
+
+/* --- SystemNotifications/Notifications.css ---
+ * Notification menu container and ghost notices use hardcoded colors.
+ */
+.NotificationMenu {
+	background-color: var(--pw-blocks-background);
+}
+.NotificationGhosts li .NoticeMessage {
+	background: var(--pw-inputs-background);
+	color: var(--pw-text-color);
+}
+.NotificationGhosts li .NoticeError {
+	background: var(--pw-alert-danger);
+	color: var(--pw-text-color);
+}
+.NotificationGhosts li .NoticeWarning {
+	background: var(--pw-alert-warning);
+	color: var(--pw-text-color);
+}
+
+/* --- MarkupPagerNav.css ---
+ * Pager nav links use hardcoded pink/red (#ef868a / #a2393c).
+ */
+.MarkupPagerNav li a {
+	background: var(--pw-main-color);
+	color: var(--pw-blocks-background);
+}
+.MarkupPagerNav li.MarkupPagerNavOn a,
+.MarkupPagerNav li a:hover {
+	background: var(--pw-button-hover-background);
+	color: var(--pw-blocks-background);
+}
+
+/* --- admin.css (this file) ---
+ * remove hover from title on uk-card.
+ */
+.uk-card-secondary.uk-card-hover:hover h3 {
+	color: var(--pw-blocks-background);
+}
+
+/* END MODULE CSS LEAKAGE OVERRIDES */
+
+/* --- admin.css (this file) ---
+ * fix muted and default buttons.
+ */
+.pw
+.uk-button:not(.uk-button-text):not(.uk-button-link):is(
+		.uk-disabled,
+		:disabled
+	),
+.pw
+.uk-button:not(.uk-button-text):not(.uk-button-link):is(
+		.uk-disabled,
+		:disabled
+	):hover {
+	border: 1px solid var(--pw-muted-color) !important;
+	color: var(--pw-muted-color) !important;
+	background-color: transparent !important;
+}
+.pw
+.uk-button.uk-button-default:not(.uk-button-text):not(
+		.uk-button-link
+	):hover {
+	color: var(--pw-blocks-background);
+	background-color: var(--pw-main-color);
+}
+
+.pw .uk-button-group .uk-button-default:not(:last-child, :has(+ div)),
+.pw
+.uk-button-group
+.uk-button:is(.uk-disabled, :disabled):not(:last-child, :has(+ div)),
+.pw
+.uk-button-group
+.uk-button:not(.uk-button-text):not(.uk-button-link):is(
+		.uk-disabled,
+		:disabled
+	):not(:last-child, :has(+ div)) {
+	border-right-color: transparent !important;
+}
+
+.pw .uk-button-group .uk-button-default:not(:last-child),
+.pw .uk-button-group .uk-button:is(.uk-disabled, :disabled):not(:last-child),
+.pw
+.uk-button-group
+.uk-button:not(.uk-button-text):not(.uk-button-link):is(
+		.uk-disabled,
+		:disabled
+	):not(:last-child) {
+	margin-right: -2px;
+}
+.pw .uk-button-group > .uk-button:first-child {
+	padding-left: 26px;
+}
+.pw .uk-button-group > .uk-button:last-child {
+	padding-right: 26px;
+}
+
+/*
+ * UIKIT Accordion icon.
+ */
+
+.uk-accordion-title::before,
+.uk-section-primary:not(.uk-preserve-color) .uk-accordion-title::before,
+.uk-section-secondary:not(.uk-preserve-color) .uk-accordion-title::before,
+.uk-tile-primary:not(.uk-preserve-color) .uk-accordion-title::before,
+.uk-tile-secondary:not(.uk-preserve-color) .uk-accordion-title::before,
+.uk-card-primary.uk-card-body .uk-accordion-title::before,
+.uk-card-primary > :not([class*="uk-card-media"]) .uk-accordion-title::before,
+.uk-card-secondary.uk-card-body .uk-accordion-title::before,
+.uk-card-secondary > :not([class*="uk-card-media"]) .uk-accordion-title::before,
+.uk-overlay-primary .uk-accordion-title::before {
+	content: "\2B";
+	background: none;
+	font-size: 1.15em;
+	text-align: right;
+	line-height: 1.15;
+}
+
+.uk-open > .uk-accordion-title::before,
+.uk-section-primary:not(.uk-preserve-color)
+.uk-open
+> .uk-accordion-title::before,
+.uk-section-secondary:not(.uk-preserve-color)
+.uk-open
+> .uk-accordion-title::before,
+.uk-tile-primary:not(.uk-preserve-color) .uk-open > .uk-accordion-title::before,
+.uk-tile-secondary:not(.uk-preserve-color)
+.uk-open
+> .uk-accordion-title::before,
+.uk-card-primary.uk-card-body .uk-open > .uk-accordion-title::before,
+.uk-card-primary
+> :not([class*="uk-card-media"])
+.uk-open
+> .uk-accordion-title::before,
+.uk-card-secondary.uk-card-body .uk-open > .uk-accordion-title::before,
+.uk-card-secondary
+> :not([class*="uk-card-media"])
+.uk-open
+> .uk-accordion-title::before,
+.uk-overlay-primary .uk-open > .uk-accordion-title::before {
+	content: "\2212";
+}
+
+.uk-accordion-title {
+	border-top: 1px solid var(--pw-border-color);
+	padding-top: 10px;
+	font-size: 1em;
+	line-height: 1.5;
+}
+
+.uk-accordion > :nth-child(n + 2) {
+	margin-top: 10px;
+}
+
