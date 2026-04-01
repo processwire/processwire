@@ -659,6 +659,12 @@ class PagesEditor extends Wire {
 		if($result && ($isNew || !$page->id)) {
 			$page->id = (int) $database->lastInsertId();
 			$page->setQuietly('_inserted', time());
+			if($page->created <= 0) {
+				$page->setQuietly('created', time());
+			}
+			if($page->modified <= 0) {
+				$page->setQuietly('modified', time());
+			}
 		}
 		
 		if($options['forceID']) $page->id = (int) $options['forceID'];
