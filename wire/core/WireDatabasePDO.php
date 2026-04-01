@@ -282,8 +282,10 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if($initCommand) {
 			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
 				$attrValue = constant("\\Pdo\\Mysql::ATTR_INIT_COMMAND");
-			} else {
+			} else if(defined("\\PDO::MYSQL_ATTR_INIT_COMMAND")) {
 				$attrValue = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+			} else {
+				$attrValue = 1002; // PDO::MYSQL_ATTR_INIT_COMMAND
 			}
 			if(!isset($options[$attrValue])) {
 				$options[$attrValue] = $initCommand;
