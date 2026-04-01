@@ -57,7 +57,7 @@ class PagesVersions extends Wire implements Module {
 		return [
 			'title' => 'Pages Versions',
 			'summary' => 'Provides a version control API for pages in ProcessWire.',
-			'version' => 2,
+			'version' => 3,
 			'icon' => self::iconName, 
 			'autoload' => true, 
 			'singular' => true, 
@@ -135,7 +135,7 @@ class PagesVersions extends Wire implements Module {
 		$of = $page->of();
 		
 		$sql =
-			"SELECT description, data, created, modified, " . 
+			"SELECT name, description, data, created, modified, " .
 			"created_users_id, modified_users_id " .
 			"FROM $table " .
 			"WHERE version=:version AND pages_id=:pages_id";
@@ -156,6 +156,7 @@ class PagesVersions extends Wire implements Module {
 
 		$info = new PageVersionInfo([
 			'version' => (int) $version,
+			'name' => $row['name'],
 			'created' => $row['created'],
 			'modified' => $row['modified'],
 			'created_users_id' => (int) $row['created_users_id'],
@@ -253,7 +254,7 @@ class PagesVersions extends Wire implements Module {
 		if(!isset($sorts[$options['sort']])) $options['sort'] = $defaults['sort'];
 
 		$sql =
-			"SELECT version, description, created, modified, " . 
+			"SELECT version, name, description, created, modified, " .
 			"created_users_id, modified_users_id, data " . 
 			"FROM $table " .
 			"WHERE pages_id=:pages_id " . ($options['version'] ? "AND version=:version " : "") . 
@@ -450,6 +451,7 @@ class PagesVersions extends Wire implements Module {
 	 * 
 	 * @param Page $page
 	 * @param array $options
+	 *  - `name` (string): Optional name for the version, i.e. "draft", "backup", etc. (default=null)
 	 *  - `description` (string): Optional text description for version.
 	 *  - `names` (array): Names of fields/properties to include in the version or omit for all.
 	 * @return int Version number or 0 if no version created
@@ -459,6 +461,7 @@ class PagesVersions extends Wire implements Module {
 	public function addPageVersion(Page $page, array $options = []) {
 		
 		$defaults = [
+			'name' => null,
 			'description' => '', 
 			'names' => [], 
 			'retry' => 10, // max times to retry
@@ -503,6 +506,7 @@ class PagesVersions extends Wire implements Module {
 	 *  - If 0 or omitted and given page is not a version, this method behaves the same as 
 	 *    the `addPageVersion()` method and returns the added version number. 
 	 * @param array $options
+	 *  - `name` (string|null): Optional name for the version, i.e. "draft" (default=null, no change on update)
 	 *  - `description` (string): Optional text description for version (default='')
 	 *  - `update` (bool): Update version if it already exists (default=true)
 	 * @return int|array Returns version number saved or added or 0 on fail
@@ -512,6 +516,7 @@ class PagesVersions extends Wire implements Module {
 	public function savePageVersion(Page $page, $version = 0, array $options = []) {
 
 		$defaults = [
+			'name' => null,
 			'description' => null, 
 			'names' => [],
 			'copyFiles' => true, // make a copy of the page’s files? internal use only
@@ -539,10 +544,13 @@ class PagesVersions extends Wire implements Module {
 			return $version;
 		}
 		
+		$name = $options['name'] !== null ? trim($this->wire()->sanitizer->pageName($options['name']), '-') : null;
+		if($name === '') $name = null;
+
 		$sql =
-			"INSERT INTO $table (version, pages_id, description, " . 
+			"INSERT INTO $table (version, pages_id, name, description, " .
 			"data, created, modified, created_users_id, modified_users_id) " .
-			"VALUES(:version, :pages_id, :description, " . 
+			"VALUES(:version, :pages_id, :name, :description, " .
 			":data, :created, :modified, :created_users_id, :modified_users_id) ";
 		
 		if($options['update']) $sql .= 
@@ -551,8 +559,10 @@ class PagesVersions extends Wire implements Module {
 			"modified_users_id=VALUES(modified_users_id)";
 	
 		// update description only if it is being changed
-		if($options['update'] && $options['description'] !== null) $sql .= ', ' .
-			'description=VALUES(description)';
+		if($options['update'] && $options['description'] !== null) $sql .= ', description=VALUES(description)';
+
+		// update name only if it is being changed
+		if($options['update'] && $options['name'] !== null) $sql .= ', name=VALUES(name)';
 		
 		$data = $this->getNativePagesTableData($page, $options);
 		$names = array_keys($data);
@@ -560,6 +570,7 @@ class PagesVersions extends Wire implements Module {
 		$query = $database->prepare($sql);
 		$query->bindValue(':version', $version, \PDO::PARAM_INT);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->bindValue(':name', $name, ($name === null ? \PDO::PARAM_NULL : \PDO::PARAM_STR));
 		$query->bindValue(':created', $date);
 		$query->bindValue(':modified', $date);
 		$query->bindValue(':created_users_id', $user->id, \PDO::PARAM_INT);
@@ -618,6 +629,49 @@ class PagesVersions extends Wire implements Module {
 		if($of) $page->of(true);
 		
 		return ($options['returnNames'] ? $names : $version);
+	}
+
+	/**
+	 * Rename a page version
+	 *
+	 * ~~~~~
+	 * // give version 2 a name
+	 * $pagesVersions->renamePageVersion($page, 2, 'draft');
+	 *
+	 * // rename using the existing name
+	 * $pagesVersions->renamePageVersion($page, 'draft', 'backup');
+	 *
+	 * // clear the name from a version
+	 * $pagesVersions->renamePageVersion($page, 'draft', null);
+	 * ~~~~~
+	 *
+	 * #pw-group-saving
+	 *
+	 * @param Page $page
+	 * @param int|string $version Version number or name
+	 * @param string|null $newName New name or null to remove name
+	 * @return bool True on success, false if version not found
+	 * @since 3.0.258
+	 *
+	 */
+	public function renamePageVersion(Page $page, $version, $newName) {
+		if(!is_int($version)) $version = $this->pageVersionNumber($page, $version);
+		if($version < 1) return false;
+		if($newName !== null && $newName !== '') {
+			$newName = trim($this->wire()->sanitizer->pageName((string) $newName), '-');
+			if(!strlen($newName)) $newName = null;
+		} else {
+			$newName = null;
+		}
+		$database = $this->wire()->database;
+		$table = self::versionsTable;
+		$sql = "UPDATE $table SET name=:name WHERE pages_id=:pages_id AND version=:version";
+		$query = $database->prepare($sql);
+		$query->bindValue(':name', $newName, ($newName === null ? \PDO::PARAM_NULL : \PDO::PARAM_STR));
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->bindValue(':version', $version, \PDO::PARAM_INT);
+		$query->execute();
+		return $query->rowCount() > 0;
 	}
 
 	/**
@@ -751,7 +805,8 @@ class PagesVersions extends Wire implements Module {
 		];
 
 		$options = array_merge($defaults, $options);
-		$version = (int) "$version";
+		if(!is_int($version)) $version = $this->pageVersionNumber($page, $version);
+		$version = (int) $version;
 		$pageVersion = $this->pageVersionNumber($page);
 		$useTempVersion = $options['useTempVersion'];
 		$partialRestore = count($options['names']) > 0; 
@@ -1192,9 +1247,11 @@ class PagesVersions extends Wire implements Module {
 			return (int) $version;
 			
 		} else if(is_string($version)) {
-			// string with v prefix i.e. v2
-			$version = ltrim($version, 'v');
-			if(ctype_digit($version)) return (int) $version;
+			// string with v prefix i.e. "v2", or version name i.e. "draft"
+			$versionStr = ltrim($version, 'v');
+			if(ctype_digit($versionStr)) return (int) $versionStr;
+			// look up version number by name
+			return $this->getVersionNumberByName($page, $version);
 		}
 
 		/** @var PageVersionInfo $info */
@@ -1334,6 +1391,32 @@ class PagesVersions extends Wire implements Module {
 		return $versionFields;
 	}
 
+
+	/**
+	 * Get version number for given page and version name
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 * @param string $name
+	 * @return int Version number or 0 if not found
+	 * @since 3.0.258
+	 *
+	 */
+	protected function getVersionNumberByName(Page $page, $name) {
+		$name = trim($this->wire()->sanitizer->pageName($name), '-');
+		if(!strlen($name)) return 0;
+		$database = $this->wire()->database;
+		$table = self::versionsTable;
+		$sql = "SELECT version FROM $table WHERE pages_id=:pages_id AND name=:name";
+		$query = $database->prepare($sql);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->bindValue(':name', $name);
+		$query->execute();
+		$version = $query->rowCount() ? (int) $query->fetchColumn() : 0;
+		$query->closeCursor();
+		return $version;
+	}
 
 	/**
 	 * Get next available version number for given page
@@ -1569,6 +1652,7 @@ class PagesVersions extends Wire implements Module {
 			self::versionsTable => "
 				version INT UNSIGNED NOT NULL,
 				pages_id INT UNSIGNED NOT NULL, 
+				name VARCHAR(128) NULL DEFAULT NULL,
 				created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
 				modified TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
 				created_users_id INT UNSIGNED NOT NULL, 
@@ -1576,19 +1660,11 @@ class PagesVersions extends Wire implements Module {
 				description TEXT,
 				data MEDIUMTEXT NOT NULL,
 				PRIMARY KEY(version, pages_id),
+				UNIQUE KEY name_pages_id (name, pages_id),
 				INDEX(created),
 				INDEX(modified),
 				INDEX(created_users_id)
 			",
-			/*
-			self::namesTable => "
-				name VARCHAR(191) NOT NULL,
-				pages_id INT UNSIGNED NOT NULL, 
-				version INT UNSIGNED NOT NULL,
-				PRIMARY KEY(pages_id, version),
-				UNIQUE(name, pages_id)
-			",
-			*/
 		];
 
 		foreach($tables as $table => $sql) {
@@ -1599,6 +1675,28 @@ class PagesVersions extends Wire implements Module {
 				);
 			} catch(\Exception $e) {
 				$this->error($e->getMessage());
+			}
+		}
+	}
+
+	/**
+	 * Upgrade module
+	 *
+	 * #pw-internal
+	 *
+	 * @param int $fromVersion
+	 * @param int $toVersion
+	 *
+	 */
+	public function upgrade($fromVersion, $toVersion) {
+		$database = $this->wire()->database;
+		$table = self::versionsTable;
+		if($fromVersion < 3) {
+			// add name column and unique index if not already present
+			if(!$database->columnExists($table, 'name')) {
+				$database->exec("ALTER TABLE `$table` ADD COLUMN `name` VARCHAR(128) NULL DEFAULT NULL AFTER `pages_id`");
+				$database->exec("ALTER TABLE `$table` ADD UNIQUE KEY `name_pages_id` (name, pages_id)");
+				$this->message("Updated $table table: added name column");
 			}
 		}
 	}

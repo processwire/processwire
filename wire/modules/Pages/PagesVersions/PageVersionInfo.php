@@ -12,6 +12,7 @@
  * https://processwire.com
  * 
  * @property int $version Version number
+ * @property string|null $name Version name, i.e. "draft", "backup", etc. (null if not set)
  * @property string $description Version description (not entity encoded)
  * @property-read string $descriptionHtml Version description entity encoded for output in HTML
  * @property int $created Date/time created (unix timestamp)
@@ -51,6 +52,7 @@ class PageVersionInfo extends WireData {
 		parent::__construct();
 		$defaults = [
 			'version' => 0,
+			'name' => '',
 			'description' => '', 
 			'created' => 0,
 			'modified' => 0, 
@@ -74,6 +76,11 @@ class PageVersionInfo extends WireData {
 	public function set($key, $value) {
 		if($key === 'version' || $key === 'pages_id') {
 			$value = (int) $value;
+		} else if($key === 'name') {
+			if($value !== null && $value !== '') {
+				$value = trim($this->wire()->sanitizer->pageName((string) $value), '-');
+			}
+			if(empty($value)) $value = null;
 		} else if($key === 'created' || $key === 'modified') {
 			if($value) {
 				if(ctype_digit("$value")) {
