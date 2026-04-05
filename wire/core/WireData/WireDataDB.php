@@ -191,11 +191,12 @@ class WireDataDB extends WireData implements \Countable {
 		$table = $this->table();
 		$sql = "DELETE FROM `$table` WHERE source_id=:source_id ";
 		if($name !== true) $sql .= "AND name=:name";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		if($name !== true) $query->bindValue(':name', $name);
 		try {
-			$query->execute();
+			$database->execute($query);
 			$result = $query->rowCount();
 			$query->closeCursor();
 		} catch(\Exception $e) {
@@ -221,11 +222,12 @@ class WireDataDB extends WireData implements \Countable {
 		$table = $this->table();
 		$sql = "SELECT name, data FROM `$table` WHERE source_id=:source_id ";
 		if(!$loadAll) $sql .= "AND name=:name ";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		if(!$loadAll) $query->bindValue(':name', $name);
 		try {
-			$query->execute();
+			$database->execute($query);
 		} catch(\Exception $e) {
 			return $loadAll ? array() : null;
 		}
@@ -269,12 +271,13 @@ class WireDataDB extends WireData implements \Countable {
 		$sql =
 			"INSERT INTO `$table` (source_id, name, data) VALUES(:source_id, :name, :data) " .
 			"ON DUPLICATE KEY UPDATE source_id=VALUES(source_id), name=VALUES(name), data=VALUES(data)";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		$query->bindValue(':name', $name);
 		$query->bindValue(':data', $data);
 		try {
-			$query->execute();
+			$database->execute($query);
 			$result = $query->rowCount();
 		} catch(\Exception $e) {
 			if($recursive) throw $e;
@@ -311,10 +314,11 @@ class WireDataDB extends WireData implements \Countable {
 	public function count() {
 		$table = $this->table();
 		$sql = "SELECT COUNT(*) FROM `$table` WHERE source_id=:source_id";
-		$query = $this->wire()->database->prepare($sql);
-		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT); 
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
+		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		try {
-			$query->execute();
+			$database->execute($query);
 			$count = (int) $query->fetchColumn();
 		} catch(\Exception $e) {
 			$count = 0;

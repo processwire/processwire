@@ -59,7 +59,7 @@ class FieldsTableTools extends Wire {
 			$query->bindValue(':val', $options['value']);
 		}
 
-		$query->execute();
+		$database->execute($query);
 
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$result[] = array('value' => $row[0], 'count' => (int) $row[1]);
@@ -73,7 +73,7 @@ class FieldsTableTools extends Wire {
 				$sql = "SELECT * FROM $table WHERE $col=:val";
 				$query = $database->prepare($sql);
 				$query->bindValue(':val', $item['value']);
-				$query->execute();
+				$database->execute($query);
 				while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 					$result[$key]['rows'][] = $row;
 				}
@@ -194,7 +194,7 @@ class FieldsTableTools extends Wire {
 		$table = $database->escapeTable($field->getTable());
 		$sql = "SHOW INDEX FROM $table";
 		$query = $database->prepare($sql);
-		$query->execute();
+		$database->execute($query);
 		$has = false;
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 			if($row['Column_name'] === $col && !$row['Non_unique']) {
@@ -332,7 +332,7 @@ class FieldsTableTools extends Wire {
 			// delete empty rows matching our conditions
 			$sql = "DELETE FROM $table WHERE " . implode(' OR ', $wheres);
 			$query = $database->prepare($sql);
-			$result = $query->execute() ? $query->rowCount() : 0;
+			$result = $database->execute($query) ? $query->rowCount() : 0;
 			$query->closeCursor();
 		} else {
 			// no empty rows possible
@@ -389,8 +389,8 @@ class FieldsTableTools extends Wire {
 		if($col !== 'data') $col = $database->escapeCol($this->wire()->sanitizer->fieldName($col)); 
 		$sql = "SELECT pages_id FROM $table WHERE $col=:val LIMIT 1";
 		$query = $database->prepare($sql);
-		$query->bindValue(':val', $value); 
-		$query->execute();
+		$query->bindValue(':val', $value);
+		$database->execute($query);
 		$pageId = $query->rowCount() ? (int) $query->fetchColumn() : 0;
 		$query->closeCursor();
 		return $pageId;

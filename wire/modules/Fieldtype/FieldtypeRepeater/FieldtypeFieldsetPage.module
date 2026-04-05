@@ -468,7 +468,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':data', $value->id, \PDO::PARAM_INT);
-		$result = $query->execute();
+		$result = $database->execute($query);
 
 		return $result;
 	}

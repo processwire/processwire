@@ -349,7 +349,7 @@ class FieldtypeComments extends FieldtypeMulti {
 				$query = $database->prepare("SELECT count(*) FROM `$table`  WHERE status=:status AND email=:email"); 
 				$query->bindValue(":status", Comment::statusApproved, \PDO::PARAM_INT);
 				$query->bindValue(":email", $comment->email); 
-				$query->execute();
+				$database->execute($query);
 				$numApproved = (int) $query->fetchColumn();
 					
 				if($numApproved > 0) {
@@ -377,7 +377,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query = $database->prepare("DELETE FROM `$table` WHERE status=:status AND created < :expiredTime");
 		$query->bindValue(":status", Comment::statusSpam, \PDO::PARAM_INT);
 		$query->bindValue(":expiredTime", $expiredTime); 
-		$query->execute();
+		$database->execute($query);
 		
 		// delete upvote/downvote IP address records
 		$expiredTime = date('Y-m-d H:i:s', time() - self::votesMaxAge);
@@ -385,7 +385,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query->bindValue(":expiredTime", $expiredTime);
 		try {
 			// we use a try/catch here in case the votes table doesn't yet exist
-			$query->execute();
+			$database->execute($query);
 		} catch(\Exception $e) {
 			$this->error($e->getMessage(), Notice::log); 
 		}
@@ -685,7 +685,7 @@ class FieldtypeComments extends FieldtypeMulti {
 				foreach($binds as $k => $v) {
 					$query->bindValue(":$k", $v);
 				}
-				$result = $query->execute();
+				$result = $database->execute($query);
 				if($result && !$value['id']) {
 					// populate newly added comment ID to Comment object
 					$value['id'] = $database->lastInsertId();
@@ -1044,7 +1044,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			$query->bindValue(":$key", $value);
 		}
 		$countQuery->copyBindValuesTo($query); // populate from $countQuery to $query
-		$query->execute();
+		$database->execute($query);
 		list($total) = $query->fetch(\PDO::FETCH_NUM);
 		$total = (int) $total;
 		$query->closeCursor();
@@ -1067,7 +1067,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			$query->bindValue(":$key", $value); 
 		}
 		$selectQuery->copyBindValuesTo($query); // populate from $selectQuery to $query
-		$query->execute();
+		$database->execute($query);
 		$commentPages = array();
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
@@ -1135,10 +1135,11 @@ class FieldtypeComments extends FieldtypeMulti {
 		$table = $field->getTable();
 		$col = strlen($code) > 100 ? 'code' : 'subcode';
 		$sql = "SELECT * FROM `$table` WHERE `$col`!='' AND `$col` IS NOT NULL AND `$col`=:code AND pages_id=:pageID";
-		$query = $this->wire('database')->prepare($sql);
+		$database = $this->wire('database');
+		$query = $database->prepare($sql);
 		$query->bindValue(':code', substr($code, 0, 128), \PDO::PARAM_STR); 
 		$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT); 
-		if(!$query->execute()) return null; 
+		if(!$database->execute($query)) return null; 
 		if(!$query->rowCount()) return null; 
 		$data = $query->fetch(\PDO::FETCH_ASSOC); 
 		return $this->makeComment($page, $field, $data); 
@@ -1167,10 +1168,11 @@ class FieldtypeComments extends FieldtypeMulti {
 		$table = $field->getTable();
 		$sql = "SELECT * FROM `$table` WHERE id=:id ";
 		if($page) $sql .= "AND pages_id=:pageID";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':id', (int) $id, \PDO::PARAM_INT); 
 		if($page) $query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
-		if(!$query->execute()) return null;
+		if(!$database->execute($query)) return null;
 		if(!$query->rowCount()) return null;
 		$data = $query->fetch(\PDO::FETCH_ASSOC);
 		if(!$page) {
@@ -1218,9 +1220,10 @@ class FieldtypeComments extends FieldtypeMulti {
 		$value = implode(',', $value);
 		$sql = "SELECT * FROM `$table` WHERE id IN($value) ";
 		if($page) $sql .= "AND pages_id=:pageID ";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		if($page instanceof Page) $query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		
 		$commentPages = [];
 		$commentItems = [];
@@ -1364,7 +1367,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		}
 		try {
 			$this->triggerPageFieldSaveReady($page, $field);
-			$result = $query->execute();
+			$result = $database->execute($query);
 			$this->triggerPageFieldSaved($page, $field);
 		} catch(\Exception $e) {
 			$result = false;
@@ -1467,7 +1470,7 @@ class FieldtypeComments extends FieldtypeMulti {
 				foreach($binds as $k => $v) {
 					$query->bindValue(":$k", $v);
 				}
-				$result = $query->execute();
+				$result = $database->execute($query);
 				if($result) $comment->id = $database->lastInsertId();
 			} catch(\Exception $e) {
 				$result = false;
@@ -1525,7 +1528,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		try {
 			if($approved) $this->triggerPageFieldSaveReady($page, $field);
-			$result = $query->execute();
+			$result = $database->execute($query);
 			if($comments) $comments->remove($comment); 
 			$this->commentDeleted($page, $field, $comment, $notes); 
 			if($approved) $this->triggerPageFieldSaved($page, $field);
@@ -1553,7 +1556,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$sql = "SELECT MAX(sort) FROM `$table` WHERE pages_id=:pages_id";
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$value = $query->fetchColumn();
 		$value = $value === null ? -1 : (int) $value;
 		$query->closeCursor();
@@ -1624,7 +1627,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			$query->bindValue($key, $value, \PDO::PARAM_INT);
 		}
 		
-		$query->execute();
+		$database->execute($query);
 		$numComments = (int) $query->fetchColumn();
 		$query->closeCursor();
 		
@@ -1785,7 +1788,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':id', ($comment ? $comment->id : 0), \PDO::PARAM_INT);
 		$query->bindValue(':email', ($comment ? strtolower($comment->email) : ''), \PDO::PARAM_STR);
-		$query->execute();
+		$database->execute($query);
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 			$id = (int) $row['id'];
@@ -1880,7 +1883,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$result = false;
 		
 		try {
-			if($query->execute()) {
+			if($database->execute($query)) {
 				if($up) {
 					$comment->upvotes++;
 					$result = $this->updateComment($page, $field, $comment, array('upvotes' => $comment->upvotes));

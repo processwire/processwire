@@ -758,7 +758,7 @@ class Fields extends WireSaveableItems {
 			$query = $database->prepare('SELECT data FROM fieldgroups_fields WHERE fields_id=:field_id AND fieldgroups_id=:fieldgroup_id'); 
 			$query->bindValue(':field_id', $field_id, \PDO::PARAM_INT);
 			$query->bindValue(':fieldgroup_id', $fieldgroup_id, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			list($existingData) = $query->fetch(\PDO::FETCH_NUM);
 			$existingData = strlen($existingData) ? json_decode($existingData, true) : array();
 			if(!is_array($existingData)) $existingData = array();
@@ -783,8 +783,8 @@ class Fields extends WireSaveableItems {
 			$query->bindValue(':data', $data, \PDO::PARAM_STR); 
 		}
 		$query->bindValue(':field_id', $field_id, \PDO::PARAM_INT);
-		$query->bindValue(':fieldgroup_id', $fieldgroup_id, \PDO::PARAM_INT); 
-		$result = $query->execute();
+		$query->bindValue(':fieldgroup_id', $fieldgroup_id, \PDO::PARAM_INT);
+		$result = $database->execute($query);
 
 		return $result; 
 	}
@@ -836,12 +836,12 @@ class Fields extends WireSaveableItems {
 		$table2 = $database->escapeTable($field2->table);
 
 		$query = $database->prepare("DESCRIBE `$table1`"); // QA
-		$query->execute();
+		$database->execute($query);
 		/** @noinspection PhpAssignmentInConditionInspection */
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) $schema1[] = $row['Field'];
 
 		$query = $database->prepare("DESCRIBE `$table2`"); // QA
-		$query->execute();
+		$database->execute($query);
 		/** @noinspection PhpAssignmentInConditionInspection */
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) $schema2[] = $row['Field'];
 			
@@ -859,10 +859,11 @@ class Fields extends WireSaveableItems {
 		$exception = null;
 
 		try {
-			$result = $database->exec($sql);
-			if($result === false || $query->errorCode() > 0) {
-				$errorInfo = $query->errorInfo();
-				$error = !empty($errorInfo[2]) ? $errorInfo[2] : 'Unknown Error'; 
+			$copyQuery = $database->prepare($sql);
+			$result = $database->execute($copyQuery);
+			if($result === false || $copyQuery->errorCode() > 0) {
+				$errorInfo = $copyQuery->errorInfo();
+				$error = !empty($errorInfo[2]) ? $errorInfo[2] : 'Unknown Error';
 			}
 		} catch(\Exception $e) {
 			$exception = $e;
@@ -980,7 +981,7 @@ class Fields extends WireSaveableItems {
 			$query = $database->prepare($sql);
 			$query->bindValue(':templates_id', $template->id, \PDO::PARAM_INT);
 			try {
-				$query->execute();
+				$database->execute($query);
 			} catch(\Exception $e) {
 				$this->error($e->getMessage(), Notice::log);
 				$this->trackException($e);
@@ -1124,7 +1125,7 @@ class Fields extends WireSaveableItems {
 		$return = $options['getPageIDs'] ? array() : 0;	
 		
 		try {
-			$query->execute();
+			$database->execute($query);
 			if($options['getPageIDs']) {
 				/** @noinspection PhpAssignmentInConditionInspection */
 				while($id = $query->fetchColumn()) {
@@ -1603,9 +1604,10 @@ class Fields extends WireSaveableItems {
 		$count = 0;
 
 		$sql = "SELECT fieldgroups_id FROM fieldgroups_fields WHERE fields_id=:fields_id";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':fields_id', $fieldId, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$id = (int) $row[0];
@@ -1651,9 +1653,10 @@ class Fields extends WireSaveableItems {
 			"JOIN templates ON templates.fieldgroups_id=fieldgroups_fields.fieldgroups_id " .
 			"WHERE fieldgroups_fields.fields_id=:fields_id";
 
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':fields_id', $fieldId, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 			$id = (int) $row['templates_id'];

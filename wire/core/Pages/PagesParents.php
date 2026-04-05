@@ -149,7 +149,7 @@ class PagesParents extends Wire {
 
 		$query = $database->prepare($sql);
 		$query->bindValue(':id', $id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$row = $query->fetch(\PDO::FETCH_ASSOC);
 		$query->closeCursor();
 
@@ -452,9 +452,10 @@ class PagesParents extends Wire {
 				JOIN pages AS parents on pages.parent_id=parents.id AND parents.parent_id>=:id
 				GROUP BY pages.parent_id 
 			";
-			$query = $this->wire()->database->prepare(trim($sql));
-			$query->bindValue(':id', $minParentID, \PDO::PARAM_INT); 
-			$query->execute();
+			$database = $this->wire()->database;
+			$query = $database->prepare(trim($sql));
+			$query->bindValue(':id', $minParentID, \PDO::PARAM_INT);
+			$database->execute($query);
 			while($row = $query->fetch(\PDO::FETCH_NUM)) {
 				list($pages_id, $parents_id) = $row;
 				$parents[(int) $pages_id] = (int) $parents_id;
@@ -556,7 +557,7 @@ class PagesParents extends Wire {
 			// if parents found to insert, rebuild parents of $page
 			$inserts = implode('),(', $inserts);
 			$query = $database->prepare("INSERT INTO pages_parents (pages_id, parents_id) VALUES($inserts)");
-			$query->execute();
+			$database->execute($query);
 			$rowCount += $query->rowCount();
 		}
 
@@ -602,7 +603,7 @@ class PagesParents extends Wire {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':old_parent_id', $oldParent->id, \PDO::PARAM_INT);
 		try {
-			$query->execute();
+			$database->execute($query);
 		} catch(\Exception $e) {
 			if($e->getCode() != 23000) throw $e;
 		}
@@ -612,7 +613,7 @@ class PagesParents extends Wire {
 		$sql = 'SELECT pages_id FROM pages_parents WHERE parents_id=:pages_id';
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 	
 		$ids = array($page->id => $page->id);
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
@@ -650,7 +651,7 @@ class PagesParents extends Wire {
 			$oldParentIds = $this->wire()->sanitizer->intArray($oldParentIds);
 			$oldParentIdStr = implode(',', $oldParentIds);
 			$sql = "DELETE FROM pages_parents WHERE pages_id IN($idStr) AND parents_id IN($oldParentIdStr)";
-			$database->exec($sql);
+			$database->execute($database->prepare($sql));
 		}
 
 		if(!count($inserts)) return $numRows;
@@ -663,7 +664,7 @@ class PagesParents extends Wire {
 			$query->bindValue(':pages_id', $id, \PDO::PARAM_INT);
 			$query->bindValue(':parents_id', $parentId, \PDO::PARAM_INT); 
 			try {
-				if($query->execute()) $numRows++;
+				if($database->execute($query)) $numRows++;
 			} catch(\Exception $e) {
 				if($e->getCode() != 23000) $this->error($e->getMessage());
 			}
@@ -714,7 +715,7 @@ class PagesParents extends Wire {
 			$query->bindValue(':pages_id', $insert['pages_id'], \PDO::PARAM_INT);
 			$query->bindValue(':parents_id', $insert['parents_id'], \PDO::PARAM_INT);
 			try {
-				if($query->execute()) $numRows++;
+				if($database->execute($query)) $numRows++;
 			} catch(\Exception $e) {
 				// ok
 			}
@@ -761,14 +762,14 @@ class PagesParents extends Wire {
 		if(count($parents)) {
 			$where = $fromParent ? 'WHERE pages_id IN(' . implode(',', array_keys($parents)) . ')' : '';
 			$sql = "DELETE FROM pages_parents $where";
-			$database->exec($sql);
+			$database->execute($database->prepare($sql));
 		}
-	
+
 		if(count($inserts)) {
 			$inserts = array_unique($inserts);
 			$inserts = implode('),(', $inserts);
 			$query = $database->prepare("INSERT INTO pages_parents (pages_id, parents_id) VALUES($inserts)");
-			$query->execute();
+			$database->execute($query);
 			$rowCount = $query->rowCount();
 		}
 		
@@ -788,7 +789,7 @@ class PagesParents extends Wire {
 		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM pages_parents WHERE pages_id=:id");
 		$query->bindValue(':id', $pages_id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$cnt = $query->rowCount();
 		$query->closeCursor();
 		return $cnt;
@@ -809,7 +810,7 @@ class PagesParents extends Wire {
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT);
 		$query->bindValue(':parents_id', $pages_id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$cnt = $query->rowCount();
 		$query->closeCursor();
 		return $cnt;
@@ -872,7 +873,7 @@ class PagesParents extends Wire {
 			$timer = Debug::timer();
 			if($test['type'] === 'database.query') {
 				$query = $database->prepare($test['query']);
-				$query->execute();
+				$database->execute($query);
 				$test['count'] = $query->rowCount();
 				while($value = $query->fetchColumn()) {
 					$test['pages'][] = "$value: " . $this->pages->getPath($value);

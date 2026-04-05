@@ -147,7 +147,7 @@ class ModulesInstaller extends ModulesClass {
 		$query->bindValue(":flags", $flags, \PDO::PARAM_INT);
 
 		try {
-			if($query->execute()) $moduleID = (int) $database->lastInsertId();
+			if($database->execute($query)) $moduleID = (int) $database->lastInsertId();
 		} catch(\Exception $e) {
 			if($languages) $languages->unsetDefault();
 			$this->trackException($e, false, true);
@@ -177,7 +177,7 @@ class ModulesInstaller extends ModulesClass {
 				try {
 					$query = $database->prepare('DELETE FROM modules WHERE id=:id LIMIT 1'); // QA
 					$query->bindValue(":id", $moduleID, \PDO::PARAM_INT);
-					$query->execute();
+					$database->execute($query);
 				} catch(\Exception $ee) {
 					$this->trackException($e, false, $error)->trackException($ee, true);
 				}
@@ -523,7 +523,7 @@ class ModulesInstaller extends ModulesClass {
 		$database = $this->wire()->database;
 		$query = $database->prepare('DELETE FROM modules WHERE class=:class LIMIT 1'); // QA
 		$query->bindValue(":class", $class, \PDO::PARAM_STR);
-		$query->execute();
+		$database->execute($query);
 
 		// add back to the installable list
 		$reflector = new \ReflectionClass($this->modules->getModuleClass($module, true));

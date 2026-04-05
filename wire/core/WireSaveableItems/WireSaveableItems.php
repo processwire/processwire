@@ -218,7 +218,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$sql = $this->getLoadQuery($selectors)->getQuery();
 
 		$query = $database->prepare($sql);
-		$query->execute();
+		$database->execute($query);
 		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
 		$n = 0;
 		
@@ -322,7 +322,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		if($id && $item->isChanged('name')) {
 			$query = $database->prepare("SELECT name FROM `$table` WHERE id=:id");
 			$query->bindValue(':id', $id, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			$oldName = $query->fetchColumn();
 			$query->closeCursor();
 			if($oldName != $item->name) $namePrevious = $oldName;
@@ -341,21 +341,21 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$sql = rtrim($sql, ", "); 
 
 		if($id) {
-			
+
 			$query = $database->prepare("UPDATE $sql WHERE id=:id");
 			foreach($binds as $key => $value) {
-				$query->bindValue($key, $value); 
+				$query->bindValue($key, $value);
 			}
 			$query->bindValue(":id", $id, \PDO::PARAM_INT);
-			$result = $query->execute();
-			
+			$result = $database->execute($query);
+
 		} else {
-			
-			$query = $database->prepare("INSERT INTO $sql"); 
+
+			$query = $database->prepare("INSERT INTO $sql");
 			foreach($binds as $key => $value) {
-				$query->bindValue($key, $value); 
+				$query->bindValue($key, $value);
 			}
-			$result = $query->execute();
+			$result = $database->execute($query);
 			if($result) {
 				$item->id = (int) $database->lastInsertId();
 				$this->getWireArray()->add($item);
@@ -400,9 +400,9 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$this->getWireArray()->remove($item); 
 		$table = $database->escapeTable($this->getTable());
 		
-		$query = $database->prepare("DELETE FROM `$table` WHERE id=:id LIMIT 1"); 
-		$query->bindValue(":id", $id, \PDO::PARAM_INT); 
-		$result = $query->execute();
+		$query = $database->prepare("DELETE FROM `$table` WHERE id=:id LIMIT 1");
+		$query->bindValue(":id", $id, \PDO::PARAM_INT);
+		$result = $database->execute($query);
 		
 		if($result) {
 			$this->deleted($item);

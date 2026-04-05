@@ -494,9 +494,10 @@ class ModulesFiles extends ModulesClass {
 		$unflags = array();
 
 		$sql = "SELECT id, class FROM modules WHERE flags & :flagsNoFile ORDER BY class";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':flagsNoFile', Modules::flagsNoFile, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 

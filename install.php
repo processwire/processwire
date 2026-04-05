@@ -1549,7 +1549,7 @@ class Installer {
 		// checks to see if the database exists using an arbitrary query (could just as easily be something else)
 		try {
 			$query = $database->prepare("SHOW COLUMNS FROM pages"); 
-			$result = $query->execute();
+			$result = $database->execute($query);
 		} catch(\Exception $e) {
 			$result = false;
 			$query = null;

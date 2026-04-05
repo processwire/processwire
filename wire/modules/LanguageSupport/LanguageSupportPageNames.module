@@ -866,14 +866,15 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 				"OR ($nameKey=:newName2)" . // or lang name is same as requested one
 			")";
 		
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':parent_id', $parentID, \PDO::PARAM_INT);
 		$query->bindValue(':newName', $value);
 		$query->bindValue(':newName2', $value);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
 		
 		try {
-			$query->execute();
+			$database->execute($query);
 			$row = $query->fetch(\PDO::FETCH_ASSOC); 
 			if($row) {
 				$isValid = false;
@@ -1527,7 +1528,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		
 		// version 3 to 4 check: addition of language-specific status columns
 		$query = $database->prepare("SHOW COLUMNS FROM pages WHERE Field LIKE 'status%'");
-		$query->execute();
+		$database->execute($query);
 		
 		if($query->rowCount() < 2) {
 			foreach($this->wire()->languages as $language) {
@@ -1655,7 +1656,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		foreach($sqls as $sql) {
 			try {
 				$query = $database->prepare($sql);
-				$query->execute();
+				$database->execute($query);
 			} catch(\Exception $e) {
 				$this->warning($e->getMessage(), Notice::superuser);
 			}

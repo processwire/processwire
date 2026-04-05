@@ -170,7 +170,7 @@ class ProcessPageSort extends Process {
 		$query = $database->prepare($sql);
 		$query->bindValue(":parent_id", $parent->id, \PDO::PARAM_INT);
 		if($this->isMoved) $query->bindValue(":move_id", $this->move_id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$sortStart = (int) $query->fetchColumn();
 		
 		$query = $database->prepare("UPDATE pages SET sort=:sort1 WHERE id=:id AND parent_id=:parent_id AND sort!=:sort2");
@@ -182,7 +182,7 @@ class ProcessPageSort extends Process {
 			$query->bindValue(":sort1", $sort, \PDO::PARAM_INT);
 			$query->bindValue(":sort2", $sort, \PDO::PARAM_INT);
 			$query->bindValue(":id", $id, \PDO::PARAM_INT); 
-			$query->execute();
+			$database->execute($query);
 			if($query->rowCount() > 0) $changes++;
 			if($page->id == $id) $pageSort = $sort; 
 		}

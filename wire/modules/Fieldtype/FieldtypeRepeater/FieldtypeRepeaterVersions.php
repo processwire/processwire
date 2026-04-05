@@ -216,12 +216,13 @@ class FieldtypeRepeaterVersions extends Wire {
 			"UPDATE $table SET data=:data, count=:count, parent_id=:parent_id " .
 			"WHERE pages_id=:pages_id";
 
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':data', implode(',', $itemIDs));
 		$query->bindValue(':count', count($itemIDs));
 		$query->bindValue(':parent_id', $versionRepeaterParent->id, \PDO::PARAM_INT);
 		$query->bindValue(':pages_id', $versionPage->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		$page->offsetUnset($field->name);
 

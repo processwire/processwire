@@ -399,25 +399,26 @@ class CommentNotifications extends Wire {
 	 */
 	public function modifyNotifications($subcode, $enable, $all = false) {
 		
-		$table = $this->wire('database')->escapeTable($this->field->getTable());	
-		$sql = "SELECT email FROM `$table` WHERE pages_id=:pages_id AND subcode=:subcode"; 
-		$query = $this->wire('database')->prepare($sql);
+		$database = $this->wire('database');
+		$table = $database->escapeTable($this->field->getTable());
+		$sql = "SELECT email FROM `$table` WHERE pages_id=:pages_id AND subcode=:subcode";
+		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $this->page->id);
-		$query->bindValue(':subcode', $subcode); 
-		$query->execute();
+		$query->bindValue(':subcode', $subcode);
+		$database->execute($query);
 		$email = '';
-		if($query->rowCount()) list($email) = $query->fetch(\PDO::FETCH_NUM); 
+		if($query->rowCount()) list($email) = $query->fetch(\PDO::FETCH_NUM);
 		if(!strlen($email)) return false;
-	
+
 		if($all) {
 			$sql = "SELECT id, flags FROM `$table` WHERE email=:email";
 		} else {
 			$sql = "SELECT id, flags FROM `$table` WHERE pages_id=:pages_id AND email=:email";
 		}
-		$query = $this->wire('database')->prepare($sql);
+		$query = $database->prepare($sql);
 		if(!$all) $query->bindValue(':pages_id', $this->page->id);
-		$query->bindValue(':email', $email); 
-		$query->execute();
+		$query->bindValue(':email', $email);
+		$database->execute($query);
 		if(!$query->rowCount()) return false;
 		
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
@@ -435,11 +436,12 @@ class CommentNotifications extends Wire {
 					continue;
 				}
 			}
-			$sql = "UPDATE `$table` SET flags=:flags WHERE id=:id"; 
-			$update = $this->wire('database')->prepare($sql);
+			$database = $this->wire('database');
+			$sql = "UPDATE `$table` SET flags=:flags WHERE id=:id";
+			$update = $database->prepare($sql);
 			$update->bindValue(':flags', $flags);
-			$update->bindValue(':id', $id); 
-			$update->execute();
+			$update->bindValue(':id', $id);
+			$database->execute($update);
 		}
 	
 		if($enable) {

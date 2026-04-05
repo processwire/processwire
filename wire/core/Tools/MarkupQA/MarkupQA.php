@@ -677,7 +677,7 @@ class MarkupQA extends Wire {
 			$ids = implode(',', array_keys($checkIDs));
 			$sql = "SELECT * FROM `$table` WHERE `pages_id` IN($ids)";
 			$query = $database->prepare($sql);
-			$query->execute();
+			$database->execute($query);
 
 			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 				$pageID = (int) $row['pages_id'];

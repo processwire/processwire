@@ -726,16 +726,25 @@ abstract class DatabaseQuery extends WireData {
 			$exception = null;
 			$result = false;
 			$query = null;
-			
+
 			try {
 				$query = $this->prepare();
 				$result = $query->execute();
 			} catch(\PDOException $e) {
 				$msg = $e->getMessage();
 				$code = (int) $e->getCode();
-				$retry = $code === 2006 || stripos($msg, 'MySQL server has gone away') !== false;
+				$sqlState = substr($e->getCode(), 0, 5);
+				$isGoneAway = $code === 2006 || stripos($msg, 'MySQL server has gone away') !== false;
+				$isCommLinkFailure = $sqlState === '08S01' || $code === 1053;
+				$isDeadlock = $sqlState === '40001' || $code === 1213;
+				$retry = $isGoneAway || $isCommLinkFailure || $isDeadlock;
 				if($retry && $numTries < $options['maxTries']) {
-					$this->wire()->database->closeConnection(); // note: it reconnects automatically
+					if($isGoneAway || $isCommLinkFailure) {
+						$this->wire()->database->closeConnection(); // note: it reconnects automatically
+					}
+					if($isDeadlock || $isCommLinkFailure) {
+						usleep(100000 * ($numTries + 1)); // backoff: 100ms, 200ms, 300ms
+					}
 					$numTries++;
 				} else {
 					$exception = $e;

@@ -92,7 +92,7 @@ class WireNumberTools extends Wire {
 			// maintain only 10 unique IDs in the DB table at a time
 			$query = $database->prepare("DELETE FROM $table WHERE id<:id");
 			$query->bindValue(':id', $uniqueNum, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 		}
 
 		return $uniqueNum;

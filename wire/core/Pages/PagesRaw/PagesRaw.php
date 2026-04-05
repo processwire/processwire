@@ -163,7 +163,7 @@ class PagesRaw extends Wire {
 
 		$query = $database->prepare("SELECT `$col` FROM pages WHERE id=:id");
 		$query->bindValue(':id', $pageId, (int) \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$value = $query->rowCount() ? $query->fetchColumn() : null;
 		$query->closeCursor();
 
@@ -230,7 +230,7 @@ class PagesRaw extends Wire {
 			if(empty($ids)) return [];
 			$ids = implode(',', $ids);
 			$query = $database->prepare("SELECT $colStr FROM pages WHERE id IN($ids)");
-			$query->execute();
+			$database->execute($query);
 			$value = array();
 			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 				$id = (int) $row['id'];
@@ -253,7 +253,7 @@ class PagesRaw extends Wire {
 			} else {
 				$query = $database->prepare("SELECT $colStr FROM pages WHERE id=:id");
 				$query->bindValue(':id', $pageId, (int) \PDO::PARAM_INT);
-				$query->execute();
+				$database->execute($query);
 				$value = $query->rowCount() ? $query->fetch(\PDO::FETCH_ASSOC) : array();
 			}
 		}
@@ -1044,10 +1044,10 @@ class PagesRawFinder extends Wire {
 		if(count($orderby)) $sql .= "ORDER BY " . implode(',', $orderby);
 		
 		$query = $database->prepare($sql);
-		$query->execute();
+		$database->execute($query);
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			
+
 			$id = $row['pages_id'];
 			
 			if(!$getAllCols && !isset($getCols['pages_id'])) unset($row['pages_id']);
@@ -1370,8 +1370,9 @@ class PagesRawFinder extends Wire {
 		if($getAll) $names = array();
 
 		$sql = "SELECT source_id, name, data FROM pages_meta WHERE source_id IN($this->ids)";
-		$query = $this->wire()->database->prepare($sql);
-		$query->execute();
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
+		$database->execute($query);
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 			$id = (int) $row['source_id'];
@@ -1431,8 +1432,8 @@ class PagesRawFinder extends Wire {
 			$table = $pageField->getTable();
 			$sql = "SELECT pages_id, data FROM $table WHERE data IN($this->ids)";
 			$query = $database->prepare($sql);
-			$query->execute();
-			
+			$database->execute($query);
+
 			while($row = $query->fetch(\PDO::FETCH_NUM)) {
 				$fromPageId = (int) $row[0]; // pages_id
 				$toPageId = (int) $row[1]; // data
@@ -1565,8 +1566,9 @@ class PagesRawFinder extends Wire {
 			(count($joins) ? implode(' ', $joins) . " " : '') . 
 			"WHERE " . implode(' ', $wheres);
 		
-		$query = $this->wire()->database->prepare($sql);
-		$query->execute();
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
+		$database->execute($query);
 		$rows = array();
 		
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {

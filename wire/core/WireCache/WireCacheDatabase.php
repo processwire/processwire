@@ -195,8 +195,9 @@ class WireCacheDatabase extends Wire implements WireCacheInterface {
 	 */
 	protected function executeQuery(\PDOStatement $query) {
 		$install = false;
+		$database = $this->wire()->database;
 		try {
-			$result = $query->execute();
+			$result = $database->execute($query);
 		} catch(\PDOException $e) {
 			$result = false;
 			$install = $e->getCode() === '42S02'; // table does not exist
@@ -228,7 +229,7 @@ class WireCacheDatabase extends Wire implements WireCacheInterface {
 		$query->bindValue(':now', date(WireCache::dateFormat, time())); 
 		$query->bindValue(':never', WireCache::expireNever);
 		$query->bindValue(':then', '1974-10-10 10:10:10');
-		$query->execute();
+		$this->wire()->database->execute($query);
 		$qty = $query->rowCount();
 
 		if($qty) $this->wire->cache->log(

@@ -1000,17 +1000,32 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				$result = $query->execute();
 			} catch(\PDOException $e) {
 				$result = false;
+				$code = $e->getCode();
+				$msg = $e->getMessage();
+				$sqlState = is_string($code) ? substr($code, 0, 5) : '';
+				$errCode = (int) $code;
 				if($query->errorCode() == '42S22') {
 					// unknown column error
 					$errorInfo = $query->errorInfo();
 					if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
 						$this->unknownColumnError($matches[1]);
 					}
-				} else if($e->getCode() === 'HY000' && $tries < $maxTries) {
-					// mysql server has gone away
-					$this->reset();
-					$tryAgain = true;
-					$tries++;
+				} else if($tries < $maxTries) {
+					$isGoneAway = $code === 'HY000' || $errCode === 2006
+						|| stripos($msg, 'MySQL server has gone away') !== false;
+					$isCommLinkFailure = $sqlState === '08S01' || $errCode === 1053;
+					$isDeadlock = $sqlState === '40001' || $errCode === 1213;
+					if($isGoneAway || $isCommLinkFailure) {
+						// connection lost — reconnect and retry
+						$this->reset();
+						$tryAgain = true;
+						$tries++;
+					} else if($isDeadlock) {
+						// deadlock — retry with backoff (no reconnect needed)
+						usleep(100000 * ($tries + 1));
+						$tryAgain = true;
+						$tries++;
+					}
 				}
 				if($tryAgain) {
 					// we will try again on next iteration
@@ -1392,7 +1407,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			}
 			if(!$stopwords) {
 				$query = $this->prepare('SELECT value FROM INFORMATION_SCHEMA.INNODB_FT_DEFAULT_STOPWORD');
-				$query->execute();
+				$this->execute($query);
 				$stopwords = $query->fetchAll(\PDO::FETCH_COLUMN, 0);
 				$query->closeCursor();
 				if($cache) $cache->save('InnoDB.stopwords', implode(',', $stopwords), WireCache::expireDaily);

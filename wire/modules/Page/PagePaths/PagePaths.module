@@ -94,7 +94,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM $table WHERE pages_id=:pages_id"); 
 		$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$this->rebuildRootSegments();
 	}
 
@@ -651,7 +651,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		if($languages) $sql .= 'OR id=:id';
 		$query = $database->prepare($sql);
 		$query->bindValue(':id', $config->rootPageID, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 	
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)){
 			$id = (int) $row['id'];
@@ -736,7 +736,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	 */
 	protected function executeQuery($query, $throw = true) {
 		try {
-			$result = $query->execute();
+			$result = $this->wire()->database->execute($query);
 		} catch(\Exception $e) {
 			if(!$this->checkTableSchema()) {
 				if($throw) throw $e;

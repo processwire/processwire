@@ -130,7 +130,7 @@ class FieldtypeCache extends Fieldtype {
 		$table = $database->escapeTable($field->getTable()); 
 		$query = $database->prepare("SELECT COUNT(*) FROM `$table`"); 
 		try {
-			$query->execute();
+			$database->execute($query);
 			$num = (int) $query->fetchColumn();
 			$query->closeCursor();
 		} catch(\Exception $e) {

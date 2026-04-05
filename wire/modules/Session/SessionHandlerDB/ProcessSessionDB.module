@@ -84,7 +84,7 @@ class ProcessSessionDB extends Process {
 				"ORDER BY ts DESC LIMIT $limit";
 	
 		$query = $database->prepare($sql);	
-		$query->execute();
+		$database->execute($query);
 		$numRows = $query->rowCount();
 
 		if($numRows) {
