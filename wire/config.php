@@ -512,9 +512,27 @@ $config->sessionFingerprint = 1;
  * - `private`: Disallows caching by proxies but permits the client (browser) to 
  *    cache the content. The Expires header is sent to the client in this mode.
  * 
- * - `private_no_expire`: Similar to private, but the Expires header is never 
+ * - `private_no_expire`: Similar to private, but the Expires header is never
  *    sent to the client. This avoids potential confusion for some browsers.
- * 
+ *    Note: caching options like `private_no_expire`, `private`, and `public`
+ *    permit HTTP 304 responses. If your site uses per-request dynamic response
+ *    headers (such as CSP nonces), a 304 response will send new headers while
+ *    the browser reuses cached HTML — causing a mismatch. In that case, use
+ *    a callable to prevent conditional requests while preserving bfcache:
+ *    ~~~~~
+ *    $config->sessionCacheLimiter = [
+ *      'guest' => function() {
+ *        header_remove('ETag');
+ *        header_remove('Last-Modified');
+ *        return ['Cache-Control' => 'private, max-age=0, must-revalidate'];
+ *      },
+ *      'loggedin' => 'nocache',
+ *      'admin' => 'nocache',
+ *    ];
+ *    ~~~~~
+ *    This preserves browser back/forward cache (bfcache) while ensuring the
+ *    browser always fetches a full 200 response rather than a 304.
+ *
  * - `public`: Permits caching by both proxies and the client.
  * 
  * - `none`: Prevent PHP and ProcessWire from sending any cache headers. 
