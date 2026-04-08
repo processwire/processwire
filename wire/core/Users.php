@@ -150,6 +150,19 @@ class Users extends PagesType {
 	}
 
 	/**
+	 * Get options that will be passed to Pages::getById()
+	 *
+	 * @param array $loadOptions Optionally specify options to merge with and override defaults
+	 * @return array
+	 *
+	 */
+	protected function getLoadOptions(array $loadOptions = array()) {
+		$loadOptions = parent::getLoadOptions($loadOptions);
+		if(count($this->templates) > 1) unset($loadOptions['pageClass']); 
+		return $loadOptions;
+	}
+
+	/**
 	 * Return new User instance
 	 * 
 	 * #pw-internal
