@@ -50,6 +50,8 @@ require_once(__DIR__ . '/Notice.php');
  * ~~~~~
  * #pw-body
  * 
+ * @method string render(array $options = [])
+ * @method string renderText()
  *
  */
 class Notices extends WireArray {
