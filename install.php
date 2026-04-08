@@ -751,8 +751,10 @@ class Installer {
 
 			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
 				$initCommand = constant("\\Pdo\\Mysql::ATTR_INIT_COMMAND");
-			} else {
+			} else if(defined("\\PDO::MYSQL_ATTR_INIT_COMMAND")) {
 				$initCommand = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+			} else {
+				$initCommand = 1002; // PDO::MYSQL_ATTR_INIT_COMMAND
 			}
 			$driver_options = array(
 				$initCommand => "SET NAMES 'UTF8'",
