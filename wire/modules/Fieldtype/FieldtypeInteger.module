@@ -24,11 +24,23 @@ class FieldtypeInteger extends Fieldtype {
 	}
 
 	/**
+	 * Get the Field class to use for fields of this type
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string
+	 * @since 3.0.258
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		return 'IntegerField';
+	}
+
+	/**
 	 * Get compatible Fieldtypes
-	 * 
+	 *
 	 * @param Field $field
 	 * @return Fieldtypes
-	 * 
+	 *
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = parent::___getCompatibleFieldtypes($field); 
@@ -229,3 +241,5 @@ class FieldtypeInteger extends Fieldtype {
 	}
 
 }
+
+require_once(__DIR__ . '/IntegerField.php');

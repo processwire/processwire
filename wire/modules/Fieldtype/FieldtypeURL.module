@@ -21,8 +21,20 @@ class FieldtypeURL extends FieldtypeText {
 			'title' => __('URL', __FILE__),
 			'version' => 101,
 			'summary' => __('Field that stores a URL', __FILE__),
-			'permanent' => true, 
+			'permanent' => true,
 		);
+	}
+
+	/**
+	 * Get the Field class to use for fields of this type
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string
+	 * @since 3.0.x
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		return 'URLField';
 	}
 
 	/**
@@ -151,7 +163,9 @@ class FieldtypeURL extends FieldtypeText {
 
 		return $inputfields;
 	}
-	
+
 	// @todo add markupValue()
 
 }
+
+require_once(__DIR__ . '/URLField.php');
