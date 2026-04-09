@@ -731,6 +731,7 @@ class SystemNotifications extends WireData implements Module {
 	 */
 	protected function updateProcessKey($processKey) {
 		// NPK.ProcessPageEdit.pageID.userID.windowID
+		$processKey = (string) $processKey;
 		if(!preg_match('/^NPK\.[A-Za-z]+\.\d+\.\d+\.PW\d+$/', $processKey)) return;
 		$this->checkProcessKey($processKey); 
 		$times = $this->wire('cache')->get($processKey);
@@ -741,7 +742,7 @@ class SystemNotifications extends WireData implements Module {
 		} else {
 			$value = time() . ":" . time();
 		}
-		$this->wire('cache')->save($processKey, $value, ($this->updateDelay / 1000) * 2);
+		$this->wire()->cache->save($processKey, $value, ($this->updateDelay / 1000) * 2);
 	}
 
 	/**
@@ -846,4 +847,3 @@ class SystemNotifications extends WireData implements Module {
 
 
 }
-

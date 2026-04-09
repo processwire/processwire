@@ -185,7 +185,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		foreach($this->getSelectedPages() as $page) {
 			if(!$page || !$page->id) continue; 
 			$label = $this->labelFieldFormat ? $page->getText($this->labelFieldFormat, true, false) : $page->get($this->labelFieldName); 
-			$label = strip_tags($label);
+			$label = strip_tags("$label");
 			if(!strlen($label)) $label = $page->get('title|name');
 			$out .= $this->renderListItem($label, $page->id, '', $page); 
 		}

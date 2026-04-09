@@ -3189,9 +3189,11 @@ class ProcessField extends Process implements ConfigurableModule {
 					} else if(isset($options[$value])) {
 						$value = $options[$value];
 					}
-					if(is_array($originalValue)) foreach($originalValue as $k => $v) {
-						if(isset($options[$v])) $originalValue[$k] = $options[$v];
-					} else if(isset($options[$originalValue])) {
+					if(is_array($originalValue)) {
+						foreach($originalValue as $k => $v) {
+							if(isset($options[$v])) $originalValue[$k] = $options[$v];
+						}
+					} else if($originalValue !== null && isset($options[$originalValue])) {
 						$originalValue = $options[$originalValue];
 					}
 				} else if($formField instanceof InputfieldCheckbox) {
