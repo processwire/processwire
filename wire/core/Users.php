@@ -158,7 +158,7 @@ class Users extends PagesType {
 	 */
 	protected function getLoadOptions(array $loadOptions = array()) {
 		$loadOptions = parent::getLoadOptions($loadOptions);
-		if(count($this->templates) > 1) unset($loadOptions['pageClass']); 
+		if($this->wire()->config->usePageClasses) $loadOptions['pageClass'] = '';
 		return $loadOptions;
 	}
 
