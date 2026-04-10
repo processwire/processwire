@@ -5619,10 +5619,13 @@ ins {
  * STRUCTURAL SHIELDING
  * Keeps core skeleton elements at the standard 15/30/40px padding scale
  * regardless of any generic .uk-container overrides.
+ * But now it accounts for specifically added overrides.
  */
-.uk-container {
+.uk-container:not(.uk-padding) {
 	padding-left: 0;
 	padding-right: 0;
+}
+.uk-container:not([class*=uk-width]) {
 	max-width: none;
 }
 .uk-card > .uk-container,
@@ -5960,4 +5963,3 @@ table.AdminDataList th.headerSortUp {
 .uk-accordion > :nth-child(n + 2) {
 	margin-top: 10px;
 }
-
