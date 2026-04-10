@@ -3,31 +3,30 @@
 /**
  * ProcessWire Comments Field
  *
- * Custom “Field” class for Comments fields. 
+ * Custom “Field” class for Comments fields.
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
- * 
- * @property int $moderate
- * @property int|bool $redirectAfterPost
- * @property int|bool $quietSave
- * @property string $notificationEmail
- * @property string $fromEmail
- * @property int $notifySpam
- * @property int $useNotify See Comment::flagNotify* constants
+ *
+ * // Fieldtype settings
+ * @property int $moderate Moderation mode; see FieldtypeComments::moderate* constants.
+ * @property int|bool $redirectAfterPost Redirect to current URL after comment is posted?
+ * @property int|bool $quietSave Save comments without triggering page-save hooks?
+ * @property string $notificationEmail Email address(es) to notify when a comment is posted.
+ * @property string $fromEmail From email address used for notification emails.
+ * @property int $notifySpam Notify when spam is detected? (0=no, 1=yes)
+ * @property int $useNotify Default notification preference for new commenters; see Comment::flagNotify* constants.
  * @property bool|int $useNotifyText Include comment text in notification emails?
- * @property int|bool $useAkismet
- * @property int $deleteSpamDays
- * @property int $depth
- * @property int|bool $sortNewest
- * @property int|bool $useWebsite
- * @property string $dateFormat
- * @property int $useVotes
- * @property int $useStars
- * @property string $useGravatar
- * @property int $schemaVersion
- * 
- * @todo Some more methods from FieldtypeComments can be moved into this class
+ * @property int|bool $useAkismet Use Akismet spam filtering?
+ * @property int $deleteSpamDays Auto-delete spam comments older than this many days (0=never).
+ * @property int $depth Maximum threading depth for nested comments (0=disabled).
+ * @property int|bool $sortNewest Sort newest comments first?
+ * @property int|bool $useWebsite Allow commenters to submit a website URL?
+ * @property string $dateFormat Date format string for comment timestamps (e.g. 'Y-m-d' or 'relative').
+ * @property int $useVotes Voting mode; see FieldtypeComments::useVotes* constants.
+ * @property int $useStars Star rating mode; see FieldtypeComments::useStars* constants.
+ * @property string $useGravatar Gravatar default image type, or empty string to disable Gravatar.
+ * @property int $schemaVersion Internal schema version for DB migrations.
  *
  */
 
@@ -319,10 +318,12 @@ class CommentField extends Field {
 	}
 
 	/**
-	 * @return FieldtypeComments|Fieldtype
+	 * @return FieldtypeComments
 	 *
 	 */
 	public function getFieldtype() {
-		return parent::getFieldtype();
+		/** @var FieldtypeComments $fieldtype */
+		$fieldtype = parent::getFieldtype();
+		return $fieldtype;
 	}
 }	
