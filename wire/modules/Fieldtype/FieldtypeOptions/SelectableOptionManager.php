@@ -247,11 +247,13 @@ class SelectableOptionManager extends Wire {
 	/**
 	 * Given an array of option data, populate an Option object and return it 
 	 * 
+	 * Public since 3.0.258 (previously was protected)
+	 * 
 	 * @param array $a
 	 * @return SelectableOption
 	 * 
 	 */
-	protected function arrayToOption(array $a) {
+	public function arrayToOption(array $a) {
 		$option = $this->wire(new SelectableOption());
 		if(isset($a['id'])) $option->set('id', (int) $a['id']); 
 		if(isset($a['option_id'])) $option->set('id', (int) $a['option_id']);
@@ -426,6 +428,8 @@ class SelectableOptionManager extends Wire {
 	 * @param bool $allowDelete Allow removed lines in the string to result in deleted options?
 	 * 	If false, no options will be affected but you can call the getRemovedOptionIDs() method
 	 * 	to retrieve them for confirmation. 
+	 * @return array Array of quantities indexed by: added, updated, deleted, marked
+	 *   Note that prior to 3.0.258 there was no return value. 
 	 * @throws WireException
 	 * 
 	 */
@@ -459,7 +463,7 @@ class SelectableOptionManager extends Wire {
 				$option->set("value$languageID", $o['value']); 
 			}
 		}
-		$this->setOptions($field, $options, $allowDelete); 
+		return $this->setOptions($field, $options, $allowDelete); 
 	}
 
 	/**
@@ -469,7 +473,7 @@ class SelectableOptionManager extends Wire {
 	 * @param array|SelectableOptionArray $options Array of SelectableOption objects
 	 * 	For new options specify 0 for the 'id' property.
 	 * @param bool $allowDelete Allow options to be deleted? If false, the options marked for
-	 * 	deletion can be retrieved via $this->getRemovedOptions($field);
+	 * 	deletion can be retrieved via $this->getRemovedOptionIDs($field);
 	 * @return array containing ('added' => cnt, 'updated' => cnt, 'deleted' => cnt, 'marked' => cnt) 
 	 * 	note: 'marked' means marked for deletion
 	 * @throws WireException
@@ -619,7 +623,7 @@ class SelectableOptionManager extends Wire {
 	 * Delete the given options for $field
 	 *
 	 * @param Field $field
-	 * @param array|SelectableOptionArray $options
+	 * @param SelectableOption[]|SelectableOptionArray $options
 	 * @return int Number of options deleted
 	 *
 	 */
@@ -699,10 +703,10 @@ class SelectableOptionManager extends Wire {
 	}
 
 	/**
-	 * Add the given option titles for $field
+	 * Add the given option for $field
 	 *
 	 * @param Field $field
-	 * @param array|SelectableOptionArray $options
+	 * @param SelectableOption[]|SelectableOptionArray $options
 	 * @return int Number of options added
 	 *
 	 */

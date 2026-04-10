@@ -22,12 +22,24 @@ class FieldtypeCheckbox extends Fieldtype {
 	}
 
 	/**
+	 * Get the Field class to use for fields of this type
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string
+	 * @since 3.0.258
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		return 'CheckboxField';
+	}
+
+	/**
 	 * Get blank value for field
-	 * 
+	 *
 	 * @param Page $page
 	 * @param Field $field
 	 * @return int
-	 * 
+	 *
 	 */
 	public function getBlankValue(Page $page, Field $field) {
 		return 0; 
@@ -168,3 +180,5 @@ class FieldtypeCheckbox extends Fieldtype {
 	}
 
 }
+
+require_once(__DIR__ . '/CheckboxField.php');

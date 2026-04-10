@@ -368,7 +368,7 @@ class FieldtypeTextarea extends FieldtypeText {
 	 */
 	public function configHelper() {
 		if(is_null($this->configHelper)) {
-			require_once($this->wire()->config->paths('FieldtypeTextarea') . 'FieldtypeTextareaHelper.php');
+			require_once(__DIR__ . '/FieldtypeTextareaHelper.php');
 			$this->configHelper = new FieldtypeTextareaHelper();
 		}
 		return $this->configHelper;
