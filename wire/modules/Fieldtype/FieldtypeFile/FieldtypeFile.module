@@ -149,12 +149,24 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	}
 
 	/**
+	 * Get the Field class to use for fields of this type
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string
+	 * @since 3.0.x
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		return 'FileField';
+	}
+
+	/**
 	 * Get the Inputfield module to handle input for this Fieldtype
-	 * 
+	 *
 	 * @param Page $page
 	 * @param Field $field
 	 * @return Inputfield
-	 * 
+	 *
 	 */
 	public function getInputfield(Page $page, Field $field) {
 
@@ -1916,3 +1928,5 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 		return new FieldtypeFileConfiguration($this);
 	}
 }
+
+require_once(__DIR__ . '/FileField.php');
