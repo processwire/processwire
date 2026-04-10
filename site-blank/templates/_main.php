@@ -18,6 +18,7 @@ $home = $pages->get('/'); /** @var HomePage $home */
 <html lang="en">
 	<head id="html-head">
 		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title><?php echo $page->title; ?></title>
 		<link rel="stylesheet" type="text/css" href="<?php echo $config->urls->templates; ?>styles/main.css" />
 		<script src="<?php echo $config->urls->templates; ?>scripts/main.js"></script>
