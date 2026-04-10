@@ -89,12 +89,24 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	}
 
 	/**
+	 * Get the Field class to use for fields of this type
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string
+	 * @since 3.0.258
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		return 'OptionsField';
+	}
+
+	/**
 	 * Get the Inputfield that provides input for this Fieldtype
-	 * 
+	 *
 	 * @param Page $page
 	 * @param Field $field
 	 * @return Inputfield
-	 * 
+	 *
 	 */
 	public function getInputfield(Page $page, Field $field) {
 		
@@ -754,7 +766,9 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function upgrade($fromVersion, $toVersion) {
-		$this->manager->upgrade($fromVersion, $toVersion); 
+		$this->manager->upgrade($fromVersion, $toVersion);
 	}
 
 }
+
+require_once(__DIR__ . '/OptionsField.php');
