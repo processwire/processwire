@@ -237,7 +237,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 			$parent = $field->parent_id ? $pages->get($field->parent_id) : $copy; 
 			$value = $copy->getUnformatted($field->name); 
 			if(!wireCount($value)) continue; 
-			$newValue = $pages->newPageArray();
+			$newValue = $this->getBlankValue($copy, $field); 
 			foreach($value as $item) {
 				try { 
 					$newItem = null;
@@ -348,7 +348,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 			$value = $this->wakeupValue($page, $field, $value);
 		}
 		if(!$value instanceof PageArray) {
-			return $this->wire()->pages->newPageArray();
+			return $this->getBlankValue($page, $field);
 		}
 		foreach($value as $item) {
 			if($this->isValidItem($page, $field, $item)) continue; 
@@ -382,11 +382,15 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * 
 	 * @param Page $page
 	 * @param Field $field
-	 * @return PageArray
+	 * @return PageTableArray
 	 * 
 	 */
 	public function getBlankValue(Page $page, Field $field) {
-		return $this->wire()->pages->newPageArray();
+		$value = new PageTableArray();
+		$this->wire($value);
+		$value->setForPage($page);
+		$value->setForField($field);
+		return $value; 
 	}
 
 	/**
@@ -394,12 +398,12 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 *
 	 * @param Page $page
 	 * @param Field $field
-	 * @param PageArray $value
-	 * @return PageArray
+	 * @param PageTableArray $value
+	 * @return PageTableArray
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
-		$formatted = $this->wire()->pages->newPageArray();
+		$formatted = $this->getBlankValue($page, $field);
 		if(!$value instanceof PageArray) return $formatted; 
 		foreach($value as $item) {
 			if($item->status >= Page::statusHidden) continue; 
@@ -414,7 +418,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * 
 	 * @param Page $page
 	 * @param PageTableField $field
-	 * @param PageArray $value
+	 * @param PageTableArray $value
 	 * @throws WireException
 	 * @return array
 	 * 
@@ -444,7 +448,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * @param Page $page
 	 * @param PageTableField $field
 	 * @param array $value
-	 * @return PageArray
+	 * @return PageTableArray
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
@@ -457,7 +461,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 			return $this->getBlankValue($page, $field);
 		}
 		
-		$items = $this->wakeupPageTableValue($field, $value);
+		$items = $this->wakeupPageTableValue($page, $field, $value);
 		
 		foreach($items as $item) {
 			$item->setQuietly('_pageTableField', $field->id);
@@ -470,12 +474,13 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	/**
 	 * Wake up an array of PageTable page IDs to a loaded PageArray
 	 * 
+	 * @param Page $page
 	 * @param PageTableField $field
 	 * @param int[] $ids
-	 * @return PageArray
+	 * @return PageTableArray
 	 * 
 	 */
-	protected function wakeupPageTableValue(Field $field, array $ids) {
+	protected function wakeupPageTableValue(Page $page, Field $field, array $ids) {
 	
 		$pages = $this->wire()->pages;
 		$templates = $this->wire()->templates;
@@ -527,10 +532,12 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 		}
 
 		$items = $pages->getById($ids, $loadOptions);
+		$value = $this->getBlankValue($page, $field);
+		$value->import($items);
 		
-		if(count($sorts)) $items->sort($sorts);
+		if(count($sorts)) $value->sort($sorts);
 
-		return $items;
+		return $value;
 	}
 
 	/**
@@ -618,13 +625,12 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 *
 	 * @param Page $page
 	 * @param Field $field
-	 * @return PageArray Found orphans
+	 * @return PageTableArray Found orphans
 	 *
 	 */
 	public function findOrphans(Page $page, Field $field) { 
-		$pages = $this->wire()->pages;
 		
-		$orphans = $pages->newPageArray();
+		$orphans = $this->getBlankValue($page, $field);
 		if($field->get('parent_id')) return $orphans;
 		
 		$templateID = $field->get('template_id'); 
@@ -633,7 +639,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 		if(!is_array($templateID)) $templateID = array($templateID); 
 		
 		$value = $page->getUnformatted($field->name); 
-		if(!$value instanceof PageArray) $value = $pages->newPageArray();
+		if(!$value instanceof PageArray) $value = $this->getBlankValue($page, $field);
 		
 		if($page->numChildren <= $value->count()) return $orphans; // nothing new
 		
@@ -791,7 +797,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 	 * @param Page $page
 	 * @param Field $field
 	 * @param int $version
-	 * @return PageArray|null
+	 * @return PageTableArray|null
 	 * @since 3.0.232
 	 *
 	 */
@@ -877,4 +883,5 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 
 }
 
+require_once(__DIR__ . '/PageTableArray.php');
 require_once(__DIR__ . '/PageTableField.php');
