@@ -21,6 +21,18 @@ class FieldtypeSelector extends Fieldtype {
 		);
 	}
 
+	/**
+	 * Get the Field class to use for fields of this type
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string
+	 * @since 3.0.258
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		return 'SelectorField';
+	}
+
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldSelector $inputfield */
 		$inputfield = $this->wire()->modules->get('InputfieldSelector'); 
@@ -120,7 +132,9 @@ class FieldtypeSelector extends Fieldtype {
 		$f->attr('value', $field->get('previewColumns') ? $field->get('previewColumns') : '');
 		$inputfields->add($f);
 
-		return $inputfields; 	
+		return $inputfields;
 	}
 
 }
+
+require_once(__DIR__ . '/SelectorField.php');
