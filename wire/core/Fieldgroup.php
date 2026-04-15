@@ -134,6 +134,14 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		} else {
 			// throw new WireException("Unable to add field '$field' to Fieldgroup '{$this->name}'"); 
 		}
+		
+		if($this->removedFields && $field) {
+			// if previously removed field is added back, then also remove it from $this->removedFields
+			// so that it is no longer queued for removal
+			if($this->removedFields->has($field)) {
+				$this->removedFields->remove($field); 
+			}
+		}
 
 		return $this; 
 	}
@@ -782,5 +790,4 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	public function saveContext() {
 		return $this->wire()->fieldgroups->saveContext($this); 
 	}
-
 }
