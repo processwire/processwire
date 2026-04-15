@@ -1360,7 +1360,9 @@ class ModulesInfo extends ModulesClass {
 		}
 
 		if(empty($options['noLoad'])) {
-			$namespace = $this->modules->files->getFileNamespace($options['file']);
+			if(is_file($options['file'])) {
+				$namespace = $this->modules->files->getFileNamespace($options['file']);
+			}
 		}
 
 		return $namespace;
