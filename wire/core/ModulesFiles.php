@@ -38,6 +38,26 @@ class ModulesFiles extends ModulesClass {
 	protected $moduleFileExts = array();
 
 	/**
+	 * Is the /wire/ directory a symlink?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $wireIsLink = false;
+
+	/**
+	 * Construct
+	 * 
+	 * @param Modules $modules
+	 * 
+	 */
+	public function __construct(Modules $modules) {
+		parent::__construct($modules);
+		$wirePath = rtrim($modules->wire()->config->paths->wire, '/');
+		$this->wireIsLink = is_link($wirePath);
+	}
+	
+	/**
 	 * Get or set module file extension type (1 or 2)
 	 * 
 	 * @param string $class Module class name
@@ -286,6 +306,8 @@ class ModulesFiles extends ModulesClass {
 			if($options['getURL']) $file = str_replace($config->paths->root, '/', $file);
 		}
 
+		if($this->wireIsLink) $file = realpath($file);
+
 		return $file;
 	}
 
@@ -324,8 +346,17 @@ class ModulesFiles extends ModulesClass {
 		$file = $this->compile($moduleName, $file);
 
 		if($file) {
-			/** @noinspection PhpIncludeInspection */
-			$success = @include_once($file);
+			try {
+				/** @noinspection PhpIncludeInspection */
+				$success = @include_once($file);
+			} catch(\Throwable $t) {
+				$this->trackException($t); // for Tracy
+				$user = $this->wire()->user;
+				if(!$user || !$user->isSuperuser()) throw $t;
+				$fileLabel = $this->wire()->config->paths->short($file);
+				$this->error($t->getMessage() . "- File: $fileLabel");
+				$success = false;
+			}
 		} else {
 			$success = false;
 		}
@@ -361,12 +392,12 @@ class ModulesFiles extends ModulesClass {
 
 		// if not given a file, track it down
 		if(empty($file)) $file = $this->modules->getModuleFile($moduleName);
-
-		// don't compile when module compilation is disabled
-		if(!$allowCompile) return $file;
-
+		
 		// don't compile core modules
 		if(strpos($file, $this->modules->coreModulesDir) !== false) return $file;
+		
+		// don't compile when module compilation is disabled
+		if(!$allowCompile) return $file;
 
 		// if namespace not provided, get it
 		if(is_null($namespace)) {

@@ -481,6 +481,8 @@ class Modules extends WireArray {
 	 *
 	 */
 	public function getModule($key, array $options = array()) {
+		
+		if($key === 'undefined') return null; // Tracy sending 'defined' to this method for some reason
 	
 		$needsInit = false;
 		$noInit = !empty($options['noInit']); // force cancel of Module::init() call?
@@ -718,7 +720,7 @@ class Modules extends WireArray {
 
 		try {
 			$module = $this->wire(new $className());
-		} catch(\Exception $e) {
+		} catch(\Throwable $e) {
 			$this->error(sprintf($this->_('Failed to construct module: %s'), $className) . " - " . $e->getMessage());
 			$module = null;
 		}
