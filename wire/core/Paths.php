@@ -214,4 +214,54 @@ class Paths extends WireData {
 		}
 		return $value; 
 	}
+	
+	/**
+	 * Convert any path, URL or filename to a URL from installation root
+	 * 
+	 * - This excludes subdirectories prior to installation root (whether URL, path or file). 
+	 * - It will accept a predefined path/url name, a path/directory, or a file path/url
+	 * - This is not meant to be used with `http[key]`
+	 * - This is useful in human readable notifications or text where directories prior to 
+	 *   installation root might be irrelevant or redundant to the information presented. 
+	 * 
+	 * ~~~~
+	 * echo $config->paths->site;          // /home/ryan/public_html/processwire.com/site/
+	 * echo $config->paths->short('site'); // /site/
+	 * echo $config->urls->site;           // /processwire.com/site/
+	 * echo $config->urls->short('site');  // /site/
+	 * 
+	 * $file = __DIR__ . '/Paths.php';     // /home/ryan/public_html/processwire.com/wire/core/Paths.php
+	 * echo $config->paths->short($file);  // /wire/core/Paths.php
+	 * 
+	 * $url = $config->urls->templates;    // /processwire.com/site/templates/
+	 * echo $config->urls->short($url);    // /site/templates/
+	 * ~~~~
+	 * 
+	 * @param string $key Name of path/url to use, or specify an actual path/url to shorten it. 
+	 * @return string
+	 * @since 3.0.258
+	 * @throws WireException if used with 'http' prefixed key
+	 * 
+	 */
+	public function short($key) {
+		if(strpos($key, 'http') === 0) {
+			throw new WireException('http prefix not allowed for short paths/URLs');
+		}
+		
+		if(strpos($key, '/') !== false) {
+			// actual url/path specified
+			$value = $key;
+		} else if(strpos($key, '\\') !== false) {
+			// MSDOS path
+			$value = str_replace('\\', '/', $key);
+		} else {
+			// name of path specified, i.e. 'core', 'site', 'templates', etc. 
+			$value = $this->get($key);
+			if(empty($value)) return '';
+		}
+		
+		$root = $this->get('root');
+		
+		return substr($value, strlen($root)-1); 
+	}
 }
