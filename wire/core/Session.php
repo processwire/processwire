@@ -1571,6 +1571,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * - `302` (int): “Found”, Temporary redirect using GET. (3.0.166+)
 	 * - `303` (int): “See other”, Temporary redirect using GET. (3.0.166+)
 	 * - `307` (int): Temporary redirect using current request method such as POST (repeat that request). (3.0.166+)
+	 * @return never
 	 * @see Session::location()
 	 *
 	 */
@@ -1647,6 +1648,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * - `303` (int): “See other”, Temporary redirect using GET.
 	 * - `307` (int): Temporary redirect using current request method such as POST (repeat that request).
 	 * @since 3.0.166 
+	 * @return never
 	 * @see Session::redirect()
 	 * 
 	 */
