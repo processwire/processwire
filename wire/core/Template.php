@@ -228,7 +228,7 @@ class Template extends WireData implements Saveable, Exportable {
 		'editRoles' => array(),		// IDs of roles that may edit pages using this template
 		'addRoles' => array(),		// IDs of roles that may add children to pages using this template
 		'createRoles' => array(),	// IDs of roles that may create pages using this template
-		'rolesPermissions' => array(), 	// Permission overrides by role: Array keys are role IDs, values are permission ID (add) or negative permission ID (revoke)
+		'rolesPermissions' => array(), 	// Permission overrides by role: Array keys are role IDs, values are permission ID to add permission or negative permission ID to revoke, ie. `$permission->id * -1`
 		'noInherit' => 0, 			// Specify 1 to prevent edit/add/create access from inheriting to non-access controlled children, or 0 for default inherit behavior.
 		'childrenTemplatesID' => 0, 	// template ID for child pages, or -1 if no children allowed. DEPRECATED
 		'sortfield' => '',		// Field that children of templates using this page should sort by. blank=page decides or 'sort'=manual drag-n-drop

@@ -456,7 +456,7 @@ class PageFinder extends Wire {
 		$this->getQueryNumChildren = 0;
 		$this->pageArrayData = array();
 
-		$options = array_merge($this->defaultOptions, $this->config->PageFinder, $options);
+		$options = array_merge($this->defaultOptions, (array) $this->config->PageFinder, $options);
 		$options = $this->initSelectors($selectors, $options);
 
 		// move getTotal option to a class property, after initStatusChecks
