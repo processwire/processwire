@@ -1,31 +1,16 @@
-# ProcessWire Core – AI Agent Instructions
+# ProcessWire – AI Agent Instructions
 
-## Repository Overview
-
-ProcessWire is a PHP CMS/CMF created by Ryan Cramer. This is the main core repository.
-
-- **Working branch:** `dev` (all changes go here first)
-- **Main branch:** `master` (stable releases)
-- **Issues repo:** `processwire/processwire-issues`
-- **Feature requests repo:** `processwire/processwire-requests`
-
-## Project Goal
-
-A long-term goal for ProcessWire is to be the most AI-friendly open source CMS available.
-ProcessWire's clean, consistent, API-first design gives it a strong foundation. Keep this
-goal in mind when making API, documentation, and tooling decisions — changes that improve
-discoverability and predictability for AI users are valued alongside improvements for
-human developers.
+For API orientation, key concepts, and usage examples, see [AGENTS.md](AGENTS.md).
 
 ## Documentation Conventions
 
 ### API.md files
 
-Each module directory should have an `API.md` covering usage of that module's Fieldtype
-(and related classes) from a developer's perspective. Flat Fieldtype modules that live
-directly in `wire/modules/Fieldtype/` share a single `wire/modules/Fieldtype/API.md`,
-with one `# FieldtypeClassName` H1 per Fieldtype. Fieldtypes with their own subdirectory
-get their own `API.md`.
+Each Fieldtype module directory should have an `API.md` covering usage of that module's
+Fieldtype (and related classes) from a developer's perspective. Flat Fieldtype modules
+that live directly in `wire/modules/Fieldtype/` share a single
+`wire/modules/Fieldtype/API.md`, with one `# FieldtypeClassName` H1 per Fieldtype.
+Fieldtypes with their own subdirectory get their own `API.md`.
 
 Structure of an API.md entry:
 - `# FieldtypeClassName` — H1 is the class name, no "API" suffix
@@ -35,6 +20,10 @@ Structure of an API.md entry:
 - `## Selectors` — selector usage with notes on non-obvious behavior
 - `## Output / markup` — rendering examples
 - `## Notes` — bullets for defaults, sanitization, DB column, compatible types
+
+Non-core Fieldtype modules installed in `site/modules/` follow the same conventions.
+`API.md` files can be expected for first-party modules by Ryan Cramer, but should not
+be assumed for third-party modules.
 
 ### [Type]Field.php classes
 
