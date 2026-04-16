@@ -20,6 +20,7 @@
  * #pw-body
  * 
  * @method Field|null get($key) Get a field by name or id
+ * @method Field new($type, $name, $label = '') Create and save a new Field of the given type (3.0.258+)
  * @method bool changeFieldtype(Field $field1, $keepSettings = false)
  * @method bool saveFieldgroupContext(Field $field, Fieldgroup $fieldgroup, $namespace = '') 
  * @method bool deleteFieldDataByTemplate(Field $field, Template $template) #pw-hooker
@@ -262,6 +263,7 @@ class Fields extends WireSaveableItems {
 		
 		/** @var Fieldtype $fieldtype */
 		$fieldtype = $this->fieldtypes->get($a['type']);
+		if(!$fieldtype) $fieldtype = $this->wire()->modules->get($a['type']);
 		if(!$fieldtype) {
 			if($this->useLazy) {
 				$this->error("Fieldtype module '$a[type]' for field '$a[name]' is missing");
@@ -369,13 +371,62 @@ class Fields extends WireSaveableItems {
 	}
 
 	/**
+	 * Create a new unsaved Field instance of the given type
+	 *
+	 * ~~~~~
+	 * $field = $fields->newField('FieldtypeText');
+	 * $field->name = 'my_field';
+	 * $field->label = 'My Field';
+	 * $fields->save($field);
+	 * ~~~~~
+	 *
+	 * @param string $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted
+	 * @return Field
+	 * @throws WireException if the fieldtype is not found
+	 * @since 3.0.258
+	 *
+	 */
+	public function newField($type) {
+		$fieldtype = $this->getFieldtype($type);
+		if(!$fieldtype) throw new WireException("Unknown fieldtype: $type");
+		$class = $fieldtype->getFieldClass();
+		/** @var Field $field */
+		$field = $this->wire(new $class());
+		$field->type = $fieldtype;
+		return $field;
+	}
+
+	/**
+	 * Create and save a new Field of the given type
+	 *
+	 * ~~~~~
+	 * $field = $fields->new('text', 'my_field', 'My Field');
+	 * ~~~~~
+	 *
+	 * @param string $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted
+	 * @param string $name Field name (required)
+	 * @param string $label Field label (optional)
+	 * @return Field
+	 * @throws WireException if the fieldtype is not found or field cannot be saved
+	 * @since 3.0.258
+	 *
+	 */
+	public function ___new($type, $name, $label = '') {
+		$field = $this->newField($type);
+		$field->name = $name;
+		if(strlen($label)) $field->label = $label;
+		$this->save($field);
+		return $field;
+	}
+
+	/**
 	 * Save a Field to the database
-	 * 
+	 *
 	 * ~~~~~
 	 * // Modify a field label and save it
 	 * $field = $fields->get('title');
 	 * $field->label = 'Title or Headline';
-	 * $fields->save($field); 
+	 * $fields->save($field);
 	 * ~~~~~
 	 *
 	 * @param Field $item The field to save
@@ -527,9 +578,11 @@ class Fields extends WireSaveableItems {
 		$this->wire()->fieldgroups->deleteField($item); 
 
 		// drop the field's table
-		if($item->type) $item->type->deleteField($item); 
+		if($item->type) $item->type->deleteField($item);
 
-		return parent::___delete($item); 
+		$result = parent::___delete($item);
+		$this->getTags('reset');
+		return $result;
 	}
 
 
@@ -1103,11 +1156,17 @@ class Fields extends WireSaveableItems {
 	 * 
 	 */
 	public function ___getTags($getFieldNames = false) {
+		$cache = $this->wire()->cache;
+		$cacheKey = 'fields_tags';
 		
 		if($getFieldNames === 'reset') {
 			$this->tagList = null;
+			$cache->delete($cacheKey);
 			return array();
 		}
+		
+		$tagList = $cache->get($cacheKey);
+		if(is_array($tagList)) $this->tagList = $tagList; 
 		
 		if($this->tagList === null) {
 			$tagList = array();
@@ -1121,6 +1180,7 @@ class Fields extends WireSaveableItems {
 			}
 			ksort($tagList);
 			$this->tagList = $tagList;
+			$cache->save($cacheKey, $tagList, WireCache::expireNever);
 		}
 		
 		if($getFieldNames) return $this->tagList;
@@ -1274,7 +1334,27 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public function getAllNames($indexType = '') {
-		return $this->getAllValues('name', $indexType); 
+		if($indexType === 'id') {
+			return array_flip($this->namesToIds);
+		} else if($indexType === 'name') {
+			$a = [];
+			foreach(array_keys($this->namesToIds) as $name) {
+				$a[$name] = $name; 
+			}
+			return $a; 
+		}
+		return array_keys($this->namesToIds);
+	}
+	
+	/**
+	 * Get all field IDs indexed by name
+	 * 
+	 * @return array|int[]
+	 * @since 3.0.258
+	 * 
+	 */
+	public function getAllIds() {
+		return $this->namesToIds;
 	}
 
 	/**
@@ -1431,6 +1511,26 @@ class Fields extends WireSaveableItems {
 	public function tableTools() {
 		if($this->tableTools === null) $this->tableTools = $this->wire(new FieldsTableTools());
 		return $this->tableTools;
+	}
+	
+	/**
+	 * Get a Fieldtype
+	 * 
+	 * This is an alternative to `$fieldtypes->get($name)` or `$modules->get($name)`
+	 * and it also accepts short Fieldtype names like 'text' or 'repeater', etc., 
+	 * in addition to full Fieldtype names, i.e. 'FieldtypeText', 'FieldtypeRepeater', etc. 
+	 * 
+	 * @param string $name
+	 * @return Fieldtype|null
+	 * @since 3.0.258
+	 * 
+	 */
+	public function getFieldtype($name) {
+		if(strpos($name, 'Fieldtype') !== 0) {
+			$name = str_ireplace('fieldtype', '', $name);
+			$name = 'Fieldtype' . ucfirst($name);
+		}
+		return $this->wire()->fieldtypes->get($name);
 	}
 	
 	/**
