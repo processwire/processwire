@@ -253,6 +253,19 @@ function wireTemplates($name = '') {
 }
 
 /**
+ * Access the $fieldtypes API variable as a function
+ *
+ * @param string $name Optional fieldtype to retrieve
+ * @return Fieldtypes|Fieldtype|null
+ * @since 3.0.258
+ *
+ */
+function wireFieldtypes($name = '') {
+	$fieldtypes = wire()->fieldtypes;
+	return strlen($name) ? $fieldtypes->get($name) : $fieldtypes;
+}
+
+/**
  * Access the $database API variable as a function
  *
  * @return WireDatabasePDO

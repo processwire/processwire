@@ -288,6 +288,28 @@ function templates($name = '') {
 }
 
 /**
+ * Get Fieldtypes ($fieldtypes API variable as a function)
+ *
+ * This function behaves the same as the `$fieldtypes` API variable, though does support
+ * an optional shortcut argument for getting a single Fieldtype.
+ *
+ * ~~~~~~
+ * $ft = fieldtypes()->get('FieldtypeText'); // regular syntax
+ * $ft = fieldtypes('basic-page'); // shortcut syntax
+ * ~~~~~~
+ *
+ * #pw-group-Functions-API
+ *
+ * @param string $name Optional Fieldtype to retrieve
+ * @return Fieldtypes|Fieldtype|null
+ * @since 3.0.258
+ *
+ */
+function fieldtypes($name = '') {
+	return wireFieldtypes($name);
+}
+
+/**
  * Create and execute PDO database queries ($database API variable as a function)
  * 
  * #pw-group-Functions-API
