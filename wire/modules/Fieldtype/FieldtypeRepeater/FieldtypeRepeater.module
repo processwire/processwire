@@ -281,7 +281,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	 *
 	 */
 	public function getFieldClass(array $a = array()) {
-		require_once(dirname(__FILE__) . '/RepeaterField.php');
 		return 'RepeaterField';
 	}
 
@@ -2443,3 +2442,5 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	}
 
 }
+
+require_once(__DIR__ . '/RepeaterField.php');
