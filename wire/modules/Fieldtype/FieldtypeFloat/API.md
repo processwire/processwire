@@ -6,7 +6,8 @@ Stores a floating-point number. Supports single-precision (`float`) or double-pr
 
 ## Value type
 
-`float` when a value is present, empty string `''` when blank.
+`float` — returns `0.0` when blank (not `''`). Zero and blank are equivalent due to
+`zeroNotEmpty` behavior (see Notes).
 
 ---
 
@@ -14,8 +15,8 @@ Stores a floating-point number. Supports single-precision (`float`) or double-pr
 
 ```php
 // Get
-$page->float_field         // float, or '' when blank
-(float) $page->float_field // always float (blank becomes 0.0)
+$page->float_field         // float (0.0 when blank)
+(float) $page->float_field // same as above; explicit cast for clarity
 
 // Set
 $page->float_field = 3.14;
@@ -34,7 +35,8 @@ $pages->find('float_field=""');  // no value
 $pages->find('float_field>=1.5, float_field<=9.5'); // range
 ```
 
-> Same **zeroNotEmpty** behavior as `FieldtypeInteger` — by default `0` and blank are equivalent.
+> **zeroNotEmpty**: by default `0.0` and blank are equivalent — there is no way to distinguish
+> "no value" from "zero" unless `zeroNotEmpty` is disabled in the field settings.
 
 ---
 

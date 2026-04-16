@@ -23,7 +23,9 @@ $page->url_field = '';  // clear
 $page->save('url_field');
 ```
 
-Values are sanitized through `$sanitizer->url()` — invalid URLs become blank.
+Values are sanitized through `$sanitizer->url()` — dangerous URL schemes (e.g. `javascript:`) are
+stripped to blank, but arbitrary non-URL strings are passed through as-is. Validate URL format
+separately if your use case requires it.
 
 ---
 

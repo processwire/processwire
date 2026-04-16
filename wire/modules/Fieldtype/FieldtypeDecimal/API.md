@@ -6,7 +6,8 @@ Stores an exact decimal number using MySQL's `DECIMAL` column type. Unlike `Fiel
 
 ## Value type
 
-`string` (e.g. `"123.45"`) when a value is present, empty string `''` when blank.
+`string` — e.g. `"123.45"`. Returns `"0.00"` (or the equivalent zero at configured precision)
+when blank, not `''`. Zero and blank are equivalent due to `zeroNotEmpty` behavior (see Notes).
 
 ---
 
@@ -14,7 +15,7 @@ Stores an exact decimal number using MySQL's `DECIMAL` column type. Unlike `Fiel
 
 ```php
 // Get
-$page->decimal_field    // string, e.g. "123.45" or '' when blank
+$page->decimal_field    // string, e.g. "123.45" (or "0.00" when blank)
 
 // Set
 $page->decimal_field = '123.45';
@@ -34,7 +35,8 @@ $pages->find('decimal_field=""');
 $pages->find('decimal_field>=10.00, decimal_field<=99.99');
 ```
 
-> Same **zeroNotEmpty** behavior as `FieldtypeInteger`.
+> **zeroNotEmpty**: by default `"0.00"` and blank are equivalent — there is no way to distinguish
+> "no value" from "zero" unless `zeroNotEmpty` is disabled in the field settings.
 
 ---
 

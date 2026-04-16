@@ -483,10 +483,10 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 * 
 	 */
 	public function rename(Pagefile $item, $name) {
-		$item->set('_rename', $name); 
-		$this->renameQueue[] = $item; 
-		$this->trackChange('renameQueue', $item->name, $name);
+		$item->set('_rename', $name);
 		$this->addSaveHook();
+		$this->renameQueue[] = $item;
+		$this->trackChange('renameQueue', $item->name, $name);
 		return $this;
 	}
 

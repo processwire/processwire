@@ -31,4 +31,52 @@
  *
  */
 class RepeaterField extends Field {
+	
+	public function getRepeaterTemplate() {
+		return $this->type->_getRepeaterTemplate($this);
+	}
+	
+	/**
+	 * Return the repeater parent used by this Field
+	 * 
+	 * i.e. /processwire/repeaters/for-field-123/
+	 *
+	 * Auto generate a repeater parent page named 'for-field-[id]', if it doesn't already exist
+	 *
+	 * @return Page
+	 * @throws WireException
+	 *
+	 */
+	public function getRepeaterParent() {
+		return $this->type->getRepeaterParent($this);
+	}
+		
+	/**
+	 * Returns a blank page ready for use as a repeater
+	 * 
+	 * Also ensures that the parent repeater page exists.
+	 * This is public so that the Inputfield can pull from it too.
+	 *
+	 * @param Page $page The page that the repeater field lives on
+	 * @return Page|RepeaterPage
+	 */
+	public function getBlankRepeaterPage(Page $page) {
+		return $this->type->getBlankRepeaterPage($page, $this);
+	}
+	
+	/**
+	 * Return the parent used by the repeater pages for the given $page
+	 * 
+	 * i.e. /processwire/repeaters/for-field-12/for-page-123/
+	 *
+	 * @param Page $page
+	 * @param bool $create Create if not exists? (default=true)
+	 * @return Page|NullPage
+	 */
+	public function getRepeaterPageParent(Page $page, $create = true) {
+		return $this->type->getRepeaterPageParent($page, $this, $create);
+		
+	}
+	
+		
 }

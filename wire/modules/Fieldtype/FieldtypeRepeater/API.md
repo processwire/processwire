@@ -57,6 +57,48 @@ $depth = $item->depth;  // int, 0 = top level
 
 ---
 
+## Creating a repeater field programmatically
+
+The non-obvious part is that a repeater field requires a dedicated template and fieldgroup
+to hold its sub-fields. Call `_getRepeaterTemplate()` after saving the field — it creates
+the template/fieldgroup automatically if they don't exist yet.
+
+```php
+$fields    = $wire->fields;
+$templates = $wire->templates;
+
+// 1. Create and save the repeater field
+/** @var RepeaterField $field */
+$field = $fields->new('repeater', 'my_repeater', 'My Repeater');
+
+// 2. Create the repeater's internal template and fieldgroup
+$repeaterTemplate = $field->getRepeaterTemplate();
+
+// 3. Add sub-fields to the repeater's fieldgroup
+$repeaterTemplate->fieldgroup->add($fields->get('title'));
+$repeaterTemplate->fieldgroup->add($fields->get('body'));
+$repeaterTemplate->fieldgroup->save();
+
+// 4. Add the repeater field to your template
+$template = $templates->get('your-template');
+$template->fieldgroup->add($field);
+$template->fieldgroup->save();
+```
+
+Notes on programmatic creation:
+- `$field->getRepeaterTemplate()` creates and returns the repeater's internal template and
+  fieldgroup if they don't exist yet, and stores `template_id` on the field. Always call
+  this after saving the field.
+- The repeater template is named `repeater_{field_name}` automatically.
+- Sub-fields are added directly to `$repeaterTemplate->fieldgroup` — the fieldgroup
+  membership IS the field list.
+- `$field->getRepeaterParent()` returns the parent page under which repeater item pages
+  are stored (e.g. `/processwire/page/repeaters/for-field-123/`).
+- `$field->getBlankRepeaterPage($page)` returns a new unsaved repeater item page for the
+  given owner page — useful when creating items without going through `getNewItem()`.
+
+---
+
 ## Selectors
 
 ```php
