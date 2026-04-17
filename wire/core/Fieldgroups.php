@@ -17,6 +17,8 @@
  * 
  * @method void fieldRemoved(Fieldgroup $fieldgroup, Field $field)
  * @method void fieldAdded(Fieldgroup $fieldgroup, Field $field)
+ * 
+ * @method new($name, $settings) Create and save new Fieldgroup. (3.0.258+)
  *
  *
  */
@@ -37,6 +39,40 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 */
 	public function init() {
 		$this->getWireArray();
+	}
+	
+	/**
+	 * Create a new Fieldgroup in memory
+	 * 
+	 * @param string $name Fieldgroup name
+	 * @return Fieldgroup
+	 * @throws WireException If given a name that already exists
+	 * @since 3.0.258
+	 * 
+	 */
+	public function newFieldgroup($name) {
+		$name = $this->wire()->sanitizer->templateName($name);
+		$fieldgroup = $this->get($name);
+		if($fieldgroup instanceof Fieldgroup) throw new WireException("Fieldgroup '$name' already exists");
+		$fieldgroup = new Fieldgroup();
+		$this->wire($fieldgroup);
+		$fieldgroup->name = $name;
+		return $fieldgroup;
+	}
+	
+	/**
+	 * Create and save a new Fieldgroup
+	 * 
+	 * @param string $name Fieldgroup name
+	 * @return Fieldgroup
+	 * @throws WireException If given a name that already exists
+	 * @since 3.0.258
+	 * 
+	 */
+	public function ___new($name) {
+		$fieldgroup = $this->newFieldgroup($name);
+		$fieldgroup->save();
+		return $fieldgroup;
 	}
 
 	/**
@@ -226,6 +262,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		$datas = array();
 		$fieldsAdded = array();
 		$fieldsRemoved = array();
+		$isNew = $item->id < 1;
 		
 		if($fieldgroup->id && $fieldgroup->removedFields) {
 
@@ -262,6 +299,10 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		}
 		
 		$result = parent::___save($fieldgroup);
+		
+		if($isNew && !$this->fieldgroupsArray->has($fieldgroup)) {
+			$this->fieldgroupsArray->add($fieldgroup);
+		}
 		
 		// identify any fields added
 		foreach($fieldgroup as $field) {

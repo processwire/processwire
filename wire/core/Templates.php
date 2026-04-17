@@ -18,6 +18,7 @@
  * @method array setImportData(Template $template, array $data) Given an array of Template export data, import it to the given Template. #pw-advanced
  * @method void fileModified(Template $template) Hook called when a template detects that its file has been modified. #pw-hooker
  * @method array getTags($getTemplateNames = false) Get tags for all templates (3.0.179+) #pw-advanced
+ * @method new($name, $settings) Create and save new Template and Fieldgroup. (3.0.258) #pw-advanced
  *
  */
 class Templates extends WireSaveableItems {
@@ -251,6 +252,60 @@ class Templates extends WireSaveableItems {
 		if($key === 'path') return $this->wire()->config->paths->templates;
 		return parent::get($key);
 	}
+	
+	/**
+	 * Create new template in memory
+	 * 
+	 * ~~~~~
+	 * $template = $templates->newTemplate('product'); 
+	 * $template->label = 'Product item';
+	 * $template->save();
+	 * ~~~~~
+	 * 
+	 * @param string $name Name of template
+	 * @param array|string $settings Array of settings to set, or string for template label only
+	 * @return Template
+	 * @throws WireException If given a template name that already exists
+	 * @since 3.0.258
+	 * 
+	 */
+	public function newTemplate($name, $settings = []) {
+		$fieldgroups = $this->wire()->fieldgroups;
+		$name = $this->wire()->sanitizer->templateName($name);
+		if(!strlen($name)) throw new WireException("Template name is required");
+		if(!is_array($settings)) $settings = [ 'label' => $settings ];
+		$template = $this->templates->get($name); 
+		if($template instanceof Template) throw new WireException("Template '$name' already exists"); 
+		$template = new Template();
+		$this->wire($template); 
+		$template->name = $name;
+		$fieldgroup = $fieldgroups->get($name);
+		if(!$fieldgroup) $fieldgroup = $fieldgroups->newFieldgroup($name);
+		$template->fieldgroup = $fieldgroup;
+		if(count($settings)) $template->setArray($settings);
+		return $template;
+	}
+	
+	/**
+	 * Create and save a new Template and Fieldgroup
+	 *
+	 * ~~~~~
+	 * $template = $templates->new('product', 'Product item');
+	 * ~~~~~
+	 *
+	 * @param string $name Name of template
+	 * @param array|string $settings Array of settings to set, or string for template label only
+	 * @return Template
+	 * @throws WireException If given a template name that already exists
+	 * @since 3.0.258
+	 *
+	 */
+	public function ___new($name, $settings = []) {
+		$template = $this->newTemplate($name, $settings);
+		$template->fieldgroup->save();
+		$this->save($template);
+		return $template;
+	}
 
 	/**
 	 * Save a Template
@@ -266,15 +321,23 @@ class Templates extends WireSaveableItems {
 	 */
 	public function ___save(Saveable $item) {
 		
-		// If the template's fieldgroup has changed, then we delete data that's no longer applicable to the new fieldgroup. 
+		/** @var Template $item */
 
 		$isNew = $item->id < 1; 
 
 		if(!$item->fieldgroup) {
-			throw new WireException("Template '$item' cannot be saved because it has no fieldgroup assigned");
+			$fieldgroups = $this->wire()->fieldgroups;
+			$fieldgroup = $fieldgroups->get($item->name);
+			if(!$fieldgroup) {
+				$fieldgroup = $fieldgroups->new($item->name);
+				$this->wire($fieldgroup);
+			}
+			$item->fieldgroup = $fieldgroup;
 		}
+		
 		if(!$item->fieldgroup->id) {
-			throw new WireException("You must save Fieldgroup '{$item->fieldgroup->name}' before adding to Template '$item'");
+			// WireException prior to 3.0.258
+			$item->fieldgroup->save();
 		}
 
 		$rolesChanged = $item->isChanged('useRoles');
@@ -317,6 +380,10 @@ class Templates extends WireSaveableItems {
 				}
 				*/
 			}
+		}
+		
+		if($isNew && !$this->templatesArray->has($item)) {
+			$this->templatesArray->add($item);
 		}
 
 		if($rolesChanged) { 
