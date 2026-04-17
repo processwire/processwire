@@ -157,6 +157,39 @@ $pages->find("categories=$page->page_field");
 
 ---
 
+## Creating a page field programmatically
+
+```php
+/** @var PageField $field */
+$field = $fields->new('page', 'related_products', 'Related Products');
+
+// Restrict selectable pages to a single template
+$field->setTemplate('product');
+
+// Or restrict to multiple templates
+$field->setTemplates(['product', 'service']);
+
+// Restrict selectable pages to children of a specific parent
+$field->setParent('/products/');
+
+// Set the Inputfield type used in the page editor
+$field->setInputfield('checkboxes');   // InputfieldCheckboxes
+$field->setInputfield('select');       // InputfieldSelect
+$field->setInputfield('asmSelect');    // InputfieldAsmSelect (default for multi)
+
+// Return single page rather than PageArray
+$field->set('derefAsPage', FieldtypePage::derefAsPageOrNullPage);
+
+$fields->save($field);
+
+// Add the field to a template
+$template = $templates->get('your-template');
+$template->fieldgroup->add($field);
+$template->fieldgroup->save();
+```
+
+---
+
 ## Notes
 
 - `derefAsPage` setting controls whether the value is a `PageArray` (0), single `Page`/`false` (1),

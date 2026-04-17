@@ -22,14 +22,170 @@
  * @property string $findPagesSelect Same as findPagesSelector but configured interactively via InputfieldSelector in the admin.
  * @property string $findPagesCode PHP code returning a PageArray of selectable pages (alternative to findPagesSelector).
  * @property int|bool $addable Allow editors to create new pages inline from the field input? (default=false).
- * @property-read string $inputfieldClass Resolved Inputfield class name (read-only alias of getInputfieldClass()).
  * @property array $inputfieldClasses Available Inputfield classes for this field.
+ * 
+ * #property-read string $inputfieldClass Resolved Inputfield class name (does not appear to be implemented)
  *
  * @since 3.0.173
  *
  */
 class PageField extends Field {
-
+	
+	/**
+	 * Set the single template to use for this page field
+	 * 
+	 * If using multiple templates, or if templates are specified in a selector, avoid using this method. 
+	 * To get current value use `$field->template_id`
+	 * 
+	 * @param Template|int|string $template Template instance, name or id
+	 * @return self
+	 * @throws WireException If template cannot be identified
+	 * @since 3.0.258
+	 * 
+	 */
+	public function setTemplate($template) {
+		$_template = $template;
+		if(!$template instanceof Template) {
+			if(is_array($template)) return $this->setTemplates($template);
+			if(ctype_digit("$template")) $template = (int) $template;
+			$template = $this->wire()->templates->get($template);
+		}
+		if($template instanceof Template) {
+			$this->set('template_id', $template->id); 
+		} else {
+			throw new WireException("Cannot find template: $_template"); 
+		}
+		return $this;
+	}
+	
+	/**
+	 * Set multiple templates to use for this page field
+	 * 
+	 * If using single template, or if templates are specified in a selector, avoid using this method.
+	 * To get current value use `$field->template_ids`
+	 * 
+	 * @param array $templates Template instances, ids, or names
+	 * @return self
+	 * @since 3.0.258
+	 * 
+	 */
+	public function setTemplates(array $templates) {
+		$templateIds = [];
+		foreach($templates as $template) {
+			$_template = $template;
+			if($template instanceof Template) {
+				// ok
+			} else if(ctype_digit("$template")) {
+				$template = $this->wire()->templates->get((int) $template);
+			} else if(is_string($template)) {
+				$template = $this->wire()->templates->get($template);
+			}
+			if($template instanceof Template) {
+				$templateIds[] = $template->id;
+			} else {
+				throw new WireException("Cannot find template: $_template"); 
+			}
+		}
+		$this->set('template_ids', $templateIds);
+		return $this;
+	}
+	
+	/**
+	 * Set parent for this page field
+	 * 
+	 * To get current value use `$field->parent_id`
+	 * 
+	 * @param Page|string|int|null $parent Parent Page, path or id; pass 0/null/'' to clear restriction
+	 * @return self
+	 * @throws WireException If a non-empty parent value cannot be resolved
+	 * @since 3.0.258
+	 * 
+	 */
+	public function setParent($parent) {
+		if(!$parent) {
+			$this->set('parent_id', 0);
+			return $this;
+		}
+		$_parent = $parent;
+		if($parent instanceof Page) {
+			$parent = $parent->id;
+		} else if(ctype_digit("$parent")) {
+			$parent = (int) $parent;
+		} else if(is_string($parent)) {
+			$parent = $this->wire()->pages->get($parent)->id;
+		}
+		if($parent > 0) {
+			$this->set('parent_id', $parent);
+		} else {
+			throw new WireException("Cannot find parent: $_parent");
+		}
+		return $this;
+	}
+	
+	/**
+	 * Set parent(s) for this page field
+	 *
+	 * @param PageArray|array|string|int $parents Parent Page instances, paths or ids
+	 * @return self
+	 * @throws WireException If parent cannot be identified
+	 * @since 3.0.258
+	 *
+	 */
+	public function setParents($parents) {
+		$pages = $this->wire()->pages;
+		$parentIds = [];
+		
+		if(is_string($parents)) $parents = explode('|', $parents);
+		if(empty($parents)) return $this;
+	
+		if(!WireArray::iterable($parents)) $parents = [ $parents ];
+		
+		foreach($parents as $parent) {
+			$parentId = 0;
+			if($parent instanceof Page) {
+				$parentId = $parent->id;
+			} else if(ctype_digit("$parent")) {
+				$parentId = (int) $parent;
+			} else if(is_string($parent)) {
+				$parentId = $pages->get($parent)->id;
+			}
+			if($parentId) {
+				$parentIds[$parentId] = $parentId; 
+			}
+		}
+	
+		if(count($parentIds) === 1) $parentIds = reset($parentIds);
+		$this->set('parent_id', $parentIds);
+		
+		return $this; 
+	}
+	
+	/**
+	 * Set Inputfield for this page reference field
+	 *
+	 * To get current value use `$field->inputfield`
+	 *
+	 * @param string|Inputfield $inputfield Inputfield name (i.e. 'InputfieldText' or 'text') or Inputfield instance
+	 * @return self
+	 * @throws WireException if given unknown/invalid Inputfield name
+	 * @since 3.0.258
+	 *
+	 */
+	public function setInputfield($inputfield) {
+		if($inputfield instanceof Inputfield) {
+			$inputfield = $inputfield->className();
+		} else {
+			if(strpos($inputfield, 'Inputfield') !== 0) {
+				$inputfield = 'Inputfield' . ucfirst($inputfield);
+			}
+			$f = $this->wire()->modules->get($inputfield);
+			if(!$f) throw new WireException("Inputfield not found: $inputfield");
+			$inputfield = $f->name;
+		}
+		if($inputfield) $this->set('inputfield', $inputfield);
+		return $this;
+	}
+	
 	/**
 	 * Return array configured template and parent IDs identified in field configuration
 	 *
