@@ -1709,6 +1709,39 @@ class PagesEditor extends Wire {
 	
 		return $sortCnt;
 	}
+	
+	/**
+	 * Save the manual 'sort' value for given page only
+	 * 
+	 * @param Page|int $page Page instance or Page ID (int)
+	 * @param int|false $sort Specify sort value or omit to use existing $page->sort value
+	 * @return bool Returns true if row for page was updated, false if not
+	 * @since 3.0.258
+	 * 
+	 */
+	public function saveSort($page, $sort = false) {
+		$pageId = 0;
+		if($page instanceof Page) {
+			$pageId = $page->id;
+		} else if(ctype_digit("$page")) {
+			$pageId = (int) $page;
+		}
+		if(!$pageId) return false;
+		if($sort === false) {
+			if(!$page instanceof Page) $page = $this->pages->get((int) $page);
+			if(!$page->id) return false;
+			$sort = $page->sort; 
+		}
+		$sort = (int) $sort;
+		$sql = "UPDATE pages SET sort=:sort WHERE id=:id"; 
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
+		$query->bindValue(':id', $pageId, \PDO::PARAM_INT);
+		$query->execute();
+		$result = $query->rowCount() > 0;
+		if($result && $page instanceof Page) $this->pages->sorted($page, false, 1);
+		return $result;
+	}
 
 	/**
 	 * Sort one page before another (for pages using manual sort)
