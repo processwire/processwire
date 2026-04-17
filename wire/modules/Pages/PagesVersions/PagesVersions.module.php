@@ -233,6 +233,7 @@ class PagesVersions extends Wire implements Module {
 			'getInfo' => false, 
 			'sort' => '-created',
 			'version' => 0, 
+			'useName' => true, 
 		];
 		
 		$sorts = [
@@ -254,16 +255,30 @@ class PagesVersions extends Wire implements Module {
 		if(!isset($sorts[$options['sort']])) $options['sort'] = $defaults['sort'];
 
 		$sql =
-			"SELECT version, name, description, created, modified, " .
+			"SELECT version, description, created, modified, " . 
+			($options['useName'] ? 'name, ' : '') . 
 			"created_users_id, modified_users_id, data " . 
 			"FROM $table " .
 			"WHERE pages_id=:pages_id " . ($options['version'] ? "AND version=:version " : "") . 
 			($options['version'] ? "LIMIT 1" : "ORDER BY " . $sorts[$options['sort']]);
 
-		$query = $database->prepare($sql);
-		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		if($options['version']) $query->bindValue(':version', (int) $options['version'], \PDO::PARAM_INT);
-		$query->execute();
+		try {
+			$query = $database->prepare($sql);
+			$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+			if($options['version']) $query->bindValue(':version', (int) $options['version'], \PDO::PARAM_INT);
+			$query->execute();
+			
+		} catch(\Exception $e) {
+			if($e->getCode() === '42S22' && $options['useName']) {
+				// catch error when name column does not yet exist, add it, then retry
+				$info = self::getModuleInfo();
+				$this->upgrade(2, $info['version']); // name column added in v3
+				$options['useName'] = false;
+				return $this->getPageVersions($page, $options);
+			} else {
+				throw $e;
+			}
+		}
 
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 			$properties = json_decode($row['data'], true);
