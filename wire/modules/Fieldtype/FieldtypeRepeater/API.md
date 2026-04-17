@@ -32,16 +32,6 @@ $first = $page->repeater_field->first();
 // Get item by index (0-based)
 $item = $page->repeater_field->eq(0);
 
-// Add a new item programmatically
-$item = $page->repeater_field->getNewItem();
-$item->title = 'New item';
-$item->save();
-$page->save('repeater_field');
-
-// Remove an item
-$page->repeater_field->remove($item);
-$page->save('repeater_field');
-
 // Get the owner page (field repeater lives on) and field from a repeater item
 $ownerPage  = $item->getForPage();
 $ownerField = $item->getForField();
@@ -54,6 +44,57 @@ $rootField = $item->getForFieldRoot();
 // Depth (when repeaterDepth > 0 is configured on the field)
 $depth = $item->depth;  // int, 0 = top level
 ```
+
+---
+
+## Adding, removing, and saving items
+
+```php
+// Always turn off output formatting when manipulating items
+$page->of(false);
+
+// Add a new item
+$item = $page->repeater_field->getNewItem();
+$item->title = 'New item';
+$item->save();
+$page->save('repeater_field'); // saves item order, count, and membership
+
+// Remove an item
+$page->repeater_field->remove($item);
+$page->save('repeater_field');
+
+// Reorder items: manipulate the RepeaterPageArray, then save the parent page
+// The order of the array is what determines saved order.
+$items = $page->repeater_field;
+
+$itemA = $items->first();
+$itemB = $items->last();
+$items->append($itemA);                   // move first item to end
+$items->prepend($itemB);                  // move last item to beginning
+$items->insertBefore($itemA, $itemB);     // move $itemA to just before $itemB
+$items->insertAfter($itemA, $itemB);      // move $itemA to just after $itemB
+$items->reverse();                        // reverse the order of all items
+$items->sort('title');                    // sort items by a sub-field value
+
+$page->save('repeater_field'); // persists the new order
+
+// Add multiple items, then save the parent page once at the end
+$rows = [
+    [ 'title' => 'First item',  'body' => '<p>Hello</p>' ],
+    [ 'title' => 'Second item', 'body' => '<p>World</p>' ],
+];
+foreach($rows as $data) {
+    $item = $page->repeater_field->getNewItem();
+    foreach($data as $key => $value) $item->set($key, $value);
+    $item->save();
+}
+$page->save('repeater_field');
+```
+
+> **Save workflow**: `$item->save()` writes the item's field values to the database.
+> `$page->save('repeater_field')` updates the parent page's field record (item order, count,
+> and which items belong to it). Both calls are required when adding items; only `$item->save()`
+> is needed for in-place edits to an existing item.
 
 ---
 
@@ -70,14 +111,15 @@ $templates = $wire->templates;
 // 1. Create and save the repeater field
 /** @var RepeaterField $field */
 $field = $fields->new('repeater', 'my_repeater', 'My Repeater');
+// ------------------- ^Fieldtype --- ^Name -------- ^Label
 
-// 2. Create the repeater's internal template and fieldgroup
-$repeaterTemplate = $field->getRepeaterTemplate();
+// 2. Get/create the repeater's internal template and fieldgroup
+$fieldgroup = $field->getRepeaterFieldgroup();
 
 // 3. Add sub-fields to the repeater's fieldgroup
-$repeaterTemplate->fieldgroup->add($fields->get('title'));
-$repeaterTemplate->fieldgroup->add($fields->get('body'));
-$repeaterTemplate->fieldgroup->save();
+$fieldgroup->add('title');
+$fieldgroup->add('body'); 
+$fieldgroup->save();
 
 // 4. Add the repeater field to your template
 $template = $templates->get('your-template');
@@ -88,7 +130,7 @@ $template->fieldgroup->save();
 Notes on programmatic creation:
 - `$field->getRepeaterTemplate()` creates and returns the repeater's internal template and
   fieldgroup if they don't exist yet, and stores `template_id` on the field. Always call
-  this after saving the field.
+  this after creating the field.
 - The repeater template is named `repeater_{field_name}` automatically.
 - Sub-fields are added directly to `$repeaterTemplate->fieldgroup` — the fieldgroup
   membership IS the field list.

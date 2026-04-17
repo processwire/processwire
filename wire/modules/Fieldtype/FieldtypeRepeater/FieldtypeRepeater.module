@@ -911,6 +911,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		);
 		
 		$pageArray = $this->wire()->pages->find($selector, $options);
+		$pageArray->finderOptions('loadOrder', "$pageArray"); 
 		$pageArray->resetTrackChanges(true);
 
 		return $pageArray; 
@@ -1240,10 +1241,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	}
 
 	/**
-	 * #pw-internal
+	 * #pw-internal Use $field->getRepeaterTemplate() instead
 	 * 
 	 * @param Field $field
 	 * @return Template
+	 * @throws WireException If Template or its Fieldgroup can't be created
 	 * 
 	 */
 	public function _getRepeaterTemplate(Field $field) {
@@ -1567,6 +1569,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 			$pageArray->resetTrackChanges();
 			$value = $pageArray;
 		}
+		
+		/** @var RepeaterPageArray $value */
 
 		// pages that will be saved
 		$savePages = array();
@@ -1581,6 +1585,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		$parent_id = 0;
 		$template_id = $field->get('template_id'); 
 		$numTotal = count($value);
+		
+		$loadOrder = $value->finderOptions('loadOrder'); 
+		if($loadOrder && strpos("$value", $loadOrder) !== 0) {
+			// populate 'sort' property of each item based on its position in $value
+			$value->applySortOrder();
+		}
 
 		// iterate through each page in the pageArray value
 		// and determine which need to be saved 

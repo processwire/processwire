@@ -193,6 +193,27 @@ class RepeaterPageArray extends PageArray {
 
 		return $page;
 	}
+	
+	/**
+	 * Update Page items in this collection to have a 'sort' value equal to their position in this array
+	 * 
+	 * @return int Returns quantity of items that needed changes to the sort value
+	 * @since 3.0.258
+	 * 
+	 */
+	public function applySortOrder() {
+		$loadOrder = $this->finderOptions('loadOrder');
+		if($loadOrder && strpos("$this", $loadOrder) === 0) return 0;
+		$sort = -1;
+		$qty = 0;
+		foreach($this as $item) {
+			$sort++;
+			if((int) $item->sort === $sort) continue;
+			$item->sort = $sort; 
+			$qty++;
+		}
+		return $qty;	
+	}
 
 	/**
 	 * Creates a new blank instance of a RepeaterPageArray. For internal use. 

@@ -32,8 +32,33 @@
  */
 class RepeaterField extends Field {
 	
+	/**
+	 * Return the repeater Template used by this Field
+	 *
+	 * Creates repeater template and fieldgroup, if they don't already exist.
+	 *
+	 * @return Template
+	 * @throws WireException If Template or its Fieldgroup can't be created
+	 * @since 3.0.258
+	 *
+	 */
 	public function getRepeaterTemplate() {
 		return $this->type->_getRepeaterTemplate($this);
+	}
+	
+	/**
+	 * Return the repeater Fieldgroup used by this Field
+	 *
+	 * Creates repeater template and fieldgroup, if they don't already exist.
+	 *
+	 * @return Fieldgroup
+	 * @throws WireException If Template or its Fieldgroup can't be created
+	 * @since 3.0.258
+	 *
+	 */
+	public function getRepeaterFieldgroup() {
+		$template = $this->getRepeaterTemplate();
+		return $template->fieldgroup;
 	}
 	
 	/**
@@ -55,7 +80,6 @@ class RepeaterField extends Field {
 	 * Returns a blank page ready for use as a repeater
 	 * 
 	 * Also ensures that the parent repeater page exists.
-	 * This is public so that the Inputfield can pull from it too.
 	 *
 	 * @param Page $page The page that the repeater field lives on
 	 * @return Page|RepeaterPage
@@ -77,6 +101,4 @@ class RepeaterField extends Field {
 		return $this->type->getRepeaterPageParent($page, $this, $create);
 		
 	}
-	
-		
 }

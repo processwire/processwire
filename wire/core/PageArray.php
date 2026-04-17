@@ -687,12 +687,25 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param array|null $options Specify array to set or omit this argument to get
-	 * @return array
+	 * @param array|string|null $options Specify one of the following:
+	 *   - array to set or replace all.
+	 *   - property name string get property. (3.0.258)
+	 *   - property name string and $value argument to get property value. (3.0.258)
+	 *   - omit this argument to get all. 
+	 * @param mixed $value Value when setting property (3.0.258+)
+	 * @return array|mixed Returns array of all set properties unless single property value requested.
 	 * 
 	 */
-	public function finderOptions($options = null) {
-		if(is_array($options)) $this->finderOptions = $options;
+	public function finderOptions($options = null, $value = null) {
+		if(is_array($options)) {
+			$this->finderOptions = $options;
+		} else if(is_string($options) && $options) {
+			if($value === null) {
+				return $this->finderOptions[$options] ?? null;
+			} else {
+				$this->finderOptions[$options] = $value;
+			}
+		}
 		return $this->finderOptions;
 	}
 
