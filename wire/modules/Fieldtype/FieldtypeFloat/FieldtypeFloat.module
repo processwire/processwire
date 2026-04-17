@@ -285,7 +285,7 @@ class FieldtypeFloat extends Fieldtype {
 	 * 
 	 */
 	public static function strToFloat($str) {
-		return wire('sanitizer')->float($str, array('blankValue' => ''));
+		return wire()->sanitizer->float($str, array('blankValue' => ''));
 	}
 
 	/*
@@ -294,16 +294,63 @@ class FieldtypeFloat extends Fieldtype {
 		return $value; 	
 	}
 	*/
-
-	/*
+	
+	/**
+	 * Get the database query that matches a Fieldtype table’s data with a given value.
+	 *
+	 * @param PageFinderDatabaseQuerySelect $query
+	 * @param string $table The table name to use
+	 * @param string $subfield Name of the subfield (typically 'data', unless selector explicitly specified another)
+	 * @param string $operator The comparison operator.
+	 * @param mixed $value Value to find.
+	 * @return PageFinderDatabaseQuerySelect|DatabaseQuerySelect $query
+	 * @throws WireException
+	 *
+	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
-		if(!is_int($value) && !is_float($value)) {
-			$value = self::strToFloat((string) $value);
+		if($operator !== '=' && $operator !== '!=') {
+			return parent::getMatchQuery($query, $table, $subfield, $operator, $value);
 		}
-		return parent::getMatchQuery($query, $table, $subfield, $operator, $value);
+		$database = $this->wire()->database;
+		$table = $database->escapeTable($table);
+		$subfield = $database->escapeCol($subfield);
+		$value = (float) $value; 
+		$key1 = $query->bindValueGetKey($value); 
+		$key2 = $query->bindValueGetKey($this->incrementLastDigit($value));
+		if($operator === '=') {
+			$query->where("($table.$subfield>=$key1 AND $table.$subfield<$key2)");
+		} else {
+			$query->where("($table.$subfield<$key1 OR $table.$subfield>=$key2)");
+		}
+		return $query;
 	}
-	*/
+	
+	/**
+	 * Given any number (floating point or integer) increment last digit and return string of it
+	 * 
+	 * @param string|float|int $n
+	 * @return string
+	 * 
+	 */
+	protected function incrementLastDigit($n) {
+		$s = (string) $n;
+		if(strpos($s, '.') === false) return (string) (((int) $n) + 1);
 
+		// Find the last digit and increment it, carrying if needed
+		$carried = true;
+		for($i = strlen($s) - 1; $i >= 0; $i--) {
+			if(ctype_digit($s[$i])) {
+				$s[$i] = (string) (((int) $s[$i] + 1) % 10);
+				// If the digit rolled over from 9 to 0, carry and continue
+				if($s[$i] !== '0') { $carried = false; break; }
+			}
+		}
+		// If all digits carried (e.g. 9.99 -> 10.00), prepend '1'
+		if($carried) $s = '1' . $s;
+
+		return $s;
+	}
+	
 }
 
 require_once(__DIR__ . '/FloatField.php');

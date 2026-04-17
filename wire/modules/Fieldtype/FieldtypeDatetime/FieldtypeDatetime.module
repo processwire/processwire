@@ -305,12 +305,28 @@ class FieldtypeDatetime extends Fieldtype {
 		} else if(!$database->isOperator($operator)) {
 			// invalid operator
 			throw new WireException("$this invalid date operator: $operator");
-
+			
 		} else if(is_int($intValue)) {
 			// matching a populated value that successfully converted to unix timestamp
-			$dateString = date('Y-m-d H:i:s', $intValue);
-			if($dateString !== false) {
-				$query->where("$table.$subfield$operator?", $dateString);
+			$timeString = date('H:i:s', $intValue);
+			if($timeString === '00:00:00' && ($operator === '=' || $operator === '!=')) {
+				// value does not include a time portion and operator = or !=
+				$date1 = date('Y-m-d H:i:s', $intValue);
+				$date2 = date('Y-m-d H:i:s', strtotime('+1 DAY', $intValue));
+				$key1 = $query->bindValueGetKey($date1);
+				$key2 = $query->bindValueGetKey($date2);
+				if($operator === '=') {
+					$where = "($table.$subfield>=$key1 AND $table.$subfield<$key2)";
+				} else {
+					$where = "($table.$subfield<$key1 OR $table.$subfield>=$key2)";
+				}
+				$query->where($where);
+			} else {
+				// value includes time and operator not = or !=
+				$dateString = date('Y-m-d H:i:s', $intValue);
+				if($dateString !== false) {
+					$query->where("$table.$subfield$operator?", $dateString);
+				}
 			}
 			
 		} else {
