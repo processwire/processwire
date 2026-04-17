@@ -381,18 +381,24 @@ class Fields extends WireSaveableItems {
 	 * ~~~~~
 	 *
 	 * @param string $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted
+	 * @param string $name Field name (optional)
+	 * @param string|array $options Field label or `[key=>val]` array of properties to set to Field (optional)
 	 * @return Field
 	 * @throws WireException if the fieldtype is not found
 	 * @since 3.0.258
 	 *
 	 */
-	public function newField($type) {
+	public function newField($type, $name = '', $options = []) {
+		if(is_array($name)) list($options, $name) = [ $name, '' ];
+		$label = is_string($options) ? $options : '';
 		$fieldtype = $this->getFieldtype($type);
 		if(!$fieldtype) throw new WireException("Unknown fieldtype: $type");
 		$class = $fieldtype->getFieldClass();
-		/** @var Field $field */
-		$field = $this->wire(new $class());
+		$field = $this->wire(new $class()); /** @var Field $field */
 		$field->type = $fieldtype;
+		if($name) $field->name = $name;
+		if($label) $field->label = $label;
+		if(is_array($options) && count($options)) $field->setArray($options);
 		return $field;
 	}
 
@@ -400,21 +406,26 @@ class Fields extends WireSaveableItems {
 	 * Create and save a new Field of the given type
 	 *
 	 * ~~~~~
-	 * $field = $fields->new('text', 'my_field', 'My Field');
+	 * // Creating a new text field
+	 * $field = $fields->new('text', 'my_text_field', 'My Text Field');
+	 * 
+	 * // Creating a new textarea field (demonstrates options)
+	 * $field = $fields->new('textarea', 'body', [
+	 *   'label' => 'Body', 
+	 *   'textformatters' => [ 'TextformatterEntities' ]
+	 * ]);
 	 * ~~~~~
 	 *
 	 * @param string $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted
 	 * @param string $name Field name (required)
-	 * @param string $label Field label (optional)
+	 * @param string|array $options Field label or `[key=>val]` array of properties to set to Field (optional)
 	 * @return Field
 	 * @throws WireException if the fieldtype is not found or field cannot be saved
 	 * @since 3.0.258
 	 *
 	 */
-	public function ___new($type, $name, $label = '') {
-		$field = $this->newField($type);
-		$field->name = $name;
-		if(strlen($label)) $field->label = $label;
+	public function ___new($type, $name, $options = []) {
+		$field = $this->newField($type, $name, $options);
 		$this->save($field);
 		return $field;
 	}

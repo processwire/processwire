@@ -1590,7 +1590,19 @@ class Field extends WireData implements Saveable, Exportable {
 		if($setupName !== null) $this->setupName = $setupName;
 		return $this->setupName;
 	}
-
+	
+	/**
+	 * Return array with information about what properties and operators can be used with this field.
+	 *
+	 * @param array $data Array of extra data, when/if needed
+	 * @return array See `FieldSelectorInfo` class for details.
+	 * @since 3.0.258
+	 *
+	 */
+	public function getSelectorInfo(array $data = array()) {
+		return $this->type->getSelectorInfo($this, $data);
+	}
+	
 	/**
 	 * debugInfo PHP 5.6+ magic method
 	 *
