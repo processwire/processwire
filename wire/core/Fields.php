@@ -511,8 +511,16 @@ class Fields extends WireSaveableItems {
 				}
 			}	
 		}
+	
 		
-		if($item->type) $item->type->savedField($item);
+		if($isNew) {
+			$fieldsArray = $this->getWireArray();
+			if(!$fieldsArray->has($item)) $fieldsArray->add($item);
+		}
+		
+		if($item->type) {
+			$item->type->savedField($item);
+		}
 		
 		$this->getTags('reset');
 
