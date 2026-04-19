@@ -186,23 +186,43 @@ class PagesLoaderCache extends Wire {
 	/**
 	 * Remove all pages from the cache
 	 * 
+	 * - `3.0.259` Deprecated 2nd argument (previously $options) and moved to 1st argument
+	 *    but still backwards compatible. 
+	 * 
 	 * #pw-group-remove
 	 *
-	 * @param Page|null $page Optional Page that initiated the uncacheAll
-	 * @param array $options Additional options to modify behavior:
-	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent call to $page->uncache(), set 'shallow' => true.
+	 * @param array|Page $options Options to modify default behavior or Page object for 'page' option:
+	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent that call, set this to true.
+	 *   - `page` (Page): Optionally specify Page instance that initiated the call (for debugging purposes only).
+	 * @param array|null $deprecated Old location of $options, now deprecated, but still supported for backwards compatibility.
 	 * @return int Number of pages uncached
 	 *
 	 */
-	public function uncacheAll(?Page $page = null, array $options = array()) {
+	public function uncacheAll($options = array(), $deprecated = null) {
+
+		if(!is_array($options)) {
+			// supports Page or PageArray for 'page' argument but the PageArray option is
+			// left undocumented (in phpdoc above) so that its use is discouraged to avoid confiusion
+			if($options instanceof Page || $options instanceof PageArray) {
+				$options = [ 'page' => $options ];
+			} else {
+				$options = [];
+			}
+		}
+		if(is_array($deprecated)) {
+			$options = array_merge($deprecated, $options);
+		}
 
 		$cnt = count($this->pageIdCache);
 
 		$this->pages->sortfields(true); // reset
 
 		if($this->wire()->config->debug) {
-			$this->pages->debugLog('uncacheAll', 'pageIdCache=' . count($this->pageIdCache) . ', pageSelectorCache=' . 
-				count($this->pageSelectorCache));
+			$this->pages->debugLog('uncacheAll', 
+				'pageIdCache=' . count($this->pageIdCache) . ', ' . 
+				'pageSelectorCache=' . count($this->pageSelectorCache) .
+				(isset($options['page']) ? ", initiator=$options[page]" : "")
+			);
 		}
 
 		if(empty($options['shallow'])) {

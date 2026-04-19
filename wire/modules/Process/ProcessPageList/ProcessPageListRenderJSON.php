@@ -121,7 +121,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 				foreach($trashChildren as $child) {
 					if($child->listable()) $numChildren++;
 				}
-				$this->wire()->pages->uncacheAll($trashChildren);
+				$this->wire()->pages->uncache($trashChildren);
 			}
 			if(strpos($this->qtyType, 'total') !== false) {
 				$numTotal = $this->wire()->pages->trasher()->getTrashTotal();

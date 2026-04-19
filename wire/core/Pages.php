@@ -1658,7 +1658,12 @@ class Pages extends Wire {
 	 * 
 	 * #pw-group-cache
 	 *
-	 * @param Page|PageArray|int|null $page Page to uncache, PageArray of pages to uncache, ID of page to uncache (3.0.153+), or omit to uncache all.
+	 * @param Page|PageArray|int|null $page Specify any of the following:
+	 *  - Page object to uncache
+	 *  - PageArray of pages to uncache
+	 *  - ID of page to uncache (3.0.153+)
+	 *  - array of page IDs to uncache (3.0.259+)
+	 *  - Omit this argument (or null) to uncache all
 	 * @param array $options Additional options to modify behavior: 
 	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent that call, set this to true. 
 	 * @return int Number of pages uncached
@@ -1670,7 +1675,7 @@ class Pages extends Wire {
 			$cnt = $this->cacher->uncacheAll(null, $options);
 		} else if($page instanceof Page || is_int($page)) {
 			if($this->cacher->uncache($page, $options)) $cnt++;
-		} else if($page instanceof PageArray) {
+		} else if($page instanceof PageArray || is_array($page)) {
 			foreach($page as $p) {
 				if($this->cacher->uncache($p, $options)) $cnt++;
 			}
@@ -1683,6 +1688,9 @@ class Pages extends Wire {
 	 * 
 	 * This method clears all pages that ProcessWire has cached in memory, making room for more pages to be loaded. 
 	 * Use of this method (along with pagination) may be necessary when modifying or calculating from thousand of pages.
+	 * 
+	 * - `3.0.259` Deprecated 2nd argument (previously $options) and moved to 1st argument
+	 *    but still backwards compatible.
 	 * 
 	 * ~~~~~
 	 * // calculate total dollar value of all 50000+ products in inventory
@@ -1707,14 +1715,15 @@ class Pages extends Wire {
 	 * 
 	 * #pw-group-cache
 	 * 
-	 * @param Page|null $page Optional Page that initiated the uncacheAll
-	 * @param array $options Options to modify default behavior: 
+	 * @param array|Page $options Options to modify default behavior or Page object for 'page option: 
 	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent that call, set this to true.
+	 *   - `page` (Page): Optionally specify Page instance that initiated the call (for debugging purposes only). 
+	 * @param array|null $deprecated Old location of $options, now deprecated, but still supported for backwards compatibility.
 	 * @return int Number of pages uncached
 	 *
 	 */
-	public function uncacheAll(?Page $page = null, array $options = array()) {
-		return $this->cacher->uncacheAll($page, $options);
+	public function uncacheAll($options = array(), $deprecated = null) {
+		return $this->cacher->uncacheAll($options, $deprecated);
 	}
 
 	/**
