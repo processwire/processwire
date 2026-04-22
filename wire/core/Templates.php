@@ -18,7 +18,7 @@
  * @method array setImportData(Template $template, array $data) Given an array of Template export data, import it to the given Template. #pw-advanced
  * @method void fileModified(Template $template) Hook called when a template detects that its file has been modified. #pw-hooker
  * @method array getTags($getTemplateNames = false) Get tags for all templates (3.0.179+) #pw-advanced
- * @method new($name, $settings) Create and save new Template and Fieldgroup. (3.0.258) #pw-advanced
+ * @method Template new($name, $settings = []) Create and save new Template and Fieldgroup. (3.0.258) #pw-advanced
  *
  */
 class Templates extends WireSaveableItems {
@@ -262,7 +262,8 @@ class Templates extends WireSaveableItems {
 	 * $template->save();
 	 * ~~~~~
 	 * 
-	 * @param string $name Name of template
+	 * @param string|array $name Name of template or array of settings that includes 'name',
+	 *   and anything else that would usually go in $settings array.
 	 * @param array|string $settings Array of settings to set, or string for template label only
 	 * @return Template
 	 * @throws WireException If given a template name that already exists
@@ -270,11 +271,19 @@ class Templates extends WireSaveableItems {
 	 * 
 	 */
 	public function newTemplate($name, $settings = []) {
+		if(is_array($name)) {
+			if(!isset($name['name'])) throw new WireException('Name is required for new template');
+			$label = is_string($settings) ? $settings : '';
+			$settings = is_array($settings) ? array_merge($settings, $name) : $name;
+			if(empty($settings['label']) && $label) $settings['label'] = $label;
+			$name = $name['name'];
+			unset($settings['name']);
+		}
 		$fieldgroups = $this->wire()->fieldgroups;
 		$name = $this->wire()->sanitizer->templateName($name);
 		if(!strlen($name)) throw new WireException("Template name is required");
 		if(!is_array($settings)) $settings = [ 'label' => $settings ];
-		$template = $this->templates->get($name); 
+		$template = $this->get($name); 
 		if($template instanceof Template) throw new WireException("Template '$name' already exists"); 
 		$template = new Template();
 		$this->wire($template); 
@@ -293,7 +302,8 @@ class Templates extends WireSaveableItems {
 	 * $template = $templates->new('product', 'Product item');
 	 * ~~~~~
 	 *
-	 * @param string $name Name of template
+	 * @param string|array $name Name of template or array of settings that includes 'name',
+	 *   and anything else that would usually go in $settings array.
 	 * @param array|string $settings Array of settings to set, or string for template label only
 	 * @return Template
 	 * @throws WireException If given a template name that already exists

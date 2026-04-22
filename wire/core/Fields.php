@@ -380,7 +380,8 @@ class Fields extends WireSaveableItems {
 	 * $fields->save($field);
 	 * ~~~~~
 	 *
-	 * @param string $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted
+	 * @param string|array $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted
+	 *   or array containing 'type' and 'name' and anything else that would usually go in $options
 	 * @param string $name Field name (optional)
 	 * @param string|array $options Field label or `[key=>val]` array of properties to set to Field (optional)
 	 * @return Field
@@ -389,6 +390,19 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public function newField($type, $name = '', $options = []) {
+		if(is_array($type)) {
+			$settings = $type;
+			if(!isset($settings['type'])) {
+				throw new WireException("Fields::newField([ 'type' => '…']) missing 'type'");
+			}
+			if(!isset($settings['name']) && empty($name)) {
+				throw new WireException("Fields::newField([ 'name' => '…']) missing 'name'");
+			}
+			$type = $settings['type'];
+			if(empty($name)) $name = $settings['name'];
+			unset($settings['type'], $settings['name']);
+			$options = array_merge($options, $settings);
+		}
 		if(!is_string($type)) $type = "$type";
 		if(is_array($name)) list($options, $name) = [ $name, '' ];
 		$label = is_string($options) ? $options : '';
@@ -417,7 +431,8 @@ class Fields extends WireSaveableItems {
 	 * ]);
 	 * ~~~~~
 	 *
-	 * @param string $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted
+	 * @param string|array $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted, 
+	 *   or array containing 'type' and 'name' and anything else that would usually go in $options
 	 * @param string $name Field name (required)
 	 * @param string|array $options Field label or `[key=>val]` array of properties to set to Field (optional)
 	 * @return Field
@@ -425,7 +440,7 @@ class Fields extends WireSaveableItems {
 	 * @since 3.0.258
 	 *
 	 */
-	public function ___new($type, $name, $options = []) {
+	public function ___new($type, $name = '', $options = []) {
 		$field = $this->newField($type, $name, $options);
 		$this->save($field);
 		return $field;
