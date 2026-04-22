@@ -2073,16 +2073,49 @@ class ProcessModule extends Process {
 		$moduleName = $input->get->fieldName('name');
 		$name = basename(strtolower($input->get->name('type')));
 		
-		if(empty($moduleName) || !$modules->isInstalled($moduleName)) throw new WireException('Unknown module');	
-		if(empty($name) || !isset($this->readmeFiles[$name])) throw new WireException("Unknown or unsupported file");
-	
-		$out = $this->renderReadme($moduleName, $this->readmeFiles[$name]);
-		if(empty($out)) wire404();
+		if(empty($moduleName) || !$modules->isInstalled($moduleName)) throw new WireException('Unknown module');
 		
-		$this->headline($this->readmeFiles[$name]);
-		$this->browserTitle("$moduleName - " . $this->readmeFiles[$name]); 
+		// other modules may add markdown viewer by populating name=>filename to markdownFiles
+		$readmeFiles = $this->wire()->session->getFor($moduleName, 'readmeFiles');
+		if(!is_array($readmeFiles)) $readmeFiles = [];
+		$readmeFiles = array_merge($this->readmeFiles, $readmeFiles);
+		
+		if(empty($name) || !isset($readmeFiles[$name])) throw new WireException("Unknown or unsupported file: $name");
+	
+		$readmeFile = $readmeFiles[$name];
+		$readmeBasename = basename($readmeFile);
+		
+		$ext = strtolower(pathinfo($readmeFile, PATHINFO_EXTENSION));
+		if($ext !== 'md' && $ext !== 'txt') throw new WireException('Unsupported file extension');
+		
+		$out = $this->renderReadme($moduleName, $readmeFile);
+		if(empty($out)) wire404();
+	
+		$this->headline($readmeBasename);
+		$this->browserTitle("$moduleName - $readmeBasename"); 
 		
 		return $out;
+	}
+	
+	/**
+	 * Add a .md or .txt file viewable in ProcessModule
+	 * 
+	 * This is for adding other .md files, as README.md and CHANGELOG.md are already 
+	 * covered by the default handler. 
+	 * 
+	 * @param string $moduleName Name of module readme file is for
+	 * @param string $urlName Basename to use in URL, use something unique, not README.md or CHANGELOG.md
+	 * @param string $filename Actual filename on server relative to given module, this doesn't have to match the given $urlName
+	 * @return string Returns the URL where file can be viewed
+	 * @since 3.0.259
+	 * 
+	 */
+	public static function addReadmeFile($moduleName, $urlName, $filename) {
+		$value = wire()->session->getFor($moduleName, 'readmeFiles'); 
+		if(!is_array($value)) $value = [];
+		$value[$urlName] = $filename;
+		wire()->session->setFor($moduleName, 'readmeFiles', $value);
+		return wire()->config->urls->admin . "module/readme/?name=$moduleName&type=$urlName";
 	}
 
 	/**
@@ -2099,12 +2132,14 @@ class ProcessModule extends Process {
 		$sanitizer = $this->wire()->sanitizer;
 		$modules = $this->wire()->modules;
 		$config = $this->wire()->config;
-	
-		$readmeFile = basename($readmeFile);
+		
 		$path = $config->paths($moduleName);
 		if(empty($path) || strlen($readmeFile) < 4) return false;
 		
 		$fileName = $path . $readmeFile;
+		$realFile = realpath($fileName);
+		$realPath = realpath($path);
+		if(!$realFile || strpos($realFile, $realPath) !== 0) return false;
 		if(!$files->exists($fileName)) return false;
 		
 		$ext = pathinfo($fileName, PATHINFO_EXTENSION);
