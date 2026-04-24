@@ -77,6 +77,7 @@
  * You can hook these methods, but you should not call them directly. 
  * See the phpdoc in the actual methods for more details about arguments and additional properties that can be accessed.
  * 
+ * @method Page new(array|string $options) Create and save a new page. 
  * @method array saveReady(Page $page) Hook called just before a page is saved. 
  * @method saved(Page $page, array $changes = array(), $values = array()) Hook called after a page is successfully saved. 
  * @method addReady(Page $page)
@@ -150,55 +151,55 @@ class Pages extends Wire {
 	 * @var PagesLoader
 	 * 
 	 */
-	protected $loader;
+	protected $loader = null;
 	
 	/**
 	 * @var PagesEditor
 	 * 
 	 */
-	protected $editor;
+	protected $editor = null;
 
 	/**
 	 * @var PagesNames
 	 * 
 	 */
-	protected $names;
+	protected $names = null;
 
 	/**
 	 * @var PagesLoaderCache
 	 * 
 	 */
-	protected $cacher;
+	protected $cacher = null;
 
 	/**
 	 * @var PagesTrash
 	 * 
 	 */
-	protected $trasher;
+	protected $trasher = null;
 
 	/**
 	 * @var PagesParents
 	 * 
 	 */
-	protected $parents;
+	protected $parents = null;
 
 	/**
 	 * @var PagesRaw
 	 *
 	 */
-	protected $raw;
+	protected $raw = null;
 	
 	/**
 	 * @var PagesRequest
 	 *
 	 */
-	protected $request;
+	protected $request = null;
 	
 	/**
 	 * @var PagesPathFinder
 	 *
 	 */
-	protected $pathFinder;
+	protected $pathFinder = null;
 
 	/**
 	 * Array of PagesType managers
@@ -218,13 +219,30 @@ class Pages extends Wire {
 		parent::__construct();
 		$this->setWire($wire);
 		$this->debug = $wire->config->debug === Config::debugVerbose ? true : false;
-		$this->sortfields = $this->wire(new PagesSortfields());
-		$this->loader = $this->wire(new PagesLoader($this));
-		$this->cacher = $this->wire(new PagesLoaderCache($this));
-		$this->trasher = null;
-		$this->editor = null;
-		$this->raw = null;
-		$this->parents = null;
+		$this->sortfields();
+		$this->loader();
+		$this->cacher();
+		$this->request();
+		$this->wire()->classLoader->addPrefix('Pages', __DIR__ . '/Pages/'); 
+	}
+	
+	/**
+	 * Load helper instance
+	 * 
+	 * @param string $name
+	 * @param string $class
+	 * @return PagesAccess|PagesEditor|PagesExportImport|PagesLoader|PagesLoaderCache|PagesNames|PagesParents|PagesPathFinder|PagesRaw|PagesRequest|PagesSortfields|PagesTrash
+	 * @since 3.0.259
+	 * 
+	 */
+	protected function loadHelper($name, $class) {
+		$value = $this->$name;
+		if($value) return $value; 
+		require_once(__DIR__ . "/Pages/$class.php");
+		$class = __NAMESPACE__ . "\\$class";
+		$value = $this->wire(new $class($this));
+		$this->$name = $value;
+		return $value; 
 	}
 	
 	/**
@@ -905,7 +923,7 @@ class Pages extends Wire {
 	 * @param Page $page Page to save
 	 * @param array|string|string[]|Field[] $fields Array of field names to save or CSV/space separated field names to save.
 	 *   These should only be Field names and not native page property names.
-	 * @param array|string $options Optionally specify one or more of the following to modify default behavior:
+	 * @param array $options Optionally specify one or more of the following to modify default behavior:
 	 *  - `quiet` (boolean): Specify true to bypass updating of modified user and time (default=false).
 	 *  - `noHooks` (boolean): Prevent before/after save hooks (default=false), please also use $pages->___saveField() for call.
 	 *  - See $options argument for Pages::save() for additional options
@@ -1736,11 +1754,8 @@ class Pages extends Wire {
 	 *
 	 */
 	public function sortfields($reset = false) {
-		if($reset) {
-			unset($this->sortfields);
-			$this->sortfields = $this->wire(new PagesSortfields());
-		}
-		return $this->sortfields; 
+		if($reset) $this->sortfields = null;
+		return $this->sortfields ? $this->sortfields : $this->loadHelper('sortfields', 'PagesSortfields');
 	}
 
 	/**	
@@ -2087,8 +2102,8 @@ class Pages extends Wire {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param $str
-	 * @param Page|null Page to log
+	 * @param string $str
+	 * @param Page Page to log
 	 * @return WireLog
 	 * 
 	 */
@@ -2110,7 +2125,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function loader() {
-		return $this->loader;
+		return $this->loader ? $this->loader : $this->loadHelper('loader', 'PagesLoader');
 	}
 
 	/**
@@ -2124,8 +2139,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function editor() {
-		if(!$this->editor) $this->editor = $this->wire(new PagesEditor($this));
-		return $this->editor;
+		return $this->editor ? $this->editor : $this->loadHelper('editor', 'PagesEditor');
 	}
 	
 	/**
@@ -2138,8 +2152,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function names() {
-		if(!$this->names) $this->names = $this->wire(new PagesNames($this)); 
-		return $this->names;
+		return $this->names ? $this->names : $this->loadHelper('names', 'PagesNames'); 
 	}
 
 	/**
@@ -2153,7 +2166,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function cacher() {
-		return $this->cacher;
+		return $this->cacher ? $this->cacher : $this->loadHelper('cacher', 'PagesLoaderCache'); 
 	}
 	
 	/**
@@ -2167,8 +2180,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function trasher() {
-		if(!$this->trasher) $this->trasher = $this->wire(new PagesTrash($this));
-		return $this->trasher;
+		return $this->trasher ? $this->trasher : $this->loadHelper('trasher', 'PagesTrash'); 
 	}
 
 	/**
@@ -2182,8 +2194,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function parents() {
-		if(!$this->parents) $this->parents = $this->wire(new PagesParents($this));
-		return $this->parents;
+		return $this->parents ? $this->parents : $this->loadHelper('parents', 'PagesParents');
 	}
 
 	/**
@@ -2199,9 +2210,7 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function porter() {
-		$porter = new PagesExportImport();
-		$this->wire($porter);
-		return $porter; 
+		return $this->porter ? $this->porter : $this->loadHelper('porter', 'PagesExportImport');
 	}
 
 	/**
@@ -2215,8 +2224,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function raw() {
-		if(!$this->raw) $this->raw = $this->wire(new PagesRaw($this));
-		return $this->raw;
+		return $this->raw ? $this->raw : $this->loadHelper('raw', 'PagesRaw'); 
 	}
 	
 	/**
@@ -2230,8 +2238,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function request() {
-		if(!$this->request) $this->request = $this->wire(new PagesRequest($this));
-		return $this->request;
+		return $this->request ? $this->request : $this->loadHelper('request', 'PagesRequest');
 	}
 
 	/**
@@ -2245,8 +2252,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function pathFinder() {
-		if(!$this->pathFinder) $this->pathFinder = $this->wire(new PagesPathFinder($this));
-		return $this->pathFinder;
+		return $this->pathFinder ? $this->pathFinder : $this->loadHelper('pathFinder', 'PagesPathFinder');
 	}
 
 	/**

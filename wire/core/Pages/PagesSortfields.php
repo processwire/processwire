@@ -15,6 +15,23 @@
  */
 
 class PagesSortfields extends Wire {
+	
+	/**
+	 * @var Pages
+	 * 
+	 */
+	protected $pages;
+	
+	/**
+	 * Construct
+	 * 
+	 * @param Pages $pages
+	 * 
+	 */
+	public function __construct($pages) {
+		$this->pages = $pages;
+		parent::__construct();
+	}
 
 	/**
 	 * Get sortfield for given Page from DB
