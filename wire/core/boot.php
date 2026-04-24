@@ -47,7 +47,7 @@ $corePreloads = array(
 	'DatabaseMysqli.php',
 	'WireCache.php',
 	'Modules.php',
-	'ModulesDuplicates.php',
+	//'ModulesDuplicates.php',
 	'ModulePlaceholder.php',
 	'Fieldtype.php',
 	'FieldtypeMulti.php',

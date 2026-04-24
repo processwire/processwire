@@ -269,11 +269,15 @@ class Modules extends WireArray {
 	public function wired() {
 		$this->coreModulesDir = '/' . $this->wire()->config->urls->data('modules');
 		parent::wired();
-		$this->info = new ModulesInfo($this);
-		$this->flags = new ModulesFlags($this);
-		$this->files = new ModulesFiles($this);
-		$this->configs = new ModulesConfigs($this);
-		$this->loader = new ModulesLoader($this);
+		$names = [ 'class', 'info', 'flags', 'files', 'configs', 'loader' ]; 
+		foreach($names as $name) {
+			$basename = "Modules" . ucfirst($name);
+			$file = __DIR__ . "/Modules/$basename.php";
+			require_once($file);
+			if($name === 'class') continue; // skip abstract class
+			$class = __NAMESPACE__ . "\\$basename";
+			$this->$name = $this->wire(new $class($this)); 
+		}
 	}
 
 	/**
@@ -285,7 +289,10 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function duplicates() {
-		if($this->duplicates === null) $this->duplicates = $this->wire(new ModulesDuplicates());
+		if($this->duplicates === null) {
+			require_once(__DIR__ . '/Modules/ModulesDuplicates.php');
+			$this->duplicates = $this->wire(new ModulesDuplicates());
+		}
 		return $this->duplicates; 
 	}
 	
@@ -298,7 +305,10 @@ class Modules extends WireArray {
 	 *
 	 */
 	public function installer() {
-		if($this->installer === null) $this->installer = new ModulesInstaller($this);
+		if($this->installer === null) {
+			require_once(__DIR__ . '/Modules/ModulesInstaller.php'); 
+			$this->installer = $this->wire(new ModulesInstaller($this));
+		}
 		return $this->installer;
 	}
 
