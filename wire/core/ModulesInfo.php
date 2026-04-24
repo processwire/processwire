@@ -164,10 +164,17 @@ class ModulesInfo extends ModulesClass {
 		'file' => null,
 		// verbose mode only: this is set to true when the module is a core module, false when it's not, and null when it's not determined
 		'core' => null,
+		
+		// All properties documented below may be present, but are optional:
+		// ------------------------	
+		// Properties for modules that include multi-language translations:
 		// verbose mode only: any translations supplied with the module
 		// 'languages' => null,
-
-		// other properties that may be present, but are optional, for Process modules:
+		// ------------------------	
+		// Properties for CliModule modules only: 
+		// 'cli' => string // cli command name
+		// ------------------------	
+		// Properties for Process modules only: 
 		// 'nav' => array(), // navigation definition: see Process.php
 		// 'useNavJSON' => bool, // whether the Process module provides JSON navigation
 		// 'page' => array(), // page to create for Process module: see Process.php

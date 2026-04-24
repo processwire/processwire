@@ -811,6 +811,7 @@ class ProcessWire extends Wire {
 		$this->updater->ready();
 		unset($this->updater);
 		if($this->debug) Debug::saveTimer('boot.modules.autoload.ready'); 
+		if(!empty($_SERVER['argv']) && php_sapi_name() === 'cli') new ProcessWireCli($this);
 	}
 
 	/**

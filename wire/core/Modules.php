@@ -5,7 +5,7 @@
  *
  * Loads and manages all runtime modules for ProcessWire
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Loads and manages all modules in ProcessWire. 
@@ -17,6 +17,18 @@
  * 
  * // Getting a module by name (alternate)
  * $m = $modules->MarkupPagerNav;
+ * 
+ * // Getting a module by name with options 
+ * $m = $modules->getModule('MarkupPagerNav', [ 'noInit' => true ]);
+ *
+ * // Get associative array of module information 
+ * $info = $modules->getModuleInfo('FieldtypePage');
+ *
+ * // Get verbose associative array of module information with more details
+ * $info = $modules->getModuleInfoVerbose('FieldtypePage'); 
+ *
+ * // refresh the modules, picking up changes to module info, etc. 
+ * $modules->refresh();
  * ~~~~~
  * 
  * #pw-body
@@ -101,6 +113,12 @@ class Modules extends WireArray {
 	 * 
 	 */
 	const flagsNoFile = 64;
+	
+	/**
+	 * Module that supports CliModule interface
+	 * 
+	 */
+	const flagsCli = 128;
 	
 	/**
 	 * Indicates row is for Modules system cache use and not an actual module
@@ -804,12 +822,51 @@ class Modules extends WireArray {
 		ksort($results);
 		return $results;
 	}
-
+	
+	/**
+	 * Find modules by matching flag
+	 * 
+	 * This is significantly faster than using findByInfo()
+	 *
+	 * @param int $flag Flag to match
+	 * @param bool|int $load Specify one of the following or omit for false:
+	 *  - Boolean true to return array of instantiated modules.
+	 *  - Boolean false to return array of module names (default).
+	 *  - Integer 1 to return array of module info for each matching module.
+	 *  - Integer 2 to return array of verbose module info for each matching module.
+	 * @return array Array of modules, module names or module info arrays, indexed by module name.
+	 * @since 3.0.259
+	 *
+	 */
+	public function findByFlag($flag, $load = false) {
+		$results = [];
+		$sql = "SELECT class FROM modules WHERE flags & :flag";
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':flag', $flag, \PDO::PARAM_INT);
+		$query->execute();
+		$names = [];
+		while($row = $query->fetch(\PDO::FETCH_NUM)) $names[] = $row[0];
+		$query->closeCursor();
+		foreach($names as $name) {
+			if($load === true) {
+				$results[$name] = $this->getModule($name);
+			} else if($load === 1) {
+				$results[$name] = $this->getModuleInfo($name);
+			} else if($load === 2) {
+				$results[$name] = $this->getModuleInfoVerbose($name);
+			} else {
+				$results[$name] = $name;
+			}
+		}
+		ksort($results);
+		return $results;
+	}
+	
 	/**
 	 * Find modules by matching a property or properties in their module info 
 	 * 
 	 * @param string|array $selector Specify one of the following: 
-	 *  - Selector string to match module info. 
+	 *  - Selector string to match module info.
 	 *  - Array of [ 'property' => 'value' ] to match in module info (this is not a selector array). 
 	 *  - Name of property that will match module if not empty in module info. 
 	 * @param bool|int $load Specify one of the following: 
@@ -817,10 +874,12 @@ class Modules extends WireArray {
 	 *  - Boolean false to return array of module names (default).
 	 *  - Integer 1 to return array of module info for each matching module.
 	 *  - Integer 2 to return array of verbose module info for each matching module. 
+	 * @param bool $noCache Disable use of module info cache? 
+	 *    Specify true to skip cache and find from fresh module info (default=false) 3.0.259+
 	 * @return array Array of modules, module names or module info arrays, indexed by module name.
 	 * 
 	 */
-	public function findByInfo($selector, $load = false) {
+	public function findByInfo($selector, $load = false, $noCache = false) {
 		
 		$selectors = null;
 		$keys = null;
@@ -836,8 +895,10 @@ class Modules extends WireArray {
 		} else if(!ctype_alnum($selector) && Selectors::stringHasOperator($selector)) {
 			// find by selectors
 			$selectors = new Selectors($selector);
-			if(!$verbose) foreach($selectors as $s) {
-				$properties = array_merge($properties, $s->fields()); 
+			if(!$verbose) {
+				foreach($selectors as $s) {
+					$properties = array_merge($properties, $s->fields());
+				}
 			}
 		} else {
 			// find non-empty property
@@ -857,11 +918,14 @@ class Modules extends WireArray {
 		}
 		
 		$moduleInfoOptions = array(
+			'noCache' => $noCache,
 			'verbose' => $verbose,
 			'minify' => false
 		);
 		
-		foreach($this->getModuleInfo('*', $moduleInfoOptions) as $info) {
+		$modulesInfo = $this->getModuleInfo('*', $moduleInfoOptions);
+		
+		foreach($modulesInfo as $info) {
 			$isMatch = false;
 			
 			if($has) {
@@ -872,13 +936,11 @@ class Modules extends WireArray {
 				// match selector
 				$total = 0;
 				$n = 0;
+				$data = new WireData();
+				$data->setArray($info);
 				foreach($selectors as $selector) {
 					$total++;
-					$values = array();
-					foreach($selector->fields() as $property) {
-						if(isset($info[$property])) $values[] = $info[$property];
-					}
-					if($selector->matches($values)) $n++;
+					if($selector->matches($data)) $n++;
 				}
 				if($n && $n === $total) $isMatch = true;
 				

@@ -172,6 +172,16 @@ class ModulesFlags extends ModulesClass {
 		} else {
 			if($flags & Modules::flagsSingular) $this->setFlag($moduleID, Modules::flagsSingular, false);
 		}
+		
+		if(!empty($info['cli'])) {
+			if(!($flags & Modules::flagsCli)) {
+				$this->setFlag($moduleID, Modules::flagsCli, true);
+			}
+		} else {
+			if($flags & Modules::flagsCli) {
+				$this->setFlag($moduleID, Modules::flagsCli, false);
+			}
+		}
 
 		// handle addFlag and removeFlag moduleInfo properties
 		foreach(array(0 => 'removeFlag', 1 => 'addFlag') as $add => $flagsType) {
