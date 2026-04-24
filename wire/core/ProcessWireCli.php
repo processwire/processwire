@@ -73,6 +73,7 @@ class ProcessWireCli extends Wire {
 			$cliName = reset($args); 
 			$args = array_slice($args, 1);
 			echo $this->renderHelp($cliName, $args);
+			return [];
 		}
 		
 		$cliModules = $this->getCliModules($name);
@@ -165,7 +166,7 @@ class ProcessWireCli extends Wire {
 			if(is_array($commands)) {
 				// commands array: [ 'command syntax' => 'description ] or [ 0 => 'command syntax' ]
 				foreach($commands as $cmd => $label) {
-					if(is_int($cmd)) [$cmd, $label] = [$label, $cmd];
+					if(is_int($cmd)) [$cmd, $label] = [$label, ''];
 					$line = strpos($cmd, 'index.php') === false ? "php index.php $info[cli] $cmd " : "$cmd ";
 					$items[$line] = $label;
 					$len = strlen($line);

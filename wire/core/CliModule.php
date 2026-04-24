@@ -38,7 +38,7 @@
  *     ];
  *   }
  *   public function executeCli(array $args) {
- *     $command = $args[0];
+ *     $command = $args[0] ?? '';
  *     $name = isset($args[1]) ? $args[1] : 'friend';
  *     if($command === 'hi') {
  *       echo "Hello there $name!";
@@ -94,7 +94,7 @@ interface CliModule {
 	 * Or it can just be a string of whatever you want, and ProcessWire will output
 	 * it as-is. 
 	 *
-	 * @return string[]|string Example: [ 'hello' => 'Hello World' ]  or `[ 'hello' ]
+	 * @return string[]|string Example: `[ 'hello' => 'Hello World' ]` or `[ 'hello' ]`
 	 *
 	 */
 	public function getCliCommands();
