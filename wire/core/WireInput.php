@@ -576,7 +576,7 @@ class WireInput extends Wire {
 		
 		if(empty($get)) $get = 1;
 
-		if($get < 0) {
+		if(is_int($get) && $get < 0) {
 			// retrieve from end
 			$get = abs($get)-1;
 			$urlSegments = array_reverse($this->urlSegments);
