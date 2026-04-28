@@ -223,7 +223,7 @@ class Pages extends Wire {
 		$this->loader();
 		$this->cacher();
 		$this->request();
-		$this->wire()->classLoader->addPrefix('Pages', __DIR__ . '/Pages/'); 
+		// $this->wire()->classLoader->addPrefix('Pages', __DIR__ . '/Pages/'); 
 	}
 	
 	/**
@@ -231,7 +231,7 @@ class Pages extends Wire {
 	 * 
 	 * @param string $name
 	 * @param string $class
-	 * @return PagesAccess|PagesEditor|PagesExportImport|PagesLoader|PagesLoaderCache|PagesNames|PagesParents|PagesPathFinder|PagesRaw|PagesRequest|PagesSortfields|PagesTrash
+	 * @return PagesEditor|PagesExportImport|PagesLoader|PagesLoaderCache|PagesNames|PagesParents|PagesPathFinder|PagesRaw|PagesRequest|PagesSortfields|PagesTrash
 	 * @since 3.0.259
 	 * 
 	 */

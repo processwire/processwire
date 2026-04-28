@@ -397,8 +397,7 @@ class Templates extends WireSaveableItems {
 		}
 
 		if($rolesChanged) { 
-			/** @var PagesAccess $access */
-			$access = $this->wire(new PagesAccess());
+			$access = $this->wire()->pages->editor->newPagesAccess();
 			$access->updateTemplate($item); 
 		}
 	

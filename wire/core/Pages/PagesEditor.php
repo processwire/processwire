@@ -830,7 +830,9 @@ class PagesEditor extends Wire {
 
 		// determine whether the pages_access table needs to be updated so that pages->find()
 		// operations can be access controlled. 
-		if($isNew || $page->parentPrevious || $page->templatePrevious) $this->wire(new PagesAccess($page));
+		if($isNew || $page->parentPrevious || $page->templatePrevious) {
+			$this->newPagesAccess($page);
+		}
 
 		// trigger hooks
 		if(empty($options['noHooks'])) {
@@ -1982,8 +1984,7 @@ class PagesEditor extends Wire {
 		}
 
 		if($options['clearAccess'] && !$halt) {
-			/** @var PagesAccess $access */
-			$access = $this->wire(new PagesAccess());
+			$access = $this->newPagesAccess();
 			$access->deletePage($page);
 		}
 
@@ -2173,6 +2174,18 @@ class PagesEditor extends Wire {
 	 */
 	public function hookFieldtypeSleepValueStripMB4(HookEvent $event) {
 		$event->return = $this->wire()->sanitizer->removeMB4($event->return); 
+	}
+	
+	/**
+	 * Return new instanceof PagesAccess
+	 * 
+	 * @param Page|null $page
+	 * @return PagesAccess
+	 * 
+	 */
+	public function newPagesAccess(?Page $page = null) {
+		require_once(__DIR__ . '/PagesAccess.php'); 
+		return $this->wire(new PagesAccess($page));
 	}
 	
 	/*
