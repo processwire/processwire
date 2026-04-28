@@ -251,6 +251,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		// add cache clearing hooks
 		$pages->addHookAfter('saved', $this, 'hookClearCaches');
 		$modules->addHookAfter('refresh', $this, 'hookClearCaches');
+		$modules->addHookAfter('install', $this, 'hookClearCaches');
 	
 		if($themeName && $themeName != 'original') {
 			$themeInfo = $this->getThemeInfo($themeName);
@@ -672,15 +673,21 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	public function hookClearCaches(HookEvent $event) {
-
+		
+		$user = $this->wire()->user;
 		$page = $event->arguments(0); /** @var Page|User|null $page */
-		$changes = $event->arguments(1); /** @var array $changes */
-		$user = $this->wire()->user; 
 		
-		if($page !== null && !($page instanceof Page)) return;
-		if(!is_array($changes)) $changes = array();
-		
-		if($page === null || $page->template->name === 'admin' || ($page->id === $user->id && in_array('language', $changes))) {
+		if($page instanceof Page) {
+			// Pages::saved
+			$changes = $event->arguments(1); /** @var array $changes */
+			if(!is_array($changes)) $changes = [];
+			$clear = $page->template->name === 'admin' || ($page->id === $user->id && in_array('language', $changes));
+		} else {
+			// Modules::install or Modules::refresh
+			$clear = true;
+		}	
+	
+		if($clear) {
 			$session = $this->wire()->session; 
 			$session->removeFor($this, 'prnav');
 			$session->removeFor($this, 'sidenav');
