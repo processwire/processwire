@@ -95,12 +95,33 @@ board.
 
 ## Installing ProcessWire
 
-Simply extract the ProcessWire files to an http accessible location and
-load the URL in your web browser. This will start the installer. See our
-[Installation Guide](https://processwire.com/docs/start/install/new/) for more 
+ProcessWire can be installed from your web browser via http, or 
+it can be installed from the command line (CLI).
+
+### HTTP instalation
+Extract the ProcessWire files to an http accessible location and
+load the URL in your web browser. This will start the installer. 
+
+### CLI installation
+Extract or place the ProcessWire files in a directory. Change to the directory
+and type: 
+```
+php install.php
+```
+Note that to use CLI installation `php` must be in your path. If it 
+isn’t, then you will either have to add it to your path, or type in path to it, 
+like this: 
+```
+/path/to/php install.php
+```
+After starting the CLI installer, it will provide further instructions. 
+
+### More details
+See our [Installation Guide](https://processwire.com/docs/start/install/new/) for more 
 details and instructions. If you run into any trouble, please see our 
 [Troubleshooting Guide](https://processwire.com/docs/start/install/troubleshooting/). 
 
+--------
 
 ## Upgrading ProcessWire
 

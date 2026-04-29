@@ -14,6 +14,7 @@
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
+ * @todo 3.0.190: provide option for command-line options to install
  * @todo have installer set session name
  * 
  */
@@ -347,7 +348,7 @@ class Installer {
 		}
 
 		$this->checkFunction("filter_var", "Filter functions (filter_var)");
-		$this->checkFunction("mysqli_connect", "MySQLi (not used by core, but may still be used by some older 3rd party modules)");
+		// $this->checkFunction("mysqli_connect", "MySQLi (not used by core, but may still be used by some older 3rd party modules)");
 		$this->checkFunction("imagecreatetruecolor", "GD 2.0 or newer"); 
 		$this->checkFunction("json_encode", "JSON support");
 		$this->checkFunction("preg_match", "PCRE support"); 
@@ -385,7 +386,9 @@ class Installer {
 		
 		$memoryLimit = $this->getMemoryLimit('M');
 		$memoryLimitLabel = "PHP memory_limit is set to $memoryLimit MB";
-		if($memoryLimit < 64) {
+		if($memoryLimit < 1) {
+			$this->ok("$memoryLimitLabel - Unlimited memory (Woohoo!)");
+		} else if($memoryLimit < 64) {
 			$this->err("$memoryLimitLabel - At least 64 MB is strongly recommended but 128 MB or more is best");
 		} else if($memoryLimit < 128) {
 			$this->warn("$memoryLimitLabel - OK to continue, but at least 128 MB is recommended"); 
@@ -1217,8 +1220,11 @@ class Installer {
 			}
 		}
 		
-		if(count($replace)) $restoreOptions['findReplaceCreateTable'] = $replace; 
-		require("./wire/core/WireDatabaseBackup.php"); 
+		if(count($replace)) $restoreOptions['findReplaceCreateTable'] = $replace;
+		
+		$file = "./wire/core/WireDatabase/WireDatabaseBackup.php"; // >= 3.0.260+
+		if(!is_file($file)) $file = "./wire/core/WireDatabaseBackup.php"; // <= 3.0.259
+		require($file); 
 		$backup = new WireDatabaseBackup(); 
 		$backup->setDatabase($database);
 		if($backup->restoreMerge($file1, $file2, $restoreOptions)) {
@@ -2114,6 +2120,7 @@ class Installer {
 		// $units = array('M' => 1048576, 'K' => 1024, 'G' => 1073741824);
 		$units = array('M' => 1000000, 'K' => 1000, 'G' => 1000000000);
 		$value = (string) ini_get('memory_limit');
+		if((int) $value < 1) return -1;
 		$value = trim(strtoupper($value), ' B'); // KB=K, MB=>M, GB=G, 
 		$unit = substr($value, -1); // K, M, G
 		$value = (int) rtrim($value, 'KMG');
@@ -2138,7 +2145,7 @@ class Installer {
  *   php install.php --config install-config.php
  *   echo '{"dbName":"mydb",...}' | php install.php
  *
- * Required config keys: dbName, dbUser, username, userpass
+ * Required config keys: dbName, dbUser, userpass
  * See loadConfig() for all supported keys and their defaults.
  *
  */
@@ -2161,6 +2168,7 @@ class InstallerCli extends Installer {
 	 *
 	 */
 	public function execute() {
+		chdir(__DIR__); 
 		$args = $this->getCliArgs();
 		if(isset($args['help']) || isset($args['h'])) {
 			$this->showHelp();
@@ -2754,7 +2762,6 @@ PHP;
 
 	/**
 	 * Strip HTML and decode entities for clean CLI output.
-	 * 
 	 * Converts <a href="url">text</a> to "text <url>" before stripping tags.
 	 *
 	 */
