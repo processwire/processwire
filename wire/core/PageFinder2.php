@@ -18,6 +18,8 @@
  * 
  * @property string $includeMode
  * @property bool $checkAccess
+ * 
+ * @todo support status=published
  *
  */
 
@@ -811,12 +813,36 @@ class PageFinder2 extends Wire {
 			} else if($fieldName !== 'status') {
 				continue;
 			}
-
+			
+			$values = $selector->values(); // array
+			
+			if($selector->value() === 'published') {
+				$a = ['=' => '<', '!=' => '>=', '<' => '>=', '<=' => '>', '>' => '<', '>=' => '<='];
+				if($selector->not) {
+					$notFlip = ['=' => '>=', '!=' => '<', '<' => '<=', '<=' => '<', '>' => '>=', '>=' => '>'];
+					$op = $notFlip[$selector->operator] ?? null;
+					if($op === null) throw new PageFinderSyntaxException("Operator $selector->operator unsupported in '$selector'");
+					$s = Selectors::newSelector($selector->field, $op, Page::statusUnpublished);
+					$selectors->replace($selector, $s);
+					$selector = $s;
+					$values = $selector->values();
+				} else if(isset($a[$selector->operator])) {
+					$op = $a[$selector->operator];
+					$s = Selectors::newSelector($selector->field, $op, Page::statusUnpublished);
+					$selectors->replace($selector, $s);
+					$selector = $s;
+					$values = $selector->values();
+				} else {
+					throw new PageFinderSyntaxException("Operator $selector->operator unsupported in '$selector'"); 
+				}
+			} else if(count($values) > 1 && in_array('published', $values)) {
+				throw new PageFinderSyntaxException("There is no 'published' status, please use 'status<unpublished' instead"); 
+			}
+			
 			$operator = $selector->operator;
-			$values = $selector->values();
 			$qty = count($values);
 			$not = false;
-
+			
 			// convert status name labels to status integers
 			foreach($values as $k => $v) {
 				if(ctype_digit("$v")) {
