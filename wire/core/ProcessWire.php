@@ -304,6 +304,7 @@ class ProcessWire extends Wire {
 		/** @var WireClassLoader $classLoader */
 		$classLoader = $this->wire('classLoader', new WireClassLoader($this), true);
 		$classLoader->addNamespace((strlen(__NAMESPACE__) ? __NAMESPACE__ : "\\"), PROCESSWIRE_CORE_PATH);
+		// $classLoader->addClassMap(include(__DIR__ . '/classes.php'), __DIR__ . '/'); 
 
 		if($config->usePageClasses) {
 			$classLoader->addSuffix('Page', $config->paths->classes);
@@ -399,6 +400,10 @@ class ProcessWire extends Wire {
 		$config->version = $version;
 		$config->versionName = trim($version . " " . self::versionSuffix);
 		$config->moduleServiceKey .= str_replace('.', '', $version);
+		
+		if($config->cli) {
+			$config->sessionAllow = false;
+		}
 		
 		if($config->useFunctionsAPI && !function_exists("\\ProcessWire\\pages")) {
 			$file = $config->paths->core . 'FunctionsAPI.php';

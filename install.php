@@ -14,7 +14,6 @@
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
- * @todo 3.0.190: provide option for command-line options to install
  * @todo have installer set session name
  * 
  */
@@ -69,6 +68,12 @@ class Installer {
 	 */
 	protected $chmodDir = "0777";
 	protected $chmodFile = "0666";
+
+	/**
+	 * True when running from command line (set by InstallerCli)
+	 *
+	 */
+	protected $cli = false;
 
 	/**
 	 * Number of errors that occurred during the request
@@ -352,21 +357,23 @@ class Installer {
 		$this->checkFunction("hash", "HASH support"); 
 		$this->checkFunction("spl_autoload_register", "SPL support"); 
 
-		if(function_exists('apache_get_modules')) {
-			if(in_array('mod_rewrite', apache_get_modules())) $this->ok("Found Apache module: mod_rewrite"); 
-				else $this->err("Apache 'mod_rewrite' module does not appear to be installed and is required by ProcessWire."); 
-		} else {
-			// apache_get_modules doesn't work on a cgi installation.
-			// check for environment var set in htaccess file, as submitted by jmarjie. 
-			$mod_rewrite = getenv('HTTP_MOD_REWRITE') == 'On' || getenv('REDIRECT_HTTP_MOD_REWRITE') == 'On' ? true : false;
-			if($mod_rewrite) {
-				$this->ok("Found Apache module (cgi): mod_rewrite");
+		if(!$this->cli) {
+			if(function_exists('apache_get_modules')) {
+				if(in_array('mod_rewrite', apache_get_modules())) $this->ok("Found Apache module: mod_rewrite");
+					else $this->err("Apache 'mod_rewrite' module does not appear to be installed and is required by ProcessWire.");
 			} else {
-				$this->err(
-					"Unable to determine if Apache mod_rewrite (required by ProcessWire) is installed. " . 
-					"On some servers, we may not be able to detect it until your .htaccess file is place. " . 
-					"Please click the 'check again' button at the bottom of this screen, if you haven't already."
-				); 
+				// apache_get_modules doesn't work on a cgi installation.
+				// check for environment var set in htaccess file, as submitted by jmarjie.
+				$mod_rewrite = getenv('HTTP_MOD_REWRITE') == 'On' || getenv('REDIRECT_HTTP_MOD_REWRITE') == 'On' ? true : false;
+				if($mod_rewrite) {
+					$this->ok("Found Apache module (cgi): mod_rewrite");
+				} else {
+					$this->err(
+						"Unable to determine if Apache mod_rewrite (required by ProcessWire) is installed. " .
+						"On some servers, we may not be able to detect it until your .htaccess file is place. " .
+						"Please click the 'check again' button at the bottom of this screen, if you haven't already."
+					);
+				}
 			}
 		}
 		
@@ -829,11 +836,13 @@ class Installer {
 		}
 
 		if($numTables && empty($dbTablesAction)) {
+			$hint = $this->cli
+				? " Set 'dbTablesAction' to 'remove' or 'ignore' in your config to proceed."
+				: " Please select below what you would like to do with these tables.";
 			$this->alertErr(
-				"<strong>Database already has $numTables table(s) present:</strong> " . 
-				implode(', ', $tables) . ". " . 
-				"<strong>Please select below what you would like to do with these tables.</strong>"
-			); 
+				"<strong>Database already has $numTables table(s) present:</strong> " .
+				implode(', ', $tables) . ". " . $hint
+			);
 			$this->dbConfig($values, $numTables);
 		} else if($this->dbSaveConfigFile($values)) {
 			$this->profileImport($database, $options);
@@ -2120,7 +2129,651 @@ class Installer {
 
 /****************************************************************************************************/
 
-if(!Installer::TEST_MODE && is_file("./site/assets/installed.php")) die("This installer has already run. Please delete it."); 
-error_reporting(E_ALL); 
-$installer = new Installer();
+/**
+ * ProcessWire CLI Installer
+ *
+ * Extends Installer to support non-interactive installation from the command line.
+ *
+ * Configuration is accepted as JSON via stdin or as a PHP file returning an array:
+ *   php install.php --config install-config.php
+ *   echo '{"dbName":"mydb",...}' | php install.php
+ *
+ * Required config keys: dbName, dbUser, username, userpass
+ * See loadConfig() for all supported keys and their defaults.
+ *
+ */
+class InstallerCli extends Installer {
+
+	/**
+	 * Signals to the parent that we are running in CLI mode
+	 *
+	 */
+	protected $cli = true;
+
+	/**
+	 * Configuration array loaded from JSON stdin or PHP config file
+	 *
+	 */
+	protected $cliConfig = array();
+
+	/**
+	 * Execute CLI installation as a linear pipeline
+	 *
+	 */
+	public function execute() {
+		$args = $this->getCliArgs();
+		if(isset($args['help']) || isset($args['h'])) {
+			$this->showHelp();
+			exit(0);
+		}
+		if(isset($args['cleanup'])) {
+			$this->runCleanup();
+			exit(0);
+		}
+		if(isset($args['generate'])) {
+			$this->generateConfig();
+			exit(0);
+		}
+		$this->h("ProcessWire CLI Installer");
+		$this->loadConfig();
+		$this->validateConfig();
+
+		$this->h("Site Profile");
+		$this->initProfile();
+		$this->abortIfErrors("Profile setup failed.");
+
+		$this->compatibilityCheck();
+		$this->abortIfErrors("Please resolve the errors above before continuing.");
+
+		$this->h("Database and Configuration");
+		$this->dbSaveConfig();
+		$this->abortIfErrors("Database setup failed.");
+
+		$this->h("Booting ProcessWire");
+		require('./index.php');
+		/** @var ProcessWire $wire */
+		$wire->modules->refresh();
+		$this->ok("ProcessWire booted successfully.");
+
+		$this->h("Admin Account");
+		$this->adminAccountSave($wire);
+		$this->abortIfErrors("Admin account setup failed.");
+
+		$this->writeExtraConfig();
+
+		$this->h("Complete");
+		$adminName = isset($this->cliConfig['admin_name']) ? $this->cliConfig['admin_name'] : 'processwire';
+		$this->ok("ProcessWire has been successfully installed.");
+		$this->ok("Admin URL: /$adminName/");
+
+		echo "\nOnce you have confirmed the installation is working:\n";
+		echo "  - Run `php install.php --cleanup` to delete install.php, install-config.php, and site/install/\n";
+	}
+
+	/**
+	 * Load configuration from JSON stdin or a PHP config file
+	 *
+	 * Supported keys (beyond the required dbName/dbUser/userpass):
+	 *   profile, dbHost, dbPort, dbSocket, dbCon, dbEngine, dbCharset,
+	 *   chmodDir, chmodFile, timezone, httpHosts, debugMode, themeName,
+	 *   admin_name, username, useremail, dbTablesAction, extraConfig
+	 *
+	 */
+	protected function loadConfig() {
+		$config = array();
+		$args = $this->getCliArgs();
+
+		// JSON from stdin (piped input or --json argument)
+		$stdin = null;
+		if(isset($args['json'])) {
+			$stdin = $args['json'];
+		} else if(function_exists('posix_isatty') && !posix_isatty(STDIN)) {
+			$stdin = stream_get_contents(STDIN);
+		}
+		if($stdin !== null && strlen(trim($stdin))) {
+			$decoded = json_decode(trim($stdin), true);
+			if(is_array($decoded)) {
+				$config = $decoded;
+			} else {
+				$this->abort("Invalid JSON: " . json_last_error_msg());
+			}
+		}
+
+		// PHP config file via --config argument
+		if(empty($config) && isset($args['config'])) {
+			$file = $args['config'];
+			if(!is_file($file)) $this->abort("Config file not found: $file");
+			$loaded = include($file);
+			if(!is_array($loaded)) $this->abort("Config file must return an array.");
+			$config = $loaded;
+		}
+
+		if(empty($config)) {
+			$this->abort(
+				"No configuration provided.\n\n" .
+				"Standard usage:\n" .
+				"  php install.php --generate                          Generate ./install-config.php for you to edit\n" . 
+				"  php install.php --config install-config.php         Install from settings in ./install-config.php\n\n" .
+				"Alternate usage:\n" .
+				"  echo '{\"dbName\":\"mydb\",...}' | php install.php      Install from settings in JSON string\n" .
+				"  php install.php --json '{\"dbName\":\"mydb\",...}'      Install using an inline JSON string\n\n" . 
+				"Other:\n" . 
+				"  php install.php --help                              Display all options\n\n" . 
+				"Minimum settings required to install: dbName, dbUser, username, userpass\n"
+			);
+		}
+
+		$defaults = array(
+			'profile'    => self::DEFAULT_PROFILE,
+			'dbHost'     => 'localhost',
+			'dbPort'     => 3306,
+			'dbEngine'   => 'InnoDB',
+			'dbCharset'  => 'utf8mb4',
+			'dbCon'      => 'Hostname',
+			'dbSocket'   => '',
+			'chmodDir'   => '755',
+			'chmodFile'  => '644',
+			'timezone'   => date_default_timezone_get() ?: 'America/New_York',
+			'httpHosts'  => '',
+			'debugMode'  => 1,
+			'themeName'  => 'default',
+			'admin_name' => 'processwire',
+			'username'   => 'admin',
+			'useremail'  => '',
+			'userpass'   => '',
+		);
+
+		$config = array_merge($defaults, $config);
+
+		// userpass_confirm defaults to userpass when not supplied
+		if(empty($config['userpass_confirm'])) {
+			$config['userpass_confirm'] = $config['userpass'];
+		}
+
+		// Normalize httpHosts: array => newline-delimited string
+		if(is_array($config['httpHosts'])) {
+			$config['httpHosts'] = implode("\n", $config['httpHosts']);
+		}
+
+		// Normalize timezone: string name => numeric index used by parent's dbSaveConfig()
+		if(!is_numeric($config['timezone'])) {
+			$tzName = $config['timezone'];
+			$timezones = $this->timezones();
+			$index = false;
+			foreach($timezones as $i => $t) {
+				$tzValue = strpos($t, '|') !== false ? explode('|', $t)[1] : $t;
+				if($tzValue === $tzName || $t === $tzName) { $index = $i; break; }
+			}
+			$config['timezone'] = $index !== false ? $index : array_search('America/New_York', $timezones);
+		}
+
+		$this->cliConfig = $config;
+	}
+
+	/**
+	 * Parse --key value arguments from $argv
+	 *
+	 * @return array
+	 *
+	 */
+	protected function getCliArgs() {
+		$args = array();
+		global $argv;
+		if(empty($argv)) return $args;
+		for($i = 1, $n = count($argv); $i < $n; $i++) {
+			$arg = $argv[$i];
+			if(strpos($arg, '--') !== 0) continue;
+			$name = substr($arg, 2);
+			$value = isset($argv[$i + 1]) && strpos($argv[$i + 1], '--') !== 0 ? $argv[++$i] : true;
+			$args[$name] = $value;
+		}
+		return $args;
+	}
+
+	/**
+	 * Validate that required config fields are present
+	 *
+	 */
+	protected function validateConfig() {
+		foreach(array('dbName', 'dbUser', 'userpass') as $key) {
+			if(empty($this->cliConfig[$key])) $this->abort("Missing required config value: '$key'");
+		}
+		if($this->cliConfig['dbCon'] === 'Socket' && empty($this->cliConfig['dbSocket'])) {
+			$this->abort("Config value 'dbSocket' is required when dbCon is 'Socket'.");
+		}
+	}
+
+	/**
+	 * Print usage and all supported configuration keys, then exit
+	 *
+	 */
+	protected function showHelp() {
+		echo <<<'HELP'
+
+ProcessWire CLI Installer
+
+USAGE
+  php install.php --config <file>    Install using a PHP config file
+  php install.php --json '<json>'    Install using an inline JSON string
+  echo '<json>' | php install.php    Install using piped JSON on stdin
+  php install.php --generate         Generate a starter install-config.php
+  php install.php --cleanup          Delete install.php, install-config.php, and site/install/
+  php install.php --help             Show this help
+
+INPUT FORMATS
+  --config <file>
+    Path to a PHP file that returns a configuration array. Recommended for
+    production use — the file is not served as plaintext when web-accessible.
+
+      <?php return ['dbName' => 'mydb', 'dbUser' => 'root', ...];
+
+  --json '<json>' or piped stdin
+    A JSON object containing configuration keys. Suitable for scripting.
+
+      echo '{"dbName":"mydb","dbUser":"root","userpass":"secret"}' | php install.php
+
+CONFIGURATION KEYS
+  Required
+    dbName              Database name
+    dbUser              Database username
+    userpass            Admin user password
+
+  Database (optional)
+    dbPass              Database password (default: '')
+    dbHost              Database hostname (default: 'localhost')
+    dbPort              Database port (default: 3306)
+    dbCon               'Hostname' or 'Socket' (default: 'Hostname')
+    dbSocket            Unix socket path — required when dbCon is 'Socket'
+    dbEngine            'InnoDB' or 'MyISAM' (default: 'InnoDB')
+    dbCharset           'utf8mb4' or 'utf8' (default: 'utf8mb4')
+    dbTablesAction      Action when tables already exist in the database:
+                          'remove' — drop all existing tables
+                          'ignore' — leave them in place
+                          omit — abort with an error if tables are found
+
+  File permissions (optional)
+    chmodDir            Permissions for directories ProcessWire creates (default: '755')
+    chmodFile           Permissions for files ProcessWire creates (default: '644')
+
+  Server (optional)
+    timezone            PHP timezone string (default: system timezone)
+                          e.g. 'America/New_York', 'Europe/London'
+    httpHosts           Hostname(s) allowed to serve this site.
+                          String (newline-separated) or array. (default: '')
+    debugMode           1 = debug on, 0 = off (default: 1)
+
+  Admin panel (optional)
+    admin_name          URL segment for the admin, e.g. 'processwire' (default: 'processwire')
+    username            Admin login name (default: 'admin')
+    useremail           Admin email address (default: '')
+    themeName           'default' (Konkat) or 'original' (classic) (default: 'default')
+
+  Profile (optional)
+    profile             Site profile directory name (default: 'site-blank')
+                          The installer looks for a matching site-<name> directory.
+
+  Extra config (optional)
+    extraConfig         Associative array of additional $config-> settings to append
+                        to site/config.php. Any setting from wire/config.php is valid.
+
+                          'extraConfig' => [
+                            'sessionExpireSeconds' => 86400,
+                            'adminEmail' => 'admin@example.com',
+                          ]
+
+HELP;
+	}
+
+	/**
+	 * Abort with a message and non-zero exit status
+	 *
+	 * @param string $message
+	 *
+	 */
+	protected function abort($message = '') {
+		if($message) echo "\n[FAIL] $message\n";
+		exit(1);
+	}
+
+	/**
+	 * Abort if any errors have been recorded
+	 *
+	 * @param string $message
+	 *
+	 */
+	protected function abortIfErrors($message = '') {
+		if($this->numErrors) $this->abort($message);
+	}
+
+	/**
+	 * Append optional extra $config-> settings to site/config.php
+	 *
+	 * Reads from cliConfig['extraConfig'], an associative array of setting => value pairs.
+	 *
+	 */
+	protected function writeExtraConfig() {
+		if(empty($this->cliConfig['extraConfig']) || !is_array($this->cliConfig['extraConfig'])) return;
+		$cfg = "\n/**\n * CLI Installer: Extra Configuration\n */\n";
+		foreach($this->cliConfig['extraConfig'] as $key => $value) {
+			$key = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $key);
+			if(!strlen($key)) continue;
+			if(is_bool($value)) {
+				$cfg .= "\$config->$key = " . ($value ? 'true' : 'false') . ";\n";
+			} else if(is_int($value) || is_float($value)) {
+				$cfg .= "\$config->$key = $value;\n";
+			} else if(is_array($value)) {
+				$cfg .= "\$config->$key = " . var_export($value, true) . ";\n";
+			} else {
+				$escaped = str_replace("'", "\\'", (string) $value);
+				$cfg .= "\$config->$key = '$escaped';\n";
+			}
+		}
+		if(file_put_contents('./site/config.php', $cfg, FILE_APPEND)) {
+			$this->ok("Saved extra config settings to ./site/config.php");
+		} else {
+			$this->warn("Could not write extra config settings to ./site/config.php");
+		}
+	}
+
+	/**
+	 * Remove temporary installation files that are no longer needed.
+	 * 
+	 * Called when the --cleanup argument is present.
+	 *
+	 */
+	protected function runCleanup() {
+		$this->h("Cleanup");
+		if(!is_file('./site/assets/installed.php')) {
+			$this->abort("No completed installation found. Run the installer first.");
+		}
+		$items = $this->getRemoveableItems();
+		unset($items['gitignore']); // not a security concern, leave it to the user
+		// Leave unused site-* profile directories alone — they may not belong to ProcessWire
+		foreach(array_keys($items) as $key) {
+			if(strpos($key, 'site-') === 0) unset($items[$key]);
+		}
+		// Include install-config.php if present — likely generated by --generate and contains credentials
+		if(is_file('./install-config.php')) {
+			$items['install-config'] = array(
+				'label' => 'Remove install-config.php',
+				'path'  => './install-config.php',
+				'file'  => '/install-config.php',
+			);
+		}
+		$found = false;
+		foreach($items as $item) {
+			if(!file_exists($item['path'])) continue;
+			$found = true;
+			if(!is_writable($item['path'])) {
+				$this->warn("Not writable, please remove manually: $item[file]");
+				continue;
+			}
+			$success = is_dir($item['path']) ? $this->rmdirRecursive($item['path']) : @unlink($item['path']);
+			if($success) {
+				$this->ok("Removed: $item[file]");
+			} else {
+				$this->err("Unable to remove: $item[file]");
+			}
+		}
+		if(!$found) $this->ok("Nothing to remove.");
+	}
+
+	/**
+	 * Recursively remove a directory and its contents
+	 *
+	 * @param string $path
+	 * @return bool
+	 *
+	 */
+	protected function rmdirRecursive($path) {
+		foreach(scandir($path) as $item) {
+			if($item === '.' || $item === '..') continue;
+			$full = "$path/$item";
+			$ok = is_dir($full) ? $this->rmdirRecursive($full) : @unlink($full);
+			if(!$ok) return false;
+		}
+		return rmdir($path);
+	}
+
+	/**
+	 * Generate a starter install-config.php in the current directory.
+	 * Called when the --generate argument is present.
+	 *
+	 */
+	protected function generateConfig() {
+		$file = './install-config.php';
+		if(is_file($file)) {
+			echo "[FAIL] $file already exists. Delete it first if you want to regenerate it.\n";
+			exit(1);
+		}
+		$profiles = array_keys($this->findProfiles());
+		$profileList = count($profiles) ? implode(', ', $profiles) : 'site-blank';
+		$defaultProfile = in_array('site-blank', $profiles) ? 'site-blank' : ($profiles ? $profiles[0] : 'site-blank');
+		$content = <<<PHP
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire CLI Installer Configuration
+ *
+ * Usage: php install.php --config install-config.php
+ *
+ * Required: dbName, dbUser, username, userpass
+ * For all available options run: php install.php --help
+ *
+ * Keep this file private — it contains sensitive credentials.
+ * Delete it after installation or store it outside the webroot.
+ *
+ */
+
+return [
+
+	// Site profile to install (available: $profileList)
+	'profile' => '$defaultProfile',
+
+	// Database (required)
+	'dbName' => '',
+	'dbUser' => '',
+	'dbPass' => '',
+	'dbHost' => 'localhost',
+	'dbPort' => 3306,
+
+	// Admin account (required)
+	'username' => 'admin',
+	'userpass' => '',
+	'useremail' => '',
+
+	// Admin URL: the site will be accessible at /admin_name/
+	'admin_name' => 'processwire',
+
+	// Server
+	'timezone'  => 'America/New_York',
+	'httpHosts' => array('localhost'),
+	'debugMode' => 1,
+
+	// File permissions
+	'chmodDir'  => '755',
+	'chmodFile' => '644',
+
+	// Uncomment below to tell installer how to handle existing DB tables
+	// 'dbTablesAction' => 'remove', // or 'ignore'
+
+	// Additional \$config-> settings (optional)
+	// Any setting from /wire/config.php can be added here.
+	// 'extraConfig' => array(
+	// 	'sessionExpireSeconds' => 86400,
+	// ),
+
+];
+PHP;
+		if(file_put_contents($file, $content)) {
+			echo "  [OK] Generated $file - please edit this file\n";
+			echo "  [YOU] Fill in the required values and run: php install.php --config install-config.php\n";
+		} else {
+			echo "[FAIL] Could not write $file — check directory permissions.\n";
+			exit(1);
+		}
+	}
+
+	/*******************************************************
+	 * INPUT
+	 *******************************************************/
+
+	/**
+	 * Read from cliConfig instead of $_POST, then delegate sanitization to parent
+	 *
+	 */
+	public function post($key, $sanitizer = '') {
+		if(array_key_exists($key, $this->cliConfig)) {
+			$_POST[$key] = $this->cliConfig[$key];
+		}
+		return parent::post($key, $sanitizer);
+	}
+
+	/*******************************************************
+	 * STEPS
+	 *******************************************************/
+
+	/**
+	 * Find and rename profile directory, or confirm /site/ is ready
+	 *
+	 */
+	protected function initProfile() {
+		if(is_file('./site/install/install.sql')) {
+			$this->ok("Found installation profile in /site/install/");
+			return;
+		}
+		if(is_dir('./site/')) {
+			$this->ok("Found /site/ — skipping profile rename.");
+			return;
+		}
+		$profile = $this->cliConfig['profile'];
+		$profiles = $this->findProfiles();
+		if(!isset($profiles[$profile])) {
+			$available = implode(', ', array_keys($profiles));
+			$this->abort("Profile '$profile' not found. Available: " . ($available ?: 'none'));
+		}
+		if(@rename("./$profile", './site')) {
+			$this->ok("Renamed /$profile => /site");
+		} else {
+			$this->err("Could not rename /$profile to /site — please rename it manually and try again.");
+		}
+	}
+
+	/**
+	 * Suppress the admin account form — not needed in CLI
+	 *
+	 */
+	protected function adminAccount($wire = null) { }
+
+	/**
+	 * Populate $_POST from cliConfig so parent's $wire->input->post() calls work,
+	 * and set remove_items so cleanup runs automatically
+	 *
+	 */
+	protected function adminAccountSave($wire) {
+		foreach(array('admin_name', 'username', 'userpass', 'userpass_confirm', 'useremail') as $key) {
+			if(array_key_exists($key, $this->cliConfig)) $_POST[$key] = $this->cliConfig[$key];
+		}
+		parent::adminAccountSave($wire);
+	}
+
+	/**
+	 * Suppress DB config form — not needed in CLI (called by dbSaveConfig() on error)
+	 *
+	 */
+	protected function dbConfig($values = array(), $hasNumTables = 0) { }
+
+	/*******************************************************
+	 * OUTPUT
+	 *******************************************************/
+
+	public function ok($str, $icon = 'check') {
+		echo "  [OK] " . $this->cleanStr($str) . "\n";
+		return true;
+	}
+
+	public function err($str) {
+		$this->numErrors++;
+		echo " [ERR] " . $this->cleanStr($str) . "\n";
+		return false;
+	}
+
+	/**
+	 * Warnings are printed but do not increment numErrors in CLI —
+	 * they are informational and should not abort an automated installation.
+	 *
+	 */
+	public function warn($str) {
+		echo "[WARN] " . $this->cleanStr($str) . "\n";
+		return false;
+	}
+
+	protected function alert($str, $type = 'primary', $icon = 'check') {
+		if($type === 'danger') $this->err($str);
+		else if($type === 'warning') $this->warn($str);
+		else $this->ok($str);
+	}
+
+	protected function alertOk($str, $icon = 'check') { $this->ok($str); }
+	protected function alertWarn($str) { $this->warn($str); }
+	protected function alertErr($str) { $this->err($str); }
+
+	public function h($label, $icon = '') {
+		echo "\n--- " . $this->cleanStr($this->iconize($label)) . " ---\n";
+	}
+
+	public function p($text, $class = '') { }
+
+	public function sectionStart($headline = '', $type = 'muted') {
+		if($headline) $this->h($headline);
+		$this->inSection = true;
+	}
+
+	public function sectionStop() {
+		$this->inSection = false;
+	}
+
+	public function btn($label, array $options = array()) { }
+	public function btnContinue(array $options = array()) { }
+	public function input($name, $label, $value, array $options = array()) { }
+	public function select($name, $label, $value, array $options, $width = 150) { }
+	protected function selectTimezone($value) { }
+	public function textarea($name, $label, $value, $rows = 0) { }
+	public function clear() { }
+
+	public function icon($name, $fw = true) {
+		return '';
+	}
+
+	protected function iconize($label, $icon = '') {
+		if(empty($icon) && (strpos($label, 'fa-') === 0 || strpos($label, 'icon-') === 0)) {
+			list(, $label) = explode(' ', $label, 2);
+		}
+		return $label;
+	}
+
+	/**
+	 * Strip HTML and decode entities for clean CLI output.
+	 * 
+	 * Converts <a href="url">text</a> to "text <url>" before stripping tags.
+	 *
+	 */
+	protected function cleanStr($str) {
+		$str = preg_replace('/<a\b[^>]*\bhref=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/is', '$2 ($1)', (string) $str);
+		return trim(html_entity_decode(strip_tags($str), ENT_QUOTES, 'UTF-8'));
+	}
+
+}
+
+/****************************************************************************************************/
+
+if(!Installer::TEST_MODE && is_file("./site/assets/installed.php")) {
+	die("This installer has already run. Please delete it.");
+}
+error_reporting(E_ALL);
+if(php_sapi_name() === 'cli') {
+	$installer = new InstallerCli();
+} else {
+	$installer = new Installer();
+}
 $installer->execute();

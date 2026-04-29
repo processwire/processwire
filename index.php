@@ -36,7 +36,9 @@ $config = ProcessWire::buildConfig($rootPath);
 
 if(!$config->dbName) {
 	// If ProcessWire is not installed, go to the installer
-	if(is_file("./install.php") && strtolower($_SERVER['REQUEST_URI']) == strtolower($config->urls->root)) {
+	if(php_sapi_name() === 'cli') {
+		die("To install ProcessWire from the command line use: php install.php\n"); 
+	} else if(is_file("./install.php") && strtolower($_SERVER['REQUEST_URI']) == strtolower($config->urls->root)) {
 		require("./install.php");
 		exit(0);
 	} else {
