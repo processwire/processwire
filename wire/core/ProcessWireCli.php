@@ -55,7 +55,23 @@ class ProcessWireCli extends Wire {
 		$this->commandName = $argv[1] ?? 'help';
 		$this->commandName = $this->wire()->sanitizer->name($this->commandName);
 		$this->args = array_values(array_slice($argv, 2));
-		$this->ready($this->commandName, $this->args);
+		if($this->allowCliModules()) $this->ready($this->commandName, $this->args);
+	}
+	
+	/**
+	 * Allow CLI modules to run during this request?
+	 * 
+	 * CliModule instances may run if ProcessWire was booted from its root index.php
+	 * file rather than being included from another script. 
+	 * 
+	 * @return bool
+	 * 
+	 */
+	public function allowCliModules() {
+		if(!isset($_SERVER['SCRIPT_FILENAME'])) return true;
+		$file1 = realpath($_SERVER['SCRIPT_FILENAME']);
+		$file2 = realpath($this->wire()->config->paths->root . 'index.php');
+		return $file1 === $file2;
 	}
 	
 	/**
