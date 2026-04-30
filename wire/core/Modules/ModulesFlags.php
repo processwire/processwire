@@ -3,7 +3,7 @@
 /**
  * ProcessWire Modules: Flags
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -75,7 +75,7 @@ class ModulesFlags extends ModulesClass {
 	 */
 	public function hasFlag($id, $flag) {
 		$flags = $this->getFlags($id);
-		return $flags === false ? false : ($flags & $flag);
+		return $flags === false ? false : (bool) ($flags & $flag);
 	}
 
 	/**
@@ -84,7 +84,7 @@ class ModulesFlags extends ModulesClass {
 	 * #pw-internal
 	 *
 	 * @param string|int $id Module id or class
-	 * @param $flags
+	 * @param int $flags
 	 * @return bool
 	 *
 	 */
@@ -92,7 +92,7 @@ class ModulesFlags extends ModulesClass {
 		$flags = (int) $flags;
 		$id = ctype_digit("$id") ? (int) $id : $this->modules->getModuleID($id);
 		if(!$id) return false;
-		if($this->moduleFlags[$id] === $flags) return true;
+		if(isset($this->modulesFlags[$id]) && $this->moduleFlags[$id] === $flags) return true;
 		$query = $this->wire()->database->prepare('UPDATE modules SET flags=:flags WHERE id=:id');
 		$query->bindValue(':flags', $flags);
 		$query->bindValue(':id', $id);
@@ -106,9 +106,9 @@ class ModulesFlags extends ModulesClass {
 	 *
 	 * #pw-internal
 	 *
-	 * @param $id int|string|Module $class Module to add flag to
-	 * @param $flag int Flag to add (see flags* constants)
-	 * @param $add bool $add Specify true to add the flag or false to remove it
+	 * @param int|string|Module $id Module to add flag to
+	 * @param int $flag Flag to add (see flags* constants)
+	 * @param bool $add Specify true to add the flag or false to remove it
 	 * @return bool True on success, false on fail
 	 *
 	 */
@@ -202,6 +202,12 @@ class ModulesFlags extends ModulesClass {
 		}
 	}
 	
+	/**
+	 * Get array of debug data indexed by property
+	 *
+	 * @return array
+	 *
+	 */
 	public function getDebugData() {
 		return array(
 			'moduleFlags' => $this->moduleFlags

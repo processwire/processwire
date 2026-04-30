@@ -3,12 +3,11 @@
 /**
  * ProcessWire shutdown handler
  *
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
- *  
- * Look for errors at shutdown and log them, plus echo the error if the page is editable
+ * Look for errors at shutdown and log them, plus output the error if the page is editable
  *
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
- * 
+ *
  * @method void fatalError(array $error)
  *
  */

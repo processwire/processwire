@@ -3,7 +3,7 @@
 /**
  * ProcessWire Modules: Loader
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */ 
@@ -312,7 +312,7 @@ class ModulesLoader extends ModulesClass {
 		$this->autoloadOrders = array();
 		$database = $this->wire()->database;
 
-		// skip loading dymanic caches at this stage
+		// skip loading dynamic caches at this stage
 		$skipCaches = array(
 			ModulesInfo::moduleInfoCacheUninstalledName,
 			ModulesInfo::moduleInfoCacheVerboseName
@@ -447,7 +447,7 @@ class ModulesLoader extends ModulesClass {
 						}
 					}
 					if(!$loadNow) continue;
-					// all conditions satisified to load delayed module
+					// all conditions satisfied to load delayed module
 					unset($modulesDelayed[$delayedName], $modulesRequired[$moduleName][$delayedName]);
 					$unused = array();
 					$loadedName = $this->loadModule($path, $delayedPathName, $unused, $installed);
@@ -685,7 +685,7 @@ class ModulesLoader extends ModulesClass {
 					$filePrev = $file;
 					$file = $this->modules->getModuleFile($moduleName, array('fast' => false));
 					if($file && $file !== $filePrev) {
-						if($this->modules->files->includeModuleFile($file, $moduleName)) {
+						if(!$this->modules->files->includeModuleFile($file, $moduleName)) {
 							// module is missing a module file
 							return false;
 						}
@@ -755,7 +755,7 @@ class ModulesLoader extends ModulesClass {
 			$moduleName = $module->className(false);
 		} else {
 			$module = null;
-			$className = $this->modules->getModuleClass($moduleName, true); // ???
+			$className = $this->modules->getModuleClass($moduleName, true);
 			$moduleName = wireClassName($moduleName, false);
 		}
 
@@ -846,7 +846,7 @@ class ModulesLoader extends ModulesClass {
 	 */
 	public function createdDate($moduleID = null, $setValue = null) {
 		if($moduleID === null) return $this->createdDates;
-		if($setValue) {
+		if(!empty($setValue)) {
 			$this->createdDates[$moduleID] = $setValue;
 			return $setValue;
 		}
@@ -888,13 +888,19 @@ class ModulesLoader extends ModulesClass {
 	/**
 	 * Get the autoload orders
 	 * 
-	 * @return array Array of [ moduleName (string => order (int) ]
+	 * @return array Array of `[ moduleName (string) => order (int) ]`
 	 * 
 	 */
 	public function getAutoloadOrders() {
 		return $this->autoloadOrders;
 	}
-
+	
+	/**
+	 * Get array of debug data indexed by property
+	 *
+	 * @return array
+	 *
+	 */
 	public function getDebugData() {
 		return array(
 			'autoloadOrders' => $this->autoloadOrders,

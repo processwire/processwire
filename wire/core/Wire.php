@@ -1884,7 +1884,6 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function __debugInfo() {
 		/** @var WireDebugInfo $debugInfo */
-		require_once(__DIR__ . '/WireDebugInfo.php');
 		$debugInfo = $this->wire(new WireDebugInfo());
 		return $debugInfo->getDebugInfo($this, false);
 	}

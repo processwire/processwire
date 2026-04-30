@@ -5,7 +5,7 @@
  * 
  * Base for Modules helper classes. 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -84,7 +84,13 @@ abstract class ModulesClass extends Wire {
 	public function error($text, $flags = 0) {
 		return $this->modules->error($text, $flags);
 	}
-
+	
+	/**
+	 * Get array of debug data indexed by property
+	 *
+	 * @return array
+	 *
+	 */
 	public function getDebugData() {
 		return array();
 	}

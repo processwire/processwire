@@ -3,7 +3,7 @@
 /**
  * ProcessWire Modules: Configs
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -34,7 +34,7 @@ class ModulesConfigs extends ModulesClass {
 	 */
 	public function configData($moduleID, $setData = null) {
 		$moduleID = (int) $moduleID;
-		if($setData) {
+		if($setData !== null) {
 			$this->configData[$moduleID] = $setData;
 			return array();
 		} else if(isset($this->configData[$moduleID])) {
@@ -79,7 +79,7 @@ class ModulesConfigs extends ModulesClass {
 	 * $modules->saveConfig('HelloWorld', $data);
 	 *
 	 * // Getting just one property 'apiKey' from module config data
-	 * @apiKey = $modules->getConfig('HelloWorld', 'apiKey');
+	 * $apiKey = $modules->getConfig('HelloWorld', 'apiKey');
 	 * ~~~~~~
 	 *
 	 * #pw-group-configuration
@@ -148,7 +148,7 @@ class ModulesConfigs extends ModulesClass {
 	 *   // configurable in a way compatible with all past versions of ProcessWire
 	 * } else if(is_string($configurable)) {
 	 *   // configurable via an external configuration file
-	 *   // file is identifed in $configurable variable
+	 *   // file is identified in $configurable variable
 	 * } else if(is_int($configurable)) {
 	 *   // configurable via a method in the class
 	 *   // the $configurable variable contains a number with specifics
@@ -177,7 +177,7 @@ class ModulesConfigs extends ModulesClass {
 	 *
 	 * - Returns boolean `false` if not configurable
 	 *
-	 * *This method is named isConfigurableModule() in ProcessWire versions prior to to 3.0.16.*
+	 * *This method is named isConfigurableModule() in ProcessWire versions prior to 3.0.16.*
 	 *
 	 * #pw-group-configuration
 	 *
@@ -345,10 +345,12 @@ class ModulesConfigs extends ModulesClass {
 				$parameters = $ref->getParameters();
 				if(count($parameters)) {
 					$param0 = reset($parameters);
-					if(strpos($param0, 'array') !== false || strpos($param0, '$data') !== false) {
+					$paramType = $param0->getType() ? $param0->getType()->getName() : '';
+					$paramName = $param0->getName();
+					if($paramType === 'array' || $paramName === 'data') {
 						// method requires a $data array (for compatibility with non-static version)
 						$result = 3;
-					} else if(strpos($param0, 'InputfieldWrapper') !== false || strpos($param0, 'inputfields') !== false) {
+					} else if(strpos($paramType, 'InputfieldWrapper') !== false || $paramName === 'inputfields') {
 						// method requires an empty InputfieldWrapper (as a convenience)
 						$result = 4;
 					}
@@ -711,7 +713,13 @@ class ModulesConfigs extends ModulesClass {
 
 		return $form;
 	}
-
+	
+	/**
+	 * Get array of debug data indexed by property
+	 *
+	 * @return array
+	 *
+	 */
 	public function getDebugData() {
 		return array(
 			'configData' => $this->configData

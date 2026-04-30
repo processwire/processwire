@@ -6,7 +6,7 @@
  * This file is designed for inclusion by /site/templates/admin.php template and all the variables 
  * it references are from your template namespace. 
  *
- * Copyright 2024 by Ryan Cramer
+ * Copyright 2026 by Ryan Cramer
  * 
  * @var Config $config
  * @var User $user

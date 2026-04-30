@@ -99,7 +99,7 @@ $about = $pages->findOne('/about/');
 $page  = $pages->findOne(1234);
 ```
 
-See `wire/core/Selectors.php` and `wire/core/PageFinder.php` for selector internals.
+See `wire/core/Selectors/Selectors.php` and `wire/core/PageFinder/PageFinder.php` for selector internals.
 
 Note that `$pages->find()` and `$pages->findOne()` excludes hidden, unpublished,
 and pages that user lacks access to. This can be overridden by providing 
@@ -200,7 +200,7 @@ $wire->addHookBefore('Pages::delete', function(HookEvent $event) {
 - Hookable methods are prefixed with `___` in the source (e.g. `___save()` is hookable as `save`).
 - In order to support hooks, a class must extend the `Wire` class or one of its descending classes. 
 - Hookable methods are documented in the phpdoc header of each PHP class file with `@method` tags. 
-  For example, see the phpdoc header of wire/core/Pages.php
+  For example, see the phpdoc header of wire/core/Pages/Pages.php
 
 ---
 

@@ -3,7 +3,7 @@
 /**
  * ProcessWire Modules: Files
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -400,7 +400,7 @@ class ModulesFiles extends ModulesClass {
 		if(!$allowCompile) return $file;
 
 		// if namespace not provided, get it
-		if(is_null($namespace)) {
+		if($namespace === null) {
 			if(is_object($moduleName)) {
 				$className = $moduleName->className(true);
 				$namespace = wireClassName($className, 1);
@@ -538,7 +538,7 @@ class ModulesFiles extends ModulesClass {
 			if($fileURL) {
 				if(!$moduleVersion) {
 					$info = $this->modules->info->getModuleInfo($module, array('verbose' => false));
-					$moduleVersion = (int) isset($info['version']) ? $info['version'] : 0;
+					$moduleVersion = (int) (isset($info['version']) ? $info['version'] : 0);
 				}
 				if($config->useVersionUrls === null) $fileURL .= "?v=$moduleVersion-$fileVersion";
 				$config->$type->add($fileURL);
@@ -653,7 +653,7 @@ class ModulesFiles extends ModulesClass {
 
 		if(!is_file($file)) return $value;
 		$data = file_get_contents($file);
-		if(!strpos($data, 'class')) return $value;
+		if(strpos($data, 'class') === false) return $value;
 		if(!preg_match('/^\s*class\s+(.+)$/m', $data, $matches)) return $value;
 
 		if(strpos($matches[1], "\t") !== false) $matches[1] = str_replace("\t", " ", $matches[1]);
@@ -678,9 +678,9 @@ class ModulesFiles extends ModulesClass {
 
 		while(count($parts)) {
 			$next = array_shift($parts);
-			if($next == 'extends') {
+			if($next === 'extends') {
 				$value['extends'] = array_shift($parts);
-			} else if($next == 'implements') {
+			} else if($next === 'implements') {
 				$implements = array_shift($parts);
 				if(strlen($implements)) {
 					$implements = str_replace(' ', '', $implements);
@@ -691,7 +691,13 @@ class ModulesFiles extends ModulesClass {
 
 		return $value;
 	}
-
+	
+	/**
+	 * Get array of debug data indexed by property
+	 *
+	 * @return array
+	 *
+	 */
 	public function getDebugData() {
 		return array(
 			'moduleFileExts' => $this->moduleFileExts

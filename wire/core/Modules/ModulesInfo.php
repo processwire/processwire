@@ -3,7 +3,7 @@
 /**
  * ProcessWire Modules: Info
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read array $moduleInfoCache
@@ -475,7 +475,6 @@ class ModulesInfo extends ModulesClass {
 	 *  - On error, an `error` index is also populated with an error message.
 	 *  - When requesting a module that does not exist its `id` value will be `0` and its `name` will be blank.
 	 * @see self::getModuleInfoVerbose()
-	 * @todo move all getModuleInfo methods to their own ModuleInfo class and break this method down further.
 	 *
 	 */
 	public function getModuleInfo($class, array $options = array()) {
@@ -711,6 +710,13 @@ class ModulesInfo extends ModulesClass {
 				}
 			}
 		}
+		
+		if(!$options['verbose']) {
+			// remove verbose keys when/if present
+			foreach($this->moduleInfoVerboseKeys as $key) {
+				unset($info[$key]); 
+			}
+		}
 
 		return $info;
 	}
@@ -798,7 +804,7 @@ class ModulesInfo extends ModulesClass {
 				case 'namespace':
 					return $this->getModuleNamespace($class);
 				case 'requires':
-					$v = $this->moduleInfoCache($class, 'requiresVersions'); // must be 'requiredVersions' here
+					$v = $this->moduleInfoCache($class, 'requiresVersions'); // must be 'requiresVersions' here
 					if(empty($v)) return array(); // early exit when known not to exist
 					break; // fallback to calling getModuleInfo
 			}
@@ -837,7 +843,7 @@ class ModulesInfo extends ModulesClass {
 		$operators = array('<=', '>=', '<', '>', '!=', '=');
 		$operator = '';
 		foreach($operators as $o) {
-			if(strpos($require, $o)) {
+			if(strpos($require, $o) !== false) {
 				$operator = $o;
 				break;
 			}
@@ -901,7 +907,7 @@ class ModulesInfo extends ModulesClass {
 
 		$data = $this->modules->getCache($name);
 
-		if($data) {
+		if($data !== null && $data !== false) {
 			if(is_array($data)) {
 				if($uninstalled) {
 					$this->moduleInfoCacheUninstalled = $data;
@@ -1402,6 +1408,12 @@ class ModulesInfo extends ModulesClass {
 		return parent::__get($name);
 	}
 	
+	/**
+	 * Get array of debug data indexed by property
+	 *
+	 * @return array
+	 *
+	 */
 	public function getDebugData() {
 		return array(
 			'moduleInfoCache' => $this->moduleInfoCache,

@@ -1,6 +1,9 @@
 <?php namespace ProcessWire;
 
-require_once(__DIR__ . '/boot.php');
+if(!defined("PROCESSWIRE")) define("PROCESSWIRE", 300);
+if(!defined("PROCESSWIRE_CORE_PATH")) define("PROCESSWIRE_CORE_PATH", __DIR__ . '/');
+
+require_once(__DIR__ . '/WireClassLoader/boot.php');
 
 /**
  * ProcessWire API Bootstrap
@@ -304,7 +307,7 @@ class ProcessWire extends Wire {
 		/** @var WireClassLoader $classLoader */
 		$classLoader = $this->wire('classLoader', new WireClassLoader($this), true);
 		$classLoader->addNamespace((strlen(__NAMESPACE__) ? __NAMESPACE__ : "\\"), PROCESSWIRE_CORE_PATH);
-		// $classLoader->addClassMap(include(__DIR__ . '/classes.php'), __DIR__ . '/'); 
+		$classLoader->addClassMap(include(__DIR__ . '/WireClassLoader/classes.php'), __DIR__ . '/'); 
 
 		if($config->usePageClasses) {
 			$classLoader->addSuffix('Page', $config->paths->classes);
@@ -406,7 +409,7 @@ class ProcessWire extends Wire {
 		}
 		
 		if($config->useFunctionsAPI && !function_exists("\\ProcessWire\\pages")) {
-			$file = $config->paths->core . 'FunctionsAPI.php';
+			$file = $config->paths->core . 'Functions/FunctionsAPI.php';
 			/** @noinspection PhpIncludeInspection */
 			include_once($file);
 		}

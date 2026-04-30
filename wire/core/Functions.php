@@ -5,7 +5,7 @@
  *
  * Common API functions useful outside of class scope
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary-arrays These shortcuts for creating WireArray types are available in ProcessWire 3.0.123 and newer. 

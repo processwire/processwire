@@ -3,7 +3,7 @@
 /**
  * ProcessWire Modules: Installer
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -172,7 +172,7 @@ class ModulesInstaller extends ModulesClass {
 			} catch(\Exception $e) {
 				// remove the module from the modules table if the install failed
 				$moduleID = (int) $moduleID;
-				$error = $this->_('Unable to install module') .  " ($class): " . $e->getMessage();
+				$error = $this->_('Unable to install module') . " ($class): " . $e->getMessage();
 				$ee = null;
 				try {
 					$query = $database->prepare('DELETE FROM modules WHERE id=:id LIMIT 1'); // QA
@@ -274,7 +274,7 @@ class ModulesInstaller extends ModulesClass {
 			if(!$reason && in_array('Fieldtype', wireClassParents($namespace . $class))) {
 				foreach($this->wire()->fields as $field) {
 					$fieldtype = wireClassName($field->type, false);
-					if($fieldtype == $class) {
+					if($fieldtype === $class) {
 						$reason = $this->_("This module is a Fieldtype currently in use by one or more fields");
 						break;
 					}
@@ -497,7 +497,7 @@ class ModulesInstaller extends ModulesClass {
 		// remove all hooks attached to this module
 		$hooks = $module instanceof Wire ? $module->getHooks() : array();
 		foreach($hooks as $hook) {
-			if($hook['method'] == 'uninstall') continue;
+			if($hook['method'] === 'uninstall') continue;
 			$this->message("Removed hook $class => " . $hook['options']['fromClass'] . " $hook[method]", Notice::debug);
 			$module->removeHook($hook['id']);
 		}
@@ -509,7 +509,7 @@ class ModulesInstaller extends ModulesClass {
 			$toObject = $hook['toObject'];
 			$toClass = wireClassName($toObject, false);
 			$toMethod = $hook['toMethod'];
-			if($class === $toClass && $toMethod != 'uninstall') {
+			if($class === $toClass && $toMethod !== 'uninstall') {
 				$toObject->removeHook($hook['id']);
 				$this->message("Removed hook $class => " . $hook['options']['fromClass'] . " $hook[method]", Notice::debug);
 			}
@@ -526,10 +526,8 @@ class ModulesInstaller extends ModulesClass {
 		$query->execute();
 
 		// add back to the installable list
-		if(class_exists("ReflectionClass")) {
-			$reflector = new \ReflectionClass($this->modules->getModuleClass($module, true));
-			$this->modules->installableFile($class, $reflector->getFileName());
-		}
+		$reflector = new \ReflectionClass($this->modules->getModuleClass($module, true));
+		$this->modules->installableFile($class, $reflector->getFileName());
 
 		$this->modules->moduleID($class, false);
 		$this->modules->remove($module);
@@ -605,7 +603,7 @@ class ModulesInstaller extends ModulesClass {
 	 * @param string $class
 	 * @param bool $uninstalled Set to true to include modules dependent upon this one, even if they aren't installed.
 	 * @param bool $installs Set to true to exclude modules that indicate their install/uninstall is controlled by $class.
-	 * @return array()
+	 * @return array
 	 *
 	 */
 	public function getRequiredBy($class, $uninstalled = false, $installs = false) {
@@ -763,7 +761,7 @@ class ModulesInstaller extends ModulesClass {
 	 * #pw-internal
 	 *
 	 * @param string $class
-	 * @return array()
+	 * @return array
 	 *
 	 */
 	public function getRequiresForInstall($class) {
@@ -779,7 +777,7 @@ class ModulesInstaller extends ModulesClass {
 	 * #pw-internal
 	 *
 	 * @param string $class
-	 * @return array()
+	 * @return array
 	 *
 	 */
 	public function getRequiresForUninstall($class) {
