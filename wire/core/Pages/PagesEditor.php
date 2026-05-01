@@ -1408,6 +1408,7 @@ class PagesEditor extends Wire {
 
 		// clone in memory
 		$copy = clone $page;
+		$copy->set('sortPrevious', null);
 		$copy->setIsNew(true);
 		$copy->of(false);
 		$copy->setQuietly('_cloning', $page);
