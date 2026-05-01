@@ -30,7 +30,7 @@
  * @property int $id The numbered ID of the current page #pw-group-system #pw-group-common
  * @property string $name The name assigned to the page, as it appears in the URL #pw-group-system #pw-group-common
  * @property string|null $namePrevious Previous name, if changed. Null or blank string if not. #pw-group-previous
- * @property string $title The page’s title (headline) text
+ * @property string|null $title The page’s title (headline) text. This is a custom field but is present for most pages (null when not). #pw-group-common
  * @property string $path The page’s URL path from the homepage (i.e. /about/staff/ryan/) 
  * @property string $url The page’s URL path from the server's document root
  * @property array $urls All URLs the page is accessible from, whether current, former and multi-language. #pw-group-urls
@@ -3331,6 +3331,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function hasStatus($status) {
+		if($status === 'published') return $this->isPublished();
 		if(is_string($status) && isset(PageProperties::$statuses[$status])) {
 			$status = PageProperties::$statuses[$status];
 		}
@@ -3359,6 +3360,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function addStatus($statusFlag) {
+		if($statusFlag === 'published') return $this->removeStatus(Page::statusUnpublished); 
 		if(is_string($statusFlag) && isset(PageProperties::$statuses[$statusFlag])) {
 			$statusFlag = PageProperties::$statuses[$statusFlag];
 		}
@@ -3389,6 +3391,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function removeStatus($statusFlag) {
+		if($statusFlag === 'published') return $this->addStatus(Page::statusUnpublished);
 		return $this->values()->removeStatus($this, $statusFlag);
 	}
 	
@@ -3445,6 +3448,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function is($status) {
+		if($status === 'published') return $this->isPublished();
 		if(is_string($status) && isset(PageProperties::$statuses[$status])) {
 			$status = PageProperties::$statuses[$status];
 		}
@@ -3473,6 +3477,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function isUnpublished() {
 		return $this->hasStatus(self::statusUnpublished);
+	}
+	
+	/**
+	 * Is this page published? (i.e. does not have 'unpublished' status)
+	 * 
+	 * This method will also return false if the page does not yet have an id. 
+	 * 
+	 * #pw-group-status
+	 * 
+	 * @return bool
+	 * @since 3.0.260
+	 * 
+	 */
+	public function isPublished() {
+		return $this->id > 0 && $this->status < self::statusUnpublished;
 	}
 	
 	/**
@@ -3591,7 +3610,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-manipulation
 	 * #pw-group-status
 	 * 
-	 * @param bool|int $value Optionally specify one of the following:
+	 * @param bool|int|string|array $value Optionally specify one of the following:
 	 *  - `true` (boolean): To return an array of status names (indexed by status number).
 	 *  - `integer|string|array`: Status number(s) or status name(s) to set the current page status (same as $page->status = $value)
 	 * @param int|null $status If you specified `true` for first argument, optionally specify status value you want to use (if not the current).

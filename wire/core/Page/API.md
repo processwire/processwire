@@ -1,13 +1,11 @@
-# Page
+# Page / $page
 
 Many types of content in ProcessWire are represented by the `Page` class and descending classes. 
 Pages live in a tree hierarchy and carry typed field values defined by their template. 
 The `$page` API variable refers to the current requested page. And the `$pages` 
 API variable provides methods for retrieving pages from the tree.
 
-Helper classes loaded by `Page` (in `wire/core/Page/`): `PageTraversal`, `PageValues`,
-`PageAccess`, `PageComparison`, `PageProperties`. Custom user-defined page classes live in 
-`site/classes/`. 
+Custom user-defined page classes that extend the `Page` class live in `/site/classes/`.
 
 ---
 
@@ -15,35 +13,39 @@ Helper classes loaded by `Page` (in `wire/core/Page/`): `PageTraversal`, `PageVa
 
 These properties are available on every page regardless of template:
 
-| Property       | Type      | Description                                                |
-|----------------|-----------|------------------------------------------------------------|
-| `id`           | int       | Database ID (0 for unsaved pages, 0 for NullPage)          |
-| `name`         | string    | URL segment name — unique among siblings                   |
-| `title`        | string    | Human-readable title (custom field, almost always present) |
-| `status`       | int       | Bitmask of status flags (see status constants below)       |
-| `statusStr`    | string    | Space-separated string of status names active on page.     |
-| `template`     | Template  | The page's template object                                 |
-| `parent`       | Page      | Immediate parent page                                      |
-| `parents`      | PageArray | All ancestor pages, root first                             |
-| `rootParent`   | Page      | Top-level parent (child of homepage)                       |
-| `children`     | PageArray | Immediate children (published, visible, with access)       |
-| `path`         | string    | URL path from root, e.g. `/about/team/`                    |
-| `url`          | string    | Full URL (same as path if no subdirectory install)         |
-| `httpUrl`      | string    | Absolute URL including scheme and hostname                 |
-| `editUrl`      | string    | Admin edit URL for this page                               |
-| `created`      | int       | Unix timestamp of creation                                 |
-| `createdStr`   | string    | Created date/time as ISO-8601 string                       |
-| `modified`     | int       | Unix timestamp of last modification                        |
-| `modifiedStr`  | string    | Last modified date/time as ISO-8601 string                 |
-| `published`    | int       | Unix timestamp of publication                              |
-| `publishedStr` | string    | Publication date/time as ISO-8601 string                   |
-| `createdUser`  | User      | User who created the page                                  |
-| `modifiedUser` | User      | User who last modified the page                            |
-| `numChildren`  | int       | Number of direct children                                  |
-| `sort`         | int       | Sort order relative to siblings                            |
-| `sortfield`    | string    | Field used to sort children                                |
+| Property       | Type             | Description                                                                        |
+|----------------|------------------|------------------------------------------------------------------------------------|
+| `id`           | int              | Database ID (0 for unsaved pages, 0 for NullPage)                                  |
+| `name`         | string           | URL segment name — unique among siblings                                           |
+| `title`        | string           | Human-readable title (custom field but almost always present)                      |
+| `status`       | int              | Bitmask of status flags (see status constants below)                               |
+| `statusStr`    | string           | Space-separated string of status names active on page.                             |
+| `template`     | Template         | The page's template object                                                         |
+| `parent`       | Page             | Immediate parent page                                                              |
+| `parents`      | PageArray        | All ancestor pages, root first                                                     |
+| `rootParent`   | Page             | Top-level parent (child of homepage)                                               |
+| `children`     | PageArray        | Immediate children (published, visible, with access)                               |
+| `path`         | string           | URL path from root, e.g. `/about/team/`                                            |
+| `url`          | string           | Full URL (same as path if no subdirectory install)                                 |
+| `httpUrl`      | string           | Absolute URL including scheme and hostname                                         |
+| `editUrl`      | string           | Admin edit URL for this page                                                       |
+| `created`      | int              | Unix timestamp of creation                                                         |
+| `createdStr`   | string           | Created date/time as ISO-8601 string                                               |
+| `modified`     | int              | Unix timestamp of last modification                                                |
+| `modifiedStr`  | string           | Last modified date/time as ISO-8601 string                                         |
+| `published`    | int              | Unix timestamp of publication                                                      |
+| `publishedStr` | string           | Publication date/time as ISO-8601 string                                           |
+| `createdUser`  | User             | User who created the page                                                          |
+| `modifiedUser` | User             | User who last modified the page                                                    |
+| `numChildren`  | int              | Number of direct children (no exclusions)                                          |
+| `hasChildren`  | int              | Number of direct visible children. Excludes unpublished, no-access, hidden, etc.   |
+| `sort`         | int              | Sort order relative to siblings when sortfield is 'sort'                           |
+| `sortfield`    | string           | Property or field that children sorted by (or 'sort' for manual)                   |
+| `filesManager` | PagefilesManager | Manages files and file directories for a page independent of a particular field.   |
 
-For a full list of page properties, see the phpdoc header of the `Page` class.
+
+For a full list of page properties, see the phpdoc header of the `Page` class or the
+[Page API reference](https://processwire.com/api/ref/page/#api-reference).
 
 ---
 
@@ -307,13 +309,13 @@ echo $page->if('featured=1', '<b>Yes</b>', '<b>No</b>');
 The following may be accessed as methods or properties. 
 
 ```php
-$page->url();                 // URL path (e.g. /about/team/)
-$page->path();                // same as url in most installs
-$page->httpUrl();             // with scheme+host (e.g. https://example.com/about/team/)
-$page->editUrl();             // admin edit URL
+$page->url();     // URL path (e.g. /about/team/)
+$page->path();    // like url() but without installation subdir (if applicable)
+$page->httpUrl(); // with scheme+host (e.g. https://example.com/about/team/)
+$page->editUrl(); // admin edit URL
 
 // Get all URL variants (useful for language or multi-domain setups)
-$urls = $page->urls();        // returns object with url, httpUrl, edit, etc.
+$urls = $page->urls();  // returns object with url, httpUrl, edit, etc.
 
 // urlOptions used internally by traversal methods
 ```
@@ -330,8 +332,7 @@ if($page->hasField('body')) { ... }
 $field = $page->getField('body');
 
 // Get all Field objects for this page's template
-$fields = $page->getFields();
-foreach($fields as $field) { echo $field->name; }
+foreach($page->getFields() as $field) { echo $field->name; }
 ```
 
 ---
@@ -447,6 +448,9 @@ if($page instanceof NullPage) {
     // not found — $page is a NullPage
 }
 
+// Case where $page can be `null` or `NullPage`
+if("$page") { ... } // page is not null and has id=0 (NullPage)
+
 // Do NOT do:
 if($page) { ... }      // Page object is always truthy — even NullPage
 ```
@@ -482,12 +486,12 @@ another class that extends `Page`. For example:
 class ProductPage extends Page {
     // example of custom function
     public function inStock() {
-      return $this->qty_available > 0; 
+        return $this->qty_available > 0; 
     }
 }
 ```
-Once implemented, all pages using the template named `product` will be 
-instantiated as `ProductPage` instances rather than `Page` instances. 
+When the above is implemented, all pages using the template named `product` will 
+be instantiated as `ProductPage` instances rather than `Page` instances. 
 
 We recommend documenting the fields used by the template in the custom page
 class phpdoc header, as shown in the example above. 
@@ -533,32 +537,44 @@ or `$wire->addHookAfter('Page::methodName', …)`. Hook the class to intercept a
 hook a specific instance to intercept just one page. You can also hook a custom page class to 
 capture only instances of that page type, i.e. `$wire->addHookAfter('ProductPage::added', …)`. 
 
-| Method | Description |
-|---|---|
-| `getUnknown($key)` | Called when getting an unrecognized property; hook after and set `$event->return` to inject custom property values |
-| `path()` | Returns the page's URL path; hook after to rewrite or modify the path |
-| `loaded()` | Called after the page is fully loaded from the database |
-| `editReady(InputfieldWrapper $form)` | Called when page is loaded into the admin page editor; hook to modify the editing form |
+| Method | Description                                                                                                                             |
+|---|-----------------------------------------------------------------------------------------------------------------------------------------|
+| `getUnknown($key)` | Called when getting an unrecognized property; hook after and set `$event->return` to inject custom property values                      |
+| `path()` | Returns the page's URL path; hook after to rewrite or modify the path and url (since url uses path).                                    |
+| `loaded()` | Called after the page is fully loaded from the database                                                                                 |
+| `editReady(InputfieldWrapper $form)` | Called when page is loaded into the admin page editor; hook to modify the editing form                                                  |
 | `saveReady(array $changes, $name)` | Called right before the page is saved; `$name` is a field name string when saving a single field, or `false` when saving the whole page |
-| `saved(array $changes, $name)` | Called right after the page is saved; same `$name` convention as `saveReady` |
-| `addReady()` | Called when a new page is about to be saved to the database for the first time |
-| `added()` | Called after a new page has been saved to the database for the first time |
-| `moveReady(Page $oldParent, Page $newParent)` | Called when the page is about to be moved to a different parent |
-| `moved(Page $oldParent, Page $newParent)` | Called after the page has been moved to a different parent |
-| `deleteReady()` | Called right before the page is permanently deleted |
-| `deleted()` | Called after the page has been permanently deleted |
-| `cloneReady(Page $copy)` | Called right before the page is cloned; `$copy` is the new page being created |
-| `cloned(Page $copy)` | Called right after the page has been cloned; `$copy` is the new page |
-| `renameReady(string $oldName, string $newName)` | Called right before the page's name is changed |
-| `renamed(string $oldName, string $newName)` | Called right after the page's name has been changed |
-| `addStatusReady(string $name, int $value)` | Called when a status flag is about to be added but not yet saved; hook before to cancel or modify |
-| `addedStatus(string $name, int $value)` | Called after a status flag has been added and saved |
-| `removeStatusReady(string $name, int $value)` | Called when a status flag is about to be removed but not yet saved; hook before to cancel or modify |
-| `removedStatus(string $name, int $value)` | Called after a status flag has been removed and saved |
+| `saved(array $changes, $name)` | Called right after the page is saved; same `$name` convention as `saveReady`                                                            |
+| `addReady()` | Called when a new page is about to be saved to the database for the first time                                                          |
+| `added()` | Called after a new page has been saved to the database for the first time                                                               |
+| `moveReady(Page $oldParent, Page $newParent)` | Called when the page is about to be moved to a different parent                                                                         |
+| `moved(Page $oldParent, Page $newParent)` | Called after the page has been moved to a different parent                                                                              |
+| `deleteReady()` | Called right before the page is permanently deleted                                                                                     |
+| `deleted()` | Called after the page has been permanently deleted                                                                                      |
+| `cloneReady(Page $copy)` | Called right before the page is cloned; `$copy` is the new page being created                                                           |
+| `cloned(Page $copy)` | Called right after the page has been cloned; `$copy` is the new page                                                                    |
+| `renameReady(string $oldName, string $newName)` | Called right before the page's name is changed                                                                                          |
+| `renamed(string $oldName, string $newName)` | Called right after the page's name has been changed                                                                                     |
+| `addStatusReady(string $name, int $value)` | Called when a status flag is about to be added but not yet saved; hook before to cancel or modify                                       |
+| `addedStatus(string $name, int $value)` | Called after a status flag has been added and saved                                                                                     |
+| `removeStatusReady(string $name, int $value)` | Called when a status flag is about to be removed but not yet saved; hook before to cancel or modify                                     |
+| `removedStatus(string $name, int $value)` | Called after a status flag has been removed and saved                                                                                   |
 
-For a full list of hookable Page methods, see the phpdoc header of the `Page` class.
+For a full list of hookable Page methods, see the phpdoc header of the `Page` class,
+or the [Page hooks](https://processwire.com/api/ref/page/#pwapi-methods-hooker) reference.
 
----
+```php
+// Hook example
+$wire->addHookAfter('Page::saved', function(HookEvent $e) {
+    $page = $e->object; // Page
+    $changes = $e->arguments(0); // array
+    $e->wire->message(
+        // i.e. "Saved product /products/my-product/ - title, categories"
+        "Saved $page->template $page->url - " . 
+        implode(', ', $changes)
+    ); 
+}); 
+```
 
 ## Notes
 

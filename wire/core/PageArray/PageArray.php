@@ -667,8 +667,24 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 		}
 		return $out; 
 	}
-
-
+	
+	/**
+	 * Render pagination markup for this PageArray
+	 * 
+	 * This is an alias of the renderPager() method.
+	 * Use the `$options` argument to customize the output.
+	 *
+	 * #pw-see pagination-options.md
+	 * 
+	 * @param array $options Options to modify default markup, classes, labels, etc.
+	 * @return string
+	 * @since 3.0.260 Use renderPager() in prior versions, which has identical behavior and options. 
+	 *
+	 */
+	public function renderPagination(array $options = []) {
+		return $this->renderPager($options);
+	}
+	
 	/**
 	 * debugInfo PHP 5.6+ magic method
 	 *

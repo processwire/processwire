@@ -15,7 +15,7 @@ require_once(__DIR__ . '/Interfaces.php');
  * #pw-body
  * #pw-summary-manipulation In most cases you will not need these manipulation methods as core API calls already take care of this. 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string renderPager(array $options = array()) Renders pagination, when MarkupPageArray module installed
@@ -305,7 +305,71 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 		
 		return trim($str); 
 	}
-
+	
+	/**
+	 * Render pagination
+	 * 
+	 * This method renders pagination for `PageArray`, `PaginatedArray`, or any class extending either of those.
+	 * Use the `$options` argument to customize the output. 
+	 * 
+	 * @param array $options Options to modify default markup, classes, labels, etc.
+	 * - `numPageLinks` (int): Number of links that the pagination navigation should have,
+	 *    minimum 5 (default=10)
+	 * - `getVars` (array): Get vars that should appear in the pagination, or leave empty and
+	 *    populate $input->whitelist (preferred) (default=[])
+	 * - `baseUrl` (string): The baseUrl from which the navigation item links will start (default='')
+	 * - `page` (Page|null): The current Page, or leave NULL to autodetect (default=null)
+	 * - `listMarkup` (string): List container markup. Place {out} where you want the individual
+	 *    items rendered (default=`<ul class='{class}' role='navigation' aria-label='{aria-label}'>{out}</ul>`)
+	 * - `listClass` (string): Class attribute for the pagination list (default='MarkupPagerNav')
+	 * - `itemMarkup` (string): List item markup. Place '{class}' for item class (required), and '{out}'
+	 *    for item content (default=`<li aria-label='{aria-label}' class='{class}' {attr}>{out}</li>`)
+	 * - `separatorItemMarkup` (string|null): Item separator "...", null makes it use the
+	 *    itemMarkup instead (default=null)
+	 * - `linkMarkup` (string): Link markup. Place '{url}' for href attribute, and '{out}' for
+	 *    label content (default=`<a href='{url}'><span>{out}</span></a>`)
+	 * - `currentLinkMarkup` (string): Link markup for current page. Place '{url}' for href
+	 *    attribute and '{out}' for label content (default=`<a href='{url}'><span>{out}</span></a>`)
+	 * - `nextItemLabel` (string): Label used for the 'Next' button (default='Next')
+	 * - `previousItemLabel` (string): Label used for the 'Previous' button (default='Prev')
+	 * - `separatorItemLabel` (string): Label used in the separator item (default='…')
+	 * - `separatorItemClass` (string): Class used for list item separator (default='MarkupPagerNavSeparator')
+	 * - `firstItemClass` (string): Class used for first item (default='MarkupPagerNavFirst')
+	 * - `firstNumberItemClass` (string): Class used for first numbered nav item (default='MarkupPagerNavFirstNum')
+	 * - `nextItemClass` (string): Class used for "next" nav item (default='MarkupPagerNavNext')
+	 * - `previousItemClass` (string): Class used for "previous" nav item (default='MarkupPagerNavPrevious')
+	 * - `lastItemClass` (string): Class added to last nav item (default='MarkupPagerNavLast')
+	 * - `lastNumberItemClass` (string): Class added to last numbered nav item (default='MarkupPagerNavLastNum')
+	 * - `currentItemClass` (string): Class added to current/active nav item (default='MarkupPagerNavOn')
+	 * - `currentItemExtraAttr` (string): Any extra attributes for current item (default=`aria-current='true'`)
+	 * - `listAriaLabel` (string): Aria label for list `<ul>` (default='Pagination links')
+	 * - `itemAriaLabel` (string): Aria label for list item `<li>` (default='Page {n}')
+	 * - `currentItemAriaLabel` (string): Aria label for current list item (default='Page {n}, current page')
+	 * - `nextItemAriaLabel` (string): Aria label for "next" nav item (default='Next page')
+	 * - `previousItemAriaLabel` (string): Aria label for "prev" nav item (default='Previous page')
+	 * - `lastItemAriaLabel` (string): Aria label for last nav item (default='Page {n}, last page')
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___renderPager(array $options = []) {
+		if(!$this->wire()->modules->isInstalled('MarkupPagerNav')) {
+			return "<p>Please install the MarkupPagerNav module to enable pagination output.</p>";
+		}
+		return '';
+	}
+	
+	/**
+	 * Render pagination (alias of renderPager method)
+	 * 
+	 * @param array $options
+	 * @return string
+	 * @since 3.0.260
+	 * 
+	 */
+	public function renderPagination(array $options = []) {
+		return $this->renderPager($options);
+	}
 
 	/**
 	 * debugInfo PHP 5.6+ magic method

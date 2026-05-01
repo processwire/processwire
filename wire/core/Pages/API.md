@@ -1,9 +1,10 @@
-# Pages
+# Pages / $pages
 
 The `$pages` API variable loads, creates, saves and deletes Page objects to and from the database.
 It is the most frequently used API variable in ProcessWire. This document covers the most commonly
-used methods of `$pages` but it does not cover them all. See wire/core/Pages.php and 
-in wire/core/Pages/*.php for full methods reference (all fully documented with phpdoc). 
+used methods of `$pages` but it does not cover them all. See `/wire/core/Pages.php` and 
+in `/wire/core/Pages/*.php` phpdoc for full methods reference, or the online 
+[Pages API reference](https://processwire.com/api/ref/pages/#api-reference). 
 
 ## Finding pages
 
@@ -53,7 +54,8 @@ $pages->find("title~=process|wire|processwire");
 ```
 
 Most common operators: `=`, `!=`, `<`, `<=`, `>`, `>=`, `~=` (contains word)
-`%=` (contains using LIKE), `*=` (contains using index), `^=` (starts), `$=` (ends)
+`%=` (contains using LIKE), `*=` (contains using index), `^=` (starts), `$=` (ends). 
+See [Selector Operators](https://processwire.com/docs/selectors/operators/) for a full list. 
 
 Include modes:
 
@@ -154,15 +156,15 @@ $pages->insertAfter($p, $afterPage);
 
 ### save() options
 
-| Option | Default | Description |
-|---|---|---|
-| `uncacheAll` | `true` | Clear memory cache after save |
-| `resetTrackChanges` | `true` | Reset page's change tracking |
-| `quiet` | `false` | Skip updating modified date/user |
-| `adjustName` | `true` | Auto-adjust name to be unique within parent |
-| `ignoreFamily` | `false` | Bypass family/parent restriction checks |
-| `noHooks` | `false` | Skip before/after save hooks |
-| `noFields` | `false` | Save only native page properties, not fields |
+| Option              | Default  | Description                                  |
+|---------------------|----------|----------------------------------------------|
+| `uncacheAll`        | `true`   | Clear memory cache after save                |
+| `resetTrackChanges` | `true`   | Reset page's change tracking                 |
+| `quiet`             | `false`  | Skip updating modified date/user             |
+| `adjustName`        | `true`   | Auto-adjust name to be unique within parent  |
+| `ignoreFamily`      | `false`  | Bypass family/parent restriction checks      |
+| `noHooks`           | `false`  | Skip before/after save hooks                 |
+| `noFields`          | `false`  | Save only native page properties, not fields |
 
 ## Deleting and trashing pages
 
@@ -273,18 +275,18 @@ The `$pages` object delegates to several helper classes. These are lazy-loaded a
 should not be accessed directly from the public API unless they provide a method not 
 available on `$pages`, or if otherwise directed. 
 
-| Property | Class | Purpose |
-|---|---|---|
-| `$pages->loader` | `PagesLoader` | All find/get/load operations |
-| `$pages->editor` | `PagesEditor` | save, add, delete, clone |
-| `$pages->cacher` | `PagesLoaderCache` | In-memory page cache |
-| `$pages->trasher` | `PagesTrash` | trash, restore, emptyTrash |
-| `$pages->names` | `PagesNames` | Page name generation and uniqueness |
-| `$pages->raw` | `PagesRaw` | findRaw / getRaw |
-| `$pages->pathFinder` | `PagesPathFinder` | Path-to-page resolution |
-| `$pages->request` | `PagesRequest` | Current HTTP request page resolution |
-| `$pages->parents` | `PagesParents` | Ancestor/parent tree queries |
-| `$pages->porter` | `PagesExportImport` | Import/export |
+| Property             | Class               | Purpose                              |
+|----------------------|---------------------|--------------------------------------|
+| `$pages->loader`     | `PagesLoader`       | All find/get/load operations         |
+| `$pages->editor`     | `PagesEditor`       | save, add, delete, clone             |
+| `$pages->cacher`     | `PagesLoaderCache`  | In-memory page cache                 |
+| `$pages->trasher`    | `PagesTrash`        | trash, restore, emptyTrash           |
+| `$pages->names`      | `PagesNames`        | Page name generation and uniqueness  |
+| `$pages->raw`        | `PagesRaw`          | findRaw / getRaw                     |
+| `$pages->pathFinder` | `PagesPathFinder`   | Path-to-page resolution              |
+| `$pages->request`    | `PagesRequest`      | Current HTTP request page resolution |
+| `$pages->parents`    | `PagesParents`      | Ancestor/parent tree queries         |
+| `$pages->porter`     | `PagesExportImport` | Import/export                        |
 
 ## Notes
 

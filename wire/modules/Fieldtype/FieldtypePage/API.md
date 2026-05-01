@@ -1,13 +1,6 @@
 # FieldtypePage
 
-Stores references to one or more ProcessWire pages. The value type depends on the
-`derefAsPage` field setting:
-
-| `derefAsPage` constant | Value when populated | Value when empty |
-|---|---|---|
-| `FieldtypePage::derefAsPageArray` (0, default) | `PageArray` | empty `PageArray` |
-| `FieldtypePage::derefAsPageOrNullPage` (2) | `Page` | `NullPage` |
-| `FieldtypePage::derefAsPageOrFalse` (1) | `Page` | `false` |
+Stores references to one or more ProcessWire pages. 
 
 ---
 
@@ -15,6 +8,15 @@ Stores references to one or more ProcessWire pages. The value type depends on th
 
 `PageArray` by default (when `derefAsPage=0`), or `Page`/`NullPage`/`false` for single-page mode.
 Unpublished pages are excluded from the value unless `allowUnpub=1` is set on the field.
+
+The value type depends on the `derefAsPage` field setting:
+
+| `derefAsPage` constant | Value when populated | Value when empty |
+|---|---|---|
+| `FieldtypePage::derefAsPageArray` (0, default) | `PageArray` | empty `PageArray` |
+| `FieldtypePage::derefAsPageOrNullPage` (2) | `Page` | `NullPage` |
+| `FieldtypePage::derefAsPageOrFalse` (1) | `Page` | `false` |
+
 
 ---
 

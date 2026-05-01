@@ -163,6 +163,7 @@ class MarkupPageArray extends WireData implements Module {
 			$pager->setBaseUrl($baseUrl); 
 		}
 		$event->return = $pager->render($pageArray, $options); 
+		$event->replace = true;
 	}
 
 

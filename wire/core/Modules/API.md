@@ -1,4 +1,4 @@
-# Modules
+# Modules / $modules
 
 The `$modules` API variable loads, manages, installs and configures modules in ProcessWire.
 Agents: The `wire/core/Modules.php` and `wire/core/Modules/*.php` contain the full methods reference when needed.

@@ -7,6 +7,7 @@
  * 
  * #pw-summary Provides methods for sanitizing and validating user input, preparing data for output, and more. 
  * #pw-use-constants
+ * #pw-exclude body
  * #pw-body = 
  * Sanitizer is useful for sanitizing input or any other kind of data that you need to match a particular type or format. 
  * The Sanitizer methods are accessed from the `$sanitizer` API variable and/or `sanitizer()` API variable/function.
@@ -632,6 +633,8 @@ class Sanitizer extends Wire {
 	 * attributes from this method include: `-_:@a-zA-Z0-9`. This method does not allow
 	 * values that have no letters or digits.
 	 * 
+	 * #pw-group-strings
+	 * 
 	 * @param string $value
 	 * @return string 
 	 * @since 3.0.212
@@ -650,7 +653,9 @@ class Sanitizer extends Wire {
 	/**
 	 * Sanitize string to ASCII-only space-separated HTML class attribute values with no duplicates
 	 * 
-	 * See additional notes in `Sanitizer::htmlClass()` method. 
+	 * See additional notes in `Sanitizer::htmlClass()` method.
+	 * 
+	 * #pw-group-strings
 	 *
 	 * @param string|array $value
 	 * @param bool $getArray Get array rather than string? (default=false)

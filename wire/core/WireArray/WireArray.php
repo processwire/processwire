@@ -135,7 +135,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	}
 
 	/**
-	 * Is the given item valid for storange in this array?
+	 * Is the given item valid for storage in this array?
 	 * 
 	 * Template method that descending classes may use to validate items added to this WireArray
 	 * 
