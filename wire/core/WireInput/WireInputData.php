@@ -528,6 +528,18 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 		if($arguments[0] === null) {
 			// value is not present in input at all, accommodate potential fallback value?
 		}
+		if(isset($arguments[1]) && !is_array($arguments[1])) {
+			if($method === 'int' || $method === 'intUnsigned' || $method === 'intSigned') {
+				$options = array('min' => $arguments[1]);
+				if(isset($arguments[2])) $options['max'] = $arguments[2];
+				$arguments = array($arguments[0], $options);
+			} else if($method === 'float') {
+				$options = array('min' => $arguments[1]);
+				if(isset($arguments[2])) $options['max'] = $arguments[2];
+				if(isset($arguments[3])) $options['precision'] = $arguments[3];
+				$arguments = array($arguments[0], $options);
+			}
+		}
 		if(count($arguments) > 1) {
 			// more than one argument to sanitizer method
 			return call_user_func_array(array($sanitizer, $method), $arguments);
@@ -541,4 +553,3 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 		return $this->data;
 	}
 }
-
