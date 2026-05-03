@@ -271,6 +271,50 @@ class PagesLoaderCache extends Wire {
 	}
 
 	/**
+	 * Update sort values for cached pages affected by a page sort operation
+	 *
+	 * When $children is false, updates cached siblings of the given $page.
+	 * When $children is true, updates cached children of the given $page.
+	 *
+	 * @param Page $page Page that was sorted, or parent page when $children is true
+	 * @param bool $children Specify true when children of $page were sorted
+	 * @return int Number of cached Page objects updated
+	 *
+	 */
+	public function updatePageSorts(Page $page, $children = false) {
+
+		$parentID = $children ? $page->id : $page->parent_id;
+		if(!$parentID) return 0;
+
+		$sorts = array();
+		$database = $this->wire()->database;
+		$query = $database->prepare('SELECT id, sort FROM pages WHERE parent_id=:parent_id');
+		$query->bindValue(':parent_id', (int) $parentID, \PDO::PARAM_INT);
+		$query->execute();
+
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$sorts[(int) $row['id']] = (int) $row['sort'];
+		}
+
+		$query->closeCursor();
+
+		$qty = 0;
+
+		foreach($this->pageIdCache as $id => $cachedPage) {
+			if($cachedPage->parent_id != $parentID) continue;
+			if(!isset($sorts[$id])) continue;
+			if($cachedPage->sort == $sorts[$id]) continue;
+			$cachedPage->setQuietly('sort', $sorts[$id]);
+			$cachedPage->untrackChange('sort');
+			$qty++;
+		}
+
+		$this->pageSelectorCache = array();
+
+		return $qty;
+	}
+
+	/**
 	 * Cache the given selector string and options with the given PageArray
 	 * 
 	 * #pw-group-save

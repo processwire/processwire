@@ -2642,6 +2642,7 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function ___sorted(Page $page, $children = false, $total = 0) {
+		if($total) $this->cacher()->updatePageSorts($page, $children);
 	}
 
 	/**
