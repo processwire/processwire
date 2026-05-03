@@ -576,14 +576,16 @@ class WireInput extends Wire {
 		
 		if(empty($get)) $get = 1;
 
-		if($get < 0) {
+		$isNumber = is_int($get) || is_float($get) || (is_string($get) && preg_match('/^-?\d+$/', $get));
+
+		if($isNumber && $get < 0) {
 			// retrieve from end
 			$get = abs($get)-1;
 			$urlSegments = array_reverse($this->urlSegments);
 			return isset($urlSegments[$get]) ? $urlSegments[$get] : '';
 		}
 
-		if(is_int($get) || ctype_digit($get) || empty($get)) {
+		if($isNumber || empty($get)) {
 			// return URL segment at numbered index $get
 			$get = (int) $get;
 			if($get < 1) $get = 1;
@@ -777,7 +779,7 @@ class WireInput extends Wire {
 		
 		if(!empty($options['values']) && is_array($options['values'])) {
 			$str = '';
-			foreach($options['value'] as $key => $value) {
+			foreach($options['values'] as $key => $value) {
 				$str .= "$key/$value/";
 			}
 			$str = rtrim($str, '/');
