@@ -5,13 +5,13 @@
  *
  * Serves as a wrapper to PHP’s PDO class
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 /**
- * Database class provides a layer on top of mysqli
+ * Database class provides a layer on top of PDO
  * 
  * #pw-summary All database operations in ProcessWire are performed via this PDO-style database class.
  * #pw-order-groups queries,transactions,schema,info,sanitization,connection
@@ -187,20 +187,6 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	protected $bitwiseOperators = array('&', '~', '&~', '|', '^', '<<', '>>');
 
 	/**
-	 * Substitute variable names according to engine as used by getVariable() method
-	 *
-	 * @var array
-	 *
-	 */
-	protected $subVars = array(
-		'myisam' => array(),
-		'innodb' => array(
-			'ft_min_word_len' => 'innodb_ft_min_token_size',
-			'ft_max_word_len' => 'innodb_ft_max_token_size',
-		),
-	);
-
-	/**
 	 * PDO connection settings
 	 *
 	 */
@@ -218,12 +204,12 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	);
 
 	/**
-	 * Cached values from getVariable method
+	 * Database dialect used by this instance
 	 *
-	 * @var array associative of name => value
+	 * @var WireDatabaseDialect|null
 	 *
 	 */
-	protected $variableCache = array();
+	protected $dialect = null;
 
 	/**
 	 * Cached InnoDB stopwords (keys are the stopwords and values are irrelevant)
@@ -422,6 +408,22 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			$this->pdoConfig['options'] = $driver_options;
 		}
 		// $this->pdo();
+	}
+
+	/**
+	 * Get database dialect used by this instance
+	 *
+	 * #pw-internal
+	 *
+	 * @return WireDatabaseDialect
+	 *
+	 */
+	public function dialect() {
+		if($this->dialect === null) {
+			$this->dialect = new WireDatabaseDialectMySQL($this);
+			if($this->isWired()) $this->wire($this->dialect);
+		}
+		return $this->dialect;
 	}
 
 	/**
@@ -829,20 +831,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function supportsTransaction($table = '') {
-		$engine = '';
-		if($table) {
-			$query = $this->pdoReader()->prepare('SHOW TABLE STATUS WHERE name=:name'); 
-			$query->bindValue(':name', $table); 
-			$query->execute();
-			if($query->rowCount()) {
-				$row = $query->fetch(\PDO::FETCH_ASSOC);
-				$engine = empty($row['engine']) ? '' : $row['engine'];
-			}
-			$query->closeCursor();
-		} else {
-			$engine = $this->engine;
-		}
-		return strtoupper($engine) === 'INNODB';
+		return $this->dialect()->supportsTransaction($table);
 	}
 
 	/**
@@ -1100,10 +1089,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 */
 	public function getTables($allowCache = true) {
 		if($allowCache && count($this->tablesCache)) return $this->tablesCache;
-		$tables = array();
-		$query = $this->query("SHOW TABLES");
-		/** @noinspection PhpAssignmentInConditionInspection */
-		while($col = $query->fetchColumn()) $tables[] = $col;
+		$tables = $this->dialect()->getTables();
 		if($allowCache) $this->tablesCache = $tables;
 		return $tables; 
 	}
@@ -1131,44 +1117,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getColumns($table, $verbose = false) {
-		$columns = array();
-		$table = $this->escapeTable($table);
-		if($verbose === 3) {
-			$query = $this->query("SHOW CREATE TABLE $table");
-			if(!$query->rowCount()) return array();
-			$row = $query->fetch(\PDO::FETCH_NUM);
-			$query->closeCursor();
-			if(!preg_match_all('/`([_a-z0-9]+)`\s+([a-z][^\r\n]+)/i', $row[1], $matches)) return array();
-			foreach($matches[1] as $key => $name) {
-				$columns[$name] = trim(rtrim($matches[2][$key], ','));
-			}
-			return $columns;
-		}
-		$getColumn = $verbose && is_string($verbose) ? $verbose : '';
-		if(strpos($table, '.')) list($table, $getColumn) = explode('.', $table, 2);
-		$sql = "SHOW COLUMNS FROM $table " . ($getColumn ? 'WHERE Field=:column' : '');
-		$query = $this->prepare($sql);
-		if($getColumn) $query->bindValue(':column', $getColumn);
-		$query->execute();
-		while($col = $query->fetch(\PDO::FETCH_ASSOC)) {
-			$name = $col['Field'];
-			if($verbose === 2) {
-				$columns[$name] = $col;
-			} else if($verbose) {
-				$columns[$name] = array(
-					'name' => $name,
-					'type' => $col['Type'],
-					'null' => (strtoupper($col['Null']) === 'YES' ? true : false),
-					'default' => $col['Default'],
-					'extra' => $col['Extra'],
-				);
-			} else {
-				$columns[] = $name;
-			}
-		}
-		$query->closeCursor();
-		if($getColumn) return isset($columns[$getColumn]) ? $columns[$getColumn] : array();
-		return $columns;	
+		return $this->dialect()->getColumns($table, $verbose);
 	}
 
 	/**
@@ -1190,35 +1139,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 */
 	public function getIndexes($table, $verbose = false) {
-		$indexes = array();
-		$getIndex = $verbose && is_string($verbose) ? $verbose : '';
-		if($verbose === 'primary') $verbose = 'PRIMARY';
-		if(strpos($table, '.')) list($table, $getIndex) = explode('.', $table, 2);
-		$table = $this->escapeTable($table);
-		$sql = "SHOW INDEX FROM `$table` " . ($getIndex ? 'WHERE Key_name=:name' : '');
-		$query = $this->prepare($sql);
-		if($getIndex) $query->bindValue(':name', $getIndex); 
-		$query->execute();
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			$name = $row['Key_name'];
-			if($verbose === 2) {
-				$indexes[] = $row;
-			} else if($verbose) {
-				if(!isset($indexes[$name])) $indexes[$name] = array(
-					'name' => $name,
-					'type' => $row['Index_type'],
-					'unique' => (((int) $row['Non_unique']) ? false : true), 
-					'columns' => array(),
-				);
-				$seq = ((int) $row['Seq_in_index']) - 1;
-				$indexes[$name]['columns'][$seq] = $row['Column_name']; 
-			} else {
-				$indexes[] = $name;
-			}
-		}
-		$query->closeCursor();
-		if($getIndex) return isset($indexes[$getIndex]) ? $indexes[$getIndex] : array();
-		return $indexes;	
+		return $this->dialect()->getIndexes($table, $verbose);
 	}
 
 	/**
@@ -1262,10 +1183,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function tableExists($table) {
-		$query = $this->prepare('SHOW TABLES LIKE ?');
-		$query->execute(array($table));
-		$result = $query->fetchColumn();
-		return !empty($result);
+		return $this->dialect()->tableExists($table);
 	}
 
 	/**
@@ -1302,25 +1220,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function columnExists($table, $column = '', $getInfo = false) {
-		if(strpos($table, '.')) {
-			list($table, $col) = explode('.', $table, 2);
-			if(empty($column) || !is_string($column)) $column = $col;
-		}
-		if(empty($column)) throw new WireDatabaseException('No column specified');
-		$exists = false;
-		$table = $this->escapeTable($table);
-		try {
-			$query = $this->prepare("SHOW COLUMNS FROM `$table` WHERE Field=:column");
-			$query->bindValue(':column', $column, \PDO::PARAM_STR);
-			$query->execute();
-			$numRows = (int) $query->rowCount();
-			if($numRows) $exists = $getInfo ? $query->fetch(\PDO::FETCH_ASSOC) : true;
-			$query->closeCursor();
-		} catch(\Exception $e) {
-			// most likely given table does not exist
-			$exists = false;
-		}
-		return $exists;
+		return $this->dialect()->columnExists($table, $column, $getInfo);
 	}
 
 	/**
@@ -1355,26 +1255,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function indexExists($table, $indexName, $getInfo = false) {
-		$table = $this->escapeTable($table);
-		$query = $this->prepare("SHOW INDEX FROM `$table` WHERE Key_name=:name");
-		$query->bindValue(':name', $indexName, \PDO::PARAM_STR);
-		try {
-			$query->execute();
-			$numRows = (int) $query->rowCount();
-			if($numRows && $getInfo) {
-				$exists = array();
-				while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-					$exists[] = $row;
-				}
-			} else {
-				$exists = $numRows > 0;
-			}
-			$query->closeCursor();
-		} catch(\Exception $e) {
-			// most likely given table does not exist
-			$exists = false;
-		}
-		return $exists;
+		return $this->dialect()->indexExists($table, $indexName, $getInfo);
 	}
 
 	/**
@@ -1390,34 +1271,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function renameColumns($table, array $columns) {
-		
-		$qty = 0;
-		
-		if(version_compare($this->getVersion(true), '8.0.0', '>=')) {
-			$mysql8 = $this->getServerType() === 'MySQL';
-		} else {
-			$mysql8 = false;
-		}
-	
-		$table = $this->escapeTable($table);
-		$colTypes = $mysql8 ? array() : $this->getColumns($table, 3);
-		
-		foreach($columns as $oldName => $newName) {
-			$oldName = $this->escapeCol($oldName);
-			$newName = $this->escapeCol($newName);
-			if(empty($oldName) || empty($newName)) continue;
-			if($mysql8) {
-				$sql = "ALTER TABLE `$table` RENAME COLUMN `$oldName` TO `$newName`";
-			} else if(isset($colTypes[$oldName])) {
-				$colType = $colTypes[$oldName];
-				$sql = "ALTER TABLE `$table` CHANGE `$oldName` `$newName` $colType";
-			} else {
-				continue;
-			}
-			if($this->exec($sql)) $qty++;
-		}
-	
-		return $qty;
+		return $this->dialect()->renameColumns($table, $columns);
 	}
 	
 	/**
@@ -1717,19 +1571,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getVariable($name, $cache = true, $sub = true) {
-		if($sub && isset($this->subVars[$this->engine][$name])) $name = $this->subVars[$this->engine][$name]; 
-		if($cache && isset($this->variableCache[$name])) return $this->variableCache[$name];
-		$query = $this->prepare('SHOW VARIABLES WHERE Variable_name=:name');
-		$query->bindValue(':name', $name);
-		$query->execute();
-		if($query->rowCount()) {
-			list(,$value) = $query->fetch(\PDO::FETCH_NUM);
-			$this->variableCache[$name] = $value;
-		} else {
-			$value = null;
-		}
-		$query->closeCursor();
-		return $value;
+		return $this->dialect()->getVariable($name, $cache, $sub);
 	}
 
 	/**
@@ -1748,9 +1590,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getVersion($getNumberOnly = false) {
-		$version = $this->getVariable('version', true, false); 
-		if($getNumberOnly && preg_match('/^([\d.]+)/', $version, $matches)) $version = $matches[1];
-		return $version;
+		return $this->dialect()->getVersion($getNumberOnly);
 	}
 
 	/**
@@ -1763,18 +1603,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getServerType() {
-		$serverType = '';
-		$serverTypes = array('MariaDB', 'Percona', 'OurDelta', 'Drizzle', 'MySQL');
-		foreach(array('version', 'version_comment') as $name) {
-			$value = $this->getVariable($name);
-			if($value === null) continue;
-			foreach($serverTypes as $type) {
-				if(stripos($value, $type) !== false) $serverType = $type;
-				if($serverType) break;
-			}
-			if($serverType) break;
-		}
-		return $serverType ? $serverType : 'MySQL';
+		return $this->dialect()->getServerType();
 	}
 	
 	/**
@@ -1790,13 +1619,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getRegexEngine() {
-		$version = $this->getVersion();
-		$name = 'MySQL';
-		if(strpos($version, '-')) list($version, $name) = explode('-', $version, 2);
-		if(strpos($name, 'mariadb') === false) {
-			if(version_compare($version, '8.0.4', '>=')) return 'ICU';
-		}
-		return 'HenrySpencer';
+		return $this->dialect()->getRegexEngine();
 	}
 
 	/**
@@ -1863,13 +1686,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getMaxIndexLength() {
-		$max = 250; 
-		if($this->charset === 'utf8mb4') {
-			if($this->engine === 'innodb') {
-				$max = 191; 
-			}
-		}
-		return $max;
+		return $this->dialect()->getMaxIndexLength();
 	}
 
 	/**
@@ -1916,55 +1733,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function sqlMode($action = 'get', $mode = '', $minVersion = '', $pdo = null) {
-
-		$result = true;
-		$modes = array();
-		
-		if($pdo === null) {
-			$pdo = $this->pdoLast();
-		} else {
-			$this->pdoLast = $pdo;
-		}
-		
-		if(empty($action)) $action = 'get';
-		
-		if($action !== 'get' && $minVersion) {
-			$serverVersion = $this->getAttribute(\PDO::ATTR_SERVER_VERSION);
-			if(version_compare($serverVersion, $minVersion, '<')) return false;
-		}
-	
-		if($mode) {
-			foreach(explode(',', $mode) as $m) {
-				$modes[] = $this->escapeStr(strtoupper($this->wire()->sanitizer->fieldName($m)));
-			}
-		}
-		
-		switch($action) {
-			case 'get':
-				$query = $pdo->query("SELECT @@sql_mode");
-				$result = $query->fetchColumn();
-				$query->closeCursor();
-				break;
-			case 'set':
-				$modes = implode(',', $modes);
-				$result = $modes;
-				$pdo->exec("SET sql_mode='$modes'");
-				break;
-			case 'add':
-				foreach($modes as $m) {
-					$pdo->exec("SET sql_mode=(SELECT CONCAT(@@sql_mode,',$m'))");
-				}
-				break;
-			case 'remove':
-				foreach($modes as $m) {
-					$pdo->exec("SET sql_mode=(SELECT REPLACE(@@sql_mode,'$m',''))");
-				}
-				break;
-			default:
-				throw new WireException("Unknown action '$action'");
-		}
-		
-		return $result;
+		return $this->dialect()->sqlMode($action, $mode, $minVersion, $pdo);
 	}
 
 	/**
@@ -1978,9 +1747,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getTime($getTimestamp = false) {
-		$query = $this->query('SELECT ' . ($getTimestamp ? 'UNIX_TIMESTAMP()' : 'NOW()')); 
-		$value = $query->fetchColumn();
-		return $getTimestamp ? (int) $value : $value;
+		return $this->dialect()->getTime($getTimestamp);
 	}
 
 }

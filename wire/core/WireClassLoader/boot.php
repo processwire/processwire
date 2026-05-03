@@ -40,6 +40,8 @@ $corePreloads = array(
 	'WireDateTime/WireDateTime.php',
 	'WireFileTools/WireFileTools.php',
 	'WireMail/WireMailTools.php',
+	'WireDatabase/WireDatabaseDialect.php',
+	'WireDatabase/WireDatabaseDialectMySQL.php',
 	'WireDatabase/WireDatabasePDO.php',
 	'WireCache/WireCache.php',
 	'Modules/Modules.php',
