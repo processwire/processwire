@@ -65,7 +65,7 @@ class PagesLoaderCache extends Wire {
 	/**
 	 * Get cache status
 	 * 
-	 * Returns count of each cache type, or contents of each cache type of verbose option is specified. 
+	 * Returns count of each cache type, or contents of each cache type if verbose option is specified. 
 	 * 
 	 * #pw-group-get
 	 * 
@@ -84,7 +84,7 @@ class PagesLoaderCache extends Wire {
 	}
 	
 	/**
-	 * Given a Page ID, return it if it's cached, or NULL of it's not.
+	 * Given a Page ID, return it if it's cached, or NULL if it's not.
 	 *
 	 * If no ID is provided, then this will return an array copy of the full cache.
 	 *
@@ -113,7 +113,7 @@ class PagesLoaderCache extends Wire {
 	 * 
 	 * #pw-group-get
 	 * 
-	 * @param int page ID
+	 * @param int $id page ID
 	 * @return bool
 	 * @since 3.0.243
 	 * 
@@ -202,7 +202,7 @@ class PagesLoaderCache extends Wire {
 
 		if(!is_array($options)) {
 			// supports Page or PageArray for 'page' argument but the PageArray option is
-			// left undocumented (in phpdoc above) so that its use is discouraged to avoid confiusion
+			// left undocumented (in phpdoc above) so that its use is discouraged to avoid confusion
 			if($options instanceof Page || $options instanceof PageArray) {
 				$options = [ 'page' => $options ];
 			} else {
@@ -354,21 +354,15 @@ class PagesLoaderCache extends Wire {
 	 * 
 	 */
 	protected function optionsArrayToString(array $options) {
-		$str = '';
 		ksort($options);
 		foreach($options as $key => $value) {
 			if(is_array($value)) {
-				$value = $this->optionsArrayToString($value);
+				$options[$key] = $this->optionsArrayToString($value);
 			} else if(is_object($value)) {
-				if(method_exists($value, '__toString')) {
-					$value = (string) $value;
-				} else {
-					$value = wireClassName($value);
-				}
+				$options[$key] = method_exists($value, '__toString') ? (string) $value : wireClassName($value);
 			}
-			$str .= "[$key:$value]";
 		}
-		return $str;
+		return sha1(json_encode($options));
 	}
 
 	/**
@@ -414,8 +408,6 @@ class PagesLoaderCache extends Wire {
 					'status<' . Page::statusMax,
 					'start=0',
 					'limit=1',
-					',',
-					' '
 				),
 				'',
 				$selector
@@ -438,7 +430,7 @@ class PagesLoaderCache extends Wire {
 			$value = $this->pageSelectorCache[$selector];
 			unset($this->pageSelectorCache[$selector]);
 			$this->pageSelectorCache[$selector] = $value;
-			return $value;
+			return clone $value;
 		}
 
 		return null;

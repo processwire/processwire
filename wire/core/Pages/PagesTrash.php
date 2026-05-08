@@ -26,7 +26,7 @@ class PagesTrash extends Wire {
 	/**
 	 * Last action, i.e. "restore:1234"
 	 * 
-	 * @var int 
+	 * @var string
 	 * 
 	 */
 	protected $lastAction = '';
@@ -168,7 +168,7 @@ class PagesTrash extends Wire {
 	 *  - `sort` (int): Sort order that should be restored to page
 	 *  - `name` (string): Name that should be restored to page’s “name” property.
 	 *  - `namePrevious` (string): Previous name, if we had to modify the original name to make it restorable. 
-	 *  - `name{id}` (string): Name that should be restored  to language where {id} is language ID (if appliable).
+	 *  - `name{id}` (string): Name that should be restored to language where {id} is language ID (if applicable).
 	 * 
 	 * #pw-group-restore
 	 *
@@ -267,7 +267,7 @@ class PagesTrash extends Wire {
 			$langName = (string) $page->get($langKey);
 			if(!strlen($langName)) continue;
 			if(strpos($langName, $trashPrefix) === 0) {
-				list(,$langName) = explode('_', $langName);
+				$langName = substr($langName, strlen($trashPrefix));
 			}
 			$langNamePrevious = $langName;
 			if($this->pages->count("parent=$nameParent, $langKey=$langName, id!=$page->id, include=all")) {
@@ -339,7 +339,7 @@ class PagesTrash extends Wire {
 	 * @param array $options
 	 *  - `chunkSize` (int): Pages will be deleted in chunks of this many pages per chunk (default=100).
 	 *  - `chunkTimeLimit` (int): Maximum seconds allowed to process deletion of each chunk (default=600). 
-	 *  - `chunkLimit' (int): Maximum chunks to process in an emptyTrash() call (default=1000);
+	 *  - `chunkLimit' (int): Maximum chunks to process in an emptyTrash() call (default=100);
 	 *  - `pageLimit` (int): Maximum pages to delete per emptyTrash() call (default=0, no limit).
 	 *  - `timeLimit` (int): Maximum time (in seconds) to allow for trash empty (default=3600). 
 	 *  - `pass2` (bool): Perform a secondary pass using alternate method as a backup? (default=true)
@@ -382,7 +382,7 @@ class PagesTrash extends Wire {
 		$timeExpired = false;
 		$onlyDirectChildren = true; // limit to direct children at first
 		
-		if($options['chunkTimeLimit'] > $options['timeLimit']) {
+		if($options['timeLimit'] && $options['chunkTimeLimit'] > $options['timeLimit']) {
 			$options['chunkTimeLimit'] = $options['timeLimit'];
 		}
 		
@@ -451,6 +451,7 @@ class PagesTrash extends Wire {
 			$totalDeleted += $numDeleted;
 			if($useTransaction) $database->commit();
 			$this->pages->uncacheAll();
+			$chunkCnt++;
 			
 			if($options['chunkLimit'] && $chunkCnt >= $options['chunkLimit']) {
 				// if chunk limit exceeded then stop now
@@ -464,8 +465,6 @@ class PagesTrash extends Wire {
 				// if no items deleted (and we're beyond direct children), we should stop now
 				$stopNow = true;
 			}
-			
-			if(!$stopNow) $chunkCnt++;
 			
 		} while(!$stopNow);
 		

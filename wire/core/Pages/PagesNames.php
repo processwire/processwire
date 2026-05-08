@@ -8,7 +8,7 @@
  * #pw-var $pages->names
  * #pw-summary This class includes methods for generating and modifying page names.
  * #pw-body = 
- * While these methods are mosty for internal core use, some may at times be useful from the public API as well.
+ * While these methods are mostly for internal core use, some may at times be useful from the public API as well.
  * You can access methods from this class via the Pages API variable at `$pages->names()`.
  * ~~~~~
  * if($pages->names()->pageNameExists('something')) {
@@ -316,98 +316,98 @@ class PagesNames extends Wire {
 			$language = null;
 		}
 		
-		if($format === 'title' && !strlen(trim((string) $page->title))) {
-			$format = 'untitled-time';
-		}
-
-		if($format === 'title') {
-			// title	
-			$name = trim((string) $page->title);
-			$formatType = 'field';
-			
-		} else if($format === 'id' && $page->id) {
-			// page ID, when it is known
-			$name = (string) $page->id; 
-			
-		} else if($format === 'random') {
-			// globally unique randomly generated page name
-			$name = $this->uniqueRandomPageName();
-
-		} else if($format === 'untitled') {
-			// just untitled
-			$name = $this->untitledPageName();
-			
-		} else if($format === 'untitled-time') {
-			// untitled with datetime, i.e. “untitled-0yymmddhhmmss” (note leading 0 differentiates from increment)
-			$dateStr = date($defaultDateFormat);
-			$name = $this->untitledPageName() . '-0' . $dateStr;
-
-		} else if(strpos($format, '}')) {
-			// string with {field_name} to text
-			$name = $page->getText($format, true, false);
-
-		} else if(strpos($format, '|')) {
-			// field names separated by "|" until one matches
-			$name = $page->getUnformatted($format);
-			$formatType = 'field'; // Page::hasField() accepts pipes
-
-		} else if(strpos($format, 'date:') === 0) {
-			// specified date format
-			list(, $format) = explode('date:', $format);
-			if(empty($format)) $format = 'Y-m-d H:i:s';
-			$name = wireDate(trim($format));
-			$formatType = 'date';
-
-		} else if(strpos($format, ' ') !== false || strpos($format, '/') !== false || strpos($format, ':') !== false) {
-			// date assumed when spaces, slashes or colon present in format
-			$name = wireDate($format);
-			$formatType = 'date';
-
-		} else if($sanitizer->fieldName($format) === $format) {
-			// single field name or predefined string
-			// this can also return null, which falls back to if() statement below
-			$name = (string) $page->getUnformatted($format);
-			$formatType = 'field';
-		}
-
-		if(!strlen($name)) {
-			// requested format did not produce a page name, so now fall-back to something else.
-			// we either have a field name or some predefined string that is not a field name.
-			
-			if($formatType === 'field' && $page->hasField($format)) {
-				// format involves a field name that is valid for the page
-				
-				// restore previous language if we had set one
-				if($language) $languages->unsetLanguage();
-
-				// if requested in some other language, see if we can get it in default language
-				if($language && !$language->isDefault()) {
-					$name = $this->pageNameFromFormat($page, $format, array('language' => $languages->getDefault())); 
-				}
-
-				// fallback to untitled format if fields required are not present
-				if(!strlen($name)) {
-					$name = $this->pageNameFromFormat($page, 'untitled'); // no options intended
-				}
-
-				// return now to bypass everything that follows since we went recursive
-				return $name; 
-				
-			} else if($formatType === 'date' && $format !== $defaultDateFormat) {
-				// if given date format did not resolve to anything, try in our default date format 
-				$name = $this->pageNameFromFormat($page, $defaultDateFormat);
-				
-			} else {
-				$name = $format;
+		try {
+			if($format === 'title' && !strlen(trim((string) $page->title))) {
+				$format = 'untitled-time';
 			}
+	
+			if($format === 'title') {
+				// title	
+				$name = trim((string) $page->title);
+				$formatType = 'field';
+				
+			} else if($format === 'id' && $page->id) {
+				// page ID, when it is known
+				$name = (string) $page->id; 
+				
+			} else if($format === 'random') {
+				// globally unique randomly generated page name
+				$name = $this->uniqueRandomPageName();
+	
+			} else if($format === 'untitled') {
+				// just untitled
+				$name = $this->untitledPageName();
+				
+			} else if($format === 'untitled-time') {
+				// untitled with datetime, i.e. “untitled-0yymmddhhmmss” (note leading 0 differentiates from increment)
+				$dateStr = date($defaultDateFormat);
+				$name = $this->untitledPageName() . '-0' . $dateStr;
+	
+			} else if(strpos($format, '}')) {
+				// string with {field_name} to text
+				$name = $page->getText($format, true, false);
+	
+			} else if(strpos($format, '|')) {
+				// field names separated by "|" until one matches
+				$name = $page->getUnformatted($format);
+				$formatType = 'field'; // Page::hasField() accepts pipes
+	
+			} else if(strpos($format, 'date:') === 0) {
+				// specified date format
+				list(, $format) = explode('date:', $format);
+				if(empty($format)) $format = 'Y-m-d H:i:s';
+				$name = wireDate(trim($format));
+				$formatType = 'date';
+	
+			} else if(strpos($format, ' ') !== false || strpos($format, '/') !== false || strpos($format, ':') !== false) {
+				// date assumed when spaces, slashes or colon present in format
+				$name = wireDate($format);
+				$formatType = 'date';
+	
+			} else if($sanitizer->fieldName($format) === $format) {
+				// single field name or predefined string
+				// this can also return null, which falls back to if() statement below
+				$name = (string) $page->getUnformatted($format);
+				$formatType = 'field';
+			}
+	
+			if(!strlen($name)) {
+				// requested format did not produce a page name, so now fall-back to something else.
+				// we either have a field name or some predefined string that is not a field name.
+				
+				if($formatType === 'field' && $page->hasField($format)) {
+					// format involves a field name that is valid for the page
+					
+					// if requested in some other language, see if we can get it in default language
+					if($language && !$language->isDefault()) {
+						$name = $this->pageNameFromFormat($page, $format, array('language' => $languages->getDefault())); 
+					}
+	
+					// fallback to untitled format if fields required are not present
+					if(!strlen($name)) {
+						$name = $this->pageNameFromFormat($page, 'untitled'); // no options intended
+					}
+	
+					// return now to bypass everything that follows since we went recursive
+					return $name; 
+					
+				} else if($formatType === 'date' && $format !== $defaultDateFormat) {
+					// if given date format did not resolve to anything, try in our default date format 
+					$name = $this->pageNameFromFormat($page, $defaultDateFormat);
+					
+				} else {
+					$name = $format;
+				}
+			}
+	
+			if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
+			
+			$utf8 = $this->wire()->config->pageNameCharset === 'UTF8';
+			$name = $utf8 ? $sanitizer->pageNameUTF8($name) : $sanitizer->pageName($name, Sanitizer::translate);
+			
+		} finally {
+			if($language) $languages->unsetLanguage();
 		}
-
-		if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
-		
-		$utf8 = $this->wire()->config->pageNameCharset === 'UTF8';
-		$name = $utf8 ? $sanitizer->pageNameUTF8($name) : $sanitizer->pageName($name, Sanitizer::translate);
-		
-		if($language) $languages->unsetLanguage();
 
 		return $name;
 	}
@@ -427,7 +427,7 @@ class PagesNames extends Wire {
 	 *
 	 * @param string|Page|array $name Name to make unique
 	 *  You may optionally substitute the $page argument or $options arguments here, if that is all you need.
-	 * @param Page|string|null|array Page to exclude from duplicate check and/or to pull $name or parent from (if not otherwise specified). 
+	 * @param Page|string|null|array $page Page to exclude from duplicate check and/or to pull $name or parent from (if not otherwise specified). 
 	 *  Note that specifying a Page is important if the page already exists, as it is used as the page to exclude when checking for 
 	 *  name collisions, and we want to exclude $page from that check. You may optionally substitute the $options or $name arguments
 	 *  here, if that is all you need. If $parent or $name are specified separately from this $page argument, they will override
@@ -608,10 +608,10 @@ class PagesNames extends Wire {
 	}
 
 	/**
-	 * Is the given name is use by a page?
+	 * Is the given name in use by a page?
 	 * 
 	 * If the `multilang` option is used, it checks if the page name exists in any language. 
-	 * IF the `language` option is used, it only checks that particular language (regardless of `multilang` option).
+	 * If the `language` option is used, it only checks that particular language (regardless of `multilang` option).
 	 * 
 	 * #pw-group-informational
 	 *
@@ -660,7 +660,6 @@ class PagesNames extends Wire {
 		}
 
 		if($parentID) {
-			// xxx
 			$wheres[] = 'parent_id=:parent_id';
 			$binds[':parent_id'] = $parentID; 
 		}
@@ -797,7 +796,6 @@ class PagesNames extends Wire {
 			$name = $this->wire()->sanitizer->pageName($name, Sanitizer::toAscii);
 		}
 	
-		// xxx
 		$sql = "SELECT id, status, parent_id FROM pages WHERE name=:name AND id!=:id";
 		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':name', $name);

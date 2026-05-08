@@ -60,7 +60,7 @@ class PagesSortfields extends Wire {
 	/**
 	 * Save the sortfield for a given Page
 	 *
-	 * @param Page
+	 * @param Page $page
 	 * @return bool
 	 *
 	 */
@@ -77,11 +77,12 @@ class PagesSortfields extends Wire {
 
 		$sql = 	"INSERT INTO pages_sortfields (pages_id, sortfield) " .
 				"VALUES(:page_id, :sortfield) " .
-				"ON DUPLICATE KEY UPDATE sortfield=VALUES(sortfield)";
+				"ON DUPLICATE KEY UPDATE sortfield=:sortfield_update";
 		
 		$query = $database->prepare($sql);
 		$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
 		$query->bindValue(":sortfield", $sortfield, \PDO::PARAM_STR);
+		$query->bindValue(":sortfield_update", $sortfield, \PDO::PARAM_STR);
 		$result = $query->execute();
 		
 		return $result;
@@ -90,7 +91,7 @@ class PagesSortfields extends Wire {
 	/**
 	 * Delete the sortfield for a given Page
 	 *
-	 * @param Page
+	 * @param Page $page
 	 * @return bool
 	 *
 	 */
@@ -149,7 +150,8 @@ class PagesSortfields extends Wire {
 	 */
 	public function encode($sortfield, $default = 'sort') {
 
-		$reverse = false; 
+		$reverse = false;
+		$sortfield = (string) $sortfield;
 	
 		if(substr($sortfield, 0, 1) == '-') {	
 			$reverse = true; 

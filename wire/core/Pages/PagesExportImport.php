@@ -61,8 +61,7 @@ class PagesExportImport extends Wire {
 		}
 		
 		foreach($readmeFiles as $file) {
-			file_put_contents($file, $readmeText);
-			$files->chmod($readmeFile); 
+			$files->filePutContents($file, $readmeText);
 		}
 		
 		return $path; 
@@ -84,7 +83,7 @@ class PagesExportImport extends Wire {
 		$qty = 0;
 		
 		foreach(new \DirectoryIterator($path) as $file) {
-			
+
 			if($file->isDot()) continue;
 			if($file->getBasename() == $this->className() . '.txt') continue; // we want this file to stay
 			if($file->getMTime() >= (time() - $maxAge)) continue; // not expired
@@ -175,7 +174,7 @@ class PagesExportImport extends Wire {
 	 *  - `parent` (Page|string|int): Parent Page, path or ID. Omit to use import data (default=0).
 	 *  - `template` (Template|string|int): Template object, name or ID. Omit to use import data (default=0).
 	 *  - `fieldNames` (array): Import only these field names, or omit to use all import data (default=[]).
-	 *  - `changeStatus` (bool): Allow status to be changed aon existing pages? (default=true)
+	 *  - `changeStatus` (bool): Allow status to be changed on existing pages? (default=true)
 	 *  - `changeSort` (bool): Allow sort and sortfield to be changed on existing pages? (default=true)
 	 * - Note: all the "change" prefix options require update=true.
 	 * @return PageArray|bool
@@ -197,7 +196,7 @@ class PagesExportImport extends Wire {
 		$jsonFile = $path . "pages.json";
 		$jsonData = file_get_contents($jsonFile);
 		$data = json_decode($jsonData, true);
-		if($data === false) return false;
+		if(!is_array($data)) return false;
 		
 		$pageArray = $this->arrayToPages($data, $options);
 		
@@ -239,7 +238,7 @@ class PagesExportImport extends Wire {
 	 *  - `parent` (Page|string|int): Parent Page, path or ID. Omit to use import data (default=0).
 	 *  - `template` (Template|string|int): Template object, name or ID. Omit to use import data (default=0).
 	 *  - `fieldNames` (array): Import only these field names, or omit to use all import data (default=[]).
-	 *  - `changeStatus` (bool): Allow status to be changed aon existing pages? (default=true)
+	 *  - `changeStatus` (bool): Allow status to be changed on existing pages? (default=true)
 	 *  - `changeSort` (bool): Allow sort and sortfield to be changed on existing pages? (default=true)
 	 * - Note: all the "change" prefix options require update=true.
 	 * @return PageArray|bool 
@@ -247,7 +246,7 @@ class PagesExportImport extends Wire {
 	 */
 	public function importJSON($json, array $options = array()) {
 		$data = json_decode($json, true); 
-		if($data === false) return false;
+		if(!is_array($data)) return false;
 		$pageArray = $this->arrayToPages($data, $options);
 		return $pageArray;	
 	}
@@ -259,11 +258,31 @@ class PagesExportImport extends Wire {
 	 *
 	 * @param PageArray $items
 	 * @param array $options Additional options to modify behavior
-	 *  - `fieldNames` (array): Export oly these field names, when specified. (default=[])
+	 *  - `fieldNames` (array): Export only these field names, when specified. (default=[])
 	 * @return array
 	 *
 	 */
 	public function pagesToArray(PageArray $items, array $options = array()) {
+		$languages = $this->wire()->languages;
+		if($languages) $languages->setDefault();
+		try {
+			$return = $this->_pagesToArray($items, $options);
+		} finally {
+			if($languages) $languages->unsetDefault();
+		}
+		return $return;
+	}
+
+	/**
+	 * Implementation for pagesToArray() method
+	 *
+	 * @param PageArray $items
+	 * @param array $options Additional options to modify behavior
+	 *  - `fieldNames` (array): Export only these field names, when specified. (default=[])
+	 * @return array
+	 *
+	 */
+	protected function _pagesToArray(PageArray $items, array $options = array()) {
 	
 		$config = $this->wire()->config;
 		$modules = $this->wire()->modules;
@@ -272,6 +291,7 @@ class PagesExportImport extends Wire {
 		$defaults = array(
 			'verbose' => false,
 			'fieldNames' => array(), // export only these field names, when specified
+			'noLanguages' => true, // prevents pageToArray from language switching
 		);
 
 		$options = array_merge($defaults, $options);
@@ -307,8 +327,6 @@ class PagesExportImport extends Wire {
 			unset($a['pagination']);
 		}
 
-		$languages = $this->wire()->languages;
-		if($languages) $languages->setDefault();
 		$templates = array();
 
 		foreach($items as $item) {
@@ -373,8 +391,6 @@ class PagesExportImport extends Wire {
 
 		if($options['verbose']) $a['templates'] = $templates;
 
-		if($languages) $languages->unsetDefault();
-
 		return $a;
 	}
 	
@@ -386,10 +402,33 @@ class PagesExportImport extends Wire {
 	 * @param Page $page
 	 * @param array $options
 	 *  - `exportTarget` (string): Export target of 'zip' or 'json' (default=json)
+	 *  - `noLanguages` (bool): Disable language switching to default, for internal use (default=false)
 	 * @return array
 	 *
 	 */
 	public function pageToArray(Page $page, array $options) {
+		$languages = empty($options['noLanguages']) ? $this->wire()->languages : false;
+		$of = $page->of();
+		if($languages) $languages->setDefault();
+		try {
+			$return = $this->_pageToArray($page, $options);
+		} finally {
+			if($of && !$page->of()) $page->of(true);
+			if($languages) $languages->unsetDefault();
+		}
+		return $return;
+	}
+
+	/**
+	 * Implementation for pageToArray method
+	 *
+	 * @param Page $page
+	 * @param array $options
+	 *  - `exportTarget` (string): Export target of 'zip' or 'json' (default=json)
+	 * @return array
+	 *
+	 */
+	public function _pageToArray(Page $page, array $options) {
 		
 		$defaults = array(
 			'exportTarget' => '',
@@ -401,7 +440,6 @@ class PagesExportImport extends Wire {
 
 		/** @var Languages|Language[] $languages */
 		$languages = $this->wire()->languages;
-		if($languages) $languages->setDefault();
 		$numFiles = 0;
 	
 		// standard page settings
@@ -481,7 +519,6 @@ class PagesExportImport extends Wire {
 		}
 
 		if($of) $page->of(true);
-		if($languages) $languages->unsetDefault();
 
 		return $a;
 	}
@@ -528,15 +565,24 @@ class PagesExportImport extends Wire {
 		$info = $this->getImportInfo($a); 
 		if($info) {}
 		
-		if(isset($a['url'])) $options['originalRootUrl'] = $a['url'];
+		if(isset($a['url'])) {
+			$options['originalRootUrl'] = $a['url'];
+		} else if(isset($a['urls']['root'])) {
+			$options['originalRootUrl'] = $a['urls']['root'];
+		}
 		if(isset($a['host'])) $options['originalHost'] = $a['host'];
 		
-		foreach($a['pages'] as $item) {
-			$page = $this->arrayToPage($item, $options);
-			$id = $item['settings']['id'];
-			$this->wire()->notices->move($page, $pageArray, array('prefix' => "Page $id: ")); 
-			if(!$options['count']) $pageArray->add($page);
-			$count++;
+		$this->previousPaths = array();
+		try {
+			foreach($a['pages'] as $item) {
+				$page = $this->arrayToPage($item, $options);
+				$id = $item['settings']['id'];
+				$this->wire()->notices->move($page, $pageArray, array('prefix' => "Page $id: "));
+				if(!$options['count']) $pageArray->add($page);
+				$count++;
+			}
+		} finally {
+			$this->previousPaths = array();
 		}
 	
 		return $options['count'] ? $count : $pageArray;
@@ -557,7 +603,7 @@ class PagesExportImport extends Wire {
 	 *  - `parent` (Page|string|int): Parent Page, path or ID. Omit to use import data (default=0).
 	 *  - `template` (Template|string|int): Template object, name or ID. Omit to use import data (default=0).
 	 *  - `fieldNames` (array): Import only these field names, or omit to use all import data (default=[]).
-	 *  - `changeStatus` (bool): Allow status to be changed aon existing pages? (default=true)
+	 *  - `changeStatus` (bool): Allow status to be changed on existing pages? (default=true)
 	 *  - `changeSort` (bool): Allow sort and sortfield to be changed on existing pages? (default=true)
 	 *  - `replaceTemplates` (array): Array of import-data template name to replacement template name (default=[])
 	 *  - `replaceFields` (array): Array of import-data field name to replacement field name (default=[]) 
@@ -579,6 +625,28 @@ class PagesExportImport extends Wire {
 	 * 
 	 */
 	public function arrayToPage(array $a, array $options = array()) {
+		$languages = $this->wire()->languages;
+		if($languages) $languages->setDefault();
+		try {
+			$return = $this->_arrayToPage($a, $options);
+		} finally {
+			if($languages) $languages->unsetDefault();
+		}
+		return $return;
+	}
+
+	/**
+	 * Implementation for arrayToPage method
+	 *
+	 * See arrayToPage method above for details
+	 *
+	 * @param array $a
+	 * @param array $options
+	 * @return NullPage|Page
+	 * @throws WireException
+	 *
+	 */
+	protected function _arrayToPage(array $a, array $options = array()) {
 		
 		if(empty($a['type']) || $a['type'] != 'ProcessWire:Page') {
 			throw new WireException('Invalid array provided to arrayToPage() method');
@@ -586,7 +654,6 @@ class PagesExportImport extends Wire {
 	
 		$config = $this->wire()->config;
 		$pages = $this->wire()->pages;
-		$languages = $this->wire()->languages;
 		$fields = $this->wire()->fields;
 
 		$defaults = array(
@@ -624,9 +691,6 @@ class PagesExportImport extends Wire {
 			$options['create'] = false;
 		}
 		
-		/** @var Languages $languages */
-		if($languages) $languages->setDefault();
-
 		// determine parent and template
 		$page = $this->importGetPage($a, $options, $errors); 
 		$parent = $page->id ? $page->parent : $this->importGetParent($a, $options, $errors); 
@@ -646,7 +710,6 @@ class PagesExportImport extends Wire {
 		// if we were only able to create a NullPage, abort now
 		if($page instanceof NullPage) {
 			foreach($errors as $error) $page->error($error);
-			if($languages) $languages->unsetDefault();
 			return $page;
 		}
 
@@ -699,8 +762,6 @@ class PagesExportImport extends Wire {
 			$pages->save($page, $options['saveOptions']);
 		}
 
-		if($languages) $languages->unsetDefault();
-		
 		foreach($errors as $error) $page->error($error); 
 		foreach($warnings as $warning) $page->warning($warning);
 		foreach($messages as $message) $page->message($message); 
@@ -801,7 +862,6 @@ class PagesExportImport extends Wire {
 	 */
 	protected function importGetParent(array &$a, array &$options, array &$errors) {
 		// determine parent
-		static $previousPaths = array();
 		$usePrevious = true;
 		$pages = $this->wire()->pages; 
 		$path = $a['path'];
@@ -836,7 +896,7 @@ class PagesExportImport extends Wire {
 				$foundParent = false;
 				if(!$options['commit']) {
 					// check if the parent will be created by the import
-					if(isset($previousPaths[$parentPath])) {
+					if(isset($this->previousPaths[$parentPath])) {
 						$foundParent = true; 
 					}
 				}
@@ -860,11 +920,19 @@ class PagesExportImport extends Wire {
 
 		if($usePrevious){
 			$key = rtrim($path, '/');
-			if($key) $previousPaths[$path] = true;
+			if($key) $this->previousPaths[$path] = true;
 		}
 		
 		return $parent;
 	}
+
+	/**
+	 * Cache used by importGetParent
+	 *
+	 * @var array
+	 *
+	 */
+	protected $previousPaths = [];
 
 	/**
 	 * Import native page settings
@@ -939,7 +1007,7 @@ class PagesExportImport extends Wire {
 		
 		if($field->type instanceof FieldtypeFile) {
 			// file fields (cannot be accessed until page exists)
-			if($page->id) {
+			if($page->id && $this->wire()->user->isSuperuser()) {
 				$this->importFileFieldValue($page, $field, $importValue, $options);
 				return;
 			} else if(!empty($importValue)) {
@@ -1022,7 +1090,7 @@ class PagesExportImport extends Wire {
 				}
 			}
 			if($pageValue instanceof Wire) {
-				// movie notices from the pageValue to the page
+				// move notices from the pageValue to the page
 				$this->wire()->notices->move($pageValue, $page); 
 			}
 		} else {
@@ -1091,15 +1159,15 @@ class PagesExportImport extends Wire {
 			if(!$pagefile) {
 				// new file, needs to be added
 				$isNew = true;
-				try {
-					if($options['commit']) {
-						if(empty($options['filesPath'])) {
-							// importing from ZIP where files are located under filesPath option
-							$pagefiles->add($fileInfo['url']);
-						} else {
-							// importing from URL
-							$pagefiles->add("$options[filesPath]$pageID/$fileName");
-						}
+					try {
+						if($options['commit']) {
+							if(empty($options['filesPath'])) {
+								// importing from URL
+								$pagefiles->add($fileInfo['url']);
+							} else {
+								// importing from ZIP where files are located under filesPath option
+								$pagefiles->add("$options[filesPath]$pageID/$fileName");
+							}
 						$pagefile = $pagefiles->last();
 						if(!$pagefile) throw new WireException("Unable to add file $fileInfo[url]");
 						if($maxFiles === 1 && $pagefiles->count() > 1) {
@@ -1388,7 +1456,7 @@ class PagesExportImport extends Wire {
 			'missingParents' => $missingParents,
 			'missingFields' => $missingFields,
 			'missingFieldsTypes' => $missingFieldsTypes,
-			'mismatchedFields' => array(),
+			'mismatchedFields' => $mismatchedFields,
 			'missingTemplates' => $missingTemplates,
 			'missingTemplateFields' => $missingTemplateFields
 		);

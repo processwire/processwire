@@ -201,7 +201,7 @@ class PagesEditor extends Wire {
 
 		// check if they could corrupt a field by saving
 		if($saveable && $page->outputFormatting) {
-			// iternate through recorded changes to see if any custom fields involved
+			// iterate through recorded changes to see if any custom fields involved
 			foreach($page->getChanges() as $change) {
 				if($fieldName && $change != $fieldName) continue;
 				if($page->template->fieldgroup->getField($change) !== null) {
@@ -408,7 +408,7 @@ class PagesEditor extends Wire {
 	}
 	
 	/**
-	 * Auto-assign a page name to gven page
+	 * Auto-assign a page name to given page
 	 *
 	 * Typically this would be used only if page had no name or if it had a temporary untitled name.
 	 *
@@ -428,7 +428,7 @@ class PagesEditor extends Wire {
 	}
 	
 	/**
-	 * Save a page object and it's fields to database.
+	 * Save a page object and its fields to database.
 	 *
 	 * If the page is new, it will be inserted. If existing, it will be updated.
 	 *
@@ -444,7 +444,7 @@ class PagesEditor extends Wire {
 	 * 	- `resetTrackChanges` (bool): Whether the page's change tracking should be reset (default=true)
 	 * 	- `quiet` (bool): When true, created/modified time+user will use values from $page rather than current user+time (default=false)
 	 *	- `adjustName` (bool): Adjust page name to ensure it is unique within its parent (default=true)
-	 * 	- `forceID` (integer): Use this ID instead of an auto-assigned on (new page) or current ID (existing page)
+	 * 	- `forceID` (integer): Use this ID instead of an auto-assigned one (new page) or current ID (existing page)
 	 * 	- `ignoreFamily` (bool): Bypass check of allowed family/parent settings when saving (default=false)
 	 *  - `noHooks` (bool): Prevent before/after save hooks from being called (default=false)
 	 *  - `noFields` (bool): Bypass saving of custom fields (default=false)
@@ -478,6 +478,7 @@ class PagesEditor extends Wire {
 		$caller = $options['caller'];
 		$callback = $options['callback'];
 		$useHooks = empty($options['noHooks']);
+		$result = false;
 
 		// if language support active, switch to default language so that saved fields and hooks don't need to be aware of language
 		if($languages && $page->id != $user->id && "$user->language") {
@@ -485,41 +486,44 @@ class PagesEditor extends Wire {
 			$user->setLanguage($languages->getDefault());
 		}
 
-		$reason = '';
-		$isNew = $page->isNew();
-		if($isNew) $this->pages->setupNew($page);
-
-		if(!$this->isSaveable($page, $reason, '', $options)) {
-			if($language) $user->setLanguage($language);
-			throw new WireException(rtrim("Can’t save page (id=$page->id): $page->path", ": ") . ": $reason");
-		}
-
-		if($page->hasStatus(Page::statusUnpublished) && $page->template->noUnpublish) {
-			$page->removeStatus(Page::statusUnpublished);
-		}
-
-		if($parentPrevious && !$isNew) {
-			if($useHooks) $this->pages->moveReady($page);
-			if($caller !== 'pages.trash' && $caller !== 'pages.restore') {
-				if($page->isTrash() && !$parentPrevious->isTrash()) {
-					if($this->pages->trash($page, false)) $callback = 'trashed';
-				} else if($parentPrevious->isTrash() && !$page->parent->isTrash()) {
-					if($this->pages->restore($page, false)) $callback = 'restored';
+		try {
+			$reason = '';
+			$isNew = $page->isNew();
+			if($isNew) $this->pages->setupNew($page);
+	
+			if(!$this->isSaveable($page, $reason, '', $options)) {
+				throw new WireException(rtrim("Can’t save page (id=$page->id): $page->path", ": ") . ": $reason");
+			}
+	
+			if($page->hasStatus(Page::statusUnpublished) && $page->template->noUnpublish) {
+				$page->removeStatus(Page::statusUnpublished);
+			}
+	
+			if($parentPrevious && !$isNew) {
+				if($useHooks) $this->pages->moveReady($page);
+				if($caller !== 'pages.trash' && $caller !== 'pages.restore') {
+					if($page->isTrash() && !$parentPrevious->isTrash()) {
+						if($this->pages->trash($page, false)) $callback = 'trashed';
+					} else if($parentPrevious->isTrash() && !$page->parent->isTrash()) {
+						if($this->pages->restore($page, false)) $callback = 'restored';
+					}
 				}
 			}
+	
+			if($options['adjustName'] && !$page->get('_hasUniqueName')) {
+				$this->pages->names()->checkNameConflicts($page);
+			}
+			
+			if($page->namePrevious && !$isNew && $page->namePrevious != $page->name) {
+				if($useHooks) $this->pages->renameReady($page);
+			}
+	
+			$result = $this->savePageQuery($page, $options);
+			if($result) $result = $this->savePageFinish($page, $isNew, $options);
+			
+		} finally {
+			if($language) $user->setLanguage($language); // restore language
 		}
-
-		if($options['adjustName'] && !$page->get('_hasUniqueName')) {
-			$this->pages->names()->checkNameConflicts($page);
-		}
-		
-		if($page->namePrevious && !$isNew && $page->namePrevious != $page->name) {
-			if($useHooks) $this->pages->renameReady($page);
-		}
-
-		$result = $this->savePageQuery($page, $options);
-		if($result) $result = $this->savePageFinish($page, $isNew, $options);
-		if($language) $user->setLanguage($language); // restore language
 		
 		if($result && !empty($callback) && $useHooks) {
 			if(is_string($callback) && ctype_alnum($callback)) {
@@ -899,7 +903,7 @@ class PagesEditor extends Wire {
 	/**
 	 * Save just a field from the given page 
 	 * 
-	 * This is the method used by by the `$page->save($field)` method. 
+	 * This is the method used by the `$page->save($field)` method. 
 	 *
 	 * This function is public, but the preferred manner to call it is with `$page->save($field)`
 	 * 
@@ -1154,7 +1158,7 @@ class PagesEditor extends Wire {
 	
 		if($remove === 2) {
 			// overwrite status (internal/undocumented)
-			$sqlUpdate .= "status=$status";
+			$sqlUpdate .= "$status";
 			if($page instanceof Page) $page->status = $status;
 		} else if($remove) {
 			// remove status
@@ -1783,7 +1787,7 @@ class PagesEditor extends Wire {
 	/**
 	 * Rebuild the “sort” values for all children of the given $parent page, fixing duplicates and gaps
 	 * 
-	 * If used on a $parent not currently sorted by by “sort” then it will update the “sort” index to be
+	 * If used on a $parent not currently sorted by “sort” then it will update the “sort” index to be
 	 * consistent with whatever the pages are sorted by. 
 	 * 
 	 * #pw-group-order
@@ -1894,8 +1898,8 @@ class PagesEditor extends Wire {
 			foreach($binds as $bindKey => $bindValue) {
 				if(strpos($sql, $bindKey) === false) continue;
 				$query->bindValue($bindKey, $bindValue);
-				$query->execute();
 			}
+			$query->execute();
 		}
 
 		$newPage->id = $id;
@@ -2178,7 +2182,7 @@ class PagesEditor extends Wire {
 	}
 	
 	/**
-	 * Return new instanceof PagesAccess
+	 * Return new instance of PagesAccess
 	 * 
 	 * @param Page|null $page
 	 * @return PagesAccess

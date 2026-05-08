@@ -18,12 +18,12 @@
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
- * @method Page add($name)
+ * @method Page|NullPage add($name)
  * @method Page new(array $options = []) 3.0.249
  * @method bool save(Page $page)
  * @method bool delete(Page $page, $recursive = false)
  * 
- * @method saveReady(Page $page)
+ * @method array saveReady(Page $page)
  * @method saved(Page $page, array $changes = array(), $values = array())
  * @method added(Page $page)
  * @method deleteReady(Page $page)
@@ -139,7 +139,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	}
 
 	/**
-	 * Add one or more of parents that this PagesType represents
+	 * Add one or more parents that this PagesType represents
 	 * 
 	 * #pw-group-family
 	 * 
@@ -219,15 +219,15 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	
 		$validTemplate = $this->hasValidTemplate($page);
 		if(!$validTemplate && count($this->templates)) {
-			// $validTemplates = implode(', ', array_keys($this->templates));
-			// $this->error("Page $page->path ($page->template) must have template: $validTemplates");
+			$validTemplates = implode(', ', array_keys($this->templates));
+			$this->error("Page $page->path ($page->template) must have template: $validTemplates");
 			return false;
 		}
 		
 		$validParent = $this->hasValidParent($page);
 		if(!$validParent && count($this->parents)) {
-			// $validParents = implode(', ', $this->parents);
-			// $this->error("Page $page->path must have parent: $validParents");
+			$validParents = implode(', ', $this->parents);
+			$this->error("Page $page->path must have parent: $validParents");
 			return false;
 		}
 		
@@ -418,7 +418,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		} else if(strpos($selectorString, '=') === false) { 
 			// selector string contains no operators, so it is a page name or path
 			if(strpos($selectorString, '/') === false) {
-				// selector string contains no operators or slashes, so we assume it to be a page ame
+				// selector string contains no operators or slashes, so we assume it to be a page name
 				$s = $this->wire()->sanitizer->name($selectorString);
 				if($s === $selectorString) $selectorString = "name=$s";
 			} else {
@@ -668,8 +668,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 */
 	#[\ReturnTypeWillChange]
 	public function count($selectorString = '', array $options = array()) {
-		if(empty($selectorString) && empty($options) && count($this->parents) == 1) {
-			return $this->getParent()->numChildren();
+		if(empty($selectorString) && empty($options) && count($this->parents) < 2 && count($this->templates) < 2) {
+			if(in_array($this->className(), ['Users', 'Roles', 'Permissions', 'Languages'], true)) {
+				return $this->getParent()->numChildren();
+			}
 		}
 		$selectorString = $this->selectorString($selectorString); 
 		$defaults = array('findAll' => true); 

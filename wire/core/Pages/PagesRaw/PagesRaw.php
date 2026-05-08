@@ -37,7 +37,7 @@ class PagesRaw extends Wire {
 	/**
 	 * Find pages and return raw data from them in a PHP array
 	 * 
-	 * @param string|array|Selectors $selector
+	 * @param string|array|int|Selectors $selector
 	 * @param string|array|Field $field Name of field/property to get, or array of them, CSV string, or omit to get all (default='')
 	 *  - Optionally use associative array to rename fields in returned value, i.e. `['title' => 'label']` returns 'title' as 'label' in return value.
 	 *  - Specify `parent.field_name` or `parent.parent.field_name`, etc. to return values from parent(s). 3.0.193+
@@ -62,19 +62,19 @@ class PagesRaw extends Wire {
 		$this->wire($finder);
 		return $finder->find($selector, $field, $options);
 	}
-
+	
 	/**
 	 * Get page (no exclusions) and return raw data from it in a PHP array
 	 *
-	 * @param string|array|Selectors $selector
+	 * @param string|array|int|Selectors $selector
 	 * @param string|Field|int|array $field Field/property name to get or array of them (or omit to get all)
-	 * @param array|bool $options See options for Pages::find
+	 * @param array|bool $options See options for Pages::find, plus these:
 	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false)
 	 *  - `entities` (bool|array): Entity encode string values? True, or specify array of field names. (default=false)
 	 *  - `indexed` (bool): Index by page ID? (default=false)
 	 *  - `flat` (bool|string): Flatten return value as `["field.subfield" => "value"]` rather than `["field" => ["subfield" => "value"]]`?
 	 *     Optionally specify field delimiter, otherwise a period `.` will be used as the delimiter. (default=false) 3.0.193+
-	 * @return array
+	 * @return array|false Returns array if found, boolean false if not
 	 * @since 3.0.172
 	 *
 	 */
@@ -85,7 +85,27 @@ class PagesRaw extends Wire {
 		$values = $this->find($selector, $field, $options);
 		return reset($values);
 	}
-
+	
+	/**
+	 * Find one page (with exclusions) and return raw data from it in a PHP array
+	 *
+	 * @param string|array|int|Selectors $selector
+	 * @param string|Field|int|array $field Field/property name to get or array of them (or omit to get all)
+	 * @param array|bool $options See options for Pages::find, plus these: 
+	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false)
+	 *  - `entities` (bool|array): Entity encode string values? True, or specify array of field names. (default=false)
+	 *  - `indexed` (bool): Index by page ID? (default=false)
+	 *  - `flat` (bool|string): Flatten return value as `["field.subfield" => "value"]` rather than `["field" => ["subfield" => "value"]]`?
+	 *     Optionally specify field delimiter, otherwise a period `.` will be used as the delimiter. (default=false) 3.0.193+
+	 * @return array|false Returns array if found, boolean false if not
+	 * @since 3.0.261
+	 *
+	 */
+	public function findOne($selector, $field = '', $options = array()) {
+		$options['findAll'] = false;
+		return $this->get($selector, $field, $options);
+	}
+	
 	/**
 	 * Get native pages table column value for given page ID
 	 *
@@ -207,6 +227,7 @@ class PagesRaw extends Wire {
 				$id = (int) $id;
 				if($id > 0) $ids[$id] = $id;
 			}
+			if(empty($ids)) return [];
 			$ids = implode(',', $ids);
 			$query = $database->prepare("SELECT $colStr FROM pages WHERE id IN($ids)");
 			$query->execute();
@@ -441,7 +462,7 @@ class PagesRawFinder extends Wire {
 			$selectorString = (string) $selector;
 		}
 		
-		if(empty($field) && !$this->selectorIsPageIDs) {
+		if(empty($field) && !$this->selectorIsPageIDs && !$this->selectorIsPageIDOrPath($selector)) {
 			// check if field specified in selector instead
 			$field = array();
 			$multi = false;
@@ -532,6 +553,25 @@ class PagesRawFinder extends Wire {
 		foreach(array('objects', 'entities', 'flat') as $name) {
 			if(in_array($name, $optionsValues)) $this->options[$name] = true;
 		}
+		if(is_array($this->options['entities'])) {
+			foreach($this->options['entities'] as $key => $value) {
+				if(!ctype_digit("$key")) continue;
+				unset($this->options['entities'][$key]);
+				if(!is_string($value) && !is_int($value)) continue;
+				$this->options['entities'][$value] = $value;
+			}
+		}
+	}
+	
+	/**
+	 * Does given selector represent a page ID or page path?
+	 * 
+	 * @param mixed $selector
+	 * @return bool
+	 * 
+	 */
+	protected function selectorIsPageIDOrPath($selector) {
+		return is_int($selector) || (is_string($selector) && (ctype_digit($selector) || strpos($selector, '/') === 0));
 	}
 
 	/**
@@ -556,7 +596,7 @@ class PagesRawFinder extends Wire {
 	 *   `[ 'title' => 'headline' ]` for the $field argument. (3.0.176+)
 	 *
 	 * @param string|array|Selectors $selector
-	 * @param string|Field|int|array $field Field/property name or array of of them
+	 * @param string|Field|int|array $field Field/property name or array of them
 	 * @param array $options See options for Pages::find
 	 * @return array
 	 * @since 3.0.172
@@ -908,12 +948,14 @@ class PagesRawFinder extends Wire {
 		$fieldtypeMulti = $field->type instanceof FieldtypeMulti ? $fieldtype : null;
 		$fieldtypePage = $fieldtype instanceof FieldtypePage ? $fieldtype : null;
 		$fieldtypeRepeater = $fieldtype instanceof FieldtypeRepeater ? $fieldtype : null;
+		$fieldtypeOptions = wireInstanceOf($fieldtype, 'FieldtypeOptions');
 		
 		$fieldName = $field->name;
 		$schema = $fieldtype->getDatabaseSchema($field);
 		$schema = $fieldtype->trimDatabaseSchema($schema, array('trimDefault' => false));
 		$table = $database->escapeTable($field->getTable());
 		$sorts = array();
+		$unknownCols = array();
 
 		if(empty($table) || empty($schema) || $fieldtype instanceof FieldtypeFieldsetOpen) return;
 
@@ -937,23 +979,30 @@ class PagesRawFinder extends Wire {
 			
 		} else if(reset($cols) === '*') {
 			$getAllCols = true;
-			if(wireInstanceOf($field->type, 'FieldtypeOptions')) $getExternal = true;
+			if($fieldtypeOptions) $getExternal = true;
 			
 		} else {
 			foreach($cols as $col) {
-				$col = $sanitizer->name($col);
-				if(empty($col)) continue;
+				$colName = $sanitizer->name($col);
+				if(empty($colName)) {
+					$unknownCols[] = "$fieldName.$col";
+					continue;
+				}
+				$col = $colName;
 				if(isset($schema[$col])) {
 					$getCols[$col] = $database->escapeCol($sanitizer->fieldName($col));
 				} else if($fieldtypePage || $fieldtypeRepeater) {
 					$pageRefCols[$col] = $col;
-				} else {
+				} else if($fieldtypeOptions) {
 					// unknown or external column
 					$getCols['data'] = 'data';
 					$externalCols[$col] = $col;
 					$getExternal = true;
+				} else {
+					$unknownCols[] = "$fieldName.$col";
 				}
 			}
+			if(count($unknownCols)) $this->unknownFieldsException($unknownCols, 'column');
 			if(count($pageRefCols)) {
 				// get just the data column when a field within a Page reference is asked for
 				$getCols['data'] = 'data';
@@ -1117,7 +1166,7 @@ class PagesRawFinder extends Wire {
 					foreach($cols as $colName) {
 						$value = $option->get($colName);
 						if(!is_string($value) && !is_int($value)) $value = null;
-						$this->values[$pageId][$fieldName][$key][$colName] = $option->get($colName);
+						$this->values[$pageId][$fieldName][$key][$colName] = $value;
 					}
 				} else {
 					$value = $option->get($firstColName); // i.e. title, value, id, title1234, etc.
@@ -1305,7 +1354,7 @@ class PagesRawFinder extends Wire {
 	}
 
 	/**
-	 * Populate 'meta' to (form pages_meta table) to the result values
+	 * Populate 'meta' to the result values (from pages_meta table)
 	 *
 	 * @param array $names
 	 * @since 3.0.193
@@ -1470,7 +1519,8 @@ class PagesRawFinder extends Wire {
 		// if selector was just a page ID, return it in an id indexed array
 		if(is_int($selector) || (is_string($selector) && ctype_digit($selector))) {
 			$id = (int) $selector;
-			return array($id => $id); 
+			if(empty($verbose)) return array($id => $id);
+			$selector = array($id);
 		}
 
 		// if selector is not array of page IDs then let pages.findIDs handle it

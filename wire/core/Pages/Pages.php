@@ -28,7 +28,7 @@
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
- * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
+ * @link http://processwire.com/api/variables/pages/ Official $pages Documentation
  * @link http://processwire.com/api/selectors/ Official Selectors Documentation
  * 
  * 
@@ -223,22 +223,24 @@ class Pages extends Wire {
 		$this->loader();
 		$this->cacher();
 		$this->request();
-		// $this->wire()->classLoader->addPrefix('Pages', __DIR__ . '/Pages/'); 
 	}
 	
 	/**
 	 * Load helper instance
 	 * 
-	 * @param string $name
-	 * @param string $class
+	 * @param string $name Name of helper for API access
+	 * @param string $class Class name for helper
+	 * @param string|bool $subdir Subdir name or boolean true to use $class as subddir
 	 * @return PagesEditor|PagesExportImport|PagesLoader|PagesLoaderCache|PagesNames|PagesParents|PagesPathFinder|PagesRaw|PagesRequest|PagesSortfields|PagesTrash
 	 * @since 3.0.259
 	 * 
 	 */
-	protected function loadHelper($name, $class) {
+	protected function loadHelper($name, $class, $subdir = '') {
 		$value = $this->$name;
 		if($value) return $value; 
-		require_once(__DIR__ . "/$class.php");
+		if($subdir === true) $subdir = $class;
+		if($subdir) $subdir = '/' . trim($subdir, '/');
+		require_once(__DIR__ . $subdir . "/$class.php");
 		$class = __NAMESPACE__ . "\\$class";
 		$value = $this->wire(new $class($this));
 		$this->$name = $value;
@@ -1049,12 +1051,12 @@ class Pages extends Wire {
 	/**
 	 * Clone entire page and return it
 	 * 
-	 * This also clones any file assets assets associated with the page. The clone is recursive
+	 * This also clones any file assets associated with the page. The clone is recursive
 	 * by default, cloning children (and so on) as well. To clone only the page without children,
 	 * specify false for the `$recursive` argument. 
 	 * 
 	 * Warning: this method can fail when recursive and cloning a page with huge amounts of 
-	 * children (or descendent family), and adequate resources (like memory or time limit) are
+	 * children (or descendant family), and adequate resources (like memory or time limit) are
 	 * not available.
 	 * 
 	 * ~~~~~
@@ -1935,7 +1937,11 @@ class Pages extends Wire {
 			$class = $options['class'];
 		}
 		$class = wireClassName($class, true);
-		$pageArray = $this->wire(new $class());
+		if($class === PageArray::class || (wireClassExists($class) && is_subclass_of($class, PageArray::class))) {
+			$pageArray = $this->wire(new $class());
+		} else {
+			$pageArray = null;
+		}
 		if(!$pageArray instanceof PageArray) $pageArray = $this->wire(new PageArray());
 		return $pageArray;
 	}
@@ -2005,8 +2011,11 @@ class Pages extends Wire {
 	
 		if(strpos($class, "\\") === false) $class = wireClassName($class, true);
 		
-		$page = $this->wire(new $class($template));
-		
+		if($class === Page::class || (wireClassExists($class) && is_subclass_of($class, Page::class))) {
+			$page = $this->wire(new $class($template));
+		} else {
+			$page = null;
+		}
 		if(!$page instanceof Page) $page = $this->wire(new Page($template));
 		if($parent) $page->parent = $parent;
 		if(count($options)) $page->setArray($options);
@@ -2074,7 +2083,7 @@ class Pages extends Wire {
 	 * @return Page|Pages|PageArray
 	 *
 	 */
-	public function __invoke($key) {
+	public function __invoke($key = '') {
 		// no argument
 		if(empty($key)) return $this;
 		
@@ -2210,11 +2219,14 @@ class Pages extends Wire {
 	 * 
 	 */
 	public function porter() {
-		return $this->porter ? $this->porter : $this->loadHelper('porter', 'PagesExportImport');
+		require_once(__DIR__ . "/PagesExportImport.php");
+		$porter = new PagesExportImport();
+		$this->wire($porter); 
+		return $porter; 
 	}
 
 	/**
-	 * Get the PagesRaw instance which provides methods for findind and loading raw pages data
+	 * Get the PagesRaw instance which provides methods for finding and loading raw pages data
 	 * 
 	 * #pw-group-helpers
 	 * #pw-redirect PagesRaw
@@ -2224,7 +2236,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function raw() {
-		return $this->raw ? $this->raw : $this->loadHelper('raw', 'PagesRaw'); 
+		return $this->raw ? $this->raw : $this->loadHelper('raw', 'PagesRaw', true); 
 	}
 	
 	/**
@@ -2314,6 +2326,7 @@ class Pages extends Wire {
 		$data = array();
 		foreach($this->types as $manager) {
 			if(!$manager->hasValidTemplate($page)) continue;
+			// if(!$manager->hasValidParent($page)) continue; // @todo should this also be enforced?
 			$a = $manager->saveReady($page);
 			if(!empty($a) && is_array($a)) $data = array_merge($data, $a);
 		}

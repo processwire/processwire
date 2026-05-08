@@ -14,6 +14,7 @@
  * 
  * 	- `pages_id` (int): Any given page 
  * 	- `templates_id` (int): The template that sets this pages access
+ * 	- `ts` (int): Timestamp of the row
  *
  * Pages using templates that already define their access (determined by $template->useRoles) 
  * are omitted from the pages_access table, as they aren't necessary. 
@@ -42,17 +43,11 @@ class PagesAccess extends Wire {
 	protected $_accessTemplates = array();
 
 	/**
-	 * Array of page parent IDs that have already been completed
-	 *
-	 */
-	protected $completedParentIDs = array(); 
-
-	/**
 	 * Construct a PagesAccess instance, optionally specifying a Page or Template
 	 *
 	 * If Page or Template specified, then the updateTemplate or updatePage method is assumed. 
 	 *
-	 * @param Page|Template
+	 * @param Page|Template|null $item
 	 * 
 	 */
 	public function __construct($item = null) {
@@ -193,8 +188,8 @@ class PagesAccess extends Wire {
 		$accessParent = $page->getAccessParent();
 		$accessTemplate = $accessParent->template;
 		$database = $this->wire()->database;
-
-		if(!$accessParent->id || $accessParent->id == $page->id) {
+		
+		if(!$accessParent->id || $accessParent->id == $page->id || $accessTemplate->hasRole('guest')) {
 			// page is the same as the one that defines access, so it doesn't need to be here
 			$query = $database->prepare("DELETE FROM pages_access WHERE pages_id=:page_id"); 	
 

@@ -10,7 +10,7 @@
  * #pw-body = 
  * This is built for use by the PagesRequest class and ProcessPageView module, but can also be useful from the public API.
  * The most useful method is the `get()` method which returns a verbose array of information about the given path. 
- * Methods in this class should be acessed from `$pages->pathFinder()`, i.e. 
+ * Methods in this class should be accessed from `$pages->pathFinder()`, i.e. 
  * ~~~~~
  * $result = $pages->pathFinder()->get('/en/foo/bar/page3');
  * ~~~~~
@@ -40,8 +40,8 @@ class PagesPathFinder extends Wire {
 	 * 
 	 * @var array
 	 * 
-	 * - useLanguages: Allows for selection of multi-language path paths (requires LanguageSupportPageNames module)
-	 * - usePathPaths: Allow use of PagePaths module to attempt to find a shortcut?
+	 * - useLanguages: Allows for selection of multi-language page paths (requires LanguageSupportPageNames module)
+	 * - usePagePaths: Allow use of PagePaths module to attempt to find a shortcut?
 	 * - useGlobalUnique: Allow support of shortcut for globally unique page names?
 	 * - useExcludeRoots: Exclude paths that do not have a known root segment, improves performance when lots of 404s. 
 	 * - useHistory: Allow detecting of previous page paths via the PagePathHistory module?
@@ -245,7 +245,8 @@ class PagesPathFinder extends Wire {
 	
 		// if we didn’t match row or matched with URL segments, see if history match available
 		if($this->options['useHistory']) {
-			if(!$row || ($this->result['page']['id'] === 1 && count($this->result['urlSegments']))) {
+			// if(!$row || ($this->result['page']['id'] === 1 && count($this->result['urlSegments']))) {
+			if(!$row || count($this->result['urlSegments'])) {
 				if($this->getPathHistory($this->result['request'])) return $this->result;
 			}
 		}
@@ -510,7 +511,7 @@ class PagesPathFinder extends Wire {
 		$maxDepth = $config->maxUrlDepth;
 		$maxUrlSegmentLength = $config->maxUrlSegmentLength;
 		$maxPartLength = $maxUrlSegmentLength > 128 ? $maxUrlSegmentLength : 128;
-		$maxPathLength = ($maxPartLength * $maxUrlSegmentLength) + $maxDepth;
+		$maxPathLength = ($maxPartLength * $maxDepth) + $maxDepth;
 		$badNames = array();
 		$path = trim($path, '/');
 		$lastPart = '';
@@ -863,7 +864,7 @@ class PagesPathFinder extends Wire {
 
 		foreach($this->pageNumUrlPrefixes() as $languageName => $pageNumUrlPrefix) {
 			if(strpos($lastSegment, $pageNumUrlPrefix) !== 0) continue;
-			if(!preg_match('!^' . $pageNumUrlPrefix . '(\d+)$!i', $lastSegment, $matches)) continue;
+			if(!preg_match('!^' . preg_quote($pageNumUrlPrefix) . '(\d+)$!i', $lastSegment, $matches)) continue;
 			$segment = $matches[0];
 			$pageNum = (int) $matches[1];
 			$result['pageNum'] = $pageNum;
@@ -1253,7 +1254,7 @@ class PagesPathFinder extends Wire {
 
 		foreach($this->pageNumUrlPrefixes() as $prefix) {
 			if(strpos($lastPart, $prefix) !== 0) continue;
-			if(!preg_match('/^' . $prefix . '(\d+)$/', $lastPart, $matches)) continue;
+			if(!preg_match('/^' . preg_quote($prefix) . '(\d+)$/', $lastPart, $matches)) continue;
 			$pageNumPrefix = $prefix;
 			$pageNum = (int) $matches[1];
 			break;
@@ -1313,6 +1314,13 @@ class PagesPathFinder extends Wire {
 		$result['language']['name'] = $languageName;
 		$result['response'] = 301;
 		$result['redirect'] = $path;
+	
+		// GPT 5.5 Codex
+		$result['urlSegments'] = array(); 
+		$result['urlSegmentStr'] = '';
+		$result['pageNum'] = 1;
+		$result['pageNumPrefix'] = '';
+		$result['pathAdd'] = '';
 
 		$urlSegmentStr = $info['urlSegmentStr'];
 
@@ -1320,9 +1328,9 @@ class PagesPathFinder extends Wire {
 			$result['urlSegments'] = explode('/', $info['urlSegmentStr']);
 			$this->applyResultPageNum($result['parts']);
 		}
-
-		$result = $this->finishResult($path);
+		
 		$this->addMethod('pathHistory', true);
+		$this->finishResult($path);
 
 		return true;
 	}

@@ -166,6 +166,7 @@ class PagesLoader extends Wire {
 	protected function normalizeSelectorString($selector, $convertIDs = true) {
 		
 		$selector = trim($selector, ', ');
+		if($selector === '') return '';
 
 		if(ctype_digit($selector)) {
 			// normalize to page ID (int)
@@ -873,7 +874,7 @@ class PagesLoader extends Wire {
 	 *  - Any string accepted by PHP’s `strtotime()` that specifies when the cache should be expired.
 	 *  - Any `WireCache::expire…` constant or anything accepted by the `WireCache::get()` $expire argument.
 	 * @param array $options Options to pass to `$pages->getByIDs()`, or:
-	 *  - `findIDs` (bool): Return just the page IDs rather then the actual pages? (default=false)
+	 *  - `findIDs` (bool): Return just the page IDs rather than the actual pages? (default=false)
 	 * @return PageArray|array
 	 * @since 3.0.218
 	 *
@@ -947,11 +948,7 @@ class PagesLoader extends Wire {
 		
 		if(!empty($options['findIDs'])) return $ids;
 
-		foreach($items as $item) {
-			if($item instanceof NullPage || $item->status & Page::statusTrash) {
-				$items->remove($item);
-			}
-		}
+		$items = $this->filterFindCacheItems($items, $selectors, $options);
 
 		return $items;
 	}
@@ -1465,7 +1462,7 @@ class PagesLoader extends Wire {
 	 * 
 	 * @param string $name Match this page name
 	 * @param array $options
-	 *  - `parent' (int|Page): Match this parent ID (default=0)
+	 *  - `parent` (int|Page): Match this parent ID (default=0)
 	 *  - `parentName` (string): Match this parent name (default='')
 	 *  - `getArray` (bool): Get PHP info array rather than Page|NullPage|PageArray? (default=false)
 	 *  - `getOne` (bool|int): Get just one match of Page or NullPage? (default=false)
@@ -2096,7 +2093,7 @@ class PagesLoader extends Wire {
 	 * a page at once, and often in a single query. This is similar to the `joinFields` option
 	 * when loading a page, or the `autojoin` option configured with a field, except that it 
 	 * can be used after a page is already loaded. It provides a performance improvement
-	 * relative lazy-loading of fields individually as they are accessed. 
+	 * relative to lazy-loading of fields individually as they are accessed. 
 	 * 
 	 * Preload works only with Fieldtypes that do not override the core’s loading methods. 
 	 * Preload also does not work with FieldtypeMulti types at present, except for the Page
@@ -2457,6 +2454,51 @@ class PagesLoader extends Wire {
 	}
 
 	/**
+	 * Filter pages loaded from findCache() results
+	 *
+	 * @param PageArray $items
+	 * @param string|array|Selectors $selectors
+	 * @param array $options
+	 * @return PageArray
+	 * @author GPT 5.5 Codex
+	 *
+	 */
+	protected function filterFindCacheItems(PageArray $items, $selectors, array $options) {
+
+		foreach($items as $item) {
+			if($item instanceof NullPage || $item->status & Page::statusTrash) {
+				$items->remove($item);
+			}
+		}
+
+		if(!empty($options['findAll'])) return $items;
+
+		$includeMode = isset($options['include']) ? strtolower((string) $options['include']) : '';
+		$checkAccess = true;
+
+		if($includeMode === '') {
+			$info = Selectors::selectorHasField($selectors, 'include', array('verbose' => true));
+			if($info['result']) $includeMode = strtolower((string) $info['value']);
+		}
+
+		foreach(array('check_access', 'checkAccess') as $fieldName) {
+			if(isset($options[$fieldName])) {
+				$checkAccess = ((int) $options[$fieldName]) > 0;
+				break;
+			}
+			$info = Selectors::selectorHasField($selectors, $fieldName, array('verbose' => true));
+			if($info['result']) {
+				$checkAccess = ((int) $info['value']) > 0;
+				break;
+			}
+		}
+
+		if($includeMode === 'all' || !$checkAccess) return $items;
+
+		return $this->filterListable($items, $includeMode, $options);
+	}
+
+	/**
 	 * Returns an array of all columns native to the pages table
 	 * 
 	 * #pw-group-native
@@ -2479,7 +2521,7 @@ class PagesLoader extends Wire {
 	}
 
 	/**
-	 * Get value of of a native column in pages table for given page ID
+	 * Get value of a native column in pages table for given page ID
 	 * 
 	 * #pw-group-retrieve
 	 * #pw-group-native

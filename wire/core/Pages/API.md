@@ -2,7 +2,7 @@
 
 The `$pages` API variable loads, creates, saves and deletes Page objects to and from the database.
 It is the most frequently used API variable in ProcessWire. This document covers the most commonly
-used methods of `$pages` but it does not cover them all. See `/wire/core/Pages.php` and 
+used methods of `$pages` but it does not cover them all. See `/wire/core/Pages/Pages.php` and 
 in `/wire/core/Pages/*.php` phpdoc for full methods reference, or the online 
 [Pages API reference](https://processwire.com/api/ref/pages/#api-reference). 
 
@@ -232,8 +232,8 @@ Useful hooks on `$pages`:
 | `Pages::found`                | After find completes, receives the full PageArray |
 | `Pages::saveReady`            | Just before a page is saved                       |
 | `Pages::saved`                | After a page is successfully saved                |
-| `Pages::savePageOrFieldReady` | Before a page or an field is saved                |
-| `Pages::savedPageOrField`     | After a page or an field is saved                 |
+| `Pages::savePageOrFieldReady` | Before a page or a field is saved                 |
+| `Pages::savedPageOrField`     | After a page or a field is saved                  |
 | `Pages::addReady`             | Before a new page is added                        |
 | `Pages::added`                | After a new page is added                         |
 | `Pages::deleteReady`          | Before a page is deleted                          |

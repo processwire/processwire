@@ -652,7 +652,7 @@ class PagesRequest extends Wire {
 
 		// matching in $idAndFile: 1234/file.jpg, 1/2/3/4/file.jpg, 1234/subdir/file.jpg, 1/2/3/4/subdir/file.jpg, etc. 
 		$regex = '{^(\d[\d\/]*)/([-_a-zA-Z0-9][-_./a-zA-Z0-9]+)$}';
-		if(!preg_match($regex, $idAndFile, $matches) && strpos($matches[2], '.')) {
+		if(!preg_match($regex, $idAndFile, $matches)) {
 			// request was to something in /site/assets/files/ but we don't recognize it
 			// tell caller that this should be a 404
 			return $pages->newNullPage();
@@ -716,8 +716,8 @@ class PagesRequest extends Wire {
 	protected function checkRequestFilePrefix(&$path) {
 		$filePrefix = $this->wire()->config->pagefileUrlPrefix;
 		if(empty($filePrefix)) return false;
-		if(!strpos($path, '/' . $filePrefix)) return false;
-		$regex = '{^(.*/)' . $filePrefix . '([-_.a-zA-Z0-9]+)$}';
+		if(!strpos($path, '/' . $filePrefix) === false) return false;
+		$regex = '{^(.*/)' . preg_quote($filePrefix, '{') . '([-_.a-zA-Z0-9]+)$}';
 		if(!preg_match($regex, $path, $matches)) return false; 
 		if(!strpos($matches[2], '.')) return false;
 		$path = $matches[1];
@@ -1066,7 +1066,7 @@ class PagesRequest extends Wire {
 	 * 
 	 */
 	public function getResponseCodeName() {
-		return $this->responseCodeNames[$this->responseCode];
+		return $this->responseCodeNames[$this->responseCode] ?? 'unknown';
 	}
 	
 	/**

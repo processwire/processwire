@@ -9,7 +9,6 @@
  * Note: this module supports page-edit-export and page-edit-import permissions, but currently the module is 
  * designed only for use by superuser, so don't bother adding those permissions at present. 
  * 
- * @todo ZIP file support
  * @todo Repeater support
  * @todo PageTable support
  *
@@ -296,6 +295,14 @@ class ProcessPagesExportImport extends Process {
 		$fieldNames = $form->getChildByName('import_fields')->val();
 		$qty = 0;
 	
+		if(isset($a['url'])) {
+			$rootUrl = $a['url'];
+		} else if(isset($a['urls']['root'])) {
+			$rootUrl = $a['urls']['root'];
+		} else {
+			$rootUrl = $config->urls->root;
+		}
+
 		$options = array(
 			'update' => $importMode == 'all' || $importMode == 'update',
 			'create' => $importMode == 'all' || $importMode == 'create',
@@ -311,7 +318,7 @@ class ProcessPagesExportImport extends Process {
 			'changeSort' => in_array('sort', $fieldNames),
 			'filesPath' => $this->wire()->session->getFor($this, 'filesPath'), 
 			'originalHost' => isset($a['host']) ? $a['host'] : $config->httpHost, 
-			'originalRootUrl' => isset($a['url']) ? $a['url'] : $config->urls->root,
+			'originalRootUrl' => $rootUrl,
 		);
 		
 		foreach($a['pages'] as /* $key => */ $item) {

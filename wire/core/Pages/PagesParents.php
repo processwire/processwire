@@ -18,7 +18,7 @@
  * $numRows = $pages->parents()->rebuildAll();
  * ~~~~~~
  *
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.156
@@ -190,7 +190,7 @@ class PagesParents extends Wire {
 			foreach(array_reverse($values, true) as $key => $value) {
 				$name = $value['id'] > 1 ? $value['name'] : '';
 				if($name) $names[] = $name;
-				$values[$key]['path'] = '/' . implode('/', $names) . '/';
+				$values[$key]['path'] = count($names) ? '/' . implode('/', $names) . '/' : '/';
 			}
 		}
 
@@ -257,7 +257,7 @@ class PagesParents extends Wire {
 		$columns = $options['columns'];
 		if(empty($columns) && strlen($column)) $columns = array($column);
 		$getPages = empty($columns) && !$options['_level'] && !$options['debug']; 
-		$forceRecursive = $options['recursive'] && !$options['useIndexTable']; 
+		$forceRecursive = $options['recursive'] && (!$options['useIndexTable'] || $parentID === 1); 
 		$indexByID = $getPages || $forceRecursive ? true : $options['indexByID'];
 		$debug = $options['debug'];
 		$timer = $debug && !$options['_level'] ? Debug::timer() : false;
@@ -289,7 +289,7 @@ class PagesParents extends Wire {
 				$parentID = abs($parentID); 
 			}
 			$bind[':parent_id'] = $parentID; 
-			if($options['recursive'] && $options['useIndexTable']) {
+			if($options['recursive'] && $options['useIndexTable'] && !$forceRecursive) {
 				$sql['join2'] = "JOIN pages_parents ON pages_parents.parents_id$op:parent_id AND pages_parents.pages_id=pages.id";
 			} else {
 				$sql['where'] = "WHERE pages.parent_id$op:parent_id";
@@ -463,7 +463,7 @@ class PagesParents extends Wire {
 		}
 	
 		if($fromParent) {
-			// filter out parents not descendents of $fromParent
+			// filter out parents not descendants of $fromParent
 			$a = array();
 			$level++;
 			foreach(array_keys($parents, $fromParent) as $id) {
@@ -608,7 +608,7 @@ class PagesParents extends Wire {
 		}
 		$numRows += $query->rowCount();
 
-		// find children and descendents of the page that moved
+		// find children and descendants of the page that moved
 		$sql = 'SELECT pages_id FROM pages_parents WHERE parents_id=:pages_id';
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
@@ -724,7 +724,7 @@ class PagesParents extends Wire {
 	}
 
 	/**
-	 * Rebuild pages_parents branch starting at $fromParent and into all descendents
+	 * Rebuild pages_parents branch starting at $fromParent and into all descendants
 	 * 
 	 * @param Page|int $fromParent From parent Page or ID
 	 * @return int Number of rows inserted
