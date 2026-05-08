@@ -522,6 +522,7 @@ class PagesVersions extends Wire implements Module {
 	 *    the `addPageVersion()` method and returns the added version number. 
 	 * @param array $options
 	 *  - `name` (string|null): Optional name for the version, i.e. "draft" (default=null, no change on update)
+	 *  - `names` (array): Names of fields/properties to include in the version or omit for all.
 	 *  - `description` (string): Optional text description for version (default='')
 	 *  - `update` (bool): Update version if it already exists (default=true)
 	 * @return int|array Returns version number saved or added or 0 on fail

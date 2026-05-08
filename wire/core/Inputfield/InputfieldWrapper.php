@@ -157,6 +157,12 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * 
 	 */
 	protected $useColumnWidth = true;
+	
+	/**
+	 * @var int 
+	 * 
+	 */
+	static protected $idCounter = 0;
 
 	/**
 	 * Construct the Inputfield, setting defaults for all properties
@@ -967,6 +973,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				$columnWidthTotal = 0;
 			}
 			if(!isset($ffAttrs['id'])) $ffAttrs['id'] = 'wrap_' . $inputfield->attr('id'); 
+			if($ffAttrs['id'] === 'wrap_') {
+				$ffAttrs['id'] .= (string) ++self::$idCounter;
+			}
 			$ffAttrs['class'] = str_replace('Inputfield_ ', '', $ffAttrs['class']); 
 			$wrapClass = $inputfield->getSetting('wrapClass');
 			$fieldName = $inputfield->attr('data-field-name');

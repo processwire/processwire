@@ -575,6 +575,7 @@ class Notices extends WireArray {
 	 * 
 	 */
 	public function ___renderText() {
+		$sanitizer = $this->wire()->sanitizer;
 		$labels = [
 			'NoticeMessage' => $this->_('✓'),
 			'NoticeWarning' => $this->_('⇾'),
@@ -594,6 +595,6 @@ class Notices extends WireArray {
 			$out .= "$label $text\n";
 		}
 		$out .= "\n";
-		return $out;
+		return $sanitizer->unentities($out);
 	}
 }
