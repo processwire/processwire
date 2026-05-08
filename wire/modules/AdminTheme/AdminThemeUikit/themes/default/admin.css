@@ -1933,6 +1933,11 @@ body .ProDraftsNotice {
 	color: var(--pw-main-color)
 }
 
+h2 code,
+h3 code {
+	font-size: 1em;
+}
+
 .PageList>.uk-pagination>li.uk-active>a {
 	border-color: var(--pw-main-color) !important;
 	background: var(--pw-main-color)
