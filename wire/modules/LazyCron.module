@@ -5,7 +5,7 @@
  * ===========================
  *
  * Provides hooks that are automatically executed at various intervals. 
- * It is called 'lazy' because it's triggered by a pageview, so it's accuracy 
+ * It is called 'lazy' because it's triggered by a pageview, so its accuracy 
  * executing at specific times will depend upon how may pageviews your site gets. 
  * So when a specified time is triggered, it's guaranteed to have been that length
  * of time OR longer. This is fine for most cases. 
@@ -20,7 +20,6 @@
  * 
  * USAGE IN YOUR MODULES: 
  * ----------------------
- *
  * // In your own module or template, add the function you want executed:
  * public function myFunc(HookEvent $e) { echo "30 Minutes have passed!"; }
  * 
@@ -30,7 +29,6 @@
  * 
  * PROCEDURAL USAGE (i.e. in templates): 
  * -------------------------------------
- * 
  * // create your hook function
  * function myHook(HookEvent $e) { echo "30 Minutes have passed!"; }
  * 
@@ -40,7 +38,6 @@
  * 
  * FUNCTIONS YOU CAN HOOK:
  * -----------------------
- *
  * every30Seconds  
  * everyMinute
  * every2Minutes
@@ -63,29 +60,26 @@
  * every2Weeks
  * every4Weeks
  * 
- * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
+ * @property int|bool $cliOnly When non-empty disallow running during http requests
+ * @property int $lastTime Unix timestamp when LazyCron last ran
+ * @property string $lastResult Last run result
  *
  */
 
-class LazyCron extends WireData implements Module {
+class LazyCron extends WireData implements Module, ConfigurableModule, CliModule {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Lazy Cron', 
 			'version' => 104, 
-			'summary' => 
-				"Provides hooks that are automatically executed at various intervals. " . 
-				"It is called 'lazy' because it's triggered by a pageview, so the interval " . 
-				"is guaranteed to be at least the time requested, rather than exactly the " . 
-				"time requested. This is fine for most cases, but you can make it not lazy " . 
-				"by connecting this to a real CRON job. See the module file for details. ", 
+			'summary' => "Run jobs at specific intervals. Can be triggered by web requests or CLI/cron", 
 			'href' => 'https://processwire.com/api/modules/lazy-cron/',
-			'permanent' => false, 
 			'singular' => true, 
 			'autoload' => true, 
+			'cli' => 'lazycron',
 		);
 	}
 
@@ -116,19 +110,188 @@ class LazyCron extends WireData implements Module {
 		1209600 => 'every2Weeks',
 		2419200 => 'every4Weeks',
 	);
+	
+	/**
+	 * In CLI mode ?
+	 * 
+	 * @var bool 
+	 * 
+	 */
+	protected $cli = false;
 
 	/**
 	 * @var string
 	 * 
 	 */
 	protected $lockfile = '';
+	
+	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->set('cliOnly', 0);
+		$this->set('lastTime', 0);
+		$this->set('lastResult', 0);
+	}
 
 	/**
 	 * Initialize the hooks
 	 *
 	 */
 	public function init() {
-		$this->addHookAfter('ProcessPageView::finished', $this, 'afterPageView'); 
+		if(!$this->cliOnly) {
+			$this->addHookAfter('ProcessPageView::finished', $this, 'afterPageView');
+		}
+	}
+	
+	/**
+	 * Get CLI commands
+	 * 
+	 * @return string[]
+	 * 
+	 */
+	public function getCliCommands() {
+		return [ 
+			'run' => 'Run pending attached LazyCron jobs',
+			'list' => 'List current attached jobs' 
+		]; 
+	}
+	
+	/**
+	 * Execute CLI command(s)
+	 * 
+	 * @param array $args
+	 * 
+	 */
+	public function executeCli(array $args) {
+		$this->cli = true;
+		if(empty($args)) return;
+		if($args[0] === 'run') {
+			$this->execute();
+		} else if($args[0] === 'list') {
+			$this->executeCliList();
+		}
+	}
+	
+	/**
+	 * List all currently attached LazyCron hooks (CLI mode only)
+	 * 
+	 */
+	protected function executeCliList() {
+		$hooks = $this->wire()->hooks;
+		$items = $this->wire()->hooks->getHooks($this);
+		if(count($items)) {
+			echo "- " . implode("\n- ", $hooks->hooksToStrings($items));
+		} else {
+			echo "Currently no hooks to LazyCron";
+		}
+	}
+	
+	/**
+	 * Execute lazycron jobs
+	 * 
+	 */
+	public function execute() {
+		$hooks = $this->wire()->hooks;
+		$files = $this->wire()->files;
+		$cachePath = $this->wire()->config->paths->cache;
+		$time = time();
+		$filename = $cachePath . 'LazyCron.cache';
+		$this->lockfile = $cachePath . 'LazyCronLock.cache';
+		$times = array();
+		$writeFile = false;
+		
+		if(is_file($this->lockfile)) {
+			// other LazyCron process potentially running
+			if(filemtime($this->lockfile) < (time() - 3600)) {
+				// expired lock file, some fatal error must have occurred during last LazyCron run
+				if($this->cli) echo "Removing lockfile: $this->lockfile";
+				$this->removeLockfile();
+			} else {
+				// skip running this time as an active lock file exists
+				if($this->cli) $this->saveResult("Skipping because lockfile exists: $this->lockfile");
+				return;
+			}
+		}
+		
+		if(!$files->filePutContents($this->lockfile, (string) time(), LOCK_EX)) {
+			// $this->error("Unable to write lock file: $this->lockfile", Notice::logOnly); 
+			return;
+		}
+		
+		if(is_file($filename)) {
+			$filedata = file($filename, FILE_IGNORE_NEW_LINES);
+			
+			// file is probably locked, so skip it this time
+			if($filedata === false) {
+				if($this->cli) $this->saveResult("Skipping because lockfile exists + locked: $this->lockfile");
+				$this->removeLockfile();
+				return;
+			}
+		} else {
+			// file does not exist
+			$filedata = false;
+		}
+		
+		$shutdown = $this->wire()->shutdown;
+		if($shutdown) $shutdown->addHook('fatalError', $this, 'hookFatalError');
+		$results = [];
+		$staticHooks = $hooks->getStaticHooks($this);
+		
+		if($filedata) {
+			$n = 0;
+			foreach($this->timeFuncs as $seconds => $func) {
+				$lasttime = (int) ($filedata[$n] ?? $time);
+				$elapsedTime = $time - $lasttime;
+				if(empty($filedata[$n]) || $elapsedTime >= $seconds) {
+					if(!isset($staticHooks[$func])) {
+						continue;
+						/*
+						$skipping = "Skipping $func hook (no jobs)";
+						if($this->cli) echo "$skipping\n";
+						$results[] = $skipping;
+						continue;
+						*/
+					}
+					$numHooks = count($staticHooks[$func]);
+					try {
+						$label = $numHooks > 1 ? 'jobs' : 'job';
+						if($this->cli) echo "Running $func hook (calls $numHooks $label)...\n";
+						$results[] = "Executed $func ($numHooks $label)";
+						$this->$func($elapsedTime);
+					} catch(\Exception $e) {
+						$this->error($e->getMessage(), Notice::logOnly);
+					}
+					$lasttime = $time;
+					$writeFile = true;
+				}
+				$times[$seconds] = $lasttime;
+				$n++;
+			}
+		} else {
+			// file does not exist
+			$writeFile = true;
+			foreach($this->timeFuncs as $seconds => $func) {
+				try {
+					if($this->cli) echo "Running $func...\n";
+					$results[] = "Executed $func";
+					$this->$func(0);
+				} catch(\Exception $e) {
+					$this->error($e->getMessage(), Notice::logOnly);
+				}
+				$times[$seconds] = $time;
+			}
+		}
+		
+		if($writeFile) {
+			$files->filePutContents($filename, implode("\n", $times), LOCK_EX);
+		}
+		
+		$this->removeLockfile();
+		
+		$this->saveResult(implode("\n", $results), false);
 	}
 
 	/**
@@ -141,88 +304,12 @@ class LazyCron extends WireData implements Module {
 	 *
 	 */
 	public function afterPageView(HookEvent $e) {
-
 		/** @var ProcessPageView $process */
 		$process = $e->object;
 		// don't execute cron now if this is anything other than a normal response
 		$responseType = $process->getResponseType();
 		if($responseType != ProcessPageView::responseTypeNormal) return;
-
-		$files = $this->wire()->files;
-		$cachePath = $this->wire()->config->paths->cache;
-		$time = time();
-		$filename = $cachePath . 'LazyCron.cache'; 
-		$this->lockfile = $cachePath . 'LazyCronLock.cache'; 
-		$times = array();
-		$writeFile = false;
-
-		if(is_file($this->lockfile)) {
-			// other LazyCron process potentially running
-			if(filemtime($this->lockfile) < (time() - 3600)) {
-				// expired lock file, some fatal error must have occurred during last LazyCron run
-				$this->removeLockfile();
-			} else {
-				// skip running this time as an active lock file exists
-				return;
-			}
-		}
-
-		if(!$files->filePutContents($this->lockfile, (string) time(), LOCK_EX)) {
-			// $this->error("Unable to write lock file: $this->lockfile", Notice::logOnly); 
-			return;
-		}
-		
-		if(is_file($filename)) {
-			$filedata = file($filename, FILE_IGNORE_NEW_LINES); 
-
-			// file is probably locked, so skip it this time
-			if($filedata === false) {
-				$this->removeLockfile();
-				return; 
-			}
-		} else {
-			// file does not exist
-			$filedata = false;
-		}
-
-		$shutdown = $this->wire()->shutdown;
-		if($shutdown) $shutdown->addHook('fatalError', $this, 'hookFatalError');
-
-		if($filedata) {
-			$n = 0;
-			foreach($this->timeFuncs as $seconds => $func) {
-				$lasttime = (int) (isset($filedata[$n]) ? $filedata[$n] : $time);
-				$elapsedTime = $time - $lasttime;
-				if(empty($filedata[$n]) || $elapsedTime >= $seconds) {
-					try {
-						$this->$func($elapsedTime);
-					} catch(\Exception $e) {
-						$this->error($e->getMessage(), Notice::logOnly); 
-					}
-					$lasttime = $time;
-					$writeFile = true;
-				}
-				$times[$seconds] = $lasttime;
-				$n++;	
-			}
-		} else {
-			// file does not exist
-			$writeFile = true;
-			foreach($this->timeFuncs as $seconds => $func) {
-				try {
-					$this->$func(0);
-				} catch(\Exception $e) {
-					$this->error($e->getMessage(), Notice::logOnly); 
-				}
-				$times[$seconds] = $time;
-			}
-		}
-
-		if($writeFile) { 
-			$files->filePutContents($filename, implode("\n", $times), LOCK_EX);
-		}
-
-		$this->removeLockfile();
+		$this->execute();
 	}
 
 	/**
@@ -313,27 +400,61 @@ class LazyCron extends WireData implements Module {
 	 *
 	 */
 
-	public function ___every30Seconds($seconds) { }
-	public function ___everyMinute($seconds) { }
-	public function ___every2Minutes($seconds) { }
-	public function ___every3Minutes($seconds) { }
-	public function ___every4Minutes($seconds) { }
-	public function ___every5Minutes($seconds) { }
-	public function ___every10Minutes($seconds) { }
-	public function ___every15Minutes($seconds) { }
-	public function ___every30Minutes($seconds) { }
-	public function ___every45Minutes($seconds) { }
-	public function ___everyHour($seconds) { }
-	public function ___every2Hours($seconds) { }
-	public function ___every4Hours($seconds) { }
-	public function ___every6Hours($seconds) { }
-	public function ___every12Hours($seconds) { }
-	public function ___everyDay($seconds) { }
-	public function ___every2Days($seconds) { }
-	public function ___every4Days($seconds) { }
-	public function ___everyWeek($seconds) { }
-	public function ___every2Weeks($seconds) { }
-	public function ___every4Weeks($seconds) { }
+	public function ___every30Seconds($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___everyMinute($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every2Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every3Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every4Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every5Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every10Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every15Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every30Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every45Minutes($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___everyHour($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every2Hours($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every4Hours($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every6Hours($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every12Hours($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___everyDay($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every2Days($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every4Days($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___everyWeek($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every2Weeks($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	public function ___every4Weeks($seconds) { $this->runFile(__FUNCTION__, $seconds); }
+	
+	/**
+	 * Include/run a LazyCron file, if it exists
+	 * 
+	 * @param string $name
+	 * @param int $seconds
+	 * 
+	 */	
+	protected function runFile($name, $seconds) {
+		$name = ltrim($name, '_');
+		$file = $this->wire()->config->paths->templates . "LazyCron/$name.php";
+		if(!is_file($file)) return;
+		if($seconds) { /* actual elapsed seconds */ }
+		$fuel = $this->wire()->fuel;
+		extract($fuel->getArray()); 
+		include($file);
+	}
+	
+	/**
+	 * Save result (also reports result in CLI mode)
+	 * 
+	 * @param string $result
+	 * @param bool $echoCli Also echo result when in CLI mode? (default=true)
+	 * 
+	 */
+	protected function saveResult($result, $echoCli = true) {
+		$modules = $this->wire()->modules;
+		if($echoCli && $this->cli) echo "$result\n";
+		$this->lastResult = $result;
+		$data = $modules->getConfig($this);
+		$data['lastResult'] = $result;
+		$data['lastTime'] = time();
+		$modules->saveConfig($this, $data);
+	}
 	
 	/**
 	 * Uninstall
@@ -348,4 +469,29 @@ class LazyCron extends WireData implements Module {
 		if(is_file($file)) $files->unlink($file, true, false);
 	}
 
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		$f = $inputfields->InputfieldToggle; 
+		$f->attr('name', 'cliOnly');
+		$f->label = $this->_('CLI mode only (disable running during http requests)'); 
+		$f->notes = $this->_('To run from CLI use: `php index.php lazycron run`'); 
+		$f->val($this->cliOnly);
+		$inputfields->add($f);
+		
+		$f = $inputfields->InputfieldMarkup; 
+		$f->attr('_name', '_lastResults'); 
+		$f->label = 'Last results';
+		$a = [];
+		if($this->lastTime) {
+			$a[] = "Last run at: " . 
+				date('Y-m-d H:i:s', (int) $this->lastTime) . ' ' . 
+				'(' . wireRelativeTimeStr((int) $this->lastTime) . ')';
+		}
+		foreach(explode("\n", (string) $this->lastResult) as $line) {
+			if(!empty($line)) $a[] = $line;
+		}
+		if(count($a)) {
+			$f->val('<ul><li>' . implode('</li><li>', $a) . '</li></ul>');
+		}
+		$inputfields->add($f);
+	}
 }
