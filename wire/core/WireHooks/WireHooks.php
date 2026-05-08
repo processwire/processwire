@@ -1624,7 +1624,47 @@ class WireHooks {
 		if($allow !== null) $this->allowPathHooks = (bool) $allow;
 		return $this->allowPathHooks;
 	}
-
+	
+	/**
+	 * Get static hooks for object/class, optionally for specific method
+	 * 
+	 * Returned value indexed by method name, unless a method was specified in which
+	 * case it's indexed by priority level (i.e. '100.0').
+	 * 
+	 * @param string|Wire $class Class or Wire instance to get static hooks for
+	 * @param string $method Optionally specify method or blank string for all (default='')
+	 * @param bool $checkParents Also include hooks to parent classes? (default=false)
+	 * @return array
+	 * @since 3.0.261
+	 * 
+	 */
+	public function getStaticHooks($class, $method = '', $checkParents = false) {
+		$className = is_string($class) ? $class : wireClassName($class);
+		$staticHooks = [];
+		if(isset($this->staticHooks[$className])) {
+			if($method) {
+				if(isset($this->staticHooks[$className][$method])) {
+					$staticHooks = $this->staticHooks[$className][$method];
+				}
+			} else {
+				$staticHooks = $this->staticHooks[$className];
+			}
+		}
+		if($checkParents) {
+			foreach($this->getClassParents($class) as $parentClass) {
+				if(empty($this->staticHooks[$parentClass])) continue;
+				if($method) {
+					if(isset($this->staticHooks[$parentClass][$method])) {
+						$staticHooks += $this->staticHooks[$parentClass][$method];
+					}
+				} else {
+					$staticHooks += $this->staticHooks[$parentClass];
+				}
+			}
+		}
+		return $staticHooks;
+	}
+	
 	/**
 	 * Return redirect URL required by an applicable path hook, or blank otherwise
 	 * 
@@ -1634,6 +1674,34 @@ class WireHooks {
 	 */
 	public function getPathHookRedirect() {
 		return $this->pathHookRedirect;
+	}
+	
+	/**
+	 * Given array of hooks, render to array of strings (for reading/debugging/etc.)
+	 * 
+	 * @param array $hooks
+	 * @return array
+	 * @since 3.0.261
+	 * 
+	 */
+	public function hooksToStrings(array $hooks) {
+		$a = [];	
+		foreach($hooks as $hook) {
+			$suffix = $hook['options']['type'] == 'method' ? '()' : '';
+			$toObject = !empty($hook['toObject']) ? $hook['toObject'] : '';
+			$toMethod = $hook['toMethod'];
+			$whenKey = $hook['options']['before'] ? '0' : '1';
+			$sortKey = $hook['options']['fromClass'] . ":$hook[method]:$whenKey:" . $hook['options']['priority'];
+			if(is_callable($toMethod)) $toMethod = 'callable func';
+			$a[$sortKey] = 
+				($hook['options']['before'] ? 'before ' : '') . ($hook['options']['after'] ? 'after' : '') . " " .
+				($hook['options']['fromClass'] ? $hook['options']['fromClass'] . '::' : '') . "$hook[method]$suffix / " .
+				($toObject ? wireClassName($toObject) . "::$toMethod" : $toMethod) . " / hooks to " .
+				($hook['options']['allInstances'] || $hook['options']['fromClass'] ? "class " : "instance ") . $hook['options']['type'] . " " .
+				("(priority=" . $hook['options']['priority'] . ")\n");
+		}
+		ksort($a);
+		return $a; 
 	}
 
 	/**

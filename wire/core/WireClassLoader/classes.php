@@ -20,7 +20,6 @@ return [ // please keep alphabetical A-Z
 	'Breadcrumb' => 'Admin/',
 	'Breadcrumbs' => 'Admin/',
 	'CacheFile' => 'WireCache/',
-	'CliModule' => 'Module>',
 	'ConfigurableModule' => 'Module/',
 	'Database' => 'Database/', // deprecated
 	'DatabaseMysqli' => 'Database/', // deprecated
