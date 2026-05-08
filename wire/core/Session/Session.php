@@ -18,9 +18,9 @@
  *
  * @see https://processwire.com/api/ref/session/ Session documentation
  *
- * @method User login() login($name, $pass, $force = false) Login the user identified by $name and authenticated by $pass. Returns the user object on successful login or null on failure.
- * @method Session logout() logout() Logout the current user, and clear all session variables.
- * @method void redirect() redirect($url, $http301 = true) Redirect this session to the specified URL. 
+ * @method User login($name, $pass, $force = false) Login the user identified by $name and authenticated by $pass. Returns the user object on successful login or null on failure.
+ * @method Session logout() Logout the current user, and clear all session variables.
+ * @method void redirect($url, $status = 301) Redirect this session to the specified URL.
  * @method void init() Initialize session (called automatically by constructor) #pw-hooker
  * @method bool authenticate(User $user, $pass) #pw-hooker
  * @method bool isValidSession($userID) #pw-hooker
@@ -305,7 +305,7 @@ class Session extends Wire implements \IteratorAggregate {
 		}
 		
 		ini_set('session.use_cookies', true);
-		ini_set('session.use_only_cookies', 1);
+		if(PHP_VERSION_ID < 80400) ini_set('session.use_only_cookies', 1);
 		ini_set('session.cookie_httponly', 1);
 		ini_set('session.gc_maxlifetime', $this->config->sessionExpireSeconds);
 		
@@ -864,7 +864,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 * #pw-group-remove
 	 *
- 	 * @param string|object $key Name of session variable you want to remove (or namespace string/object)
+	 * @param string|array|object $key Name (string) or names (array) of session variable(s) you want to remove (or namespace string/object)
 	 * @param string|bool|null $_key Omit this argument unless first argument is a namespace. Otherwise specify one of: 
 	 *  - If first argument is namespace and you want to remove a property from the namespace, provide key here. 
 	 * 	- If first argument is namespace and you want to remove all properties from the namespace, provide boolean TRUE. 
@@ -875,7 +875,7 @@ class Session extends Wire implements \IteratorAggregate {
 		if($this->sessionInit) {
 			if(is_null($_key)) {
 				unset($_SESSION[$this->sessionKey][$key]);
-			} else if(is_bool($_key)) {
+			} else if($_key === true) {
 				unset($_SESSION[$this->sessionKey][$this->getNamespace($key)]);
 			} else {
 				unset($_SESSION[$this->sessionKey][$this->getNamespace($key)][$_key]);
@@ -883,7 +883,7 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			if(is_null($_key)) {
 				unset($this->data[$key]);
-			} else if(is_bool($_key)) {
+			} else if($_key === true) {
 				unset($this->data[$this->getNamespace($key)]);
 			} else {
 				unset($this->data[$this->getNamespace($key)][$_key]);
@@ -1066,22 +1066,23 @@ class Session extends Wire implements \IteratorAggregate {
 			// return multiple IPs
 			$ips = array();
 			foreach(explode(',', $ip) as $ip) {
-				if($ipv6) {
+				$ip = trim($ip);
+				if(strpos($ip, ':') !== false) {
 					$ip = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
 					if($ip !== false) {
 						$ip = $this->normalizeIPv6($ip);
 						if($int) $ip = crc32($ip);
 					}
 				} else {
-					$ip = ip2long(trim($ip));
-					if(!$int) $ip = long2ip($ip);
+					$ip = ip2long($ip);
+					if($ip !== false && !$int) $ip = long2ip($ip);
 				}
 				if($ip !== false) {
 					if($numParts > 0 && !$int) $ip = $this->getPartialIP($numParts, $ip);
 					$ips[] = $ip;
 				}
 			}
-			$ip = implode(',', $ips);
+			$ip = count($ips) ? implode(',', $ips) : $_SERVER['REMOTE_ADDR'];
 			$multi = count($ips) > 1; 
 
 		} else if($ipv6) {
@@ -1097,7 +1098,8 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			// sanitize by converting to and from integer
 			$ip = ip2long(trim($ip));
-			if(!$int) $ip = long2ip($ip);
+			if($ip === false && $useClient) $ip = ip2long(trim($_SERVER['REMOTE_ADDR']));
+			if(!$int) $ip = $ip === false ? '0.0.0.0' : long2ip($ip);
 		}
 		
 		if($numParts > 0 && !$int && !$multi) {
