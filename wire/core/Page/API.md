@@ -530,6 +530,55 @@ from the Page class:
 | `Language`   | When multi-language support is installed, represents a language.           |
 
 ---
+
+## Persistent meta data
+
+`$page->meta()` provides a simple key/value store that is persisted to the database
+independently of the page's regular field values. It is useful for storing auxiliary
+data that should not appear as an editable field. Values are saved immediately on
+`set()` and loaded lazily on first `get()`. Values must be scalar or array — objects
+are not supported. Available since 3.0.133.
+
+```php
+// Set a meta value (saved to DB immediately)
+$page->meta('colors', ['red', 'green', 'blue']);
+$page->meta()->set('colors', ['red', 'green', 'blue']); // equivalent
+
+// Get a meta value (loaded from DB on first access)
+$colors = $page->meta('colors');
+$colors = $page->meta()->get('colors'); // equivalent
+
+// Remove a single meta value
+$page->meta()->remove('colors');
+
+// Remove all meta values for this page
+$page->meta()->removeAll();
+
+// Get all meta values as an associative array
+$all = $page->meta()->getArray();
+
+// Count number of stored meta entries
+$n = count($page->meta());
+```
+
+### Cached values
+
+`getCache()` stores a computed value and automatically refreshes it after a given
+number of seconds. Requires 3.0.258+.
+
+```php
+// Returns the same random number for 1 hour, then recalculates
+$n = $page->meta()->getCache('my_rand_num', 3600, function() {
+    return mt_rand();
+});
+```
+
+- **Arguments:** `getCache(string $key, int $maxAge, callable $func)`
+- `$maxAge` — cache lifetime in seconds
+- `$func` — called to produce a fresh value when the cache is empty or expired
+- Returns the cached value, calling `$func` only when the cache is new or expired
+
+---
 ## Hookable page methods
 
 Hook before or after any of these methods using `$wire->addHookBefore('Page::methodName', …)`
