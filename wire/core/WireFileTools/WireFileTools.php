@@ -241,7 +241,9 @@ class WireFileTools extends Wire {
 	 * @param string $dst Path (or filename) to copy file(s) to. Directory is created if it doesn't already exist.
 	 * @param bool|array $options Array of options: 
 	 *  - `recursive` (bool): Whether to copy directories within recursively. (default=true)
-	 *  - `allowEmptyDirs` (boolean): Copy directories even if they are empty? (default=true)
+	 *  - `allowEmptyDirs` (bool): Copy directories even if they are empty? (default=true)
+	 *  - `allowPartial` (bool): Return true if any part of the copy was successful (default=false) 3.0.261+
+	 *  - `verbose` (bool): Populate error notifications to $files API variable (default=false) 3.0.261+
 	 *  - `limitPath` (bool|string|array): Limit copy to within path given here, or true for site assets path.
 	 *     The limitPath option requires core 3.0.118+. (default=false).
 	 *  - `hidden` (bool): Also copy hidden files/directories within given $src directory? (applies only if $src is dir)
@@ -257,11 +259,14 @@ class WireFileTools extends Wire {
 			'recursive' => true,
 			'hidden' => true, 
 			'allowEmptyDirs' => true,
+			'allowPartial' => false,
+			'verbose' => false,
 			'limitPath' => false, 
 		);
 
 		if(is_bool($options)) $options = array('recursive' => $options);
 		$options = array_merge($defaults, $options);
+		$verbose = $options['verbose'];
 	
 		if($options['limitPath'] !== false) {
 			$this->allowPath($src, $options['limitPath'], true);
@@ -270,7 +275,10 @@ class WireFileTools extends Wire {
 		
 		if(!is_dir($src)) {
 			// just copy a file
-			if(!file_exists($src)) return false;
+			if(!file_exists($src)) {
+				if($verbose) $this->error("File does not exist: $src");
+				return false;
+			}
 			if(is_dir($dst)) {
 				// if only a directory was specified for $dst, then keep same filename but in new dir
 				$dir = rtrim($dst, '/');
@@ -278,8 +286,16 @@ class WireFileTools extends Wire {
 			} else {
 				$dir = dirname($dst);
 			}
-			if(!is_dir($dir)) $this->mkdir($dir);
-			if(!copy($src, $dst)) return false;
+			if(!is_dir($dir)) {
+				if(!$this->mkdir($dir)) {
+					if($verbose) $this->error("Unable to create dir: $dir");
+					return false;
+				}
+			}
+			if(!copy($src, $dst)) {
+				if($verbose) $this->error("Error copying from $src to $dst");
+				return false;
+			}
 			$this->chmod($dst);
 			return true;
 		}
@@ -288,7 +304,10 @@ class WireFileTools extends Wire {
 		if(substr($dst, -1) != '/') $dst .= '/';
 
 		$dir = opendir($src);
-		if(!$dir) return false;
+		if(!$dir) {
+			if($verbose) $this->error("Error opening dir: $src");
+			return false;
+		}
 
 		if(!$options['allowEmptyDirs']) {
 			$isEmpty = true;
@@ -298,28 +317,51 @@ class WireFileTools extends Wire {
 				$isEmpty = false;
 				break;
 			}
-			if($isEmpty) return true;
+			if($isEmpty) {
+				closedir($dir);
+				return true;
+			}
+			rewinddir($dir);
 		}
 
-		if(!$this->mkdir($dst)) return false;
+		if(!$this->mkdir($dst)) {
+			if($verbose) $this->error("Unable to create destination dir: $dst");
+			return false;
+		}
+
+		$numSuccess = 0;
+		$numFail = 0;
 
 		while(false !== ($file = readdir($dir))) {
 			if($file == '.' || $file == '..') continue;
 			if(!$options['hidden'] && strpos(basename($file), '.') === 0) continue;
 			$isDir = is_dir($src . $file);
 			if($options['recursive'] && $isDir) {
-				$this->copy($src . $file, $dst . $file, $options);
+				if($this->copy($src . $file, $dst . $file, $options)) {
+					$numSuccess++;
+				} else {
+					$numFail++;
+					if($verbose) $this->error("Unable to copy $src$file into $dst");
+				}
 			} else if($isDir) {
 				// skip it, because not recursive
 			} else {
-				copy($src . $file, $dst . $file);
-				$this->chmod($dst . $file);
+				if(copy($src . $file, $dst . $file)) {
+					$numSuccess++;
+					$this->chmod($dst . $file);
+				} else {
+					$numFail++;
+					if($verbose) $this->error("Unable to copy $src$file into $dst");
+				}
 			}
+			if($numFail && !$options['allowPartial']) break;
 		}
 
 		closedir($dir);
+
+		if($numSuccess && $options['allowPartial']) return true;
 		
-		return true;
+		return $numFail === 0;
 	}
 
 	/**
@@ -378,7 +420,7 @@ class WireFileTools extends Wire {
 	 *  - `throw` (bool): Throw WireException with verbose details on error? (default=false)
 	 *  - `chmod` (bool): Adjust permissions to be consistent with $config after rename? (default=true)
 	 *  - `copy` (bool): Use copy-then-delete method rather than a file system rename. (default=false) 3.0.178+
-	 *  - `retry` (bool): Retry with 'copy' method if regular rename files, applies only if copy option is false. (default=true) 3.0.178+
+	 *  - `retry` (bool): Retry with 'copy' method if regular rename fails, applies only if copy option is false. (default=true) 3.0.178+
 	 *  - If given a bool or string for $options the `limitPath` option is assumed. 
 	 * @return bool True on success, false on fail (or WireException if throw option specified). 
 	 * @throws WireException If error occurs and $throw argument was true.
@@ -710,9 +752,12 @@ class WireFileTools extends Wire {
 			return $this->filesError(__FUNCTION__, 'pathname may not contain double slash “//”', $throw);
 		}
 
-		if($limitPath !== false && strpos($pathname, $limitPath) !== 0) {
-			// disallow paths that do not begin with limitPath (i.e. /path/to/public_html/site/assets/)
-			return $this->filesError(__FUNCTION__, "Given pathname is not within $limitPath (limitPath)", $throw);
+		if($limitPath !== false) {
+			$limitPath = rtrim($limitPath, '/');
+			$pathnameTest = rtrim($pathname, '/');
+			if($pathnameTest !== $limitPath && strpos($pathnameTest, "$limitPath/") !== 0) {
+				return $this->filesError(__FUNCTION__, "Given pathname is not within $limitPath/ (limitPath)", $throw);
+			}
 		}
 		
 		return true;
@@ -1552,7 +1597,7 @@ class WireFileTools extends Wire {
 			$filename .= "." . $options['autoExtension'];
 		}
 
-		if(!$options['allowDotDot'] && strpos($filename, '..')) {
+		if(!$options['allowDotDot'] && strpos($filename, '..') !== false) {
 			// make path relative to /site/templates/ if filename is not an absolute path
 			$error = 'Filename may not have ".."';
 			if($options['throwExceptions']) $this->filesException(__FUNCTION__, $error);
@@ -1960,7 +2005,7 @@ class WireFileTools extends Wire {
 	 */
 	public function compileRequire($file, array $options = array()) {
 		$file = $this->compile($file, $options);
-		TemplateFile::pushRenderStack($file); 
+		TemplateFile::pushRenderStack($file);
 		require($file);
 		TemplateFile::popRenderStack();
 	}
@@ -1980,8 +2025,8 @@ class WireFileTools extends Wire {
 	 *
 	 */
 	public function compileRequireOnce($file, array $options = array()) {
-		TemplateFile::pushRenderStack($file); 
 		$file = $this->compile($file, $options);
+		TemplateFile::pushRenderStack($file);
 		require_once($file);
 		TemplateFile::popRenderStack();
 	}
