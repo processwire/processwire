@@ -64,7 +64,7 @@
  *
  */
 
-class Modules extends WireArray {
+class Modules extends WireArray implements CliModule {
 	
 	/**
 	 * Whether or not module debug mode is active
@@ -2656,4 +2656,38 @@ class Modules extends WireArray {
 		}
 		return parent::__get($name);
 	}
+	
+	/**
+	 * @return ModulesCli
+	 * 
+	 */
+	protected function cli() {
+		require_once(__DIR__ . '/ModulesCli.php'); 
+		return new ModulesCli($this);
+	}
+	
+	/**
+	 * Execute given CLI command
+	 * 
+	 * #pw-internal
+	 *
+	 * @param array $args Command line arguments passed, excluding module/cli name
+	 *
+	 */
+	public function executeCli(array $args) {
+		$this->cli()->executeCli($args);
+	}
+	
+	/**
+	 * Get array of allowed commands
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 *
+	 */
+	public function getCliCommands() {
+		return $this->cli()->getCliCommands();
+	}
+	
 }

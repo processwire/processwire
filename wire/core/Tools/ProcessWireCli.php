@@ -90,7 +90,7 @@ class ProcessWireCli extends Wire {
 			$args = array_slice($args, 1);
 			echo $this->renderHelp($cliName, $args);
 			return [];
-		}
+		} 
 		
 		$cliModules = $this->getCliModules($name);
 		
@@ -98,6 +98,9 @@ class ProcessWireCli extends Wire {
 			if(!wireInstanceOf($mod, 'CliModule') && !method_exists($mod, 'executeCli')) {
 				// module likely has its own CLI handler from a ProcessWire::ready hook
 				continue;
+			}
+			if(empty($args)) {
+				echo $this->renderHelp($name);
 			}
 			try {
 				$mod->executeCli($args);
@@ -122,24 +125,32 @@ class ProcessWireCli extends Wire {
 	 * @return array|CliModule[]
 	 * 
 	 */
-	protected function getCliModules($name) {
+	protected function getCliModules($name = '') {
 		
 		$modules = $this->wire()->modules;
-		
 		$cliModules = $modules->findByFlag(Modules::flagsCli);
+		
 		foreach($cliModules as $key => $cliModule) {
 			$info = $modules->getModuleInfo($cliModule);
-			if(!empty($info['cli']) && $info['cli'] === $name) {
-				$cliModules[$key] = $modules->getModule($cliModule);
+			if(!empty($info['cli']) && ($name === '' || $info['cli'] === $name)) {
+				$cliModules[$cliModule] = $modules->getModule($cliModule);
 			} else {
 				unset($cliModules[$key]);
 			}
 		}
 		
-		if(!count($cliModules)) {
+		foreach($this->wire()->fuel as $apiName => $instance) {
+			if($instance instanceof CliModule) {
+				if($name === '' || $name === $apiName) {
+					$cliModules[$apiName] = $instance;
+				}
+			}
+		}
+		
+		if(!count($cliModules) && $name) {
 			// case where $name is the actual module name
 			$cliModule = $modules->getModule($name);
-			if($cliModule) $cliModules = [$cliModule];
+			if($cliModule) $cliModules = [$name => $cliModule];
 		}
 		
 		return $cliModules;
@@ -160,17 +171,42 @@ class ProcessWireCli extends Wire {
 		$commandItems = [];
 		$moduleInfos = [];
 		$max = 0; // max command line item length
+		$items = [];
+		
+		foreach($modules->findByFlag(Modules::flagsCli, false) as $moduleName) {
+			$items[$moduleName] = $moduleName;
+		}
+		
+		foreach($this->wire()->fuel as $apiName => $apiVar) {
+			if($apiVar instanceof CliModule) {
+				$items[$apiName] = $apiVar;
+			}
+		}
 	
 		// find modules with Cli flag and place their commands into $commandItems array
-		foreach($modules->findByFlag(Modules::flagsCli, false) as $moduleName) {
+		foreach($items as $varName => $moduleName) {
+			$isModule = true;
+			$info = [ 'cli' => '' ];
 			
-			$info = $modules->getModuleInfo($moduleName);
-			if($cliName && empty($info['cli'])) continue;
-			if($cliName && $info['cli'] !== $cliName) continue;
+			if(is_string($moduleName)) {
+				$info = $modules->getModuleInfo($moduleName);
+				if($cliName && empty($info['cli'])) continue;
+				if($cliName && $info['cli'] !== $cliName) continue;
+			} else if($moduleName instanceof CliModule) {
+				if($cliName && $varName != $cliName) continue;
+				$info = [ 'cli' => $varName ];
+				$isModule = false;
+			}
+			
 			$commands = [];
 			
 			if(wireInstanceOf($moduleName, 'CliModule') || wireMethodExists($moduleName, 'getCliCommands')) {
-				$module = $modules->getModule($moduleName, ['noInit' => true, 'noCache' => true]);
+				if($isModule) {
+					$module = $modules->getModule($moduleName, ['noInit' => true, 'noCache' => true]);
+				} else {
+					$module = $moduleName; // API variable
+					$moduleName = wireClassName($module);
+				}
 				/** @var CliModule $module */
 				if($module && method_exists($module, 'getCliCommands')) {
 					$commands = $module->getCliCommands();
