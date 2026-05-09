@@ -153,7 +153,10 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 		}
 		$languages = $this->wire()->languages;
 		/** @var LanguagesPageFieldValue $importValue */
-		$importValue = $page->get($field->name); 
+		$importValue = $page->get($field->name);
+		if(!$importValue instanceof LanguagesPageFieldValue) {
+			$importValue = new LanguagesPageFieldValue($page, $field);
+		}
 		foreach($value as $languageName => $languageValue) {
 			$language = $languages->get($languageName); 
 			if(!$language->id) continue; 
