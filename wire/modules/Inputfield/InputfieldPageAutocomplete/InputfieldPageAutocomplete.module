@@ -124,8 +124,9 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$templateIds = $this->template_ids;
 		if($templateIds && count($templateIds) === 1) $templateId = (int) reset($templateIds);
 		$template = $templateId ? $this->wire()->templates->get($templateId) : null;
+		if($templateIds && count($templateIds) > 1) $template = null; // multiple templates, no single-template restriction
 		$parentId = $this->parent_id ? (int) $this->parent_id : null;
-		
+
 		return $pages->getById($pageIds, $template, $parentId);
 	}
 
