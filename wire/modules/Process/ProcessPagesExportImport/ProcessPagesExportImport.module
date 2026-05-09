@@ -55,7 +55,7 @@ class ProcessPagesExportImport extends Process {
 			throw new WirePermissionException($this->_('Export/import is currently only available to superuser')); 
 		}
 		
-		$this->exportImport = new PagesExportImport();
+		$this->exportImport = $this->wire()->pages->porter();
 		$this->wire($this->exportImport);
 		$this->exportImport->cleanupFiles(600);
 
