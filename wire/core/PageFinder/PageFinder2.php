@@ -2559,13 +2559,15 @@ class PageFinder2 extends Wire {
 
 		// if we've already figured out this part from a previous query, then use it
 		if(!is_null($where)) {
+			$localWhere = $where;
+			$localWhere2 = $where2;
 			if($hasWhereHook) {
-				$where = $this->getQueryAllowedTemplatesWhere($query, $where);
-				$where2 = $this->getQueryAllowedTemplatesWhere($query, $where2);
+				$localWhere = $this->getQueryAllowedTemplatesWhere($query, $localWhere);
+				$localWhere2 = $this->getQueryAllowedTemplatesWhere($query, $localWhere2);
 			}
-			$query->where($where);
-			$query->where($where2); 
-			$query->leftjoin($leftjoin);
+			$query->where($localWhere);
+			if($localWhere2) $query->where($localWhere2);
+			if($leftjoin) $query->leftjoin($leftjoin);
 			return;
 		}
 
