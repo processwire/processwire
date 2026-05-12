@@ -314,16 +314,11 @@ class LazyCron extends WireData implements Module, ConfigurableModule, CliModule
 
 	/**
 	 * Remove lock file
-	 * 
+	 *
 	 */
 	protected function removeLockfile() {
-		if(!$this->lockfile || !is_readable($this->lockfile)) return;
-		$files = $this->wire()->files;
-		if($files) {
-			$files->unlink($this->lockfile, false, false);
-		} else {
-			unlink($this->lockfile); // might be impossible to reach 
-		}
+		if(!$this->lockfile) return;
+		@unlink($this->lockfile);
 	}
 
 	/**
