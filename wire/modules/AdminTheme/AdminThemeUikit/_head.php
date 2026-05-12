@@ -50,7 +50,7 @@ $scripts->append($themeUrl . "scripts/main.$ext?v=$version");
 		echo "\n\t<link type='text/css' href='$file' rel='stylesheet' />";
 	}
 	if($adminTheme->maxWidth && strpos($layout, 'sidenav') === false) {
-		echo "\n\t<style type='text/css'>.pw-container { max-width: {$adminTheme->maxWidth}px; }</style>";
+		echo "\n\t<style type='text/css'>.pw-container { max-width: {$adminTheme->maxWidth}px !important; }</style>";
 	}
 	foreach($scripts->urls() as $file) {
 		echo "\n\t<script type='text/javascript' src='$file'></script>";
