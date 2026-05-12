@@ -128,7 +128,7 @@ class WireFileTools extends Wire {
 		if($recursive === true) {
 			$files = @scandir($path);
 			if(is_array($files)) foreach($files as $file) {
-				if($file == '.' || $file == '..' || strpos($file, '..') !== false) continue;
+				if($file == '.' || $file == '..') continue;
 				$pathname = rtrim($path, '/') . '/' . $file;
 				if(is_dir($pathname)) {
 					$this->rmdir($pathname, true, $options);
