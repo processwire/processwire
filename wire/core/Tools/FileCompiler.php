@@ -826,13 +826,11 @@ class FileCompiler extends Wire {
 		static $files = null;
 		if(is_null($files)) {
 			$files = array();
-			foreach(new \DirectoryIterator($this->wire()->config->paths->core) as $file) {
-				if($file->isDot() || $file->isDir()) continue;
-				$basename = $file->getBasename('.php');
-				if(strtoupper($basename[0]) == $basename[0]) {
-					$name = __NAMESPACE__ ? __NAMESPACE__ . "\\$basename" : $basename;	
-					if(!in_array($name, $classes)) $files[] = $name;
-				}
+			$classMapFile = $this->wire()->config->paths->core . 'WireClassLoader/classes.php';
+			$classMap = file_exists($classMapFile) ? include($classMapFile) : array();
+			foreach(array_keys($classMap) as $basename) {
+				$name = __NAMESPACE__ ? __NAMESPACE__ . "\\$basename" : $basename;
+				if(!in_array($name, $classes)) $files[] = $name;
 			}
 		}
 		
