@@ -39,7 +39,6 @@ return [ // please keep alphabetical A-Z
 	'InputfieldsArray' => 'Inputfield/',
 	'MarkupFieldtype' => 'Fieldtype/',
 	'MarkupQA' => 'Tools/',
-	'ModuleConfig' => 'Module>',
 	'ModuleJS' => 'Module>',
 	'NullField' => 'Field/',
 	'PageAccess' => 'Page/',
