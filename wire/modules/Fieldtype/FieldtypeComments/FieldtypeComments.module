@@ -380,7 +380,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query->execute();
 		
 		// delete upvote/downvote IP address records
-		$expiredTime = time() - self::votesMaxAge;
+		$expiredTime = date('Y-m-d H:i:s', time() - self::votesMaxAge);
 		$query = $database->prepare("DELETE FROM `{$table}_votes` WHERE created < :expiredTime");
 		$query->bindValue(":expiredTime", $expiredTime);
 		try {
