@@ -365,6 +365,21 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 		unset($this->data[$key]);
 		return $this;
 	}
+	
+	/**
+	 * Quietly remove a previously set property (no change tracking)
+	 * 
+	 * #pw-group-manipulation
+	 * 
+	 * @param string $key Name of property you want to remove
+	 * @return $this
+	 * @since 3.0.262
+	 * 
+	 */
+	public function removeQuietly($key) {
+		unset($this->data[$key]);
+		return $this;
+	}
 
 	/**
 	 * Enables the object data properties to be iterable as an array

@@ -1430,13 +1430,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function setUnformatted($key, $value) {
-		if($value instanceof PageFieldValueInterface && $value->formatted()) {
-			throw new WireException("Cannot use formatted-value with Page::setUnformatted($key, formatted-value);");
-		}
-		$of = $this->outputFormatting;
-		if($of) $this->of(false);
-		$this->set($key, $value);
-		if($of) $this->of(true);
+		$this->values()->setUnformatted($this, $key, $value); 
 		return $this;
 	}
 
@@ -1459,11 +1453,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function getUnformatted($key) {
-		$of = $this->outputFormatting; 
-		if($of) $this->of(false); 
-		$value = $this->get($key); 
-		if($of) $this->of(true); 
-		return $value; 
+		return $this->values()->getUnformatted($this, $key);
 	}
 
 	/**
@@ -1485,11 +1475,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function getFormatted($key) {
-		$of = $this->outputFormatting;
-		if(!$of) $this->of(true);
-		$value = $this->get($key);
-		if(!$of) $this->of(false);
-		return $value;
+		return $this->values()->getFormatted($this, $key);
 	}
 
 	/**

@@ -1210,5 +1210,96 @@ class PageValues extends Wire {
 		
 		return null;
 	}
-
+	
+	/**
+	 * Get formatted value of a field
+	 * 
+	 * @param Page $page
+	 * @param string $key
+	 * @return mixed
+	 * @since 3.0.262
+	 * 
+	 */
+	public function getFormatted(Page $page, $key) {
+		
+		$of = $page->of();
+		if($of) return $page->get($key);
+	
+		// if value was previously loaded it will be returned here
+		// if not previously loaded then it will be null
+		$value = $page->_parentGet($key);
+		
+		$page->of(true);
+		
+		if($value instanceof PageFieldValueInterface && !$value->formatted()) {
+			// value was previously loaded and is not formatted
+			$field = $value->getField();
+			if(!$field) $field = $page->getField($key);
+			if($field) {
+				$key = $field->name;
+				$page->removeQuietly($key); // clear unformatted value
+				$valueFormatted = $page->get($key); // get formatted value
+				$page->setQuietly($key, $value); // restore unformatted value
+				$value = $valueFormatted;
+			}
+		} else {
+			// get existing or fresh formatted copy
+			$value = $page->get($key);
+		}
+		
+		$page->of(false);
+		
+		return $value;
+	}
+	
+	/**
+	 * Get unformatted value of a field
+	 * 
+	 * @param Page $page
+	 * @param string $key
+	 * @return mixed
+	 * @since 3.0.262
+	 */
+	public function getUnformatted(Page $page, $key) {
+		$of = $page->of();
+		if($of) $page->of(false);
+		
+		$value = $page->get($key);
+		
+		if($value instanceof PageFieldValueInterface && $value->formatted()) {
+			$page->removeQuietly($key);
+			$valueUnformatted = $page->get($key);
+			$page->setQuietly($key, $value);
+			$value = $valueUnformatted;
+		}
+		
+		if($of) $page->of(true);
+		
+		return $value;
+	}
+	
+	/**
+	 * Set an unformatted value for a specified property
+	 * 
+	 * If the provided value is already a formatted PageFieldValueInterface, an exception is thrown.
+	 *
+	 * @param Page $page 
+	 * @param string $key The name of the property to set.
+	 * @param mixed $value The value to set for the property. Must not be a formatted PageFieldValueInterface.
+	 * @throws WireException If the value is a formatted PageFieldValueInterface.
+	 * @since 3.0.262
+	 * 
+	 */
+	public function setUnformatted(Page $page, $key, $value) {
+		if($value instanceof PageFieldValueInterface && $value->formatted()) {
+			throw new WireException(
+				"Cannot use formatted-value with Page::setUnformatted($key, formatted-value);"
+			);
+		}
+		
+		$of = $page->of();
+		if($of) $page->of(false);
+		$page->set($key, $value);
+		if($of) $page->of(true);
+	}
 }
