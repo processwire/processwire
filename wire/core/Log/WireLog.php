@@ -204,12 +204,16 @@ class WireLog extends Wire {
 						$url .= "?";
 						foreach($input->get as $k => $v) {
 							$k = $sanitizer->name($k);
-							$v = $sanitizer->name($v);
+							$v = rawurlencode($sanitizer->text((string) $v));
 							$url .= "$k=$v&";
 						}
 						$url = rtrim($url, "&");
 					}
-					if(strlen($url) > 500) $url = substr($url, 0, 500) . " ...";
+					if(strlen($url) > 500) {
+						$url = substr($url, 0, 500);
+						$lastAmp = strrpos($url, '&');
+						if($lastAmp !== false) $url = substr($url, 0, $lastAmp);
+					}
 				} else {
 					$url = '?';
 				}
