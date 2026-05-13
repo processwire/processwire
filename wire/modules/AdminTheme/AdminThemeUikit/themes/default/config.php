@@ -11,7 +11,18 @@ if($adminTheme->themeName === 'default') {
 	$adminTheme->wire()->config->scripts->add($adminTheme->url() . 'themes/default/config.js');
 }
 
-$inputfields->description = __('Created by Diogo Oliveira and Jan Ploch at [KONKAT Studio](https://konkat.studio/).');
+$readmeUrl = ProcessModule::addReadmeFile(
+	'AdminThemeUikit', 
+	'konkat_theme.md', 
+	'themes/default/KONKAT_THEME.md'); 
+
+$inputfields->description = 
+	__('Created by Diogo Oliveira and Jan Ploch at [KONKAT Studio](https://konkat.studio/).') . ' ' . 
+	sprintf(
+		__('View a [developer guide](%s) for this theme.'), 
+		$readmeUrl
+	); 
+
 $inputfields->icon = 'sliders';
 
 $f = $inputfields->InputfieldRadios;
