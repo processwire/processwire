@@ -508,25 +508,26 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		$partial = (bool) ($useFingerprint & self::fingerprintPartialAddr);
 		$fingerprint = '';
-		$ip = null;
-		
+		$ipParts = [];
+
 		if($useFingerprint & self::fingerprintRemoteAddr) {
 			if($debug) $debugInfo[] = 'remote-addr';
-			$ip = $this->getIP($partial ? false : true);
+			$ipParts[] = $this->getIP($partial ? false : true);
 		}
-		
+
 		if($useFingerprint & self::fingerprintClientAddr) {
 			if($debug) $debugInfo[] = 'client-addr';
-			$ip = $this->getIP(false, 2);
+			$ipParts[] = $this->getIP(false, 2);
 		}
-		
+
 		if($partial) {
-			if($ip === null) $ip = $this->getIP(false); // in case they forgot to specify addr type
+			if(empty($ipParts)) $ipParts[] = $this->getIP(false); // in case they forgot to specify addr type
 			if($debug) $debugInfo[] = 'partial';
-			$ip = $this->getPartialIP(3, $ip);
+			foreach($ipParts as &$ipPart) $ipPart = $this->getPartialIP(3, $ipPart);
+			unset($ipPart);
 		}
-		
-		if($ip !== null) $fingerprint .= $ip;
+
+		if(!empty($ipParts)) $fingerprint .= implode('|', $ipParts);
 		
 		if($useFingerprint & self::fingerprintUseragent) {
 			$fingerprint .= isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
@@ -875,7 +876,7 @@ class Session extends Wire implements \IteratorAggregate {
 		if($this->sessionInit) {
 			if(is_null($_key)) {
 				unset($_SESSION[$this->sessionKey][$key]);
-			} else if($_key === true) {
+			} else if(is_bool($_key)) {
 				unset($_SESSION[$this->sessionKey][$this->getNamespace($key)]);
 			} else {
 				unset($_SESSION[$this->sessionKey][$this->getNamespace($key)][$_key]);
@@ -883,7 +884,7 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			if(is_null($_key)) {
 				unset($this->data[$key]);
-			} else if($_key === true) {
+			} else if(is_bool($_key)) {
 				unset($this->data[$this->getNamespace($key)]);
 			} else {
 				unset($this->data[$this->getNamespace($key)][$_key]);
