@@ -135,6 +135,43 @@ class FileLog extends Wire {
 	}
 
 	/**
+	 * Obtain stable lock for this log file pathname
+	 *
+	 * @param int $maxTries
+	 * @param int $maxTriesDelay
+	 * @return resource|false
+	 *
+	 */
+	protected function lockLogFile($maxTries = 20, $maxTriesDelay = 2000) {
+		if(!$this->logFilename) return false;
+		$lockFilename = $this->logFilename . '.lock';
+		$isNew = !file_exists($lockFilename);
+		$fp = fopen($lockFilename, 'c');
+		if(!$fp) return false;
+		for($tries = 0; $tries <= $maxTries; $tries++) {
+			if(flock($fp, LOCK_EX)) {
+				if($isNew && $this->isWired()) $this->wire()->files->chmod($lockFilename);
+				return $fp;
+			}
+			usleep($maxTriesDelay);
+		}
+		fclose($fp);
+		return false;
+	}
+
+	/**
+	 * Release stable lock for this log file pathname
+	 *
+	 * @param resource|false $fp
+	 *
+	 */
+	protected function unlockLogFile($fp) {
+		if(!$fp) return;
+		flock($fp, LOCK_UN);
+		fclose($fp);
+	}
+
+	/**
 	 * Save the given log entry string
 	 * 
 	 * @param string $str
@@ -165,9 +202,13 @@ class FileLog extends Wire {
 		$line = $this->delimeter . $str; // log entry, excluding timestamp
 		$hasLock = false; // becomes true when lock obtained
 		$fp = false; // becomes resource when file is open
+		$lockFp = false; // stable lock for log pathname
 		
 		// if we've already logged this during this instance, then don't do it again
 		if(!$options['allowDups'] && isset($this->itemsLogged[$hash])) return true;
+
+		$lockFp = $this->lockLogFile($options['maxTries'], $options['maxTriesDelay']);
+		if(!$lockFp) return false;
 
 		// determine write mode		
 		$mode = file_exists($this->logFilename) ? 'a' : 'w';
@@ -183,7 +224,10 @@ class FileLog extends Wire {
 		}
 
 		// if unable to open, exit now
-		if(!$fp) return false;
+		if(!$fp) {
+			$this->unlockLogFile($lockFp);
+			return false;
+		}
 
 		// obtain a lock
 		for($tries = 0; $tries <= $options['maxTries']; $tries++) {
@@ -195,6 +239,7 @@ class FileLog extends Wire {
 		// if unable to obtain a lock, we cannot write to the log
 		if(!$hasLock) {
 			fclose($fp);
+			$this->unlockLogFile($lockFp);
 			return false;
 		}
 
@@ -236,6 +281,8 @@ class FileLog extends Wire {
 			$files = $this->wire()->files;
 			$files->chmod($this->logFilename);
 		}
+
+		$this->unlockLogFile($lockFp);
 		
 		return (int) $result > 0; 
 	}
@@ -644,38 +691,52 @@ class FileLog extends Wire {
 
 		$filename = $this->logFilename; 
 
-		if(!$filename || !file_exists($filename) || filesize($filename) <= $bytes) return 0; 
+		if(!$filename) return 0;
+		$lockFp = $this->lockLogFile();
+		if(!$lockFp) return false;
+
+		if(!file_exists($filename) || filesize($filename) <= $bytes) {
+			$this->unlockLogFile($lockFp);
+			return 0;
+		}
 
 		$fpr = fopen($filename, "r");
 		$fpw = fopen("$filename.new", "w");
-		if(!$fpr || !$fpw) return false;
+		if(!$fpr || !$fpw) {
+			if($fpr) fclose($fpr);
+			if($fpw) fclose($fpw);
+			$this->unlockLogFile($lockFp);
+			return false;
+		}
 
 		flock($fpr, LOCK_EX);
-		fseek($fpr, ($bytes * -1), SEEK_END); 
+		fseek($fpr, ($bytes * -1), SEEK_END);
 		fgets($fpr, $this->maxLineLength); // first line likely just a partial line, so skip it
 		$cnt = 0;
 
 		while(!feof($fpr)) {
-			$line = fgets($fpr, $this->maxLineLength); 
-			fwrite($fpw, $line); 
+			$line = fgets($fpr, $this->maxLineLength);
+			fwrite($fpw, $line);
 			$cnt++;
 		}
 
-		flock($fpr, LOCK_UN);
-		fclose($fpw);
-		fclose($fpr);
+		fclose($fpw); // close write handle before rename, but keep lock on read handle
 
 		$files = $this->wire()->files;
 
 		if($cnt) {
 			$files->unlink($filename, true);
 			$files->rename("$filename.new", $filename, true);
-			$files->chmod($filename); 
+			$files->chmod($filename);
 		} else {
 			$files->unlink("$filename.new", true);
 		}
-	
-		return $cnt;	
+
+		flock($fpr, LOCK_UN); // release lock only after rename is complete
+		fclose($fpr);
+		$this->unlockLogFile($lockFp);
+
+		return $cnt;
 	}
 
 	/**
@@ -687,19 +748,25 @@ class FileLog extends Wire {
 	 */
 	public function pruneDate($oldestDate) {
 		$toFile = $this->logFilename . '.new';
-		$qty = $this->find(0, 1, array(
-			'reverse' => false, 
-			'toFile' => $toFile,
-			'dateFrom' => $oldestDate, 
-			'dateTo' => time(),
-		));
-		if(file_exists($toFile)) {
-			$files = $this->wire()->files;
-			$files->unlink($this->logFilename, true);
-			$files->rename($toFile, $this->logFilename, true);
-			return $qty; 
+		$lockFp = $this->lockLogFile();
+		if(!$lockFp) return false;
+		try {
+			$qty = $this->find(0, 1, array(
+				'reverse' => false,
+				'toFile' => $toFile,
+				'dateFrom' => $oldestDate,
+				'dateTo' => time(),
+			));
+			if(file_exists($toFile)) {
+				$files = $this->wire()->files;
+				$files->unlink($this->logFilename, true);
+				$files->rename($toFile, $this->logFilename, true);
+				return $qty;
+			}
+			return 0;
+		} finally {
+			$this->unlockLogFile($lockFp);
 		}
-		return 0;
 	}
 
 	/**
@@ -709,7 +776,13 @@ class FileLog extends Wire {
 	 * 
 	 */
 	public function delete() {
-		return $this->wire()->files->unlink($this->logFilename, true);
+		$lockFp = $this->lockLogFile();
+		if(!$lockFp) return false;
+		try {
+			return $this->wire()->files->unlink($this->logFilename, true);
+		} finally {
+			$this->unlockLogFile($lockFp);
+		}
 	}
 
 	public function __toString() {
