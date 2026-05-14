@@ -960,9 +960,10 @@ class PageFinder2 extends Wire {
 	public function ___find($selectors, array $options = array()) {
 	
 		self::$level++;
-		
+		try {
+
 		if(is_string($selectors) || is_array($selectors)) {
-			list($s, $selectors) = array($selectors, $this->wire(new Selectors())); 
+			list($s, $selectors) = array($selectors, $this->wire(new Selectors()));
 			/** @var Selectors $selectors */
 			$selectors->init($s);
 		} else if(!$selectors instanceof Selectors) {
@@ -979,7 +980,6 @@ class PageFinder2 extends Wire {
 		
 		if($options['returnQuery']) {
 			$this->finished = true;
-			self::$level--;
 			if($timer !== null) self::$totalTime += Debug::stopTimer($timer);
 			return $query;
 		}
@@ -1100,10 +1100,12 @@ class PageFinder2 extends Wire {
 		if($this->reverseAfter) $matches = array_reverse($matches);
 		
 		if($timer !== null) self::$totalTime += Debug::stopTimer($timer);
-		
-		self::$level--;
 
-		return $matches; 
+		return $matches;
+
+		} finally {
+			self::$level--;
+		}
 	}
 
 	/**
