@@ -1733,6 +1733,13 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function sqlMode($action = 'get', $mode = '', $minVersion = '', $pdo = null) {
+		// Resolve null pdo here (pdoLast is protected, not accessible from dialect class)
+		// and retain explicit pdo argument as the last-used connection.
+		if($pdo === null) {
+			$pdo = $this->pdoLast();
+		} else {
+			$this->pdoLast = $pdo;
+		}
 		return $this->dialect()->sqlMode($action, $mode, $minVersion, $pdo);
 	}
 

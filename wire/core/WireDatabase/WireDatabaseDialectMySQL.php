@@ -397,7 +397,7 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 		if(empty($action)) $action = 'get';
 
 		if($action !== 'get' && $minVersion) {
-			$serverVersion = $this->database->getAttribute(\PDO::ATTR_SERVER_VERSION);
+			$serverVersion = $pdo->getAttribute(\PDO::ATTR_SERVER_VERSION);
 			if(version_compare($serverVersion, $minVersion, '<')) return false;
 		}
 
