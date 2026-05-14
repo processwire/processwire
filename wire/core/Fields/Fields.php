@@ -488,7 +488,9 @@ class Fields extends WireSaveableItems {
 			$item->prevTable = '';
 		}
 		
+		$prevName = '';
 		if(!$isNew && $item->prevName && $item->prevName != $item->name) {
+			$prevName = $item->prevName; // capture before cleared, for namesToIds update below
 			$item->type->renamedField($item, $item->prevName);
 			$item->prevName = '';
 		}
@@ -540,7 +542,14 @@ class Fields extends WireSaveableItems {
 		
 		$this->getTags('reset');
 
-		return true; 
+		if($isNew) {
+			$this->namesToIds[$item->name] = $item->id;
+		} else if($prevName) {
+			unset($this->namesToIds[$prevName]);
+			$this->namesToIds[$item->name] = $item->id;
+		}
+
+		return true;
 	}
 
 	/**
@@ -616,6 +625,7 @@ class Fields extends WireSaveableItems {
 		if($item->type) $item->type->deleteField($item);
 
 		$result = parent::___delete($item);
+		if($result) unset($this->namesToIds[$item->name]);
 		$this->getTags('reset');
 		return $result;
 	}
