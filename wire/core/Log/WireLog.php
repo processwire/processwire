@@ -171,7 +171,7 @@ class WireLog extends Wire {
 			foreach($options as $k => $v) {
 				if(!isset($defaults[$k]) || $v !== $defaults[$k]) $o[$k] = $v;
 			}
-			$key = "$name|" . json_encode($o);
+			$key = "$name|" . (json_encode($o) ?: '[]');
 			if(!isset($this->queued[$key])) $this->queued[$key] = [];
 			$this->queued[$key][] = $text;
 			return false;
@@ -711,6 +711,7 @@ class WireLog extends Wire {
 		foreach($this->queued as $key => $items) {
 			list($name, $options) = explode('|', $key, 2);
 			$options = json_decode($options, true);
+			if(!is_array($options)) $options = [];
 			$split = count($items) > 1 ? "\n- " : "\n";
 			$text = trim($split . implode($split, $items));
 			$length = strlen($text);
