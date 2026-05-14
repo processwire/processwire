@@ -441,7 +441,8 @@ class FileLog extends Wire {
 		if($chunkNum > $totalChunks) return $data; 
 
 		if(!$fp = fopen($this->logFilename, "r")) return $data;
-		
+		flock($fp, LOCK_SH);
+
 		fseek($fp, $offset, ($reverse ? SEEK_END : SEEK_SET));
 
 		if($clean) {
@@ -465,8 +466,9 @@ class FileLog extends Wire {
 			if($pos) $data = substr($data, 0, $pos);
 		}
 
-		fclose($fp); 
-		
+		flock($fp, LOCK_UN);
+		fclose($fp);
+
 		return $data;
 	}
 
@@ -832,5 +834,3 @@ class FileLog extends Wire {
 		return $this->path;
 	}
 }
-
-
