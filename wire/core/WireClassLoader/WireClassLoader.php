@@ -387,7 +387,7 @@ class WireClassLoader {
 			// identify location of [Name]Field.php based on location of Fieldtype[Name].php
 			if(!$found && strpos($name, 'Field') && $this->modules && substr($name, -5) === 'Field') {
 				$a = substr($name, 0, -5);
-				if($this->modules->includeModule("Fieldtype$a")) {
+				if($this->modules->isModule("Fieldtype$a") && $this->modules->includeModule("Fieldtype$a")) {
 					$file = dirname($this->modules->getModuleFile("Fieldtype$a")) . "/$name.php";
 					$found = file_exists($file) ? $file : false;
 				}
