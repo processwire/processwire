@@ -306,7 +306,7 @@ class ModulesFiles extends ModulesClass {
 			if($options['getURL']) $file = str_replace($config->paths->root, '/', $file);
 		}
 
-		if($this->wireIsLink) $file = realpath($file);
+		if($this->wireIsLink) { $real = realpath($file); if($real !== false) $file = $real; }
 
 		return $file;
 	}
