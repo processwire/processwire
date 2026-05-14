@@ -123,7 +123,14 @@ class FieldtypeDecimal extends Fieldtype {
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 		if(!strlen("$value")) return '';
-		return $this->sanitizeValue($page, $field, $value);
+		$value = $this->sanitizeValue($page, $field, $value);
+		// sanitizeValue() may strip trailing zeros from integer-valued decimals (e.g. "42.00" -> "42")
+		// so re-apply precision padding when the decimal point is absent
+		if(strlen($value) && strpos($value, '.') === false) {
+			list(, $precision) = $this->getDigitsAndPrecision($field);
+			if($precision > 0) $value = number_format((float) $value, $precision, '.', '');
+		}
+		return $value;
 	}
 
 	/**
