@@ -333,19 +333,51 @@ class FieldtypeFloat extends Fieldtype {
 	 * 
 	 */
 	protected function incrementLastDigit($n) {
-		$s = (string) $n;
-		if(strpos($s, '.') === false) return (string) (((int) $n) + 1);
+		$negative = ($n < 0);
+		$s = $negative ? substr((string) $n, 1) : (string) $n; // work with absolute value
 
-		// Find the last digit and increment it, carrying if needed
+		if(strpos($s, '.') === false) {
+			// No decimal point: use the next representable value rather than the next integer
+			// so "3" does not match 3.5, 3.9, etc. Scale epsilon for larger numbers where
+			// a fixed tiny decimal would be lost to floating point precision.
+			$epsilon = max(0.0000001, abs($n) * PHP_FLOAT_EPSILON);
+			do {
+				$next = $n + $epsilon;
+				if($next > $n) break;
+				$epsilon *= 2;
+			} while(true);
+			return sprintf('%.17G', $next);
+		}
+
+		if($negative) {
+			// For negatives, decrement the last digit of the absolute value so the result is
+			// less negative (i.e. greater) than $n, giving a valid half-open range upper bound.
+			$dotPos = strpos($s, '.');
+			$carried = true;
+			for($i = strlen($s) - 1; $i >= 0; $i--) {
+				if(ctype_digit($s[$i])) {
+					if($s[$i] > '0') {
+						$s[$i] = (string) ((int) $s[$i] - 1);
+						$carried = false;
+						break;
+					} else {
+						$s[$i] = '9'; // borrow
+					}
+				}
+			}
+			// All digits borrowed (e.g. -0.00): upper bound is zero
+			if($carried) return '0.' . str_repeat('0', strlen($s) - $dotPos - 1);
+			return '-' . $s;
+		}
+
+		// Positive: increment last digit with carry
 		$carried = true;
 		for($i = strlen($s) - 1; $i >= 0; $i--) {
 			if(ctype_digit($s[$i])) {
 				$s[$i] = (string) (((int) $s[$i] + 1) % 10);
-				// If the digit rolled over from 9 to 0, carry and continue
 				if($s[$i] !== '0') { $carried = false; break; }
 			}
 		}
-		// If all digits carried (e.g. 9.99 -> 10.00), prepend '1'
 		if($carried) $s = '1' . $s;
 
 		return $s;
