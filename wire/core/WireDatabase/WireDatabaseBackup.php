@@ -932,7 +932,7 @@ class WireDatabaseBackup {
 		}
 		
 		if(strpos($cmd, '[dbFile]')) {
-			$cmd = str_replace('[dbFile]', $file, $cmd); 
+			$cmd = str_replace('[dbFile]', escapeshellarg($file), $cmd);
 		} else {
 			$cmd .= " > " . escapeshellarg($file);
 		}
