@@ -2137,8 +2137,10 @@ class ProcessModule extends Process {
 		if(empty($path) || strlen($readmeFile) < 4) return false;
 		
 		$fileName = $path . $readmeFile;
-		$realFile = realpath($fileName);
 		$realPath = realpath($path);
+		if($realPath === false) return false;
+		$realPath = rtrim($realPath, '/\\') . DIRECTORY_SEPARATOR;
+		$realFile = realpath($fileName);
 		if(!$realFile || strpos($realFile, $realPath) !== 0) return false;
 		if(!$files->exists($fileName)) return false;
 		
