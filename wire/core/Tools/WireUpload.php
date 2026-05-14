@@ -936,7 +936,7 @@ class WireUpload extends Wire {
 	
 		// mime-types where multiple types can apply to one extension
 		$multiMimeTypes = [
-			'svg' => [ 'image/svg+xml', 'text/xml', 'text/html', 'text/plain', 'application/xml' ],
+			'svg' => [ 'image/svg+xml', 'application/xml', 'text/xml' ],
 			'docx' => [ 'application/vnd.openxmlformats-officedocument', 'application/zip' ],
 			'xlsx' => [ 'application/vnd.openxmlformats-officedocument', 'application/zip' ],
 			'zip' => [ 'application/zip', 'application/x-zip' ],
