@@ -102,7 +102,7 @@ class ProcessPageView extends Process {
 		$request = $pages->request();
 		$timerKey = $config->debug ? 'ProcessPageView.getPage()' : ''; 
 		
-		if($config->usePoweredBy !== null && !headers_sent()) {
+		if($config->usePoweredBy !== false && $config->usePoweredBy !== null && !headers_sent()) {
 			header('X-Powered-By: ProcessWire CMS');
 		}
 		
