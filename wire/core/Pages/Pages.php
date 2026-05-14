@@ -2026,32 +2026,15 @@ class Pages extends Wire {
 	/**
 	 * Return a NullPage
 	 * 
-	 * This method returns the same `NullPage` instance for every
-	 * call except if: 
-	 *
-	 * - The ProcessWire version is prior to 3.0.257.
-	 * - You specify `true` for the `$forceNew` argument. 
-	 * - Some value is set to a previously returned `NullPage`,
-	 *   forcing it to generate a new one on the next call.
+	 * This method returns a new `NullPage` instance.
 	 * 
-	 * @param bool $forceNew Require that it must be a new instance (3.0.257+)
+	 * @param bool $forceNew Previously required that it must be a new instance, now always new (3.0.257+)
 	 * @return NullPage
 	 * 
 	 */
 	public function newNullPage($forceNew = false) {
-		static $nullPage = null;
-		if($forceNew) {
-			// always create new NullPage instance
-			$newNullPage = new NullPage();
-			$this->wire($newNullPage);
-			return $newNullPage;
-		} else if($nullPage === null || $nullPage->isChanged()) {
-			// create new NullPage instance only when needed
-			$nullPage = new NullPage();
-			$this->wire($nullPage);
-		} else {
-			// reuse existing NullPage instance
-		}
+		$nullPage = new NullPage();
+		$this->wire($nullPage);
 		return $nullPage;
 	}
 

@@ -220,7 +220,7 @@ do {
 $p    = $pages->newPage();                      // new unsaved Page (no template)
 $p    = $pages->newPage(['template' => 'foo']); // with template/parent pre-set
 $pa   = $pages->newPageArray();                 // empty PageArray
-$null = $pages->newNullPage();                  // shared NullPage instance
+$null = $pages->newNullPage();                  // new NullPage instance
 ```
 
 ## Hooks
@@ -296,7 +296,6 @@ available on `$pages`, or if otherwise directed.
 - Output formatting is **on** for front-end requests and **off** in the admin. Always call
   `$page->of(false)` before modifying and saving a page that may have been loaded in a
   front-end context.
-- `$pages->newNullPage()` returns a shared (cached) NullPage instance. Use
-  `$pages->newNullPage(true)` only when you explicitly need a fresh instance.
+- `$pages->newNullPage()` returns a new NullPage instance.
 - All `$pages` write methods (`save`, `add`, `delete`, `trash`, etc.) are hookable via the
   triple-underscore `___methodName()` pattern.

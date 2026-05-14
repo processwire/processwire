@@ -35,14 +35,6 @@
 class NullPage extends Page implements WireNull {
 	
 	/**
-	 * Have any values been set to this NullPage?
-	 * 
-	 * @var bool 
-	 * 
-	 */
-	protected $hasSets = false;
-	
-	/**
 	 * #pw-internal
 	 * 
 	 * @return string
@@ -70,7 +62,6 @@ class NullPage extends Page implements WireNull {
 	 * 
 	 */
 	public function set($key, $value) { 
-		if($key !== 'id') $this->hasSets = true;
 		return parent::setForced($key, $value); 
 	}
 	
@@ -94,7 +85,7 @@ class NullPage extends Page implements WireNull {
 	 * 
 	 */
 	public function parent($selector = '') {
-		return $this->wire()->pages->newNullPage(true);
+		return null;
 	}
 
 	/**
@@ -219,5 +210,5 @@ class NullPage extends Page implements WireNull {
 	 * @return bool
 	 * 
 	 */
-	public function isChanged($what = '') { return $this->hasSets; }
+	public function isChanged($what = '') { return false; }
 }
