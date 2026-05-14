@@ -1719,12 +1719,16 @@ class PagesEditor extends Wire {
 	
 	/**
 	 * Save the manual 'sort' value for given page only
-	 * 
-	 * @param Page|int $page Page instance or Page ID (int)
+	 *
+	 * This is an internal method not part of the public API. Note that when $page is passed
+	 * as an integer ID, the `Pages::sorted` hook is intentionally not called, providing a
+	 * lightweight way to save sort without triggering hooks.
+	 *
+	 * @param Page|int $page Page instance or Page ID (int). Pass int to skip the sorted hook.
 	 * @param int|false $sort Specify sort value or omit to use existing $page->sort value
 	 * @return bool Returns true if row for page was updated, false if not
 	 * @since 3.0.258
-	 * 
+	 *
 	 */
 	public function saveSort($page, $sort = false) {
 		$pageId = 0;
