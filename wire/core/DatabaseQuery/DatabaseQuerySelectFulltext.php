@@ -571,7 +571,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 				// ensure full matches are above expanded matches
 				$preScoreField = $this->getScoreFieldName(); 
 				$bindKey = $this->query->bindValueGetKey($data['booleanValue']);
-				$this->query->select("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 111.1 AS $preScoreField");
+				$this->selectScoreField("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 111.1", $preScoreField);
 				$this->query->orderby("$preScoreField DESC");
 			}
 			if(!empty($data['matchValue'])) {
@@ -589,7 +589,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$wheres[] = $matchAgainst;
 			// $this->query->where($matchAgainst);
 			if($this->allowOrder) {
-				$this->query->select("$matchAgainst AS $scoreField");
+				$this->selectScoreField($matchAgainst, $scoreField);
 				$this->query->orderby("$scoreField DESC");
 			}
 		} else if(!$this->allowStopwords) {
@@ -705,7 +705,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 			if($this->allowOrder) {
 				$scoreField = $this->getScoreFieldName();
-				$this->query->select("$matchAgainst AS $scoreField");
+				$this->selectScoreField($matchAgainst, $scoreField);
 				$this->query->orderby("$scoreField DESC");
 			}
 		}
@@ -768,7 +768,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$bindKey = $this->query->bindValueGetKey(implode(' ', $againstValues));
 			$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
 			if($this->allowOrder) {
-				$this->query->select("$matchAgainst + 333.3 AS $scoreField");
+				$this->selectScoreField("$matchAgainst + 333.3", $scoreField);
 				$this->query->orderby("$scoreField DESC");
 			}
 		}
@@ -806,7 +806,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		if($this->allowOrder && strlen($againstValue)) {
 			$bindKey = $this->query->bindValueGetKey(trim($againstValue));
-			$this->query->select("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 222.2 AS $scoreField");
+			$this->selectScoreField("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 222.2", $scoreField);
 			$this->query->orderby("$scoreField DESC");
 		}
 		
@@ -818,7 +818,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$this->query->where($matchAgainst);
 		
 		$scoreField = $this->getScoreFieldName();
-		$this->query->select("$matchAgainst AS $scoreField");
+		$this->selectScoreField($matchAgainst, $scoreField);
 		
 		if($this->allowOrder) {
 			$this->query->orderby("$scoreField DESC");
@@ -852,7 +852,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 				$againstValue = $data['booleanValue'];
 				$bindKey = $this->query->bindValueGetKey($againstValue);
 				$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
-				$this->query->select("$matchAgainst + 111.1 AS $scoreField");
+				$this->selectScoreField("$matchAgainst + 111.1", $scoreField);
 				$this->query->orderby("$scoreField DESC");
 			}
 		}
@@ -873,7 +873,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$where = "$matchType($tableField) AGAINST($bindKey $againstType)";
 		$this->query->where($where);
 		if($this->allowOrder) {
-			$this->query->select("$where AS $scoreField");
+			$this->selectScoreField($where, $scoreField);
 			$this->query->orderby("$scoreField DESC");
 		}
 	}
@@ -917,7 +917,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$scoreField = $this->getScoreFieldName();
 			$this->query->where($matchAgainst);
 			if($this->allowOrder) {
-				$this->query->select("$matchAgainst AS $scoreField");
+				$this->selectScoreField($matchAgainst, $scoreField);
 				$this->query->orderby("$scoreField DESC");
 			}
 		}
@@ -951,8 +951,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) ";
 		$this->query->where($matchAgainst);
 		if($this->allowOrder) {
-			$select = "$matchAgainst AS $scoreField ";
-			$this->query->select($select);
+			$this->selectScoreField($matchAgainst, $scoreField);
 			$this->query->orderby("$scoreField DESC");
 		}
 	}
@@ -1391,6 +1390,29 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$scoreField = '_score_' . $key . self::$scoreCnts[$key];
 		$this->query->set('_useScoreField', $scoreField);
 		return $scoreField;
+	}
+
+	/**
+	 * Add a fulltext score expression to the SELECT columns
+	 *
+	 * Grouped page finder queries need an aggregate score because the matched
+	 * text column can come from multiple joined rows for the same page.
+	 *
+	 * @param string $expression
+	 * @param string $scoreField
+	 * @author GPT 5.5 Codex
+	 *
+	 */
+	protected function selectScoreField($expression, $scoreField) {
+		$aggregate = $this->query->get('_aggregateScoreFields') || count($this->query->groupby);
+		$parentQuery = $this->query->get('parentQuery');
+		if(!$aggregate && $parentQuery instanceof DatabaseQuerySelect) {
+			$aggregate = $parentQuery->get('_aggregateScoreFields') || count($parentQuery->groupby);
+		}
+		if($aggregate) {
+			$expression = "MAX($expression)";
+		}
+		$this->query->select("$expression AS $scoreField");
 	}
 	
 	/**

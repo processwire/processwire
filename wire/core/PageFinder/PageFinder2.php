@@ -1929,6 +1929,7 @@ class PageFinder2 extends Wire {
 
 		$query->select($columns);
 		$query->from("pages"); 
+		$query->set('_aggregateScoreFields', true); // GPT 5.5 Codex
 		$query->groupby($options['returnParentIDs'] ? 'pages.parent_id' : 'pages.id');
 	
 		$this->getQueryStartLimit($query);
