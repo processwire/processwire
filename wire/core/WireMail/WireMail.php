@@ -339,7 +339,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * Set the email 'from' address and optionally name
 	 *
 	 * @param string $email Must be a single email address or "User Name <user@example.com>" string.
-	 * @param string|null An optional FROM name (same as setting/calling fromName)
+	 * @param string|null $name An optional FROM name (same as setting/calling fromName)
 	 * @return $this 
 	 * @throws WireException if provided email was invalid or in blacklist
 	 *
@@ -374,7 +374,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * Set the 'reply-to' email address and optionally name (where supported)
 	 *
 	 * @param string $email Must be a single email address or "User Name <user@example.com>" string.
-	 * @param string|null An optional Reply-To name (same as setting/calling replyToName method)
+	 * @param string|null $name An optional Reply-To name (same as setting/calling replyToName method)
 	 * @return $this
 	 * @throws WireException if provided email was invalid or in blacklist
 	 *

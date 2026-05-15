@@ -99,15 +99,15 @@ class WireMailTools extends Wire {
 			$mail = $this->wire(new WireMail());
 		}
 	
+		// reset recipients in case a non-singular WireMail module instance is reused
+		$mail->to();
+
 		// if anything left in settings, apply as a default setting
 		if(!empty($settings)) {
 			foreach($settings as $key => $value) {
 				$mail->set($key, $value); 
 			}
 		}
-
-		// reset just in case module was not singular
-		$mail->to();
 
 		return $mail;
 	}
@@ -296,6 +296,12 @@ class WireMailTools extends Wire {
 			// message is $options array
 			$options = $message;
 			if(!empty($options['headers'])) $headers = array_merge($headers, $options['headers']);
+			foreach($headers as $key => $val) {
+				if(strtolower($key) !== 'from') continue;
+				if(empty($from)) $from = $val;
+				unset($headers[$key]);
+				break;
+			}
 			$options['headers'] = $headers;
 			if(isset($options['from'])) {
 				if(empty($from)) $from = $options['from'];
@@ -305,7 +311,7 @@ class WireMailTools extends Wire {
 			
 		} else {
 			// regular PHP style mail() call converted to $mail->send() call
-			$qty = $this->send($to, $from, $subject, $message, $headers);
+			$qty = $this->send($to, $from, $subject, $message, array('headers' => $headers));
 		}
 		
 		return $qty > 0;
@@ -320,7 +326,7 @@ class WireMailTools extends Wire {
 	 * 
 	 * @param string|array $to Email address TO. For multiple, specify CSV string or array.
 	 * @param string $subject Email subject
-	 * @param string|array Email message in HTML
+	 * @param string|array $messageHTML Email message in HTML
 	 * @param array $headers Optional additional headers as [name=value] array or "Name: Value" newline-separated string.
 	 *   Use this argument to duplicate PHP mail() style arguments. No need to use if you used $options array for the $message argument.
 	 * @return bool True on success, false on fail.
@@ -363,7 +369,7 @@ class WireMailTools extends Wire {
 	 * Return new WireMail instance populated with “from” email
 	 *
 	 * @param string $email Must be a single email address or "User Name <user@example.com>" string.
-	 * @param string|null An optional FROM name
+	 * @param string|null $name An optional FROM name
 	 * @return WireMail
 	 * @since 3.0.113
 	 *
