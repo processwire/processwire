@@ -143,8 +143,9 @@ class WireCacheDatabase extends Wire implements WireCacheInterface {
 		$query = $this->wire()->database->prepare($sql, "cache.delete($name)");
 		$query->bindValue(':name', $name);
 		if(!$this->executeQuery($query)) return false;
+		$qty = $query->rowCount();
 		$query->closeCursor();
-		return true;
+		return $qty > 0;
 	}
 
 	/**

@@ -265,7 +265,9 @@ class WireCache extends Wire {
 			self::expireSave, self::expireSelector
 		);
 
-		if($expire !== null && $expire !== self::expireIgnore) {
+		if($expire === self::expireNow || $expire === "0") {
+			$expireNow = true;
+		} else if($expire !== null && $expire !== self::expireIgnore) {
 			if(!is_int($expire) && !is_string($expire) && is_callable($expire) && !$expire instanceof Wire) {
 				$_func = $func;
 				$func = $expire;
@@ -276,9 +278,8 @@ class WireCache extends Wire {
 			}
 		}
 	
-		if($expire === self::expireNow) {
+		if($expireNow) {
 			// forced expiration now
-			$expireNow = true;
 			$expires = array();
 			
 		} else if(is_array($expire)) {
@@ -304,7 +305,7 @@ class WireCache extends Wire {
 		} else {
 			// expire represents date/time of expiration
 			$expires = array(
-				'< ' . $expire,
+				'<= ' . $expire,
 			);
 		}
 			
@@ -481,10 +482,11 @@ class WireCache extends Wire {
 	 *
 	 * @param string $name Name of cache, can be any string up to 255 chars
 	 * @param string|array|PageArray $data Data that you want to cache. May be string, array of non-object values, or PageArray.
-	 * @param int|string|Page $expire Lifetime of this cache, in seconds, OR one of the following:
+	 * @param int|string|Page|Template $expire Lifetime of this cache, in seconds, OR one of the following:
 	 *  - Specify one of the `WireCache::expire*` constants.
 	 *  - Specify the future date you want it to expire (as unix timestamp or any `strtotime()` compatible date format)
-	 *  - Provide a `Page` object to expire when any page using that template is saved.
+	 *  - Provide a `Page` object to expire when any page using that page's template is saved.
+	 *  - Provide a `Template` object to expire when any page using that template is saved.
 	 *  - Specify `WireCache::expireNever` to prevent expiration.
 	 *  - Specify `WireCache::expireSave` to expire when any page or template is saved.
 	 *  - Specify selector string matching pages that–when saved–expire the cache.
@@ -517,6 +519,11 @@ class WireCache extends Wire {
 			}
 		}
 
+		if($expire === self::expireNow || $expire === "0") {
+			$this->delete($name);
+			return true;
+		}
+
 		$expire = $this->getExpires($expire);
 
 		if(is_array($expire)) {
@@ -527,7 +534,11 @@ class WireCache extends Wire {
 			);
 			$options['expireArray'] = $expire;
 			$expire = self::expireSelector;
-			// $this->cacheNameSelectors = null; // clear memory cache for maintenancePage method
+			$this->cacheNameSelectors = null; // clear memory cache for maintenancePage method
+		}
+
+		if($expire === self::expireSave || $expire === self::expireSelector || $expire < self::expireSave) {
+			$this->usePageTemplateMaintenance = null;
 		}
 
 		if(is_array($data)) {
