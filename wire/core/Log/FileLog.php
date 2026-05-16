@@ -130,7 +130,7 @@ class FileLog extends Wire {
 	protected function cleanStr($str) {
 		$str = str_replace(array("\r\n", "\r", "\n"), ' ', trim($str)); 
 		if(strlen($str) > $this->maxLineLength) $str = substr($str, 0, $this->maxLineLength); 
-		if(strpos($str, ' ^+') !== false) $str = str_replace(' ^=', ' ^ +', $str); // disallowed sequence
+		if(strpos($str, ' ^+') !== false) $str = str_replace(' ^+', ' ^ +', $str); // disallowed sequence
 		return $str; 	
 	}
 

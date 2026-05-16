@@ -394,6 +394,7 @@ class WireLog extends Wire {
 	 * 	- `dateTo` (int|string): Newest date to match entries.
 	 * 	- `reverse` (bool): Reverse order (default=true)
 	 * 	- `pageNum` (int): Pagination number 1 or above (default=0 which means auto-detect)
+	 * 	- `delimiter` (string): Log entry delimiter (default="\t" aka tab)
 	 * @return array 
 	 * @see WireLog::getEntries()
 	 * 
@@ -401,7 +402,7 @@ class WireLog extends Wire {
 	public function getLines($name, array $options = array()) {
 		$pageNum = !empty($options['pageNum']) ? $options['pageNum'] : $this->wire()->input->pageNum;
 		unset($options['pageNum']); 
-		$log = $this->getFileLog($name); 
+		$log = $this->getFileLog($name, $options);
 		$limit = isset($options['limit']) ? (int) $options['limit'] : 100; 
 		$lines = $log->find($limit, $pageNum, $options); 
 		return $lines;
@@ -423,6 +424,7 @@ class WireLog extends Wire {
 	 * 	- `dateTo` (int|string): Newest date to match entries. 
 	 * 	- `reverse` (bool): Reverse order (default=true)
 	 * 	- `pageNum` (int): Pagination number 1 or above (default=0 which means auto-detect)
+	 * 	- `delimiter` (string): Log entry delimiter (default="\t" aka tab)
 	 * @return array Returns an array of associative arrays, each with the following components:
 	 *  - `date` (string): ISO-8601 date string
 	 *  - `user` (string): user name or boolean false if unknown
@@ -433,14 +435,15 @@ class WireLog extends Wire {
 	 */
 	public function getEntries($name, array $options = array()) {
 		
-		$log = $this->getFileLog($name);
+		$delimiter = isset($options['delimiter']) ? $options['delimiter'] : "\t";
+		$log = $this->getFileLog($name, $options);
 		$limit = isset($options['limit']) ? $options['limit'] : 100; 
 		$pageNum = !empty($options['pageNum']) ? $options['pageNum'] : $this->wire()->input->pageNum; 
 		unset($options['pageNum']); 
 		$lines = $log->find($limit, $pageNum, $options); 
 		
 		foreach($lines as $key => $line) {
-			$entry = $this->lineToEntry($line); 
+			$entry = $this->lineToEntry($line, $delimiter);
 			$lines[$key] = $entry; 
 		}
 		
@@ -453,12 +456,13 @@ class WireLog extends Wire {
 	 * #pw-internal
 	 * 
 	 * @param $line
+	 * @param string $delimiter
 	 * @return array
 	 * 
 	 */
-	public function lineToEntry($line) {
+	public function lineToEntry($line, $delimiter = "\t") {
 		
-		$parts = explode("\t", $line, 4);
+		$parts = explode($delimiter, $line, 4);
 	
 		if(count($parts) == 2) {
 			$entry = array(
