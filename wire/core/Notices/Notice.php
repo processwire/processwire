@@ -389,7 +389,7 @@ abstract class Notice extends WireData {
 	 */
 	public function hasFlag($flag) {
 		$flag = $this->flag($flag);
-		return $flag ? $this->flags & $flag : false;
+		return $flag ? (bool) ($this->flags & $flag) : false;
 	}
 
 	/**

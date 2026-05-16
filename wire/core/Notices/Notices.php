@@ -128,8 +128,8 @@ class Notices extends WireArray {
 	
 		if($item->flags & Notice::allowDuplicate) {
 			// allow it
-		} else if($this->isDuplicate($item)) {
-			$item->qty = $item->qty+1;
+		} else if($duplicate = $this->isDuplicate($item)) {
+			$duplicate->qty = $duplicate->qty+1;
 			return false;
 		}
 		
@@ -482,7 +482,7 @@ class Notices extends WireArray {
 			if(($flags & Notice::debug) && !$config->debug) continue;
 			if(($flags & Notice::admin) && !$config->admin) continue;
 			if(($flags & Notice::logOnly)) continue;
-			$items->add($notice);
+			$items->data[] = $notice;
 		}
 		return $items;
 	}
