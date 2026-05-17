@@ -725,6 +725,43 @@ class ModulesConfigs extends ModulesClass {
 					}
 				}
 			}
+
+			// Indicate which fields are currently overridden by $wire->config->ClassName (3.0.263+).
+			// Override values are intentionally NOT shown — they often contain secrets. We only
+			// flag which keys are overridden so admins understand why edits here may have no runtime effect.
+			$overlay = $this->wire()->config->$moduleName;
+			if(is_array($overlay) && !empty($overlay)) {
+				$overriddenKeys = array();
+				foreach($form->getAll() as $inputfield) {
+					if($inputfield instanceof InputfieldWrapper) continue;
+					$name = $inputfield->attr('name');
+					if($name === '' || !array_key_exists($name, $overlay)) continue;
+					$overriddenKeys[] = $name;
+					$msg = sprintf(
+						$this->_('Currently overridden by `$config->%s[\'%s\']` in site/config.php. Saving here updates the stored value, but the override will continue to take precedence at runtime.'),
+						$moduleName,
+						$name
+					);
+					$existing = (string) $inputfield->notes;
+					$inputfield->notes = $existing === '' ? $msg : trim($existing) . "\n\n" . $msg;
+				}
+				if(!empty($overriddenKeys)) {
+					$sanitizer = $this->wire()->sanitizer;
+					$keysHtml = array();
+					foreach($overriddenKeys as $k) {
+						$keysHtml[] = '<code>' . $sanitizer->entities($k) . '</code>';
+					}
+					/** @var InputfieldMarkup $markup */
+					$markup = $this->wire()->modules->get('InputfieldMarkup');
+					$markup->markupText = '<p>' . sprintf(
+						$this->_('The following settings are currently overridden by %s in %s: %s'),
+						'<code>$config-&gt;' . $sanitizer->entities($moduleName) . '</code>',
+						'<code>site/config.php</code>',
+						implode(', ', $keysHtml)
+					) . '</p>';
+					$form->prepend($markup);
+				}
+			}
 		}
 
 		return $form;
