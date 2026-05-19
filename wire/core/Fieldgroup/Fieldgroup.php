@@ -117,22 +117,31 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * 
 	 * #pw-group-manipulation
 	 *
-	 * @param Field|string $item Field object, field name or id. 
+	 * @param Field|string|int $item Field object, name or id
 	 * @return $this
 	 * @throws WireException
 	 *
 	 */
 	public function add($item) {
 		$field = $item;
-		if(!is_object($field)) $field = $this->wire()->fields->get($field); 
 
 		if($field instanceof Field) {
+			// received Field instance
 			if(!$field->id) {
 				throw new WireException("You must save field '$field' before adding to Fieldgroup '$this->name'");
 			}
-			parent::add($field); 
+			parent::add($field);
 		} else {
-			// throw new WireException("Unable to add field '$field' to Fieldgroup '{$this->name}'"); 
+			// received Field name or id
+			$field = $this->wire()->fields->get($field);
+			if($field instanceof Field) {
+				parent::add($field);
+			} else {
+				$this->error(
+					"Field '$item' not found to add to Fieldgroup '$this->name'",
+					Notice::admin | Notice::superuser | Notice::log
+				);
+			}
 		}
 		
 		if($this->removedFields && $field) {
@@ -167,8 +176,8 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		
 		$field = $key;
 		if(!is_object($field)) $field = $this->wire()->fields->get($field); 
+		if(!$field instanceof Field) return false;
 		if(!$this->getField($field->id)) return false; 
-		if(!$field) return true; 
 
 		// Make note of any fields that were removed so that Fieldgroups::save()
 		// can delete data for those fields
@@ -217,8 +226,8 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	public function softRemove($field) {
 
 		if(!is_object($field)) $field = $this->wire()->fields->get($field); 
+		if(!$field instanceof Field) return false;
 		if(!$this->getField($field->id)) return false; 
-		if(!$field) return true; 
 
 		return parent::remove($field->id); 
 	}
@@ -780,7 +789,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	}
 
 	/**
-	 * Save field contexts for this fieldgroup
+	 * Save all field contexts for this fieldgroup
 	 * 
 	 * #pw-group-manipulation
 	 * 
@@ -789,5 +798,29 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 */
 	public function saveContext() {
 		return $this->wire()->fieldgroups->saveContext($this); 
+	}
+
+	/**
+	 * Save the context of the given Field for this Fieldgroup
+	 *
+	 * ~~~~
+	 * // Make 'title' have label 'Headline' when used in blog fieldgroup
+	 * $fieldgroup = $fieldgroups->get('blog');
+	 * $field = $fieldgroup->getFieldContext('title');
+	 * $field->label = 'Headline';
+	 * $fieldgroup->saveFieldContext($field);
+	 * ~~~~
+	 *
+	 * #pw-group-manipulation
+	 *
+	 * @param Field $field Field to save context for
+	 * @param string $namespace An optional namespace for additional context
+	 * @return bool True on success
+	 * @since 3.0.263
+	 * @throws WireException if given a Field that is not in context
+	 *
+	 */
+	public function saveFieldContext(Field $field, $namespace = '') {
+		return (bool) $this->wire()->fields->saveFieldgroupContext($field, $this, $namespace);
 	}
 }

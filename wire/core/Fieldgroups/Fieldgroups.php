@@ -6,23 +6,19 @@
  * #pw-summary Maintains collections of Fieldgroup object instances and represents the `$fieldgroups` API variable.
  * #pw-body For full details on all methods available in a Fieldgroup, be sure to also see the `WireArray` class.
  * #pw-var $fieldgroups
- * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ *
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @method Fieldgroup clone(Saveable $item, $name = '')
  * @method int saveContext(Fieldgroup $fieldgroup)
  * @method array getExportData(Fieldgroup $fieldgroup)
  * @method array setImportData(Fieldgroup $fieldgroup, array $data)
- * 
  * @method void fieldRemoved(Fieldgroup $fieldgroup, Field $field)
  * @method void fieldAdded(Fieldgroup $fieldgroup, Field $field)
- * 
- * @method new($name, $settings) Create and save new Fieldgroup. (3.0.258+)
- *
+ * @method Fieldgroup new($name, array $addFields = []) Create and save new Fieldgroup. (3.0.263+)
  *
  */
-
 class Fieldgroups extends WireSaveableItemsLookup {
 
 	/**
@@ -45,18 +41,21 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 * Create a new Fieldgroup in memory
 	 * 
 	 * @param string $name Fieldgroup name
+	 * @param array $addFields Array of field instances, names or ids to add to fieldgroup (3.0.263+)
 	 * @return Fieldgroup
 	 * @throws WireException If given a name that already exists
 	 * @since 3.0.258
-	 * 
 	 */
-	public function newFieldgroup($name) {
+	public function newFieldgroup($name, array $addFields = []) {
 		$name = $this->wire()->sanitizer->templateName($name);
 		$fieldgroup = $this->get($name);
 		if($fieldgroup instanceof Fieldgroup) throw new WireException("Fieldgroup '$name' already exists");
 		$fieldgroup = new Fieldgroup();
 		$this->wire($fieldgroup);
 		$fieldgroup->name = $name;
+		foreach($addFields as $field) {
+			$fieldgroup->add($field);
+		}
 		return $fieldgroup;
 	}
 	
@@ -64,13 +63,14 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 * Create and save a new Fieldgroup
 	 * 
 	 * @param string $name Fieldgroup name
+	 * @param array $addFields Array of field instances, names or ids to add to fieldgroup (3.0.263+)
 	 * @return Fieldgroup
 	 * @throws WireException If given a name that already exists
-	 * @since 3.0.258
+	 * @since 3.0.263
 	 * 
 	 */
-	public function ___new($name) {
-		$fieldgroup = $this->newFieldgroup($name);
+	public function ___new($name, array $addFields = []) {
+		$fieldgroup = $this->newFieldgroup($name, $addFields);
 		$fieldgroup->save();
 		return $fieldgroup;
 	}
@@ -214,7 +214,14 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	public function getFieldNames($fieldgroup) {
 		$fieldNames = array();
 		$useLazy = $this->useLazy();
-		if(!$useLazy && !is_object($fieldgroup)) $fieldgroup = $this->get($fieldgroup);
+		if(!is_object($fieldgroup)) {
+			if($useLazy) {
+				$item = $this->getWireArray()->get($fieldgroup);
+				if($item instanceof Fieldgroup) $fieldgroup = $item;
+			} else {
+				$fieldgroup = $this->get($fieldgroup);
+			}
+		}
 		if($fieldgroup instanceof Fieldgroup) {
 			foreach($fieldgroup as $field) {
 				/** @var Field $field */
@@ -267,19 +274,19 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		
 		if($fieldgroup->id && $fieldgroup->removedFields) {
 
-			foreach($this->wire()->templates as $template) {
-				if($template->fieldgroup->id !== $fieldgroup->id) continue; 
-				foreach($fieldgroup->removedFields as $field) {
-					/** @var Field $field */
+			foreach($fieldgroup->removedFields as $field) {
+				/** @var Field $field */
+				foreach($this->wire()->templates as $template) {
+					if($template->fieldgroup->id !== $fieldgroup->id) continue;
 					// make sure the field is valid to delete from this template
 					$error = $this->isFieldNotRemoveable($field, $fieldgroup, $template);
 					if($error !== false) throw new WireException("$error Save of fieldgroup changes aborted.");
 					/** @var Fieldtype $fieldtype */
 					$fieldtype = $field->type;
 					if($fieldtype) $fieldtype->deleteTemplateField($template, $field); 
-					$fieldgroup->finishRemove($field); 
-					$fieldsRemoved[] = $field;
 				}
+				$fieldgroup->finishRemove($field);
+				$fieldsRemoved[] = $field;
 			}
 
 			$fieldgroup->resetRemovedFields();
