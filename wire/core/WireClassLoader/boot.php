@@ -83,7 +83,7 @@ $corePreloads = array(
 	'Page/PageComparison.php',
 	'Admin/AdminTheme.php',
 	'Inputfield/Inputfield.php',
-	'Template/TemplateFile.php',
+	'TemplateFile/TemplateFile.php',
 	'ProcessController/ProcessController.php',
 	'Inputfield/InputfieldWrapper.php',
 	'Session/SessionCSRF.php',

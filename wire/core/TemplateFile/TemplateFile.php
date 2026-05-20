@@ -5,7 +5,7 @@
  *
  * A template file that will be loaded and executed as PHP and its output returned.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $halt Set to true to halt during render, or use method $this->halt();
@@ -196,7 +196,7 @@ class TemplateFile extends WireData {
 			$this->prependFilename[] = $filename; 
 			return true; 
 		} else {
-			$error = "Append filename doesn't exist: $filename"; 
+			$error = "Prepend filename doesn't exist: $filename";
 			if($this->throwExceptions) throw new WireException($error);
 			$this->error($error); 
 			return false;
@@ -217,7 +217,7 @@ class TemplateFile extends WireData {
 			$this->appendFilename[] = $filename; 
 			return true; 
 		} else {
-			$error = "Prepend filename doesn't exist: $filename";
+			$error = "Append filename doesn't exist: $filename";
 			if($this->throwExceptions) throw new WireException($error);
 			$this->error($error); 
 			return false;
@@ -513,7 +513,8 @@ class TemplateFile extends WireData {
 		if($key === 'currentFilename') return $this->currentFilename; 
 		if($key === 'halt') return $this->halt;
 		if($key === 'trim') return $this->trim;
-		if($value = parent::get($key)) return $value; 
+		$value = parent::get($key);
+		if($value !== null) return $value;
 		if(isset(self::$globals[$key])) return self::$globals[$key];
 		return null;
 	}
