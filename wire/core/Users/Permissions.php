@@ -347,6 +347,7 @@ class Permissions extends PagesType {
 	 */
 
 	public function ___saved(Page $page, array $changes = array(), $values = array()) {
+		$this->permissionNames = array();
 		$this->wire()->cache->delete(self::cacheName);
 		parent::___saved($page, $changes, $values);
 	}
@@ -361,6 +362,7 @@ class Permissions extends PagesType {
 	 * 
 	 */
 	public function ___deleted(Page $page) {
+		$this->permissionNames = array();
 		$this->wire()->cache->delete(self::cacheName);
 		parent::___deleted($page);
 	}
