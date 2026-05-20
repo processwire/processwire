@@ -1334,55 +1334,158 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-identification
 	 * 
-	 * @param Page|Language $language Optional, if not used then user's current language is used
+	 * @param Language|string|int|null $language Optional, if not used then user's current language is used
 	 * @return string
 	 * 
 	 */
 	public function getLabel($language = null) {
-		if(is_null($language)) {
-			$language = $this->wire()->languages ? $this->wire()->user->language : null;
-		}
-		if($language) {
-			$label = (string) $this->get("label$language"); 
-			if(!strlen($label)) $label = $this->label;
-		} else {
-			$label = (string) $this->label;
-		}
-		if(!strlen($label)) $label = $this->name;
-		return $label;
+		$value = $this->_label([
+			'name' => 'label',
+			'language' => $language,
+			'fallback' => true,
+		]);
+		return strlen($value) ? $value : $this->name;
 	}
-	
+
 	/**
-	 * Return page tab label for current language (or specified language if provided)
-	 * 
+	 * Set template label, optionally for a language
+	 *
+	 * #pw-group-identification
+	 *
+	 * @param string $label
+	 * @param Language|string|int|null $language If not specified, default language is used
+	 * @return $this
+	 * @since 3.0.263
+	 */
+	public function setLabel($label, $language = null) {
+		$this->_label([
+			'name' => 'label',
+			'value' => $label,
+			'language' => $language
+		]);
+		return $this;
+	}
+
+	/**
+	 * Return page editor tab label for current language (or specified language if provided)
+	 *
 	 * #pw-group-page-editor
 	 *
 	 * @param string $tab Which tab? 'content' or 'children'
-	 * @param Page|Language $language Optional, if not used then user's current language is used
+	 * @param Language|string|int|null $language Optional, if not used then user's current language is used
 	 * @return string Returns blank if default tab label not overridden
 	 *
 	 */
 	public function getTabLabel($tab, $language = null) {
-		$tab = ucfirst(strtolower($tab)); 
-		if(is_null($language)) $language = $this->wire()->languages ? $this->wire()->user->language : null;
-		if(!$language || $language->isDefault()) $language = '';
-		$label = $this->get("tab$tab$language");
-		return $label;
+		return $this->_label([
+			'name' => 'tab' . ucfirst(strtolower($tab)),
+			'language' => $language
+		]);
+	}
+
+	/**
+	 * Set a page editor tab label for default language (or specified language)
+	 *
+	 * #pw-group-page-editor
+	 *
+	 * @param string $tab One of 'content' or 'children'
+	 * @param string $label Label text to set
+	 * @param Language|string|int|null $language
+	 * @return $this
+	 * @since 3.0.263
+	 */
+	public function setTabLabel($tab, $label, $language = null) {
+		$this->_label([
+			'name' => 'tab' . ucfirst(strtolower($tab)),
+			'value' => $label,
+			'language' => $language
+		]);
+		return $this;
 	}
 
 	/**
 	 * Return the overriden "page name" label, or blank if not overridden
-	 * 
+	 *
 	 * #pw-group-page-editor
-	 * 
-	 * @param Language|null $language
+	 *
+	 * @param Language|string|int|null $language
 	 * @return string
-	 * 
+	 *
 	 */
 	public function getNameLabel($language = null) {
-		if(is_null($language)) $language = $this->wire()->languages ? $this->wire()->user->language : null;
-		if(!$language || $language->isDefault()) $language = '';
-		return $this->get("nameLabel$language");
+		return $this->_label([
+			'name' => 'nameLabel',
+			'language' => $language
+		]);
+	}
+
+	/**
+	 * Set custom label for page name input in page editor
+	 *
+	 * @param string $label
+	 * @param Language|string|int|null $language
+	 * @return $this
+	 * @since 3.0.263
+	 *
+	 */
+	public function setNameLabel($label, $language = null) {
+		$this->_label([
+			'name' => 'nameLabel',
+			'value' => $label,
+			'language' => $language
+		]);
+		return $this;
+	}
+
+	/**
+	 * Get or set different label types, optionally for language
+	 *
+	 * - When GETTING a label and no language is specified, the $user's CURRENT language is used.
+	 * - When SETTING a label and no language is specified, the system DEFAULT language is assumed.
+	 *
+	 * @param array $options
+	 *  - `name` (string): Name of label property: 'label', 'nameLabel', 'tabContent', 'tabChildren'
+	 *  - `value` (string): Value to set, or omit when getting.
+	 *  - `language` (Language|string|int|null): Language object, name or id that the label is for
+	 *  - `fallback` (bool): When getting, fallback to default language value if empty in given language? (default=false)
+	 * @return string
+	 * @author GPT 5.5 Codex
+	 *
+	 */
+	protected function _label(array $options) {
+
+		$name = isset($options['name']) ? (string) $options['name'] : 'label';
+		$set = array_key_exists('value', $options);
+		$value = $set ? $options['value'] : '';
+		$language = isset($options['language']) ? $options['language'] : null;
+		$fallback = !empty($options['fallback']);
+		$languages = $this->wire()->languages;
+		$langKey = '';
+
+		if($languages) {
+			if($language === null) {
+				$language = $set ? $languages->getDefault() : $this->wire()->user->language;
+			} else if(!wireInstanceOf($language, 'Language')) {
+				$language = $languages->get($language);
+			}
+
+			if(wireInstanceOf($language, 'Language') && !$language->isDefault()) {
+				$langKey = $language->id;
+			}
+		}
+
+		if($set) {
+			$this->set("$name$langKey", $value);
+			return (string) $value;
+		}
+
+		$value = (string) $this->get("$name$langKey");
+
+		if($value === '' && $langKey && $fallback) {
+			$value = (string) $this->get($name);
+		}
+
+		return $value;
 	}
 
 	/**

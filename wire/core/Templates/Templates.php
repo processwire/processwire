@@ -5,7 +5,7 @@
  *
  * Manages and provides access to all the Template instances
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages and provides access to all the Templates.
@@ -25,7 +25,7 @@ class Templates extends WireSaveableItems {
 
 	/**
 	 * Reference to all the Fieldgroups
-	 * 
+	 *
 	 * @var Fieldgroups
 	 *
 	 */
@@ -249,7 +249,7 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function get($key) {
-		if($key === 'path') return $this->wire()->config->paths->templates;
+		// if($key === 'path') return $this->wire()->config->paths->templates; // removed in 3.0.263
 		return parent::get($key);
 	}
 	
@@ -257,18 +257,26 @@ class Templates extends WireSaveableItems {
 	 * Create new template in memory
 	 * 
 	 * ~~~~~
-	 * $template = $templates->newTemplate('product'); 
+	 * // Simple usage
+	 * $template = $templates->newTemplate('product');
 	 * $template->label = 'Product item';
 	 * $template->save();
+	 *
+	 * // Example of specifying settings
+	 * $template = $templates->newTemplate('product', [
+	 *   'label' => 'Product item',
+	 *   'fields' => [ 'title', 'body', 'price' ],
+	 * ]);
+	 * $template->save();
 	 * ~~~~~
-	 * 
+	 *
 	 * @param string|array $name Name of template or array of settings that includes 'name',
 	 *   and anything else that would usually go in $settings array.
 	 * @param array|string $settings Array of settings to set, or string for template label only
+	 *   Use any template setting/property or `fields` array containing names of fields to add.
 	 * @return Template
 	 * @throws WireException If given a template name that already exists
 	 * @since 3.0.258
-	 * 
 	 */
 	public function newTemplate($name, $settings = []) {
 		if(is_array($name)) {
@@ -289,26 +297,37 @@ class Templates extends WireSaveableItems {
 		$this->wire($template); 
 		$template->name = $name;
 		$fieldgroup = $fieldgroups->get($name);
-		if(!$fieldgroup) $fieldgroup = $fieldgroups->newFieldgroup($name);
+		if(!$fieldgroup) {
+			$addFields = isset($settings['fields']) && is_array($settings['fields']) ? $settings['fields'] : [];
+			$fieldgroup = $fieldgroups->newFieldgroup($name, $addFields);
+		}
+		unset($settings['fields']);
 		$template->fieldgroup = $fieldgroup;
 		if(count($settings)) $template->setArray($settings);
 		return $template;
 	}
-	
+
 	/**
 	 * Create and save a new Template and Fieldgroup
 	 *
 	 * ~~~~~
+	 * // Simple usage
 	 * $template = $templates->new('product', 'Product item');
+	 *
+	 * // Usage with settings/properties
+	 * $template = $templates->new('product', [
+	 *   'label' => 'Product item',
+	 *   'fields' => [ 'title', 'body', 'price' ],
+	 * ]);
 	 * ~~~~~
 	 *
 	 * @param string|array $name Name of template or array of settings that includes 'name',
 	 *   and anything else that would usually go in $settings array.
 	 * @param array|string $settings Array of settings to set, or string for template label only
+	 *   Use any template setting/property or `fields` array containing names of fields to add.
 	 * @return Template
 	 * @throws WireException If given a template name that already exists
 	 * @since 3.0.258
-	 *
 	 */
 	public function ___new($name, $settings = []) {
 		$template = $this->newTemplate($name, $settings);
@@ -642,6 +661,7 @@ class Templates extends WireSaveableItems {
 					if(!$page->id) continue;
 					$values[] = $page->path;
 				}
+				$data['cacheExpirePages'] = $values;
 			}
 		}
 
