@@ -19,7 +19,7 @@
  * https://processwire.com
  *
  * @method Page|NullPage add($name)
- * @method Page new(array $options = []) 3.0.249
+ * @method Page new($nameOrOptions = null, array $options = []) 3.0.263
  * @method bool save(Page $page)
  * @method bool delete(Page $page, $recursive = false)
  * 
@@ -93,20 +93,33 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	}
 
 	/**
-	 * Create new instance of this page type
-	 * 
-	 * @param array $options
+	 * Create new instance of this page type, optionally saving it
+	 *
+	 * - `new()` or `new([...])` — creates and returns an unsaved page in memory.
+	 * - `new('name')` or `new('name', [...])` — creates, saves, and returns the page.
+	 *
+	 * @param string|array $nameOrOptions Page name (saves) or options array (does not save)
+	 * @param array $options Options to pass to Pages::newPage() when $nameOrOptions is a string
 	 * @return Page
-	 * @since 3.0.249
-	 * 
+	 * @since 3.0.263
+	 *
 	 */
-	public function ___new(array $options = []) {
+	public function ___new($nameOrOptions = null, array $options = []) {
+		$save = false;
+		if(is_string($nameOrOptions) && strlen($nameOrOptions)) {
+			$options['name'] = $nameOrOptions;
+			$save = true;
+		} else if(is_array($nameOrOptions)) {
+			$options = $nameOrOptions;
+		}
 		$defaults = array(
 			'template' => $this->getTemplate(),
 			'parent' => $this->getParent(),
-			'pageClass' => $this->getPageClass()
+			'pageClass' => $this->getPageClass(),
 		);
-		return $this->wire()->pages->newPage(array_merge($defaults, $options));
+		$page = $this->wire()->pages->newPage(array_merge($defaults, $options));
+		if($save) $this->save($page);
+		return $page;
 	}
 
 	/**
