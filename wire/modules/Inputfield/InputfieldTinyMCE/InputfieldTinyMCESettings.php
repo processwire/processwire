@@ -716,13 +716,14 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 
 			// get settings that differ between field and defaults, then set to new named config
 			$diffSettings = $this->getSettings($defaults, $configName);
-			$mergedSettings = array_merge($defaults, $diffSettings);
 			//$contentStyle = isset($mergedSettings['content_style']) ? $mergedSettings['content_style'] : '';
 
 			if(count($addSettings)) {
 				// merges $addSettings into $diffSettings
 				$this->applyAddSettings($diffSettings, $addSettings, $defaults);
 			}
+			
+			$mergedSettings = array_merge($defaults, $diffSettings);
 
 			if(!isset($js['settings'][$configName])) {
 				$js['settings'][$configName] = $this->prepareSettingsForOutput($diffSettings);

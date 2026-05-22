@@ -1935,6 +1935,9 @@ body .ProDraftsNotice {
 
 h2 code,
 h3 code {
+	font-size: 0.875em;
+}
+h4 code {
 	font-size: 1em;
 }
 
@@ -4764,6 +4767,9 @@ pre,
 	outline: none;
 	border: none;
 	border-radius: 0;
+}
+p > code, li > code {
+	font-size: 0.875em; /* RJC */
 }
 
 .pw .asmListItem > .asmListItemStatus > .columnWidth:not(.columnWidthOff) {

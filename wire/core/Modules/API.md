@@ -1,7 +1,9 @@
 # Modules / $modules
 
 The `$modules` API variable loads, manages, installs and configures modules in ProcessWire.
+The Modules instance is accessible in templates as `$modules` or `wire()->modules`, and in classes/modules as `$this->wire()->modules`.
 Agents: The `wire/core/Modules.php` and `wire/core/Modules/*.php` contain the full methods reference when needed.
+
 
 ## Getting modules
 
