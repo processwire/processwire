@@ -245,8 +245,11 @@ class WireClassLoader {
 	 */
 	public function removeNamespace($namespace, $path = '') {
 		if(strlen($path)) {
+			if(!isset(self::$namespaces[$namespace])) return;
+			$path = $this->path($path);
 			$key = array_search($path, self::$namespaces[$namespace]);
 			if($key !== false) unset(self::$namespaces[$namespace][$key]);
+			if(empty(self::$namespaces[$namespace])) unset(self::$namespaces[$namespace]);
 		} else {
 			unset(self::$namespaces[$namespace]);
 		}
@@ -504,4 +507,3 @@ class WireClassLoader {
 		return $this->debugLog;
 	}
 }
-
