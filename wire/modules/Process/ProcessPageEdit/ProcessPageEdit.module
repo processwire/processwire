@@ -41,6 +41,7 @@
  * @method bool ajaxSaveDone(Page $page, array $data)
  * @method bool ajaxEditable(Page $page, $fieldName = '')
  * @method array getTabs()
+ * @method string getViewUrl($language = null)
  * 
  */
 
@@ -725,10 +726,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * @param Language|int|string|null $language
 	 * @return string
 	 * @throws WireException
-	 * @since 3.0.142 Was protected in previous versions
+	 * @since 3.0.142 Was protected in previous versions, hookable in 3.0.263+
 	 * 
 	 */
-	public function getViewUrl($language = null) {
+	public function ___getViewUrl($language = null) {
 		$url = '';
 		if(!$this->page) throw new WireException('No page yet');
 		if($this->hasLanguagePageNames) {
