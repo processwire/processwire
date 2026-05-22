@@ -5,7 +5,7 @@
  * 
  * #pw-summary The $datetime API variable provides helpers for working with dates/times and conversion between formats.
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string relativeTimeStr($ts, $abbreviate = false, $useTense = true)
@@ -467,7 +467,11 @@ class WireDateTime extends Wire {
 			if(!strlen($test)) return $options['emptyReturnValue'];
 		}
 		if($options['inputFormat']) {
-			$value = \DateTimeImmutable::createFromFormat($options['inputFormat'], $str);
+			$inputFormat = $options['inputFormat'];
+			if(strpos($inputFormat, '!') !== 0 && substr($inputFormat, -1) !== '|') {
+				$inputFormat = '!' . $inputFormat;
+			}
+			$value = \DateTimeImmutable::createFromFormat($inputFormat, $str);
 			$value = $value ? $value->getTimestamp() : false;
 		} else {
 			$value = strtotime($str, $options['baseTimestamp']) ;
@@ -620,9 +624,9 @@ class WireDateTime extends Wire {
 			'%k' => 'G', // Hour in 24-hour format
 			'%l' => 'g', // Hour in 12-hour format
 			'%r' => 'h:i:s A', // Example: 09:34:17 PM
-			'%R' => 'G:i', // Example: 00:35 for 12:35 AM
-			'%T' => 'G:i:s', // Example: 21:34:17 for 09:34:17 PM
-			'%X' => 'G:i:s', // Preferred time representation based on locale, without the date, Example: 03:59:16 or 15:59:16
+			'%R' => 'H:i', // Example: 00:35 for 12:35 AM
+			'%T' => 'H:i:s', // Example: 21:34:17 for 09:34:17 PM
+			'%X' => 'H:i:s', // Preferred time representation based on locale, without the date, Example: 03:59:16 or 15:59:16
 			'%Z' => 'T', // The time zone abbreviation. Example: EST for Eastern Time
 			'%c' => 'Y-m-d H:i:s', // Preferred date and time stamp based on locale
 			'%D' => 'm/d/y', // Example: 02/05/09 for February 5, 2009
@@ -855,7 +859,7 @@ class WireDateTime extends Wire {
 		$seconds = $stop - $start;
 	
 		if($seconds >= 604800 && $abbreviate !== 0 && isset($usePeriods['weeks'])) {
-			$weeks = floor($seconds / 604800);
+			$weeks = (int) floor($seconds / 604800);
 			$seconds = $seconds - ($weeks * 604800);
 			$key = $weeks == 1 ? 'week' : 'weeks';
 			$times[$key] = $weeks;
@@ -864,7 +868,7 @@ class WireDateTime extends Wire {
 		}
 
 		if($seconds >= 86400 && $abbreviate !== 0 && isset($usePeriods['days'])) {
-			$days = floor($seconds / 86400); 
+			$days = (int) floor($seconds / 86400);
 			$seconds = $seconds - ($days * 86400); 
 			$key = $days == 1 ? 'day' : 'days';
 			$times[$key] = $days;
@@ -873,7 +877,7 @@ class WireDateTime extends Wire {
 		}
 
 		if($seconds >= 3600 && isset($usePeriods['hours'])) {
-			$hours = floor($seconds / 3600);
+			$hours = (int) floor($seconds / 3600);
 			$seconds = $seconds - ($hours * 3600);
 			$key = $hours == 1 ? 'hour' : 'hours';
 			$times[$key] = $hours;
@@ -883,7 +887,7 @@ class WireDateTime extends Wire {
 		}
 
 		if($seconds >= 60 && isset($usePeriods['minutes'])) {
-			$minutes = floor($seconds / 60);
+			$minutes = (int) floor($seconds / 60);
 			$seconds = $seconds - ($minutes * 60);
 			$key = $minutes == 1 ? 'minute' : 'minutes';
 			$times[$key] = $minutes;
@@ -984,7 +988,7 @@ class WireDateTime extends Wire {
 				$this->_("hr"),
 				$this->_("d"),
 				$this->_("wk"),
-				$this->_("mon"),
+				$this->_("mo"),
 				$this->_("yr"),
 				$this->_("decade")
 			),
@@ -994,7 +998,7 @@ class WireDateTime extends Wire {
 				$this->_("hr"),
 				$this->_("d"),
 				$this->_("wks"),
-				$this->_("mths"),
+				$this->_("mo"),
 				$this->_("yrs"),
 				$this->_("decades")
 			),
