@@ -207,7 +207,7 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 			$closer->save();
 		} 
 		
-		if($closer && !$field->get('closeFieldID')) {
+		if($closer && (int) $field->get('closeFieldID') !== (int) $closer->id) {
 			$field->set('closeFieldID', $closer->id); 
 			$field->save();
 		}
@@ -258,6 +258,17 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 		if(!$this->isFieldset($field)) return; 
 		$closer = $this->getFieldsetCloseField($field, true); 
 		$this->message("Also added field '$closer', to accompany '$field'"); 
+	}
+
+	/**
+	 * Hook called after a field using this Fieldtype has been saved
+	 *
+	 * @param Field $field
+	 *
+	 */
+	public function ___savedField(Field $field) {
+		if(!$this->isFieldset($field)) return;
+		$this->getFieldsetCloseField($field, true);
 	}
 
 	/**
@@ -354,5 +365,3 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 		parent::___renamedField($field, $prevName); 
 	}
 }
-
-
