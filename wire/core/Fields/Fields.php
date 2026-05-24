@@ -408,7 +408,12 @@ class Fields extends WireSaveableItems {
 		$label = is_string($options) ? $options : '';
 		$fieldtype = $this->getFieldtype($type);
 		if(!$fieldtype) throw new WireException("Unknown fieldtype: $type");
-		$class = wireClassName($fieldtype->getFieldClass(), true);
+		$class = $fieldtype->getFieldClass();
+		if(empty($class) || $class === 'Field') {
+			$class = Field::class;
+		} else {
+			$class = wireClassName($class, true);
+		}
 		$field = $this->wire(new $class()); /** @var Field $field */
 		$field->type = $fieldtype;
 		if($name) $field->name = $name;
