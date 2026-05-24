@@ -8,8 +8,8 @@
  *
  * Note: if you want a checkbox already checked, you need to `$inputfield->setAttribute('checked', 'checked');` 
  * 
- * @property string $checkedValue Value when checked (default=1)
- * @property string $uncheckedValue Value when not checked (default='')
+ * @property string|int $checkedValue Value when checked (default=1)
+ * @property string|int $uncheckedValue Value when not checked (default='')
  * @property string $label2 Alterate label to display next to checkbox (default=label)
  * @property string $checkboxLabel Same as label2, but used as part of field config rather than API-only config.
  * @property bool $checkboxOnly Show only the checkbox without label text next to it? (default=false) @since 3.0.144
