@@ -1,14 +1,12 @@
 # Template
 
-A `Template` connects a set of fields (via a `Fieldgroup`) to pages, determines how those
-pages are rendered (via a template file in `/site/templates/`), and controls URL behavior,
-access control, caching, and editor behavior.
+A `Template` connects a set of fields (via a `Fieldgroup`) to pages, determines how those pages are rendered (via a template file in `/site/templates/`), and controls URL behavior, access control, caching, and editor behavior.
 
 Template objects are retrieved from the `$templates` API variable:
 
-~~~~~php
+```php
 $template = $templates->get('basic-page');
-~~~~~
+````
 
 See also Templates / $templates API.md file, or 
 [Templates documentation](https://processwire.com/api/ref/templates/) 
@@ -122,6 +120,7 @@ $class = $template->getPageClass(false); // e.g. "BlogPostPage"
    class BlogPostPage extends Page {}
    ```
 4. Pages using the template `blog-post` will now use class `BlogPostPage` rather than `Page`.
+
 ---
 
 ### $template->editUrl($http)

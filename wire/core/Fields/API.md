@@ -95,23 +95,28 @@ programmatically.
 - Available since 3.0.258.
 
 ~~~~~php
-// Create a text field
+// Create a text field (TextField object)
 $field = $fields->new('text', 'my_text', 'My Text Field');
 
-// Create with options array
+// Create new textarea field with options array (TextareaField object)
 $field = $fields->new('textarea', 'body', [
     'label'          => 'Body',
     'textformatters' => ['TextformatterEntities'],
     'columnWidth'    => 100,
 ]);
 
-// Using an array as first argument (all-in-one)
+// Using an array as first argument (all-in-one TextField)
 $field = $fields->new([
     'type'  => 'text',
     'name'  => 'summary',
     'label' => 'Summary',
 ]);
 ~~~~~
+
+> One benefit of using `$fields->new()` or `$fields->newField()` relative to 
+the older `new Field()` syntax is that the returned Field object will be a `[Type]Field` object
+(where implemented) rather than just a generic/base `Field` object. For instance, the above example
+creating a text field would return a `TextField` object rather than a `Field` object.
 
 ---
 

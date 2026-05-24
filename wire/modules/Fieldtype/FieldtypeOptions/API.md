@@ -153,11 +153,80 @@ echo $page->colors->render(); // <ul><li>...</li></ul>
 echo $page->color->title;
 ```
 
+## Creating an Options field
+
+In ProcessWire 3.0.258 or newer: Use `$fields->new()` or `$fields->newField()` when
+creating an Options field from the API. When the Fieldtype is `FieldtypeOptions`, these
+methods return an `OptionsField` object, so the Options-specific API is
+available immediately. The `$fields->new()` method saves and returns the field,
+while `$fields->newField()` expects you to save it yourself, when ready.
+
+```php
+// Create + save Options field named 'color' in one call (3.0.258+)
+/** @var OptionsField $field */
+$field = $fields->new('options', 'color', [
+    'label' => 'Color',
+    'inputfieldClass' => 'InputfieldSelect',
+]);
+
+// OptionsField methods are available immediately
+$field->setOptionsString("Red\nGreen\nBlue");
+```
+The above examples set option titles. To set both option title and value at the
+same time use one of these:
+
+```php
+// Set values and labels with string
+$field->setOptionsString(
+    "r|Red\n" .
+    "g|Green\n" .
+    "b|Blue"
+);
+
+// Or set values and labels with array (3.0.264+)
+$field->addOptions([ 'r' => 'Red', 'g' => 'Green', 'b' => 'Blue' ]);
+```
+
+### Creating an Options field prior to PW 3.0.258
+
+There was no `OptionsField` class available in older versions, so creating
+an options field required a different strategy. You would use `$field = new Field()` and then assign
+`$field->type = 'FieldtypeOptions'`, like this:
+
+```php
+// Create and save new Options field in older versions
+/** @var FieldtypeOptions $fieldtype */
+$fieldtype = $modules->get('FieldtypeOptions');
+$field = new Field();
+$field->type = $fieldtype;
+$field->name = 'colors';
+$field->label = 'Colors';
+$field->inputfieldClass = 'InputfieldCheckboxes';
+$field->save();
+```
+The above produces a generic `Field` object, and after saving,
+option manipulation methods are accessed from the FieldtypeOptions
+`manager` property, like this:
+
+```php
+/** @var SelectableOptionManager $manager */
+$manager = $fieldtype->manager;
+$manager->setOptionsString($field, "Red\nGreen\nBlue");
+```
+*The older version examples also work in newer versions, though require significantly more code,
+as demonstrated by the examples above.*
+
+
 ## Managing options via API
 
 The available options for a field (the defined list of choices, as opposed to the selected values on
-a page) are managed directly on the `OptionsField` object. All write operations should be followed
-by `$field->save()`.
+a page) are managed directly on the `OptionsField` object in 3.0.258+. Write operations to the `$field`
+should be followed by `$field->save()`, while most selectable option manipulation methods commit
+changes directly to the database with no save required.
+
+*The examples below require ProcessWire 3.0.258 or later. For older versions, the same methods
+are available on the `$field->type->manager` (SelectableOptionManager) object, and most methods
+require the `Field` object as the first argument.*
 
 ```php
 /** @var OptionsField $field */
@@ -180,7 +249,6 @@ echo $field->getOptionsString();
 // Set/replace options using a definition string
 // Format: one option per line as 'title' (new) or 'id=title' (existing) or 'id=value|title'
 $field->setOptionsString("1=Red\n2=#00ff00|Green\n3=Blue\nYellow");
-$field->save();
 
 // Add new options manually
 $newOptions = $field->newSelectableOptionArray();
@@ -189,7 +257,11 @@ $opt->title = 'Purple';
 $opt->value = '#800080';
 $newOptions->add($opt);
 $field->addOptions($newOptions);
-$field->save();
+
+// In 3.0.264+ you can also add option titles like this...
+$field->addOptions(['Red', 'Green', 'Blue']);
+// ...or option values and titles like this:
+$field->addOptions(['r' => 'Red', 'g' => 'Green', 'b' => 'Blue']);
 
 // Update existing options
 $options = $field->getOptions();
@@ -197,17 +269,14 @@ $red = $options->getByTitle('Red');
 if($red) {
     $red->value = '#ff0000';
     $field->updateOptions($options);
-    $field->save();
 }
 
 // Delete specific options
 $options = $field->getOptions(['title' => 'Yellow']);
 $field->deleteOptions($options);
-$field->save();
 
 // Delete all options for the field
 $field->deleteAllOptions();
-$field->save();
 ```
 
 ## Notes
