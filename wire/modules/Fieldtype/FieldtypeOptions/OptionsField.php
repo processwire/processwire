@@ -225,7 +225,6 @@ class OptionsField extends Field {
 	 * Delete all options for this field
 	 *
 	 * @return int
-	 *
 	 */
 	public function deleteAllOptions() {
 		return $this->manager->deleteAllOptionsForField($this);
@@ -234,7 +233,14 @@ class OptionsField extends Field {
 	/**
 	 * Add the given option for to this field
 	 *
-	 * @param SelectableOption[]|SelectableOptionArray $options
+	 * In 3.0.264+ the $options argument may also be an array of strings (titles),
+	 * or an array of associative arrays with at least [ 'title' => 'Title' ],
+	 * but can also contain other SelectableOption properties like `id` and `value` or
+	 * multi-language titles.
+	 *
+	 * Changes are committed immediately (no field save necessary).
+	 *
+	 * @param SelectableOption[]|SelectableOptionArray|array $options
 	 * @return int Number of options added
 	 *
 	 */

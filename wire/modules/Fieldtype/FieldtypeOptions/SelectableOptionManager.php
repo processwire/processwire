@@ -204,8 +204,7 @@ class SelectableOptionManager extends Wire {
 	 * Perform a partial match on title of options
 	 * 
 	 * @param Field $field
-	 * @param string $property Either 'title' or 'value'. May also be blank (to imply 'either') if operator is '=' or
-	 *     '!='
+	 * @param string $property Either 'title' or 'value'. May also be blank (to imply 'either') if operator is '=' or '!='
 	 * @param string $operator
 	 * @param string $value Value to find
 	 * @return SelectableOptionArray
@@ -254,18 +253,47 @@ class SelectableOptionManager extends Wire {
 	 * 
 	 */
 	public function arrayToOption(array $a) {
+
+		$props = [ 'id', 'title', 'value', 'sort' ];
+		$ints = [ 'id', 'sort' ];
 		$option = $this->wire(new SelectableOption());
-		if(isset($a['id'])) $option->set('id', (int) $a['id']); 
-		if(isset($a['option_id'])) $option->set('id', (int) $a['option_id']);
-		if(isset($a['title'])) $option->set('title', $a['title']);
-		if(isset($a['value'])) $option->set('value', $a['value']);
-		if(isset($a['sort'])) $option->set('sort', (int) $a['sort']);
-		if($this->useLanguages) foreach($this->wire()->languages as $language) {
-			if($language->isDefault()) continue;
-			if(isset($a["title$language"])) $option->set("title$language", $a["title$language"]);
-			if(isset($a["value$language"])) $option->set("value$language", $a["value$language"]);
+		$numSets = 0;
+
+		if(isset($a['option_id']) && !isset($a['id'])) $a['id'] = $a['option_id'];
+		unset($a['option_id']);
+
+		foreach($props as $key) {
+			if(!isset($a[$key])) continue;
+			$val = in_array($key, $ints) ? (int) $a[$key] : (string) $a[$key];
+			$option->set($key, $val);
+			$numSets++;
 		}
-		return $option; 
+
+		if($this->useLanguages) {
+			foreach($this->wire()->languages as $language) {
+				if($language->isDefault()) continue;
+				if(isset($a["title$language"])) {
+					$option->set("title$language", $a["title$language"]);
+					$numSets++;
+				}
+				if(isset($a["value$language"])) {
+					$option->set("value$language", $a["value$language"]);
+					$numSets++;
+				}
+			}
+		}
+
+		if(!$numSets && count($a) === 1) {
+			// allow for [ 'val' => 'title' ] or [ 'title' ]
+			$val = reset($a);
+			$key = key($a);
+			if(is_string($val) && strlen($val)) {
+				$option->title = $val;
+				if(is_string($key) && strlen($key)) $option->value = $key;
+			}
+		}
+
+		return $option;
 	}
 
 	/**
@@ -496,7 +524,8 @@ class SelectableOptionManager extends Wire {
 		$sort = 0;
 
 		foreach($options as $option) {
-			/** @var SelectableOption $option */
+			if(is_array($option)) $option = $this->arrayToOption($option);
+			if(!$option instanceof SelectableOption) continue;
 
 			$option->set('sort', $sort);
 
@@ -706,25 +735,30 @@ class SelectableOptionManager extends Wire {
 	 * Add the given option for $field
 	 *
 	 * @param Field $field
-	 * @param SelectableOption[]|SelectableOptionArray $options
+	 * @param SelectableOption[]|SelectableOptionArray|array $options
 	 * @return int Number of options added
 	 *
 	 */
 	public function addOptions(Field $field, $options) {
-		
+
 		$database = $this->wire()->database;
-		
+
 		// options that have pre-assigned IDs
 		$optionsByID = array();
 
 		unset($this->optionsCache[$field->id]);
 
+		$addOptions = [];
 		// determine if any added options already have IDs
-		foreach($options as $option) {
+		foreach($options as $key => $option) {
+			if(is_string($option)) $option = is_string($key) ? [ $key => $option ] : [ 'title' => $option ];
+			if(is_array($option)) $option = $this->arrayToOption($option);
 			if(!$option instanceof SelectableOption || !strlen($option->title)) continue;
 			if($option->id > 0) $optionsByID[(int) $option->id] = $option;
+			$addOptions[] = $option;
 		}
-		
+		$options = $addOptions;
+
 		if(count($options) > count($optionsByID)) {
 			// Determine starting value (max) for auto-assigned IDs
 			$sql =
@@ -762,8 +796,8 @@ class SelectableOptionManager extends Wire {
 			$query->bindValue(':option_id', $id, \PDO::PARAM_INT);
 			$query->bindValue(':sort', $option->sort, \PDO::PARAM_INT);
 			$query->bindValue(':title', $option->title);
-			$query->bindValue(':value', $option->value); 
-			
+			$query->bindValue(':value', $option->value);
+
 			try {
 				if($query->execute()) $cnt++;
 				$option->id = $database->lastInsertId();
