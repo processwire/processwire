@@ -30,6 +30,8 @@ class LanguagePorter extends Wire {
 
 	protected $csvImportLabel = 'CSV Import:';
 	protected $quiet = false; // suppress notifications when true
+	protected $exportExtensions = [ 'php', 'module', 'inc' ];
+	protected $siteSegment = 'site';
 	
 	/**
 	 * @var Language
@@ -47,8 +49,10 @@ class LanguagePorter extends Wire {
 		parent::__construct();
 		$this->language = $language;
 		$language->wire($this);
+		$parts = explode('/', rtrim($this->wire()->config->paths->site, '/'));
+		$this->siteSegment = array_pop($parts);
 	}
-	
+
 	/**
 	 * Wired to API
 	 * 
@@ -59,7 +63,7 @@ class LanguagePorter extends Wire {
 		parent::wired();
 		$this->csvImportLabel = $this->_('CSV Import:') . ' ';
 	}
-	
+
 	/**
 	 * Prepare export options
 	 * 
@@ -70,7 +74,8 @@ class LanguagePorter extends Wire {
 	 */
 	protected function exportOptions(array $options, $exportType = 'csv') {
 		$defaults = [
-			'source' => '', // wire or site
+			'source' => '', // root-relative source directory, i.e. wire, site, site/modules/
+			'scope' => 'registered', // registered or all
 			'exportTo' => 'file', // 'download', 'file', 'stdout', 'string' or 'view'
 			'textdomain' => '',
 			'fieldName' => 'language_files',
@@ -80,13 +85,10 @@ class LanguagePorter extends Wire {
 	
 		if($exportType === 'zip') {
 			$options['textdomain'] = ''; // option not applicable to zip
-		} else if(empty($options['source'])) {
-			$options['source'] = strpos($options['textdomain'], 'site') === 0 ? 'site' : 'wire';
 		}
 		
-		if(!in_array($options['source'], [ 'wire', 'site' ])) {
-			$options['source'] = 'wire';
-		}
+		$options['source'] = $this->normalizeExportSource($options['source'], $options['textdomain']);
+		if($options['scope'] !== 'all') $options['scope'] = 'registered';
 		
 		if($exportType === 'zip' && !in_array($options['exportTo'], [ 'download', 'file' ])) {
 			$options['exportTo'] = 'file';
@@ -94,38 +96,207 @@ class LanguagePorter extends Wire {
 			$options['exportTo'] = 'file';
 		}
 		
-		$options['fieldName'] = ($options['source'] === 'wire' ? 'language_files' : 'language_files_site');
+		$options['fieldName'] = strpos($options['source'], 'wire/') === 0 ? 'language_files' : 'language_files_site';
 		
 		return $options;
 	}
 	
 	/**
+	 * Normalize export source to a root-relative directory name
+	 *
+	 * @param string $source
+	 * @param string $textdomain
+	 * @return string
+	 * @author GPT 5.5/Codex
+	 *
+	 */
+	protected function normalizeExportSource($source, $textdomain = '') {
+		$config = $this->wire()->config;
+		$siteSegment = $this->siteSegment;
+		$source = trim(str_replace('\\', '/', (string) $source));
+		if($source === '') {
+			$source = $textdomain === '' || strpos($textdomain, 'wire--') === 0 ? 'wire' : $siteSegment;
+		}
+		$root = str_replace('\\', '/', $config->paths->root);
+		if(strpos($source, $root) === 0) $source = substr($source, strlen($root));
+		if(strpos($source, str_replace('\\', '/', $config->paths->site)) === 0) {
+			$source = "$siteSegment/" . substr($source, strlen(str_replace('\\', '/', $config->paths->site)));
+		}
+		if(strpos($source, str_replace('\\', '/', $config->paths->wire)) === 0) {
+			$source = 'wire/' . substr($source, strlen(str_replace('\\', '/', $config->paths->wire)));
+		}
+		$source = ltrim($source, '/');
+		$parts = [];
+		foreach(explode('/', $source) as $part) {
+			if($part === '' || $part === '.') continue;
+			if($part === '..') return 'wire/';
+			$parts[] = $part;
+		}
+		$source = implode('/', $parts);
+		if($source === 'site' || strpos($source, 'site/') === 0) {
+			$source = $siteSegment . substr($source, 4);
+		}
+		if($source !== 'wire' && $source !== $siteSegment && strpos($source, 'wire/') !== 0 && strpos($source, "$siteSegment/") !== 0) {
+			$source = 'wire';
+		}
+		if(substr($source, -1) !== '/') $source .= '/';
+		return $source;
+	}
+
+	/**
+	 * Does given root-relative file live within export source?
+	 *
+	 * @param string $file
+	 * @param string $source
+	 * @return bool
+	 * @author GPT 5.5/Codex
+	 *
+	 */
+	protected function fileInExportSource($file, $source) {
+		$file = ltrim(str_replace('\\', '/', (string) $file), '/');
+		return strpos($file, $source) === 0;
+	}
+
+	/**
+	 * Get source name safe for an export filename
+	 *
+	 * @param string $source
+	 * @return string
+	 * @author GPT 5.5/Codex
+	 *
+	 */
+	protected function exportSourceName($source) {
+		return trim(str_replace('/', '-', trim($source, '/')), '-');
+	}
+
+	/**
 	 * Get export files
 	 *
 	 * @param string $fieldName
 	 * @param string $textdomain
+	 * @param string $source
 	 * @return array
 	 *
 	 */
-	protected function getExportFiles($fieldName, $textdomain = '') {
+	protected function getExportFiles($fieldName, $textdomain = '', $source = '') {
 		$exportFiles = array();
 		if($textdomain) {
 			$file = $this->language->translator->textdomainToFilename($textdomain);
-			if($file) $exportFiles[] = $file;
+			if($file) {
+				$data = $this->language->translator->getTextdomain($textdomain);
+				if(!$source || empty($data['file']) || $this->fileInExportSource($data['file'], $source)) {
+					$exportFiles[] = $file;
+				}
+			}
 		}
 		if(!count($exportFiles)) {
 			foreach($this->language->$fieldName as $file) {
+				if($source) {
+					$textdomain = basename($file->filename, '.json');
+					$data = $this->language->translator->getTextdomain($textdomain);
+					if(empty($data['file']) || !$this->fileInExportSource($data['file'], $source)) continue;
+				}
 				$exportFiles[] = $file->filename;
 			}
 		}
 		return $exportFiles;
 	}
+
+	/**
+	 * Find all translatable source files under given source directory
+	 *
+	 * @param string $source Root-relative directory like "wire/" or "site/modules/"
+	 * @return array
+	 * @throws WireException
+	 * @author GPT 5.5/Codex
+	 *
+	 */
+	protected function findTranslatableFiles($source) {
+		$config = $this->wire()->config;
+		$path = $config->paths->root . $source;
+		if(!is_dir($path)) throw new WireException(sprintf($this->_('%s does not exist or is not a directory'), $source));
+		$files = $this->findTranslatableFilesPath($path, 0);
+		ksort($files);
+		return $files;
+	}
+
+	/**
+	 * Recursive helper for findTranslatableFiles
+	 *
+	 * @param string $path
+	 * @param int $level
+	 * @return array
+	 * @author GPT 5.5/Codex
+	 *
+	 */
+	protected function findTranslatableFilesPath($path, $level) {
+		$files = [];
+		$dirs = [];
+		$root = str_replace('\\', '/', $this->wire()->config->paths->root);
+		if($level > 20) return $files;
+		try {
+			$dirIterator = new \DirectoryIterator($path);
+		} catch(\Exception $e) {
+			$this->warning($e->getMessage());
+			return $files;
+		}
+		foreach($dirIterator as $file) {
+			if($file->isDot()) continue;
+			$basename = $file->getBasename();
+			$c = substr($basename, 0, 1);
+			if($c === '.' || $c === '-' || $c === '\\') continue;
+			$pathname = str_replace('\\', '/', $file->getPathname());
+			if($file->isDir()) {
+				if(strpos($pathname, "/$this->siteSegment/assets/") !== false) continue;
+				$dirs[] = $pathname;
+				continue;
+			}
+			$ext = strtolower($file->getExtension());
+			if(!in_array($ext, $this->exportExtensions)) continue;
+			$text = file_get_contents($pathname);
+			if($text === false || !$this->fileHasTranslatableText($text, $pathname)) continue;
+			$relative = ltrim(str_replace($root, '', $pathname), '/');
+			$files[$relative] = $relative;
+		}
+		foreach($dirs as $dir) {
+			$files = array_merge($files, $this->findTranslatableFilesPath($dir, $level + 1));
+		}
+		return $files;
+	}
+
+	/**
+	 * Does file text contain translation calls?
+	 *
+	 * @param string $text
+	 * @param string $pathname
+	 * @return bool
+	 * @author GPT 5.5/Codex
+	 *
+	 */
+	protected function fileHasTranslatableText($text, $pathname) {
+		if($pathname === __FILE__ || strpos($text, '__(file-not-translatable)') !== false) return false;
+		foreach([ '$this->_(', '$this->_n(', '$this->_x(' ] as $find) {
+			if(strpos($text, $find) !== false) return true;
+		}
+		foreach([ '__(', '_n(', '_x(' ] as $find) {
+			$pos = strpos($text, $find);
+			if($pos === false) continue;
+			$c = $pos > 0 ? substr($text, $pos - 1, 1) : '';
+			if(!ctype_alnum($c) && $c != '_') return true;
+		}
+		return false;
+	}
 	
 	/**
 	 * Export translations to ZIP file
+	 *
+	 * ZIP export packages existing JSON translation files that are already attached to the
+	 * language page. It does not scan source files or discover untranslated phrases like
+	 * exportCsv([ 'scope' => 'all' ]) does. Use ZIP for distributing existing language
+	 * packs, and CSV scope=all for creating a complete translation worksheet from source.
 	 * 
 	 * @param array $options
-	 * - `source` (string): One of 'wire' for core translations, or 'site' for site translations (default='wire')
+	 * - `source` (string): Root-relative source directory, i.e. 'wire', 'site', 'site/modules/' (default='wire')
 	 * - `exportTo` (string): Export to 'download' or 'file'? (default='file')
 	 * @return string Return value depends on `exportTo` option:
 	 * - When `file` it returns full path/filename to ZIP file on success, blank string on fail.
@@ -136,10 +307,11 @@ class LanguagePorter extends Wire {
 		$language = $this->language;
 		$options = $this->exportOptions($options, 'zip');
 		$fieldName = $options['fieldName'];
+		$source = $options['source'];
 		$exportPath = $language->$fieldName->path();
-		$zipname = "{$language->name}-$options[source]";
+		$zipname = $language->name . '-' . $this->exportSourceName($source);
 		$zipfile = "$exportPath$zipname.zip";
-		$exportFiles = $this->getExportFiles($fieldName);
+		$exportFiles = $this->getExportFiles($fieldName, '', $source);
 		$info = wireZipFile($zipfile, $exportFiles, array("overwrite" => true));
 		if(!count($info['files'])) {
 			$this->error("Error adding files to ZIP");
@@ -155,7 +327,7 @@ class LanguagePorter extends Wire {
 	 * Export translations CSV as a string and return it
 	 * 
 	 * @param array $options
-	 * - `source` (string): One of 'wire' (for core translations) or 'site' (for site translations)
+	 * - `source` (string): Root-relative source directory, i.e. 'wire', 'site', 'site/modules/'
 	 * - `textdomain` (string): Limit export to this textdomain (default='')
 	 * @return string
 	 * @throws WireException
@@ -177,7 +349,8 @@ class LanguagePorter extends Wire {
 	 * Export translations CSV
 	 * 
 	 * @param array $options
-	 * - `source` (string): One of 'wire' (for core translations) or 'site' (for site translations)
+	 * - `source` (string): Root-relative source directory, i.e. 'wire', 'site', 'site/modules/'
+	 * - `scope` (string): Export 'registered' translation files, or discover and export 'all' translatable files? (default='registered')
 	 * - `exportTo` (string): Export to 'download', 'file', 'stdout', 'string', or 'view'? (default='file')
 	 *    When `stdout` no http headers are sent, CSV is output directly, and method returns. 
 	 *    When `view` http headers ARE sent, CSV is output directly, and method does an exit(0). 
@@ -201,6 +374,7 @@ class LanguagePorter extends Wire {
 		$textdomain = $options['textdomain'];
 		$exportTo = $options['exportTo'];
 		$source = $options['source'];
+		$scope = $options['scope'];
 		$fieldName = $options['fieldName'];
 		$textdomains = array();
 		$exportPath = $language->$fieldName->path();
@@ -217,7 +391,11 @@ class LanguagePorter extends Wire {
 		}
 		
 		if(!count($exportFiles)) {
-			$exportFiles = $this->getExportFiles($fieldName, $textdomain);
+			if($scope === 'all' && !$textdomain) {
+				$exportFiles = $this->findTranslatableFiles($source);
+			} else {
+				$exportFiles = $this->getExportFiles($fieldName, $textdomain, $source);
+			}
 			if(!count($exportFiles)) {
 				throw new WireException('No translation files specified to export');
 			}
@@ -232,7 +410,7 @@ class LanguagePorter extends Wire {
 			$filename = "$language->name-$basename.csv";
 		} else {
 			// i.e. es-site.csv or es-wire.csv
-			$filename = $language->name . "-$source.csv";
+			$filename = $language->name . '-' . $this->exportSourceName($source) . '.csv';
 		}
 		
 		$exportFile = $exportTo === 'file' ? $exportPath . $filename : 'php://output';
@@ -253,16 +431,21 @@ class LanguagePorter extends Wire {
 		$columns = array($defaultCol, $language->name, 'description', 'file', 'hash');
 		fputcsv($fp, $columns);
 		
-		foreach($exportFiles as $f) {
+		require_once(__DIR__ . '/LanguageParser.php');
 		
-			$textdomain = $textdomains[$f] ?? basename($f, '.json');
+		foreach($exportFiles as $f) {
+			if($scope === 'all') {
+				$textdomain = $language->translator->filenameToTextdomain($f);
+			} else {
+				$textdomain = $textdomains[$f] ?? basename($f, '.json');
+			}
 			$data = $language->translator->getTextdomain($textdomain);
-			if(empty($data)) continue;
+			if(empty($data) && $scope !== 'all') continue;
 			
-			$file = $data['file'];
+			$file = empty($data['file']) ? $f : $data['file'];
+			if(!$this->fileInExportSource($file, $source)) continue;
 			$pathname = $config->paths->root . $file;
-			$translated =& $data['translations'];
-			require_once(__DIR__ . '/LanguageParser.php');
+			$translated = empty($data['translations']) ? [] : $data['translations'];
 			/** @var LanguageParser $parser */
 			$parser = $this->wire(new LanguageParser($language->translator, $pathname)); 
 			$untranslated = $parser->getUntranslated();
@@ -286,9 +469,34 @@ class LanguagePorter extends Wire {
 	}
 	
 	/**
-	 * Import and save changes from a translations CSV file
+	 * Import and save changes from a translations CSV string
 	 *
-	 * @param string $csvFile
+	 * @param string $csvStr
+	 * @param array $options Additional options
+	 *  - `file` (string): Import for this path/file (relative to install root) rather than one in the CSV row.
+	 *  - `quiet` (bool): Suppress error and message notifications? (default=false)
+	 * @return bool|int Returns false on error or integer on success, where value is number of translations imported
+	 * @throws WireException
+	 *
+	 */
+	public function importCsvStr($csvStr, array $options = []) {
+		$files = $this->wire()->files;
+		$tempDir = $files->tempDir();
+		$path = $tempDir->get();
+		$file = $path . 'import.csv';
+		$files->filePutContents($file, $csvStr);
+		try {
+			$result = $this->importCsv($file, $options);
+		} finally {
+			$files->unlink($file);
+		}
+		return $result;
+	}
+
+	/**
+	 * Import and save changes from a translations CSV file (or string)
+	 *
+	 * @param string $csvFile CSV file or CSV string
 	 * @param array $options Additional options 
 	 *  - `file` (string): Import for this path/file (relative to install root) rather than one in the CSV row.
 	 *  - `quiet` (bool): Suppress error and message notifications? (default=false)
@@ -297,7 +505,12 @@ class LanguagePorter extends Wire {
 	 *
 	 */
 	public function importCsv($csvFile, array $options = array()) {
-		
+
+		if(strpos($csvFile, ',') !== false && strpos($csvFile, "\n") !== false) {
+			// this is a CSV string rather than a CSV file
+			return $this->importCsvStr($csvFile, $options);
+		}
+
 		$defaults = array(
 			'file' => '',
 			'quiet' => false,
@@ -401,11 +614,7 @@ class LanguagePorter extends Wire {
 			if(!$translator->textdomainFileExists($textdomain)) {
 				$textdomain = $translator->addFileToTranslate($file, false, false);
 			}
-			
-			if(is_null($translations)) {
-				$translations = $translator->getTranslations($textdomain);
-			}
-			
+
 			if(!$textdomain) {
 				if(!$this->quiet) {
 					$this->warning($this->csvImportLabel . sprintf(
@@ -414,6 +623,10 @@ class LanguagePorter extends Wire {
 					));
 				}
 				continue;
+			}
+
+			if(is_null($translations)) {
+				$translations = $translator->getTranslations($textdomain);
 			}
 			
 			if($textdomain != $lastTextdomain) {
