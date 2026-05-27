@@ -363,7 +363,6 @@ class ProcessLanguage extends ProcessPageType {
 	 */
 	public function ___executeDownload() {
 		
-		$config = $this->wire()->config;
 		$input = $this->wire()->input;
 		
 		$id = (int) $input->get('language_id'); 
@@ -372,103 +371,21 @@ class ProcessLanguage extends ProcessPageType {
 		$language = $this->wire()->languages->get($id);
 		if(!$language->id) throw new WireException("Unknown language"); 
 		
-		$fieldName = $input->get('field') == 'language_files_site' ? 'language_files_site' : 'language_files';
-		$textdomain = $this->wire()->sanitizer->textdomain($input->get('textdomain')); 
-		$textdomains = array();
+		$source = $input->get('field') == 'language_files_site' ? 'site' : 'wire';
+		$textdomain = $this->wire()->sanitizer->textdomain($input->get('textdomain'));
 		$csv = (int) $input->get('csv');
-		$path = $language->$fieldName->path();
-		$files = array();
 		
-		if($textdomain) {
-			$file = $language->translator->textdomainToFilename($textdomain);
-			if($file) {
-				$files[] = $file;
-				$textdomains[$file] = $textdomain;
-			} else {
-				$textdomain = '';
-			}
-		}
-	
-		if(!count($files)) {
-			foreach($language->$fieldName as $file) {
-				$files[] = $file->filename;
-			}
-		}
-		
-		if(!count($files)) {
-			throw new WireException('No translation files specified to download');
-		}
+		$options = [
+			'source' => $source,
+			'exportTo' => 'download',
+			'textdomain' => $textdomain,
+		];
 		
 		if($csv) {
-			// CSV
-			if($textdomain) {
-				// i.e. es-modulename.csv
-				$parts = explode('--', $textdomain);
-				$basename = array_pop($parts);
-				$parts = explode('-', $basename);
-				$basename = array_shift($parts);
-				$filename = "$language->name-$basename.csv";
-			} else {
-				// i.e. es-site.csv or es-wire.csv
-				$filename = $language->name . "-" . (strpos($fieldName, 'site') ? 'site' : 'wire') . ".csv";
-			}
-			if($input->get('view')) {
-				header("Content-type: text/plain");
-			} else {
-				header("Content-type: application/force-download");
-				header("Content-Transfer-Encoding: Binary");
-				header("Content-disposition: attachment; filename=$filename");
-			}
-
-			$fp = fopen('php://output', 'w');
-			$defaultCol = $language->name == 'en' ? 'default' : 'en';
-			$fields = array($defaultCol, $language->name, 'description', 'file', 'hash');
-			fputcsv($fp, $fields);
-			
-			foreach($files as $f) {
-			
-				if(isset($textdomains[$f])) {
-					$textdomain = $textdomains[$f];
-				} else {
-					$textdomain = basename($f, '.json');
-				}
-				
-				$data = $language->translator->getTextdomain($textdomain);
-				if(empty($data)) continue;
-				
-				$file = $data['file'];
-				$pathname = $config->paths->root . $file;
-				$translated =& $data['translations'];
-				$parser = $this->wire(new LanguageParser($language->translator, $pathname)); /** @var LanguageParser $parser */
-				$untranslated = $parser->getUntranslated();
-				$comments = $parser->getComments();
-
-				foreach($untranslated as $hash => $text1) {
-					$text2 = isset($translated[$hash])  ? $translated[$hash]['text'] : '';
-					$comment = isset($comments[$hash]) ? $comments[$hash] : '';
-					if(strpos($comment, '//') !== false) list(, $comment) = explode('//', $comment);
-					$fields = array($text1, $text2, trim($comment), $file, $hash);
-					fputcsv($fp, $fields);
-				}
-			}
-			
-			fclose($fp);
-
+			$language->porter()->exportCsv($options);
 		} else {
-			// ZIP
-			$zipname = $language->name . "-";
-			$zipname .= $fieldName == 'language_files' ? 'wire' : 'site';
-			$zipfile = "$path$zipname.zip";
-			$info = wireZipFile($zipfile, $files, array("overwrite" => true));
-			if(!count($info['files'])) {
-				$this->error("Error adding files to ZIP");
-				$this->session->redirect('../');
-			} else {
-				wireSendFile($zipfile);
-			}
+			$language->porter()->exportZip($options);
 		}
-		
-		exit(0);
 	}
 
 	/**
@@ -494,165 +411,6 @@ class ProcessLanguage extends ProcessPageType {
 		);
 		
 		$options = array_merge($defaults, $options);
-		
-		$fp = fopen($csvFile, "r");
-		
-		if($fp === false) {
-			if(!$options['quiet']) $this->error($this->csvImportLabel . "Unable to open: $csvFile");
-			return false;
-		}
-
-		$keys = array(
-			'original',
-			'translated',
-			'file',
-			'hash',
-		);
-		
-		$n = 0;
-		$header = array();
-		$translator = new LanguageTranslator($language);
-		$textdomain = '';
-		$lastTextdomain = '';
-		$lastFile = '';
-		$numChanges = 0;
-		$numTotal = 0;
-		$numGross = 0;
-		$translations = null;
-		$optionsFileBasename = '';
-		$halt = false;
-		
-		$this->wire($translator);
-		
-		if(!empty($options['file'])) {
-			$options['file'] = ltrim($this->wire()->files->unixFileName($options['file']), '/');
-			$optionsFileBasename = basename($options['file']);
-		}
-
-		while(($csvData = fgetcsv($fp, 8192, ",")) !== FALSE) {
-			
-			if(++$n === 1) {
-				// header row
-				$header = $csvData; 
-				foreach($header as $key => $value) {
-					$header[$key] = strtolower($value);
-				}
-				// make sure everything we need is present
-				foreach($keys as $k => $key) {
-					if($k > 1 && !in_array($key, $header)) {
-						if($key === 'file' && !empty($options['file'])) {
-							// default file provided so not required in CSV data
-						} else {
-							if(!$options['quiet']) $this->error($this->csvImportLabel . "CSV data missing required column '$key'");
-							$halt = true;
-						}
-					}
-				}
-				if($halt) break;
-				continue;
-			} 
-			
-			$row = array();
-			foreach($header as $key => $name) {
-				if($key === 0) $name = 'original';
-				if($key === 1) $name = 'translated';
-				$row[$name] = $csvData[$key];
-			}
-			
-			if($options['file']) {
-				if(empty($row['file'])) {
-					$row['file'] = $options['file'];
-				} else {
-					$rowFileBasename = basename($row['file']); 
-					if($rowFileBasename === $optionsFileBasename) {
-						// i.e. site/modules/Hello/Hello.module
-						$row['file'] = $options['file']; 
-					} else {
-						// i.e. site/modules/Hello/World.module 
-						$row['file'] = dirname($options['file']) . '/' . $rowFileBasename;
-					}
-				}
-			}
-			
-			if(empty($row['original']) || empty($row['file'])) continue;
-			
-			$file = $row['file'];
-			$hash = $row['hash'];
-			// $textOriginal = $row['original'];
-			$textTranslated = $row['translated'];
-			$textdomain = $translator->filenameToTextdomain($file);
-			
-			if(!$translator->textdomainFileExists($textdomain)) {
-				$textdomain = $translator->addFileToTranslate($file, false, false);
-			}
-			
-			if(is_null($translations)) {
-				$translations = $translator->getTranslations($textdomain);
-			}
-			
-			if(!$textdomain) {
-				if(!$options['quiet']) $this->warning($this->csvImportLabel . sprintf(
-					$this->_('Unrecognized textdomain for file: %s'), 
-					$this->wire()->sanitizer->entities($file)
-				));
-				continue;
-			}
-			
-			if($textdomain != $lastTextdomain) {
-				if(!$lastFile) $lastFile = $file;
-				if(!$lastTextdomain) $lastTextdomain = $textdomain;
-				$this->processCSV_saveTextdomain($translator, $lastTextdomain, $lastFile, $numChanges);
-				$translations = $translator->getTranslations($textdomain);
-				$numChanges = 0;
-			}
-			
-			$translation = isset($translations[$hash]) ? $translations[$hash] : array('text' => '');
-			if($translation['text'] != $textTranslated) {
-				$translator->setTranslationFromHash($textdomain, $hash, $textTranslated);
-				$numChanges++;
-				$numTotal++;
-			}
-
-			$lastTextdomain = $textdomain;
-			$lastFile = $file;
-			$numGross++;
-		}
-		
-		if($numChanges) {
-			$this->processCSV_saveTextdomain($translator, $textdomain, $lastFile, $numChanges);
-		}
-		$language->save();
-		
-		fclose($fp);
-		if(!$options['quiet']) {
-			$this->message($this->csvImportLabel . sprintf($this->_('%d total translations, %d total changes'), $numGross, $numTotal), Notice::noGroup);
-		}
-		
-		return $halt ? false : $numGross; 
-	}
-
-	/**
-	 * Save a textdomain, helper for processCSV method
-	 * 
-	 * @param LanguageTranslator $translator
-	 * @param string $textdomain
-	 * @param string $filename
-	 * @param int $numChanges
-	 * 
-	 */
-	protected function processCSV_saveTextdomain(LanguageTranslator $translator, $textdomain, $filename, $numChanges) {
-		if($filename) { /* ignore, not currently used */ }
-		$file = $translator->textdomainToFilename($textdomain);
-		if($numChanges) {
-			try {
-				$translator->saveTextdomain($textdomain);
-				$this->message($this->csvImportLabel . sprintf($this->_('Saved %d change(s) for file: %s'), $numChanges, $file), Notice::noGroup);
-			} catch(\Exception $e) {
-				$this->error($e->getMessage());
-			}
-		} else {
-			// no changes
-		}
-		$translator->unloadTextdomain($textdomain);
+		return $language->porter()->importCsv($csvFile, $options); 
 	}
 }

@@ -3,10 +3,11 @@
 /**
  * A type of Page that represents a single Language in ProcessWire
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property LanguageTranslator $translator Get instance of LanguageTranslator for this language
+ * @property LanguagePorter $porter Get instance of Language exporter/importer (3.0.264+)
  * @property bool $isDefault Is this the default language?
  * @property bool $isCurrent Is this the current language?
  * @property Pagefiles $language_files Language translation files for /wire/ (language pack)
@@ -53,9 +54,10 @@ class Language extends Page {
 	 *
 	 */
 	public function get($key) {
-		if($key == 'translator') return $this->translator();
-		if($key == 'isDefault' || $key == 'isDefaultLanguage') return $this->isDefaultLanguage;
-		if($key == 'isCurrent') return $this->isCurrent();
+		if($key === 'translator') return $this->translator();
+		if($key === 'porter') return $this->porter();
+		if($key === 'isDefault' || $key == 'isDefaultLanguage') return $this->isDefaultLanguage;
+		if($key === 'isCurrent') return $this->isCurrent();
 		return parent::get($key); 
 	}
 
@@ -141,4 +143,17 @@ class Language extends Page {
 	public function setLocale($category = LC_ALL) {
 		return $this->wire()->languages->setLocale($category, $this);
 	}
+	
+	/**
+	 * Get language translation exporter/importer
+	 * 
+	 * @return LanguagePorter
+	 * @since 3.0.264
+	 * 
+	 */
+	public function porter() {
+		require_once(__DIR__ . '/LanguagePorter.php');
+		return new LanguagePorter($this);
+	}
+	
 }
