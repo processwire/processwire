@@ -552,31 +552,44 @@ $porter = $language->porter;
 
 **Export to CSV:**
 
+The `source` option accepts `'wire'`, `'site'`, or any root-relative subdirectory path
+(`'site/templates/'`, `'wire/core/'`, `'site/modules/MyModule/'`). Absolute paths are
+also accepted and normalized automatically. The output filename reflects the source:
+`site/templates/` → `de-site-templates.csv`.
+
+The `scope` option controls which files are included:
+- `'registered'` (default): only files already attached to the language page's
+  `language_files` or `language_files_site` fields. These are known translation
+  textdomains, whether or not every phrase has been translated yet.
+- `'all'`: scans the source directory recursively for eligible `.php`, `.module`,
+  and `.inc` files containing translation calls (`__()`, `_x()`, `_n()`, `$this->_()`
+  etc.), even files with no existing translations. Hidden files, dash-prefixed entries,
+  `site/assets/`, and files marked `__(file-not-translatable)` are skipped.
+
+`scope='all'` is the right choice when you want to produce a complete list of every
+translatable phrase in a directory — for example, to hand off to an AI agent for full
+translation of a site.
+
 ```php
-// Export /wire/ translations to a CSV file (returns full path to the file)
-$csvFile = $porter->exportCsv(); // /path/to/de-wire.csv
+// Export registered /wire/ translations to a file (default behaviour)
+$csvFile = $porter->exportCsv();                              // de-wire.csv
+$csvFile = $porter->exportCsv(['source' => 'site']);          // de-site.csv
+$csvFile = $porter->exportCsv(['source' => 'site/templates']); // de-site-templates.csv
 
-// Export /site/ translations
-$csvFile = $porter->exportCsv(['source' => 'site']); // /path/to/de-site.csv
+// Discover and export ALL translatable phrases in a directory
+$csvFile = $porter->exportCsv(['source' => 'site', 'scope' => 'all']); // de-site.csv
 
-// Export a single textdomain
-$csvFile = $porter->exportCsv([
-    // source is identified automatically from textdomain
-    'textdomain' => 'site--templates--_main-php',
-]);
+// Narrow scope to a subdirectory — all phrases in site/templates/
+$csvFile = $porter->exportCsv(['source' => 'site/templates', 'scope' => 'all']);
 
-// Get CSV as a returned string - often preferred by AI agents
-$csvString = $porter->exportCsv([
-    'source' => 'wire', 
-    'exportTo' => 'string'
-]);
+// Return CSV as a string instead of writing a file
+$csvStr = $porter->exportCsv(['source' => 'site', 'scope' => 'all', 'exportTo' => 'string']);
 
-// Output CSV directly (no file written) — useful in CLI scripts
-$porter->exportCsv([
-    'source' => 'wire', 
-    'exportTo' => 'stdout'
-]);
+// Output CSV directly to stdout — useful in CLI scripts
+$porter->exportCsv(['source' => 'site', 'exportTo' => 'stdout']);
 
+// Export a single textdomain (source is inferred from it automatically)
+$csvFile = $porter->exportCsv(['textdomain' => 'site--templates--_main-php']);
 ```
 
 **Export to ZIP:**
@@ -602,8 +615,14 @@ Edit,Bearbeiten,,wire/modules/Page/PageEdit/ProcessPageEdit.module,7dce12...
 ```
 
 ```php
-// Import returns integer count of translations processed, or false on error
+// Import from a file path — returns integer count of rows processed, or false on error
 $count = $porter->importCsv('/path/to/de-wire.csv');
+
+// Import from a CSV string directly (no need to write it to a file first)
+$count = $porter->importCsvStr($csvStr);
+
+// importCsv() also accepts a CSV string — it detects the difference automatically
+$count = $porter->importCsv($csvStr);
 
 // Suppress notifications (useful in scripts)
 $count = $porter->importCsv('/path/to/de-wire.csv', ['quiet' => true]);
