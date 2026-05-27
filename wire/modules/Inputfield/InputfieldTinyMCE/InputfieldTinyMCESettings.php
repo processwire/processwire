@@ -7,6 +7,8 @@
  *
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method array prepareSettingsForOutput(array $settings)
  *
  */
 class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
@@ -68,6 +70,7 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 					$value = $inputfield->get('content_css_url');
 					if(empty($value)) continue;
 				}
+				$value = $this->getContentCssUrl($value);
 			} else if($name === 'directionality') {
 				$value = $inputfield->getDirectionality();
 			} else if($name === 'style_formats') {
@@ -379,7 +382,12 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 
 		} else if(strpos($content_css, '/') !== false) {
 			// custom file
-			$url = $rootUrl . ltrim($content_css, '/');
+			if(strpos($content_css, $rootUrl) === 0) {
+				$url = $content_css;
+			} else {
+				$url = $rootUrl . ltrim($content_css, '/');
+			}
+			// $url = $rootUrl . ltrim($content_css, '/');
 
 		} else if($content_css === 'custom') {
 			// custom file (alternate/fallback)
@@ -398,6 +406,10 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 		} else {
 			$url = $defaultUrl;
 		}
+	
+		if(strpos($url, '.css') === false) {
+			$url = rtrim($url, '/') . '/content.css';
+		}
 
 		return $url;
 	}
@@ -411,7 +423,7 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 	 * @return array
 	 *
 	 */
-	public function prepareSettingsForOutput(array $settings) {
+	public function ___prepareSettingsForOutput(array $settings) {
 		$config = $this->wire()->config;
 		$rootUrl = $config->urls->root;
 		//$inline = $this->inputfield->inlineMode > 0;
@@ -721,6 +733,7 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 			// remove settings that cannot be set for field/template context
 			unset($mergedSettings['style_formats'], $mergedSettings['content_style'], $mergedSettings['content_css']); 
 			$dataSettings = $this->getSettings($mergedSettings);
+			$this->applySkin($dataSettings, $defaults);
 
 		} else {
 			// no configName in use, data-settings attribute will hold all non-default settings

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en-gb" dir="ltr">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Upload - UIkit tests</title>
+        <script src="js/test.js"></script>
+    </head>
+
+    <body>
+
+        <div class="uk-container">
+
+            <h1>Upload</h1>
+
+            <h2>Select</h2>
+
+            <div class="js-upload" uk-form-custom>
+                <input type="file" multiple>
+                <button class="uk-button uk-button-default" type="button" tabindex="-1">Select</button>
+            </div>
+
+            <h2>Drop Area</h2>
+
+            <div class="js-upload uk-placeholder uk-text-center">
+                <span uk-icon="icon: cloud-upload"></span>
+                <span class="uk-text-middle">Attach binaries by dropping them here or</span>
+                <div uk-form-custom>
+                    <input type="file" multiple>
+                    <span class="uk-link">selecting one</span>
+                </div>
+            </div>
+
+            <progress id="js-progressbar" class="uk-progress" value="0" max="100" hidden></progress>
+
+            <script>
+
+                const bar =  UIkit.util.$('#js-progressbar');
+
+                UIkit.upload('.js-upload', {
+
+                    url: '',
+                    multiple: true,
+
+                    beforeSend() {
+                        console.log('beforeSend', arguments);
+                    },
+                    beforeAll() {
+                        console.log('beforeAll', arguments);
+                    },
+                    load() {
+                        console.log('load', arguments);
+                    },
+                    error() {
+                        console.log('error', arguments);
+                    },
+                    fail() {
+                        console.log('fail', arguments);
+                    },
+                    complete() {
+                        console.log('complete', arguments);
+                    },
+
+                    loadStart(e) {
+                        console.log('loadStart', arguments);
+
+                        bar.hidden = false;
+                        bar.max = e.total;
+                        bar.value = e.loaded;
+                    },
+
+                    progress(e) {
+                        console.log('progress', arguments);
+
+                        bar.max = e.total;
+                        bar.value = e.loaded;
+                    },
+
+                    loadEnd(e) {
+                        console.log('loadEnd', arguments);
+
+                        bar.max = e.total;
+                        bar.value = e.loaded;
+                    },
+
+                    completeAll() {
+                        console.log('completeAll', arguments);
+
+                        setTimeout(() => {
+                            bar.hidden = true;
+                        }, 1000);
+
+                        alert('Upload Completed');
+                    }
+
+                });
+
+            </script>
+
+            <h2>JavaScript Options</h2>
+
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-striped">
+                    <thead>
+                        <tr>
+                            <th>Option</th>
+                            <th>Value</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>url</code></td>
+                            <td>String</td>
+                            <td></td>
+                            <td>The request url.</td>
+                        </tr>
+                        <tr>
+                            <td><code>multiple</code></td>
+                            <td>Boolean</td>
+                            <td>false</td>
+                            <td>Allow multiple files to be uploaded.</td>
+                        </tr>
+                        <tr>
+                            <td><code>name</code></td>
+                            <td>String</td>
+                            <td>files[]</td>
+                            <td>The name parameter.</td>
+                        </tr>
+                        <tr>
+                            <td><code>type</code></td>
+                            <td>String</td>
+                            <td>POST</td>
+                            <td>The request type.</td>
+                        </tr>
+                        <tr>
+                            <td><code>params</code></td>
+                            <td>Object</td>
+                            <td>{}</td>
+                            <td>Additional parameters.</td>
+                        </tr>
+                        <tr>
+                            <td><code>allow</code></td>
+                            <td>String</td>
+                            <td>false</td>
+                            <td>File name filter. (eg. *.png)</td>
+                        </tr>
+                        <tr>
+                            <td><code>mime</code></td>
+                            <td>String</td>
+                            <td>false</td>
+                            <td>File MIME type filter. (eg. images/*)</td>
+                        </tr>
+                        <tr>
+                            <td><code>maxSize</code></td>
+                            <td>Number</td>
+                            <td>0</td>
+                            <td>The maximum file size per file. (kB)</td>
+                        </tr>
+                        <tr>
+                            <td><code>concurrent</code></td>
+                            <td>Number</td>
+                            <td>1</td>
+                            <td>Number of files that will be uploaded simultaneously.</td>
+                        </tr>
+                        <tr>
+                            <td><code>type</code></td>
+                            <td>String</td>
+                            <td></td>
+                            <td>The expected response data type (xml, json, script, or html).</td>
+                        </tr>
+                        <tr>
+                            <td><code>i18n</code></td>
+                            <td>Object</td>
+                            <td>null</td>
+                            <td>Override default translation texts.</td>
+                        </tr>
+                        <tr>
+                            <td><code>cls-dragover</code></td>
+                            <td>String</td>
+                            <td>uk-dragover</td>
+                            <td>File name filter.</td>
+                        </tr>
+                        <tr>
+                            <td><code>abort</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The abort callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>before-all</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The beforeAll callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>before-send</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The beforeSend callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>complete</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The complete callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>complete-all</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The completeAll callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>error</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The error callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>load</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The load callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>load-end</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The loadEnd callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>load-start</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The loadStart callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>progress</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The progress callback.</td>
+                        </tr>
+                        <tr>
+                            <td><code>fail</code></td>
+                            <td>Function</td>
+                            <td></td>
+                            <td>The fail callback. If name or MIME type are invalid.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2>i18n</h2>
+
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-striped">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>invalidMime</code></td>
+                            <td>Invalid File Type: %s</td>
+                            <td>Error message for invalid file type.</td>
+                        </tr>
+                        <tr>
+                            <td><code>invalidName</code></td>
+                            <td>Invalid File Name: %s</td>
+                            <td>Error message for invalid file name.</td>
+                        </tr>
+                        <tr>
+                            <td><code>invalidSize</code></td>
+                            <td>Invalid File Size: %s Kilobytes Max</td>
+                            <td>Error message for invalid file size.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </body>
+</html>

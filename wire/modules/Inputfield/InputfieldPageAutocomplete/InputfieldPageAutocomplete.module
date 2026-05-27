@@ -8,20 +8,20 @@
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  * 
- * @property int $parent_id Limit results to this parent, or if combined with findPagesSelector, the search is performed as $pages->get($parent_id)->find() rather than $pages->find().
- * @property int $template_id Limit results to pages using this template.
- * @property array $template_ids Limit results to pages using this templates (alternate to the single template_id). 
+ * @property int $parent_id Limit results to this parent ID, or if combined with findPagesSelector, the search is performed as $pages->get($parent_id)->find() rather than $pages->find(). (default=0)
+ * @property int $template_id Limit results to pages using this template ID. (default=0)
+ * @property array $template_ids Limit results to pages using these template IDs (alternate to the single template_id). (default=[])
  * @property string $labelFieldName Field to display in the results. (default=title)
  * @property string $labelFieldFormat Format string to display in the results, overrides labelFieldName when used (default=blank).
  * @property string $searchFields Field(s) to search for text. Separate multiple by a space. (default=title)
  * @property string $operator Selector operator to use in performing the search (default: %=)
  * @property string $findPagesSelector Optional selector to use for finding pages (default=blank)
- * @property int $maxSelectedItems Maximum number of items that may be selected (0=unlimited, default).
+ * @property int $maxSelectedItems Maximum number of items that may be selected (0=unlimited) (default=0).
  * @property bool $useList Whether or not to use a separate selected list. If false specified, selected item will be populated directly to the input. (default=true)
  * @property bool $allowAnyValue Allow any value to stay in the input, even if not selectable? (default=false)
  * @property string $disableChars Autocomplete won't be triggered if input contains any of the characters in this string. (default=blank)
  * @property bool $useAndWords When true, each word will be isolated to a separate searchFields=searchValue, which enables it to duplicate ~= operator behavior while using a %= operator (default=false).
- * @property int $lang_id Force use of this language for results
+ * @property int $lang_id Force use of this language ID for results (default=0)
  * 
  * @method string renderList()
  * @method string renderListItem($label, $value, $class = '')

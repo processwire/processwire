@@ -14,6 +14,7 @@
  * @method void added(Page $page) Hook called just after a Role is added #pw-hooker
  * @method void deleteReady(Page $page) Hook called before a Role is deleted #pw-hooker
  * @method void deleted(Page $page) Hook called after a Role is deleted #pw-hooker
+ * @method Role new($options = []) Create new Role instance in memory (3.0.249+)
  *
  */ 
 

@@ -5,9 +5,6 @@
  *
  * Fieldtype for holding an email address. 
  *
- * For documentation about the fields used in this class, please see:  
- * /wire/core/Fieldtype.php
- * 
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
@@ -117,5 +114,3 @@ class FieldtypeEmail extends FieldtypeText {
 	}
 	
 }
-
-

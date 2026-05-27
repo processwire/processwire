@@ -3,27 +3,29 @@
 /**
  * An Inputfield for handling relational Page inputs
  *
- * Delegates the actual input control to a user-defined Inputfield derived from InputfieldSelect
+ * 
+ * Note that this Inputfield does not collect input on its own and instead requires its `inputfield` property
+ * to contain the class name of the Inputfield module that will be collecting input. It must be either 
+ * `InputfieldSelect` or another Inputfield that extends it, such as `InputfieldRadios`, `InputfieldCheckboxes`,
+ * `InputfieldAsmSelect`, etc. 
  * 
  * @method PageArray|null getSelectablePages(Page $page, $filterSelector = '')
  * @method PageArray findPagesCode(Page $page)
  * 
- * Can be accessed from $this or from $field:
- * 
- * @property int $template_id
- * @property array $template_ids
- * @property int $parent_id
- * @property string $inputfield Inputfield class used for input
- * @property string $labelFieldName Field name to use for label (note: this will be "." if $labelFieldFormat is in use).
- * @property string $labelFieldFormat Formatting string for $page->getMarkup() as alternative to $labelFieldName
- * @property string $findPagesCode
- * @property string $findPagesSelector
- * @property string $findPagesSelect Same as findPageSelector, but configured interactively with InputfieldSelector .
- * @property int|bool $addable
- * @property int|bool $allowUnpub
- * @property int $derefAsPage
- * @property-read string $inputfieldClass Public property alias of protected getInputfieldClass() method
- * @property array $inputfieldClasses
+ * @property string $inputfield Inputfield class used for input, i.e. `InputfieldSelect` (default='')
+ * @property int $template_id Single template ID used by pages you want to be selectable. (default=0)
+ * @property array $template_ids Multiple template IDs used by pages you want to be selectable. (default=[])
+ * @property int $parent_id Parent ID of pages you want to be selectable (default=0)
+ * @property string $labelFieldName Field name to use for label, i.e. “title”. Note that this will be "." if $labelFieldFormat is in use. (default='')
+ * @property string $labelFieldFormat Formatting string to use (which is sent to $page->getMarkup() method) as alternative to $labelFieldName. (default='')
+ * @property string $findPagesCode PHP eval code to use in finding pages that should be selectable @deprecated (default='')
+ * @property string $findPagesSelector Selector string to use for finding selectable pages (default='')
+ * @property string $findPagesSelect Same as findPageSelector, but configured interactively with InputfieldSelector. (default='') 
+ * @property int|bool $addable Provide an option for creating new pages and adding them to selection? (deafult=false)
+ * @property int|bool $allowUnpub Allow selection of unpublished pages? (default=false)
+ * @property int $derefAsPage Make the value attribute a single Page rather than PageArray? (default=0)
+ * @property-read string $inputfieldClass Read-only public property alias of protected getInputfieldClass() method.
+ * @property array $inputfieldClasses Class names of Inputfields that are allowed to be used for selection (default=9+ classes)
  * 
  * @method string renderAddable()
  * @method void processInputAddPages(WireInputData $input)

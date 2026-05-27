@@ -392,7 +392,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * This is applicable to and destructive to the WireArray.
 	 *
-	 * @param string|Selectors|array $selectors AttributeSelector string to use as the filter.
+	 * @param string|Selectors|array $selectors Selector string to use as the filter.
 	 * @param bool|int $not Make this a "not" filter? Use int 1 for "not all". (default is false)
 	 * @return PageArray|WireArray reference to current [filtered] PageArray
 	 *
@@ -407,7 +407,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $selector AttributeSelector string to use as the filter.
+	 * @param string $selector Selector string to use as the filter.
 	 * @return PageArray|PaginatedArray|WireArray reference to current PageArray instance.
 	 *
 	 */
@@ -416,11 +416,11 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	}
 
 	/**
-	 * Filter out pages that don't match the selector (destructive)
+	 * Filter out pages that DO match the selector (destructive)
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $selector AttributeSelector string to use as the filter.
+	 * @param string $selector Selector string to use 
 	 * @return PageArray|PaginatedArray|WireArray reference to current PageArray instance.
 	 *
 	 */
@@ -452,7 +452,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $selector AttributeSelector string.
+	 * @param string $selector Selector string.
 	 * @return PageArray|WireArray New PageArray instance
 	 * @see WireArray::find()
 	 *

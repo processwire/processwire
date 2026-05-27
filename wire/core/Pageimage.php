@@ -78,6 +78,7 @@
  * @method install($filename)
  * @method render($markup = '', $options = array())
  * @method void createdVariation(Pageimage $image, array $data) Called after new image variation created (3.0.180+)
+ * @method bool filenameDoesNotExist($filename) Hook called when a filename does not exist
  *
  */
 
@@ -874,7 +875,7 @@ class Pageimage extends Pagefile {
 		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) $options['forceNew'] = true;
 		
 		// create a new resize if it doesn't already exist or forceNew option is set
-		if(!$filenameFinalExists && !file_exists($this->filename())) {
+		if(!$filenameFinalExists && !file_exists($this->filename()) && !$this->filenameDoesNotExist($this->filename())) {
 			// no original file exists to create variation from 
 			$this->error = "Original image does not exist to create size variation: " . $this->url();
 			
@@ -1872,6 +1873,22 @@ class Pageimage extends Pagefile {
 			}
 		}
 		return $filenames;
+	}
+	
+	/**
+	 * Hook called by the size() method when a source/original filename does not exist
+	 * 
+	 * For the return value, override the default `false` return value and set 
+	 * it to `true` in order to make it continue as if the filename did exist,
+	 * such as if your hook copied a file to $filename. 
+	 *
+	 * @param string $filename
+	 * @return bool 
+	 * @since 3.0.254
+	 *
+	 */
+	protected function ___filenameDoesNotExist($filename) {
+		return false;
 	}
 
 	/**

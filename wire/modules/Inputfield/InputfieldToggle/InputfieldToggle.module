@@ -3,13 +3,14 @@
 /**
  * Toggle Inputfield
  * 
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * https://processwire.com
+ *
+ * #pw-body = 
  * An Inputfield for handling an on/off toggle that maintains a boolean value (or null when no selection).
  * This provides an alternative to a single checkbox field. 
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
- * https://processwire.com
- * 
- * API usage example
+ * #### API usage example
  * ~~~~~~
  * // Default behavior displays toggle of "Yes" and "No":
  * $f = $modules->get('InputfieldToggle');
@@ -38,19 +39,19 @@
  * $form->add($f); 
  * echo $form->render();
  * ~~~~~~
+ * #pw-body
  *
  * @property int|string $value Integer value when selection is made or blank string when no selection (0=No, 1=Yes, 2=Other, ''=Unknown)
- * @property int $labelType Label type to use, see the labelType constants (default=labelTypeYes)
- * @property int $valueType Type of value for methods that ask for it (use one of the valueType constants)
- * @property string $yesLabel Custom yes/on label
- * @property string $noLabel Custom no/off label 
- * @property string $otherLabel Custom label for optional other value Label to use for "other" option
+ * @property int $labelType Label type to use: 0=yes/no, 1=true/false, 2=on/off, 3=enabled/disabled, 100=custom (default=0)
+ * @property string $yesLabel Custom yes/on label (default=✓)
+ * @property string $noLabel Custom no/off label (default=✗)
+ * @property string $otherLabel Custom label for optional other value Label to use for "other" option (default=?)
  * @property int|bool $useReverse Reverse the order of the Yes/No options? (default=false)
  * @property int|bool $useOther Use the "other" option? (default=false)
  * @property bool|int $useVertical Use vertically oriented radio buttons? Applies only if $inputfieldClass is 'InputfieldRadios' (default=false)
  * @property bool|int $useDeselect Allow radios or toggles to be de-selected, enabling possibility of no-selection? (default=false)
- * @property string $defaultOption Default selected value of 'no', 'yes', 'other' or 'none' (default='none')
- * @property string $inputfieldClass Inputfield class to use or blank for this toggle buttons (default='')
+ * @property string $defaultOption Default selected value of 'no', 'yes', 'other' or 'none' (default=none)
+ * @property string $inputfieldClass Inputfield class to use or blank for this toggle buttons (default=blank)
  * 
  * @method InputfieldSelect|InputfieldRadios getInputfield()
  *
@@ -491,8 +492,7 @@ class InputfieldToggle extends Inputfield {
 		
 		if($labelType === null) $labelType = $this->labelType;
 
-		/** @var Languages $langauges */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		$setLanguage = false;
 		$languageId = '';
 		$yes = '';

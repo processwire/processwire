@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en-gb" dir="ltr">
+
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Search - UIkit tests</title>
+        <script src="js/test.js"></script>
+    </head>
+
+    <body>
+
+        <div class="uk-container">
+
+            <h1>Search</h1>
+
+            <h2>Default</h2>
+
+            <div class="uk-margin">
+                <form class="uk-search uk-search-default">
+                    <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                </form>
+            </div>
+
+            <div class="uk-margin" uk-margin>
+                <form class="uk-search uk-search-default">
+                    <span uk-search-icon></span>
+                    <input class="uk-search-input" type="search" placeholder="Icon…" aria-label="Search">
+                </form>
+
+                <form class="uk-search uk-search-default">
+                    <input class="uk-search-input" type="search" placeholder="Flip…" aria-label="Search">
+                    <span class="uk-search-icon-flip" uk-search-icon></span>
+                </form>
+            </div>
+
+            <div class="uk-margin" uk-margin>
+                <form class="uk-search uk-search-default">
+                    <a href="#" uk-search-icon></a>
+                    <input class="uk-search-input" type="search" placeholder="Link…" aria-label="Search">
+                </form>
+
+                <form class="uk-search uk-search-default">
+                    <input class="uk-search-input" type="search" placeholder="Button…" aria-label="Search">
+                    <button class="uk-search-icon-flip" uk-search-icon></button>
+                </form>
+            </div>
+
+        </div>
+
+        <div class="uk-container uk-margin-medium-top">
+
+            <h2>Navbar</h2>
+
+        </div>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="uk-navbar-left">
+                        <a class="uk-navbar-item uk-logo" href="#">Logo</a>
+                        <ul class="uk-navbar-nav">
+                            <li class="uk-active"><a href="#">Active</a></li>
+                            <li><a href="#">Parent</a></li>
+                            <li><a href="#">Item</a></li>
+                            <li><a href="#">Item</a></li>
+                        </ul>
+                        <div class="uk-navbar-item">
+                            <form class="uk-search uk-search-navbar">
+                                <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="uk-navbar-right">
+                        <ul class="uk-navbar-nav">
+                            <li><a href="#">Item</a></li>
+                        </ul>
+                        <div class="uk-navbar-item">
+                            <form class="uk-search uk-search-navbar">
+                                <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search">
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="uk-navbar-left">
+                        <div class="uk-navbar-item">
+
+                            <form class="uk-search uk-search-navbar">
+                                <span uk-search-icon></span>
+                                <input class="uk-search-input" type="search" placeholder="Icon…" aria-label="Search">
+                            </form>
+
+                        </div>
+                    </div>
+                    <div class="uk-navbar-right">
+                        <div class="uk-navbar-item">
+
+                            <form class="uk-search uk-search-navbar">
+                                <input class="uk-search-input" type="search" placeholder="Flip…" aria-label="Search">
+                                <span class="uk-search-icon-flip" uk-search-icon></span>
+                            </form>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="uk-navbar-left">
+                        <div class="uk-navbar-item">
+
+                            <form class="uk-search uk-search-navbar">
+                                <a href="#" uk-search-icon></a>
+                                <input class="uk-search-input" type="search" placeholder="Link…" aria-label="Search">
+                            </form>
+
+                        </div>
+                    </div>
+                    <div class="uk-navbar-right">
+                        <div class="uk-navbar-item">
+
+                            <form class="uk-search uk-search-navbar">
+                                <input class="uk-search-input" type="search" placeholder="Button…" aria-label="Search">
+                                <button class="uk-search-icon-flip" uk-search-icon></button>
+                            </form>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <div class="uk-container uk-margin-medium-top">
+
+            <h2>Medium</h2>
+
+            <div class="uk-margin">
+                <form class="uk-search uk-search-medium">
+                    <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search">
+                </form>
+            </div>
+
+            <div class="uk-margin" uk-margin>
+                <form class="uk-search uk-search-medium">
+                    <span uk-search-icon></span>
+                    <input class="uk-search-input" type="search" placeholder="Icon…" aria-label="Search">
+                </form>
+
+                <form class="uk-search uk-search-medium">
+                    <input class="uk-search-input" type="search" placeholder="Flip…" aria-label="Search">
+                    <span class="uk-search-icon-flip" uk-search-icon></span>
+                </form>
+            </div>
+
+            <div class="uk-margin" uk-margin>
+                <form class="uk-search uk-search-medium">
+                    <a href="#" uk-search-icon></a>
+                    <input class="uk-search-input" type="search" placeholder="Link…" aria-label="Search">
+                </form>
+
+                <form class="uk-search uk-search-medium">
+                    <input class="uk-search-input" type="search" placeholder="Button…" aria-label="Search">
+                    <button class="uk-search-icon-flip" uk-search-icon></button>
+                </form>
+            </div>
+
+            <h2>Large</h2>
+
+            <div class="uk-margin">
+                <form class="uk-search uk-search-large">
+                    <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search">
+                </form>
+            </div>
+
+            <div class="uk-margin" uk-margin>
+                <form class="uk-search uk-search-large">
+                    <span uk-search-icon></span>
+                    <input class="uk-search-input" type="search" placeholder="Icon…" aria-label="Search">
+                </form>
+
+                <form class="uk-search uk-search-large">
+                    <input class="uk-search-input" type="search" placeholder="Flip…" aria-label="Search">
+                    <span class="uk-search-icon-flip" uk-search-icon></span>
+                </form>
+            </div>
+
+            <div class="uk-margin" uk-margin>
+                <form class="uk-search uk-search-large">
+                    <a href="#" uk-search-icon></a>
+                    <input class="uk-search-input" type="search" placeholder="Link…" aria-label="Search">
+                </form>
+
+                <form class="uk-search uk-search-large">
+                    <input class="uk-search-input" type="search" placeholder="Button…" aria-label="Search">
+                    <button class="uk-search-icon-flip" uk-search-icon></button>
+                </form>
+            </div>
+
+            <h2>Toggle</h2>
+
+            <a class="uk-search-toggle" href="#" uk-search-icon></a>
+
+            <h2>Navbar Toggle + Layouts</h2>
+
+        </div>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="test-overlay uk-navbar-left">
+
+                        <a class="uk-navbar-item uk-logo" href="#">Overlay</a>
+
+                        <ul class="uk-navbar-nav">
+                            <li class="uk-active"><a href="#">Active</a></li>
+                            <li><a href="#">Parent</a></li>
+                            <li><a href="#">Item</a></li>
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                    </div>
+
+                    <div class="test-overlay uk-navbar-right">
+
+                        <ul class="uk-navbar-nav">
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                        <a class="uk-navbar-toggle" uk-search-icon uk-toggle="target: .test-overlay; animation: uk-animation-fade" href></a>
+
+                    </div>
+
+                    <div class="uk-navbar-left uk-flex-1 test-overlay" hidden>
+
+                        <div class="uk-navbar-item uk-width-expand">
+                            <form class="uk-search uk-search-medium uk-width-1-1">
+                                <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                            </form>
+                        </div>
+
+                        <a class="uk-navbar-toggle" uk-close uk-toggle="target: .test-overlay; animation: uk-animation-fade" href></a>
+
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="uk-navbar-left">
+
+                        <a class="uk-navbar-item uk-logo" href="#">Drop</a>
+
+                        <ul class="uk-navbar-nav">
+                            <li class="uk-active"><a href="#">Active</a></li>
+                            <li><a href="#">Parent</a></li>
+                            <li><a href="#">Item</a></li>
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                    </div>
+                    <div class="uk-navbar-right">
+
+                        <ul class="uk-navbar-nav">
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                        <div>
+                            <a class="uk-navbar-toggle" uk-search-icon href></a>
+                            <div uk-drop="mode: click; pos: left-center; offset: 0">
+                                <form class="uk-search uk-search-medium uk-width-1-1">
+                                    <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="uk-navbar-left">
+
+                        <a class="uk-navbar-item uk-logo" href="#">Dropdown</a>
+
+                        <ul class="uk-navbar-nav">
+                            <li class="uk-active"><a href="#">Active</a></li>
+                            <li><a href="#">Parent</a></li>
+                            <li><a href="#">Item</a></li>
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                    </div>
+                    <div class="uk-navbar-right">
+
+                        <ul class="uk-navbar-nav">
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                        <div>
+                            <a class="uk-navbar-toggle" href uk-search-icon></a>
+                            <div class="uk-navbar-dropdown" uk-drop="mode: click; cls-drop: uk-navbar-dropdown; boundary: !.uk-navbar; flip: false">
+
+                                <div class="uk-grid-small uk-flex-middle" uk-grid>
+                                    <div class="uk-width-expand">
+                                        <form class="uk-search uk-search-medium uk-width-1-1">
+                                            <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                                        </form>
+                                    </div>
+                                    <div class="uk-width-auto">
+                                        <a class="uk-drop-close" href="#" uk-close></a>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="uk-navbar-left">
+
+                        <a class="uk-navbar-item uk-logo" href="#">Stretch</a>
+
+                        <ul class="uk-navbar-nav">
+                            <li class="uk-active"><a href="#">Active</a></li>
+                            <li><a href="#">Parent</a></li>
+                            <li><a href="#">Item</a></li>
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                    </div>
+                    <div class="uk-navbar-right">
+
+                        <ul class="uk-navbar-nav">
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                        <div>
+                            <a class="uk-navbar-toggle" href uk-search-icon></a>
+                            <div class="uk-navbar-dropdown" uk-drop="mode: click; cls-drop: uk-navbar-dropdown; boundary: !.uk-navbar; stretch: x; flip: false">
+
+                                <div class="uk-grid-small uk-flex-middle" uk-grid>
+                                    <div class="uk-width-expand">
+                                        <form class="uk-search uk-search-medium uk-width-1-1">
+                                            <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                                        </form>
+                                    </div>
+                                    <div class="uk-width-auto">
+                                        <a class="uk-drop-close" href="#" uk-close></a>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar="target-y: !.uk-navbar-container; dropbar: +.uk-navbar-dropbar">
+
+                    <div class="uk-navbar-left">
+
+                        <a class="uk-navbar-item uk-logo" href="#">Dropbar</a>
+
+                        <ul class="uk-navbar-nav">
+                            <li class="uk-active"><a href="#">Active</a></li>
+                            <li><a href="#">Parent</a></li>
+                            <li><a href="#">Item</a></li>
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                    </div>
+                    <div class="uk-navbar-right">
+
+                        <ul class="uk-navbar-nav">
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                        <div>
+                            <a class="uk-navbar-toggle" href uk-search-icon></a>
+                            <div class="uk-dropbar uk-dropbar-top" uk-drop="mode: click; cls-drop: uk-dropbar; boundary: !.uk-navbar; stretch: x; flip: false; target-y: !.uk-navbar-container">
+
+                                <div class="uk-grid-small uk-flex-middle" uk-grid>
+                                    <div class="uk-width-expand">
+                                        <form class="uk-search uk-search-medium uk-width-1-1">
+                                            <input class="uk-search-input" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                                        </form>
+                                    </div>
+                                    <div class="uk-width-auto">
+                                        <a class="uk-dropbar-close" href="#" uk-close></a>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <div class="uk-navbar-dropbar"></div>
+
+        <nav class="uk-navbar-container uk-margin">
+            <div class="uk-container">
+                <div uk-navbar>
+
+                    <div class="uk-navbar-left">
+
+                        <a class="uk-navbar-item uk-logo" href="#">Modal</a>
+
+                        <ul class="uk-navbar-nav">
+                            <li class="uk-active"><a href="#">Active</a></li>
+                            <li><a href="#">Parent</a></li>
+                            <li><a href="#">Item</a></li>
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                    </div>
+                    <div class="uk-navbar-right">
+
+                        <ul class="uk-navbar-nav">
+                            <li><a href="#">Item</a></li>
+                        </ul>
+
+                        <a class="uk-navbar-toggle" href="#modal-full" uk-search-icon uk-toggle></a>
+
+                    </div>
+
+                </div>
+            </div>
+        </nav>
+
+        <div id="modal-full" class="uk-modal-full" uk-modal>
+            <div class="uk-modal-dialog uk-flex uk-flex-center uk-flex-middle" uk-height-viewport>
+                <button class="uk-modal-close-full" type="button" uk-close></button>
+                <form class="uk-search uk-search-large">
+                    <input class="uk-search-input uk-text-center" type="search" placeholder="Search…" aria-label="Search" autofocus>
+                </form>
+            </div>
+        </div>
+
+        <div class="uk-container uk-margin-medium-top">
+
+            <h2>Javascript Options</h2>
+
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-striped">
+                    <thead>
+                        <tr>
+                            <th>Option</th>
+                            <th>Value</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>i18n</code></td>
+                            <td>Object</td>
+                            <td>null</td>
+                            <td>Override default translation texts.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2>i18n</h2>
+
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-striped">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>toggle</code></td>
+                            <td>Open Search</td>
+                            <td><code>aria-label</code> for toggle button.</td>
+                        </tr>
+                        <tr>
+                            <td><code>submit</code></td>
+                            <td>Submit Search</td>
+                            <td><code>aria-label</code> for submit button.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </body>
+</html>

@@ -509,6 +509,10 @@ abstract class AdminTheme extends WireData implements Module {
 		return $this->preRenderURLs;
 	}
 	
+	public function ___upgrade($fromVersion, $toVersion) {
+		// placeholder if called by descending admin theme
+	}
+	
 	public function ___uninstall() { 
 	
 		$defaultAdminTheme = $this->wire()->config->defaultAdminTheme;

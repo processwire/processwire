@@ -2,24 +2,28 @@
 
 /**
  * ProcessWire Pages Access
- *
- * Maintains the pages_access table which serves as a way to line up pages 
- * to the templates that maintain their access roles.
  * 
- * This class serves as a way for pageFinder() to determine if a user has access to a page
+ * #pw-headline Pages Access
+ * #pw-breadcrumb Pages
+ * #pw-summary Maintains the pages_access table which serves as a way to line up pages to the templates that maintain their access roles.
+ * #pw-body = 
+ * This class serves as a way for PageFinder to determine if a user has access to a page
  * before actually loading it. 
  *
- * The pages_access template contains just two columns:
+ * The pages_access table contains just two columns:
  * 
- * 	- pages_id:  Any given page 
- * 	- templates_id: The template that sets this pages access
+ * 	- `pages_id` (int): Any given page 
+ * 	- `templates_id` (int): The template that sets this pages access
  *
  * Pages using templates that already define their access (determined by $template->useRoles) 
  * are omitted from the pages_access table, as they aren't necessary. 
+ * #pw-body
  *
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
- *
+ * 
+ * @method void updatePage(Page $page)
+ * @method void updateTemplate(Template $template)
  *
  */
 
@@ -54,6 +58,7 @@ class PagesAccess extends Wire {
 	public function __construct($item = null) {
 		parent::__construct();
 		if(!$item) return;
+		if($item instanceof Wire) $item->wire($this);
 		if($item instanceof Page) {
 			$this->updatePage($item);
 		} else if($item instanceof Template) {
@@ -86,7 +91,7 @@ class PagesAccess extends Wire {
 			$doDeletions = false;
 		}
 
-		// no access template supplied (likely because of blank call to rebuild()
+		// no access template supplied likely because of blank call to rebuild()
 		// so we determine it automatically
 		if(!$accessTemplateID) {
 			$parent = $this->pages->get($parent_id);
@@ -114,7 +119,7 @@ class PagesAccess extends Wire {
 			list($id, $templates_id, $numChildren) = $row;
 
 			if(isset($accessTemplates[$templates_id])) {
-				// this page is defining access with it's template
+				// this page is defining access with its template
 				// if there are children, rebuild those children with this template for access
 				if($numChildren) $this->rebuild($id, $templates_id, $doDeletions);
 			} else {
@@ -152,36 +157,34 @@ class PagesAccess extends Wire {
 			$query = $database->prepare($sql);
 			$query->execute();
 		}
-
-
 	}
 
 	/**
 	 * Update the pages_access table for the given Template
 	 *
-	 * To be called when a template's 'useRoles' property has changed. 
+	 * To be called when a `$template->useRoles` property has changed. 
 	 * 
 	 * @param Template $template
 	 *
 	 */
-	public function updateTemplate(Template $template) {
+	public function ___updateTemplate(Template $template) {
 		$this->rebuild();
 	}
 
 	/**
-	 * Save to pages_access table to indicate what template each page is getting it's access from
+	 * Save to pages_access table to indicate what template each page is getting its access from
 	 *
-	 * This should be called a page has been saved and it's parent or template has changed. 
+	 * This should be called when a page has been saved and its parent or template has changed. 
  	 * Or, when a new page is added. 
 	 *
-	 * If there is no entry in this table, then the page is getting it's access from it's existing template. 
+	 * If there is no entry in this table, then the page is getting its access from its existing template. 
 	 *
 	 * This is used by PageFinder to determine what pages to include in a find() operation based on user access.
 	 *
 	 * @param Page $page
 	 *
 	 */
-	public function updatePage(Page $page) {
+	public function ___updatePage(Page $page) {
 
 		$page_id = (int) $page->id; 
 		if(!$page_id) return;
@@ -212,16 +215,15 @@ class PagesAccess extends Wire {
 		if($page->numChildren > 0) { 
 
 			if($page->parentPrevious && $accessParent->id != $page->id) {
-				// the page has children, it's parent was changed, and access is coming from the parent
+				// the page has children, its parent was changed, and access is coming from the parent
 				// so the children entries need to be updated to reflect this change
 				$this->rebuild($page->id, $accessTemplate->id); 
 
 			} else if($page->templatePrevious) {
-				// the page's template changed, so this may affect the children as well
+				// the page template changed, so this may affect the children as well
 				$this->rebuild($page->id, $accessTemplate->id); 
 			}
 		}
-
 	}
 
 	/**
@@ -262,6 +264,4 @@ class PagesAccess extends Wire {
 		$this->getTemplates();
 		return $this->_accessTemplates;
 	}
-
-
 }

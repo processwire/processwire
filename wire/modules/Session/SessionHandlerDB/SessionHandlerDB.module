@@ -5,7 +5,7 @@
  *
  * @see /wire/core/SessionHandler.php
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int|bool $useIP Track IP address?
@@ -219,14 +219,23 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 * Garbage collection: remove stale sessions
 	 *
 	 * @param int $seconds Max lifetime of a session
-	 * @return bool True on success, false on failure
+	 * @return false|int Number of sessions deleted or false on failure
 	 *
 	 */
 	public function gc($seconds) {
 		$table = self::dbTableName; 
 		$seconds = (int) $seconds; 
 		$sql = "DELETE FROM `$table` WHERE ts < DATE_SUB(NOW(), INTERVAL $seconds SECOND)";
-		return $this->database->exec($sql) !== false;
+		try {
+			$query = $this->database->prepare($sql);
+			$query->execute();
+			$n = (int) $query->rowCount();
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			$this->trackException($e); 
+			$n = false;
+		}
+		return $n; 
 	}
 
 	/**
@@ -277,7 +286,9 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 
 		// check if their DB table is the latest version
 		$query = $this->database->query("SHOW COLUMNS FROM " . self::dbTableName . " WHERE field='ip'"); 
-		if(!$query->rowCount()) {
+		$rowCount = $query->rowCount();
+		$query->closeCursor();
+		if(!$rowCount) {
 			$modules->error("DB format changed - You must uninstall this module and re-install before configuring."); 
 			return $form;
 		}
@@ -292,7 +303,8 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$f->label = $this->_('Track IP addresses in session data?');
 		$f->description = $description;
 		$form->add($f);
-
+		
+		/** @var InputfieldCheckbox $f */
 		$f = $modules->get('InputfieldCheckbox'); 
 		$f->attr('name', 'useUA'); 
 		$f->attr('value', 1);
@@ -301,7 +313,8 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$f->notes = $this->_('The user agent typically contains information about the browser being used.');
 		$f->description = $description;
 		$form->add($f);
-
+		
+		/** @var InputfieldCheckbox $f */
 		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'noPS');
 		$f->attr('value', 1);
@@ -377,6 +390,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$sql = "SELECT COUNT(*) FROM " . self::dbTableName . " WHERE ts > DATE_SUB(NOW(), INTERVAL $seconds SECOND)";
 		$query = $this->database->query($sql);
 		$numSessions = (int) $query->fetchColumn();
+		$query->closeCursor();
 		return $numSessions; 
 	}
 
@@ -410,6 +424,8 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 			$sessions[] = $row; 
 		}
 		
+		$query->closeCursor();
+		
 		return $sessions; 
 	}
 
@@ -428,12 +444,16 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$query = $this->database->prepare($sql);
 		$query->bindValue(':id', $sessionID); 
 		$this->database->execute($query);
-		if(!$query->rowCount()) return array();
-		$row = $query->fetch(\PDO::FETCH_ASSOC) ;
-		$sess = $_SESSION; // save
-		session_decode($row['data']); 
-		$row['data'] = $_SESSION; 
-		$_SESSION = $sess; // restore
+		if($query->rowCount()) {
+			$row = $query->fetch(\PDO::FETCH_ASSOC);
+			$sess = $_SESSION; // save
+			session_decode($row['data']);
+			$row['data'] = $_SESSION;
+			$_SESSION = $sess; // restore
+		} else {
+			$row = [];
+		}
+		$query->closeCursor();
 		return $row; 
 	}
 

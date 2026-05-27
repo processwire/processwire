@@ -150,7 +150,7 @@ InputfieldWrapper::setClasses($classes);
 $markup = InputfieldWrapper::getMarkup();
 $markup['list'] = "<ul {attrs} uk-grid uk-height-match='target: > .Inputfield:not(.InputfieldStateCollapsed) > .InputfieldContent'>{out}</ul>";
 $markup['item_label'] = "<label class='InputfieldHeader uk-form-label' for='{for}'>{out}</label>";
-$markup['item_label_hidden'] = "<label class='InputfieldHeader InputfieldHeaderHidden'><span>{out}</span></label>";
+$markup['item_label_hidden'] = "<label class='InputfieldHeader InputfieldHeaderHidden' for='{for}'><span>{out}</span></label>";
 $markup['item_content'] = "<div class='InputfieldContent uk-form-controls'>{out}</div>";
 InputfieldWrapper::setMarkup($markup);
 
@@ -161,4 +161,3 @@ if($adminTheme->ukGrid) {
 } else {
 	$config->InputfieldWrapper('useColumnWidth', 2); // 2=use both style='width:%' and data-colwidth attributes
 }
-

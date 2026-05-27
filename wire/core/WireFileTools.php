@@ -890,51 +890,144 @@ class WireFileTools extends Wire {
 	 * 
 	 * #pw-group-archives
 	 *
-	 * @param string $file ZIP file to extract
-	 * @param string $dst Directory where files should be unzipped into. Directory is created if it doesn't exist.
+	 * @param string $zipFile ZIP file to extract
+	 * @param string $destinationPath Directory where files should be unzipped into. Directory is created if it doesn't exist.
+	 * @param array $options Options to modify default behavior (3.0.254+):
+	 *  - `extractFiles` (array): Filenames or regex patterns for files to extract, ignoring all others. (default=[])
+	 *  - `extractExtensions` (array): Only extract these file extensions, ignoring all others. (default=[])
+	 *  - `ignoreFiles` (array): Basenames or regex patterns matching basenames to skip/ignore (default=[ '.DS_Store', '__MACOSX' ])
+	 *  - `ignoreExtensions` (array): Extensions to skip/ignore for files in the ZIP (default=[ 'zip' ])
+	 *  - `minFiles` (int): Minimum number files that must be present inside the ZIP for it to be valid. (default=1)
+	 *  - `maxFiles` (int): Maximum number of files allowed in ZIP (default=1000)
+	 *  - `maxDepth` (int): $maxDepth Maximum allowed folder/directory depth in ZIP (default=8)
+	 *  - `maxFileMegabytes` (int): Maximum allowed uncompressed size of any individual file in ZIP, in MB. (default=20)
+	 *  - `maxTotalMegabytes` (int): Maximum allowed total uncompressed size of all files in ZIP, in MB. (default=100)
+	 *  - `maxErrors` (int): Maximum number of errors to report (default=10)
+	 *  - `requireFiles` (array): File names or regex patterns that must be present in at least one file for ZIP to be valid. 
+	 *     For example `!\.json$!` would require that a `.json` file is present in the ZIP. default=[]
+	 *  - `fatalFiles` (array): Strings or regex patterns that when matched, cause entire ZIP to fail validation.
+	 *     If not given a regex, it matches any part of the filename. (default=[])
+	 *  - `maxCompRatio` (int): Max allowed compression ratio or 0 to ignore (default=0)
+	 *  - `test` (bool|string): Do not actually unzip but return the filenames that would be unzipped.
+	 *     Specify 'verbose' rather than true to return verbose array of info instead of filenames. (default=false)
+	 *  - For the `extractFiles`, `ignoreFiles`, `requireFiles` and `fatalFiles` options, You can optionally specify 
+	 *    a regex pattern by using a `!` as your regex starting and ending delimiter.
 	 * @return array Returns an array of filenames (excluding $dst) that were unzipped.
 	 * @throws WireException All error conditions result in WireException being thrown.
 	 * @see WireFileTools::zip()
 	 *
 	 */
-	public function unzip($file, $dst) {
-
-		$dst = rtrim($dst, '/' . DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-
-		if(!class_exists('\ZipArchive')) $this->filesException(__FUNCTION__, "PHP's ZipArchive class does not exist");
-		if(!is_file($file)) $this->filesException(__FUNCTION__, "ZIP file does not exist");
-		if(!is_dir($dst)) $this->mkdir($dst, true);
-
-		$names = array();
+	public function unzip($zipFile, $destinationPath, array $options = []) {
+		
+		$defaults = [
+			'extractFiles' => [], 
+			'extractExtensions' => [], 
+			'ignoreFiles' => [ '.DS_Store', '__MACOSX' ], 
+			'ignoreExtensions' => [ 'zip' ],
+			'minFiles' => 1, 
+			'maxFiles' => 1000,
+			'maxDepth' => 8, 
+			'maxFileMegabytes' => 20, 
+			'maxTotalMegabytes' => 100, 
+			'maxErrors' => 10, 
+			'requireFiles' => [], 
+			'fatalFiles' => [],
+			'maxCompRatio' => 0, 
+			'test' => false, 
+		];
+		
+		$options = array_merge($defaults, $options);
+	
+		// remove any options that match the defaults so that FileValidatorZip settings
+		// do not get overwritten by our defaults here
+		foreach($options as $key => $value) {
+			if($value === $defaults[$key] && $key !== 'test') unset($options[$key]); 
+		}
+		
+		$destinationPath = rtrim($destinationPath, '/' . DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+		$filenames = [];
 		$chmodFile = $this->wire()->config->chmodFile;
 		$chmodDir = $this->wire()->config->chmodDir;
+		$validator = $this->wire()->modules->get('FileValidatorZip'); /** @var FileValidatorZip $validator */
+		$test = $options['test'];
+		$verbose = $test === 'verbose';
+		$results = [ 'errors' => [], 'skip' => [], 'extract' => [] ];
 
+		if(!$validator) $this->filesException(__FUNCTION__,
+			'FileValidatorZip module must be installed to unzip (Modules > Core > File)'
+		);
+		
+		if(!is_file($zipFile)) $this->filesException(__FUNCTION__, "ZIP file does not exist");
+		if(!is_dir($destinationPath) && !$test) $this->mkdir($destinationPath, true);
+		
 		$zip = new \ZipArchive();
-		$res = $zip->open($file);
-		if($res !== true) $this->filesException(__FUNCTION__, "Unable to open ZIP file, error code: $res");
+		$result = $zip->open($zipFile);
+		
+		if($result !== true) {
+			$this->filesException(__FUNCTION__, "Unable to open ZIP file, error code: $result");
+		}
 
-		for($i = 0; $i < $zip->numFiles; $i++) {
-			$name = $zip->getNameIndex($i);
-			if(strpos($name, '..') !== false) continue;
-			if($zip->extractTo($dst, $name)) {
-				$names[$i] = $name;
-				$filename = $dst . ltrim($name, '/');
-				if(is_dir($filename)) {
-					if($chmodDir) chmod($filename, octdec($chmodDir));
-				} else if(is_file($filename)) {
-					if($chmodFile) chmod($filename, octdec($chmodFile));
+		$validator->setArray($options);
+		$validator->setZipArchive($zip);
+		$validator->setVerbose($verbose);
+
+		if(!$validator->isValid($zipFile)) {
+			$zip->close();
+			if($verbose) {
+				$results['errors'] = $validator->errors('array clear');
+				return $results;
+			} else {
+				$this->filesException(__FUNCTION__, $validator->errors('string clear'));
+			}
+		}
+
+		for($i = 0; $i < $zip->count(); $i++) {
+			
+			$filename = $zip->getNameIndex($i);
+			$pathname = $destinationPath . ltrim($filename, '/');
+			$allow = $validator->isValidFilename($filename, $options);
+			
+			if($verbose) {
+				if($allow) {
+					$results['extract'][] = $filename;
+				} else {
+					$reason = $validator->getLastReason();
+					$results['skip'][] = [ 'file' => $filename, 'reason' => $reason ];
 				}
+			}
+			
+			if(!$allow) continue;	
+			
+			if(!$test && !$zip->extractTo($destinationPath, $filename)) {
+				if($verbose) $results['skip'][] = [ 'file' => $filename, 'reason' => 'Failed to extract file' ];
+				continue;
+			}
+			
+			$filenames[$i] = $filename;
+			
+			if($test) continue;
+			
+			if(is_dir($pathname)) {
+				if($chmodDir) chmod($pathname, octdec($chmodDir));
+			} else if(is_file($pathname)) {
+				if($chmodFile) chmod($pathname, octdec($chmodFile));
 			}
 		}
 
 		$zip->close();
+		
+		if($verbose) return $results;
+		
+		if(!count($filenames)) {
+			$this->filesException(__FUNCTION__, "No files to extract in ZIP");
+		}
 
-		return $names;
+		return $filenames;
 	}
-
+	
 	/**
 	 * Creates a ZIP file
-	 * 
+	 *
 	 * ~~~~~
 	 * // Create zip of all files in directory $dir to file $zip
 	 * $dir = $config->paths->cache . "my-files/"; 

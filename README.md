@@ -40,7 +40,7 @@ development branch.
 ProcessWire is a timeless tool for web professionals that has always been 
 committed to the long term. It started in 2003, gained the name ProcessWire
 in 2006, and has been in active development as an open source project since 2010. 
-Now more than a decade later (2025), we’re just getting started, as ProcessWire 
+Now more than a decade later (2026), we’re just getting started, as ProcessWire 
 continues to grow and develop into the next 10 years and beyond. 
 
 While ProcessWire has been around for a long time, don’t feel bad if you haven’t 
@@ -114,6 +114,10 @@ When upgrading from one 3.x version to another, please use the
 This consists primarily of making sure you've got everything backed up and then just 
 replacing your `/wire/` directory with the one from the newer version.
 
+### Version-specific upgrade notes
+
+- If using PHP 8.4+, you might want to replace your /index.php file with a copy from the new version to avoid an unnecessary PHP notification in debug mode. 
+
 - If you are upgrading from a 3.x version prior to 3.0.135 then please also follow 
   [these instructions](https://processwire.com/docs/start/install/upgrade/from-3.x/). 
 
@@ -177,4 +181,4 @@ resolved any issues.
 
 ------
 
-Copyright 2025 by Ryan Cramer / Ryan Cramer Design, LLC
+Copyright 2026 by Ryan Cramer / Ryan Cramer Design, LLC

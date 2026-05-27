@@ -15,7 +15,6 @@
  * https://processwire.com
  * 
  * @method WireArray and($item)
- * @method static WireArray new($items = array()) 
  * @property int $count Number of items
  * @property Wire|null $first First item
  * @property Wire|null $last Last item
@@ -607,7 +606,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		}
 
 		// check if the index is set and return it if so
-		if(isset($this->data[$key])) return $this->data[$key];
+		if($key !== null && isset($this->data[$key])) return $this->data[$key];
 
 		// check if key contains something other than numbers, letters, underscores, hyphens
 		if(is_string($key)) { 
@@ -786,7 +785,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			return $this->findOne($key) ? true : false;
 		}
 
-		if(array_key_exists($key, $this->data)) return true; 
+		if($key !== null && array_key_exists($key, $this->data)) return true; 
 
 		$match = null;
 		if(is_string($key)) {
@@ -1250,6 +1249,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if($obj) {
 			$key = $this->getItemKey($key); 
 		}
+		
+		if($key === null) return $this;
 
 		if(array_key_exists($key, $this->data)) {
 			$item = $this->data[$key];
@@ -1653,9 +1654,11 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 						if(is_array($v)) $v = implode(' ', $this->wire()->sanitizer->flatArray($v));
 						$value[] = (string) $v;
 					}
-				} else {
+				} else if($item instanceof Wire) {
 					$value = $this->getItemPropertyValue($item, $selector->field);
 					$value = is_array($value) ? $this->wire()->sanitizer->flatArray($value) : (string) $value;
+				} else {
+					$value = $item; // integer, string, etc. (non-Wire object)
 				}
 				if($not === $selector->matches($value) && isset($this->data[$key])) {
 					$qtyMatch++;

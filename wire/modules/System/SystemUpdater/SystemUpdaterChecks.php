@@ -471,7 +471,7 @@ class SystemUpdaterChecks extends Wire {
 			$elapsedStr = $this->wire()->datetime->elapsedTimeStr($time1, $time2);
 		}
 		
-		if($diff < 3) return true;
+		if($diff < (15 * 60)) return true;
 		
 		$this->warning(
 			sprintf($this->_('Warning, the database time differs from PHP time by %s.'), $elapsedStr) . "<br /><br />" . 

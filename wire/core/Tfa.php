@@ -599,6 +599,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$f->attr('name', 'tfa_code');
 		$f->label = $this->inputLabel; // Authentication code
 		$f->attr('required', 'required');
+		$f->attr('autocomplete', 'one-time-code');
 		$f->collapsed = Inputfield::collapsedNever;
 		$form->add($f);
 		

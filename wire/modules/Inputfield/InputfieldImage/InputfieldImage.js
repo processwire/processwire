@@ -1663,6 +1663,8 @@ function InputfieldImage($) {
 			}
 			
 			postUrl += (postUrl.indexOf('?') > -1 ? '&' : '?') + 'InputfieldFileAjax=1';
+			var $f = $('#Inputfield_id');
+			if($f.length) postUrl += '&eid=' + $f.val();
 			
 			if(fieldName.indexOf('[') > -1) fieldName = fieldName.slice(0,-2); // trim trailing []
 

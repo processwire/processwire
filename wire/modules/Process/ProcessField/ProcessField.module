@@ -803,7 +803,10 @@ class ProcessField extends Process implements ConfigurableModule {
 		$this->breadcrumb('./', $this->moduleInfo['title']);
 		
 		if($this->field->id) {
-			$headline = sprintf($this->_x('Edit Field: %s', 'edit headline'), $this->field->name); // Headline when editing a field
+			$fieldName = $this->field->name;
+			$icon = $this->field->icon;
+			if($icon) $fieldName = "<icon-$icon> $fieldName";
+			$headline = sprintf($this->_x('Edit Field: %s', 'edit headline'), $fieldName); // Headline when editing a field
 		} else {
 			$headline = $this->_x('Add New Field', 'add headline'); // Headline when adding a field
 		}
@@ -867,18 +870,38 @@ class ProcessField extends Process implements ConfigurableModule {
 	protected function buildEditFormAlert() {
 		
 		$modules = $this->wire()->modules;
+		$languages = $this->wire()->languages;
 
 		$this->field->type->getDatabaseSchema($this->field); // may add to trackGets, so we include it (i.e. FieldtypeFile and fileSchema)
 		$gets = $this->field->trackGets();
 		$xkeys = array();
 		$numRows = 0; 
 		$checkLabel = $this->_('Check field reported:') . ' ';
+		$languageIds = [];
+		
+		if($languages) {
+			foreach($languages as $language) {
+				if(!$language->isDefault()) $languageIds[$language->id] = $language->id;
+			}
+		}
 		
 		if(is_array($gets)) {
 			foreach($this->field->data as $key => $value) {
 				if(in_array($key, $gets)) continue;
 				if($this->form->getChildByName($key)) continue; // confirm there isn't a field with the name
 				if($key === '_lazy') continue;
+				
+				if(count($languageIds) && ctype_digit(substr($key, -4))) {
+					// skip multi-language field that maps to an active language and property
+					if(preg_match('/^(.+)(' . implode('|', $languageIds) . ')$/', $key, $matches)) {
+						$property = $matches[1];
+						$languageId = (int) $matches[2];
+						if(isset($languageIds[$languageId]) && $this->field->get($property) !== null) {
+							// multi-language property that also has a corresponding default-language property
+							continue;
+						}
+					}
+				}
 				$xkeys[] = $key;
 			}
 		}
@@ -1692,7 +1715,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	protected function buildEditFormTypeSelect() {
 		
 		$modules = $this->wire()->modules;
-		$languages = $this->wire()->langauges;
+		$languages = $this->wire()->languages;
 		$fields = $this->wire()->fields;
 		$config = $this->wire()->config;
 		$isNew = !$this->field || !$this->field->id;
@@ -3263,7 +3286,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function search($text, array $options = array()) {
 
-		$languages = $this->wire()->langauges;
+		$languages = $this->wire()->languages;
 		$page = $this->getProcessPage();
 
 		$result = array(

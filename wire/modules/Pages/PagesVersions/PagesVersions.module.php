@@ -425,7 +425,7 @@ class PagesVersions extends Wire implements Module {
 	 * 
 	 */
 	public function hasPageVersions(Page $page) {
-		$database = $this->wire()->database();
+		$database = $this->wire()->database;
 		$table = self::versionsTable;
 		$sql = "SELECT COUNT(*) FROM $table WHERE pages_id=:pages_id";
 		$query = $database->prepare($sql);

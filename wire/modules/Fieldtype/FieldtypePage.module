@@ -5,10 +5,6 @@
  *
  * Field that stories references to one or more ProcessWire pages. 
  *
- * For documentation about the fields used in this class, please see:  
- * /wire/core/Fieldtype.php
- * /wire/core/FieldtypeMulti.php
- * 
  * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
  * https://processwire.com
  *
@@ -150,7 +146,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public function ___getFieldSetups() {
 		$setups = parent::___getFieldSetups();
 		/** @var InputfieldPage $f */
-		$f = $this->wire()->modules->getModule('InputfieldPage', array('noInit' => true)); 
+		$f = $this->wire()->modules->getModule('InputfieldPage');
 		return array_merge($setups, $f->getFieldSetups());
 	}
 
@@ -260,6 +256,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$value = (string) $value;
 		if(strpos($value, '|') !== false) {
 			$value = explode('|', $value);
+		} else if(strrpos($value, FieldtypeMulti::multiValueSeparator)) {
+			$value = explode(FieldtypeMulti::multiValueSeparator, $value);
 		} else if(strpos($value, ',') !== false) {
 			$value = explode(',', $value);
 		} else if(ctype_digit($value)) {

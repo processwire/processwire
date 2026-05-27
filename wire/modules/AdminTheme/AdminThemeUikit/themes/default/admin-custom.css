@@ -1,0 +1,184 @@
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 400;
+	src: url("./fonts/Inter-Regular.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: italic;
+	font-weight: 400;
+	src: url("./fonts/Inter-Italic.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 600;
+	src: url("./fonts/Inter-SemiBold.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+@font-face {
+	font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+	font-family: "Inter";
+	font-style: italic;
+	font-weight: 600;
+	src: url("./fonts/Inter-SemiBoldItalic.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- DEFAULT THEME VARIABLES (LIGHT and DARK) --------------------- */
+/* ---- (keep active while uncommenting the others to test) --------- */
+/* ----------------------------------------------------------------- */
+
+:root {
+	color-scheme: light dark;
+
+	--pw-main-color: #eb1d61;
+
+	--pw-text-color: light-dark(#111, white);
+	--pw-muted-color: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));
+	--pw-border-color: light-dark(rgba(0, 0, 0, 0.16), #444);
+	--pw-main-background:light-dark(#eee, #222);
+	--pw-inputs-background:light-dark(#f8f8f8, #161616);
+	--pw-blocks-background: light-dark(white, black);
+
+	--pw-button-background: light-dark(var(--pw-text-color), var(--pw-main-color));
+	--pw-button-color: light-dark(var(--pw-blocks-background), var(--pw-text-color));
+	--pw-button-border: transparent;
+	--pw-button-muted-background: light-dark(#737373, #404040);
+	--pw-button-muted-color: light-dark(var(--pw-blocks-background), var(--pw-text-color));;
+	--pw-button-muted-border: transparent;
+	--pw-button-hover-background: light-dark(var(--pw-main-color), var(--pw-text-color));
+	--pw-button-hover-color: var(--pw-blocks-background);
+	--pw-button-hover-border: transparent;
+	--pw-menu-item-background-hover: var(--pw-main-background);
+
+	--pw-masthead-background: var(--pw-blocks-background);
+	--pw-masthead-active-color: var(--pw-text-color);
+	--pw-masthead-text-color: var(--pw-muted-color);
+	--pw-masthead-border-color: var(--pw-border-color);
+	--pw-masthead-logo-color: var(--pw-main-color);
+	--pw-masthead-menu-item-background-hover: var(--pw-menu-item-background-hover);
+
+	--pw-masthead-input-background: var(--pw-inputs-background);
+	--pw-masthead-input-color: var(--pw-text-color);
+	--pw-masthead-input-border: var(--pw-border-color);
+
+	--pw-modal-color: rgba(0,0,0,0.7);
+
+	--pw-error-inline-text-color: light-dark(#cd0a0a, #ff7171);
+
+	--pw-code-color: light-dark(#0173b0, #e7e695);
+	--pw-code-background: light-dark(var(--pw-inputs-background), #3c3c3c5e);
+
+	--pw-alert-text-color: var(--pw-text-color);
+	--pw-alert-primary: var(--pw-main-background);
+	--pw-alert-warning: light-dark(#fff0be, #d57f00);
+	--pw-alert-success: light-dark(#c1e7cd, #139472);
+	--pw-alert-danger: light-dark(#fee6e6, #8a1919);
+	--pw-notes-background: light-dark(#ffd, #bdbdbd33);
+
+	--pw-button-radius: 99999px;
+	--pw-input-radius: 0;
+
+}
+
+@media (prefers-color-scheme: dark) {
+	* {
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+}
+
+body.light-theme,
+html:has(body.light-theme) {
+	color-scheme: light;
+}
+
+body.dark-theme,
+html:has(body.dark-theme) {
+	color-scheme: dark;
+}
+
+body.dark-theme * {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body.main-color-red {
+	--main-color: #eb1d61;
+}
+
+body.main-color-green {
+	--main-color: #14ae85;
+}
+
+body.main-color-blue {
+	--main-color: #2380e6;
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- THEME WITH COLOR MASTHEAD VARIABLES -------------------------- */
+/* ---- (these depend on the default theme variables) --------------- */
+/* ----------------------------------------------------------------- */
+/*
+:root {
+    --pw-masthead-background: var(--pw-main-color);
+    --pw-masthead-active-color: white;
+    --pw-masthead-text-color: rgba(255,255,255,0.8);
+    --pw-masthead-border-color: var(--pw-main-background);
+    --pw-masthead-logo-color: white;
+    --pw-masthead-input-background: var(--pw-masthead-background);
+    --pw-masthead-input-color: var(--pw-masthead-active-color);
+    --pw-masthead-input-border: var(--pw-masthead-text-color);
+    --pw-masthead-menu-item-background-hover: rgba(255,255,255,.2);
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- BORDERLESS --------------------------------------------------- */
+/* ------------------------------------------------------------------ */
+/*
+:root {
+  --pw-border-color: var(--pw-main-background);
+  --pw-inputs-background: var(--pw-blocks-background);
+}
+
+/* -------------------------------------------------------------------- */
+/* ---- MINIMAL LIGHT BLUE AND MINIMAL DARK VARIABLES ---------------- */
+/* ------------------------------------------------------------------ */
+/*
+:root {
+  --pw-text-color: light-dark(blue, white);
+  --pw-main-color: var(--pw-text-color);
+  --pw-main-background:light-dark(white, #222);
+  --pw-border-color: light-dark(var(--pw-text-color), var(--pw-text-color));
+  --pw-text-background: var(--pw-main-background);
+  --pw-inputs-background: var(--pw-text-background);
+  --pw-blocks-background: var(--pw-text-background);
+  --pw-muted-color: light-dark(#7c8efd, #8b8b8b);
+
+  --pw-button-background: var(--pw-text-background);
+  --pw-button-color: light-dark(var(--pw-text-color), var(--pw-text-color));
+  --pw-button-muted-color: var(--pw-muted-color);
+  --pw-button-border: var(--pw-button-color);
+  --pw-button-muted-background: var(--pw-button-background);
+  --pw-button-muted-border: var(--pw-button-muted-color);
+  --pw-button-hover-background: var(--pw-button-color);
+  --pw-button-hover-color: var(--pw-button-background);
+  --pw-button-hover-border: var(--pw-button-color);
+
+  --pw-masthead-background: var(--pw-text-background);
+  --pw-masthead-active-color: light-dark(var(--pw-text-color), var(--pw-text-color));
+  --pw-masthead-text-color: var(--pw-masthead-active-color);
+  --pw-masthead-border-color: var(--pw-masthead-active-color);
+  --pw-masthead-logo-color: var(--pw-masthead-active-color);
+
+  --pw-alert-text-color: var(--pw-text-color);
+  --pw-alert-primary: light-dark(#ffd, var(--pw-text-background));
+  --pw-alert-warning: light-dark(#fcda6d, #d57f00);
+  --pw-alert-success: light-dark(#97ecb2, #139472);
+  --pw-alert-danger: light-dark(#ec9797, #8a1919);
+  --pw-notes-background: light-dark(#ffd, #bdbdbd33);
+}

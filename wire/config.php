@@ -183,9 +183,12 @@ $config->useFunctionsAPI = false;
  *
  * When enabled, HTML elements with an "id" attribute that are output before the opening 
  * `<!doctype>` or `<html>` tag can replace elements in the document that have the same id. 
- * Also supports append, prepend, replace, remove, before and after options. 
+ * Also supports append, prepend, replace, remove, before and after options. For more 
+ * details see [Markup Regions](https://processwire.com/docs/front-end/output/markup-regions/).
+ * 
+ * Specify true to enable, or integer 2 to enable also with file regions. 
  *
- * @var bool
+ * @var bool|int
  *
  */
 $config->useMarkupRegions = false;
@@ -396,7 +399,9 @@ $config->sessionChallenge = true;
  * Predefined settings:
  * 
  * - 0 or false: Fingerprint off
- * - 1 or true: Fingerprint on with default setting (remote IP & useragent)
+ * - 1 or true: Fingerprint on with system default settings
+ *   (Useragent for installations after Oct 31 2025 at 5pm)
+ *   (Useragent + Remote IP for existing installations)
  * 
  * Custom settings:
  * 
@@ -1585,7 +1590,15 @@ $config->markupQA = array(
  * Additional core logs
  * 
  * All activities from the API functions corresponding with the given log names will be logged. 
- * Options that can be specified are: pages, fields, templates, modules, exceptions, deprecated.
+ * Options that can be specified are: 
+ * 
+ * - pages
+ * - fields
+ * - templates
+ * - modules
+ * - exceptions
+ * - deprecated
+ * - http404 (3.0.255+)
  * 
  * Use log "deprecated" to log deprecated calls (during development only).
  * 
@@ -1648,6 +1661,9 @@ $config->adminEmail = '';
  * #property bool compress Compress compiled CSS?
  * #property array customLessFiles Custom .less files to include, relative to PW installation root.
  * #property string customCssFile Target custom .css file to compile custom .less file(s) to. 
+ * #property bool noDarkMode If theme supports a dark mode, specify true to disable it as an option.
+ * #property bool noTogcbx If theme supports toggle style checkboxes, disable them. 
+ * #property string themeName Name of AdminThemeUikit theme to use when one not yet selected (original, default, auto)
  * 
  */
 $config->AdminThemeUikit = array(
@@ -1656,6 +1672,9 @@ $config->AdminThemeUikit = array(
 	'compress' => true, 
 	'customLessFiles' => array('/site/templates/admin.less'), 
 	'customCssFile' => '/site/assets/admin.css',
+	'noDarkMode' => false, 
+	'noTogcbx' => false,
+	'themeName' => 'auto', 
 );
 
 /**
@@ -1742,9 +1761,9 @@ $config->preloadCacheNames = array(
 /**
  * Allow Exceptions to propagate?
  * 
- * When true, ProcessWire will not capture Exceptions and will instead let them fall
+ * When true, ProcessWire will not capture Throwables and will instead let them fall
  * through in their original state. Use only if you are running ProcessWire with your
- * own Exception handler. Most installations should leave this at false.
+ * own Exception/Error handler. Most installations should leave this at false.
  * 
  * @var bool
  * 

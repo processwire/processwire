@@ -3,9 +3,15 @@
 /**
  * ProcessWire Pages Loader
  * 
- * Implements page finding/loading methods of the $pages API variable
+ * #pw-headline Pages Loader
+ * #pw-var $pages->loader
+ * #pw-breadcrumb Pages
+ * #pw-summary Implements page finding/loading methods for the $pages API variable.
+ * #pw-body =
+ * Please always use `$pages->method()` rather than `$pages->loader->method()` in cases where there is overlap.
+ * #pw-body
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -96,6 +102,8 @@ class PagesLoader extends Wire {
 	 * Set whether loaded pages have their outputFormatting turned on or off
 	 *
 	 * By default, it is turned on.
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @param bool $outputFormatting
 	 *
@@ -106,6 +114,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get whether loaded pages have their outputFormatting turned on or off
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @return bool
 	 *
@@ -119,6 +129,8 @@ class PagesLoader extends Wire {
 	 *
 	 * Default should always be true, and you may use this to turn it off temporarily, but
 	 * you should remember to turn it back on
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @param bool $autojoin
 	 *
@@ -130,6 +142,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Get whether autojoin is enabled for page loading queries
 	 * 
+	 * #pw-group-settings
+	 * 
 	 * @return bool
 	 * 
 	 */
@@ -139,6 +153,10 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Normalize a selector string 
+	 * 
+	 * This is to reduce the number of unique selectors that produce the same result. 
+	 * It is helpful with caching results, so that we don't cache the same results multiple
+	 * times because they used slightly different selectors. 
 	 * 
 	 * @param string $selector
 	 * @param bool $convertIDs Normalize to integer ID or array of integer IDs when possible (default=true)
@@ -203,7 +221,11 @@ class PagesLoader extends Wire {
 	}
 	
 	/**
-	 * Normalize a selector 
+	 * Normalize a selector
+	 * 
+	 * This is to reduce the number of unique selectors that produce the same result.
+	 * It is helpful with caching results, so that we don't cache the same results multiple
+	 * times because they used slightly different selectors.
 	 * 
 	 * @param string|int|array $selector
 	 * @param bool $convertIDs Convert ID-only selectors to integers or arrays of integers?
@@ -291,8 +313,10 @@ class PagesLoader extends Wire {
 	/**
 	 * Given a Selector string, return the Page objects that match in a PageArray.
 	 *
-	 * Non-visible pages are excluded unless an include=hidden|unpublished|all mode is specified in the selector string,
-	 * or in the $options array. If 'all' mode is specified, then non-accessible pages (via access control) can also be included.
+	 * Non-visible pages are excluded unless an `include=hidden|unpublished|all` mode is specified in the selector string,
+	 * or in the `$options` array. If 'all' mode is specified, then non-accessible pages (via access control) can also be included.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|int|array|Selectors $selector Specify selector (standard usage), but can also accept page ID or array of page IDs.
 	 * @param array|string $options Optional one or more options that can modify certain behaviors. May be assoc array or key=value string.
@@ -456,6 +480,7 @@ class PagesLoader extends Wire {
 				}
 				$page = $this->pages->newPage($template);
 				$page->_lazy($id);
+				$page->of($this->outputFormatting);
 				$page->loaderCache = false;
 				$pages->add($page);
 			}
@@ -611,7 +636,9 @@ class PagesLoader extends Wire {
 	 * 
 	 * While this method combines what find() and getById() do in one query, there does not
 	 * appear to be any overhead benefit when the two strategies are dealing with identical
-	 * conditions, like the same autojoin fields. 
+	 * conditions, like the same autojoin fields.
+	 * 
+	 * #pw-group-retrieve
 	 * 
 	 * @param string|array|Selectors $selector
 	 * @param array $options
@@ -769,6 +796,8 @@ class PagesLoader extends Wire {
 	 * override this, where appropriate.
 	 * 
 	 * This method also accepts an `$options` array, whereas `Pages::get()` does not.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|int|array|Selectors $selector
 	 * @param array|string $options See $options for `Pages::find`
@@ -840,6 +869,8 @@ class PagesLoader extends Wire {
 	 * $items = $pages->findCache("title%=foo", 3600); // 1 hour
 	 * $items = $pages->findCache("title%=foo", "+1 HOUR");  // same as above
 	 * ~~~~~
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|array|Selectors $selector
 	 * @param int|string|bool|null $expire When the cache should expire, one of the following:
@@ -933,6 +964,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Returns the first page matching the given selector with no exclusions
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|int|array|Selectors $selector
 	 * @param array $options See Pages::find method for options
@@ -985,7 +1018,9 @@ class PagesLoader extends Wire {
 	 * - If you need to quickly check if something exists, this method is preferable to using a count() or get().
 	 *
 	 * When `$verbose` option is used, an array is returned instead. Verbose return array includes all columns
-	 * from the matching row in the pages table. 
+	 * from the matching row in the pages table.
+	 * 
+	 * #pw-group-retrieve
 	 * 
 	 * @param string|int|array|Selectors $selector
 	 * @param bool $verbose Return verbose array with all pages columns rather than just page id? (default=false)
@@ -1028,32 +1063,35 @@ class PagesLoader extends Wire {
 	 * Given an array or CSV string of Page IDs, return a PageArray
 	 *
 	 * Optionally specify an $options array rather than a template for argument 2. When present, the 'template' and 'parent_id' arguments may be provided
-	 * in the given $options array. These options may be specified:
+	 * in the given `$options` array. These options may be specified:
 	 *
 	 * LOAD OPTIONS (argument 2 array):
-	 * - cache: boolean, default=true. place loaded pages in memory cache?
-	 * - getFromCache: boolean, default=true. Allow use of previously cached pages in memory (rather than re-loading it from DB)?
-	 * - template: instance of Template (see $template argument)
-	 * - parent_id: integer (see $parent_id argument)
-	 * - getNumChildren: boolean, default=true. Specify false to disable retrieval and population of 'numChildren' Page property.
-	 * - getOne: boolean, default=false. Specify true to return just one Page object, rather than a PageArray.
-	 * - autojoin: boolean, default=true. Allow use of autojoin option?
-	 * - joinFields: array, default=empty. Autojoin the field names specified in this array, regardless of field settings (requires autojoin=true).
-	 * - joinSortfield: boolean, default=true. Whether the 'sortfield' property will be joined to the page.
-	 * - findTemplates: boolean, default=true. Determine which templates will be used (when no template specified) for more specific autojoins.
-	 * - pageClass: string, default=auto-detect. Class to instantiate Page objects with. Leave blank to determine from template.
-	 * - pageArrayClass: string, default=PageArray. PageArray-derived class to store pages in (when 'getOne' is false).
-	 * - pageArray: PageArray, default=null. Optional predefined PageArray to populate to. 
-	 * - page (Page|null): Existing Page object to populate (also requires the getOne option to be true). (default=null)
-	 * - caller (string): Name of calling function, for debugging purposes (default=blank).
+	 * 
+	 * - `cache` (bool): Place loaded pages in memory cache? (default=true)
+	 * - `getFromCache` (bool): Allow use of previously cached pages in memory (rather than re-loading it from DB)? (default=true)
+	 * - `template` (Template): See $template argument for details. (default=null)
+	 * - `parent_id` (int): See $parent_id argument for details (default=null)
+	 * - `getNumChildren` (bool): Specify false to disable retrieval and population of 'numChildren' Page property. (default=true)
+	 * - `getOne` (bool): Specify true to return just one Page object, rather than a PageArray. (default=false)
+	 * - `autojoin` (bool): Allow use of autojoin option? (default=true)
+	 * - `joinFields` (array): Autojoin the field names specified in this array, regardless of field settings, requires `autojoin=true`. (default=empty)
+	 * - `joinSortfield` (bool): Whether the 'sortfield' property will be joined to the page. (default=true)
+	 * - `findTemplates` (bool): Determine which templates will be used (when no template specified) for more specific autojoins. (default=true)
+	 * - `pageClass` (string): Class to instantiate Page objects with. Leave blank to determine from template. (default=auto-detect)
+	 * - `pageArrayClass` (string): PageArray-derived class to store pages in (when 'getOne' is false). (default=PageArray)
+	 * - `pageArray` (PageArray): Optional predefined PageArray to populate to (default=null)
+	 * - `page` (Page): Existing Page object to populate (also requires the getOne option to be true). (default=null)
+	 * - `caller` (string): Name of calling function, for debugging purposes (default=blank).
 	 *
-	 * Use the $options array for potential speed optimizations:
+	 * Use the `$options` array for potential speed optimizations:
 	 * - Specify a 'template' with your call, when possible, so that this method doesn't have to determine it separately.
 	 * - Specify false for 'getNumChildren' for potential speed optimization when you know for certain pages will not have children.
 	 * - Specify false for 'autojoin' for potential speed optimization in certain scenarios (can also be a bottleneck, so be sure to test).
 	 * - Specify false for 'joinSortfield' for potential speed optimization when you know the Page will not have children or won't need to know the order.
 	 * - Specify false for 'findTemplates' so this method doesn't have to look them up. Potential speed optimization if you have few autojoin fields globally.
 	 * - Note that if you specify false for 'findTemplates' the pageClass is assumed to be 'Page' unless you specify something different for the 'pageClass' option.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param array|WireArray|string|int $_ids Array of page IDs, comma or pipe-separated string of IDs, or single page ID (string or int)
 	 *  or in 3.0.156+ array of associative arrays where each in format: [ 'id' => 123, 'templates_id' => 456 ]
@@ -1326,7 +1364,6 @@ class PagesLoader extends Wire {
 			$_page = $options['getOne'] && $options['page'] instanceof Page ? $options['page'] : null;
 
 			try {
-				// while($page = $stmt->fetchObject($_class, array($template))) {
 				/** @noinspection PhpAssignmentInConditionInspection */
 				while($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
 					if($_page) {
@@ -1412,7 +1449,9 @@ class PagesLoader extends Wire {
 	 * Find page(s) by name
 	 * 
 	 * This method is optimized just for finding pages by name and it does
-	 * not perform any filtering or access checking. 
+	 * not perform any filtering or access checking.
+	 * 
+	 * #pw-group-retrieve
 	 * 
 	 * @param string $name Match this page name
 	 * @param array $options
@@ -1534,6 +1573,8 @@ class PagesLoader extends Wire {
 	 *    here just for cases where a path is needed without loading the page.
 	 * 4) It's possible for there to be Page::path() hooks, and this method completely bypasses them,
 	 *    which is another reason not to use it unless you know such hooks aren't applicable to you.
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param int|Page $id ID of the page you want the path to
 	 * @param null|array|Language|int|string $options Specify $options array or Language object, id or name. Allowed options:
@@ -1654,6 +1695,8 @@ class PagesLoader extends Wire {
 	
 	/**
 	 * Get a page by its path, similar to $pages->get('/path/to/page/') but with more options
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * Please note
 	 * ===========
@@ -1957,7 +2000,7 @@ class PagesLoader extends Wire {
 	 * $p1 === $p3; // false: same Page but different instance
 	 * ~~~~~
 	 *
-	 * #pw-advanced
+	 * #pw-group-retrieve
 	 *
 	 * @param Page|string|array|Selectors|int $selectorOrPage Specify Page to get copy of, selector or ID
 	 * @param array $options Options to modify behavior
@@ -1978,6 +2021,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Load total number of children from DB for given page
 	 * 
+	 * #pw-group-retrieve
+	 * 
 	 * @param int|Page $page Page or Page ID
 	 * @return int
 	 * @throws WireException
@@ -1997,6 +2042,8 @@ class PagesLoader extends Wire {
 	
 	/**
 	 * Count and return how many pages will match the given selector string
+	 * 
+	 * #pw-group-retrieve
 	 *
 	 * @param string|array|Selectors $selector Specify selector, or omit to retrieve a site-wide count.
 	 * @param array|string $options See $options in Pages::find
@@ -2048,6 +2095,8 @@ class PagesLoader extends Wire {
 	 * purposes using the `useFieldtypeMulti` $options argument. 
 	 * 
 	 * NOTE: This function is currently experimental, recommended for testing only.
+	 * 
+	 * #pw-group-preload
 	 * 
 	 * @param Page $page Page to preload fields for
 	 * @param array $fieldNames Names of fields to preload
@@ -2255,6 +2304,8 @@ class PagesLoader extends Wire {
 	 * 
 	 * NOTE: This function is currently experimental, recommended for testing only.
 	 * 
+	 * #pw-group-preload
+	 * 
 	 * @param Page $page Page to preload fields for
 	 * @param array $options 
 	 *  - `debug` (bool): Specify true to return array of debug info (default=false).
@@ -2391,6 +2442,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Returns an array of all columns native to the pages table
 	 * 
+	 * #pw-group-native
+	 * 
 	 * @return array of column names, also indexed by column name
 	 * 
 	 */
@@ -2410,6 +2463,9 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get value of of a native column in pages table for given page ID
+	 * 
+	 * #pw-group-retrieve
+	 * #pw-group-native
 	 *
 	 * @param int|Page $id Page ID
 	 * @param string $column
@@ -2435,6 +2491,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Is the given column name native to the pages table?
 	 * 
+	 * #pw-group-native
+	 * 
 	 * @param $columnName
 	 * @return bool
 	 * 
@@ -2446,6 +2504,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get or set debug state
+	 * 
+	 * #pw-group-debug
 	 * 
 	 * @param bool|null $debug
 	 * @return bool
@@ -2460,6 +2520,8 @@ class PagesLoader extends Wire {
 	/**
 	 * Return the total quantity of pages loaded by getById()
 	 * 
+	 * #pw-group-info
+	 * 
 	 * @return int
 	 * 
 	 */
@@ -2469,6 +2531,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Get last used instance of PageFinder (for debugging purposes)
+	 * 
+	 * #pw-group-debug
 	 * 
 	 * @return PageFinder|null
 	 * @since 3.0.146
@@ -2480,6 +2544,8 @@ class PagesLoader extends Wire {
 
 	/**
 	 * Are we currently loading pages?
+	 * 
+	 * #pw-group-info
 	 * 
 	 * @return bool
 	 * @since 3.0.195

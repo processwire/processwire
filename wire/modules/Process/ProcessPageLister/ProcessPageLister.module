@@ -1147,7 +1147,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			if(count($templates)) {
 				// user specified 1 or more templates
 				$numEditable = 0;
-				$testPage = $pages->newPage();
+				$testPage = $pages->newPage( [ 'template' => reset($templates) ] );
 				$testPage->id = 999; // required (any ID number works)
 				if($this->wire()->permissions->has('page-publish')) {
 					$testPage->addStatus(Page::statusUnpublished);
@@ -1447,6 +1447,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function buildListerTableCol(Page $p, array $fields, $name, $value = null) {
+		static $lastPageId = 0;
 		if($value) {} // ignore, used by ListerPro only
 
 		$sanitizer = $this->wire()->sanitizer;
@@ -1468,7 +1469,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if($name == 'config' || $subname == 'config') return 'Not allowed';
 		
 		reset($fields); 
-		$isFirstCol = key($fields) == $name; 
+		$isFirstCol = $p->id != $lastPageId; // key($fields) == $name; 
+		$lastPageId = $p->id;
 		
 		/** @var Field $field */
 		$field = isset($fields[$name]) ? $fields[$name] : $this->wire('fields')->get($name);

@@ -3,9 +3,16 @@
 /**
  * ProcessWire Pages Editor
  * 
- * Implements page manipulation methods of the $pages API variable
+ * #pw-headline Pages Editor
+ * #pw-var $pages->editor
+ * #pw-order-groups add,save,delete,info,order
+ * #pw-breadcrumb Pages
+ * #pw-summary Implements page editing and manipulation methods for the $pages API variable.
+ * #pw-body =
+ * Please always use `$pages->method()` rather than `$pages->editor->method()` in cases where there is overlap. 
+ * #pw-body
  *
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  */ 
@@ -47,6 +54,8 @@ class PagesEditor extends Wire {
 	/**
 	 * Are we currently in a page clone?
 	 * 
+	 * #pw-group-info
+	 * 
 	 * @param bool $getDepth Get depth (int) rather than state (bool)?
 	 * @return bool|int
 	 * 
@@ -59,6 +68,8 @@ class PagesEditor extends Wire {
 	 * Add a new page using the given template to the given parent
 	 *
 	 * If no name is specified one will be assigned based on the current timestamp.
+	 * 
+	 * #pw-group-add
 	 *
 	 * @param string|Template $template Template name or Template object
 	 * @param string|int|Page $parent Parent path, ID or Page object
@@ -139,6 +150,8 @@ class PagesEditor extends Wire {
 	
 	/**
 	 * Is the given page in a state where it can be saved from the API?
+	 * 
+	 * #pw-group-info
 	 *
 	 * @param Page $page
 	 * @param string $reason Text containing the reason why it can't be saved (assuming it's not saveable)
@@ -221,10 +234,12 @@ class PagesEditor extends Wire {
 	/**
 	 * Return whether given Page is moveable from $oldParent to $newParent
 	 * 
+	 * #pw-group-info
+	 * 
 	 * @param Page $page Page to move
 	 * @param Page $oldParent Current/old parent page
 	 * @param Page $newParent New requested parent page
-	 * @param string $reason Populated with reason why page is not moveable, if return false is false. 
+	 * @param string $reason Populated with reason why page is not moveable, if return value is false. 
 	 * @return bool
 	 * 
 	 */
@@ -294,7 +309,10 @@ class PagesEditor extends Wire {
 	/**
 	 * Is the given page deleteable from the API?
 	 *
-	 * Note: this does not account for user permission checking. It only checks if the page is in a state to be saveable via the API.
+	 * Note: this does not account for user permission checking.
+	 * It only checks if the page is in a state to be deleteable via the API.
+	 * 
+	 * #pw-group-info
 	 *
 	 * @param Page $page
 	 * @param bool $throw Throw WireException with additional details? 
@@ -333,6 +351,8 @@ class PagesEditor extends Wire {
 	 * - Sets up a unique page->name based on the format or title if one isn't provided already.
 	 * - Assigns a sort value.
 	 * - Populates any default values for fields. 
+	 * 
+	 * #pw-group-add
 	 *
 	 * @param Page $page
 	 * @throws \Exception|WireException|\PDOException if failure occurs while in DB transaction
@@ -388,12 +408,14 @@ class PagesEditor extends Wire {
 	}
 	
 	/**
-	 * Auto-assign a page name to this page
+	 * Auto-assign a page name to gven page
 	 *
 	 * Typically this would be used only if page had no name or if it had a temporary untitled name.
 	 *
 	 * Page will be populated with the name given. This method will not populate names to pages that
 	 * already have a name, unless the name is "untitled"
+	 * 
+	 * #pw-group-add
 	 *
 	 * @param Page $page
 	 * @param array $options
@@ -413,17 +435,19 @@ class PagesEditor extends Wire {
 	 * This is the same as calling $page->save()
 	 *
 	 * If you want to just save a particular field in a Page, use $page->save($fieldName) instead.
+	 * 
+	 * #pw-group-save
 	 *
-	 * @param Page $page
+	 * @param Page $page Page to save
 	 * @param array $options Optional array with the following optional elements:
-	 * 	- `uncacheAll` (boolean): Whether the memory cache should be cleared (default=true)
-	 * 	- `resetTrackChanges` (boolean): Whether the page's change tracking should be reset (default=true)
-	 * 	- `quiet` (boolean): When true, created/modified time+user will use values from $page rather than current user+time (default=false)
-	 *	- `adjustName` (boolean): Adjust page name to ensure it is unique within its parent (default=true)
+	 * 	- `uncacheAll` (bool): Whether the memory cache should be cleared (default=true)
+	 * 	- `resetTrackChanges` (bool): Whether the page's change tracking should be reset (default=true)
+	 * 	- `quiet` (bool): When true, created/modified time+user will use values from $page rather than current user+time (default=false)
+	 *	- `adjustName` (bool): Adjust page name to ensure it is unique within its parent (default=true)
 	 * 	- `forceID` (integer): Use this ID instead of an auto-assigned on (new page) or current ID (existing page)
-	 * 	- `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false)
-	 *  - `noHooks` (boolean): Prevent before/after save hooks from being called (default=false)
-	 *  - `noFields` (boolean): Bypass saving of custom fields (default=false)
+	 * 	- `ignoreFamily` (bool): Bypass check of allowed family/parent settings when saving (default=false)
+	 *  - `noHooks` (bool): Prevent before/after save hooks from being called (default=false)
+	 *  - `noFields` (bool): Bypass saving of custom fields (default=false)
 	 *  - `caller` (string): Optional name of calling function (i.e. 'pages.trash'), for internal use (default='') 3.0.235+
 	 *  - `callback` (string|callable): Hook method name from $pages or callable to trigger after save. 
 	 *     It receives a single $page argument. For internal use. (default='') 3.0.235+
@@ -485,7 +509,9 @@ class PagesEditor extends Wire {
 			}
 		}
 
-		if($options['adjustName']) $this->pages->names()->checkNameConflicts($page);
+		if($options['adjustName'] && !$page->get('_hasUniqueName')) {
+			$this->pages->names()->checkNameConflicts($page);
+		}
 		
 		if($page->namePrevious && !$isNew && $page->namePrevious != $page->name) {
 			if($useHooks) $this->pages->renameReady($page);
@@ -509,7 +535,7 @@ class PagesEditor extends Wire {
 	/**
 	 * Execute query to save to pages table
 	 *
-	 * triggers hooks: saveReady, statusChangeReady (when status changed)
+	 * triggers hooks: addReady, saveReady, statusChangeReady (when status changed)
 	 *
 	 * @param Page $page
 	 * @param array $options
@@ -537,6 +563,7 @@ class PagesEditor extends Wire {
 		if(empty($options['noHooks'])) {
 			$extraData = $this->pages->saveReady($page); 
 			$this->pages->savePageOrFieldReady($page);
+			if($isNew) $this->pages->addReady($page);
 		} else {
 			$extraData = array();
 		}
@@ -868,17 +895,22 @@ class PagesEditor extends Wire {
 	 */
 	
 	/**
-	 * Save just a field from the given page as used by Page::save($field)
+	 * Save just a field from the given page 
+	 * 
+	 * This is the method used by by the `$page->save($field)` method. 
 	 *
-	 * This function is public, but the preferred manner to call it is with $page->save($field)
+	 * This function is public, but the preferred manner to call it is with `$page->save($field)`
+	 * 
+	 * #pw-group-save
 	 *
 	 * @param Page $page
 	 * @param string|Field $field Field object or name (string)
 	 * @param array|string $options Specify options: 
-	 *  - `quiet` (boolean): Specify true to bypass updating of modified_users_id and modified time (default=false). 
-	 *  - `noHooks` (boolean): Specify true to bypass calling of before/after save hooks (default=false). 
+	 *  - `quiet` (bool): Specify true to bypass updating of modified_users_id and modified time (default=false). 
+	 *  - `noHooks` (bool): Specify true to bypass calling of before/after save hooks (default=false). 
 	 * @return bool True on success
 	 * @throws WireException
+	 * @see Page::save()
 	 *
 	 */
 	public function saveField(Page $page, $field, $options = array()) {
@@ -956,13 +988,15 @@ class PagesEditor extends Wire {
 	 * print_r($a); // outputs: array( 'title', 'body', 'summary' )
 	 * ~~~~~
 	 * 
+	 * #pw-group-save
+	 * 
 	 * @param Page $page Page to save
 	 * @param array|string|string[]|Field[] $fields Array of field names to save or CSV/space separated field names to save.
 	 *   These should only be Field names and not native page property names.
 	 * @param array|string $options Optionally specify one or more of the following to modify default behavior:
-	 *  - `quiet` (boolean): Specify true to bypass updating of modified user and time (default=false).
-	 *  - `noHooks` (boolean): Prevent before/after save hooks (default=false), please also use $pages->___saveField() for call.
-	 *  - See $options argument for Pages::save() for additional options
+	 *  - `quiet` (bool): Specify true to bypass updating of modified user and time (default=false).
+	 *  - `noHooks` (bool): Prevent before/after save hooks, please also use `$pages->___saveFields()` for call. (default=false)
+	 *  - See $options argument in `Pages::save()` for additional options.
 	 * @return array Array of saved field names (may also include property names if they were modified)
 	 * @throws WireException
 	 * @since 3.0.242
@@ -1032,6 +1066,8 @@ class PagesEditor extends Wire {
 	 * This action does not update the Page modified date. 
 	 * It updates the status for both the given instantiated Page object and the value in the DB. 
 	 * 
+	 * #pw-group-status
+	 * 
 	 * @param Page $page 
 	 * @param int $status Use Page::status* constants
 	 * @return bool
@@ -1050,6 +1086,8 @@ class PagesEditor extends Wire {
 	 * This action does not update the Page modified date.
 	 * It updates the status for both the given instantiated Page object and the value in the DB. 
 	 * 
+	 * #pw-group-status
+	 * 
 	 * @param Page $page
 	 * @param int $status Use Page::status* constants
 	 * @return bool
@@ -1066,6 +1104,8 @@ class PagesEditor extends Wire {
 	 * Silently save whatever the given Page’s status currently is
 	 * 
 	 * This action does not update the Page modified date.
+	 * 
+	 * #pw-group-status
 	 * 
 	 * @param Page $page
 	 * @return bool
@@ -1085,7 +1125,9 @@ class PagesEditor extends Wire {
 	 * This action does not update the Page modified date. If given a Page or PageArray, also note that it does not update
 	 * the status properties of those instantiated Page objects, it only updates the DB value. 
 	 * 
-	 * #pw-internal Please use addStatus() or removeStatus() instead, unless you need to perform a recursive add/remove status.
+	 * Note: Please use addStatus() or removeStatus() instead, unless you need to perform a recursive add/remove status.
+	 * 
+	 * #pw-group-status
 	 *
 	 * @param int|array|Page|PageArray $pageID Page ID, Page, array of page IDs, or PageArray
 	 * @param int $status Status per flags in Page::status* constants. Status will be OR'd with existing status, unless $remove is used. 
@@ -1121,7 +1163,9 @@ class PagesEditor extends Wire {
 			$sqlUpdate .= "status|$status";
 			if($page instanceof Page) $page->addStatus($status);
 		}
-		
+
+		if($page) $this->pages->statusChangeReady($page);
+
 		if($multi && $recursive) {
 			// multiple page IDs combined with recursive option, must be handled individually
 			foreach($pageID as $id) {
@@ -1193,6 +1237,8 @@ class PagesEditor extends Wire {
 			
 		} while(count($parentIDs));
 		
+		if($page) $this->pages->statusChanged($page);
+		
 		if(count($ids)) {
 			$rowCount += $this->savePageStatus($ids, $status, false, $remove);
 		}
@@ -1207,6 +1253,8 @@ class PagesEditor extends Wire {
 	 *
 	 * If you attempt to delete a page with children, and don't specifically set the $recursive param to True, then
 	 * this method will throw an exception. If a recursive delete fails for any reason, an exception will be thrown.
+	 * 
+	 * #pw-group-delete
 	 *
 	 * @param Page $page
 	 * @param bool|array $recursive If set to true, then this will attempt to delete all children too.
@@ -1309,14 +1357,16 @@ class PagesEditor extends Wire {
 	
 	/**
 	 * Clone an entire page (including fields, file assets, and optionally children) and return it.
+	 * 
+	 * #pw-group-add
 	 *
 	 * @param Page $page Page that you want to clone
 	 * @param Page|null $parent New parent, if different (default=same parent)
 	 * @param bool $recursive Clone the children too? (default=true)
 	 * @param array|string $options Optional options that can be passed to clone or save
-	 * 	- forceID (int): force a specific ID
-	 * 	- set (array): Array of properties to set to the clone (you can also do this later)
-	 * 	- recursionLevel (int): recursion level, for internal use only.
+	 * 	- `forceID` (int): force a specific ID
+	 * 	- `set` (array): Array of properties to set to the clone (you can also do this later)
+	 * 	- `recursionLevel` (int): recursion level, for internal use only.
 	 * @return Page|NullPage the newly cloned page or a NullPage() with id=0 if unsuccessful.
 	 * @throws WireException|\Exception on fatal error
 	 *
@@ -1464,6 +1514,8 @@ class PagesEditor extends Wire {
 	/**
 	 * Update page modified/created/published time to now (or given time)
 	 * 
+	 * #pw-group-save
+	 * 
 	 * @param Page|PageArray|array $pages May be Page, PageArray or array of page IDs (integers)
 	 * @param null|int|string|array $options Omit (null) to update to now, or unix timestamp or strtotime() recognized time string, 
 	 *  or if you do not need this argument, you may optionally substitute the $type argument here, 
@@ -1567,6 +1619,8 @@ class PagesEditor extends Wire {
 	 * - Does not save the other custom fields of a page (if any are changed). 
 	 * - Does not require that output formatting be off (it manages that internally). 
 	 * 
+	 * #pw-group-order
+	 * 
 	 * @param Page $child Page that you want to move.
 	 * @param Page|int|string $parent Parent to move it under (may be Page object, path string, or ID integer).
 	 * @param array $options Options to modify behavior (see PagesEditor::save for options). 
@@ -1594,6 +1648,8 @@ class PagesEditor extends Wire {
 	 * 
 	 * - This method is primarily applicable if configured sortfield is manual “sort” (or “none”).
 	 * - This is typically used after a move, sort, clone or delete operation. 
+	 * 
+	 * #pw-group-order
 	 * 
 	 * @param Page $page Page that you want to set the sort value for
 	 * @param int|null $sort New sort value for page or null to pull from $page->sort
@@ -1660,6 +1716,8 @@ class PagesEditor extends Wire {
 	 * Note that if given $sibling parent is different from `$page` parent, then the `$pages->save()`
 	 * method will also be called to perform that movement. 
 	 * 
+	 * #pw-group-order
+	 * 
 	 * @param Page $page Page to move/sort
 	 * @param Page $sibling Sibling that page will be moved/sorted before 
 	 * @param bool $after Specify true to make $page move after $sibling instead of before (default=false)
@@ -1691,6 +1749,8 @@ class PagesEditor extends Wire {
 	 * 
 	 * If used on a $parent not currently sorted by by “sort” then it will update the “sort” index to be
 	 * consistent with whatever the pages are sorted by. 
+	 * 
+	 * #pw-group-order
 	 * 
 	 * @param Page $parent
 	 * @return int
@@ -1744,6 +1804,8 @@ class PagesEditor extends Wire {
 
 	/**
 	 * Replace one page with another (work in progress)
+	 * 
+	 * #pw-group-save
 	 * 
 	 * @param Page $oldPage
 	 * @param Page $newPage
@@ -1811,6 +1873,8 @@ class PagesEditor extends Wire {
 
 	/**
 	 * Clear a page of its data
+	 * 
+	 * #pw-group-delete
 	 * 
 	 * @param Page $page
 	 * @param array $options
@@ -2069,10 +2133,38 @@ class PagesEditor extends Wire {
 	 * 
 	 * This hook is only used if $config->dbStripMB4 is true and $config->dbEngine is not “utf8mb4”. 
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param HookEvent $event
 	 * 
 	 */
 	public function hookFieldtypeSleepValueStripMB4(HookEvent $event) {
 		$event->return = $this->wire()->sanitizer->removeMB4($event->return); 
 	}
+	
+	/*
+	public function saveProperty(Page $page, $property) {
+		$useHooks = true;
+		$values = [];
+		switch($property) {
+			case 'status':
+				$status = $page->status;
+				$statusPrevious = $page->statusPrevious;
+				$result = $this->saveStatus($page);
+				break;
+			case 'created':
+			case 'modified':
+			case 'published':
+				$result = $this->touch($page, $page->get($property), $property);
+				break;
+			case 'name':
+				$this->pages->names()->checkNameConflicts($page);
+				if($page->namePrevious && $page->namePrevious != $page->name) {
+					if($useHooks) $this->pages->renameReady($page);
+				}
+			
+			
+		}
+	}
+	*/
 }

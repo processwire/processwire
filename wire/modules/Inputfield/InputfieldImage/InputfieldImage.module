@@ -8,9 +8,12 @@
  * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
  * https://processwire.com
  * 
+ * #pw-body = 
+ * #pw-body
+ * 
  * Accessible Properties
  *
- * @property string $extensions Space separated list of allowed image extensions (default="JPG JPEG GIF PNG")
+ * @property string $extensions Space separated list of allowed image extensions (default=JPG JPEG GIF PNG)
  * @property array $okExtensions Array of manually whitelisted extensions, for instance [ 'SVG' ] must be manually whitelisted if allowed. (default=[])
  * @property int|string $maxWidth Max width for uploaded images, larger will be sized down (default='')
  * @property int|string $maxHeight Max height for uploaded images, larger will be sized down (default='')
@@ -21,17 +24,17 @@
  * @property bool|int $dimensionsByAspectRatio Switch min-/maxWidth and min-/maxHeight restriction for portrait images
  * @property string $itemClass Space separated CSS classes for items rendered by this Inputfield. Generally you should append rather than replace.
  * @property int|bool $useImageEditor Whether or not the modal image editor is allowed for this field (default=true)
- * @property int $adminThumbScale for backwards compatibility only
+ * @property int $adminThumbScale for backwards compatibility only (default=auto)
  * @property int|bool $resizeServer Resize to max width/height at server? 1=Server-only, 0=Use client-side resize when possible (default=0). 
  * @property int $clientQuality Quality setting to use for client-side resize. 60=60%, 90=90%, etc. (default=90). 
- * @property string $editFieldName Field name to use for linking to image editor (default=current Inputfield name)
+ * @property string $editFieldName Field name to use for linking to image editor (default=auto)
  *
  * The following properties default values are pulled from $config->adminThumbOptions and can be overridden
  * by setting directly to an instance of this Inputfield:
  *
- * @property int $gridSize squared size of the admin thumbnails (default=130)
- * @property string $gridMode Default grid mode in admin, one of "grid", "left" or "list" (default="grid")
- * @property string $focusMode May be 'on', 'off', or 'zoom'
+ * @property int $gridSize Squared size of the admin thumbnails (default=130)
+ * @property string $gridMode Default grid mode in admin, one of "grid", "left" or "list" (default=grid)
+ * @property string $focusMode May be 'on', 'off', or 'zoom' (default=on)
  * @property array $imageSizerOptions Options to pass along to the ImageSizer class. See /wire/config.php $imageSizerOptions for details.
  * 
  * 

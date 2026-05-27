@@ -328,7 +328,8 @@ class ProcessController extends Wire {
 	public function ___execute() {
 
 		$debug = $this->wire()->config->debug; 
-		$breadcrumbs = $this->wire()->breadcrumbs; 
+		$breadcrumbs = $this->wire()->breadcrumbs;
+		$adminTheme = $this->wire()->adminTheme;
 		$headline = $this->wire('processHeadline'); 
 		$numBreadcrumbs = $breadcrumbs ? count($breadcrumbs) : null;
 		$process = $this->getProcess();
@@ -396,6 +397,20 @@ class ProcessController extends Wire {
 				}
 			} else {
 				$content = '';
+			}
+		}
+		
+		if(!$process instanceof WirePageEditor) {
+			$headline = (string) $this->wire('processHeadline');
+			if(strlen($headline)) {
+				if(strpos($headline, '<icon-') === false) {
+					// $icon = $this->wire()->modules->getModuleInfoProperty('icon');
+					// if($icon) $process->headline("<icon-$icon> $headline");
+				} else {
+					if(!$adminTheme instanceof AdminThemeFramework) {
+						$process->headline(preg_replace('/(?:<|&lt;)icon-[-a-z0-9]+(?:>|&gt;)/', '', $headline));
+					}
+				}
 			}
 		}
 
@@ -511,7 +526,7 @@ class ProcessController extends Wire {
 	 * 
 	 */
 	public function isAjax() {
-		return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && ($_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest');
+		return $this->wire()->config->ajax; 
 	}
 
 }	

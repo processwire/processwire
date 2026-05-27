@@ -3,6 +3,9 @@
 /**
  * ProcessWire Pages Path Finder
  * 
+ * #pw-headline Pages Path Finder
+ * #pw-var $pages->pathFinder
+ * #pw-breadcrumb Pages
  * #pw-summary Enables finding pages by path, optionally with URL segments, pagination numbers, language prefixes, etc.
  * #pw-body = 
  * This is built for use by the PagesRequest class and ProcessPageView module, but can also be useful from the public API.
@@ -15,7 +18,7 @@
  * afterwards when appropriate.
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo:

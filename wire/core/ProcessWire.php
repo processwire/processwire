@@ -80,7 +80,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 246;
+	const versionRevision = 255;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -1242,6 +1242,7 @@ class ProcessWire extends Wire {
 			'templates' => "$siteDir/templates/",
 			'fieldTemplates' => "$siteDir/templates/fields/",
 			'adminTemplates' => "$wireDir/$adminTplDir/",
+			'markupRegions' => "$assetsDir/markup-regions/",
 		), true);
 		
 		$cfg['paths'] = clone $cfg['urls'];

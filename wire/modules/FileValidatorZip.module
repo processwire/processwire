@@ -1,0 +1,524 @@
+<?php namespace ProcessWire;
+
+/**
+ * ZIP file validator module
+ * 
+ * #pw-headline ZIP file validator
+ * #pw-summary Enables runtime validation of ZIP files with error reporting.
+ * #pw-body = 
+ * When installed, this module automatically validates any uploaded ZIP files. 
+ * It is also used by the `$files->unzip()` method to validate ZIP files before 
+ * extracting them. This module includes the following types of validations:
+ * 
+ * - Maximum file limit (maxFiles)
+ * - Minimum file requirement (minFiles)
+ * - Maximum directory/folder depth (maxDepth)
+ * - Maximum total uncompressed size of all files in ZIP (maxTotalMegabytes)
+ * - Maximum size of any individual file in ZIP (maxFileMegabytes)
+ * - Maximum allowed compression ratio (maxCompRatio)
+ * - Requiring that certain files are present for ZIP to be valid (requireFiles)
+ * - Filename patterns that cause entire ZIP to be invalid (fatalFiles)
+ * - Whether or not file encryption is allowed (allowEncrypted)
+ * 
+ * The `requireFiles` and `fatalFiles` optionally support regex patterns.
+ * When using regex patterns, the `!` character must be used as the starting/ending delimiter.
+ * 
+ * ~~~~~
+ * // Usage example
+ * $v = $modules->get('FileValidatorZip');
+ * $v->setVerbose(true); // return verbose errors (useful for debugging)
+ *
+ * // Below are all settings with default values. You do not have to specify the 
+ * // settings unless you want to change them from the defaults. 
+ * 
+ * $v->minFiles = 1; // Min files allowed
+ * $v->maxFiles = 1000; // Max files allowed 
+ * $v->maxDepth = 8; // Max directory/folder depth allowed
+ * $v->maxFileMegabytes = 20; // Max uncompressed megabytes for any 1 file in ZIP
+ * $v->maxTotalMegabytes = 100; // Max uncompressed total megabytes for entire ZIP
+ * $v->maxErrors = 10; // Max errors to record before stopping
+ * $v->maxCompRatio = 0; // Max compression ratio (0=disabled)
+ * $v->allowEncrypted = false; // Allow encrypted files in ZIP?
+ * $v->requireFiles = []; // filenames or regex patterns that must match in at least one file for ZIP to be valid
+ * $v->fatalFiles = []; // filenames or regex patterns that if matched in any file cause ZIP to be invalid
+ * 
+ * // validating a ZIP file
+ * if($v->isValid('/path/to/file.zip')) {
+ *   echo "<h3>ZIP file is valid!</h3>";
+ * } else {
+ *   echo "<h3>ZIP file is invalid!</h3><ul>";
+ *   echo $v->errors()->render();
+ * }
+ * ~~~~~
+ * #pw-body
+ *
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * Settings configurable with module or instance
+ * ---------------------------------------------
+ * @property int $maxFiles Maximum number of files allowed in ZIP (default=1000)
+ * @property int $maxDepth Maximum allowed folder/directory depth in ZIP (default=8)
+ * @property int $maxFileMegabytes Maximum allowed uncompressed size of any individual file in ZIP in MB. (default=20)
+ * @property int $maxTotalMegabytes Maximum allowed total uncompressed size of all files in ZIP in MB. (default=50)
+ * @property int $maxErrors Maximum number of errors to report before giving up (default=10)
+ * @property int $minFiles Minimum number files that must be present for a valid ZIP (default=1)
+ * @property int $maxCompRatio Max allowed compression ratio or 0 to ignore (default=0)
+ * @property bool $allowEncrypted Allow encrypted files? (default=false)
+ * 
+ * Settings that can be added to instance at runtime:
+ * --------------------------------------------------
+ * @property array $requireFiles File names or regex patterns that must be present for ZIP to be valid. (default=[])
+ * @property array $fatalFiles File names or regex patterns that when matched, cause entire validation to fail (default=[])
+ * 
+ *
+ */
+class FileValidatorZip extends FileValidatorModule implements ConfigurableModule {
+	
+	/**
+	 * Get module information
+	 *
+	 * @return array
+	 *
+	 */
+	public static function getModuleInfo() {
+		return [
+			'title' => 'ZIP file validator',
+			'version' => 1,
+			'author' => 'Ryan Cramer',
+			'summary' => 'Validates ZIP files with various configurable rules.',
+			'validates' => [ 'zip' ],
+			'icon' => 'file-archive-o',
+		];
+	}
+
+	/**
+	 * Runtime count of total megabytes
+	 * 
+	 * @var int 
+	 * 
+	 */
+	protected $totalMegabytes = 0;
+
+	/**
+	 * Runtime count of total files
+	 * 
+	 * @var int 
+	 * 
+	 */
+	protected $totalFiles = 0;
+
+	/**
+	 * Keeps track that all required files were present at runtime
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $requireFilesRuntime = [];
+
+	/**
+	 * Last reason that an individual file failed validation
+	 * 
+	 * @var string 
+	 * 
+	 */
+	protected $lastReason = '';
+
+	/**
+	 * Last matched pattern that failed to match
+	 * 
+	 * @var string 
+	 * 
+	 */
+	protected $lastMatchedPattern = '';
+
+	/**
+	 * Is verbose mode enabled?
+	 * 
+	 * @var bool 
+	 * 
+	 */
+	protected $verbose = false;
+
+	/**
+	 * ZipArchive instance when provided manually
+	 * 
+	 * @var null|\ZipArchive
+	 * 
+	 */
+	protected $zip = null;
+	
+	/**
+	 * Is ProcessWire currently being upgraded? (process=ProcessWireUpgrade)
+	 * 
+	 * @var bool 
+	 */
+	protected $isUpgrade = false;
+	
+	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		$this->setArray([
+			'minFiles' => 1,
+			'maxFiles' => 1500,
+			'maxDepth' => 10,
+			'maxFileMegabytes' => 20,
+			'maxTotalMegabytes' => 100,
+			'maxErrors' => 10,
+			'requireFiles' => [],
+			'fatalFiles' => [],
+			'maxCompRatio' => 0,
+			'allowEncrypted' => false, 
+		]);
+		parent::__construct();
+	}
+
+	/**
+	 * If a ZipArchive instance is already available it can be provided here
+	 * 
+	 * @param \ZipArchive $zip
+	 * 
+	 */
+	public function setZipArchive($zip) {
+		$this->zip = $zip;
+	}
+	
+	/**
+	 * Is the given ZIP file valid? 
+	 *
+	 * @param string $filename Full path and filename to the file 
+	 * @return bool
+	 *
+	 */
+	protected function isValidFile($filename) {
+		
+		$zipArchive = '\ZipArchive';
+		$close = true;
+		$this->isUpgrade = $this->wire()->page->process == 'ProcessWireUpgrade';
+		
+		if(!class_exists($zipArchive)) {
+			$this->error($this->_('PHP’s ZipArchive class is not available and is required'));
+			return false;
+		}
+	
+		if($this->zip instanceof $zipArchive) {
+			$zip = $this->zip;
+			$this->zip = null;
+			$close = false;
+		} else if(!is_file($filename)) {
+			$this->error($this->_('Given ZIP file does not exist'));
+			return false;
+		} else {
+			$zip = new $zipArchive();
+			$result = $zip->open($filename);
+			if(!$result) {
+				$this->error($this->_('Unable to open ZIP file'));
+				return false;
+			}
+		}
+		
+		$totalFiles = $zip->count();
+		$this->totalMegabytes = 0;
+		$this->totalFiles = 0;
+		$this->requireFilesRuntime = $this->requireFiles;
+		$errors = [];
+
+		if($this->isUpgrade) {
+			// do not perform file quantity check when upgrading ProcessWire
+		} else if($totalFiles > $this->maxFiles) {
+			if($close) $zip->close();
+			$this->error(
+				$this->_('Too many files in ZIP') .
+				($this->verbose ? " ($totalFiles > $this->maxFiles maxFiles)" : "")
+			);
+			return false;
+		}
+
+		for($n = 0; $n < $totalFiles; $n++) {
+			$info = $zip->statIndex($n);
+			if($info === false) {
+				$fileErrors = [ $this->_('Cannot read') ];
+			} else {
+				$fileErrors = $this->getFileErrors($info);
+			}
+			foreach($fileErrors as $error) {
+				if(strpos($error, $info['name']) === false) $error .= " ($info[name])";
+				$errors[] = sprintf($this->_('File index %d:'), $n) . " $error";
+			}
+			if(count($errors) >= $this->maxErrors) break;
+		}
+		
+		if($close) $zip->close();
+
+		if($this->maxErrors && count($errors) >= $this->maxErrors) {
+			$errors = array_slice($errors, 0, $this->maxErrors);
+		} else if(count($this->requireFilesRuntime)) {
+			$s = implode(', ', $this->requireFilesRuntime);
+			$errors[] = $this->_('Missing required file(s):') . " $s";
+
+		} else if(empty($errors) && $this->totalFiles < $this->minFiles) {
+			$errors[] = $this->_('Not enough files in ZIP') . 
+				($this->verbose ? " ($this->totalFiles < $this->minFiles minFiles)" : ""); 
+		}
+		
+		if(count($errors)) {
+			foreach($errors as $error) {
+				$this->error($error);
+			}
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Get errors for individual file in ZIP 
+	 * 
+	 * @param array $info Value returned by ZipArchive::statIndex(n)
+	 * @return array
+	 * 
+	 */
+	protected function getFileErrors(array $info) {
+		$this->lastReason = '';
+		
+		$name = $info['name'];
+		$bytes = $info['size'];
+		$megabytes = $bytes > 0 ? ($bytes / 1000000) : 0;
+		$comp = $info['comp_size'];
+		$errors = [];
+
+		// if directory then make it match depth of files within it for our substr_count call
+		if(substr($name, -1) === '/') {
+			// directory
+			$name .= '/';
+		} else {
+			// file
+			$this->totalFiles++;
+		}
+
+		$this->totalMegabytes += $megabytes;
+		$depth = substr_count($name, '/');
+		$compRatio = $comp && $bytes ? $bytes / $comp : 0;
+
+		if(!$this->isUpgrade) {
+			if($this->totalMegabytes > $this->maxTotalMegabytes) {
+				$errors[] = $this->_('Total extracted ZIP size exceeds max allowed size') .
+					($this->verbose ? " ($this->totalMegabytes MB > $this->maxTotalMegabytes MB)" : "");
+			}
+			
+			if($megabytes > $this->maxFileMegabytes) {
+				$errors[] = $this->_('Exceeds max allowed size') .
+					($this->verbose ? " ($megabytes MB > $this->maxFileMegabytes MB)" : "");
+			}
+			
+			if($depth > $this->maxDepth) {
+				$errors[] = $this->_('Exceeds max allowed directory depth') .
+					($this->verbose ? " ($depth > $this->maxDepth)" : "");
+			}
+			
+			if($this->maxCompRatio && $compRatio > $this->maxCompRatio) {
+				$errors[] = $this->_('Exceeds max compression ratio') .
+					($this->verbose ? " (" . ceil($compRatio) . " > $this->maxCompRatio)" : "");
+			}
+		}
+
+		if(!empty($info['encryption_method']) && !$this->allowEncrypted) {
+			$errors[] = $this->_('File is encrypted') . 
+				($this->verbose ? " ($info[encryption_method])" : "");
+		}
+
+		// check for basenames matching fatal names or regex patterns
+		if(count($this->fatalFiles)) {
+			if($this->patternMatchesValue($this->fatalFiles, $name, true)) {
+				$errors[] = $this->_('Matched fatalNames pattern') .
+					($this->verbose ? " ('$this->lastMatchedPattern' => $name)" : "");
+			}
+		}
+		
+		foreach($this->requireFilesRuntime as $key => $requireFile) {
+			if($this->patternMatchesValue($requireFile, $name)) {
+				unset($this->requireFilesRuntime[$key]); // matches
+			}
+		}
+		
+		return $errors;
+	}
+
+	/**
+	 * Does given pattern (or any of given patterns) match given $value?
+	 * 
+	 * @param string|array $pattern
+	 * @param string $value
+	 * @param bool $partial
+	 * @return bool
+	 * 
+	 */
+	protected function patternMatchesValue($pattern, $value, $partial = false, $caseSensitive = false) {
+		
+		$patterns = is_array($pattern) ? $pattern : [ $pattern ];
+		$mb = function_exists('mb_strtolower'); 
+		$match = false;
+		$this->lastMatchedPattern = '';
+	
+		if(!$caseSensitive) {
+			$value = $mb ? mb_strtolower($value) : strtolower($value);
+		}
+		
+		foreach($patterns as $key => $pattern) {
+			if(!strlen($pattern)) continue;
+			
+			if(!$caseSensitive) {
+				$pattern = $mb ? mb_strtolower($pattern) : strtolower($pattern);
+			}	
+			
+			if(strpos($pattern, '!') !== strrpos($pattern, '!')) {
+				// regex pattern
+				$match = preg_match($pattern, $value);
+				
+			} else if(strpos($pattern, '*') !== false) {
+				// wildcard 
+				$pattern = str_replace('*', '.*', $pattern);
+				if(!$partial) $pattern = '!^' . $pattern . '$' . '!' . ($caseSensitive ? '' : 'i');
+				$match = preg_match($pattern, $value);
+				
+			} else if($partial) {
+				// partial match
+				$match = strpos($value, $pattern) !== false;
+				
+			} else {
+				// exact match
+				$match = $pattern === $value;
+			}
+			
+			if($match) {
+				$this->lastMatchedPattern = $patterns[$key];
+				break;
+			}
+		}
+		
+		return (bool) $match;
+	}
+
+	/**
+	 * Is the given filename allowed for extraction from a ZIP file?
+	 * 
+	 * This is an API method for external use, and is not used directly by this module. 
+	 * This method looks at the filename only for given $options only, it does not validate size. 
+	 * 
+	 * @param string $filename
+	 * @param array $options
+	 *  - `extractFiles` (array): Filenames or regex patterns for files to extract, ignoring all others. (default=[])
+	 *  - `extractExtensions` (array): Only extract these file extensions, ignoring all others. (default=[])
+	 *  - `ignoreFiles` (array): Filenames or regex patterns matching files to skip/ignore (default=[ '.DS_Store' ])
+	 *  - `ignoreExtensions` (array): Extensions to skip/ignore (default=[ 'zip' ])
+	 * @return bool
+	 * 
+	 */
+	public function isValidFilename($filename, array $options) {
+		
+		$defaults = [
+			'ignoreFiles' => [ '.DS_Store' ],
+			'ignoreExtensions' => [ 'zip' ],
+			'extractFiles' => [], 
+			'extractExtensions' => [], 
+		];
+
+		$options = array_merge($defaults, $options);
+		$basename = basename($filename);
+		$extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+		$this->lastReason = '';
+		
+		if(strpos($filename, '..') !== false) {
+			$this->lastReason = "File '$filename' has disallowed pattern: '..'";
+			return false;
+		}
+
+		if(!empty($options['ignoreFiles'])) { 
+			if($this->patternMatchesValue($options['ignoreFiles'], $filename, true)) {
+				$this->lastReason = "File '$basename' matched ignoreFiles: $this->lastMatchedPattern";	
+				return false;
+			}
+		}
+		
+		if(!empty($options['extractFiles'])) {
+			if($this->patternMatchesValue($options['extractFiles'], $filename)) {
+				$this->lastReason = "File '$filename' matched extractFiles: $this->lastMatchedPattern";
+			} else {
+				$this->lastReason = "File '$filename' did not match any extractFiles values";
+				return false;
+			}
+		}
+		
+		if(!empty($options['ignoreExtensions'])) {
+			if($this->patternMatchesValue($options['ignoreExtensions'], $extension)) {
+				$this->lastReason = "File '$basename' matched ignoreExtensions: $this->lastMatchedPattern";
+				return false;
+			}
+		}
+
+		if(!empty($options['extractExtensions'])) {
+			if($this->patternMatchesValue($options['extractExtensions'], $extension)) {
+				$this->lastReason = "File '$basename' matched extractExtensions: $this->lastMatchedPattern";
+			} else {
+				$this->lastReason = "File '$basename' did not match any extractExtensions";
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Get reason why last isValidFilename() returned false
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getLastReason() {
+		return $this->lastReason;
+	}
+
+	/**
+	 * Set verbose mode for error reporting (useful for debugging)
+	 * 
+	 * @param bool $verbose
+	 * 
+	 */
+	public function setVerbose($verbose = true) {
+		$this->verbose = (bool) $verbose;
+	}
+
+	public function error($text, $flags = 0) {
+		$this->lastReason = $text;
+		return parent::error($text, $flags);
+	}
+
+	/**
+	 * Configure module
+	 * 
+	 * @param InputfieldWrapper $inputfields
+	 * 
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		
+		$a = [
+			'maxFiles' => $this->_('Max files allowed in a ZIP'), 
+			'maxDepth' => $this->_('Max directory depth'),
+			'maxTotalMegabytes' => $this->_('Max uncompressed MB of entire ZIP'), 
+			'maxFileMegabytes' => $this->_('Max uncompressed MB of any file in ZIP'), 
+			'maxErrors' => $this->_('Max number of errors to report'), 
+			'maxCompRatio' => $this->_('Max allowed compression ratio (0 to ignore)'), 
+		];
+		
+		foreach($a as $name => $label) {
+			$f = $inputfields->InputfieldInteger;
+			$f->attr('name', $name);
+			$f->label = $label;
+			$f->columnWidth = 50;
+			$f->val($this->get($name));
+			$inputfields->add($f);
+		}
+	}
+}

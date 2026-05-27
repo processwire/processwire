@@ -251,7 +251,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		} catch(\Exception $e) {
 			if($useTransaction) $database->rollBack();
 			if($config->allowExceptions) throw $e; // throw original
-			throw new WireDatabaseQueryException($e->getMessage(), $e->getCode(), $e);
+			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $e ]); 
 		}
 		
 		if(!count($values)) {
@@ -343,7 +343,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			/** @var \PDOException $exception */
 			if($useTransaction) $database->rollBack();
 			if($config->allowExceptions) throw $exception; // throw original
-			throw new WireDatabaseQueryException($exception->getMessage(), $exception->getCode(), $exception); 
+			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $exception ]);
 		} else {
 			if($useTransaction) $database->commit();
 		}
@@ -503,7 +503,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 					
 				} else if($col === 'limit') {
 					$value = (int) $value;
-					if($value > 0) $limit = $value;
+					if($value > -1) $limit = $value;
 					
 				} else if($col === 'start') {
 					$value = (int) $value;
@@ -1044,4 +1044,42 @@ abstract class FieldtypeMulti extends Fieldtype {
 		return $inputfields;
 	}
 
+	/* @todo
+	protected function wakeupMultiValueToArray($value) {
+		
+		if(strrpos($value, self::multiValueSeparator) === false) {
+			if(ctype_digit("$value")) $value = (int) $value;
+			return $value ? [ $value ] : [];
+		}
+		
+		$totalLength = strlen($value);
+		$maxIdLength = 0;
+		$value = explode(self::multiValueSeparator, $value);
+		
+		foreach($value as $key => $id) {
+			$id = (string) $id;
+			$idLength = strlen($id);
+			if(ctype_digit($id)) $value[$key] = (int) $id;
+			if($idLength > $maxIdLength) $maxIdLength = $idLength;
+		}
+		
+		if($totalLength < 100) {
+			// group_concat_max_len is not likely to be a factor
+			return $value;
+		}
+		
+		$database = $this->wire()->database;
+		$maxConcatLength = $database->getVariable('group_concat_max_len');
+		
+		if($totalLength >= ($maxConcatLength - $maxIdLength)) {
+			// potential overflow
+			$maxConcatLength *= 2;
+			$database->exec("SET group_concat_max_len=$maxConcatLength");
+			throw new WireException("Please try again");
+		}
+		
+		return $value;
+	}
+	*/
+	
 }

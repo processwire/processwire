@@ -22,7 +22,7 @@
  * 
  * Thanks to @horst for his assistance with several methods in this class.
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool|string send($url, $data = array(), $method = 'POST', array $options = array())
@@ -511,10 +511,15 @@ class WireHttp extends Wire {
 	 * @param array $data Array of data to send (if not already set before).
 	 * @param string $method Method to use (either POST, GET, PUT, DELETE or others as needed).
 	 * @param array|string $options Options to modify behavior. (This argument added in 3.0.124): 
-	 *  - `use` (string|array): What types(s) to use, one of 'fopen', 'curl', 'socket' to allow only
-	 *     that type. Or in 3.0.192+ this may be an array of types to attempt them in order. 
-	 *     Default in 3.0.192+ is [ 'curl', 'fopen', 'socket' ]. In prior versions default is 'auto' 
-	 *     which attempts: fopen, curl, then socket.
+	 * - `use` (string|array): What types(s) to use, one of 'fopen', 'curl', 'socket' to allow only
+	 *    that type. Or in 3.0.192+ this may be an array of types to attempt them in order. 
+	 *    Default in 3.0.192+ is [ 'curl', 'fopen', 'socket' ]. In prior versions default is 'auto' 
+	 *    which attempts: fopen, curl, then socket.
+	 * - `resetRequest` (bool): Reset request headers/data after completing request? By default the request headers 
+	 *    and data will remain in the WireHttp instance for re-use by the next request. If this is not your desired behavior 
+	 *    then either call `$http->resetRequest()`, create a new WireHttp instance for each request, or specify this option 
+	 *    as true. 3.0.253+ (default=false)
+	 * - `headers` (array): Add these headers to the request, specify as `[ 'name' => 'value' ]` array. 3.0.253+ (default=[])
 	 * @return bool|string False on failure or string of contents received on success.
 	 *
 	 */
@@ -525,10 +530,14 @@ class WireHttp extends Wire {
 		$result = false;
 		$error = array();
 		
-		if(empty($url)) return false;
+		if(empty($url)) {
+			$this->resetRequest();
+			return false;
+		}
 		
 		$this->resetResponse();
 		
+		if(!empty($options['headers'])) $this->setHeaders($options['headers']);
 		if(!empty($data)) $this->setData($data);
 		if(!isset($this->headers['user-agent'])) $this->setHeader('user-agent', $this->getUserAgent());
 		if(!in_array(strtoupper($method), $this->allowHttpMethods)) $method = 'POST';
@@ -555,6 +564,10 @@ class WireHttp extends Wire {
 			// populate type errors only if request failed and specific options requested
 			$this->error = array_merge($this->error, $error);
 		}
+	
+		if(!empty($options['resetRequest'])) {
+			$this->resetRequest();
+		}
 		
 		return $result;
 	}
@@ -575,6 +588,8 @@ class WireHttp extends Wire {
 			'_url' => $url, // original unmodified URL
 			'allowFopen' => true,
 			'allowCURL' => true,
+			'resetRequest' => false, // reset request data after completing request?
+			'headers' => [], 
 
 			// Options specific to fopen:
 			// -----------------------------------------------------------
@@ -705,7 +720,15 @@ class WireHttp extends Wire {
 		$fp = fopen($url, 'rb', false, $context);
 		restore_error_handler();
 
-		if(isset($http_response_header)) $this->setResponseHeader($http_response_header);
+		if(version_compare(PHP_VERSION, '8.5.0', '>=')) {
+			$http_response_header = http_get_last_response_headers();
+		} else {
+			// http_response_header variable is set by PHP 
+		}
+
+		if(isset($http_response_header)) {
+			$this->setResponseHeader($http_response_header);
+		}
 
 		if($fp) {
 			$result = @stream_get_contents($fp);
@@ -877,8 +900,8 @@ class WireHttp extends Wire {
 			$this->setResponseHeaderValues($responseHeaders);
 			$this->setHttpCode(curl_getinfo($curl, CURLINFO_HTTP_CODE)); 
 		}
-		
-		curl_close($curl);
+
+		if(version_compare(PHP_VERSION, '8.0.0', '<')) curl_close($curl);
 
 		return $result;
 	}
@@ -1134,7 +1157,7 @@ class WireHttp extends Wire {
 		}
 
 		if($result === false) $this->error[] = curl_error($curl);
-		curl_close($curl);
+		if(version_compare(PHP_VERSION, '8.0.0', '<')) curl_close($curl);
 		
 		return $result; 
 	}
@@ -1197,6 +1220,12 @@ class WireHttp extends Wire {
 		}
 		
 		restore_error_handler();
+		
+		if(version_compare(PHP_VERSION, '8.5.0', '>=')) {
+			$http_response_header = http_get_last_response_headers();
+		} else {
+			// http_response_header variable is set by PHP 
+		}
 		if(isset($http_response_header)) $this->setResponseHeader($http_response_header);
 
 		return $result; 
@@ -1884,9 +1913,16 @@ class WireHttp extends Wire {
 
 	/**
 	 * Reset all response properties
+	 * 
+	 * This resets any response data stored in this WireHttp instance, including
+	 * response headers, response HTTP code and text, or any response errors.
+	 * 
+	 * #pw-group-response-headers
+	 * 
+	 * @since 3.0.253
 	 *
 	 */
-	protected function resetResponse() {
+	public function resetResponse() {
 		$this->responseHeader = array();
 		$this->responseHeaders = array();
 		$this->httpCode = 0;
@@ -1896,9 +1932,15 @@ class WireHttp extends Wire {
 
 	/**
 	 * Reset all request data
+	 * 
+	 * This resets any previously set request data, raw request data, and request HTTP headers. 
+	 * 
+	 * #pw-group-request-headers
+	 * 
+	 * @since 3.0.253
 	 *
 	 */
-	protected function resetRequest() {
+	public function resetRequest() {
 		$this->data = array();
 		$this->rawData = null;
 		$this->headers = $this->defaultHeaders;

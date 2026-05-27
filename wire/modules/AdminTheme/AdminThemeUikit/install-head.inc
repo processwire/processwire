@@ -4,8 +4,7 @@ if(!isset($title)) $title = 'Title';
 if(!isset($formAction)) $formAction = './install.php';
 $title = htmlentities($title, ENT_QUOTES, "UTF-8");
 $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8"); 
-?>
-<!DOCTYPE html>
+?><!DOCTYPE html>
 <html class="pw" lang="en">
 <head>	
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -44,7 +43,7 @@ $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8");
 	<script type='text/javascript' src='wire/modules/AdminTheme/AdminThemeUikit/uikit/dist/js/uikit-icons.min.js'></script>
 	<script type='text/javascript' src='wire/modules/AdminTheme/AdminThemeUikit/scripts/main.js'></script>	
 </head>
-<body class='template-admin pw-init'>
+<body class='template-admin pw-init light-theme'>
 
 	<div id='pw-mastheads'>
 		<header id='pw-masthead-mobile' class='pw-masthead uk-background-muted'>

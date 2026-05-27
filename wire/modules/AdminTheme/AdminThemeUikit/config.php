@@ -37,13 +37,47 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$experimentalLabel = $this->_('(EXPERIMENTAL)');
 		$exampleLabel = $this->_('example');
 
-		/** @var modules $modules */
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
+		$config = $this->wire()->config;
 		
-		/** @var Session $session */
-		$session = $this->wire('session');
 		$layout = $adminTheme->layout;
-		$userTemplateURL = $this->wire('config')->urls->admin . 'setup/template/edit?id=3';
+		$userTemplateURL = $config->urls->admin . 'setup/template/edit?id=3';
+
+		$themeInfos = $adminTheme->getThemeInfo('all'); // init
+		
+		if(count($themeInfos)) {
+			$configFiles = [];
+			$f = $inputfields->InputfieldRadios;
+			$f->attr('id+name', 'themeName');
+			$f->label = $this->_('Uikit style theme');
+			$f->notes = 
+				$this->_('After changing the style theme, please submit/save before configuring it.') . ' ' . 
+				$this->_('When using `admin.less` customization, the “Core original” style is required.');
+			$f->icon = 'photo';
+			foreach($themeInfos as $name => $info) {
+				$label = (isset($info['title']) ? $info['title'] : ucfirst($name));
+				$f->addOption($name, $label, [ 'data-url' => $info['url'] ]);
+				$configFile = $info['path'] . 'config.php';
+				if(is_file($configFile)) $configFiles[$name] = $configFile;
+			}
+			$f->addOption('', $this->_('Core original'));
+			$value = $adminTheme->themeName;
+			if($value === 'original') $value = '';
+			$f->val($value);
+			$f->themeOffset = 1; 
+			$inputfields->add($f);
+			
+			foreach($configFiles as $name => $configFile) {
+				$fs = $inputfields->InputfieldFieldset;
+				$inputfields->add($fs);
+				$fs->themeOffset = 1;
+				$fs->attr('name', "_theme_$name"); 
+				$fs->label = $themeInfos[$name]['title'] . ' ' . $this->_('theme settings');
+				$fs->showIf = "themeName=$name";
+				$this->wire()->files->render($configFile, [ 'inputfields' => $fs ]); 
+			}
+		}
 
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
@@ -129,16 +163,18 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f->optionColumns = 1;
 		$fieldset->add($f);
 
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->label = $this->_('Layout + interface');
 		$fieldset->icon = 'newspaper-o';
 		$fieldset->collapsed = Inputfield::collapsedYes;
 		$fieldset->set('themeOffset', true);
 		$inputfields->add($fieldset);
-		
+	
 		/** @var InputfieldRadios $f */
 		$f = $modules->get('InputfieldRadios');
 		$f->attr('id+name', 'layout');
+		if(empty($layout)) $f->showIf = "themeName=''";
 		$f->label = $this->_('Layout type');
 		$f->addOption('', $this->_('Traditional with masthead navigation') .
 			' [span.detail] ' . $recommendedLabel . ' [/span]');
@@ -233,7 +269,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 			$this->_('We do not recommend changing this unless you are an admin theme developer.') . ' ' . 
 			$this->_('Warning: this will override custom `$config->AdminThemeUikit` settings, base style and custom styles.'); 
 		$f->notes = $defaultFileNote . " " .
-			"[uikit.pw.css](" . $modules->wire('config')->urls('AdminThemeUikit') . "uikit/dist/css/uikit.pw.css)";
+			"[pw.min.css](" . $config->urls('AdminThemeUikit') . "uikit-pw/pw.min.css)";
 		$f->icon = 'file-code-o';
 		$f->collapsed = Inputfield::collapsedBlank;
 		$fieldset2->add($f);
@@ -389,14 +425,13 @@ class AdminThemeUikitConfigHelper extends Wire {
 	 */
 	public function configInputfield(Inputfield $inputfield, InputfieldWrapper $inputfields) {
 
-		/** @var Inputfield $inputfield */
 		if($inputfield instanceof InputfieldWrapper) return;
 		if(!$inputfield->hasFieldtype || !$inputfield->hasField) return;
 
 		$field = $inputfield->hasField;
 
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
 
 		$autoLabel = $this->_('Auto');
 		$noneLabel = $this->_('None');
@@ -543,6 +578,8 @@ class AdminThemeUikitConfigHelper extends Wire {
 		} else {
 			$exampleType = 'InputfieldMarkup';
 		}
+		
+		/** @var Inputfield $f */
 		$f = $modules->get($exampleType);
 		$f->attr('id+name', '_adminThemeExample');
 		$f->label = $this->_('Example');
@@ -562,7 +599,8 @@ class AdminThemeUikitConfigHelper extends Wire {
 		}
 		$f->icon = 'snowflake-o';
 		$fieldset->add($f);
-		
+
+		/** @var InputfieldMarkup $f */
 		$f = $modules->get('InputfieldMarkup'); 
 		$f->attr('id+name', '_adminThemeExample2');
 		$f->label = $this->_('Another field');
@@ -574,8 +612,6 @@ class AdminThemeUikitConfigHelper extends Wire {
 			$this->_('Open the “%s” field above for a live example of column width.'), $fieldset->label
 		). ' ' . $f->notes;
 
-		/** @var Config $config */
-		$config = $this->wire('config');
 		$config->scripts->add($config->urls($this->adminTheme) . 'config-field.js');
 	}
 
@@ -590,15 +626,14 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$form = $inputfields->getForm();
 		if($form) {
 			$form->action .= '&tests=1';
-			$this->wire('session')->addHookBefore('redirect', function(HookEvent $event) {
+			$this->wire()->session->addHookBefore('redirect', function(HookEvent $event) {
 				$url = $event->arguments(0);
 				$url .= '&tests=1';
 				$event->arguments(0, $url);
 			});
 		}
 		
-		/** @var Modules $modules */
-		$modules = $this->wire('modules');
+		$modules = $this->wire()->modules;
 	
 		// TEST 1 ----------------------------------
 		/** @var InputfieldFieldset $fieldset */
@@ -693,6 +728,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 		);
 
 		foreach($columns as $n => $col) {
+			/** @var InputfieldText $f */
 			$f = $modules->get('InputfieldText');
 			$f->attr('name', "_test_text$n");
 			$f->label = $col['label'];
@@ -706,11 +742,14 @@ class AdminThemeUikitConfigHelper extends Wire {
 		}
 		
 		// TEST 3 -----------------------------------------------
-		
+
+
+		/** @var InputfieldFieldset $fieldset */		
 		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->label = '33% widths tests w/show-if';
 		$inputfields->add($fieldset);
 
+		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', '_t1');
 		$f->label = 'Col 1/3';
@@ -741,6 +780,54 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f->showIf = 'test_select=2';
 		$f->notes = $f->showIf . " ($f->columnWidth%)";
 		$fieldset->add($f);
+		
+		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->label = 'Button tests';
+		$inputfields->add($fieldset);
+	
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup'); 
+		$f->attr('name', '_button_tests'); 
+		$types = [ 'large', 'small', 'text', 'link' ];
+		$colors = [ 'primary', 'secondary', 'default', 'danger' ];
+		$out = '<h3>Link tag buttons</h3>';
+		foreach($types as $type) {
+			$typeLabel = ucfirst($type);
+			$out .= "<p>";
+			foreach($colors as $color) {
+				$colorLabel = ucfirst($color); 
+				$out .= "<a class='uk-button uk-button-$type uk-button-$color'>$typeLabel $colorLabel</a> ";
+			}
+			$out .= "</p>";
+		}
+		$out .= '<h3>Button tag buttons</h3>';
+		foreach($types as $type) {
+			$typeLabel = ucfirst($type);
+			$out .= "<p>";
+			foreach($colors as $color) {
+				$colorLabel = ucfirst($color);
+				$out .= "<button type='button' class='uk-button uk-button-$type uk-button-$color'>$typeLabel $colorLabel</button> ";
+			}
+			$out .= "</p>";
+		}
+		$f->value = $out; 
+		$fieldset->add($f);
+		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->label = 'Theme color tests';
+		$inputfields->add($fieldset);
+		
+		$colors = [ 'primary', 'secondary', 'highlight', 'warning', 'danger' ];
+		foreach($colors as $color) {
+			$f = $fieldset->InputfieldText;
+			$f->attr('name', '_themeColor_' . $color); 
+			$f->label = $color; 
+			$f->themeColor = $color; 
+			$fieldset->add($f); 
+		}
 	}
 	
 }

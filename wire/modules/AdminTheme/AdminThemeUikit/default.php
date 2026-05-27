@@ -29,6 +29,8 @@ if($adminTheme->isModal) {
 	$layout = '';
 }
 
+if($input->get('test_uikit') && $user->isSuperuser()) $adminTheme->testUikit();
+
 $content .= $adminTheme->renderExtraMarkup('content');
 $vars = array('layout' => $layout, 'content' => &$content);
 
@@ -44,4 +46,3 @@ if(strpos($layout, 'sidenav') === 0 && $layout != 'sidenav-main') {
 	}
 	$adminTheme->includeFile('_main.php', $vars); 
 }
-

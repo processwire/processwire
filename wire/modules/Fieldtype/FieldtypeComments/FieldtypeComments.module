@@ -1509,7 +1509,77 @@ class FieldtypeComments extends FieldtypeMulti {
 		}	
 		return $this->makeComment($page, $field, $data); 
 	}
-
+	
+	/**
+	 * Get multiple comments by ID
+	 *
+	 * @param Field|string $field Field object or name
+	 * @param int[] $ids Comment IDs
+	 * @param Page|null $page Optionally limit comments to this page
+	 * @return CommentArray
+	 * @since 3.0.255
+	 *
+	 */
+	public function getCommentsByID($field, array $ids, $page = null) {
+		
+		if(!is_object($field) && $field) {
+			$field = $this->wire()->fields->get($this->wire()->sanitizer->fieldName($field));
+		}
+		
+		if($page && !$page instanceof Page) $page = null;
+		
+		$comments = new CommentArray();
+		$comments->setField($field);
+		if($page) $comments->setPage($page);
+		
+		if(!$field || !$field->type instanceof FieldtypeComments) return $comments;
+		
+		$pages = $this->wire()->pages;
+		$table = $field->getTable();
+		$value = [];
+		
+		foreach($ids as $id) {
+			$id = (int) $id; 
+			if($id > 0) $value[$id] = $id;
+		}
+		
+		if(!count($value)) return $comments;
+		
+		$ids = $value;
+		$value = implode(',', $value);
+		$sql = "SELECT * FROM `$table` WHERE id IN($value) ";
+		if($page) $sql .= "AND pages_id=:pageID ";
+		$query = $this->wire()->database->prepare($sql);
+		if($page instanceof Page) $query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		
+		$commentPages = [];
+		$commentItems = [];
+		
+		if($page) $commentPages[$page->id] = $page;
+		
+		while($data = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$pageId = (int) $data['pages_id'];
+			if(!isset($commentPages[$pageId])) {
+				$commentPage = $pages->get($pageId);
+				if(!$commentPage->id) continue;
+				$commentPages[$pageId] = $commentPage;
+			}
+			$commentPage = $commentPages[$page->id];
+			$comment = $this->makeComment($commentPage, $field, $data);
+			if($comment) $commentItems[$comment->id] = $comment;
+		}
+	
+		// place them in the same order as given $ids
+		foreach($ids as $id) {
+			if(!isset($commentItems[$id])) continue;
+			$comment = $commentItems[$id];
+			$comments->add($comment);
+		}
+		
+		return $comments;
+	}
+	
 	/**
 	 * Get parent comments for given Comment
 	 * 

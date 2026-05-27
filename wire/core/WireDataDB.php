@@ -240,7 +240,8 @@ class WireDataDB extends WireData implements \Countable {
 	 */
 	public function sourceID($id = null) {
 		if(!is_int($id)) return $this->sourceID;
-		if($id < 1) throw new WireException($this->className() . ' sourceID must be greater than 0');
+		// commented out because could interfere with some page clone operations:
+		// if($id < 1) throw new WireException($this->className() . ' sourceID must be greater than 0');
 		$this->sourceID = $id;
 		return $this->sourceID;
 	}

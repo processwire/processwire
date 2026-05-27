@@ -437,6 +437,8 @@ var ProcessWireAdminTheme = {
 				var $li = $("<li></li>").addClass('pw-nav-dup').append($a2);
 				$ul.append($li);
 				if(data.add) {
+					var addUrl = data.add.url;
+					if(addUrl.indexOf('/') !== 0) addUrl = data.url + addUrl;
 					var $li2 = $(
 						"<li class='pw-nav-add'>" +
 						"<a href='" + data.url + data.add.url + "'>" +

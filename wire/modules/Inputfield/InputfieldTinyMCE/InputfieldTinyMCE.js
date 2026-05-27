@@ -120,6 +120,7 @@ var InputfieldTinyMCE = {
 		inline: 'InputfieldTinyMCEInline',
 		normal: 'InputfieldTinyMCENormal',
 		loaded: 'InputfieldTinyMCELoaded',
+		focused: 'InputfieldTinyMCEFocused',
 		editor: 'InputfieldTinyMCEEditor',
 		placeholder: 'InputfieldTinyMCEPlaceholder'
 	},
@@ -839,9 +840,20 @@ var InputfieldTinyMCE = {
 	 * 
  	 */	
 	documentReady: function() {
+		var t = this;
 		this.debug = ProcessWire.config.InputfieldTinyMCE.debug;
 		this.isDocumentReady = true;
 		this.log('documentReady', this.editorIds);
+		
+		this.onSetup(function(editor) {
+			editor.on('focus', function(e) {
+				jQuery(editor.container).closest('.' + t.cls.main).addClass(t.cls.focused);
+			});
+			editor.on('blur', function(e) {
+				jQuery(editor.container).closest('.' + t.cls.main).removeClass(t.cls.focused);
+			});
+		});
+		
 		while(this.editorIds.length > 0) {
 			var editorId = this.editorIds.shift();
 			this.init(editorId, 'documentReady');
@@ -849,6 +861,7 @@ var InputfieldTinyMCE = {
 		this.initDocumentEvents();
 		var $placeholders = jQuery('.' + this.cls.placeholder + ':visible');
 		if($placeholders.length) this.initPlaceholders($placeholders);
+		
 		if(this.debug) {
 			this.log('qty', 
 				'normal=' + jQuery('.' + this.cls.normal).length + ', ' + 

@@ -703,7 +703,7 @@ class PageTraversal {
 			if((int) $options['pageNum'] > 1) {
 				$prefix = '';
 				if($language && $languages && $languages->hasPageNames()) {
-					$prefix = $languages->pageNames()->get("pageNumUrlPrefix$language");
+					$prefix = (string) $languages->pageNames()->get("pageNumUrlPrefix$language");
 				}
 				if(!strlen($prefix)) $prefix = $config->pageNumUrlPrefix;
 				$url = rtrim($url, '/') . '/' . $prefix . ((int) $options['pageNum']);

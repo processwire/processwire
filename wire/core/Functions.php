@@ -263,15 +263,14 @@ function wireCopy($src, $dst, $options = array()) {
  * 
  * @param string $file ZIP file to extract
  * @param string $dst Directory where files should be unzipped into. Directory is created if it doesn’t exist.
+ * @param array $options See `WireFileTools::unzip()` for options. 
  * @return array Returns an array of filenames (excluding $dst) that were unzipped.
  * @throws WireException All error conditions result in WireException being thrown.
  * @see WireFileTools::unzip()
  * 
  */
-function wireUnzipFile($file, $dst) {
-	/** @var WireFileTools $files */
-	$files = wire('files');
-	return $files->unzip($file, $dst);
+function wireUnzipFile($file, $dst, array $options = []) {
+	return wire()->files->unzip($file, $dst, $options);
 }
 
 /**

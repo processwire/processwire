@@ -1,7 +1,7 @@
 <?php namespace ProcessWire;
 
 /**
- * An Inputfield for handling "button" buttons
+ * An Inputfield for rendering <button> HTML elements
  * 
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com

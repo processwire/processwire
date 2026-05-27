@@ -294,7 +294,9 @@ class ProcessModuleInstall extends Wire {
 		$fileTools = $this->wire()->files;
 
 		try {
-			$files = $fileTools->unzip($zipFile, $tempDir);
+			$files = $fileTools->unzip($zipFile, $tempDir, [
+				'requireFiles' => [ '![a-zA-Z0-9]+\.(module|module\.php)$!' ]
+			]);
 			if(is_file($zipFile)) $fileTools->unlink($zipFile, true);
 			$qty = count($files);
 			if($qty < 100 && $config->debug) {

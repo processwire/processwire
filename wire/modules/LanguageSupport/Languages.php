@@ -431,7 +431,7 @@ class Languages extends PagesType {
 	 * $languages->setLocale(LC_ALL, 'en_US.UTF-8'); 
 	 * 
 	 * // Set locale for specific category (CTYPE)
-	 * $langauges->setLocale(LC_CTYPE, 'en_US.UTF-8'); 
+	 * $languages->setLocale(LC_CTYPE, 'en_US.UTF-8'); 
 	 * 
 	 * // Try multiple locales till one works (in order) using array
 	 * $languages->setLocale(LC_ALL, [ 'en_US.UTF-8', 'en_US', 'en' ]);

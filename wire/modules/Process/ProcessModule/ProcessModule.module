@@ -350,7 +350,7 @@ class ProcessModule extends Process {
 				} catch(WireException $e) {
 					$this->error($e->getMessage()); 
 				}
-				$session->redirect("./"); 
+				$session->location("./?reset=1"); 
 			}
 		}
 		
@@ -1650,9 +1650,10 @@ class ProcessModule extends Process {
 			($flags & Modules::flagsDisabled);
 
 		$this->breadcrumb('./', $sinfo['title']); 
-		$this->headline($moduleInfo['title']); 
-		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title'])); 
-
+		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title']));
+		$icon = isset($moduleInfo['icon']) ? $moduleInfo['icon'] : '';
+		$this->headline($icon ? "<icon-$icon> $moduleInfo[title]" : $moduleInfo['title']); 
+	
 		/** @var InputfieldForm $form */
 		$form = $modules->get("InputfieldForm"); 
 		$form->attr('id', 'ModuleEditForm'); 
@@ -1967,11 +1968,11 @@ class ProcessModule extends Process {
 			$table->row(array('* ' . $this->_x('Debug', 'edit'), 
 				"<label class='checkbox'>" . 
 					"<input class='$checkboxClass' type='checkbox' name='_flags_disabled' value='1' $checked /> " . 
-					$this->_('Autoload disabled?') . ' ' .  
-					"<span class='detail'>" . 
-						$this->_('Be careful, checking this box can break the module or your site. Use for temporary testing only.') . 
-					"</span>" . 
-				"</label>"
+					$this->_('Autoload disabled?') . 
+				"</label><br />" . 
+				"<span class='detail'>" .
+					$this->_('Be careful, checking this box can break the module or your site. Use for temporary testing only.') .
+				"</span>"
 			));
 		}
 		
@@ -2129,7 +2130,7 @@ class ProcessModule extends Process {
 		if(strpos($out, '<img') === false && !strpos($out, '</a>')) return $out;
 		
 		$moduleUrl = $config->urls($moduleName);
-		$readmeUrl = str_replace('/edit', '/readme', $modules->getModuleEditUrl($moduleName));
+		$readmeUrl = str_replace([ '/edit?', '/edit/?' ], '/readme?', $modules->getModuleEditUrl($moduleName));
 
 		// make <img src=...> and <a href=...> attributes relative to module's URL, so that
 		// src="file.jpg" converts to src="/site/modules/ModuleName/file.jpg"

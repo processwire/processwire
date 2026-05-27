@@ -2,15 +2,13 @@
 
 /**
  * ProcessWire PageRender Module
- *
- * Adds a render method to Page, as used by the PageView Process. 
- * This module is also able to cache page renders.
- * It hooks into Pages and Fieldtypes to ensure cache files are cleaned/deleted when pages are saved/deleted.
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * Contains the logic for rendering pages and caching output. 
+ *
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
  * 
- * @method renderPage(HookEvent $event)
+ * @method renderPage(HookEvent $event) #pw-internal
  * @method void clearCacheFileAll(Page $page)
  * @method void clearCacheFilePages(PageArray $items, Page $page)
  * @method string saveCacheFileReady(Page $page, $data)
@@ -69,10 +67,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	public function init() {
 		$this->useFuel(false);
 		$this->config = $this->wire()->config; 
-		$this->addHook('Page::render', $this, 'renderPage');
 		$pages = $this->wire()->pages;
 		$pages->addHookAfter('save', $this, 'clearCacheFile'); 
-		$pages->addHookAfter('delete', $this, 'clearCacheFile'); 
+		$pages->addHookAfter('delete', $this, 'clearCacheFile');
+		// $this->addHook('Page::render', $this, 'renderPage');
 		// $this->addHookAfter('Fieldtype::savePageField', $this, 'savePageField'); // removed, see note in commented function
 	}
 
@@ -81,7 +79,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ready() {
-		$this->addHookBefore('Page::render', $this, 'beforeRenderPage', array('priority' => 1));
+		// $this->addHookBefore('Page::render', $this, 'beforeRenderPage', array('priority' => 1));
 	}
 
 	/**
@@ -366,7 +364,6 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 * @param HookEvent $event
 	 * 
-	 */
 	public function beforeRenderPage(HookEvent $event) {
 		$fieldName = $event->arguments(0);
 		if($fieldName && is_string($fieldName) && $this->wire()->sanitizer->fieldName($fieldName) === $fieldName) {
@@ -375,78 +372,45 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			if(!is_string($file)) $file = null;
 			$event->cancelHooks = true;
 			$event->replace = true;
-			/** @var Page $page */
 			$page = $event->object; 
 			$event->return = $page->renderField($fieldName, $file);
 		}
 	}
+	*/
 
 	/**
 	 * Return a string with the rendered output of this Page from its template file (other usages available as well)
 	 *
-	 * This method provides the implementation for `$page->render()` and you sould only call this method as `render()` from Page objects. 
-	 * 
-	 * You may optionally specify 1-2 arguments to the method. The first argument may be any of the following: 
-	 * 
-	 * 1. An $options array with predefined options or custom variables (see available options further below). 
-	 * 2. A filename to use for render (in /site/templates/). When used, you can optionally specify the $options array as the 2nd argument.
-	 * 3. A field name to render. An optional 2nd argument can be a filename (in /site/templates/fields/) to use to render the field.
-	 *    Please see the `Page::renderField()` method for more details for this usage (you may want to use that method instead). 
-	 * 
-	 * If using the $options array argument (whether 1st or 2nd argument), you may use it to specify your own variables to pass along to your 
-	 * template file, and those values will be available in a variable named `$options` within the scope of the template file 
-	 * (see examples below).
-	 * 
-	 * In addition, the following options are present and recognized by the core:
-	 * 
-	 * 	- `forceBuildCache` (bool): If true, the cache will be re-created for this page, regardless of whether it’s expired or not. (default=false)
-	 *	- `allowCache` (bool): Allow cache to be used when template settings ask for it. (default=true)
-	 *	- `filename` (string): Filename to render, optionally relative to /site/templates/. Absolute paths must resolve somewhere in PW’s install. (default=blank)
-	 *	- `prependFile` (string): Filename to prepend to output, must be in /site/templates/.
-	 * 	- `prependFiles` (array): Array of additional filenames to prepend to output, must be relative to /site/templates/.
-	 *	- `appendFile` (string): Filename to append to output, must be in /site/templates/.
-	 * 	- `appendFiles` (array): Array of additional filenames to append to output, must be relative to /site/templates/.
-	 *	- `pageStack` (array): An array of pages, when recursively rendering. Used internally. You can examine it but not change it. 
-	 * 
-	 * Note that the prepend and append options above have default values that have defaults configured in `$config` or the Template object. 
-	 *	
-	 * ~~~~~
-	 * // regular page render call
-	 * $output = $page->render();
-	 *
-	 * // render using given file (in /site/templates/) 
-	 * $output = $page->render('basic-page.php'); 
-	 * 
-	 * // render while passing in custom variables
-	 * $output = $page->render([
-	 *   'firstName' => 'Ryan',
-	 *   'lastName' => 'Cramer' 
-	 * ]); 
-	 * 
-	 * // in your template file, you can access the passed-in variables like this:
-	 * echo "<p>Full name: $options[firstName] $options[lastName]</p>";
-	 * ~~~~~
-	 *
 	 * Note: If the page’s template has caching enabled, then this method will return a cached page render (when available)
 	 * or save a new cache. Caches are only saved on guest users.
 	 * 
-	 * 
-	 * @param HookEvent $event
+	 * @param Page $page
+	 * @param array $options
+	 * @return string|mixed
 	 * @throws WirePermissionException|Wire404Exception|WireException
+	 * @since 3.0.253
 	 *
 	 */
-	public function ___renderPage($event) {
-	
-		/** @var Page $page */
-		$page = $event->object;
+	public function render(Page $page, $options) {
 		
-		/** @var Template $template */
+		$legacyHookEvent = $this->hasHook('renderPage()'); 
+		if($legacyHookEvent) {
+			$legacyHookEvent = new HookEvent([
+				'object' => $page,
+				'method' => 'renderPage',
+				'arguments' => [ 'options' => $options ],
+				'when' => 'before',
+			]);
+			$hook = $this->runHooks('renderPage', [ $legacyHookEvent ], 'before'); 
+			if(!empty($hook['replace'])) return $legacyHookEvent->return;
+		}
+	
 		$template = $page->template;
 		
 		$this->wire()->pages->setOutputFormatting(true);
 
 		if($page->status >= Page::statusUnpublished && !$page->viewable()) {
-			throw new WirePermissionException("Page '{$page->url}' is not currently viewable.");
+			throw new WirePermissionException("Page '$page->path' is not currently viewable.");
 		}
 
 		$_page = $this->wire()->page; // just in case one page is rendering another, save the previous
@@ -474,13 +438,13 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		if($this->renderRecursionLevel > 1) $this->pageStack[] = $_page; 
 
 		// arguments to $page->render() may be a string with filename to render or array of options
-		$options = $event->arguments(0);
-		$options2 = $event->arguments(1);
+		// $options = $event->arguments(0);
+		// $options2 = $event->arguments(1);
 
 		// normalize options to array
-		if(is_string($options) && strlen($options)) $options = array('filename' => $options); // arg1 is filename
-		if(!is_array($options)) $options = array(); // no args specified
-		if(is_array($options2)) $options = array_merge($options2, $options); // arg2 is $options 
+		// if(is_string($options) && strlen($options)) $options = array('filename' => $options); // arg1 is filename
+		// if(!is_array($options)) $options = array(); // no args specified
+		// if(is_array($options2)) $options = array_merge($options2, $options); // arg2 is $options 
 
 		$defaultOptions = array(
 			'filename' => '', // default blank means filename comes from $page
@@ -502,19 +466,21 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		if($cacheAllowed) {
 			$cacheFile = $this->getCacheFile($page, $options);
 			if(!$options['forceBuildCache'] && ($data = $cacheFile->get()) !== false) {
-				$event->return = $data;
+				//$event->return = $data;
 				if($_page) $this->wire('page', $_page);
 				if($timerKey) Debug::saveTimer($timerKey);
-				return;
+				if(count($this->pageStack)) array_pop($this->pageStack);
+				$this->renderRecursionLevel--;
+				return $data;
 			}
 		}
 		
-
 		$of = $page->of();
 		if(!$of) $page->of(true);
 
 		$data = '';
 		$output = $page->output(true);
+		
 		if($output) {
 
 			// global prepend/append include files apply only to user-defined templates, not system templates
@@ -585,10 +551,11 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			}
 		}
 
-		if($config->useMarkupRegions) {
+		$useMarkupRegions = (int) $config->useMarkupRegions;
+		if($useMarkupRegions) {
 			$contentType = $template->contentType; 
 			if(empty($contentType) || stripos($contentType, 'html') !== false) {
-				$this->populateMarkupRegions($data);
+				$this->populateMarkupRegions($data, [ 'useFileRegions' => $useMarkupRegions > 1 ]);
 			}
 		}
 		
@@ -599,7 +566,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			$cacheFile->save($data);
 		}
 		
-		$event->return = $data; 
+		// $event->return = $data; 
 
 		if(!$of) $page->of($of);
 		if($_page && $_page->id != $page->id) {
@@ -607,16 +574,39 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		}
 		if(count($this->pageStack)) array_pop($this->pageStack); 
 		$this->renderRecursionLevel--;
+
+		if($legacyHookEvent) {
+			$legacyHookEvent->set('when', 'after');
+			$legacyHookEvent->return = $data;
+			$this->runHooks('renderPage', [ $legacyHookEvent ], 'after');
+			$data = $legacyHookEvent->return; // return is changed by renderPage hooks
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Handles any legacy hooks that might be hooking this older method 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param HookEvent $event
+	 * @return string|null
+	 * 
+	 */
+	public function ___renderPage($event) { 
+		return null;
 	}
 
 	/**
 	 * Populate markup regions directly to $html
 	 * 
-	 * @param $html
+	 * @param string $html
+	 * @param array $options
 	 * 
 	 */
-	protected function populateMarkupRegions(&$html) {
-
+	protected function populateMarkupRegions(&$html, array $options = []) {
+		
 		$markupRegions = new WireMarkupRegions();
 		$this->wire($markupRegions);
 		
@@ -624,11 +614,13 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		
 		if($pos === false) {
 			// if no doctype match, attempt an html tag match
-			$pos = stripos($html, '<html'); 
+			$pos = stripos($html, '<html');
 		}
 		
-		// if no document start, or document starts at pos==0, then nothing to populate
-		if(!$pos) {
+		if($pos === 0) {
+			// no markup output before document start, no regions will be populated
+		} else if($pos === false) {
+			// if no document start then nothing to populate
 			// there still may be region related stuff that needs to be removed like <region> tags
 			$markupRegions->removeRegionTags($html);
 			$html = $markupRegions->stripOptional($html);
@@ -638,7 +630,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		// split document at doctype/html boundary
 		$htmlBefore = substr($html, 0, $pos);
 		$html = substr($html, $pos);
-		$options = array('useClassActions' => true); 
+		$options = [ 
+			'useClassActions' => true,
+			'useFileRegions' => !empty($options['useFileRegions']),
+		]; 
 		$config = $this->wire()->config;
 		$version = (int) $config->useMarkupRegions;
 		

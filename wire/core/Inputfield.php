@@ -519,7 +519,7 @@ abstract class Inputfield extends WireData implements Module {
 			if($value === true) $value = self::collapsedYes; 
 			$value = (int) $value;
 			
-		} else if(array_key_exists($key, $this->attributes)) {
+		} else if(array_key_exists($key, $this->attributes) && $key !== 'required') {
 			return $this->setAttribute($key, $value);
 			
 		} else if($key === 'required' && $value && !is_object($value)) {
@@ -950,7 +950,7 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 	protected function ___callUnknown($method, $arguments) {
 		$arg = isset($arguments[0]) ? $arguments[0] : null;
-		if(isset($this->attributes[$method])) {
+		if(isset($this->attributes[$method]) && $method !== 'required') {
 			// get or set an attribute
 			return $arg === null ? $this->getAttribute($method) : $this->setAttribute($method, $arg);
 		} else if(($value = $this->getSetting($method)) !== null) {
@@ -2113,6 +2113,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * - `event` (string): Event name to trigger in JS when clicked ('click' actions only). 
 	 * - `href` (string): URL to open ('link' actions only). 
 	 * - `modal` (bool): Specify true to open link in modal ('link' actions only). 
+	 * - `target` (string): Optional target attribute i.e. '_blank'.
 	 * 
 	 * Settings for 'toggle' (on/off) type actions 
 	 * -------------------------------------------

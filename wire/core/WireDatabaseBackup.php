@@ -376,9 +376,15 @@ class WireDatabaseBackup {
 			$dsn = "mysql:dbname=$config[dbName];host=$config[dbHost]";
 			if($config['dbPort']) $dsn .= ";port=$config[dbPort]";
 		}
+
+		if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
+			$initCommand = constant("\\PDO\\Mysql::ATTR_INIT_COMMAND");
+		} else {
+			$initCommand = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+		}
 		
 		$options = array(
-			\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES '$config[dbCharset]'",
+			$initCommand => "SET NAMES '$config[dbCharset]'",
 			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
 		);
 		

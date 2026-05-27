@@ -228,7 +228,8 @@ function pwTinyMCE_image(editor) {
 		});
 		
 		$iframe.setButtons(buttons);
-		$iframe.setTitle($i.find('title').html());
+		var title = $i.find('title').html();
+		if(title.length) $iframe.setTitle(title);
 	}
 	
 	/**

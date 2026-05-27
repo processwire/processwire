@@ -149,7 +149,7 @@
  * @property bool $allowExceptions Allow Exceptions to propagate? (default=false, specify true only if you implement your own exception handler) #pw-group-system
  * @property bool $usePoweredBy Use the x-powered-by header? Set to false to disable. #pw-group-system
  * @property bool $useFunctionsAPI Allow most API variables to be accessed as functions? (see /wire/core/FunctionsAPI.php) #pw-group-system
- * @property bool $useMarkupRegions Enable support for front-end markup regions? #pw-group-system
+ * @property bool|int $useMarkupRegions Enable support for front-end markup regions? True to enable or int 2 to enable also with file regions. #pw-group-system
  * @property bool|array $useLazyLoading Delay loading of fields (and templates/fieldgroups) till requested? Can improve performance on systems with lots of fields or templates. #pw-group-system @since 3.0.193
  * @property bool $usePageClasses Use custom Page classes in `/site/classes/[TemplateName]Page.php`? #pw-group-system @since 3.0.152
  * @property bool|int|string|null $useVersionUrls Default value for $useVersion argument of $config->versionUrls() method #pw-group-system @since 3.0.227
@@ -1030,6 +1030,7 @@ class Config extends WireData {
 		}
 
 		foreach($urls as $url) {
+			$url = (string) $url;
 			if(strpos($url, $coreVersionStr)) {
 				// url already has core version present in it
 				if($useVersion === false) {

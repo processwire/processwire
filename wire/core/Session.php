@@ -452,7 +452,13 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		if($useFingerprint === true || $useFingerprint === 1 || "$useFingerprint" === "1") {
 			// default (boolean true or int 1)
-			$useFingerprint = self::fingerprintRemoteAddr | self::fingerprintUseragent;
+			if($this->config->installed > 1761944926) {
+				// new installations after 5pm on 31 October 2025 
+				$useFingerprint = self::fingerprintUseragent;
+			} else {
+				// existing installations
+				$useFingerprint = self::fingerprintRemoteAddr | self::fingerprintUseragent;
+			}
 			if($debug) $debugInfo[] = 'default';
 		}
 

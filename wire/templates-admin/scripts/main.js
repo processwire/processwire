@@ -323,9 +323,11 @@ var ProcessWireAdmin = {
 					}
 
 					if(data.add) {
+						var addUrl = data.add.url;
+						if(addUrl.indexOf('/') !== 0) addUrl = data.url + addUrl;
 						var $li = $(
 							"<li class='ui-menu-item add'>" +
-							"<a href='" + data.url + data.add.url + "'>" +
+							"<a href='" + addUrl + "'>" +
 							"<i class='fa fa-fw fa-" + data.add.icon + "'></i>" +
 							data.add.label + "</a>" +
 							"</li>"
@@ -462,24 +464,78 @@ var ProcessWireAdmin = {
 };
 
 if(typeof ProcessWire != "undefined") {
+	
 	/**
 	 * Confirmation dialog
 	 * 
 	 * ~~~~~
 	 * ProcessWire.confirm('Send this message now?', function() {
-	 *   // user clicked Ok
+	 *   console.log('Ok');
 	 * }, function() {
-	 *   // user clicked Cancel
+	 *   console.log('Cancel');
 	 * }); 
+	 * ~~~~~
+	 * More options and syntax available in ProcessWire 3.0.248+ (only message argument is required):
+	 * ~~~~~
+	 * ProcessWire.confirm({
+	 *   message: '<h2>Send this message now?</h2>', 
+	 *   allowMarkup: true,
+	 *   funcOk: function() { console.log('Ok') }, 
+	 *   funcCancel: function() { console.log('Cancel') }, 
+	 *   labelOk: 'Send now',  // Uikit admin only
+	 *   labelCancel: 'Cancel send' // Uikit admin only
+	 * });
 	 * ~~~~~
 	 * 
 	 * @param message Message to display (or question to ask)
 	 * @param funcOk Callback called on "Ok"
 	 * @param funcCancel Callback called on "Cancel" (optional)
+	 * @param bool Allow markup in confirm message? (default=false)
 	 * 
 	 */
-	ProcessWire.confirm = function(message, funcOk, funcCancel) {
-		if(typeof vex != "undefined" && typeof funcOk != "undefined") {
+	ProcessWire.confirm = function(message, funcOk, funcCancel, allowMarkup) {
+	
+		var settings = {};
+		if(typeof message === 'object') {
+			settings = message;
+			if(typeof settings.funcOk != 'undefined') funcOk = settings.funcOk;
+			if(typeof settings.funcCancel != 'undefined') funcCancel = settings.funcCancel;
+			if(typeof settings.allowMarkup != 'undefined') allowMarkup = settings.allowMarkup;
+			message = settings.message;
+		}
+		
+		if(typeof allowMarkup == "undefined") allowMarkup = false;
+		
+		if(typeof UIkit != "undefined") {
+			var messageHtml = '';
+			if(allowMarkup) {
+				messageHtml = message;
+				message = '<!--message-->';
+			} else {
+				message = ProcessWire.entities1(message);
+			}
+			var labels = ProcessWire.config.AdminThemeUikit.labels;
+			var options = { i18n: {} };
+			if(typeof labels != 'undefined') {
+				options.i18n = { ok: labels['ok'], cancel: labels['cancel'] };
+			}
+			if(typeof settings.labelOk != 'undefined' && settings.labelOk.length) {
+				options.i18n['ok'] = settings.labelOk;
+			}
+			if(typeof settings.labelCancel != 'undefined' && settings.labelCancel.length) {
+				options.i18n['cancel'] = settings.labelCancel;
+			}
+			var modal = UIkit.modal.confirm(message, options);
+			if(allowMarkup) {
+				$(modal.dialog.$el).find('.uk-modal-body').html(messageHtml);
+			}
+			modal.then(function() {
+				if(funcOk != "undefined") funcOk();
+			}, function () {
+				if(funcCancel != "undefined") funcCancel();
+			});
+			
+		} else if(typeof vex != "undefined" && typeof funcOk != "undefined") {
 			vex.dialog.confirm({
 				message: message,
 				callback: function(v) {
@@ -496,15 +552,68 @@ if(typeof ProcessWire != "undefined") {
 			} else if(typeof funcCancel != "undefined") {
 				funcCancel();
 			}
+			
 		} else {
 			// regular JS confirm behavior
 			return confirm(message);
 		}
 	};
-
-	ProcessWire.alert = function(message, allowMarkup, expire) {
-		if(typeof allowMarkup == "undefined") var allowMarkup = false;
-		if(typeof vex != "undefined") {
+	
+	/**
+	 * Show an alert dialog box
+	 * 
+	 * ~~~~~
+	 * // simple example
+	 * ProcessWire.alert('Please correct your mistakes');
+	 *
+	 * // verbose example (PW 3.0.248+) only message argument is required
+	 * ProcessWire.alert({
+	 *   message: '<h2>Please correct your mistakes</h2>', 
+	 *   allowMarkup: true, 
+	 *   expire: 5000, // 5 seconds
+	 *   func: function() { console.log('alert box closed'), 
+	 *   labelOk: 'I understand' // Uikit admin only
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * @param string message Message to display
+	 * @param bool allowMarkup Allow markup in message? (default=false)
+	 * @param int expire Automatically close after this many seconds (default=0, off)
+	 * @param callable func Function to call when alert box is closed
+	 * 
+	 * 
+	 */
+	ProcessWire.alert = function(message, allowMarkup, expire, func) {
+	
+		var settings = {};
+		if(typeof message === 'object') {
+			settings = message;
+			if(typeof settings.allowMarkup != 'undefined') allowMarkup = settings.allowMarkup;
+			if(typeof settings.expire != 'undefined') expire = settings.expire;
+			if(typeof settings.func != 'undefined') func = settings.func;
+			message = settings.message;
+		}
+		
+		if(typeof allowMarkup == "undefined") allowMarkup = false;
+		
+		if(typeof UIkit != "undefined") {
+			if(!allowMarkup) message = ProcessWire.entities1(message);
+			var options = {};
+			var labels = ProcessWire.config.AdminThemeUikit.labels;
+			if(typeof settings.labelOk != 'undefined' && settings.labelOk.length) {
+				options.i18n = { ok: settings.labelOk };
+			} else if(typeof labels != 'undefined') {
+				options.i18n = { ok: labels['ok'] };
+			}
+			var alert = UIkit.modal.alert(message, options);
+			if(typeof func != 'undefined') alert.then(func);
+			if(typeof expire !== 'undefined' && expire > 0) {
+				setTimeout(function() {
+					$(alert.dialog.$el).find('.uk-modal-close').trigger('click');
+				}, expire);
+			}
+			
+		} else if(typeof vex != "undefined") {
 			if(allowMarkup) {
 				vex.dialog.alert({unsafeMessage: message});
 			} else {
@@ -521,26 +630,118 @@ if(typeof ProcessWire != "undefined") {
 					$('.vex-dialog-button-primary').trigger('click');
 				}, expire); 
 			}
+			
 		} else {
 			alert(message);
 		}
 	};
-
-	ProcessWire.prompt = function(message, placeholder, func) {
-		if(typeof vex == "undefined") {
-			alert("prompt function requires vex");
-			return;
+	
+	/**
+	 * Show dialog box prompting user to enter a text value
+	 * 
+	 * ~~~~~
+	 * // simple example
+	 * ProcessWire.prompt('Enter your name', 'First and last name', function(value) {
+	 *   ProcessWire.alert('You entered: ' + value); 
+	 * }); 
+	 * 
+	 * // verbose example (3.0.248+) all optional except message and func
+	 * ProcessWire.prompt({
+	 *   message: '<h2>Enter your name</h2>', 
+	 *   allowMarkup: true, 
+	 *   placeholder: 'First and last name', 
+	 *   func: function(value) { ProcessWire.alert('You entered: ' + value); }, 
+	 *   labelOk: 'Finished', // Uikit admin only
+	 *   labelCancel: 'Skip for now' // Uikit admin only
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * @param string message Message to display
+	 * @param string placeholder Placeholder or default value text to show in text input
+	 * @param callable func Function to call after user clicks "Ok"
+	 * @param bool allowMarkup Allow markup in message? (default=false)
+	 * 
+	 */
+	ProcessWire.prompt = function(message, placeholder, func, allowMarkup) {
+	
+		var settings = {};
+		if(typeof message === 'object') {
+			settings = message;
+			if(typeof settings.placeholder != 'undefined') placeholder = settings.placeholder;
+			if(typeof settings.func != 'undefined') func = settings.func;
+			if(typeof settings.allowMarkup != 'undefined') allowMarkup = settings.allowMarkup;
+			message = settings.message;
 		}
-		return vex.dialog.prompt({
-			message: message,
-			placeholder: placeholder,
-			callback: func
-		})
+		
+		if(typeof allowMarkup === 'undefined') allowMarkup = false;
+		if(typeof placeholder === 'undefined') placeholder = '';
+		
+		if(typeof UIkit != 'undefined') {
+			if(!allowMarkup) message = ProcessWire.entities1(message);
+			var labels = ProcessWire.config.AdminThemeUikit.labels;
+			var options = { i18n: {} };
+			if(typeof labels != 'undefined') {
+				options.i18n = { ok: labels['ok'], cancel: labels['cancel'] };
+			}
+			if(typeof settings.labelOk != 'undefined' && settings.labelOk.length) {
+				options.i18n['ok'] = settings.labelOk;
+			}
+			if(typeof settings.labelCancel != 'undefined' && settings.labelCancel.length) {
+				options.i18n['cancel'] = settings.labelCancel;
+			}
+			var prompt = UIkit.modal.prompt(message, placeholder, options);
+			prompt.then(function(value) {
+				if(value !== null) func(value);
+			}); 
+			return prompt;
+			
+		} else if(typeof vex == "undefined") {
+			alert("prompt function requires UIkit or vex");
+			return;
+			
+		} else {
+			return vex.dialog.prompt({
+				message: message,
+				placeholder: placeholder,
+				callback: func
+			})
+		}
 	};
-
+	
+	/**
+	 * Entity encode given text
+	 * 
+	 * @param str
+	 * @returns {string}
+	 * 
+	 */
 	ProcessWire.entities = function(str) {
 		return $('<textarea />').text(str).html();
 	};
+	
+	/**
+	 * Entity encode given text without double entity encoding anything
+	 * 
+	 * @param str
+	 * @returns {string}
+	 * @since 3.0.248
+	 * 
+	 */
+	ProcessWire.entities1 = function(str) {
+		return ProcessWire.entities(ProcessWire.unentities(str));
+	};
+	
+	/**
+	 * Decode entities in given string
+	 * 
+	 * @param sring str
+	 * @returns {string}
+	 * @since 3.0.248
+	 * 
+	 */
+	ProcessWire.unentities = function(str) {
+		return $('<div>').html(str).text();
+	}; 
 	
 	/**
 	 * Trim any type of given value and return a trimmed string

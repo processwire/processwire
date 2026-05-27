@@ -1070,7 +1070,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		$version = $this->getPageVersionNum($page);
 		
 		if($version) $parentName .= "-v$version"; // for-page-123-v1
-		
+	
+		// #1: attempt to get existing parent	
 		$parent = $repeaterParent->child("name=$parentName, include=all");
 		
 		if($parent->id || !$create) return $parent;
@@ -1085,7 +1086,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		// so that a repeater page parent doesn't get automatically re-created
 		if($this->deletePageField === $field->get('parent_id')) return $parent; 
 
-		$parent->save();
+		try {
+			$parent->save();
+		} catch(\Exception $e) {
+			// #2: attempt to get again in case it was created after #1 above
+			$parent = $this->wire()->pages->getFresh("parent=$repeaterParent, name=$parentName"); 
+			if(!$parent->id) throw $e;
+		}
 		
 		$this->bd("Created '$field' page parent: $parent->path", __FUNCTION__);
 

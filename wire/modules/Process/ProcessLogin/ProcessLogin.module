@@ -3,13 +3,36 @@
 /**
  * ProcessWire Login Process
  *
- * Provides Login capability for ProcessWire Admin 
+ * #pw-summary Provides Login capability for ProcessWire
  * 
- * For more details about how Process modules work, please see: 
- * /wire/core/Process.php 
- * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
  * https://processwire.com
+ * 
+ * #pw-body =
+ * Example of simple front-end login, logged-in, and logout flow:
+ * ~~~~~~~
+ * $login = $modules->get('ProcessLogin');
+ * $login->allowEmail = 0; // 0=login w/username, 1=login w/email, 2=either 
+ * 
+ * if(!$user->isLoggedin()) {
+ *   $out = $login->execute();
+ * } else if($input->get('logout') === $user->name) {
+ *   $out = $login->executeLogout();
+ * } else {
+ *   $login->message("Welcome $user->name you are logged in"); 
+ *   $out = "<p><a href='./?logout=$user->name'>Logout</a></p>";
+ * }
+ * 
+ * // render errors, warnings and messages 
+ * foreach($notices as $notice) {
+ *   $text = $sanitizer->entities($notice->text);
+ *   echo "<p class='$notice->className'>$text</p>";
+ * }
+ * 
+ * // output markup for login form, etc. 
+ * echo $out;
+ * ~~~~~~~
+ * #pw-body
  * 
  * @property bool $allowForgot Whether the ProcessForgotPassword module is installed.
  * @property bool|int $allowEmail Whether or not email login is allowed (0|false=off, 1|true=Yes, 2=Yes or name also allowed)
@@ -19,11 +42,11 @@
  * @property array $tfaRememberFingerprints Means by which to fingerprint user’s browser
  * @property string $tfaAutoType Auto-enable type, aka module name (default='')
  * @property array $tfaAutoRoleIDs Auto-enable for these role IDs, or blank for all roles. Applies only if $tfaAutoType selected (default=[])
+ * @property int $skipLabel Optionally populate with an Inputfield::skipLabel* constant to be used on the login form inputs. 
  * 
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
  * @method string executeLogout() #pw-hooker
- * @method string executeLoggedOut() #pw-hooker
  * @method string afterLoginOutput() #pw-hooker
  * @method void afterLoginRedirect($url = '') #pw-hooker
  * @method string afterLoginURL($url = '') #pw-hooker
@@ -38,7 +61,6 @@
  * @method void loginFormProcessed($form, $name) #pw-hooker 3.0.223+
  * @method array getBeforeLoginVars() #pw-hooker
  * @method array getLoginLinks() #pw-hooker
- * @method string renderLoginLinks() #pw-hooker
  * 
  *
  */
@@ -170,6 +192,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->set('tfaAutoRoleIDs', array());
 		$this->set('allowEmail', false);
 		$this->set('emailField', 'email');
+		$this->set('skipLabel', Inputfield::skipLabelNo); // Alternate is: Inputfield::InputfieldHeaderHidden
 		$this->customMarkup['forgot-icon'] = wireIconMarkup('question-circle', 'fw');
 		$this->customMarkup['home-icon'] = wireIconMarkup('home', 'fw'); 
 		parent::__construct();
@@ -272,7 +295,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * If not set, redirect will be back to the current page with a "login=1" GET variable. 
 	 * However, you should only check if the user is logged in with if($user->isLoggedin()).
 	 * 
-	 * @param $url
+	 * @param string $url
 	 * @return $this
 	 * @throws WireException if given invalid URL
 	 * 
@@ -727,6 +750,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->nameField->attr('class', $this->className() . 'Name');
 		$this->nameField->addClass('InputfieldFocusFirst');
 		$this->nameField->collapsed = Inputfield::collapsedNever;
+		$this->nameField->skipLabel = $this->skipLabel;
+		if($this->skipLabel) $this->nameField->attr('placeholder', $nameInputLabel);
 
 		$this->passField = $modules->get('InputfieldText');
 		$this->passField->set('label', $this->labels('password')); // Login form: password field label
@@ -734,6 +759,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->passField->attr('type', 'password'); 
 		$this->passField->attr('class', $this->className() . 'Pass');
 		$this->passField->collapsed = Inputfield::collapsedNever;
+		$this->passField->skipLabel = $this->skipLabel;
+		if($this->skipLabel) $this->passField->attr('placeholder', $this->labels('password'));
 
 		$this->submitField = $modules->get('InputfieldSubmit');
 		$this->submitField->attr('name', 'login_submit'); 
@@ -1020,6 +1047,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	/**
 	 * Hook called on login fail
 	 * 
+	 * #pw-hooker
+	 * 
 	 * @param string $name
 	 * @param string $message Specify only to override default error message (since 3.0.151)
 	 * 
@@ -1031,6 +1060,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 
 	/**
 	 * Hook called on login success
+	 * 
+	 * #pw-hooker
 	 * 
 	 * @param User $user
 	 * 
