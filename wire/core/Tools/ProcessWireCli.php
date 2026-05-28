@@ -42,6 +42,14 @@ class ProcessWireCli extends Wire {
 	protected $args = [];
 	
 	/**
+	 * Additional classes added as CLIs
+	 * 
+	 * @var array 
+	 * 
+	 */
+	protected $addCli = [];
+	
+	/**
 	 * Construct
 	 * 
 	 * @param ProcessWire $wire
@@ -55,7 +63,32 @@ class ProcessWireCli extends Wire {
 		$this->commandName = $argv[1] ?? 'help';
 		$this->commandName = $this->wire()->sanitizer->name($this->commandName);
 		$this->args = array_values(array_slice($argv, 2));
+	}
+	
+	/**
+	 * Execute/run the CLI handler
+	 *
+	 * @since 3.0.264
+	 * 
+	 */
+	public function execute() {
 		if($this->allowCliModules()) $this->ready($this->commandName, $this->args);
+	}
+	
+	/**
+	 * Add custom CLI handler
+	 * 
+	 * @param string $name Short cli name for access
+	 * @param string $className Class to instantiate for CliModule interface
+	 * @since 3.0.264
+	 * 
+	 */
+	public function addCli($name, $className, $title = '') {
+		$this->addCli[$name] = [
+			'name' => $name,
+			'class' => $className,
+			'title' => $title,
+		];
 	}
 	
 	/**
@@ -90,7 +123,7 @@ class ProcessWireCli extends Wire {
 			$args = array_slice($args, 1);
 			echo $this->renderHelp($cliName, $args);
 			return [];
-		} 
+		}
 		
 		$cliModules = $this->getCliModules($name);
 		
@@ -146,6 +179,12 @@ class ProcessWireCli extends Wire {
 				}
 			}
 		}
+	
+		if(isset($this->addCli[$name])) {
+			$info = $this->addCli[$name];
+			$className = wireClassName($info['class'], true);
+			$cliModules[$name] = $this->wire(new $className());
+		}
 		
 		if(!count($cliModules) && $name) {
 			// case where $name is the actual module name
@@ -182,6 +221,12 @@ class ProcessWireCli extends Wire {
 				$items[$apiName] = $apiVar;
 			}
 		}
+		
+		foreach($this->addCli as $name => $info) {
+			$className = wireClassName($info['class'], true);
+			$items[$name] = $this->wire(new $className());
+			$moduleInfos[$info['class']] = $info;
+		}
 	
 		// find modules with Cli flag and place their commands into $commandItems array
 		foreach($items as $varName => $moduleName) {
@@ -193,7 +238,7 @@ class ProcessWireCli extends Wire {
 				if($cliName && empty($info['cli'])) continue;
 				if($cliName && $info['cli'] !== $cliName) continue;
 			} else if($moduleName instanceof CliModule) {
-				if($cliName && $varName != $cliName) continue;
+				if($cliName && $varName != $cliName && $cliName !== wireClassName($moduleName)) continue;
 				$info = [ 'cli' => $varName ];
 				$isModule = false;
 			}
@@ -239,7 +284,11 @@ class ProcessWireCli extends Wire {
 		foreach($commandItems as $moduleName => $commands) {
 			
 			$info = $moduleInfos[$moduleName];
-			$header = ($moduleName ? "$moduleName: " : "") . "$info[title]"; // module title header
+			if(!empty($info['title'])) {
+				$header = ($moduleName ? "$moduleName: " : "") . "$info[title]"; // module title header
+			} else {
+				$header = "$moduleName:";
+			}
 			$sep = str_repeat('=', strlen($header)); // line under title header
 			$newline = "\n  ";
 			$out .= "$newline$header$newline$sep";
