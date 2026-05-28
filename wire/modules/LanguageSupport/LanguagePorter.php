@@ -34,6 +34,20 @@ class LanguagePorter extends Wire {
 	protected $siteSegment = 'site';
 	
 	/**
+	 * Informationa bout last export
+	 *
+	 * @var int[] 
+	 * 
+	 */
+	protected $lastExportInfo = [
+		'total' => 0, 
+		'translated' => 0, 
+		'untranslated' => 0, 
+		'exported' => 0, 
+		// ...plus all $options
+	];
+	
+	/**
 	 * @var Language
 	 * 
 	 */
@@ -51,6 +65,7 @@ class LanguagePorter extends Wire {
 		$language->wire($this);
 		$parts = explode('/', rtrim($this->wire()->config->paths->site, '/'));
 		$this->siteSegment = array_pop($parts);
+		$this->lastExportInfo = array_merge($this->lastExportInfo, $this->exportOptions([]));
 	}
 
 	/**
@@ -77,8 +92,11 @@ class LanguagePorter extends Wire {
 			'source' => '', // root-relative source directory, i.e. wire, site, site/modules/
 			'scope' => 'registered', // registered or all
 			'exportTo' => 'file', // 'download', 'file', 'stdout', 'string' or 'view'
-			'textdomain' => '',
+			'textdomain' => '', // limit to just this textdomain
 			'fieldName' => 'language_files',
+			'include' => 'all', // 'translated', 'untranslated' or 'all'
+			'limit' => 0, // limit to this many phrases, or 0 for no limit
+			'start' => 0, // offset to start at
 		];
 		
 		$options = array_merge($defaults, $options);
@@ -329,6 +347,9 @@ class LanguagePorter extends Wire {
 	 * @param array $options
 	 * - `source` (string): Root-relative source directory, i.e. 'wire', 'site', 'site/modules/'
 	 * - `textdomain` (string): Limit export to this textdomain (default='')
+	 * - `include` (string): Include 'translated', 'untranslated' or 'all' (default='all')
+	 * - `limit` (int): Limit to this many phrases, or 0 for no limit (default=0)
+	 * - `start` (int): Offset to start at, typically combined with limit (default=0)
 	 * @return string
 	 * @throws WireException
 	 * 
@@ -338,6 +359,7 @@ class LanguagePorter extends Wire {
 		ob_start();
 		try {
 			$this->exportCsv($options);
+			$this->lastExportInfo['exportTo'] = 'string';
 			return (string) ob_get_clean();
 		} catch(\Throwable $e) {
 			ob_end_clean();
@@ -356,6 +378,9 @@ class LanguagePorter extends Wire {
 	 *    When `view` http headers ARE sent, CSV is output directly, and method does an exit(0). 
 	 *    When `string` no output is echo'd and the CSV is returned as a string.
 	 * - `textdomain` (string): Limit export to this textdomain (default='')
+	 * - `include` (string): Include 'translated', 'untranslated' or 'all' (default='all')
+	 * - `limit` (int): Limit to this many phrases, or 0 for no limit (default=0)
+	 * - `start` (int): Offset to start at, typically combined with limit (default=0)
 	 * @return string|bool Return value depends on `exportTo` option:
 	 * - When `file` it returns full path/filename to CSV file
 	 * - When `string` this method returns a string of the CSV output.
@@ -379,6 +404,10 @@ class LanguagePorter extends Wire {
 		$textdomains = array();
 		$exportPath = $language->$fieldName->path();
 		$exportFiles = []; 
+		$totalPhrases = 0;
+		$numExported = 0;
+		$numTranslated = 0;
+		$numUntranslated = 0;
 		
 		if($textdomain) {
 			$file = $language->translator->textdomainToFilename($textdomain);
@@ -432,6 +461,7 @@ class LanguagePorter extends Wire {
 		fputcsv($fp, $columns);
 		
 		require_once(__DIR__ . '/LanguageParser.php');
+		$numMatched = 0;
 		
 		foreach($exportFiles as $f) {
 			if($scope === 'all') {
@@ -448,19 +478,34 @@ class LanguagePorter extends Wire {
 			$translated = empty($data['translations']) ? [] : $data['translations'];
 			/** @var LanguageParser $parser */
 			$parser = $this->wire(new LanguageParser($language->translator, $pathname)); 
-			$untranslated = $parser->getUntranslated();
+			$untranslated = $parser->getUntranslated(); // all found phrases (in untranslated form), indexed by hash
 			$comments = $parser->getComments();
 			
-			foreach($untranslated as $hash => $text1) {
-				$text2 = isset($translated[$hash])  ? $translated[$hash]['text'] : '';
+			foreach($untranslated as $hash => $textUntranslated) {
+				$totalPhrases++;
+				$textTranslated = isset($translated[$hash])  ? $translated[$hash]['text'] : '';
+				$isTranslated = strlen($textTranslated) > 0;
+				if($isTranslated) $numTranslated++; else $numUntranslated++;
+				if($options['include'] === 'translated' && !$isTranslated) continue;
+				if($options['include'] === 'untranslated' && $isTranslated) continue;
+				if($numMatched++ < $options['start']) continue;
+				if($options['limit'] && $numExported >= $options['limit']) continue;
 				$comment = $comments[$hash] ?? '';
 				if(strpos($comment, '//') !== false) list(, $comment) = explode('//', $comment);
-				$columns = array($text1, $text2, trim($comment), $file, $hash);
+				$columns = array($textUntranslated, $textTranslated, trim($comment), $file, $hash);
 				fputcsv($fp, $columns);
+				$numExported++;
 			}
 		}
 		
 		fclose($fp);
+		
+		$this->lastExportInfo = array_merge([
+			'total' => $totalPhrases,
+			'translated' => $numTranslated,
+			'untranslated' => $numUntranslated,
+			'exported' => $numExported,
+		], $options);
 		
 		if($exportTo === 'view' || $exportTo === 'download') exit(0);
 		if($exportTo === 'stdout') return true;
@@ -469,12 +514,22 @@ class LanguagePorter extends Wire {
 	}
 	
 	/**
+	 * Get array of information about last successful CSV export
+	 * 
+	 * @return array
+	 *
+	 */
+	public function getLastExportInfo() {
+		return $this->lastExportInfo;
+	}
+	
+	/**
 	 * Import and save changes from a translations CSV string
 	 *
 	 * @param string $csvStr
 	 * @param array $options Additional options
-	 *  - `file` (string): Import for this path/file (relative to install root) rather than one in the CSV row.
-	 *  - `quiet` (bool): Suppress error and message notifications? (default=false)
+	 * - `file` (string): Import for this path/file (relative to install root) rather than one in the CSV row.
+	 * - `quiet` (bool): Suppress error and message notifications? (default=false)
 	 * @return bool|int Returns false on error or integer on success, where value is number of translations imported
 	 * @throws WireException
 	 *
@@ -492,7 +547,7 @@ class LanguagePorter extends Wire {
 		}
 		return $result;
 	}
-
+	
 	/**
 	 * Import and save changes from a translations CSV file (or string)
 	 *
