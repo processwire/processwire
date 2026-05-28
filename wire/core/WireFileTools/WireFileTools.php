@@ -808,14 +808,16 @@ class WireFileTools extends Wire {
 	 * 
 	 * #pw-group-retrieval
 	 * 
-	 * @param string $path Path to start from (required). 
+	 * @param string|array $path Path to start from (required). Also supports paths (array) in 3.0.264+. 
 	 * @param array $options Options to affect what is returned (optional):
 	 *  - `recursive` (int|bool): How many levels of subdirectories this method should descend into beyond the 1 given.
 	 *     Specify 1 to remain at the one directory level given, or 2+ to descend into subdirectories. (default=10)
 	 *     In 3.0.180+ you may also specify true for no limit, or false to disable descending into any subdirectories.
 	 *  - `extensions` (array|string): Only include files having these extensions, or omit to include all (default=[]).
 	 *     In 3.0.180+ the extensions argument may also be a string (space or comma separated). 
-	 *  - `excludeDirNames` (array): Do not descend into directories having these names (default=[]).
+	 *  - `names` (array|string): Only include files having these names, including extension. (default=[]) 3.0.264+
+	 *  - `excludeDirNames` (array): Do not descend into directories having these names (default=[]),
+	 *     for regex pattern use `!` as starting/ending delimeter (3.0.264+). 
 	 *  - `excludeHidden` (bool): Exclude hidden files? (default=false). 
 	 *  - `allowDirs` (bool): Allow directories in returned files (except for '.' and '..')? Note that returned 
 	 *     directories have a trailing slash. (default=false) 3.0.180+
@@ -825,9 +827,19 @@ class WireFileTools extends Wire {
 	 * 
 	 */
 	public function find($path, array $options = array()) {
+		
+		if(is_array($path)) {
+			$files = [];
+			foreach($path as $p) {
+				$files = array_merge($files, $this->find($p, $options));
+			}
+			sort($files);
+			return $files;
+		}
 
 		$defaults = array(
 			'recursive' => 10, 
+			'names' => array(), 
 			'extensions' => array(),
 			'excludeExtensions' => array(), 
 			'excludeDirNames' => array(),
@@ -845,12 +857,15 @@ class WireFileTools extends Wire {
 			// this is a non-recursive call
 			$options['_startPath'] = $path;
 			$options['_level'] = 0;
-			if(!is_array($options['extensions'])) {
-				if($options['extensions']) {
-					$options['extensions'] = preg_replace('/[,;\.\s]+/', ' ', $options['extensions']);
-					$options['extensions'] = explode(' ', $options['extensions']); 
-				} else {
-					$options['extensions'] = array();
+			foreach([ 'extensions', 'names' ] as $key) {
+				if(!is_array($options[$key])) {
+					if($options[$key]) {
+						$re = $key === 'extensions' ? '/[,;\.\s]+/' : '/[,;\s]+/';
+						$options[$key] = preg_replace($re, ' ', $options[$key]);
+						$options[$key] = explode(' ', $options[$key]);
+					} else {
+						$options[$key] = array();
+					}
 				}
 			}
 			foreach($options['extensions'] as $k => $v) {
@@ -882,12 +897,26 @@ class WireFileTools extends Wire {
 					$files[$dir] = $dir;
 				}
 				if($options['recursive'] === false || $options['recursive'] < 1) continue;
-				if(!in_array($basename, $options['excludeDirNames'])) $dirs[$dir] = $file->getPathname();
+				if(in_array($basename, $options['excludeDirNames'])) continue;
+				$exclude = false;
+				foreach($options['excludeDirNames'] as $ex) {
+					$pos = strpos($ex, '!');
+					if($pos === 0 && strrpos($ex, '!') !== $pos) {
+						$exclude = preg_match($ex, $dir); // $ex is regular expression
+					} else if($basename === $ex) {
+						$exclude = true;
+					} 
+					if($exclude) break;	
+				}
+				if(!$exclude) {
+					$dirs[$dir] = $file->getPathname();
+				}
 				continue;
 			}
 			
 			if($options['excludeHidden'] && strpos($basename, '.') === 0) continue;
 			if(!empty($options['extensions']) && !in_array($ext, $options['extensions'])) continue;
+			if(!empty($options['names']) && !in_array($basename, $options['names'])) continue;
 			if(!empty($options['excludeExtensions']) && in_array($ext, $options['excludeExtensions'])) continue;
 
 			$filename = $this->unixFileName($file->getPathname());
