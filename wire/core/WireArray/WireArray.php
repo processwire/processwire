@@ -442,8 +442,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$b = $this->get($itemB);
 		if($a && $b) {
 			// swap a and b, both already present in this WireArray
-			$data = $this->data; 
-			foreach($data as $key => $value) {
+			$data = array();
+			foreach($this->data as $key => $value) {
 				$k = null;
 				if($value === $a) {
 					if(method_exists($b, 'getItemKey')) {
