@@ -546,11 +546,17 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			$url = $session->getFor('ProcessPageView', 'loginRequestURL');
 		} else {
 			// common integer GET vars in admin to identify if present and not already in $url
-			foreach(array('id', 'modal') as $name) {
-				$value = $input->get($name);
-				if($value === null || !ctype_digit("$value")) continue; // not an integer
-				if(preg_match('/[&?]' . $name . '=/', $url)) continue; // already present
-				$url .= (strpos($url, '?') ? '&' : '?') . "$name=" . ((int) $value);
+			$vars = [];
+			$value = $input->get('modal');
+			if($value !== null && ctype_digit("$value")) $vars['modal'] = (int) $value;
+			$value = $input->get('id');
+			if($value !== null) {
+				$value = $this->sanitizeId($value);
+				if(strlen("$value")) $vars['id'] = $value;
+			}
+			foreach($vars as $name => $value) {
+				if(preg_match('/[&?]' . $name . '=/', $url)) continue;
+				$url .= (strpos($url, '?') !== false ? '&' : '?') . "$name=$value";
 			}
 		}
 		
@@ -1101,6 +1107,23 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		}
 
 		if($this->isAdmin) $this->afterLogin();
+	}
+	
+	/**
+	 * Sanitize id from query string
+	 * 
+	 * @param string|int $id
+	 * @return string
+	 * 
+	 */
+	protected function sanitizeId($id) {
+		$id = trim((string) $id);
+		$len = strlen($id);
+		if(!$len || $len > 255) return '';
+		if(ctype_alnum($id)) return $id;
+		$test = str_replace(['-', '_', '.'], '', $id);
+		if(ctype_alnum($test)) return $id; 
+		return '';
 	}
 
 	/**
