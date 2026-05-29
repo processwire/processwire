@@ -10,8 +10,14 @@ You can also extend it directly to create lightweight data-container classes, or
 standalone as a simple key-value store.
 
 `WireData` is not itself an API variable. Access it as the base of the objects you already
-use (`$page`, `$field`, `$template`, etc.), or in modules as
-`$item = new WireData(); $this->wire($item);`.
+use (`$page`, `$field`, `$template`, etc.), or create a standalone instance directly:
+
+```php
+// Equivalent ways to create a new WireData instance
+$item = new WireData();
+$item = WireData();                              // global shortcut function (3.0.126+)
+$item = WireData(['color' => 'blue', 'n' => 3]); // shortcut with initial data
+```
 
 ---
 
