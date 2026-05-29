@@ -83,7 +83,7 @@ class ProcessWire extends Wire {
 	 * Version revision number
 	 * 
 	 */
-	const versionRevision = 263;
+	const versionRevision = 264;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -250,6 +250,12 @@ class ProcessWire extends Wire {
 	 * 
 	 */
 	protected $shutdown = null;
+	
+	/**
+	 * @var WireApiDocs|null 
+	 * 
+	 */
+	protected $docs = null;
 	
 	/**
 	 * Create a new ProcessWire instance
@@ -819,7 +825,11 @@ class ProcessWire extends Wire {
 		$this->updater->ready();
 		unset($this->updater);
 		if($this->debug) Debug::saveTimer('boot.modules.autoload.ready'); 
-		if(!empty($_SERVER['argv']) && php_sapi_name() === 'cli') new ProcessWireCli($this);
+		if(!empty($_SERVER['argv']) && php_sapi_name() === 'cli') {
+			$cli = new ProcessWireCli($this);
+			$cli->addCli('docs', 'WireApiDocs', 'ProcessWire API docs');
+			$cli->execute();
+		}
 	}
 
 	/**
@@ -890,9 +900,12 @@ class ProcessWire extends Wire {
 	 * 
 	 */
 	public function __get($name) {
-		if($name === 'fuel') return $this->fuel;
-		if($name === 'shutdown') return $this->shutdown;
-		if($name === 'instanceID') return $this->instanceID;
+		switch($name) {
+			case 'fuel': return $this->fuel;
+			case 'shutdown': return $this->shutdown;
+			case 'instanceID': return $this->instanceID;
+			case 'docs': return $this->docs();
+		}
 		$value = $this->fuel->get($name);
 		if($value !== null) return $value;
 		return parent::__get($name);
@@ -960,7 +973,39 @@ class ProcessWire extends Wire {
 		if(empty($name)) return $this->fuel;
 		return $this->fuel->$name;
 	}
-
+	
+	/**
+	 * Get ProcessWire API docs (WireApiDocs class instance)
+	 * 
+	 * Docs can also be accessed from the CLI. Use `php index.php docs` to list all 
+	 * available options. 
+	 * 
+	 * Below are brief examples but please see the `WireApiDocs` class for all options
+	 * and methods. Note that if your argument value to the `$wire->docs->get()`
+	 * method is a string, it returns a string. If it's an array, it returns an array.
+	 * ~~~~~
+	 * // get summary array of all available API docs
+	 * $array = $wire->docs->get();
+	 * 
+	 * // get API docs for specific class (string, markdown)
+	 * $markdown = $wire->docs->get('Pages');
+	 * 
+	 * // get API docs for multiple classes
+	 * $array = $wire->docs->get(['Pages', 'Fields', 'Templates' ]);
+	 * 
+	 * // Find docs available for all classes starting with 'Fieldtype'
+	 * $array = $wire->docs->get([ 'Fieldtype*' ]);
+	 * ~~~~~
+	 * 
+	 * @return WireApiDocs
+	 * @since 3.0.264
+	 * 
+	 */
+	public function docs() {
+		if($this->docs === null) $this->docs = new WireApiDocs($this);
+		return $this->docs;
+	}
+	
 	/**
 	 * Called if any Wire-derived object makes API calls before being wired
 	 * 

@@ -115,6 +115,18 @@ class WireMail extends WireData implements WireMailInterface {
 		if(array_key_exists($key, $this->mail)) return $this->mail[$key]; 
 		return parent::get($key);
 	}
+	
+	/**
+	 * Get array of all data for this email
+	 * 
+	 * @return array
+	 * 
+	 */
+	public function getArray() {
+		$data = parent::getArray();
+		$data = array_merge($data, $this->mail);
+		return $data;
+	}
 
 	/**
 	 * Set property

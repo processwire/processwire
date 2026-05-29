@@ -2061,6 +2061,11 @@ table,
 	color: var(--pw-alert-text-color);
 }
 
+.pw-notices > * ul > li {
+	/* notices with markup enabled that have <ul> lists in them */
+	list-style: disc;
+}
+
 .pw-notices .uk-alert-danger a {
 	color: inherit;
 }
