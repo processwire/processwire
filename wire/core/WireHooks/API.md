@@ -26,6 +26,9 @@ variable (`WireHooks`) manages the hook registry internally and is not typically
 A common pattern is to keep hook code in a dedicated `/site/templates/_hooks.php` file and
 `require_once` it from `ready.php` or `_init.php`.
 
+Note that "URL/path hooks" must be added during "init" or "ready" states, so will not work if placed in 
+`/site/templates/` (it's too late). 
+
 ---
 
 ## Adding hooks
@@ -410,15 +413,25 @@ if($page->hasHook('title')) {
 
 ---
 
-## Path hooks
+## URL/path hooks
 
-A path hook fires when the current request URL matches a given path or pattern, independently
+A URL/path hook fires when the current request URL matches a given path or pattern, independently
 of the page tree. Path hooks are useful for custom URL endpoints, API routes, short redirects,
 and similar use cases that don't require a page to exist in the content tree. They must be
 attached during the `init` or `ready` boot state.
 
+*Note: we are using the terms "URL" and "path" interchangeably here.*
+
 A hook whose first argument starts with `/`, `!`, `@`, `#`, `%`, `.`, `(`, `[`, or `^` is
-treated as a path hook.
+treated as a URL/path hook 
+
+### Where to place URL/path hooks
+
+URL/path hooks are best placed in `/site/init.php` or `/site/ready.php`. They can also be
+placed in an autoload module's `init()` method or `ready()` method. The `init()` method is
+preferable (when possible) because it is called earlier. 
+
+### Examples
 
 ```php
 // Exact path match
@@ -453,8 +466,12 @@ $wire->addHook('/news/{pageNum}', function(HookEvent $event) {
     $pageNum = $event->pageNum;
 });
 ```
+For more details on URL/path hooks please see:
+<https://processwire.com/blog/posts/url-path-hooks/>
 
-**Return value:** the hook's return value determines how the request is handled.
+### Return values
+
+The hook's return value determines how the request is handled.
 
 | Return type         | Behaviour                                                         |
 |---------------------|-------------------------------------------------------------------|
