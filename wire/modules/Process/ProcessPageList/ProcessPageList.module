@@ -108,7 +108,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	 * Default animation speed (in ms) for the PageList
 	 *
 	 */
-	const defaultSpeed = 200;
+	const defaultSpeed = 100;
 
 	/**
 	 * Construct and establish default config values
