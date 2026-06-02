@@ -639,11 +639,15 @@ class InputfieldForm extends InputfieldWrapper {
 		} else {
 			// confirm that requested submit button was clicked and has same value
 			if($submitName instanceof Inputfield) $submitName = $submitName->attr('name');
-			$value = $input->$method($submitName);
-			if($value === null) return false;
 			$f = $this->getChildByName($submitName);
-			if($f instanceof InputfieldSubmit && $f->val() != $value) return false;
-			$submitted = $submitName;
+			if($f instanceof InputfieldSubmit) {
+				// require exact match between submitted value and button's configured value
+				$submitted = ($input->$method($submitName) === $f->val()) ? $submitName : false;
+			} else {
+				// non-submit input: just confirm it is present in the input
+				$value = $input->$method($submitName);
+				$submitted = ($value !== null) ? $submitName : false;
+			}
 		}
 		
 		return $submitted;
