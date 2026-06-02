@@ -34,8 +34,8 @@ $wire->addHookBefore('MarkupPagerNav::render', null, 'hookMarkupPagerNavRender')
 function hookMarkupPagerNavRender(HookEvent $event) {
 	$options = $event->arguments(1);
 	if(!isset($options['nextItemLabel'])) {
-		$options['nextItemLabel'] = "<i class='fa fa-angle-right'></i>";
-		$options['previousItemLabel'] = "<i class='fa fa-angle-left'></i>";
+		$options['nextItemLabel'] = wireIconMarkup('angle-right');
+		$options['previousItemLabel'] = wireIconMarkup('angle-left');
 		$options['separatorItemLabel'] = "<span class='pw-detail'>&hellip;</span>";
 		$event->arguments(1, $options); 
 	}

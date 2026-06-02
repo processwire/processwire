@@ -871,7 +871,10 @@ class PageFrontEdit extends WireData implements Module {
 		$editURL = $this->page->editUrl();
 		$viewURL = $sanitizer->entities($input->url(true));
 		
-		$out .= 
+		$iconSave = wireIconMarkup('check', 'fw');
+		$iconCancel = wireIconMarkup('times', 'fw');
+		$iconSaving = wireIconMarkup('spinner', 'spin fw');
+		$out .=
 			"<input type='hidden' id='Inputfield_id' class='PageFrontEdit' value='{$this->page->id}' />" . // for CKE plugins
 			"<input type='hidden' id='pw-edit-lang' value='$lang' />" .
 			"<input type='hidden' id='pw-edit-href' value='$editURL' />" . // edit
@@ -880,16 +883,16 @@ class PageFrontEdit extends WireData implements Module {
 			($css ? "<style style='text/css'>$css</style>" : "") . 
 			"<div class='ui-widget $class' style='display:none'>" . 
 				"<button class='ui-button pw-edit-save'>" . 
-					"<i class='fa fa-check fa-fw'></i><span>&nbsp;$saveLabel</span>" . 
-				"</button>" . 
-				"<button class='ui-button pw-edit-cancel ui-priority-secondary'>" . 
-					"<i class='fa fa-times fa-fw'></i><span>&nbsp;$cancelLabel</span>" . 
-				"</button>" . 
-				"<button class='ui-button pw-edit-saving' style='display:none'>" . 
-					"<i class='fa fa-spin fa-spinner fa-fw'></i>&nbsp;$savingLabel" . 
-				"</button>" . 
-				"<button class='ui-button pw-edit-saved' style='display:none'>" . 
-					"<i class='fa fa-check fa-fw'></i>&nbsp;$savedLabel" . 
+					"$iconSave<span>&nbsp;$saveLabel</span>" .
+				"</button>" .
+				"<button class='ui-button pw-edit-cancel ui-priority-secondary'>" .
+					"$iconCancel<span>&nbsp;$cancelLabel</span>" .
+				"</button>" .
+				"<button class='ui-button pw-edit-saving' style='display:none'>" .
+					"$iconSaving&nbsp;$savingLabel" .
+				"</button>" .
+				"<button class='ui-button pw-edit-saved' style='display:none'>" .
+					"$iconSave&nbsp;$savedLabel" .
 				"</button>" . 
 			"</div>" . 
 			"<i id='pw-fa-test' class='fa fa-fw'></i>"; // to test width to see if font-awesome already loaded

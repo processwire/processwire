@@ -422,7 +422,7 @@ var ProcessWireAdminTheme = {
 			var $ul = $a.closest('li').find('ul');
 			var url = $(this).attr('data-json');
 			if($ul.hasClass('navJSON')) return false;
-			var $spinner = $("<li class='pw-nav-spinner'><i class='fa fa-spin fa-spinner'></i></li>"); 
+			var $spinner = $("<li class='pw-nav-spinner'>" + ProcessWire.icon('spinner', 'spin') + "</li>");
 			$ul.append($spinner);
 			$.getJSON(url, function(data) {
 				var $a2 = $a.clone();
@@ -431,7 +431,7 @@ var ProcessWireAdminTheme = {
 					$icon2 = $("<i></i>");
 					$a2.prepend($icon2);
 				}
-				$icon2.attr('class', 'fa fa-fw fa-arrow-circle-right pw-nav-icon');
+				$icon2.attr('class', $(ProcessWire.icon('arrow-circle-right', 'fw pw-nav-icon')).attr('class'));
 				$a2.removeAttr('data-json').removeAttr('class')
 				$a2.find('small').remove(); // i.e. numChildren
 				var $li = $("<li></li>").addClass('pw-nav-dup').append($a2);
@@ -442,7 +442,7 @@ var ProcessWireAdminTheme = {
 					var $li2 = $(
 						"<li class='pw-nav-add'>" +
 						"<a href='" + data.url + data.add.url + "'>" +
-						"<i class='fa fa-fw fa-" + data.add.icon + " pw-nav-icon'></i>" +
+						ProcessWire.icon(data.add.icon, 'fw pw-nav-icon') +
 						data.add.label + "</a>" +
 						"</li>"
 					);
@@ -470,7 +470,7 @@ var ProcessWireAdminTheme = {
 						//label = $label.html();
 					}
 					label = $label.html().replace('&nbsp;', ' ');
-					if(this.icon) icon = "<i class='fa fa-fw fa-" + this.icon + " pw-nav-icon'></i>";
+					if(this.icon) icon = ProcessWire.icon(this.icon, 'fw pw-nav-icon');
 					var url = this.url.indexOf('/') === 0 ? this.url : data.url + this.url;
 					var $a = $("<a href='" + url + "'>" + icon + label + "</a>");
 					var $li = $("<li></li>").append($a);

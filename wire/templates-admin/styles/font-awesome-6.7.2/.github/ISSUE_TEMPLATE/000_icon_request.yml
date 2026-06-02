@@ -1,0 +1,60 @@
+name: Icon request
+description: Suggest an icon, modifier, or emoji to be included in Font Awesome
+labels: ["new icon"]
+projects: ["FortAwesome/20"]
+title: "Icon Request: "
+body:
+  - type: markdown
+    attributes:
+      value: "## Before You Request"
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for requesting a new Font Awesome icon! But first, let's get some specifics out of the way. For example, lots of amazing custom icons can already be created using our [Icon Wizard](https://blog.fontawesome.com/icon-wizard/)! Please check through this list first to ensure your request is as useful and unique as possible:
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: 'The title of this issue starts with "Icon Request: " and is followed by the new icon name *(ex. "Icon Request: Proton Torpedo")*'
+          required: true
+        - label: This icon does not represent a brand
+          required: true
+        - label: 'This request is for a single icon or a matched pair *(ex. `lock` and `unlock`)*'
+          required: true
+        - label: I've already [searched through existing issues](https://github.com/FortAwesome/Font-Awesome/issues), and to the best of my knowledge this request isn't a duplicate
+          required: true
+        - label: I understand [how new icon requests work](https://fontawesome.com/support#requesting-icons)
+          required: true
+  - type: markdown
+    attributes:
+      value: "## Your Request"
+  - type: dropdown
+    id: type
+    attributes:
+      label: Request type
+      description: What kind of icon or element do you have in mind?
+      options:
+        - ✨ New icon
+        - 😄 Emoji (please provide Unicode code point)
+        - 🧙 Wizard modifier
+        - 🔧 Icon improvement
+        ## - 🧱 Element (save this for the future)
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: How should this new icon be used?
+      placeholder: ex. a proton torpedo for our holographic space station attack plans
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Visual example
+      description: Insert an example image or other visual reference to help us get the picture (literally).
+    validations:
+      required: true

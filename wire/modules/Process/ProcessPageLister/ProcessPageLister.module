@@ -2040,9 +2040,10 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			}
 		}
 
-		$out .= "<h2 class='lister_headline'>$headline " . 
-				"<span id='lister_open_cnt' class='ui-priority-secondary'>" . 
-				"<i class='fa fa-check-square-o'></i> <span>0</span> " . $this->_('selected') . "</span></h2>" . 
+		$icon = wireIconMarkup('check-square-o');
+		$out .= "<h2 class='lister_headline'>$headline " .
+				"<span id='lister_open_cnt' class='ui-priority-secondary'>" .
+				"$icon <span>0</span> " . $this->_('selected') . "</span></h2>" .
 				$pagerOut . 
 				"<div id='ProcessListerTable'>$tableOut</div>" . 
 				$pagerOut; 

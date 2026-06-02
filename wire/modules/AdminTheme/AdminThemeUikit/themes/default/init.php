@@ -65,7 +65,7 @@ $adminTheme->addHookAfter('InputfieldTinyMCESettings::prepareSettingsForOutput',
  * 
  */ 
 if($useDarkModeSwitcher) {
-	$adminTheme->addHookAfter('getUserNavArray', function(HookEvent $e) {
+	$adminTheme->addHookAfter('getUserNavArray', function(HookEvent $e) use($config) {
 		$adminTheme = $e->object; /** @var AdminThemeUikit $adminTheme */
 		$navArray = $e->return; /** @var array $navArray */
 		$lightLabel = __('Light mode', __FILE__);
@@ -74,6 +74,12 @@ if($useDarkModeSwitcher) {
 		$cancelLabel = $adminTheme->_('Cancel');
 		$okLabel = $adminTheme->_('Ok');
 		$dialogTitle = __('Light/dark mode');
+		$lightIcon = 'sun';
+		$darkIcon = 'moon';
+		if((int) substr($config->adminIcons['version'], 0, 1) < 6) {
+			$lightIcon .= '-o';
+			$darkIcon .= '-o';
+		}
 		array_unshift($navArray, [
 			'url' => '#toggle-light-dark-mode',
 			'title' => __('Light/dark', __FILE__),
@@ -84,8 +90,8 @@ if($useDarkModeSwitcher) {
 			'data-label-light' => $lightLabel,
 			'data-label-dark' => $darkLabel,
 			'data-label-auto' => $dialogTitle,
-			'data-icon-light' => 'sun-o',
-			'data-icon-dark' => 'moon-o',
+			'data-icon-light' => $lightIcon,
+			'data-icon-dark' => $darkIcon,
 			'data-icon-auto' => 'adjust', 
 		]);
 		$e->return = $navArray;

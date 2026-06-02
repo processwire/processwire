@@ -535,7 +535,7 @@ class ProcessRole extends ProcessPageType {
 	protected function renderTemplatePermissionToggle() {
 		return
 			"<a href='#' class='toggle-template-permissions tooltip' title='" . $this->_('Click to open/close permission settings by template') . "'>" .
-			"<i class='fa fa-chevron-circle-right' data-toggle='fa-chevron-circle-down fa-chevron-circle-right'></i>" .
+			wireIconMarkup('chevron-circle-right', "data-toggle='fa-chevron-circle-down fa-chevron-circle-right'") .
 			"</a>";
 	}
 

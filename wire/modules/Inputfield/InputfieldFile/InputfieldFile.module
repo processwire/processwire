@@ -558,7 +558,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		if(!$this->renderValueMode) $out .=
 			"<label class='InputfieldFileDelete'>" . 
 				"<input type='checkbox' name='delete_$id' value='1' title='$deleteLabel' />" . 
-				"<i class='fa fa-fw fa-trash'></i></label>";
+				wireIconMarkup('trash', 'fw') . "</label>";
 		
 		$description = $this->renderItemDescriptionField($pagefile, $id, $n);
 		$class = 'InputfieldFileData ';
@@ -729,12 +729,13 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	
 		if($this->getSetting('noCustomButton')) {
 			$out .= "<input $attrStr>";
-			
+
 		} else {
+			$iconFolder = wireIconMarkup('folder-open-o', 'fw');
 			$out .= "
 					<div class='InputMask ui-button ui-state-default'>
 						<span class='ui-button-text'>
-							<i class='fa fa-fw fa-folder-open-o'></i>$chooseLabel
+							$iconFolder$chooseLabel
 						</span>
 						<input $attrStr>
 					</div>
@@ -746,13 +747,16 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				<input type='hidden' class='InputfieldFileMaxFiles' value='$this->maxFiles' />
 			";
 		
-		if(!$this->noAjax) $out .= "
+		if(!$this->noAjax) {
+			$iconUpload = wireIconMarkup('cloud-upload');
+			$out .= "
 				<span class='AjaxUploadDropHere description'>
 					<span>
-						<i class='fa fa-cloud-upload'></i>&nbsp;$dragDropLabel
+						$iconUpload&nbsp;$dragDropLabel
 					</span>
 				</span>
-			";	
+			";
+		}
 		
 		$out .= "</div>"; // .InputfieldFileUpload
 

@@ -870,7 +870,7 @@ class ProcessPagesExportImport extends Process {
 					$icon = 'check';
 				}
 				$class = "import-" . trim($noticeType, 's');
-				$noticeText = "<i class='fa fa-fw fa-$icon'></i> $noticeText";
+				$noticeText = wireIconMarkup($icon, 'fw') . " $noticeText";
 				$out .= "<p class='$class'>$noticeText</p>";
 			}
 		}
@@ -892,7 +892,7 @@ class ProcessPagesExportImport extends Process {
 				}
 				$out .=
 					"<p class='import-form-item-input'>" .
-					"<i class='fa fa-fw fa-caret-right'></i> " .
+					wireIconMarkup('caret-right', 'fw') . ' ' .
 					$this->_('Import this page?') . '&nbsp; ' .
 					"<label><input $attr value='$originalID' $checkedYes />&nbsp;" . $this->_('Yes') . "</label>&nbsp; " .
 					"<label><input $attr value='' $checkedNo />&nbsp;" . $this->_('No') . "</label>" .

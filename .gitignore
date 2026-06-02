@@ -37,3 +37,4 @@ wire/modules/Jquery/JqueryFancybox/
 wire/modules/Jquery/JqueryTableSorter/JqueryTableSorter.min.js
 pwx.php
 .claude
+wire/modules/AdminTheme/AdminThemeUikit/themes/default/admin-tweaks.css

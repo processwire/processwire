@@ -228,10 +228,10 @@ class FieldtypeTextareaHelper extends Wire {
 		}
 
 		$summary = array();
-		$good = "<i class='fa fa-fw fa-check-square'></i> ";
-		$fail = "<i class='fa fa-fw fa-warning'></i> ";
-		$ques = "<i class='fa fa-fw fa-question-circle'></i> ";
-		$html5 = "<i class='fa fa-fw fa-html5'></i> ";
+		$good = wireIconMarkup('check-square', 'fw') . ' ';
+		$fail = wireIconMarkup('warning', 'fw') . ' ';
+		$ques = wireIconMarkup('question-circle', 'fw') . ' ';
+		$html5 = wireIconMarkup('html5', 'fw') . ' ';
 		
 		$types = array(
 			'external' => $good . $this->_x('%d external a[href] tags', 'link-type'),

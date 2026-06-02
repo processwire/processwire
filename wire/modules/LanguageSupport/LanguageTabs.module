@@ -221,7 +221,8 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 			$inputfield->contentClass .= " langTabsContainer";
 			$tabs = implode('', $this->tabs);
 			$id = $inputfield->attr('id');
-			$note = "<small class='langTabsNote detail'><i class='fa fa-fw fa-angle-double-left'></i>" . 
+			$icon = wireIconMarkup('angle-double-left', 'fw');
+			$note = "<small class='langTabsNote detail'>$icon" .
 				$this->_('click twice to change all tabs') . "</small>";
 			$attrs = $settings['ulAttrs']; 
 			$attrs .= $settings['ulClass'] ? " class='$settings[ulClass]'" : "";

@@ -272,7 +272,7 @@ class ProcessLanguage extends ProcessPageType {
 			"<div class='InputfieldFileData InputfieldFileLanguageInfo'>" . 
 				"<span class='InputfieldFileLanguageFilename description'>/$file &#8212;</span> <span class='notes'>$message</span> " .
 				"<a class='action' href='{$translationUrl}edit/?language_id={$page->id}&amp;textdomain=$textdomain'>&nbsp; " . 
-				"<i class='fa fa-edit'></i> $editLabel <i class='fa fa-angle-double-right hover-only'></i></a>" . 
+				wireIconMarkup('edit') . " $editLabel " . wireIconMarkup('angle-double-right', 'hover-only') . "</a>" . 
 			"</div>";
 
 		$page->translator->unloadTextdomain($textdomain);

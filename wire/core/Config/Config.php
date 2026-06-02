@@ -83,6 +83,7 @@
  * 
  * @property string $adminEmail Email address to send fatal error notifications to. #pw-group-system
  * @property array $adminTemplates Names of templates that ProcessWire should consider exclusive to the admin. #pw-group-system @since 3.0.142
+ * @property array $adminIcons Settings for icons used in the admin theme. #pw-group-system @since 3.0.265
  * 
  * @property string $pageNameCharset Character set for page names, must be 'ascii' (default, lowercase) or 'UTF8' (uppercase). #pw-group-URLs
  * @property string $pageNameWhitelist Whitelist of characters allowed in UTF8 page names. #pw-group-URLs

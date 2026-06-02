@@ -79,8 +79,8 @@ $config->set('MarkupAdminDataTable', array(
 ));
 
 $config->set('MarkupPagerNav', array(
-	'nextItemLabel' => "<i class='fa fa-angle-right'></i>",
-	'previousItemLabel' => "<i class='fa fa-angle-left'></i>",
+	'nextItemLabel' => wireIconMarkup('angle-right'),
+	'previousItemLabel' => wireIconMarkup('angle-left'),
 	'currentItemClass' => 'uk-active MarkupPagerNavOn',
 	'separatorItemLabel' => '<span>&hellip;</span>',
 	'separatorItemClass' => 'uk-disabled MarkupPagerNavSeparator',

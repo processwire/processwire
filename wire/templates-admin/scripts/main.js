@@ -111,6 +111,19 @@ var ProcessWireAdmin = {
 		// whether or not dropdown positions are currently being monitored
 		var dropdownPositionsMonitored = false;
 
+		// Prevent submenu flash: submenus appear at top:0,left:0 (absolute) before jQuery UI
+		// repositions them. Hide via visibility so the browser paints only the final position.
+		if($.ui && $.ui.menu) {
+			var _origMenuOpen = $.ui.menu.prototype._open;
+			$.ui.menu.prototype._open = function(submenu) {
+				submenu.css('visibility', 'hidden');
+				_origMenuOpen.call(this, submenu);
+				requestAnimationFrame(function() {
+					submenu.css('visibility', '');
+				});
+			};
+		}
+
 		var hoveredDropdownAjaxItem;
 
 		function setupDropdown() {
@@ -156,7 +169,7 @@ var ProcessWireAdmin = {
 
 			// prepend icon to dropdown items that themselves have more items
 			$ul.find(".pw-has-items").each(function() {
-				var $icon = $("<i class='pw-has-items-icon fa fa-angle-right ui-priority-secondary'></i>");
+				var $icon = $(ProcessWire.icon('angle-right', 'pw-has-items-icon ui-priority-secondary'));
 				$(this).prepend($icon);
 			});
 
@@ -328,7 +341,7 @@ var ProcessWireAdmin = {
 						var $li = $(
 							"<li class='ui-menu-item add'>" +
 							"<a href='" + addUrl + "'>" +
-							"<i class='fa fa-fw fa-" + data.add.icon + "'></i>" +
+							ProcessWire.icon(data.add.icon, 'fw ui-priority-secondary') +
 							data.add.label + "</a>" +
 							"</li>"
 						);
@@ -344,7 +357,8 @@ var ProcessWireAdmin = {
 						var url = '';
 						
 						if(this.icon) {
-							icon = "<i class='ui-priority-secondary fa fa-fw fa-" + this.icon + "'></i>";
+							//icon = "<i class='ui-priority-secondary fa fa-fw fa-" + this.icon + "'></i>";
+							icon = ProcessWire.icon(this.icon, 'fw ui-priority-secondary');
 						}
 						
 						if(this.url == 'navJSON') {
@@ -364,7 +378,7 @@ var ProcessWireAdmin = {
 						if(this.navJSON) {
 							$a.attr('data-json', this.navJSON).addClass('pw-has-items pw-has-ajax-items');
 							$ulSub = $("<ul></ul>").addClass('subnavJSON');
-							var $icon = $("<i class='pw-has-items-icon fa fa-angle-right ui-priority-secondary'></i>");
+							var $icon = $(ProcessWire.icon('angle-right', 'pw-has-items-icon ui-priority-secondary'));
 							$a.prepend($icon);
 							$li.prepend($a).append($ulSub);
 							numSubnavJSON++;
@@ -381,7 +395,13 @@ var ProcessWireAdmin = {
 					
 					$ul.addClass('navJSON').addClass('length' + parseInt(data.list.length)).hide();
 					if($ul.children().length) $ul.css('opacity', 1.0);
-					if(hoveredDropdownAjaxItem == $a) $ul.fadeIn('fast');
+					if(hoveredDropdownAjaxItem == $a) {
+						// Pre-position before fade-in; fadeIn shows at top:0,left:0 otherwise
+						$ul.css({display: 'block', visibility: 'hidden'})
+						   .position({my: 'left top', at: 'right top', of: $a.parent()})
+						   .css({display: 'none', visibility: ''})
+						   .fadeIn('fast');
+					}
 					
 					if(numSubnavJSON) {
 						var numParents = $ul.parents('ul').length;
@@ -757,5 +777,192 @@ if(typeof ProcessWire != "undefined") {
 			str = str.toString();
 		}
 		return str.trim();
-	}; 
+	};
+
+	/**
+	 * Get Font Awesome 6 icon markup string
+	 *
+	 * @param {string} name Icon name with or without 'fa-' prefix
+	 * @param {string} [classes] Optional space-separated FA modifier classes (fw, lg, spin, etc.) and/or extra CSS classes
+	 * @returns {string} HTML string for the icon element
+	 * @since 3.0.265
+	 *
+	 * @example
+	 * ProcessWire.icon('angle-right'); // <i class='fas fa-angle-right'></i>
+	 * ProcessWire.icon('spinner', 'spin fw'); // <i class='fas fa-spinner fa-spin fa-fw'></i>
+	 * ProcessWire.icon('angle-right', 'pw-has-items-icon');
+	 *
+	 */
+	ProcessWire.icon = function(name, classes) {
+		if(ProcessWire._iconVersion === null) {
+			ProcessWire._iconVersion = parseInt(ProcessWire.config.adminIcons.version.substring(0, 1));
+		}
+		
+		// normalize: strip icon- or fa- prefix
+		if(name.indexOf('icon-') === 0) name = name.substring(5);
+		if(name.indexOf('fa-') === 0) name = name.substring(3);
+		var icon = '';
+		
+		if(ProcessWire._iconVersion >= 6) {
+			icon = ProcessWire._iconFA6(name, classes);
+		} else {
+			icon = ProcessWire._iconFA4(name, classes);
+		}
+		return icon;
+	};
+	
+	ProcessWire._iconVersion = null;
+	
+	ProcessWire._iconFA4 = (function() {
+		var modifiers = {
+			'lg': 1, 'fw': 1, '2x': 1, '3x': 1, '4x': 1, '5x': 1,
+			'spin': 1, 'spinner': 1, 'li': 1, 'border': 1, 'inverse': 1,
+			'rotate-90': 1, 'rotate-180': 1, 'rotate-270': 1,
+			'flip-horizontal': 1, 'flip-vertical': 1,
+			'stack': 1, 'stack-1x': 1, 'stack-2x': 1,
+		};
+		return function(name, classes) {
+			var cls = 'fa fa-' + name;
+			if(classes) {
+				var parts = classes.split(' ');
+				for(var i = 0; i < parts.length; i++) {
+					var c = ProcessWire.trim(parts[i]);
+					if(c) cls += ' ' + (modifiers[c] ? 'fa-' + c : c);
+				}
+			}
+			return "<i class='" + cls + "'></i>";
+		};
+	})()
+	
+	ProcessWire._iconFA6 = (function() {
+		var modifiers = {
+			'lg': 1, 'xl': 1, '2xl': 1, 'fw': 1,
+			'2x': 1, '3x': 1, '4x': 1, '5x': 1,
+			'spin': 1, 'spin-pulse': 1, 'beat': 1, 'bounce': 1, 'fade': 1, 'shake': 1,
+			'border': 1, 'inverse': 1,
+			'rotate-90': 1, 'rotate-180': 1, 'rotate-270': 1,
+			'flip-horizontal': 1, 'flip-vertical': 1, 'flip-both': 1,
+			'stack': 1, 'stack-1x': 1, 'stack-2x': 1
+		};
+		var renamed = {
+			'arrow-circle-down': 'circle-arrow-down', 'arrow-circle-left': 'circle-arrow-left',
+			'arrow-circle-right': 'circle-arrow-right', 'arrow-circle-up': 'circle-arrow-up',
+			'arrow-circle-o-down': 'circle-arrow-down', 'arrow-circle-o-left': 'circle-arrow-left',
+			'arrow-circle-o-right': 'circle-arrow-right', 'arrow-circle-o-up': 'circle-arrow-up',
+			'arrows': 'up-down-left-right', 'arrows-alt': 'maximize',
+			'arrows-h': 'left-right', 'arrows-v': 'up-down',
+			'bar-chart': 'chart-bar', 'chain': 'link', 'chain-broken': 'link-slash',
+			'check-circle': 'circle-check', 'check-square': 'square-check',
+			'chevron-circle-down': 'circle-chevron-down', 'chevron-circle-left': 'circle-chevron-left',
+			'chevron-circle-right': 'circle-chevron-right', 'chevron-circle-up': 'circle-chevron-up',
+			'circle-o-notch': 'circle-notch', 'close': 'xmark',
+			'cloud-download': 'cloud-arrow-down', 'cloud-upload': 'cloud-arrow-up',
+			'code-fork': 'code-branch', 'cutlery': 'utensils', 'dashboard': 'gauge',
+			'diamond': 'gem', 'dollar': 'dollar-sign', 'edit': 'pen-to-square',
+			'exclamation-circle': 'circle-exclamation', 'exclamation-triangle': 'triangle-exclamation',
+			'external-link': 'up-right-from-square', 'eyedropper': 'eye-dropper',
+			'feed': 'rss', 'file-text': 'file-lines', 'flash': 'bolt',
+			'floppy-o': 'floppy-disk', 'glass': 'martini-glass-empty', 'group': 'users',
+			'header': 'heading', 'hotel': 'bed', 'info-circle': 'circle-info',
+			'institution': 'building-columns', 'legal': 'gavel',
+			'level-down': 'turn-down', 'level-up': 'turn-up',
+			'life-buoy': 'life-ring', 'life-saver': 'life-ring',
+			'long-arrow-down': 'arrow-down-long', 'long-arrow-left': 'arrow-left-long',
+			'long-arrow-right': 'arrow-right-long', 'long-arrow-up': 'arrow-up-long',
+			'magic': 'wand-magic-sparkles', 'mail-forward': 'share',
+			'mail-reply': 'reply', 'map-marker': 'location-dot',
+			'minus-circle': 'circle-minus', 'minus-square': 'square-minus',
+			'mobile-phone': 'mobile-screen-button',
+			'mortar-board': 'graduation-cap', 'navicon': 'bars', 'paint-brush': 'paintbrush',
+			'pencil-square': 'square-pen', 'phone-square': 'square-phone',
+			'pie-chart': 'chart-pie', 'plus-circle': 'circle-plus', 'plus-square': 'square-plus',
+			'question-circle': 'circle-question', 'random': 'shuffle',
+			'reorder': 'bars', 'repeat': 'rotate-right',
+			'rotate-left': 'arrow-rotate-left', 'rotate-right': 'arrow-rotate-right',
+			'save': 'floppy-disk', 'send': 'paper-plane',
+			'sign-in': 'right-to-bracket', 'sign-out': 'right-from-bracket',
+			'smile': 'face-smile', 'frown': 'face-frown', 'meh': 'face-meh',
+			'sort-alpha-asc': 'arrow-down-a-z', 'sort-alpha-desc': 'arrow-up-z-a',
+			'sort-amount-asc': 'arrow-down-short-wide', 'sort-amount-desc': 'arrow-up-wide-short',
+			'sort-asc': 'sort-up', 'sort-desc': 'sort-down',
+			'sort-numeric-asc': 'arrow-down-1-9', 'sort-numeric-desc': 'arrow-up-9-1',
+			'tachometer': 'gauge', 'thumb-tack': 'thumbtack', 'times': 'xmark',
+			'times-circle': 'circle-xmark', 'trash': 'trash-can',
+			'video-camera': 'video', 'warning': 'triangle-exclamation',
+			'zoom-in': 'magnifying-glass-plus', 'zoom-out': 'magnifying-glass-minus'
+		};
+		var brands = ' 42-group 500px accessible-icon accusoft adn adversal affiliatetheme airbnb' +
+			' algolia alipay amazon amazon-pay amilia android angellist angrycreative angular' +
+			' app-store app-store-ios apper apple apple-pay artstation asymmetrik atlassian' +
+			' audible autoprefixer avianex aviato aws bandcamp battle-net behance bilibili' +
+			' bimobject bitbucket bitcoin bity black-tie blackberry blogger bluetooth bootstrap' +
+			' bots btc buffer buy-n-large buysellads cc-amazon-pay cc-amex cc-apple-pay' +
+			' cc-diners-club cc-discover cc-jcb cc-mastercard cc-paypal cc-stripe cc-visa' +
+			' centercode centos chrome chromecast cloudflare cloudscale cloudsmith cloudversify' +
+			' cmplid codepen codiepie confluence connectdevelop contao cotton-bureau cpanel' +
+			' creative-commons creative-commons-by creative-commons-nc creative-commons-nc-eu' +
+			' creative-commons-nc-jp creative-commons-nd creative-commons-pd creative-commons-pd-alt' +
+			' creative-commons-remix creative-commons-sa creative-commons-sampling' +
+			' creative-commons-sampling-plus creative-commons-share creative-commons-zero' +
+			' critical-role css3 css3-alt cuttlefish d-and-d d-and-d-beyond dailymotion dashcube' +
+			' deezer delicious deploydog deskpro dev deviantart dhl diaspora digg digital-ocean' +
+			' discord discourse dochub docker draft2digital dribbble dropbox drupal dyalog' +
+			' earlybirds ebay edge edge-legacy elementor ello ember empire envira erlang ethereum' +
+			' etsy evernote expeditedssl facebook facebook-messenger fantasy-flight-games fedex' +
+			' fedora figma firefox firefox-browser first-order first-order-alt flickr flipboard' +
+			' flutter fly font-awesome fonticons fonticons-fi fort-awesome fort-awesome-alt' +
+			' forumbee foursquare free-code-camp freebsd fulcrum galactic-republic galactic-senate' +
+			' get-pocket gg gg-circle git git-alt github github-alt gitkraken gitlab gitter' +
+			' glide glide-g gofore golang goodreads goodreads-g google google-drive google-pay' +
+			' google-play google-plus google-plus-g google-wallet gratipay grav gripfire grunt' +
+			' guilded gulp hacker-news hackerrank hashnode hips hire-a-helper hive hooli hornbill' +
+			' hotjar houzz html5 hubspot ideal imdb instagram instalod intercom internet-explorer' +
+			' invision ioxhost itch-io itunes itunes-note java jedi-order jenkins jira joget' +
+			' js jsfiddle joomla kaggle keybase keycdn kickstarter kickstarter-k korvue laravel' +
+			' lastfm leanpub less line linkedin linkedin-in linode linux lyft magento mailchimp' +
+			' mandalorian markdown mastodon maxcdn mdb medapps medium meetup megaport mendeley' +
+			' meta microblog microsoft mix mixcloud mizuni modx monero napster neos node node-js' +
+			' npm ns8 nutritionix octopus-deploy odnoklassniki old-republic opencart openid opera' +
+			' optin-monster orcid osi padlet page4 pagelines palfed patreon paypal perbyte' +
+			' periscope phabricator phoenix-framework phoenix-squadron php pied-piper pied-piper-alt' +
+			' pied-piper-hat pied-piper-pp pinterest pinterest-p pix pixiv playstation product-hunt' +
+			' pushed python qq quinscape quora r-project raspberry-pi ravelry react reacteurope' +
+			' readme rebel red-river reddit reddit-alien redhat renren replyd researchgate' +
+			' resolving rev rocketchat rockrms rust safari salesforce sass schlix screenpal scribd' +
+			' searchengin sellcast sellsy servicestack shirtsinbulk shopify shopware signal-messenger' +
+			' simplybuilt sistrix sith sitrox sketch skyatlas skype slack slideshare snapchat' +
+			' soundcloud sourcetree space-awesome speakap speaker-deck spotify square-font-awesome' +
+			' square-font-awesome-stroke squarespace stack-exchange stack-overflow stackpath' +
+			' staylinked steam steam-symbol sticker-mule strava stripe stripe-s stumbleupon' +
+			' stumbleupon-circle superpowers supple suse swift symfony teamspeak telegram' +
+			' the-red-yeti themeco themeisle think-peaks tiktok trade-federation trello tumblr' +
+			' twitch twitter typo3 uber uikit umbraco uniregistry unity unsplash untappd ups' +
+			' usb usps ussunnah vaadin viacoin viadeo viber vimeo vimeo-v vine vk vnv vuejs' +
+			' waze weebly weibo weixin whatsapp whmcs wikipedia-w windows wix wizards-of-the-coast' +
+			' wolf-pack-battalion wordpress wordpress-simple wpbeginner wpexplorer wpforms wpressr' +
+			' xbox xing y-combinator yahoo yammer yandex yandex-international yarn yelp yoast' +
+			' youtube zhihu ';
+		return function(name, classes) {
+			// apply rename; if not found, strip FA4 -o suffix (outline) and try again
+			var isOutline = false;
+			if(renamed[name]) {
+				name = renamed[name];
+			} else if(name.length > 3 && name.substring(name.length - 2) === '-o') {
+				name = name.substring(0, name.length - 2);
+				isOutline = true;
+				if(renamed[name]) name = renamed[name];
+			}
+			var prefix = brands.indexOf(' ' + name + ' ') >= 0 ? 'fab' : (isOutline ? 'far' : 'fas');
+			var cls = prefix + ' fa-' + name;
+			if(classes) {
+				var parts = classes.split(' ');
+				for(var i = 0; i < parts.length; i++) {
+					var c = ProcessWire.trim(parts[i]);
+					if(c) cls += ' ' + (modifiers[c] ? 'fa-' + c : c);
+				}
+			}
+			return "<i class='" + cls + "'></i>";
+		};
+	})()
+	
 }

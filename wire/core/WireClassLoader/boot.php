@@ -28,7 +28,7 @@ $corePreloads = array(
 	'Config/Paths.php',
 	'Config/Config.php',
 	'Functions/FunctionsWireAPI.php',
-	'Functions.php',
+	'Functions/Functions.php',
 	'Functions/LanguageFunctions.php',
 	'WireShutdown.php',
 	'Module/Module.php',

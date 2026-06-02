@@ -30,11 +30,12 @@ class ProcessPageListActions extends Wire {
 		'unlock' => 'Unlock',
 		'trash' => 'Trash',
 		'restore' => 'Restore',
-		'extras' => "<i class='fa fa-angle-right'></i>", 
+		'extras' => '', // set in wired()
 	);
 	
 	public function wired() {
 		$this->superuser = $this->wire()->user->isSuperuser();
+		$this->actionLabels['extras'] = wireIconMarkup('angle-right');
 		$settings = $this->wire()->config->ProcessPageList;
 		if(is_array($settings) && isset($settings['extrasLabel'])) {
 			$this->actionLabels['extras'] = $settings['extrasLabel'];

@@ -834,7 +834,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			'height' => 'arrows-v', 
 		);
 		foreach($icons as $key => $value) {
-			$icons[$key] = "<i class='fa fa-fw fa-$value ui-priority-secondary'></i>";
+			$icons[$key] = wireIconMarkup($value, 'fw ui-priority-secondary');
 		}
 	
 		$optionalClasses = array(
@@ -1016,7 +1016,26 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		// form header and inputs
 		// @todo move all this markup to a separate template file
-		$out =	
+		$iconResize = wireIconMarkup('arrows-alt', 'fw');
+		$iconCrop = wireIconMarkup('crop', 'fw');
+		$iconExpand = wireIconMarkup('expand', 'fw');
+		$iconCompress = wireIconMarkup('compress', 'fw');
+		$iconAlignLeft = wireIconMarkup('align-left', 'fw');
+		$iconAlignCenter = wireIconMarkup('align-center', 'fw');
+		$iconAlignRight = wireIconMarkup('align-right', 'fw');
+		$iconQuoteLeft = wireIconMarkup('quote-left', 'fw');
+		$iconTimes = wireIconMarkup('times');
+		$iconLink = wireIconMarkup('link', 'ui-priority-secondary');
+		$iconAngleLeft = wireIconMarkup('angle-left', 'ui-priority-secondary');
+		$iconSpinner = wireIconMarkup('spinner', 'spin');
+		$iconTimesCircle = wireIconMarkup('times-circle');
+		$iconExpandFlip = wireIconMarkup('expand', 'fw flip-horizontal');
+		$iconArrowsV = wireIconMarkup('arrows-v', 'fw');
+		$iconArrowsH = wireIconMarkup('arrows-h', 'fw');
+		$iconPaste = wireIconMarkup('paste', 'fw');
+		$iconCut = wireIconMarkup('cut', 'fw');
+		$iconTimesCircleFw = wireIconMarkup('times-circle', 'fw');
+		$out =
 			"<form id='selected_image_settings' class='$formClass' method='post' action='$formActionURL'>" .
 			"<small class='ui-helper-clearfix'>" . 
 			"<p id='wrap_info'>" .
@@ -1025,23 +1044,23 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					$classOptions .
 				"</select>" .
 				"<span id='action_icons' class='hide_when_crop hide_when_processing'>" .
-					"<span title='$labels[resize]' id='resize_action'><i class='fa fa-fw fa-arrows-alt'></i></span>" .
-					"<span title='$labels[crop]' data-recrop='$recropURL' id='crop_action'><i class='fa fa-fw fa-crop'></i></span>" .
+					"<span title='$labels[resize]' id='resize_action'>$iconResize</span>" .
+					"<span title='$labels[crop]' data-recrop='$recropURL' id='crop_action'>$iconCrop</span>" .
 					//"<span title='$labels[rotateLeft]' id='rotate_left_action'><i class='fa fa-fw fa-rotate-left'></i></span>" . 
 					//"<span title='$labels[rotateRight]' id='rotate_right_action'><i class='fa fa-fw fa-rotate-right'></i></span>" .
 					//"<span title='$labels[flipHorizontal]' id='flip_horizontal_action'><i class='fa fa-fw fa-exchange'></i></span>" .
 					//"<span title='$labels[flipVertical]' id='flip_vertical_action'><i class='fa fa-fw fa-exchange fa-rotate-90'></i></span>" .
-					"<span title='$labels[max] ({$originalWidth}x{$originalHeight})' id='max_action'><i class='fa fa-fw fa-expand'></i></span>" .
-					"<span title='$labels[min]' id='min_action'><i class='fa fa-fw fa-compress'></i></span>" .
-					"<span title='$labels[alignLeft]' data-label='alignLeft' class='align_action show_when_rte' id='align_left_action'><i class='fa fa-fw fa-align-left'></i></span>" .
-					"<span title='$labels[alignCenter]' data-label='alignCenter' class='align_action show_when_rte' id='align_center_action'><i class='fa fa-fw fa-align-center'></i></span>" .
-					"<span title='$labels[alignRight]' data-label='alignRight' class='align_action show_when_rte' id='align_right_action'><i class='fa fa-fw fa-align-right'></i></span>" .
-					"<span title='$labels[description]' id='description_action' class='show_when_rte'><i class='fa fa-fw fa-quote-left'></i></span>" .
+					"<span title='$labels[max] ({$originalWidth}x{$originalHeight})' id='max_action'>$iconExpand</span>" .
+					"<span title='$labels[min]' id='min_action'>$iconCompress</span>" .
+					"<span title='$labels[alignLeft]' data-label='alignLeft' class='align_action show_when_rte' id='align_left_action'>$iconAlignLeft</span>" .
+					"<span title='$labels[alignCenter]' data-label='alignCenter' class='align_action show_when_rte' id='align_center_action'>$iconAlignCenter</span>" .
+					"<span title='$labels[alignRight]' data-label='alignRight' class='align_action show_when_rte' id='align_right_action'>$iconAlignRight</span>" .
+					"<span title='$labels[description]' id='description_action' class='show_when_rte'>$iconQuoteLeft</span>" .
 				"</span>" .
 				"<span id='selected_image_pixels' class='hide_when_crop'>" . 
 					"<label><input title='$labels[width]' name='width' id='input_width' class='input_pixels' " .
 						"type='number' size='6' step='1' data-min='$minWidth' data-max='$originalWidth' value='$width' /></label>" .
-					"&nbsp;<i class='fa fa-times'></i>&nbsp;" . 
+					"&nbsp;$iconTimes&nbsp;" .
 					"<label><input title='$labels[height]' name='height' id='input_height' class='input_pixels' " . 
 						"type='number' size='6' step='1' data-min='$minHeight' data-max='$originalHeight' value='$height' /></label>" . 
 				"</span> " .
@@ -1050,7 +1069,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 						"<label class='checkbox'>" .
 							"<input title='$labels[linkOriginal]' type='checkbox' class='$checkboxClass' $linkOriginalChecked " .
 								"name='selected_image_link' id='selected_image_link' value='$original->url' /> " .
-							"<i class='fa fa-link ui-priority-secondary'></i>&nbsp;" .
+							"$iconLink&nbsp;" .
 							"{$original->width}x{$original->height}" .
 						"</label>" .
 					"</span>" . 
@@ -1066,22 +1085,22 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					"</span>" .
 				"</span>" . // selected_image_checkboxes
 				"<span id='selected_image_resize' class='hide_when_rte hide_when_crop hide_when_processing'>" .
-					"<i class='fa fa-angle-left ui-priority-secondary'></i>&nbsp;" .
+					"$iconAngleLeft&nbsp;" .
 					"$labels[useResize]&nbsp;&nbsp;" .
 					"<label class='checkbox'><input$resizeYesChecked id='selected_image_resize_yes' name='use_resize' type='radio' class='$radioClass' value='1' />&nbsp;$labels[yes]</label>&nbsp;&nbsp;" .
 					"<label class='checkbox'><input$resizeNoChecked id='selected_image_resize_no' name='use_resize' type='radio' class='$radioClass' value='0' />&nbsp;" .
 					sprintf($labels['noUse'], $originalDimension) . "</label>" .
 				"</span>" . 
 				"<button type='button' class='ui-button ui-state-active show_when_processing' id='button_saving'>" .
-					"<span class='ui-button-text'><i class='fa fa-spin fa-spinner'></i> $labels[saving]</span>" .
+					"<span class='ui-button-text'>$iconSpinner $labels[saving]</span>" .
 				"</button> " .
 				"<span class='show_when_crop'>" .
 					"<button type='submit' class='ui-button ui-state-default hide_when_processing' id='button_crop' name='submit_crop' value='1'>" .
-						"<span class='ui-button-text'><i class='fa fa-crop'></i> $labels[saveCrop]</span>" .
+						"<span class='ui-button-text'>$iconCrop $labels[saveCrop]</span>" .
 					"</button> " .
 					"<button type='button' class='hide_when_processing ui-button ui-state-default ui-priority-secondary' id='button_cancel_crop'>" .
-						"<span class='ui-button-text'><i class='fa fa-times-circle'></i> $labels[cancel]</span>" .
-					"</button> &nbsp; " . 
+						"<span class='ui-button-text'>$iconTimesCircle $labels[cancel]</span>" .
+					"</button> &nbsp; " .
 					"<span id='crop_coordinates'>" . 
 						"<label>$labels[left]&nbsp;<input name='crop_x' id='crop_x' class='input_pixels' type='number' size='6' step='1' min='0' /></label>&nbsp; " .
 						"<label>$labels[top]&nbsp;<input name='crop_y' id='crop_y' class='input_pixels' type='number' size='6' step='1' min='0' /></label>&nbsp; " .
@@ -1104,14 +1123,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				"<img id='selected_image' $attrStr alt='' " . 
 					"data-idname='{$image->page->id},{$image->basename}' src='{$imageURL}' />" . 
 				"<span id='resize_tips'>" .
-					"<span class='resize_tip' id='resize_tip_nw'><i class='fa fa-fw fa-expand fa-flip-horizontal'></i></span>" .
-					"<span class='resize_tip' id='resize_tip_n'><i class='fa fa-fw fa-arrows-v'></i></span>" .
-					"<span class='resize_tip' id='resize_tip_ne'><i class='fa fa-fw fa-expand'></i></span>" .
-					"<span class='resize_tip' id='resize_tip_e'><i class='fa fa-fw fa-arrows-h'></i></span>" .
-					"<span class='resize_tip' id='resize_tip_se'><i class='fa fa-fw fa-expand fa-flip-horizontal'></i></span>" .
-					"<span class='resize_tip' id='resize_tip_s'><i class='fa fa-fw fa-arrows-v'></i></span>" .
-					"<span class='resize_tip' id='resize_tip_sw'><i class='fa fa-fw fa-expand'></i></span>" .
-					"<span class='resize_tip' id='resize_tip_w'><i class='fa fa-fw fa-arrows-h'></i></span>" . 
+					"<span class='resize_tip' id='resize_tip_nw'>$iconExpandFlip</span>" .
+					"<span class='resize_tip' id='resize_tip_n'>$iconArrowsV</span>" .
+					"<span class='resize_tip' id='resize_tip_ne'>$iconExpand</span>" .
+					"<span class='resize_tip' id='resize_tip_e'>$iconArrowsH</span>" .
+					"<span class='resize_tip' id='resize_tip_se'>$iconExpandFlip</span>" .
+					"<span class='resize_tip' id='resize_tip_s'>$iconArrowsV</span>" .
+					"<span class='resize_tip' id='resize_tip_sw'>$iconExpand</span>" .
+					"<span class='resize_tip' id='resize_tip_w'>$iconArrowsH</span>" .
 				"</span>" .
 				"<figcaption id='caption_preview' class='show_when_rte'>" . 
 					"<a class='tooltip' title='$labels[captionTip]'>$labels[captionText]</a>" . 
@@ -1126,16 +1145,16 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			"<p id='non_rte_dialog_buttons' class='hide_when_rte'>" . 
 				(!in_array('maxfiles1', $formClasses) ? (
 					"<button type='submit' name='submit_save_copy' value='1' class='submit_save_copy ui-button ui-state-default hide_when_maxfiles1'>" .
-						"<span class='ui-button-text'><i class='fa fa-fw fa-paste'></i> $labels[saveCopy]</span>" .
+						"<span class='ui-button-text'>$iconPaste $labels[saveCopy]</span>" .
 					"</button>" 
 					) : "") . 
 				"<button type='submit' name='submit_save_replace' value='1' class='submit_save_replace ui-button ui-state-default'>" .
-					"<span class='ui-button-text'><i class='fa fa-fw fa-cut'></i> $labels[saveReplace]</span>" .
+					"<span class='ui-button-text'>$iconCut $labels[saveReplace]</span>" .
 				"</button>" .
 				"<button type='button' id='non_rte_cancel' class='ui-button ui-state-default ui-priority-secondary'>" . 
-					"<span class='ui-button-text'><i class='fa fa-fw fa-times-circle'></i> $labels[cancel]</span>" . 
-				"</button>" . 
-			"</p>"  .
+					"<span class='ui-button-text'>$iconTimesCircleFw $labels[cancel]</span>" .
+				"</button>" .
+			"</p>" .
 			"</form>";
 		
 		// if($this->wire('config')->debug) $out .= "<p class='detail'>$basename</p>";
@@ -1346,8 +1365,9 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 
 		$js = 'script';
+		$iconSpinnerLg = wireIconMarkup('spinner', 'spin 2x fw ui-priority-secondary');
 		$out = "
-			<h2><i class='fa fa-spin fa-spinner fa-2x fa-fw ui-priority-secondary'></i> $headline</h2>
+			<h2>$iconSpinnerLg $headline</h2>
 			$body
 			<$js>$(document).ready(function() { setupProcessSave('$this->fieldName', '$fileID', $isNew); });</$js>
 			";

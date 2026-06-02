@@ -63,7 +63,7 @@ class InputfieldIcon extends Inputfield {
 		}
 		$out .= "</select>&nbsp;";
 		$out .=
-			"<i class='fa fa-fw fa-angle-right ui-priority-secondary'></i>" . 
+			wireIconMarkup('angle-right', 'fw ui-priority-secondary') .
 			"<a class='InputfieldIconShowAll' href='#'>" . 
 			"<small>" . $this->_('Show All Icons') . "</small></a>" . 
 			"<div class='InputfieldIconAll'></div>";

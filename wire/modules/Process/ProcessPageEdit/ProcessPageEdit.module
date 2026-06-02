@@ -632,7 +632,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$out = str_replace('</form>', "$input</form>", $out);
 				$out .= "<ul class='pw-button-dropdown' data-pw-dropdown-input='#after-submit-action' data-my='right top' data-at='right bottom+1'>";
 				foreach($submitActions as $action) {
-					$icon = empty($action['icon']) ? "" : "<i class='fa fa-fw fa-$action[icon]'></i>";
+					$icon = empty($action['icon']) ? '' : wireIconMarkup($action['icon'], 'fw');
 					$class = empty($action['class']) ? "after-submit-$action[value]" : $action['class'];
 					$out .= "<li><a class='$class' data-pw-dropdown-value='$action[value]' href='#'>$icon $action[label]</a></li>";
 				}
@@ -787,7 +787,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$languages = $this->hasLanguagePageNames ? $this->page->template->getLanguages() : null;
 	
 		foreach($icons as $name => $icon) {
-			$labels[$name] = "<i class='fa fa-fw fa-$icon'></i>&nbsp;" . $labels[$name];
+			$labels[$name] = wireIconMarkup($icon, 'fw') . '&nbsp;' . $labels[$name];
 		}
 		
 		$class = '';
@@ -1998,7 +1998,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$a = 
 			"<a id='_ProcessPageEditView' target='$target' href='$url' data-action='$this->viewAction'>$label" . 
 			"<span id='_ProcessPageEditViewDropdownToggle' class='pw-dropdown-toggle' data-pw-dropdown='#_ProcessPageEditViewDropdown'>" . 
-			"<i class='fa fa-angle-down'></i></span></a>";
+			wireIconMarkup('angle-down') . "</span></a>";
 		
 		$this->addTab($id, $a);
 	}

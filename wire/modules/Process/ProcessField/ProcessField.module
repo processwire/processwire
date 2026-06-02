@@ -1332,7 +1332,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		if(!$this->fieldgroup) $header[] = $this->_x('Template', 'context-thead');
 		$header[] = $this->_x('Setting', 'context-thead');
 		$header[] = $this->_x('Changes', 'context-thead');
-		$header[] = "<i class='fa fa-lg fa-trash override-select-all'></i>";
+		$header[] = wireIconMarkup('trash', 'lg override-select-all');
 		$table->headerRow($header);
 
 		/** @var JqueryUI $jQueryUI */

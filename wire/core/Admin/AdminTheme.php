@@ -165,6 +165,7 @@ abstract class AdminTheme extends WireData implements Module {
 		$session = $this->wire()->session;
 		$page = $this->wire()->page;
 		$urls = $config->urls;
+		$icons = $config->adminIcons;
 		
 		// adjust $config adminThumbOptions[scale] for auto detect when requested
 		$o = $config->adminThumbOptions;
@@ -184,6 +185,7 @@ abstract class AdminTheme extends WireData implements Module {
 		));
 
 		$config->js('modals', true); // share at render time
+		$config->js('adminIcons', $icons);
 		$config->jsConfig('debug', $config->debug); 
 		
 		if($user) {
@@ -212,6 +214,7 @@ abstract class AdminTheme extends WireData implements Module {
 		if($session->get('touch')) $this->addBodyClass('touch-device');
 		
 		$this->addBodyClass($this->className());
+		$this->addBodyClass('icons-' . $icons['type'] . substr($icons['version'], 0, 1));
 	}
 
 	/**

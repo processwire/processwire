@@ -139,14 +139,14 @@ class PageBookmarks extends Wire {
 			/** @var WireData $item */
 			if($item->id == 'bookmark') continue;
 			$url = str_replace('{id}', $item->id, $options['edit']);
-			$icon = $item->_icon ? "<i class='fa fa-fw fa-$item->_icon'></i> " : "";
+			$icon = $item->_icon ? wireIconMarkup($item->_icon, 'fw') . ' ' : '';
 			$out .= 
 				"<li class='$item->_class'>" . 
 				"<a href='$url'>$icon" . $sanitizer->entities1($item->get('title|name')) . "</a>" . 
 				"</li>";
 		}
 	
-		$icon = "<i class='fa fa-fw fa-lg fa-bookmark-o'></i> ";
+		$icon = wireIconMarkup('bookmark-o', 'fw lg') . ' ';
 		if($out) {
 			$out = "<h2>$icon" . $this->labels['bookmarks'] . "</h2><ul class='bookmarks'>$out</ul>";
 		} else {
@@ -203,7 +203,7 @@ class PageBookmarks extends Wire {
 		$form->action = "./?role=$role->id";
 		$form->addClass('InputfieldFormConfirm');
 		$form->description = sprintf($this->_('%s Bookmark Editor'), __($moduleInfo['title'], '/wire/templates-admin/default.php'));
-		$form->appendMarkup = "<p style='clear:both' class='detail'><br /><i class='fa fa-info-circle ui-priority-secondary'></i> " . 
+		$form->appendMarkup = "<p style='clear:both' class='detail'><br />" . wireIconMarkup('info-circle', 'ui-priority-secondary') . ' ' .
 			$this->_('Note that only superusers are able to see this editor.') . "</p>";
 
 		/** @var InputfieldPageListSelectMultiple $field */

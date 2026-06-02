@@ -66,7 +66,7 @@ class AdminThemeDefaultHelpers extends WireData {
 		
 		$out = '';
 		$loggedin = $this->wire('user')->isLoggedin();
-		$separator = "<i class='fa fa-angle-right'></i>";
+		$separator = wireIconMarkup('angle-right');
 	
 		if($loggedin && $this->className() == 'AdminThemeDefaultHelpers') {
 			
@@ -74,7 +74,7 @@ class AdminThemeDefaultHelpers extends WireData {
 				$label = __('Debug Mode Tools', '/wire/templates-admin/debug.inc');
 				$out .=
 					"<li><a href='#' title='$label' onclick=\"$('#debug_toggle').click();return false;\">" .
-					"<i class='fa fa-bug'></i></a>$separator</li>";
+					wireIconMarkup('bug') . "</a>$separator</li>";
 			}
 
 			if($this->wire('process') != 'ProcessPageList') {
@@ -82,7 +82,7 @@ class AdminThemeDefaultHelpers extends WireData {
 				$tree = $this->_('Tree');
 				$out .=
 					"<li><a class='pw-panel' href='$url' data-tab-text='$tree' data-tab-icon='sitemap' title='$tree'>" .
-					"<i class='fa fa-sitemap'></i></a>$separator</li>";
+					wireIconMarkup('sitemap') . "</a>$separator</li>";
 			}
 		}
 		
@@ -115,7 +115,8 @@ class AdminThemeDefaultHelpers extends WireData {
 		$items = array();
 	
 		foreach($data['list'] as $item) {
-			$items[] = "<li><a href='$data[url]$item[url]'><i class='fa fa-fw fa-$item[icon]'></i>&nbsp;$item[label]</a></li>";
+			$icon = wireIconMarkup($item['icon'], 'fw');
+			$items[] = "<li><a href='$data[url]$item[url]'>$icon&nbsp;$item[label]</a></li>";
 		}
 	
 		if(!count($items)) return '';
@@ -124,7 +125,7 @@ class AdminThemeDefaultHelpers extends WireData {
 	
 		$out =	
 			"<div id='head_button'>" . 	
-			"<button class='ui-button pw-dropdown-toggle'><i class='fa fa-angle-down'></i> $label</button>" . 
+			"<button class='ui-button pw-dropdown-toggle'>" . wireIconMarkup('angle-down') . " $label</button>" .
 			"<ul class='pw-dropdown-menu pw-dropdown-menu-rounded' data-at='right bottom+1'>$out</ul>" . 
 			"</div>";
 	
@@ -203,7 +204,7 @@ class AdminThemeDefaultHelpers extends WireData {
 			if($notice->class && $config->debug) $text = "{$notice->class}: $text";
 
 			// show remove link for first item only
-			$remove = $n ? '' : "<a class='$options[closeClass]' href='#'><i class='fa fa-$options[closeIcon]'></i></a>";
+			$remove = $n ? '' : "<a class='$options[closeClass]' href='#'>" . wireIconMarkup($options['closeIcon']) . "</a>";
 			
 			$replacements = array(
 				'{class}' => $class, 
@@ -240,8 +241,12 @@ class AdminThemeDefaultHelpers extends WireData {
 			case 21: $icon = 'plug'; break; // Modules
 			case 28: $icon = 'key'; break; // Access
 		}
-		if(!$icon && $p->parent->id != $this->wire('config')->adminRootPageID) $icon = 'file-o ui-priority-secondary';
-		if($icon) $icon = "<i class='fa fa-fw fa-$icon'></i>&nbsp;";
+		$iconClass = 'fw';
+		if(!$icon && $p->parent->id != $this->wire('config')->adminRootPageID) {
+			$icon = 'file-o';
+			$iconClass = 'fw ui-priority-secondary';
+		}
+		if($icon) $icon = wireIconMarkup($icon, $iconClass) . '&nbsp;';
 		return $icon;
 	}
 	
@@ -399,7 +404,7 @@ class AdminThemeDefaultHelpers extends WireData {
 		
 		foreach($nav as $item) {
 			if(!empty($item['permission']) && !$this->wire('user')->hasPermission($item['permission'])) continue;
-			$icon = empty($item['icon']) ? '' : "<i class='fa fa-fw fa-$item[icon]'></i>&nbsp;";
+			$icon = empty($item['icon']) ? '' : wireIconMarkup($item['icon'], 'fw') . '&nbsp;';
 			$label = __($item['label'], $textdomain); // translate from context of Process module
 			if(empty($item['navJSON'])) {
 				$out .= "<li><a href='{$p->url}$item[url]'>$icon$label</a></li>";
@@ -454,19 +459,19 @@ class AdminThemeDefaultHelpers extends WireData {
 	
 		
 		// @todo move outTools to separate hookable method, so new tools can be added
-		$outTools .=	
-			"<li><a href='{$config->urls->root}'><i class='fa fa-fw fa-eye'></i> " . 
+		$outTools .=
+			"<li><a href='{$config->urls->root}'>" . wireIconMarkup('eye', 'fw') . ' ' .
 			$this->_('View Site') . "</a></li>";
 	
 		if($user->isLoggedin()) {
 			if($user->hasPermission('profile-edit')) {
-				$outTools .= 
-					"<li><a href='{$config->urls->admin}profile/'><i class='fa fa-fw fa-user'></i> " . 
+				$outTools .=
+					"<li><a href='{$config->urls->admin}profile/'>" . wireIconMarkup('user', 'fw') . ' ' .
 					$this->_('Profile') . " <small>{$user->name}</small></a></li>";
 			}
-			$outTools .= 
-				"<li><a href='{$config->urls->admin}login/logout/'>" . 
-				"<i class='fa fa-fw fa-power-off'></i> " . $this->_('Logout') . "</a></li>";
+			$outTools .=
+				"<li><a href='{$config->urls->admin}login/logout/'>" .
+				wireIconMarkup('power-off', 'fw') . ' ' . $this->_('Logout') . "</a></li>";
 		}
 	
 		$outMobile = "<ul id='topnav-mobile' class='pw-dropdown-menu topnav' data-my='left top' data-at='left bottom'>$outMobile$outTools</ul>";
@@ -474,13 +479,13 @@ class AdminThemeDefaultHelpers extends WireData {
 		$out .=	
 			"<li>" . 
 			"<a target='_blank' id='tools-toggle' class='pw-dropdown-toggle' href='{$config->urls->root}'>" . 
-			"<i class='fa fa-wrench'></i></a>" . 
+			wireIconMarkup('wrench') . "</a>" .
 			"<ul class='pw-dropdown-menu topnav' data-my='left top' data-at='left bottom'>" . $outTools . 
 			"</ul></li>";
 	
 		$out .=	
 			"<li class='collapse-topnav-menu'><a href='$admin->url' class='pw-dropdown-toggle'>" . 
-			"<i class='fa fa-lg fa-bars'></i></a>$outMobile</li>";
+			wireIconMarkup('bars', 'lg') . "</a>$outMobile</li>";
 		
 		$this->wire('session')->setFor('AdminThemeDefault', 'topnav', $out);
 		$this->renderTopNavMarkCurrent($out);	

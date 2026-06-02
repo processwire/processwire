@@ -19,10 +19,18 @@ $rootUrl = $config->urls->root;
 $themeUrl = $adminTheme->url();
 $styles = $config->styles;
 $scripts = $config->scripts;
+$adminIcons = $config->adminIcons;
+$iconVersion = $adminIcons['version'];
 
 $styles->prepend($rootUrl . "wire/templates-admin/styles/AdminTheme.css?v=$version");
 $styles->prepend($adminTheme->getUikitCSS());
-$styles->append($rootUrl . "wire/templates-admin/styles/font-awesome/css/font-awesome.min.css?v=$version");
+
+if(version_compare($iconVersion, '6.0.0', '<')) {
+	$styles->append($rootUrl . "wire/templates-admin/styles/font-awesome/css/font-awesome.min.css?v=$version");
+} else {
+	$styles->append($rootUrl . "wire/templates-admin/styles/font-awesome-$iconVersion/css/all.min.css");
+	$styles->append($rootUrl . "wire/templates-admin/styles/font-awesome-$iconVersion/css/v4-shims.min.css");
+}
 
 $ext = $config->debug ? "js" : "min.js";
 $scripts->append($rootUrl . "wire/templates-admin/scripts/inputfields.$ext?v=$version");

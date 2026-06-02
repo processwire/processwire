@@ -904,8 +904,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			"<p class='InputfieldRepeaterAddItem'>" .
 				"<input class='InputfieldRepeaterAddItemsQty' type='text' name='_{$this->name}_add_items' value='0' />" . // for noAjaxAdd
 				"<a href='#' data-type='1' class='InputfieldRepeaterAddLink' data-noajax='$noAjaxAdd'>" .
-					"<i class='fa fa-fw fa-plus-circle InputfieldRepeaterSpinner' " .
-						"data-on='fa-spin fa-spinner' data-off='fa-plus-circle'></i>" .
+					wireIconMarkup('plus-circle', "fw InputfieldRepeaterSpinner data-on='fa-spin fa-spinner' data-off='fa-plus-circle'") .
 					$this->renderAddLabel() .
 				"</a>" . $paste . 
 			"</p>";

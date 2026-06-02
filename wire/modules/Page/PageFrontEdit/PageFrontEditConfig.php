@@ -130,7 +130,7 @@ class PageFrontEditConfig extends ModuleConfig {
 			$href = "{$this->config->urls->admin}module/edit?name=PageFrontEdit&modal=1&";
 			$f->value =
 				"<p><a class='pw-modal ui-button ui-state-default' data-buttons='#Inputfield_submit_save_module' data-autoclose href='$href'>" .
-				"<i class='fa fa-gear fa-fw'></i>" . $this->_('Configure') . "</a></p>";
+				wireIconMarkup('gear', 'fw') . $this->_('Configure') . "</a></p>";
 			if(in_array($field->id, $module->inlineEditFields)) {
 				$f->notes = $this->_('This option is currently ENABLED for this field.'); 
 			}

@@ -48,7 +48,7 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 		$textdomain = str_replace($this->wire('config')->paths->root, '/', $this->wire('modules')->getModuleFile($page->process));
 		$out = 
 			"<ul class='quicklinks' data-json='$json'>" .
-			"<li class='quicklink-close'><i class='fa fa-fw fa-bolt quicklinks-spinner'></i>$title <div class='close'><i class='fa fa-times'></i></div></li>";
+			"<li class='quicklink-close'>" . wireIconMarkup('bolt', 'fw quicklinks-spinner') . "$title <div class='close'>" . wireIconMarkup('times') . "</div></li>";
 		
 		foreach($items as $item) {
 			if(!empty($item['permission']) && !$this->wire('user')->hasPermission($item['permission'])) continue;
@@ -78,14 +78,14 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 		$fieldName = "avatar_field_" . $user->template->name;
 		$adminTheme->$fieldName != '' ?  $avatarField = $adminTheme->$fieldName : $avatarField = '';
 		$avatarField != '' ?  $imgField = $user->get($avatarField) : $imgField = '';
-		$avatar = "<i class='fa $adminTheme->profile'></i>";
+		$avatar = wireIconMarkup($adminTheme->profile);
 	
 		if($user->isLoggedin()) { 
 			if($config->debug && $user->isSuperuser()) {
 				$debugLabel = __('Debug Mode Tools', '/wire/templates-admin/debug.inc');
 				$items[] = array(
 					"class" => "",
-					"label" => "<i class='fa fa-bug'></i>",
+					"label" => wireIconMarkup('bug'),
 					"link" => "#",
 					"attrs" => "title='$debugLabel' onclick=\"$('#debug_toggle').click();return false;\"", 
 				);
@@ -94,7 +94,7 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 				$treeLabel = $this->_('Tree');
 				$items[] = array(
 					"class" => "",
-					"label" => "<i class='fa fa-sitemap'></i>",
+					"label" => wireIconMarkup('sitemap'),
 					"link" => $config->urls->admin . 'page/',
 					"attrs" => "class='pw-panel' " .
 						"data-tab-text='$treeLabel' " .
@@ -107,14 +107,14 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 		// View site
 		$items[] = array(
 			"class" => "",
-			"label" => "<i class='fa {$adminTheme->home}'></i>",
+			"label" => wireIconMarkup($adminTheme->home),
 			"link" => $config->urls->root
 		);
 
 		// Search toggle
 		$items[] = array(
 			"class" => "search-toggle",
-			"label" => "<i class='fa fa-search'></i>",
+			"label" => wireIconMarkup('search'),
 			"link" => "#"
 		);
 
@@ -122,13 +122,13 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 		if ($this->user->isSuperuser()){
 			$items[] = array(
 				"class" => "superuser",
-				"label" => "<i class='fa fa-bolt'></i>",
+				"label" => wireIconMarkup('bolt'),
 				"children" => array(
-					"<i class='fa fa-life-ring'></i> " . $this->_('Support Forums')  => array('https://processwire.com/talk/', 'target="_blank"'),
-					"<i class='fa fa-book'></i> " . $this->_('Documentation') => array('https://processwire.com/docs/', 'target="_blank"'),
-					"<i class='fa fa-github'></i> " . $this->_('Github Repo') => array('https://github.com/processwire/processwire/', 'target="_blank"'),
-					"<i class='fa fa-code'></i> " . $this->_('Cheatsheet')  => array('http://cheatsheet.processwire.com', 'target="_blank"'),
-					"<i class='fa fa-anchor'></i> " . $this->_('Hooks')  => array('https://processwire.com/api/hooks/', 'target="_blank"'),
+					wireIconMarkup('life-ring') . ' ' . $this->_('Support Forums')  => array('https://processwire.com/talk/', 'target="_blank"'),
+					wireIconMarkup('book') . ' ' . $this->_('Documentation') => array('https://processwire.com/docs/', 'target="_blank"'),
+					wireIconMarkup('github') . ' ' . $this->_('Github Repo') => array('https://github.com/processwire/processwire/', 'target="_blank"'),
+					wireIconMarkup('code') . ' ' . $this->_('Cheatsheet')  => array('http://cheatsheet.processwire.com', 'target="_blank"'),
+					wireIconMarkup('anchor') . ' ' . $this->_('Hooks')  => array('https://processwire.com/api/hooks/', 'target="_blank"'),
 				)
 			);
 		}
@@ -146,8 +146,8 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 			"class" => "avatar",
 			"label" => "$avatar <span>" . $this->getDisplayName($user) . "</span>",
 			"children" => array(
-				"<i class='fa fa-user'></i> " . $this->_('Profile') => $config->urls->admin . "profile/",
-				"<i class='fa $adminTheme->signout'></i> " . $this->_('Logout') => $config->urls->admin . "login/logout/"
+				wireIconMarkup('user') . ' ' . $this->_('Profile') => $config->urls->admin . "profile/",
+				wireIconMarkup($adminTheme->signout) . ' ' . $this->_('Logout') => $config->urls->admin . "login/logout/"
 			)
 		);
 
@@ -166,7 +166,7 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 		$out = '';
 		$defaults = array(
 			"class" => "",
-			"label" => "<i class='fa fa-question-circle'></i>",
+			"label" => wireIconMarkup('question-circle'),
 			"link" => "#",
 			"attrs" => "",
 			"children" => false
@@ -267,7 +267,7 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 	
 		if(count($children) && WireArray::iterable($children)) {
 
-			$out .= "<a href='$p->url' class='$class $p->name '><i class='fa {$icon}'></i> $title</a>"; 
+			$out .= "<a href='$p->url' class='$class $p->name '>" . wireIconMarkup($icon) . " $title</a>";
 			$out .= "<ul>";
 
 			foreach($children as $c) {
@@ -320,8 +320,8 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 				}
 				
 				$icon = isset($moduleInfo['icon']) ? $moduleInfo['icon'] : '';
-				$toggle = $quicklinks ? "<i class='quicklink-open fa fa-bolt'></i>" : "";
-				if($class == 'current' && $icon) $title = "<i class='fa fa-fw fa-$icon current-icon'></i>$title";
+				$toggle = $quicklinks ? wireIconMarkup('bolt', 'quicklink-open') : '';
+				if($class == 'current' && $icon) $title = wireIconMarkup($icon, 'fw current-icon') . $title;
 				if($quicklinks) $class .= " has-quicklinks";
 				$out .= "<li><a href='$url' class='$class' data-icon='$icon'><span>$title</span>$toggle</a>" . $quicklinks;
 				$out .= "</li>";
@@ -332,7 +332,7 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 		} else {
 			
 			$class = $class ? " class='$class $p->name'" : "class='$p->name'";
-			$out .= "<a href='$p->url' $class><i class='fa {$icon}'></i> <span>$title</span></a>"; 
+			$out .= "<a href='$p->url' $class>" . wireIconMarkup($icon) . " <span>$title</span></a>";
 
 		}
 

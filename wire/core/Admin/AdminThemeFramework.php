@@ -682,9 +682,9 @@ abstract class AdminThemeFramework extends AdminTheme {
 			'groupByType' => true, // Group notices by type
 			'groupParentClass' => 'pw-notice-group-parent', // class for parent notices
 			'groupChildClass' => 'pw-notice-group-child', // class for children (of parent notices)
-			'groupToggleMarkup' => "<a class='pw-notice-group-toggle' href='#'>{label}" . 
-				"<i class='fa fa-fw fa-bell-o' data-toggle='fa-bell-o fa-bell'></i>" . 
-				"<i class='fa fa-fw fa-angle-right' data-toggle='fa-angle-right fa-angle-down'></i></a>", 
+			'groupToggleMarkup' => "<a class='pw-notice-group-toggle' href='#'>{label}" .
+				wireIconMarkup('bell-o', "fw data-toggle='fa-bell-o fa-bell'") .
+				wireIconMarkup('angle-right', "fw data-toggle='fa-angle-right fa-angle-down'") . "</a>",
 			'groupToggleLabel' => $this->_("+{n-1}"), 
 		);
 		
@@ -805,8 +805,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function renderIcon($icon, $fw = false) {
-		if($fw) $icon .= ' fa-fw';
-		return "<i class='fa fa-$icon'></i>";
+		return wireIconMarkup($icon, $fw ? 'fw' : '');
 	}
 
 	/**

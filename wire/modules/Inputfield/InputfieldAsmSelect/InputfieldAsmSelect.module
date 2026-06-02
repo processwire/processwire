@@ -127,7 +127,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 			// an optional edit or detail link where items can be modified or viewed
 			// i.e. /path/to/page/?id={value} where {value} is replaced with option value
 			'editLink' => '',
-			'editLabel' => "<i class='fa fa-fw fa-edit asmIcon'></i>",
+			'editLabel' => wireIconMarkup('edit', 'fw asmIcon'),
 			
 			// only applicable if editLink is set. set to false if you don't want edit link to be modal
 			'editLinkModal' => true,
@@ -135,10 +135,10 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 
 		if($this->wire('adminTheme')) $this->setAsmSelectOptions(array(
 			// replace jquery ui icon default with a font-awesome icon
-			'removeLabel' => "<i class='fa fa-trash'></i>",
+			'removeLabel' => wireIconMarkup('trash'),
 			
 			// replace jquery ui icon default with a font-awesome icon
-			'sortLabel' => "<i class='fa fa-fw fa-arrows'></i>",
+			'sortLabel' => wireIconMarkup('arrows', 'fw'),
 		));
 
 		// cancel the 'size' attribute used by select multiple

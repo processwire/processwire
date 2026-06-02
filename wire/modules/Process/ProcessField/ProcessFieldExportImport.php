@@ -267,7 +267,7 @@ class ProcessFieldExportImport extends Wire {
 			}
 			
 			if(count($errors)) {
-				$icon = "<i class='fa fa-exclamation-triangle'></i>";
+				$icon = wireIconMarkup('exclamation-triangle');
 				$markup->value .= "<ul class='ui-state-error-text'><li>$icon " . implode("</li><li>$icon ", $errors) . '</li></ul>';
 				$fieldset->label .= ' (' . sprintf($this->_n('%d error', '%d errors', count($errors)), count($errors)) . ')';
 				$numErrors++;

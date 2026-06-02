@@ -5979,3 +5979,23 @@ table.AdminDataList th.headerSortUp {
 .uk-accordion > :nth-child(n + 2) {
 	margin-top: 10px;
 }
+
+/* FA6: ensure correct font-weight for each prefix regardless of other classes (e.g. .ui-priority-secondary resets font-weight to normal) */
+.fas, .fa-solid { font-weight: 900 !important; }
+.far, .fa-regular, .fab, .fa-brands { font-weight: 400 !important; }
+
+.icons-fa6 .ui-menu-item i.fa-fw {
+	opacity: 0.8;
+	margin-right: 3px;
+}
+
+.ui-priority-secondary.fas,
+.ui-priority-secondary.fa-solid,
+.ui-priority-secondary.far,
+.ui-priority-secondary.fa-regular,
+.ui-priority-secondary.fab,
+.ui-priority-secondary.fa-brands {
+	opacity: 0.4;
+}
+
+

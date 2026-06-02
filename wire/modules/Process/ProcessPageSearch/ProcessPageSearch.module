@@ -1463,9 +1463,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		
 		$action = $adminURL . 'page/search/live/';
 		
-		$out = 	
+		$icon = wireIconMarkup('search');
+		$out =
 			"\n<form id='ProcessPageSearchForm' data-action='$action' action='$action' method='get'>" .
-			"\n\t<label for='ProcessPageSearchQuery'><i class='fa fa-search'></i></label>" . 
+			"\n\t<label for='ProcessPageSearchQuery'>$icon</label>" .
 			"\n\t<input type='text' id='ProcessPageSearchQuery' name='q' value='$q' $placeholder />" .
 			"\n\t<input type='submit' id='ProcessPageSearchSubmit' name='search' value='Search' />" . 
 			"\n\t<input type='hidden' name='show_options' value='1' />" .
