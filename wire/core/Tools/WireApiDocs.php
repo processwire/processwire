@@ -6,9 +6,6 @@
  * #pw-summary Provides methods for retrieving API.md documentation
  * #pw-body = 
  * The methods of this class can be accessed from `$wire->docs()->...`
- * 
- * 
- * 
  * #pw-body
  * 
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
@@ -86,6 +83,8 @@ class WireApiDocs extends Wire implements CliModule {
 	
 	/**
 	 * Wired to API
+	 * 
+	 * #pw-internal
 	 * 
 	 */
 	public function wired() {
@@ -216,7 +215,7 @@ class WireApiDocs extends Wire implements CliModule {
 	 * If getting all classes or using wildcards, the full `docs` key 
 	 * is replaced with `summary`, which is just the first paragraph of the docs:
 	 * 
-	 * - `summary` (string): Brief bummary header from API.md
+	 * - `summary` (string): Brief summary header from API.md
 	 *
 	 * @param array|string $get
 	 * @param array $options 
@@ -275,7 +274,9 @@ class WireApiDocs extends Wire implements CliModule {
 	}
 	
 	/**
-	 * Get list of API docs in alternate array format (used by AgentTools)
+	 * Get list of API docs in alternate array format (for AgentTools)
+	 * 
+	 * #pw-advanced
 	 * 
 	 * @param array $get
 	 * @return array
@@ -300,6 +301,8 @@ class WireApiDocs extends Wire implements CliModule {
 	/**
 	 * Get markdown docs for one class
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param string $class
 	 * @return string
 	 * 
@@ -307,6 +310,7 @@ class WireApiDocs extends Wire implements CliModule {
 	public function getDocs($class) {
 		return $this->get($class);
 	}
+	
 	
 	/**
 	 * Get chapters for one class 
@@ -427,6 +431,319 @@ class WireApiDocs extends Wire implements CliModule {
 			$chapters[] = $chapter;
 		}
 		return $chapters;
+	}
+	
+	/**
+	 * Get public API methods for given class
+	 *
+	 * Returns an array of arrays, each with 'name' and 'description' keys.
+	 * Only methods declared on the class itself are included (not inherited).
+	 * Methods marked #pw-internal and PHP magic methods (__construct etc.) are excluded.
+	 * Hookable triple-underscore methods (___find) are returned under their public name (find).
+	 *
+	 * @param string $class Class name (with or without ProcessWire namespace)
+	 * @return array Array of [ 'name' => string, 'description' => string ]
+	 *
+	 */
+	public function getMethods($class) {
+		$cacheKey = 'methods:' . $class;
+		$cached = $this->getCache($cacheKey);
+		if($cached !== null) return $cached;
+
+		$fqClass = class_exists("ProcessWire\\$class") ? "ProcessWire\\$class" : $class;
+		if(!class_exists($fqClass)) return [];
+
+		try {
+			$ref = new \ReflectionClass($fqClass);
+		} catch(\ReflectionException $e) {
+			return [];
+		}
+
+		$methods = [];
+
+		foreach($ref->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+			// Only methods declared on this class, not inherited ones
+			if($method->getDeclaringClass()->getName() !== $ref->getName()) continue;
+
+			$name = $method->getName();
+			$isHookable = strpos($name, '___') === 0;
+			
+			// Skip PHP magic methods
+			if(strpos($name, '__') === 0 && !$isHookable) continue;
+
+			// Expose hookable triple-underscore methods under their public name
+			if($isHookable) $name = substr($name, 3);
+
+			$description = '';
+			$docComment = $method->getDocComment();
+
+			if($docComment !== false) {
+				// Skip methods marked as internal
+				if(strpos($docComment, '#pw-internal') !== false) continue;
+
+				// Extract the first non-empty, non-tag description line
+				foreach(explode("\n", $docComment) as $line) {
+					$line = trim($line, " \t/*");
+					if($line === '' || $line[0] === '@' || $line[0] === '#') continue;
+					$description = $line;
+					break;
+				}
+			}
+
+			$methods[] = [
+				'name' => $name,
+				'description' => $description,
+			];
+		}
+
+		$this->setCache($cacheKey, $methods);
+
+		return $methods;
+	}
+	
+	/**
+	 * Get details about a class method
+	 *
+	 * Returns an array with the following keys:
+	 * - `name` (string): Method name
+	 * - `summary` (string): First line of phpdoc (deprecated warning appended when applicable)
+	 * - `description` (string): Prose description from phpdoc body (may be empty)
+	 * - `details` (string): Section body from API.md if the method is documented there (may be empty)
+	 * - `arguments` (array): Each entry has 'name', 'type', 'description', and 'default' (when optional)
+	 * - `return` (array): 'type' and 'description' keys
+	 * - `group` (string): Value of #pw-group-* tag if present (may be empty)
+	 * - `see` (array): Cross-references from @see tags (key omitted when empty)
+	 *
+	 * @param string $class Class name (with or without ProcessWire namespace)
+	 * @param string $method Method name (triple-underscore prefix optional)
+	 * @return array Empty array if class or method not found
+	 *
+	 */
+	public function getMethod($class, $method) {
+		$cacheKey = "method:$class:$method";
+		$cached = $this->getCache($cacheKey);
+		if($cached !== null) return $cached;
+
+		$fqClass = class_exists("ProcessWire\\$class") ? "ProcessWire\\$class" : $class;
+		if(!class_exists($fqClass)) return [];
+
+		try {
+			$ref = new \ReflectionClass($fqClass);
+		} catch(\ReflectionException $e) {
+			return [];
+		}
+
+		// Try the given name first, then the hookable triple-underscore version
+		$refMethod = null;
+		foreach([$method, '___' . $method] as $tryName) {
+			try {
+				$candidate = $ref->getMethod($tryName);
+				if($candidate->isPublic()) {
+					$refMethod = $candidate;
+					break;
+				}
+			} catch(\ReflectionException $e) {}
+		}
+		if($refMethod === null) return [];
+
+		$docComment = $refMethod->getDocComment();
+		$parsed = $this->parseDocComment($docComment !== false ? $docComment : '');
+
+		// Build arguments from reflection params, enriched with phpdoc info
+		$arguments = [];
+		foreach($refMethod->getParameters() as $param) {
+			$paramName = $param->getName();
+			$arg = ['name' => $paramName];
+			// PHPDoc types are more expressive (e.g. string|array|Selectors); prefer them
+			if(!empty($parsed['params'][$paramName]['type'])) {
+				$arg['type'] = $parsed['params'][$paramName]['type'];
+			} else {
+				$arg['type'] = $this->reflectionTypeName($param->getType());
+			}
+			$arg['required'] = !$param->isOptional();
+			if($param->isOptional() && $param->isDefaultValueAvailable()) {
+				$arg['default'] = $this->reflectionDefaultValue($param);
+			}
+			$arg['description'] = $parsed['params'][$paramName]['description'] ?? '';
+			$arguments[] = $arg;
+		}
+
+		// Append deprecated notice to summary rather than adding a separate field
+		$summary = $parsed['summary'];
+		if($parsed['deprecated']) {
+			$warning = 'Warning: deprecated method';
+			if($parsed['deprecatedMsg']) $warning .= " ({$parsed['deprecatedMsg']})";
+			$summary = $summary ? "$summary — $warning" : $warning;
+		}
+
+		$result = [
+			'name' => $method,
+			'summary' => $summary,
+			'description' => $parsed['description'],
+			'details' => $this->getMethodDetails($class, $method),
+			'arguments' => $arguments,
+			'return' => $parsed['return'],
+			'group' => $parsed['group'],
+		];
+
+		if(!empty($parsed['see'])) $result['see'] = $parsed['see'];
+
+		$this->setCache($cacheKey, $result);
+		return $result;
+	}
+
+	/**
+	 * Parse a PHPDoc comment into components used by getMethod()
+	 *
+	 * @param string $docComment
+	 * @return array
+	 *
+	 */
+	protected function parseDocComment($docComment) {
+		$result = [
+			'summary' => '',
+			'description' => '',
+			'params' => [],
+			'return' => ['type' => 'void', 'description' => ''],
+			'see' => [],
+			'group' => '',
+			'deprecated' => false,
+			'deprecatedMsg' => '',
+		];
+
+		if(!$docComment) return $result;
+
+		$lines = explode("\n", $docComment);
+		$summaryFound = false;
+		$inTags = false;
+		$descLines = [];
+
+		foreach($lines as $line) {
+			$line = trim($line, " \t/*");
+
+			// #pw-group can appear anywhere in the docblock
+			if(preg_match('/^#pw-group-(\S+)/', $line, $m)) {
+				$result['group'] = $m[1];
+				continue;
+			}
+
+			if(!$summaryFound) {
+				if($line === '' || $line[0] === '@' || $line[0] === '#') continue;
+				$result['summary'] = $line;
+				$summaryFound = true;
+				continue;
+			}
+
+			if(!$inTags) {
+				if($line === '') {
+					$descLines[] = '';
+					continue;
+				}
+				if($line[0] === '#') continue;
+				if($line[0] !== '@') {
+					$descLines[] = $line;
+					continue;
+				}
+				$inTags = true; // first @ tag encountered — fall through to tag processing
+			}
+
+			if($line === '' || $line[0] === '#') continue;
+			if($line[0] !== '@') continue;
+
+			if(preg_match('/^@param\s+(\S+)\s+\$(\S+)\s*(.*)/s', $line, $m)) {
+				$result['params'][$m[2]] = ['type' => $m[1], 'description' => trim($m[3])];
+			} else if(preg_match('/^@return\s+(\S+)\s*(.*)/s', $line, $m)) {
+				$result['return'] = ['type' => $m[1], 'description' => trim($m[2])];
+			} else if(preg_match('/^@see\s+(.*)/s', $line, $m)) {
+				foreach(explode(',', $m[1]) as $s) {
+					$s = trim($s);
+					if($s !== '') $result['see'][] = $s;
+				}
+			} else if(preg_match('/^@deprecated\s*(.*)/s', $line, $m)) {
+				$result['deprecated'] = true;
+				$result['deprecatedMsg'] = trim($m[1]);
+			}
+		}
+
+		// Trim leading and trailing blank lines from the collected description
+		while(count($descLines) && $descLines[0] === '') array_shift($descLines);
+		while(count($descLines) && $descLines[count($descLines) - 1] === '') array_pop($descLines);
+		$result['description'] = implode("\n", $descLines);
+
+		return $result;
+	}
+
+	/**
+	 * Get string representation of a ReflectionType
+	 *
+	 * @param \ReflectionType|null $type
+	 * @return string
+	 *
+	 */
+	protected function reflectionTypeName(?\ReflectionType $type) {
+		if($type === null) return '';
+		if($type instanceof \ReflectionUnionType) {
+			return implode('|', array_map(fn($t) => $t->getName(), $type->getTypes()));
+		}
+		if($type instanceof \ReflectionNamedType) {
+			$name = $type->getName();
+			if($type->allowsNull() && $name !== 'mixed' && $name !== 'null') $name = '?' . $name;
+			return $name;
+		}
+		return (string) $type;
+	}
+
+	/**
+	 * Get a reflection parameter's default value as a displayable string
+	 *
+	 * @param \ReflectionParameter $param
+	 * @return string
+	 *
+	 */
+	protected function reflectionDefaultValue(\ReflectionParameter $param) {
+		try {
+			if($param->isDefaultValueConstant()) {
+				$name = $param->getDefaultValueConstantName();
+				if(strpos($name, 'ProcessWire\\') === 0) $name = substr($name, 12);
+				return $name;
+			}
+			$value = $param->getDefaultValue();
+			if($value === null) return 'null';
+			if($value === true) return 'true';
+			if($value === false) return 'false';
+			if(is_string($value)) return "'$value'";
+			if(is_array($value)) return '[]';
+			return (string) $value;
+		} catch(\ReflectionException $e) {
+			return '';
+		}
+	}
+
+	/**
+	 * Get the body of the API.md section for a method, if one exists
+	 *
+	 * @param string $class
+	 * @param string $method
+	 * @return string Empty string if not documented in API.md
+	 *
+	 */
+	protected function getMethodDetails($class, $method) {
+		$docs = $this->get($class);
+		if(!$docs) return '';
+
+		// Match any heading (H2–H6) that contains the method name as a word
+		$pattern = '/^(#{2,}) [^\n]*\b' . preg_quote($method, '/') . '\b[^\n]*/im';
+		if(!preg_match($pattern, $docs, $m, PREG_OFFSET_CAPTURE)) return '';
+
+		$hLevel = strlen($m[1][0]);
+		$body = ltrim(substr($docs, $m[0][1] + strlen($m[0][0])), "\n");
+
+		// Truncate at the next heading of equal or higher level
+		if(preg_match('/\n#{1,' . $hLevel . '} /', $body, $end, PREG_OFFSET_CAPTURE)) {
+			$body = substr($body, 0, $end[0][1]);
+		}
+
+		return trim($body);
 	}
 	
 	/**
@@ -786,6 +1103,8 @@ class WireApiDocs extends Wire implements CliModule {
 	
 	/**
 	 * Reset/clear all persistent caches
+	 * 
+	 * #pw-advanced
 	 *
 	 */
 	public static function reset() {
@@ -815,6 +1134,8 @@ class WireApiDocs extends Wire implements CliModule {
 	
 	/**
 	 * Get or set paths to scan for API files
+	 * 
+	 * #pw-advanced
 	 *
 	 * @param array|string|null $set Specify array or string (one item) to add, omit to get
 	 * @param bool $replace Replace existing items? Omit to append to existing.
@@ -827,6 +1148,8 @@ class WireApiDocs extends Wire implements CliModule {
 	
 	/**
 	 * Get or set API file names (default=['API.md'])
+	 * 
+	 * #pw-advanced
 	 *
 	 * @param array|string|null $set Specify array or string (one item) to add, omit to get
 	 * @param bool $replace Replace existing items? Omit to append to existing.
@@ -839,6 +1162,8 @@ class WireApiDocs extends Wire implements CliModule {
 	
 	/**
 	 * Get or set directory names to exclude (can also include regex patterns of dir names)
+	 * 
+	 * #pw-advanced
 	 *
 	 * @param array|string|null $set Specify array or string (one item) to add, omit to get
 	 * @param bool $replace Replace existing items? Omit to append to existing.
@@ -851,6 +1176,8 @@ class WireApiDocs extends Wire implements CliModule {
 	
 	/**
 	 * Get or set debug info
+	 * 
+	 * #pw-internal
 	 *
 	 * @param array|string|null $set Specify array or string to add, omit to get
 	 * @return array
@@ -863,6 +1190,8 @@ class WireApiDocs extends Wire implements CliModule {
 	
 	/**
 	 * Get or set debug mode
+	 * 
+	 * #pw-internal
 	 *
 	 * @param bool|null $debug
 	 * @return bool
@@ -880,6 +1209,8 @@ class WireApiDocs extends Wire implements CliModule {
 	 * rather than everything at once when execution finishes.
 	 *
 	 * No need for a trailing newline in the output: ProcessWire adds one already.
+	 * 
+	 * #pw-internal
 	 *
 	 * @param array $args Command line arguments passed, excluding module/cli name
 	 *
@@ -892,34 +1223,73 @@ class WireApiDocs extends Wire implements CliModule {
 		$error = false;
 		$action = strtolower($args[0]);
 		
+		if(substr($action, -5) !== '-text') {
+			$action .= '-json';
+			$useStr = false;
+		} else {
+			$useStr = true;
+		}
 		switch($action) {
-			case 'list': 
+			case 'list-text': 
 				$out = $this->get($args[1] ?? ''); 
 				break;
 			case 'list-json': 
 				$out = $this->getList(isset($args[1]) ? [ $args[1] ] : []); 
 				break;
-			case 'list-json-verbose': 
-				if(!empty($args[1]) && strpos($args[1], '*') === false) $args[1] = "*$args[1]";
+			case 'list-verbose-json':
+			case 'list-verbose-text':
+			if(!empty($args[1]) && strpos($args[1], '*') === false) $args[1] = "*$args[1]";
 				$out = array_values($this->getVerbose(isset($args[1]) ? [ $args[1] ] : [])); 
+				if($useStr) $out = implode("\n", $out);
 				break;
-			case 'get': 
+			case 'get-text': 
 				$out = (isset($args[1]) ? $this->get($args[1]) : $invalid); 
 				break;
 			case 'get-json': 
 				$out = (isset($args[1]) ? $this->getVerbose($args[1]) : $invalid); 
 				if(is_array($out)) $out = reset($out);
 				break;
-			case 'toc':	
+			case 'toc-text':	
 			case 'toc-json':	
 				$class = $args[1] ?? '';
 				if($class) $out = $this->getChapters($class);
-				if($class && $action === 'toc') $out = implode("\n", $out);
+				if($class && $useStr) $out = implode("\n", $out);
 				break;
-			case 'body':
+			case 'chapter-json':
+			case 'chapter-text':
 				$class = $args[1] ?? '';
 				$chapter = $args[2] ?? '';
-				$out = $class && $chapter ? $this->getChapterBody($class, $chapter) : ''; 
+				$out = $class && $chapter ? $this->getChapterBody($class, $chapter) : [];
+				if($useStr) $out = "## $out[title]\n\n$out[body]" ?? '';
+				break;
+			case 'methods-json':
+			case 'methods-text':
+				$out = isset($args[1]) ? $this->getMethods($args[1]) : $invalid;
+				if($useStr) {
+					foreach($out as $k => $v) $out[$k] = $v['name'];
+					$out = implode("\n", $out);
+				}
+				break;
+			case 'method-json':
+			case 'method-text':
+				if($useStr) {
+					$out = "The method option requires JSON output";
+				} else {
+					$out = (isset($args[1]) && isset($args[2])) ? $this->getMethod($args[1], $args[2]) : $invalid;
+				}
+				break;
+			case 'vars-json':	
+			case 'vars-text':	
+				$vars = $this->getApiVars();
+				$out = [];
+				foreach($vars as $class => $name) {
+					if($useStr) {
+						$out[] = "$name: $class";
+					} else {
+						$out[] = ['name' => $name, 'className' => $class];
+					}
+				}
+				if($useStr) $out = implode("\n", $out);
 				break;
 		}
 		
@@ -949,24 +1319,29 @@ class WireApiDocs extends Wire implements CliModule {
 	 * Or it can be a regular PHP array of command names if labels are not needed.
 	 * Or it can just be a string of whatever you want, and ProcessWire will output
 	 * it as-is.
+	 * 
+	 * #pw-internal
 	 *
 	 * @return string[]|string Example: `[ 'hello' => 'Hello World' ]` or `[ 'hello' ]`
 	 *
 	 */
 	public function getCliCommands() {
 		return [ 
-			'list' => 'List classes with API docs as string',
-			'list \'Class*\'' => 'List classes matching wildcard pattern as string',
-			'list-json' => 'List classes with API docs in JSON',
-			'list-json \'Class*\'' => 'List classes matches wildcard pattern in JSON',
-			'list-json-verbose' => 'List classes with API docs in JSON verbose mode',
-			'list-json-verbose \'Class*\'' => 'List classes matching pattern in verbose JSON',
-			'get Class' => 'Get API docs for given Class',
-			'get-json Class ' => 'Get JSON API docs for given Class',
-			'toc Class ' => 'Get table of contents for given Class (string)',
-			'toc-json Class' => 'Get table of contents for given Class (json)',
-			'body Class num' => 'Get body for given Class and chapter number',
-			'body Class \'title\'' => 'Get body for given Class and chapter title',
+			'list' => 'List classes with API.md docs',
+			"list 'Class*'" => 'List classes matches wildcard pattern ',
+			'list-verbose' => 'List classes with API.md docs in verbose mode',
+			"list-verbose 'Class*'" => 'List classes matching pattern in verbose mode',
+			'get <class>' => 'Get API docs for given class',
+			'toc <class>' => 'Get table of contents for given class',
+			'chapter <class> <num>' => 'Get body for given class and chapter number',
+			"chapter <class> 'Title'" => 'Get body for given class and chapter title',
+			'methods <class>' => 'Get public methods for given class',
+			'method <class> <method>' => 'Get details for a single method (JSON only)',
+			'vars' => 'List all API variables and the classes they represent',
+			':note' => [
+				'WireApiDocs commands return JSON by default. To make command return plain text (not JSON),',
+				'append `-text` to the command name, i.e. `list-text`',
+			],
 		];
 	}
 }
