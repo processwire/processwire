@@ -353,7 +353,20 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	protected function _insert($item, $existingItem, $insertBefore = true) {
 
-		if(!$this->isValidItem($item)) throw new WireException("You may not insert this item type"); 
+		if(!$this->isValidItem($item)) {
+			$item = $this->get($item);
+			if(!$this->isValidItem($item)) {
+				throw new WireException("Given item to insert is not an allowed type for " . $this->className());
+			}
+		}
+		
+		if(!$this->isValidItem($existingItem)) {
+			$existingItem = $this->get($existingItem);
+			if(!$this->isValidItem($existingItem)) {
+				throw new WireException("Given existing item for insert is not an allowed type for " . $this->className());
+			}
+		}
+		
 		$data = array();
 		$this->add($item); // first add the item, then we'll move it
 		$itemKey = $this->getItemKey($item); 
