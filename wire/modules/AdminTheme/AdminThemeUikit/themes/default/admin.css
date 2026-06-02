@@ -5519,6 +5519,19 @@ ins {
 	border-radius: var(--pw-input-radius);
 }
 
+.pw .InputfieldIcon .fa.fw.on,
+.pw .InputfieldIconItem.on {
+	background: var(--pw-button-background);
+	color: var(--pw-button-color);
+}
+.pw .InputfieldIcon .fa.fw:hover,
+.pw .InputfieldIconItem:hover,
+.pw .InputfieldIcon .fa.fw:active::after,
+.pw .InputfieldIconItem:active::after {
+	background: var(--pw-button-hover-background); 
+	color: var(--pw-button-hover-color); 
+}
+
 .pw .fm-show-buttons {
 	color: var(--pw-text-color);
 }
