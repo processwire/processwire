@@ -12,10 +12,14 @@
 	line-height: 1.3em;
 }
 
+.Inputfields .asmListItem i.fa-trash-can,
 .Inputfields .asmListItem i.fa-trash {
 	position: relative;
 	top: 2px; 
 	right: 3px; 
+}
+.Inputfields .asmListItem i.fa-trash-can {
+	top: 3px;
 }
 
 .Inputfields .asmListItem i.asmListItemHandle {
