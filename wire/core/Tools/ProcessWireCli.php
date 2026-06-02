@@ -259,10 +259,25 @@ class ProcessWireCli extends Wire {
 			}
 			
 			$items = null;
+			$notes = [];
+			$descriptions = [];
 			
 			if(is_array($commands)) {
-				// commands array: [ 'command syntax' => 'description ] or [ 0 => 'command syntax' ]
+				// $commands['command syntax' => 'description'] or [0 => 'command syntax']
+				// $commands[':description'][] items appear above commands
+				// $commands[':note'][] items appear below commands
 				foreach($commands as $cmd => $label) {
+					if($cmd === ':note') {
+						if(!isset($notes[$moduleName])) $notes[$moduleName] = [];
+						if(is_array($label)) $notes[$moduleName] = array_merge($notes[$moduleName], $label); 
+							else $notes[$moduleName][] = $label;
+						continue;
+					} else if($cmd === ':description') {
+						if(!isset($descriptions[$moduleName])) $descriptions[$moduleName] = [];
+						if(is_array($label)) $descriptions[$moduleName] = array_merge($descriptions[$moduleName], $label);
+							else $descriptions[$moduleName][] = $label;
+						continue;
+					}
 					if(is_int($cmd)) [$cmd, $label] = [$label, ''];
 					$line = strpos($cmd, 'index.php') === false ? "php index.php $info[cli] $cmd " : "$cmd ";
 					$items[$line] = $label;
@@ -287,11 +302,15 @@ class ProcessWireCli extends Wire {
 			if(!empty($info['title'])) {
 				$header = ($moduleName ? "$moduleName: " : "") . "$info[title]"; // module title header
 			} else {
-				$header = "$moduleName:";
+				$header = "$moduleName";
 			}
 			$sep = str_repeat('=', strlen($header)); // line under title header
 			$newline = "\n  ";
 			$out .= "$newline$header$newline$sep";
+			
+			if(isset($descriptions[$moduleName])) {
+				$out .= $newline . implode($newline, $descriptions[$moduleName]) . $newline;
+			}
 			
 			if(is_string($commands)) {
 				$out .= $newline . str_replace("\n", $newline, $commands);
@@ -300,6 +319,9 @@ class ProcessWireCli extends Wire {
 					if($label) $line .= str_repeat(' ', $max - strlen($line)) . $label;
 					$out .= "$newline$line";
 				}
+			}
+			if(isset($notes[$moduleName])) {
+				$out .= $newline . $newline . implode($newline, $notes[$moduleName]);
 			}
 		
 			$out .= "\n";
