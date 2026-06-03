@@ -356,3 +356,12 @@ body:not(.pw-narrow-width) {
   */
 
 }
+
+body:not(.pw-narrow-width).icons-fa6 {
+	.PageList .PageListItem {
+		&.PageListHasChildren:not(.PageListItemOpen) > a.PageListPage:before,
+		&.PageListItemOpen.PageListHasChildren > a.PageListPage:before {
+			font-size: 12px;
+		}
+	}
+}

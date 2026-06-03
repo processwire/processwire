@@ -107,7 +107,15 @@ $(document).ready(function() {
 			paginationLinkCurrentClass: 'ui-state-active',
 			paginationHoverClass: 'ui-state-hover',
 			paginationDisabledClass: 'ui-priority-secondary',
-
+			
+			iconLeft: "<i class='fa fa-angle-left'></i>",
+			iconRight: "<i class='fa fa-angle-right'></i>",
+			iconSort: "<i class='fa fa-fw fa-sort'></i>",
+			iconSpinner: "<i class='ui-priority-secondary fa fa-fw fa-spin fa-spinner'></i>",
+			iconCheckSquare: "<i class='fa fa-check-square ui-priority-secondary'></i>",
+			
+			iconFlipHorizClass: 'fa-flip-horizontal',
+			
 			// pagination number that you want to open (to correspond with openPageIDs)
 			openPagination: 0, 
 
@@ -133,7 +141,7 @@ $(document).ready(function() {
 			useNarrowActions: $('body').hasClass('pw-narrow-width'), 
 		
 			// markup for the spinner used when ajax calls are made
-			spinnerMarkup: "<span class='PageListLoading'><i class='ui-priority-secondary fa fa-fw fa-spin fa-spinner'></i></span>",
+			spinnerMarkup: "",
 		
 			// session field name that holds page label format, when used
 			labelName: '',
@@ -142,6 +150,8 @@ $(document).ready(function() {
 			// default is blank, which implies 'children'
 			qtyType: '', 
 		};
+		
+		options.spinnerMarkup = "<span class='PageListLoading'>" + options.iconSpinner + "</span>";
 	
 		// array of "123.0" (page_id.start) that are currently open (used in non-select mode only)
 		var currentOpenPageIDs = [];
@@ -149,14 +159,23 @@ $(document).ready(function() {
 		// true when operations are occurring where we want to ignore clicks
 		var ignoreClicks = false;
 		
-		var isModal = $("body").hasClass("modal") || $("body").hasClass("pw-iframe");
+		var $body = $('body');
+		var isModal = $body.hasClass("modal") || $body.hasClass("pw-iframe");
 		
 		if(typeof ProcessWire.config.ProcessPageList != "undefined") {
 			$.extend(options, ProcessWire.config.ProcessPageList);
 		}
 	
+		if($body.hasClass('icons-fa6')) {
+			options.iconRight = ProcessWire.icon('caret-right');
+			options.iconLeft = ProcessWire.icon('caret-left');
+			options.iconSort = ProcessWire.icon('sort', 'fw');
+			options.iconSpinner =  ProcessWire.icon('spinner', 'spin ui-priority-secondary');
+			options.iconCheckSquare = ProcessWire.icon('check-square', 'ui-priority-secondary');
+		}
+	
 		$.extend(options, customOptions);
-
+		
 		return this.each(function(index) {
 
 			var $container = $(this);
@@ -476,13 +495,13 @@ $(document).ready(function() {
 				//if(curPagination+1 < maxPaginationLinks && curPagination+1 < numPaginations) {
 				if(curPagination+1 < numPaginations) {
 					$nextBtn = $blankItem.clone();
-					$nextBtn.find("a").html("<i class='fa fa-angle-right'></i>").attr('href', curPagination+1); 
+					$nextBtn.find("a").html(options.iconRight).attr('href', curPagination+1); 
 					$list.append($nextBtn);
 				}
 
 				if(curPagination > 0) {
 					$prevBtn = $blankItem.clone();
-					$prevBtn.find("a").attr('href', curPagination-1).html("<i class='fa fa-angle-left'></i>"); 
+					$prevBtn.find("a").attr('href', curPagination-1).html(options.iconLeft); 
 					$list.prepend($prevBtn); 
 				}
 
@@ -946,8 +965,8 @@ $(document).ready(function() {
 				}
 				*/
 				
-				$icon.toggleClass('fa-flip-horizontal');
-			
+				$icon.toggleClass(options.iconFlipHorizClass);
+		
 				if($extraActions.length) {
 					$extraActions.fadeOut(100, function() {
 						$extraActions.remove();
@@ -1014,7 +1033,7 @@ $(document).ready(function() {
 										// display a message for a second to let them know what was done
 										if($liNew) {
 											var $msg = $("<span />").addClass('notes').html(data.message);
-											$msg.prepend("&nbsp;<i class='fa fa-check-square ui-priority-secondary'></i>&nbsp;");
+											$msg.prepend("&nbsp;" + options.iconCheckSquare + "&nbsp;");
 											$liNew.append($msg);
 											addClickEvents($liNew);
 										}
@@ -1303,8 +1322,14 @@ $(document).ready(function() {
 				});
 				
 				var $actions = $li.children("ul.PageListActions");
-				var $moveAction = $("<span class='PageListMoveNote detail'><i class='fa fa-fw fa-sort'></i> " + options.moveInstructionLabel + "<i class='fa fa-fw fa-angle-left'></i></span>");
-				$moveAction.append($cancelLink);
+				var $moveAction = $(
+					"<span class='PageListMoveNote detail'>" + 
+						options.iconSort + "&nbsp;" + 
+						options.moveInstructionLabel + "&nbsp;" + 
+						options.iconLeft + 
+					"</span>"
+				);
+				$moveAction.append('&nbsp;').append($cancelLink);
 			
 				$actions.before($moveAction); 
 				
