@@ -942,6 +942,8 @@ class Pages extends Wire {
 	 * Add a new page using the given template and parent
 	 *
 	 * If no page “name” is specified, one will be automatically assigned. 
+	 * Returned page does not have unpublished status unless you
+	 * specify `'status' => 'unpublished'` in `$options`.
 	 * 
 	 * For an alternate interface for adding new pages, see the `$pages->new()` method. 
 	 * 
@@ -1000,10 +1002,11 @@ class Pages extends Wire {
 	 * - If given selector string starts with a `/` it is assumed to be the `path` property. 
 	 * - If new page has name that collides with an existing page (i.e. “foo”), new page name will increment (i.e. “foo-1”).
 	 * - If no `name`, `path` or `title` is given (that name can be derived from) then an “untitled-page” name will be used. 
+	 * - Returned page does not have unpublished status unless you specify `status` of `unpublished` (aka `Page::statusUnpublished`).
 	 * 
 	 * ~~~~~
 	 * // Creating a page via selector string
-	 * $p = $pages->new("template=category, parent=/categories/, title=New Category");
+	 * $p = $pages->new("template=category, parent=/categories/, title=New Category, status=unpublished");
 	 * 
 	 * // Creating a page via selector using path, which implies parent and name
 	 * $p = $pages->new("template=category, path=/categories/new-category");
@@ -1034,9 +1037,9 @@ class Pages extends Wire {
 	
 		$options = $this->editor()->newPageOptions($selector);
 		$error = 'Cannot save new page without a %s';
-		$template = isset($options['template']) ? $options['template'] : null;
-		$parent = isset($options['parent']) ? $options['parent'] : null;
-		$name = isset($options['name']) ? $options['name'] : '';
+		$template = $options['template'] ?? null;
+		$parent = $options['parent'] ?? null;
+		$name = $options['name'] ?? '';
 		
 		if(!$template) throw new WireException(sprintf($error, 'template'));
 		if(!$parent) throw new WireException(sprintf($error, 'parent'));

@@ -102,6 +102,10 @@ $copy = $pages->getFresh($page);
 
 ## Creating pages
 
+Please note when creating new pages that the created page does not have
+unpublished status unless you specifically assign `status` of "unpublished" 
+(aka `Page::statusUnpublished`) in the method arguments.
+
 ```php
 // Quick method — template, parent, optional name/title/values
 $p = $pages->add('blog-post', '/blog/', 'My First Post');
@@ -110,6 +114,7 @@ $p = $pages->add('blog-post', '/blog/', 'My First Post');
 $p = $pages->add('blog-post', '/blog/', [
     'title' => 'My First Post',
     'body'  => 'Hello world.',
+    'status' => 'unpublished',
 ]);
 
 // Selector-style interface — saves to DB immediately
@@ -119,14 +124,35 @@ $p = $pages->new([
     'template' => 'blog-post',
     'parent'   => '/blog/',
     'title'    => 'My First Post',
+    'status'   => 'unpublished',
 ]);
 
 // Create a Page object without saving to DB
 $p = $pages->newPage(['template' => 'blog-post', 'parent' => '/blog/']);
-```
 
+// Published by default:
+$p = $pages->add('product', '/products/', 'Foo Bar Widget');
+
+// Explicitly unpublished:
+$p = $pages->add('product', '/products/', [
+    'title' => 'Page Title', 
+    'status' => Page::statusUnpublished // or string 'unpublished'
+]);
+```
 `$pages->new()` auto-detects template from parent family settings (and vice versa), derives
 `name` from `title` or `path`, and appends a numeric suffix if the name is already taken.
+
+The above examples using `new()` or `add()` methods are a convenient shorthand for creating a page manually 
+(the old fashioned way), like this:
+```php
+$p = new Page();
+$p->template = 'product'; 
+$p->parent = '/blog/';
+$p->title = 'My first post';
+$p->name = 'my-first-post';
+$p->addStatus('unpublished');
+$pages->save($p); // or $page->save()
+```
 
 ## Saving pages
 
