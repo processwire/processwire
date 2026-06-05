@@ -1,7 +1,3 @@
-> Each Fieldtype subdirectory (e.g. `FieldtypeText/`, `FieldtypeImage/`) has its own
-> `API.md`. This file covers only the flat Fieldtype modules that have no subdirectory:
-> `FieldtypeFieldsetOpen`, `FieldtypeFieldsetTabOpen`, and `FieldtypeFieldsetClose`.
-
 # FieldtypeFieldsetOpen
 
 Opens a collapsible, bordered group of fields in the page editor. Fields placed between

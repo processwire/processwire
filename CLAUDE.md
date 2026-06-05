@@ -2,44 +2,18 @@
 
 For API orientation, key concepts, and usage examples, see [AGENTS.md](AGENTS.md).
 
-## Documentation Conventions
+## Documentation
 
-### API.md files
+`API.md` files document developer- and agent-facing API usage for core classes and modules.
+They live alongside the code they document:
 
-Each Fieldtype module directory should have an `API.md` covering usage of that module's
-Fieldtype (and related classes) from a developer's perspective. Flat Fieldtype modules
-that live directly in `wire/modules/Fieldtype/` share a single
-`wire/modules/Fieldtype/API.md`, with one `# FieldtypeClassName` H1 per Fieldtype.
-Fieldtypes with their own subdirectory get their own `API.md`.
+- Core classes: `wire/core/[ClassName]/API.md`
+- Fieldtype modules: `wire/modules/Fieldtype/[FieldtypeName]/API.md`
+- Other modules: `wire/modules/[ModuleName]/API.md` or `wire/modules/[ModuleType]/[ModuleName]/API.md`
+- Non-core modules in `site/modules/`: same pattern
 
-Structure of an API.md entry:
-- `# FieldtypeClassName` — H1 is the class name, no "API" suffix
-- One-line description
-- `## Value type` — the PHP type returned
-- `## Getting and setting values` — code examples
-- `## Selectors` — selector usage with notes on non-obvious behavior
-- `## Output / markup` — rendering examples
-- `## Notes` — bullets for defaults, sanitization, DB column, compatible types
-
-Non-core Fieldtype modules installed in `site/modules/` follow the same conventions.
-`API.md` files can be expected for first-party modules by Ryan Cramer, but should not
-be assumed for third-party modules.
-
-### [Type]Field.php classes
-
-Each Fieldtype module should have a corresponding `[Type]Field.php` file (e.g.
-`TextField.php`, `IntegerField.php`) in the same directory. This class extends `Field`
-and contains only PHPDoc `@property` annotations covering all configurable settings from
-both the Fieldtype and its Inputfield, grouped under separate comments. The Fieldtype
-module must include a `getFieldClass()` method returning the class name, and a
-`require_once` at the bottom of the module file to load it.
-
-Example `getFieldClass()`:
-```php
-public function getFieldClass(array $a = array()) {
-    return 'TextField';
-}
-```
+Most Fieldtype modules also have a `[Type]Field.php` companion class (e.g. `TextField.php`,
+`ImageField.php`) with `@property` PHPDoc annotations for all configurable field settings.
 
 ## Code Conventions
 
@@ -49,3 +23,4 @@ public function getFieldClass(array $a = array()) {
 - Hookable methods use the `___methodName()` triple-underscore prefix convention.
 - Indentation: tabs, not spaces.
 - Copyright year in file headers should be kept current.
+- ProcessWire coding style guide: <https://processwire.com/docs/more/coding-style-guide/>

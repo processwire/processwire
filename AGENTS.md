@@ -8,14 +8,14 @@ This file orients AI agents working on ProcessWire-based projects.
 
 ## Core Concepts
 
-| Concept | Description |
-|---|---|
-| **Page** | Every piece of content is a `Page` object in a tree hierarchy. |
-| **Template** | Defines which fields a page has, and maps to a PHP template file in `site/templates/`. |
-| **Field** | A named data container (text, image, page reference, etc.) assigned to templates. |
-| **Fieldgroup** | The set of fields attached to a template (usually same name as template). |
-| **Module** | Plugin class that extends ProcessWire. Autoloaded or loaded on demand. |
-| **Wire** | Base class for most PW objects; provides access to the API via `$this->wire()`. |
+| Concept          | Description                                                                            |
+|------------------|----------------------------------------------------------------------------------------|
+| **Page**         | Every piece of content is a `Page` object in a tree hierarchy.                         |
+| **Template**     | Defines which fields a page has, and maps to a PHP template file in `site/templates/`. |
+| **Field**        | A named data container (text, image, page reference, etc.) assigned to templates.      |
+| **Fieldgroup**   | The set of fields attached to a template (usually same name as template).              |
+| **Module**       | Plugin class that extends ProcessWire. Autoloaded or loaded on demand.                 |
+| **Wire**         | Base class for most PW objects; provides access to the API via `$this->wire()`.        |
 
 ---
 
@@ -152,25 +152,50 @@ $page->setAndSave('title', 'New Title'); // combined set and save
 
 ---
 
-## API Documentation for Field Types
+## API Documentation
 
-Each core Fieldtype has an `API.md` in its module directory:
+`API.md` files document agent- and developer-facing usage for core classes and modules.
+They live alongside the code they document:
 
 ```
+wire/core/Pages/API.md
+wire/core/Page/API.md
+wire/core/Sanitizer/API.md
+wire/core/WireCache/API.md
+... (one per core class subdirectory)
+
 wire/modules/Fieldtype/FieldtypeText/API.md
 wire/modules/Fieldtype/FieldtypeImage/API.md
-wire/modules/Fieldtype/FieldtypePage/API.md
-wire/modules/Fieldtype/FieldtypeRepeater/API.md
-... (one per Fieldtype subdirectory)
-wire/modules/Fieldtype/API.md  (FieldtypeFieldset* — no subdirectory)
+
+wire/modules/LanguageSupport/API.md
+... (other modules)
 ```
 
-First-party non-core Fieldtype modules (in `site/modules/`) also have `API.md` files
-in their module directory when available. Third-party modules may or may not include them.
+First-party non-core modules (in `site/modules/`) also have `API.md` files when available.
+Third-party modules may or may not include them.
 
 Most Fieldtype modules also have a `[Type]Field.php` class (e.g. `TextField.php`, `ImageField.php`)
 with `@property` PHPDoc annotations for all configurable field settings — useful for
 understanding what settings a field type supports.
+
+### Accessing API docs via CLI
+
+API documentation is accessible from the command line. Run from the ProcessWire root directory:
+
+```
+php index.php docs list                      # list all classes with API.md docs
+php index.php docs list 'Wire*'              # filter by wildcard pattern
+php index.php docs vars                      # list API variables and their classes
+php index.php docs get <class>               # full API.md for a class
+php index.php docs toc <class>               # table of contents for a class
+php index.php docs chapter <class> <num>     # a single chapter by number
+php index.php docs chapter <class> 'Title'   # a single chapter by title
+php index.php docs methods <class>           # list public methods
+php index.php docs method <class> <method>   # details for a single method (JSON)
+```
+
+Commands return JSON by default. Append `-text` to any command name for plain text output,
+e.g. `php index.php docs list-text` or `php index.php docs get-text Pages`.
 
 ---
 
