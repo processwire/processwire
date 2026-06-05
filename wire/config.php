@@ -2108,7 +2108,7 @@ $config->adminTemplates = array('admin');
  * Icons used in the admin
  * 
  * #property string $type Icon type (fa=font-awesome)
- * #property int $version Icon version (blank=4.x, 6=6.x)
+ * #property string $version Icon version ('4'=4.x, '6'=6.x, ''=delegate to admin theme)
  * 
  */
 $config->adminIcons = [

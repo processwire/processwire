@@ -12,6 +12,10 @@
 
 $config->inputfieldColumnWidthSpacing = 0; // percent spacing between columns
 
+$icons = $config->adminIcons;
+if($icons['version'] === '') $icons['version'] = '4';
+$config->adminIcons = $icons;
+
 $markup = InputfieldWrapper::getMarkup(); 
 $markup['item_label'] = "<label class='InputfieldHeader' for='{for}'>{out}</label>";
 $markup['item_label_hidden'] = "<label class='InputfieldHeader InputfieldHeaderHidden'><span>{out}</span></label>";

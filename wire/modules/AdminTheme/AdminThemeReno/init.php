@@ -7,6 +7,7 @@
  *
  */
 
+/** @var Config $config */
 $config->inputfieldColumnWidthSpacing = 0; // percent spacing between columns
 
 $markup = InputfieldWrapper::getMarkup(); 
@@ -18,4 +19,8 @@ InputfieldWrapper::setMarkup($markup);
 $classes = InputfieldWrapper::getClasses();
 $classes['item'] = "Inputfield {class} Inputfield_{name}";
 $classes['item_error'] = "InputfieldStateError";
-InputfieldWrapper::setClasses($classes); 
+InputfieldWrapper::setClasses($classes);
+
+$icons = $config->adminIcons;
+if($icons['version'] === '') $icons['version'] = '4';
+$config->adminIcons = $icons;

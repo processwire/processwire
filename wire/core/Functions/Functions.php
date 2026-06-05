@@ -625,7 +625,7 @@ function wireDate($format = '', $ts = null) {
  */
 function wireIconMarkup($icon, $class = '') {
 	static $ver = null;
-	if($ver === null) $ver = (int) substr(wire()->config->adminIcons['version'], 0, 1);
+	if($ver === null) $ver = (int) substr((string) wire()->config->adminIcons['version'], 0, 1);
 	
 	if(strpos($icon, ' ')) {
 		list($icon, $extra) = explode(' ', $icon, 2);

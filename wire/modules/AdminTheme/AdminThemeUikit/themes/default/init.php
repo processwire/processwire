@@ -76,7 +76,7 @@ if($useDarkModeSwitcher) {
 		$dialogTitle = __('Light/dark mode');
 		$lightIcon = 'sun';
 		$darkIcon = 'moon';
-		if((int) substr($config->adminIcons['version'], 0, 1) < 6) {
+		if((int) substr((string) $config->adminIcons['version'], 0, 1) < 6) {
 			$lightIcon .= '-o';
 			$darkIcon .= '-o';
 		}

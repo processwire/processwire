@@ -150,7 +150,6 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	}
 	
 	public function wired() {
-		$config = $this->wire->config;
 		parent::wired();
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax');
 		$settings = $this->wire()->config->AdminThemeUikit; 
@@ -159,10 +158,6 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$this->setQuietly('themeName', $settings['themeName']);
 			$this->setQuietly('askTheme', 0);
 		}
-		$icons = $config->adminIcons;
-		$icons['version'] = '6.7.2';
-		$config->adminIcons = $icons;
-		
 	}
 	
 	/**
@@ -174,6 +169,11 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 
 		// if this is not the current admin theme, exit now so no hooks are attached
 		if(!$this->isCurrent()) return;
+		
+		$config = $this->wire->config;
+		$icons = $config->adminIcons;
+		if($icons['version'] === '') $icons['version'] = '6.7.2';
+		$config->adminIcons = $icons;
 	
 		$page = $this->wire()->page;
 		$pages = $this->wire()->pages;
