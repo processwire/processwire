@@ -1108,8 +1108,8 @@ class PageValues extends Wire {
 			if($value instanceof PageFieldValueInterface) {
 				// value indicates it is already formatted, so would corrupt the page for saving
 				if($value->formatted()) $isCorrupted = true;
-			} else if($page->of()) {
-				// check if value is modified by being formatted
+			} else if($page->of() && is_object($value)) {
+				// check if value is modified by being formatted (scalars cannot be pre-formatted objects)
 				$result = $fieldtype->_callHookMethod('formatValue', array($page, $field, $value));
 				if($result != $value) $isCorrupted = true;
 			}
