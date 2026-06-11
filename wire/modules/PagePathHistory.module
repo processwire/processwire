@@ -996,7 +996,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		if($languagePageNames) {
 			// the LanguageSupportPageNames may change the original requested path, so we ask it for the original
 			$path = $languagePageNames->getRequestPath();
-			$path = $path ? $this->wire()->sanitizer->pagePathName($path) : $event->arguments(1);
+			$path = $path ? $this->wire()->sanitizer->pagePathName($path, Sanitizer::toAscii) : $event->arguments(1);
 		} else {
 			$path = $event->arguments(1);
 		}
