@@ -696,21 +696,35 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		
 		// see if this fieldtype supports languages natively
 		if($field->type instanceof FieldtypeLanguageInterface && $useLanguages) {
-			
+
 			// populate useLanguages in the inputfield so we can detect it elsehwere
-			$inputfield->set('useLanguages', true); 
+			$inputfield->set('useLanguages', true);
 
 			$value = $page->get($field->name);
 
-			// set values in this field specific to each language
-			foreach($languages as $language) {
-				$languageValue = '';
-				if($value instanceof LanguagesPageFieldValue) {
-					$languageValue = $value->getLanguageValue($language->id);
-				} else {
-					if($language->isDefault) $languageValue = $value; 
+			// RepeaterPage items can be in of(true) state, causing get() to return a
+			// plain string (the formatted current-language value) rather than a
+			// LanguagesPageFieldValue. Temporarily disable output formatting to get
+			// the full multi-language object so we can populate all language values.
+			if(!$value instanceof LanguagesValueInterface) {
+				$wasFormatted = $page->of();
+				if($wasFormatted) {
+					$page->of(false);
+					$value = $page->get($field->name);
+					$page->of($wasFormatted);
 				}
-				$inputfield->set('value' . $language->id, $languageValue); 	
+			}
+
+			// set values in this field specific to each language, but only overwrite
+			// when we have a full LanguagesPageFieldValue (or at minimum a plain string
+			// for the default language). If we still don't have one, leave existing
+			// per-language values intact rather than clobbering them with empty strings.
+			foreach($languages as $language) {
+				if($value instanceof LanguagesValueInterface) {
+					$inputfield->set('value' . $language->id, $value->getLanguageValue($language->id));
+				} else if($language->isDefault) {
+					$inputfield->set('value' . $language->id, $value);
+				}
 			}
 			
 			// following this hookInputfieldBeforeRender() completes the process after

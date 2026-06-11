@@ -214,9 +214,14 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 			if($language->isDefault()) {
 				$key = 'value';
 			} else {
-				$key = 'value' . $language->id; 
+				$key = 'value' . $language->id;
 			}
-			$this->setLanguageValue($language->id, $inputfield->$key); 
+			// skip null: a null key means the per-language attribute was never
+			// populated on the Inputfield, so we must not interpret it as "clear
+			// this language value" — that would silently wipe existing DB data
+			$value = $inputfield->$key;
+			if($value === null) continue;
+			$this->setLanguageValue($language->id, $value);
 		}
 	}
 
