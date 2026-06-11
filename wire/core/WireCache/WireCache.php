@@ -1146,7 +1146,7 @@ class WireCache extends Wire {
 				}
 			}
 
-			if(empty($info['expires'])) {
+			if(empty($info['expires']) && isset($row['expires'])) {
 				if($row['expires'] === WireCache::expireNever) {
 					$info['expires'] = $verbose ? 'never' : '';
 				} else if($row['expires'] === WireCache::expireReserved) {
