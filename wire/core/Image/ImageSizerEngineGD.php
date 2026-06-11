@@ -458,6 +458,10 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 		$path_parts = pathinfo($filename);
 		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
 		if(file_exists($webpFilename)) $this->wire()->files->unlink($webpFilename);
+		// ensure alpha channel is preserved regardless of upstream transforms
+		if(function_exists('imagepalettetotruecolor')) imagepalettetotruecolor($im);
+		imagealphablending($im, false);
+		imagesavealpha($im, true);
 		return imagewebp($im, $webpFilename, $quality);
 	}
 	
