@@ -165,7 +165,7 @@ abstract class AdminTheme extends WireData implements Module {
 		$session = $this->wire()->session;
 		$page = $this->wire()->page;
 		$urls = $config->urls;
-		$icons = $config->adminIcons;
+		$icons = array_merge(['type' => 'fa', 'version' => ''], (array) $config->adminIcons);
 		
 		// adjust $config adminThumbOptions[scale] for auto detect when requested
 		$o = $config->adminThumbOptions;
