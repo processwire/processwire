@@ -391,8 +391,12 @@ class WireClassLoader {
 			if(!$found && strpos($name, 'Field') && $this->modules && substr($name, -5) === 'Field') {
 				$a = substr($name, 0, -5);
 				if($this->modules->isModule("Fieldtype$a") && $this->modules->includeModule("Fieldtype$a")) {
-					$file = dirname($this->modules->getModuleFile("Fieldtype$a")) . "/$name.php";
-					$found = file_exists($file) ? $file : false;
+					// includeModule() may have triggered the Fieldtype's own require_once for this
+					// companion class via a different path — check before constructing another path
+					if(!class_exists($className, false)) {
+						$file = dirname($this->modules->getModuleFile("Fieldtype$a")) . "/$name.php";
+						$found = file_exists($file) ? $file : false;
+					}
 				}
 			}
 		}
