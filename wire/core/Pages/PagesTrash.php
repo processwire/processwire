@@ -86,7 +86,7 @@ class PagesTrash extends Wire {
 			// make the name unique when in trash, to avoid namespace collision and maintain parent restore info
 			$name = $page->id;
 			if($parentPrevious && $parentPrevious->id) {
-				$sort = $page->get('sortPrevious|sort');
+				$sort = (int) $page->get('sortPrevious|sort');
 				$name .= ".$parentPrevious->id.$sort";
 			}
 			$page->name = ($name . '_' . $page->name);
