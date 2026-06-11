@@ -50,6 +50,7 @@ return [ // please keep alphabetical A-Z
 	'PagefilesManager' => 'Page/',
 	'PageFinder' => 'PageFinder/',
 	'PageFinder2' => 'PageFinder/',
+	'PagesExportImport' => 'Pages/',
 	'Pageimage' => 'Pageimages/',
 	'PageimageDebugInfo' => 'Pageimages/',
 	'Pageimages' => 'Pageimages/',
