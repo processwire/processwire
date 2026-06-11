@@ -98,11 +98,11 @@ class FieldtypeRepeaterPorter extends Wire {
 		}
 
 		if($template) {
-			if($saveFieldgroupContext) {
-				$template->fieldgroup->saveContext();
-			}
 			if($saveFieldgroup) {
 				$template->fieldgroup->save();
+			}
+			if($saveFieldgroupContext) {
+				$template->fieldgroup->saveContext();
 			}
 		}
 
