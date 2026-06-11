@@ -884,6 +884,8 @@ class WireCache extends Wire {
 			// run general maintenance only once every 10 minutes
 			$filename = $this->wire()->config->paths->cache . 'WireCache.maint';
 			if(file_exists($filename) && filemtime($filename) > (time() - 600)) return false;
+			$cacheDir = dirname($filename);
+			if(!is_dir($cacheDir)) wireMkdir($cacheDir);
 			touch($filename);
 		}
 
