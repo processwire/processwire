@@ -82,7 +82,9 @@ function setupLanguageTabs($form) {
 		var $links = $this.find('a.langTabLink');
 		var timeout = null;
 		var $note = $parent.find('.langTabsNote');
-		
+		var $ul = $this.children('ul');
+		var noteWidth = 0;
+
 		if(!$links.length) {
 			$links = $this.find('a[data-lang]'); // fallback if missing langTabLink class
 			if(!$links.length) $links = $this.find('a');
@@ -92,6 +94,14 @@ function setupLanguageTabs($form) {
 		$links.on('mouseover', function() {
 			if(timeout) clearTimeout(timeout);
 			if($parent.width() < 500) return;
+			if(!noteWidth) {
+				// measure note width while still hidden
+				$note.css({ visibility: 'hidden', display: 'block' });
+				noteWidth = $note.outerWidth(true) || 0;
+				$note.css({ visibility: '', display: '' });
+			}
+			// skip if tabs extend so far that the note would overlap them
+			if(noteWidth && $ul.outerWidth() + noteWidth + 16 > $parent.width()) return;
 			timeout = setTimeout(function() { $note.fadeIn('fast'); }, 250);
 		}).on('mouseout', function() {
 			if(timeout) clearTimeout(timeout);
