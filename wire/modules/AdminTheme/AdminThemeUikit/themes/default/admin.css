@@ -2564,7 +2564,6 @@ a:is(:focus, :focus-visible, .ui-state-active, .ui-state-focus) {
 	background: var(--pw-menu-item-background-hover);
 }
 
-.ui-menu:focus-within .ui-menu-item .ui-widget-content:not(:focus-within),
 .ui-menu:focus-within .ui-menu-item .ui-widget-content:not(:focus-within) a {
 	background: none;
 }
