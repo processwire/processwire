@@ -936,7 +936,10 @@ class Pageimage extends Pagefile {
 							if(is_file($filenameUnvalidated)) $files->unlink($filenameUnvalidated);
 						} else {
 							clearstatcache();
-							if(!$files->rename($filenameUnvalidated, $filenameFinal)) {
+							if(file_exists($filenameFinal)) {
+								// race condition: another request already created this variation
+								$files->unlink($filenameUnvalidated, true);
+							} else if(!$files->rename($filenameUnvalidated, $filenameFinal)) {
 								if($files->exists($filenameFinal)) {
 									// potential race condition: another request won
 								} else {
@@ -944,8 +947,14 @@ class Pageimage extends Pagefile {
 								}
 							}
 						}
-						if($options['webpAdd'] && file_exists($filenameUnvalidatedWebp)) { 
-							$files->rename($filenameUnvalidatedWebp, $filenameFinalWebp);
+						if($options['webpAdd'] && file_exists($filenameUnvalidatedWebp)) {
+							clearstatcache();
+							if(file_exists($filenameFinalWebp)) {
+								// race condition: another request already created the webp variation
+								$files->unlink($filenameUnvalidatedWebp, true);
+							} else {
+								$files->rename($filenameUnvalidatedWebp, $filenameFinalWebp);
+							}
 						}
 					} else {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
