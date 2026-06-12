@@ -460,6 +460,12 @@ $config->sessionFingerprint = 1;
  * entirely to PHP’s default. If your site relies on the previous behavior, set 
  * `$config->sessionCacheLimiter = false`.
  * 
+ * In 3.0.265+ if the user is guest and the cache limiter is `private_no_expire`
+ * then ProcessWire will downgrade the Cache-Control header to `no-cache` if any 
+ * session variables are set during page rendering. This is to prevent caching 
+ * of pages that might be rendering forms with CSRF or other session variables 
+ * that could affect the output. 
+ * 
  * Configuration options:
  * 
  * 1) Associative array of setting to use, indexed by context, i.e. 

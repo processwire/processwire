@@ -113,10 +113,26 @@ class ProcessPageView extends Process {
 		if($timerKey) Debug::saveTimer($timerKey, ($page && $page->id ? $page->path : '')); 
 		
 		if($page && $page->id) {
-			return $this->renderPage($page, $request);
+			$out = $this->renderPage($page, $request);
+			if(!$config->admin) $this->checkCacheLimiter();
 		} else {
-			return $this->renderNoPage($request);
+			$out = $this->renderNoPage($request);
 		}
+		
+		return $out;
+	}
+	
+	/**
+	 * Check if cache limiter should be changed per request conditions
+	 * 
+	 */
+	protected function checkCacheLimiter() {
+		$session = $this->wire()->session;
+		if($session->getSessionCacheLimiter() !== 'private_no_expire') return; 
+		if($this->wire()->user->id !== $this->config->guestUserPageID) return;
+		if(headers_sent()) return;
+		if(!count($session->getChanges())) return;
+		header('Cache-Control: no-cache'); // override private_no_expire
 	}
 
 	/**

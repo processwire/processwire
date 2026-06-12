@@ -169,6 +169,14 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 */
 	protected $isSecondary = false;
+	
+	/**
+	 * Cached session cache limiter value
+	 * 
+	 * @var null|string
+	 * 
+	 */
+	protected $cacheLimiter = null;
 
 	/**
 	 * Start the session and set the current User if a session is active
@@ -228,7 +236,7 @@ class Session extends Wire implements \IteratorAggregate {
 		$users->setCurrentUser($user); 	
 
 		if($sessionAllow) $this->wakeupNotices();
-		$this->setTrackChanges(true);
+		$this->resetTrackChanges(Wire::trackChangesOn);
 	}
 
 	/**
@@ -565,7 +573,9 @@ class Session extends Wire implements \IteratorAggregate {
 	 * @since 3.0.258
 	 *
 	 */
-	protected function getSessionCacheLimiter() {
+	public function getSessionCacheLimiter() {
+		
+		if($this->cacheLimiter !== null) return $this->cacheLimiter;
 		
 		$method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
 		if($method !== 'GET' && $method !== 'HEAD') return false;
@@ -620,6 +630,8 @@ class Session extends Wire implements \IteratorAggregate {
 		}
 		
 		if($value === 'none') $value = '';
+		
+		$this->cacheLimiter = $value;
 		
 		return $value;
 	}
