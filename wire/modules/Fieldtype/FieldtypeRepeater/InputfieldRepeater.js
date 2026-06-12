@@ -314,7 +314,10 @@ function InputfieldRepeater($) {
 		var toggleOn = $this.attr('data-on');
 		var toggleOff = $this.attr('data-off');
 		var $item = $this.closest('.InputfieldRepeaterItem');
-		var $input = $item.find('.InputfieldRepeaterPublish');
+		// filter to this item's own publish input, excluding any nested repeater items' publish inputs
+		var $input = $item.find('.InputfieldRepeaterPublish').filter(function() {
+			return $(this).closest('.InputfieldRepeaterItem').is($item);
+		});
 		
 		if(doubleClickTimer) clearTimeout(doubleClickTimer);
 		doubleClickTimer = setTimeout(function() {
