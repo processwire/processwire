@@ -179,18 +179,20 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 	 * 
 	 */
 	public function getFieldsetCloseField(Field $field, $createIfNotExists = false) {
-		
+
 		if(!$this->isFieldset($field)) return null;
 
 		$fields = $this->wire()->fields;
-		
+
 		$name = $field->name . self::fieldsetCloseIdentifier;
-		$closer = $fields->get($name); 
-		
+		$closer = $fields->get($name);
+		if($closer && !$closer->type instanceof FieldtypeFieldsetClose) $closer = null;
+
 		if(!$closer) {
 			$closeFieldID = (int) $field->get('closeFieldID');
 			if($closeFieldID) {
-				$closer = $fields->get($closeFieldID); 
+				$closer = $fields->get($closeFieldID);
+				if($closer && !$closer->type instanceof FieldtypeFieldsetClose) $closer = null;
 			}
 		}
 		
@@ -232,12 +234,13 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 
 		$name = substr($field->name, 0, -1 * strlen(self::fieldsetCloseIdentifier));
 		$opener = $fields->get($name);
+		if($opener && !$this->isFieldset($opener)) $opener = null;
 
 		if($opener) return $opener;
 
 		foreach($fields as $f) {
 			/** @var Field $f */
-			if(!$f->type instanceof FieldtypeFieldsetOpen) continue;
+			if(!$this->isFieldset($f)) continue;
 			$closeFieldID = (int) $f->get('closeFieldID');
 			if($closeFieldID != $field->id) continue;
 			$opener = $f;
