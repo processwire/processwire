@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -651,9 +651,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		foreach($values as $value) {
 			
 			$binds = array();
-			$sql = $value['id'] ? "UPDATE " : "INSERT INTO ";
-			//$sql .= "`{$table}` SET pages_id=" . ((int) $page->id) . ", ";
-			$sql .= "`{$table}` SET pages_id=:pages_id, "; 
+			$sql = $value['id'] ? "UPDATE `{$table}` " : "INSERT INTO `{$table}` ";
+			$sql .= "SET pages_id=:pages_id, "; 
 			$binds['pages_id'] = (int) $page->id; 
 
 			// if the value is not an associative array, then force it to be one
@@ -716,337 +715,13 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * 
 	 * @param Field $field
 	 * @return InputfieldWrapper
-	 * @todo move to separate config file
 	 *
 	 */
 	public function ___getConfigInputfields(Field $field) {
-		
 		$modules = $this->wire()->modules;
-
 		$inputfields = parent::___getConfigInputfields($field);
-		$disabledLabel = $this->_('Disabled');
-
-		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $modules->get('InputfieldFieldset');
-		$fieldset->label = $this->_('Behavior');
-		$fieldset->icon = 'comment-o';
-		$inputfields->add($fieldset); 
-
-		/** @var InputfieldRadios $f */
-		$f = $modules->get('InputfieldRadios'); 
-		$name = 'moderate';
-		$f->attr('name', $name); 
-		$f->addOption(self::moderateNone, $this->_('None - Comments posted immediately')); 
-		$f->addOption(self::moderateAll, $this->_('All - All comments must be approved by user with page edit access')); 
-		$f->addOption(self::moderateNew, $this->_('Only New - Only comments from users without prior approved comments require approval'));
-		$f->attr('value', (int) $field->$name); 
-		$f->label = $this->_('Comment moderation');
-		$f->description = $this->_('This determines when a newly posted comment will appear on your site.'); 
-		$fieldset->append($f);
-	
-		/** @var InputfieldCheckbox $f */
-		$f = $modules->get('InputfieldCheckbox');
-		$name = 'redirectAfterPost';
-		$f->attr('name', $name);
-		$f->attr('value', 1);
-		$f->attr('checked', $field->$name ? 'checked' : '');
-		$f->label = $this->_('Redirect after comment post?');
-		$f->description = $this->_('When checked, ProcessWire will issue a redirect after the comment is posted in order to prevent double submissions. Recommended.');
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-
-		/** @var InputfieldCheckbox $f */
-		$f = $modules->get('InputfieldCheckbox');
-		$name = 'quietSave';
-		$f->attr('name', $name);
-		$f->attr('value', 1);
-		$f->attr('checked', $field->$name ? 'checked' : '');
-		$f->label = $this->_('Quiet save?');
-		$f->columnWidth = 50;
-		$f->description = $this->_('When checked, the page modification time and user will not be updated when a comment is added.');
-		$fieldset->append($f);
-
-		/*
-		$name = 'notificationType';
-		$f = $this->wire('modules')->get('InputfieldRadios');
-		$f->attr('name', $name);
-		$f->label = $this->_('Notification Type');
-		$f->addOption(self::notificationNone, $this->_('Do not send notifications'));
-		$f->addOption(self::notificationEmail, $this->_('Send notifications to specific email address'));
-		$f->addOption(self::notificationCreated, $this->_('Send notifications to user that created the page'));
-		$f->addOption(self::notificationUser, $this->_('Send notifications to specific user')); 
-		$f->attr('value', $field->$name);
-		$inputfields->append($f);
-		*/
-		
-		// ----------------------------
-	
-		/** @var InputfieldFieldset $fieldset */	
-		$fieldset = $modules->get('InputfieldFieldset'); 
-		$fieldset->label = $this->_('Notifications'); 
-		$fieldset->icon = 'bell-o';
-		$inputfields->add($fieldset); 
-
-		/** @var InputfieldText $f */
-		$f = $modules->get('InputfieldText');
-		$name = 'notificationEmail';
-		$f->attr('name', $name); 
-		$f->attr('value', $field->$name); 
-		$f->label = $this->_('Admin notification email');
-		$f->description = $this->_('E-mail address to be notified when a new comment is posted. Separate multiple email addresses with commas or spaces.') . ' '; 
-		$f->description .= $this->_('Users receiving this email will have the ability to approve or deny posts directly from links in the email.');
-		$f->notes = 
-			$this->_('In addition to (or instead of) email addresses, you may also use one or more of the following:') . "\n" .
-			$this->_('1. Enter **user:karen** to email a specific user, replacing "karen" with the name of the actual user.') . "\n" . 
-			$this->_('2. Enter **field:email** to pull the email from a field on the page, replacing "email" with name of field containing email address.') . "\n" . 
-			$this->_('3. Enter **123:email** to pull the email from an given page ID and field name, replacing "123" with the page ID and "email" with name of field containing email address.') . "\n" . 
-			$this->_('4. Enter **/path/to/page:email** to pull the email from an given page path and field name, replacing "/path/to/page" with the page path and "email" with name of field containing email address.');
-		$fieldset->append($f);
-	
-		/** @var InputfieldEmail $f */
-		$f = $modules->get('InputfieldEmail');
-		$name = 'fromEmail';
-		$f->attr('name', $name);
-		$f->attr('value', $field->$name);
-		$f->label = $this->_('Notifications from email');
-		$f->description = $this->_('Optional e-mail address that notifications will appear from. Leave blank to use the default server email.');
-		$f->columnWidth = 50; 
-		$fieldset->append($f);
-	
-		/** @var InputfieldCheckbox $f */
-		$f = $modules->get('InputfieldCheckbox');
-		$name = 'notifySpam';
-		$f->attr('name', $name);
-		$f->attr('value', 1);
-		if($field->$name) $f->attr('checked', 'checked');
-		$f->label = $this->_('Send e-mail notification on spam?');
-		$f->description = $this->_('When checked, ProcessWire will still send you an e-mail notification even if the message is identified as spam.');
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-
-		/** @var InputfieldRadios $f */
-		$f = $modules->get('InputfieldRadios');
-		$name = 'useNotify';
-		$f->attr('name', $name);
-		$f->label = $this->_('Allow commenter e-mail notifications?');
-		$f->description = $this->_('This option enables anyone that posts a comment to receive email notifications of new comments.');
-		$f->addOption(0, $disabledLabel);
-		$f->addOption(Comment::flagNotifyReply, $this->_('Users can receive email notifications of replies to their comment only'));
-		$f->addOption(Comment::flagNotifyAll, $this->_('Users can receive email notifications for all new comments on the page'));
-		$f->attr('value', (int) $field->get('useNotify'));
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-	
-		/** @var InputfieldCheckbox $f */
-		$f = $modules->get('InputfieldCheckbox');
-		$name = 'useNotifyText';
-		$f->attr('name', $name);
-		$f->attr('value', 1);
-		if($field->$name) $f->attr('checked', 'checked');
-		$f->label = $this->_('Allow comment text in notifications?');
-		$f->description = $this->_('When checked, the entire comment text will also appear in the notification emails, rather than just a link to it.');
-		$f->columnWidth = 50;
-		$f->showIf = 'useNotify>0';
-		$fieldset->append($f);
-
-		// ---------------------------------------
-	
-		/** @var InputfieldFieldset $fieldset */	
-		$fieldset = $modules->get('InputfieldFieldset');
-		$fieldset->label = $this->_('Spam'); 
-		$fieldset->icon = 'fire-extinguisher';
-		$inputfields->add($fieldset);
-	
-		/** @var InputfieldCheckbox $f */
-		$f = $modules->get('InputfieldCheckbox');
-		$name = 'useAkismet';
-		$f->attr('name', $name);
-		$f->attr('value', 1);
-		$f->attr('checked', $field->$name ? 'checked' : '');
-		$f->label = $this->_('Use Akismet Spam Filter Service?');
-		$f->description = $this->_('This service will automatically identify most spam. Before using it, please ensure that you have entered an Akismet API key under Modules > Comment Filter: Akismet.');
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-
-		/** @var InputfieldInteger $f */
-		$f = $modules->get('InputfieldInteger');
-		$name = 'deleteSpamDays';
-		$f->attr('name', $name);
-		$value = $field->$name;
-		if(is_null($value)) $value = 3; // default
-		$f->attr('value', $value);
-		$f->label = $this->_('Number of days after which to delete spam');
-		$f->description = $this->_('After the number of days indicated, spam will be automatically deleted.');
-		$f->columnWidth = 50; 
-		$fieldset->append($f);
-		
-		// ---------------------------------------
-
-		/** @var InputfieldFieldset $fieldset */	
-		$fieldset = $modules->get('InputfieldFieldset');
-		$fieldset->label = $this->_('Output');
-		$fieldset->icon = 'comments-o';
-		$inputfields->add($fieldset);
-	
-		/** @var InputfieldInteger $f */
-		$f = $modules->get('InputfieldInteger');
-		$name = 'depth';
-		$f->attr('name', $name);
-		$f->attr('value', (int) $field->$name);
-		$f->label = $this->_('Reply depth');
-		$f->description = $this->_('Specify 0 for traditional flat chronological comments. For threaded comments (replies appear with comment being replied to) specify the maximum depth allowed for replies (0 to 4 recommended).');
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-
-		/** @var InputfieldCheckbox $f */	
-		$f = $modules->get('InputfieldCheckbox');
-		$name = 'sortNewest'; 
-		$f->attr('name', $name); 
-		$f->attr('value', 1); 
-		$f->attr('checked', $field->$name ? 'checked' : ''); 
-		$f->label = $this->_('Sort newest to oldest?');
-		$f->description = $this->_('By default, comments will sort chronologically (oldest to newest). To reverse that behavior check this box.');
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-
-		/** @var InputfieldCheckbox $f */	
-		$f = $modules->get('InputfieldCheckbox');
-		$name = 'useWebsite'; 
-		$f->attr('name', $name); 
-		$f->attr('value', 1); 
-		$f->attr('checked', $field->$name ? 'checked' : ''); 
-		$f->label = $this->_('Use website field in comment form?');
-		$f->description = $this->_('When checked, the comment submission form will also include a website field.');
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-	
-		/** @var InputfieldText $f */
-		$f = $modules->get('InputfieldText');
-		$name = 'dateFormat';
-		$f->attr('name', $name);
-		$f->attr('value', $field->get('dateFormat') ? $field->get('dateFormat') : 'relative');
-		$f->label = $this->_('Date/time format (for comment list)');
-		$f->description =
-			$this->_('Enter the date/time format you want the default comment list output to use.') . ' ' . 
-			sprintf(
-				$this->_('May be a PHP [date](%s) or [strftime](%s) format.'),
-				'https://php.net/manual/en/function.date.php',
-				'https://php.net/manual/en/function.strftime.php'
-			) . ' ' . 
-			$this->_('May also be "relative" for relative date format.');
-		$f->columnWidth = 50; 
-		$fieldset->append($f);
-	
-		/** @var InputfieldRadios $f */
-		$f = $modules->get('InputfieldRadios');
-		$name = 'useVotes';
-		$f->attr('name', $name);
-		$f->label = $this->_('Allow comment voting?');
-		$f->description = $this->_('Comment voting enables visitors to upvote and/or downvote comments. Vote counts are displayed alongside each comment. Only one upvote and/or downvote is allowed per comment, per IP address, per hour.'); 
-		$f->addOption(0, $this->_('Voting off')); 
-		$f->addOption(1, $this->_('Allow upvoting'));
-		$f->addOption(2, $this->_('Allow upvoting and downvoting'));
-		$f->attr('value', (int) $field->$name);
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-
-		/** @var InputfieldRadios $f */
-		$f = $modules->get('InputfieldRadios');
-		$name = 'useStars';
-		$f->attr('name', $name);
-		$f->label = $this->_('Use stars rating?');
-		$f->description = $this->_('Star ratings enable the commenter to rate the subject they are commenting on, using a scale of 1 to 5 stars.');
-		$f->notes = $this->_('To change default star used for output (HTML is okay too):') . "\nCommentStars::setDefault('star', '★');";
-		$f->addOption(0, $this->_x('Disabled', 'star-rating'));
-		$f->addOption(1, $this->_('Yes (star rating optional)'));
-		$f->addOption(2, $this->_('Yes (star rating required)'));
-		$f->attr('value', (int) $field->$name);
-		$f->columnWidth = 50;
-		$fieldset->append($f);
-
-		/** @var InputfieldRadios $f */
-		$f = $modules->get('InputfieldRadios');
-		$name = 'useGravatar'; 
-		$f->attr('name', $name); 
-		$f->addOption('', $disabledLabel); 
-		$f->addOption('g', $this->_('G: Suitable for display on all websites with any audience type.'));
-		$f->addOption('pg', $this->_('PG: May contain rude gestures, provocatively dressed individuals, the lesser swear words, or mild violence.'));
-		$f->addOption('r', $this->_('R: May contain such things as harsh profanity, intense violence, nudity, or hard drug use.'));
-		$f->addOption('x', $this->_('X: May contain hardcore sexual imagery or extremely disturbing violence.'));
-		$f->attr('value', $field->get('useGravatar')); 
-		$f->label = $this->_('Use Gravatar?');
-		$f->description = $this->_('This service provides an avatar image with each comment (unique to the email address). To enable, select the maximum gravatar rating. These are the same as movie ratings, where G is the most family friendly and X is not.');
-		$f->notes = $this->_('Rating descriptions provided by [Gravatar](https://en.gravatar.com/site/implement/images/).');
-		$fieldset->append($f); 
-
-		// @todo 
-		/*
-		$textformatters = $this->wire('modules')->find("className^=Textformatter");
-		if(count($textformatters)) {
-			$f = $this->modules->get('InputfieldAsmSelect');
-			$f->attr('name', 'textformatters');
-			$f->label = $this->_('Text Formatters');
-			$f->description = $this->_('Optionally select one or more text formatters to be applied to the comment text, in the selected order. If you do not select any then the text will be entity encoded, have newlines converted to <br> tags, and be output in a <p> tag.');
-			$f->notes = $this->_('Warning: only select text formatters that are known to be safe with anonymous user input, like Entity Encoder (core) or Textile Restricted (3rd party). If you are not sure, then do not select anything here, as making the wrong choice can be a security problem.'); 
-			foreach($textformatters as $textformatter) {
-				$info = $this->wire('modules')->getModuleInfo($textformatter); 
-				$f->addOption($textformatter->className(), "$info[title]");
-			}
-			$f->attr('value', is_array($field->textformatters) ? $field->textformatters : array());
-			$inputfields->append($f);
-		}
-		*/
-		
-		// -----------------------------
-	
-		/** @var InputfieldFieldset $fieldset */	
-		$fieldset = $modules->get('InputfieldFieldset');
-		$fieldset->label = $this->_('Implementation'); 
-		$fieldset->icon = 'file-code-o';
-		$fieldset->description = $this->_('This section is here to help you get started with outputting comments on the front-end of your site. Everything here is optional.'); 
-		$fieldset->notes = $this->_('If using a cache for output, configure it to bypass the cache when the GET variable "comment_success" is present.'); 
-		$inputfields->add($fieldset); 
-	
-		/** @var InputfieldMarkup $f */
-		$f = $modules->get('InputfieldMarkup'); 
-		$f->label = $this->_('PHP code to output comments'); 
-		$f->value = 
-			"<p>Please copy and paste the following into your template file(s) where you would like the comments to be output:</p>" .
-			"<pre style='border-left: 4px solid #ccc; padding-left: 1em;'>&lt;?php echo \$page-&gt;{$field->name}-&gt;renderAll(); ?&gt;</pre>" . 
-			"<p>For more options please see the <a href='https://processwire.com/api/fieldtypes/comments/' target='_blank'>comments documentation page</a>.</p>";
-		$fieldset->add($f);
-
-		/** @var InputfieldMarkup $f */
-		$f = $modules->get('InputfieldMarkup'); 
-		$f->label = $this->_('CSS for front-end comments output'); 
-		$ftUrl = $this->wire('config')->urls('FieldtypeComments');
-		$f->value = 
-			"<p>Please copy and paste the following into the document <code>&lt;head&gt;</code> of your site:</p>" .
-			"<pre style='border-left: 4px solid #ccc; padding-left: 1em;'>&lt;link rel='stylesheet' type='text/css' href='&lt;?=\$config-&gt;urls-&gt;FieldtypeComments?&gt;comments.css' /&gt;</pre>" . 
-			"<p>Or if you prefer, copy the <a target='_blank' href='{$ftUrl}comments.css'>comments.css</a> file to your own location, " . 
-			"modify it as desired, and link to it in your document head as you do with your other css files.</p>";
-		$fieldset->add($f);
-
-		/** @var InputfieldMarkup $f */
-		$f = $modules->get('InputfieldMarkup');
-		$f->label = $this->_('JS for front-end comments output');
-		$f->value =
-			"<p>If you are using threaded comments (i.e. reply depth > 0), please also copy and paste the following into the document <code>&lt;head&gt;</code> " .
-			"or before the closing <code>&lt;/body&gt;</code> tag. In either case, jQuery is required to have been loaded first.</p>" .
-			"<pre style='border-left: 4px solid #ccc; padding-left: 1em;'>&lt;script type='text/javascript' src='&lt;?=\$config-&gt;urls-&gt;FieldtypeComments?&gt;comments.min.js'&gt;&lt;/script&gt;</pre>" .
-			"<p>Like with the comments.css file, feel free to copy and link to the <a target='_blank' href='{$ftUrl}comments.js'>comments.js</a> file from your own " .
-			"location if you prefer it.</p>";
-		$fieldset->add($f); 
-	
-		/** @var InputfieldHidden $f */
-		$f = $modules->get('InputfieldHidden');
-		$name = 'schemaVersion'; 
-		$f->attr('name', $name);
-		$value = (int) $field->$name; 
-		$f->attr('value', $value);
-		$f->label = 'Schema Version';
-		$inputfields->append($f);
-
+		require_once(__DIR__ . '/config.php');
+		FieldtypeComments_getConfigInputfields($field, $inputfields);
 		return $inputfields;
 	}
 
@@ -2495,7 +2170,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$sanitizer = $this->wire()->sanitizer;
 		
 		$value = $this->exportComments($value);
-		$comments = $page->get($field->name);
+		$comments = $page->get($field->name); /** @var CommentArray $comments */
 		$commentsArray = array();
 		$addComments = array();
 		$updateComments = array();
