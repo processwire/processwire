@@ -216,18 +216,20 @@ class WireMarkupRegions extends Wire {
 
 			// build the region (everything in $markupAfter that starts after the ">")
 			$regionMarkup = empty($tagInfo['close']) ? '' : substr($markupAfter, $closeOpenTagPos + 1);
-			$region = $this->getTagRegion($regionMarkup, $tagInfo, $options);
+			$regionOptions = array_merge($options, array('verbose' => true));
+			$region = $this->getTagRegion($regionMarkup, $tagInfo, $regionOptions);
 			$region['startPos'] = $openTagPos;
 			$region['type'] = $options['type'];
+			$returnRegion = $options['verbose'] ? $region : ($options['wrap'] ? $region['html'] : $region['region']);
 
 			if($options['single']) {
 				// single mode means we just return the markup
-				$regions = $region;
+				$regions = $returnRegion;
 				break;
 				
 			} else {
 				while(isset($regions[$pos])) $pos++;
-				$regions[$pos] = $region;
+				$regions[$pos] = $returnRegion;
 			}
 
 			$replaceQty = 0;
@@ -1284,7 +1286,7 @@ class WireMarkupRegions extends Wire {
 	 */
 	public function replace($selector, $replace, $markup, array $options = array()) {
 		$options['action'] = 'replace';
-		return $this->replace($selector, $replace, $markup, $options);
+		return $this->update($selector, $replace, $markup, $options);
 	}
 
 	/**
@@ -1299,7 +1301,7 @@ class WireMarkupRegions extends Wire {
 	 */
 	public function append($selector, $content, $markup, array $options = array()) {
 		$options['action'] = 'append';
-		return $this->replace($selector, $content, $markup, $options);
+		return $this->update($selector, $content, $markup, $options);
 	}
 
 	/**
@@ -1314,7 +1316,7 @@ class WireMarkupRegions extends Wire {
 	 */
 	public function prepend($selector, $content, $markup, array $options = array()) {
 		$options['action'] = 'prepend';
-		return $this->replace($selector, $content, $markup, $options);
+		return $this->update($selector, $content, $markup, $options);
 	}
 	
 	/**
@@ -1329,7 +1331,7 @@ class WireMarkupRegions extends Wire {
 	 */
 	public function before($selector, $content, $markup, array $options = array()) {
 		$options['action'] = 'before';
-		return $this->replace($selector, $content, $markup, $options);
+		return $this->update($selector, $content, $markup, $options);
 	}
 	
 	/**
@@ -1344,7 +1346,7 @@ class WireMarkupRegions extends Wire {
 	 */
 	public function after($selector, $content, $markup, array $options = array()) {
 		$options['action'] = 'after';
-		return $this->replace($selector, $content, $markup, $options);
+		return $this->update($selector, $content, $markup, $options);
 	}
 	
 	/**
@@ -1357,8 +1359,8 @@ class WireMarkupRegions extends Wire {
 	 *
 	 */
 	public function remove($selector, $markup, array $options = array()) {
-		$options['action'] = 'after'; // after intended
-		return $this->replace($selector, '', $markup, $options);
+		$options['action'] = 'remove';
+		return $this->update($selector, '', $markup, $options);
 	}
 
 	/**
@@ -1779,6 +1781,7 @@ class WireMarkupRegions extends Wire {
 	 * @param array|string $htmlRegions
 	 * @param array $options
 	 * @param bool $debug
+	 * @deprecated
 	 *
 	 */
 	protected function populateFileRegions(&$htmlDocument, &$htmlRegions, $options, $debug) {
@@ -1787,10 +1790,10 @@ class WireMarkupRegions extends Wire {
 		$n = $fileRegions->apply($htmlDocument, $htmlRegions, $options);
 		if(!$debug) return;
 		foreach($fileRegions->getErrors() as $errorContext => $errors) {
-			foreach($errors as $error) $debugNotes[] = "File region: $error in $errorContext";
+			foreach($errors as $error) $this->debugNotes[] = "File region: $error in $errorContext";
 		}
-		foreach($fileRegions->getNotes() as $note) $debugNotes[] = "File region: $note";
-		if($n) $debugNotes[] = "Applied $n file region(s)";
+		foreach($fileRegions->getNotes() as $note) $this->debugNotes[] = "File region: $note";
+		if($n) $this->debugNotes[] = "Applied $n file region(s)";
 	}
 	
 	/**
