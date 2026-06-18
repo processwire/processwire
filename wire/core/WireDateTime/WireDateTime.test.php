@@ -84,8 +84,8 @@ class WireTest_WireDateTime extends WireTest {
 		$this->check('relativeTimeStr() future includes from now tense', 'from now', $datetime->relativeTimeStr($future), '$=');
 		$this->check('relativeTimeStr(true) future prepends in', 'in ', $datetime->relativeTimeStr($future, true), '^=');
 		$this->check('relativeTimeStr(1) past prepends minus sign', '-', $datetime->relativeTimeStr($past, 1), '^=');
-		$this->check('relativeTimeStr(1) abbreviates one month as mo', '+1mo', $datetime->relativeTimeStr(strtotime('+1 month'), 1));
-		$this->check('relativeTimeStr(1) abbreviates multiple months as mo', '+5mo', $datetime->relativeTimeStr(strtotime('+5 months'), 1));
+		$this->check('relativeTimeStr(1) abbreviates one month-length interval as mo', '+1mo', $datetime->relativeTimeStr(time() + 31 * 86400, 1));
+		$this->check('relativeTimeStr(1) abbreviates multiple month-length intervals as mo', '+5mo', $datetime->relativeTimeStr(time() + 155 * 86400, 1));
 		$this->check('relativeTimeStr(1, no tense) omits minus sign', false, strpos($datetime->relativeTimeStr($past, 1, false), '-') === 0);
 		$this->check('relativeTimeStr() supports custom substitutions', 'back', $datetime->relativeTimeStr($past, array('ago' => 'back')), '$=');
 		$this->check('relativeTimeStr(empty) returns Never', 'Never', $datetime->relativeTimeStr(0));

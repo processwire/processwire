@@ -728,6 +728,7 @@ abstract class Fieldtype extends WireData implements Module {
 		*/
 		/** @var mixed $value */
 		$value = $this->getBlankValue($page, $field);
+		if($value === null) $value = '';
 		return $value;
 	}
 
@@ -765,13 +766,13 @@ abstract class Fieldtype extends WireData implements Module {
 
 		$database = $this->wire()->database;
 
-		if(!$database->isOperator($operator)) {
+		if(!$database->isOperator($operator, WireDatabasePDO::operatorTypeComparison) && $operator !== '&') {
 			throw new PageFinderSyntaxException("Operator '$operator' is not implemented in $this->className");
 		}
 
 		$table = $database->escapeTable($table); 
 		$subfield = $database->escapeCol($subfield);
-		$operator = $database->escapeOperator($operator, WireDatabasePDO::operatorTypeComparison); 
+		$operator = $operator === '&' ? $operator : $database->escapeOperator($operator, WireDatabasePDO::operatorTypeComparison);
 		
 		if(is_array($value)) {
 			$a = array();

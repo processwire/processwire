@@ -1022,7 +1022,8 @@ class PagesVersions extends Wire implements Module {
 		foreach([ 'modified', 'created', 'published' ] as $key) {
 			if(!isset($data[$key])) continue;
 			if(ctype_digit((string) $data[$key])) continue;
-			$data[$key] = strtotime($data[$key]);
+			$ts = strtotime($data[$key]);
+			$data[$key] = ($ts === false) ? 0 : $ts;
 		}
 
 		return $data;
@@ -1372,6 +1373,7 @@ class PagesVersions extends Wire implements Module {
 	 *
 	 */
 	public function ___allowPageVersions(Page $page) {
+		if(!$page->id) return false;
 		$disallows = [ 'User', 'Role', 'Permission', 'Language' ];
 		if(wireInstanceOf($page, $disallows)) return false;
 		return true;

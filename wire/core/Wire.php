@@ -1367,7 +1367,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * @param \Throwable $e Exception or Error object that was thrown. 
 	 * @param bool|int $severe Whether or not it should be considered severe (default=true).
-	 * @param string|array|object|true $text Additional details (optional):
+	 * @param string|array|object|bool $text Additional details (optional):
 	 * 	- When provided, it will be sent to `$this->error($text)` if $severe is true, or `$this->warning($text)` if $severe is false.
 	 * 	- Specify boolean `true` to just send the `$e->getMessage()` to `$this->error()` or `$this->warning()`. 
 	 * @return $this
@@ -1378,7 +1378,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		$config = $this->wire()->config;
 		$log = $this->wire()->log;
 		$msg = $e->getMessage();
-		if($text !== null) {
+		if($text !== null && $text !== false) {
 			if($text === true) $text = $msg;
 			$severe ? $this->error($text) : $this->warning($text);
 			if(strlen($msg) && strpos($text, $msg) === false) $msg = "$text - $msg";

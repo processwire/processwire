@@ -473,7 +473,7 @@ class Selectors extends WireArray {
 			// value is the last one in $str
 			$commaPos = strlen($str); 
 			
-		} else if($commaPos && $str[$commaPos-1] === '//') {
+		} else if($commaPos && $str[$commaPos-1] === '\\') {
 			// escaped comma or closing quote means no optimization possible here
 			return false; 
 		}
