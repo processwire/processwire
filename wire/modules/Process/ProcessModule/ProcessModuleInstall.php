@@ -2,19 +2,19 @@
 
 /**
  * Installation helper for ProcessModule
- * 
+ *
  * Provides methods for internative module installation for ProcessModule
- * 
+ *
  * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
- * 
+ *
  */
 
 class ProcessModuleInstall extends Wire {
 
 	/**
 	 * @var WireTempDir
-	 * 
+	 *
 	 */
 	private $tempDir = null;
 
@@ -23,11 +23,11 @@ class ProcessModuleInstall extends Wire {
 	 *
 	 * @return string|bool Returns false if you specified $create=false, and the dir doesn't exist
 	 * @throws WireException If can't create temporary dir
-	 * 
+	 *
 	 */
-	public function getTempDir() { 
-		if(empty($this->tempDir)) $this->tempDir = $this->wire(new WireTempDir($this)); 
-		return $this->tempDir->get(); 
+	public function getTempDir() {
+		if(empty($this->tempDir)) $this->tempDir = $this->wire(new WireTempDir($this));
+		return $this->tempDir->get();
 	}
 
 	/**
@@ -48,7 +48,7 @@ class ProcessModuleInstall extends Wire {
 			if($allow === 'debug' && !$config->debug) $allow = false;
 			if(!$allow) {
 				if($notify) $this->error(
-					sprintf($this->_('Module install option “%s”'), $type) . ' - ' . 
+					sprintf($this->_('Module install option “%s”'), $type) . ' - ' .
 					$this->installDisabledLabel($type)
 				);
 				return false;
@@ -72,12 +72,12 @@ class ProcessModuleInstall extends Wire {
 	}
 
 	/**
-	 * Module upload allowed? 
-	 * 
+	 * Module upload allowed?
+	 *
 	 * @param bool $notify
 	 * @return bool
-	 * 
-	 * 
+	 *
+	 *
 	 */
 	public function canInstallFromFileUpload($notify = true) {
 		return $this->canUploadDownload($notify, 'upload');
@@ -107,44 +107,44 @@ class ProcessModuleInstall extends Wire {
 
 	/**
 	 * Find all module files, recursively in Path
-	 * 
+	 *
 	 * @param string $path Omit to use the default (/site/modules/)
 	 * @param int $maxLevel Max depth to pursue module files in (recursion level)
 	 * @return array of module classname => full pathname to module file
-	 * 
+	 *
 	 */
 	public function findModuleFiles($path = '', $maxLevel = 4) {
-		
+
 		static $level = 0;
 		$level++;
 		$files = array();
-		
+
 		if(!$path) $path = $this->wire()->config->paths->siteModules;
-		
+
 		// find the names of all existing module files, so we can defer to their dirs
 		// if a module is being installed that already exists
-		
+
 		foreach(new \DirectoryIterator($path) as $file) {
-			
-			if($file->isDot()) continue; 
+
+			if($file->isDot()) continue;
 			if(substr($file->getBasename(), 0, 1) == '.') continue;
-			
+
 			if($file->isDir() && $level < $maxLevel) {
 				$_files = $this->findModuleFiles($file->getPathname());
-				$files = array_merge($_files, $files); 	
-				
+				$files = array_merge($_files, $files);
+
 			} else if($file->isFile()) {
 				$basename = $file->getBasename();
-				if(!strpos($basename, '.module')) continue; 
-				if(!preg_match('/^([A-Z][a-zA-Z0-9_]+)\.module(?:\.php)?$/', $basename, $matches)) continue; 
-				$className = $matches[1]; 
+				if(!strpos($basename, '.module')) continue;
+				if(!preg_match('/^([A-Z][a-zA-Z0-9_]+)\.module(?:\.php)?$/', $basename, $matches)) continue;
+				$className = $matches[1];
 				$files[$className] = $file->getPathname();
-				
+
 			}
 		}
-		
+
 		$level--;
-		return $files; 
+		return $files;
 	}
 
 	/**
@@ -154,16 +154,16 @@ class ProcessModuleInstall extends Wire {
 	 *
 	 * @param array $files Files found in the module's ZIP file
 	 * @param string $modulePath Path where module will live
-	 * @return bool|string Returns false if no module files found. Otherwise returns string with module path.  
+	 * @return bool|string Returns false if no module files found. Otherwise returns string with module path.
 	 *
 	 */
 	public function determineDestinationDir(array $files, $modulePath = '') {
-		
+
 		$moduleFiles = array(); // all module files found
 		$moduleFiles1 = array(); // level1 module files (those in closest dir or subdir)
 		$moduleDirs = array(); // all module dirs found
 		$moduleDir = ''; // recommended name for module dir (returned by this method)
-		
+
 		if(!$modulePath) $modulePath = $this->wire()->config->paths->siteModules;
 		$tempDir = $this->getTempDir();
 
@@ -195,34 +195,34 @@ class ProcessModuleInstall extends Wire {
 			}
 			$numSlashes++;
 		}
-		
+
 		if(count($moduleFiles1) == 1) {
 			// if only 1 module file, use that as the dir name
 			reset($moduleFiles1);
 			$moduleDir = key($moduleFiles1);
 			$dir = $modulePath . $moduleDir . '/';
-			//$this->message("Determined destination dir to be (1): $dir", Notice::debug); 
+			//$this->message("Determined destination dir to be (1): $dir", Notice::debug);
 			return $dir;
 		}
-	
+
 		// see if any of the module files match up with one already on the file system,
 		// in which case we'll defer to that module for the destination dir
-		$moduleFilesAll = $this->findModuleFiles($modulePath); 
+		$moduleFilesAll = $this->findModuleFiles($modulePath);
 		foreach($moduleFiles1 as $name) {
 			if(isset($moduleFilesAll[$name])) {
 				$moduleDir = dirname($moduleFilesAll[$name]);
-				$moduleDir = basename($moduleDir); 
+				$moduleDir = basename($moduleDir);
 				if($moduleDir == 'modules') $moduleDir = '';
 			}
 		}
 		if($moduleDir) {
 			$dir = $modulePath . $moduleDir  . '/';
-			//$this->message("Determined destination dir to be (2): $dir", Notice::debug); 
+			//$this->message("Determined destination dir to be (2): $dir", Notice::debug);
 			return $dir;
 		}
 
 
-		// sort by length 
+		// sort by length
 		$sorted = array();
 		foreach($moduleFiles1 as $name => $file) {
 			$len = strlen($name);
@@ -234,7 +234,7 @@ class ProcessModuleInstall extends Wire {
 		foreach($sorted as $name) {
 			$moduleFiles1[$name] = $name;
 		}
-		
+
 		$extractedDir = trim($files[0], '/');
 
 		if(is_dir($tempDir . $extractedDir) && $extractedDir[0] != '.') {
@@ -258,21 +258,21 @@ class ProcessModuleInstall extends Wire {
 					}
 				}
 
-				// if we haven't been able to match to a moduleName, 
+				// if we haven't been able to match to a moduleName,
 				// just use the extractedDir since it follows a class name format
 				if(!$moduleDir) {
 					$dir = $modulePath . $extractedDir . '/';
-					//$this->message("Determined destination dir to be (3): $dir", Notice::debug); 
-					return $dir; 
+					//$this->message("Determined destination dir to be (3): $dir", Notice::debug);
+					return $dir;
 				}
 			}
 		}
 
-		// if we reach this point, use the shortest module name as the dirname	
+		// if we reach this point, use the shortest module name as the dirname
 		$moduleDir = end($moduleFiles1);
 		$dir = $modulePath . $moduleDir . '/';
-		//$this->message("Determined destination dir to be (4): $dir", Notice::debug); 
-		return $dir; 
+		//$this->message("Determined destination dir to be (4): $dir", Notice::debug);
+		return $dir;
 	}
 
 	/**
@@ -285,7 +285,7 @@ class ProcessModuleInstall extends Wire {
 	 *
 	 */
 	public function unzipModule($zipFile, $destinationDir = '') {
-		
+
 		$config = $this->wire()->config;
 
 		$success = false;
@@ -314,11 +314,11 @@ class ProcessModuleInstall extends Wire {
 		}
 
 		if(!$destinationDir) {
-			$destinationDir = $this->determineDestinationDir($files); 
+			$destinationDir = $this->determineDestinationDir($files);
 			if(!$destinationDir) throw new WireException($this->_('Unable to find any module files'));
 		}
-		$this->message("Destination directory: $destinationDir", Notice::debug); 
-		
+		$this->message("Destination directory: $destinationDir", Notice::debug);
+
 		$files0 = trim($files[0], '/');
 		$extractedDir = is_dir("$tempDir/$files0") && substr($files0, 0, 1) != '.' ? "$files0/" : "";
 
@@ -327,10 +327,10 @@ class ProcessModuleInstall extends Wire {
 			// destination dir already there, perhaps an older version of same module?
 			// create a backup of it
 			$hasBackup = $this->backupDir($destinationDir);
-			if($hasBackup) $fileTools->mkdir($destinationDir, true); 
+			if($hasBackup) $fileTools->mkdir($destinationDir, true);
 		} else {
 			if($fileTools->mkdir($destinationDir, true)) $mkdirDestination = true;
-			$hasBackup = false; 
+			$hasBackup = false;
 		}
 
 		// label to identify destinationDir in messages and errors
@@ -344,7 +344,7 @@ class ProcessModuleInstall extends Wire {
 				$success = true;
 			} else {
 				$this->error($this->_('Unable to copy files to new directory:') . ' ' . $dirLabel);
-				if($hasBackup) $this->restoreDir($destinationDir); 
+				if($hasBackup) $this->restoreDir($destinationDir);
 			}
 		} else {
 			$this->error($this->_('Could not create directory:') . ' ' . $dirLabel);
@@ -362,42 +362,42 @@ class ProcessModuleInstall extends Wire {
 
 	/**
 	 * Create a backup of a module directory
-	 * 
+	 *
 	 * @param string $moduleDir
 	 * @return bool
 	 * @throws WireException
-	 * 
+	 *
 	 */
 	protected function backupDir($moduleDir) {
 		$files = $this->wire()->files;
 		$config = $this->wire()->config;
-		
+
 		$dir = rtrim($moduleDir, "/");
 		$name = basename($dir);
 		$parentDir = dirname($dir);
 		$backupDir = "$parentDir/.$name/";
 		if(is_dir($backupDir)) $files->rmdir($backupDir, true); // if there's already an old backup copy, remove it
 		$success = false;
-		
+
 		if(is_link(rtrim($moduleDir, '/'))) {
 			// module directory is a symbolic link
 			// copy files from symlink dir to real backup dir
-			$success = $files->copy($moduleDir, $backupDir); 
+			$success = $files->copy($moduleDir, $backupDir);
 			// remove symbolic link
 			unlink(rtrim($moduleDir, '/'));
-			$dir = str_replace($config->paths->root, '/', $moduleDir); 
+			$dir = str_replace($config->paths->root, '/', $moduleDir);
 			$this->warning(sprintf(
 				$this->_('Please note that %s was a symbolic link and has been converted to a regular directory'), $dir
-			)); 
+			));
 		} else {
 			// module is a regular directory
 			// just rename it to become the new backup dir
-			if($files->rename($moduleDir, $backupDir)) $success = true; 
+			if($files->rename($moduleDir, $backupDir)) $success = true;
 		}
-		
+
 		if($success) {
 			$this->message(sprintf($this->_('Backed up existing %s'), $name) . " => " . str_replace($config->paths->root, '/', $backupDir));
-			return true; 
+			return true;
 		} else {
 			return false;
 		}
@@ -405,11 +405,11 @@ class ProcessModuleInstall extends Wire {
 
 	/**
 	 * Restore a module directory
-	 * 
+	 *
 	 * @param string $moduleDir
 	 * @return bool
 	 * @throws WireException
-	 * 
+	 *
 	 */
 	protected function restoreDir($moduleDir) {
 		$dir = rtrim($moduleDir, "/");
@@ -418,15 +418,15 @@ class ProcessModuleInstall extends Wire {
 		$backupDir = "$parentDir/.$name/";
 		if(is_dir($backupDir)) {
 			$this->wire()->files->rmdir($moduleDir, true); // if there's already an old backup copy, remove it
-			if(rename($backupDir, $moduleDir)) { 
+			if(rename($backupDir, $moduleDir)) {
 				$this->message(sprintf($this->_('Restored backup of %s'), $name) . " => $moduleDir");
 			}
 		}
 		return false;
 	}
-	
+
 	/**
-	 * Process a module upload 
+	 * Process a module upload
 	 *
 	 * @param string $inputName Optionally specify the name of the $_FILES input to look for (default=upload_module)
 	 * @param string $destinationDir Optionally specify destination path for completed unzipped files
@@ -463,7 +463,7 @@ class ProcessModuleInstall extends Wire {
 			$destinationDir = false;
 		}
 
-		return $destinationDir; 
+		return $destinationDir;
 	}
 
 	/**
@@ -485,34 +485,22 @@ class ProcessModuleInstall extends Wire {
 
 		if(!preg_match('{^https?://}i', $url)) {
 			$this->error($this->_('Invalid download URL specified'));
-			return false; 
-		}	
-
-		$tempDir = $this->getTempDir();
-		$tempName = 'module-temp.zip';
-		// if there is a recognizable ZIP filename in the URL, use that rather than module-temp.zip
-		if(preg_match('/([-._a-z0-9]+\.zip)$/i', $url, $matches)) $tempName = $matches[1];
-		$tempZIP = $tempDir . $tempName;
-
-		// download the zip file and save it in assets directory
-		$success = false;
-		$http = $this->wire(new WireHttp()); /** @var WireHttp $http */
-
-		try {
-			$file = $http->download($url, $tempZIP); // throws exceptions on any error
-			$this->message(sprintf($this->_('Downloaded ZIP file: %s (%d bytes)'), $url, filesize($file)));
-			$destinationDir = $this->unzipModule($file, $destinationDir);
-			if($destinationDir) {
-				$success = true;
-				$this->modules->refresh();
-			}
-
-		} catch(\Exception $e) {
-			$this->error($e->getMessage());
-			$this->wire()->files->unlink($tempZIP);
+			return false;
 		}
 
-		return $success ? $destinationDir : false; 
+		$result = $this->wire()->modules->downloader()->download($url, array(
+			'destinationDir' => $destinationDir
+		));
+
+		foreach($result['messages'] as $message) {
+			$this->message($message);
+		}
+
+		foreach($result['errors'] as $error) {
+			$this->error($error);
+		}
+
+		return $result['downloaded'] ? $result['destination'] : false;
 	}
 
 	/**
@@ -525,34 +513,34 @@ class ProcessModuleInstall extends Wire {
 	 *
 	 */
 	public function downloadModuleFromUrl($url, $destinationDir = '') {
-		return $this->downloadModule($url, $destinationDir, 'download'); 
+		return $this->downloadModule($url, $destinationDir, 'download');
 	}
 
 	/**
-	 * Download module from directory 
-	 * 
+	 * Download module from directory
+	 *
 	 * @param string $url
 	 * @param string $destinationDir
 	 * @return bool|string
 	 * @since 3.0.162
-	 * 
+	 *
 	 */
 	public function downloadModuleFromDirectory($url, $destinationDir = '') {
 		return $this->downloadModule($url, $destinationDir, 'directory');
 	}
 
 	/**
-	 * Return label to indicate option is disabled and how to enable it 
-	 * 
+	 * Return label to indicate option is disabled and how to enable it
+	 *
 	 * @param string $type
 	 * @return string
 	 * @since 3.0.162
-	 * 
+	 *
 	 */
 	public function installDisabledLabel($type) {
 		$config = $this->wire()->config;
 		$a = $config->moduleInstall;
-		
+
 		if(!is_writable($config->paths->siteModules)) {
 			return
 				sprintf($this->_('Your %s path is currently not writable.'), $config->urls->siteModules) . ' ' .
@@ -569,10 +557,10 @@ class ProcessModuleInstall extends Wire {
 			return
 				$this->_('This install option is configured to be available only in debug mode.') . ' ' .
 				sprintf($inst, "$file", "\n$opt2", "\n$opt1");
-			
+
 		} else {
 			return
-				$this->_('This install option is currently disabled.') . ' ' . 
+				$this->_('This install option is currently disabled.') . ' ' .
 				sprintf($inst, "$file", "\n$opt1", "\n$opt3");
 		}
 	}

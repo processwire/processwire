@@ -211,6 +211,8 @@ class ProcessWireCli extends Wire {
 		$moduleInfos = [];
 		$max = 0; // max command line item length
 		$items = [];
+		$notes = [];
+		$descriptions = [];
 		
 		foreach($modules->findByFlag(Modules::flagsCli, false) as $moduleName) {
 			$items[$moduleName] = $moduleName;
@@ -259,8 +261,6 @@ class ProcessWireCli extends Wire {
 			}
 			
 			$items = null;
-			$notes = [];
-			$descriptions = [];
 			
 			if(is_array($commands)) {
 				// $commands['command syntax' => 'description'] or [0 => 'command syntax']

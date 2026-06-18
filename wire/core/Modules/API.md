@@ -263,6 +263,32 @@ $modules->addHookBefore('saveConfig', function(HookEvent $e) {
 | `$modules->configs`   | `ModulesConfigs`   | Config data get/save                       |
 | `$modules->installer` | `ModulesInstaller` | Install, uninstall, delete (lazy-loaded)   |
 
+## CLI
+
+The following commands are available from the command line (run from the ProcessWire root directory):
+
+```
+php index.php modules list [site|core]              List installed modules (optionally limit to site or core)
+php index.php modules unlist [site|core]            List uninstalled modules (optionally limit to site or core)
+php index.php modules info <name> [property]        Get all info for a module as JSON, or a single info property
+php index.php modules install <name>                Install a module
+php index.php modules uninstall <name>              Uninstall a module
+php index.php modules exists <name>                 Does the class name resolve to a module? (Yes/No)
+php index.php modules installed <name>              Is the module installed? (Yes/No)
+php index.php modules config <name>                 Get module configuration data as JSON
+php index.php modules config <name> <property>      Get a single module config property value
+php index.php modules dir <name>                    Query the ProcessWire modules directory for module info
+php index.php modules updates [name]                List available updates for site modules, or check one
+php index.php modules download <name> [--install]   Download module from the PW modules directory
+php index.php modules download <url> [--install]    Download a module ZIP from an https URL
+php index.php modules update <name> [--force]       Download and apply an available module update
+php index.php modules delete <name>                 Delete an uninstalled module's files from disk
+```
+
+Append `--json` to any command for verbose JSON output.
+
+---
+
 ## Notes
 
 - `$modules->get()` and property access auto-install a module if its file is present but

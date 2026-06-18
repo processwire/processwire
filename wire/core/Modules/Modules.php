@@ -247,6 +247,12 @@ class Modules extends WireArray implements CliModule {
 	protected $loader = null;
 
 	/**
+	 * @var ModulesDownloader
+	 *
+	 */
+	protected $downloader = null;
+
+	/**
 	 * Construct the Modules
 	 *
 	 * @param string $path Core modules path (you may add other paths with addPath method)
@@ -295,7 +301,7 @@ class Modules extends WireArray implements CliModule {
 		}
 		return $this->duplicates; 
 	}
-	
+
 	/**
 	 * Get the ModulesInstaller instance
 	 *
@@ -310,6 +316,22 @@ class Modules extends WireArray implements CliModule {
 			$this->installer = $this->wire(new ModulesInstaller($this));
 		}
 		return $this->installer;
+	}
+
+	/**
+	 * Get the ModulesDownloader instance
+	 *
+	 * #pw-internal
+	 *
+	 * @return ModulesDownloader
+	 *
+	 */
+	public function downloader() {
+		if($this->downloader === null) {
+			require_once(__DIR__ . '/ModulesDownloader.php');
+			$this->downloader = $this->wire(new ModulesDownloader($this));
+		}
+		return $this->downloader;
 	}
 
 	/**
