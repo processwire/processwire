@@ -61,7 +61,13 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 */
 	protected $queryLog = array();
-
+	
+	/**
+	 * @var string 
+	 * 
+	 */
+	protected $lastSql = '';
+	
 	/**
 	 * Max queries allowedin the query log (set from $config->dbQueryLogMax)
 	 *
@@ -789,7 +795,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function query($statement, $note = '') {
-		if($this->debugMode) $this->queryLog($statement, $note); 
+		if($this->debugMode) $this->queryLog($statement, $note);
+		$this->lastSql($statement);
 		$pdo = $this->pdoType($statement);
 		return $pdo->query($statement); 
 	}
@@ -922,6 +929,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			);
 		}
 		$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
+		$this->lastSql($statement);
 		$pdoStatement = $pdo->prepare($statement, $driver_options);
 		if($this->debugMode) {
 			if($pdoStatement instanceof WireDatabasePDOStatement) {
@@ -948,6 +956,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function exec($statement, $note = '') {
+		$this->lastSql($statement);
 		if($statement instanceof \PDOStatement) {
 			return $this->execute($statement);
 		}
@@ -1012,6 +1021,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				}
 			}
 		} while($tryAgain);
+		
+		$this->lastSql($query);
 
 		return $result;
 	}
@@ -1755,6 +1766,20 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 */
 	public function getTime($getTimestamp = false) {
 		return $this->dialect()->getTime($getTimestamp);
+	}
+	
+	/**
+	 * Get or set last used SQL query string (query is for logging purposes)
+	 * 
+	 * @param \PDOStatement|string $lastSql Specify to set, omit to get
+	 * @return string
+	 * @since 3.0.265
+	 * 
+	 */
+	public function lastSql($lastSql = null) {
+		if($lastSql instanceof \PDOStatement) $lastSql = $lastSql->queryString;
+		$this->lastSql = microtime() . ": $lastSql";
+		return $this->lastSql;
 	}
 
 }
