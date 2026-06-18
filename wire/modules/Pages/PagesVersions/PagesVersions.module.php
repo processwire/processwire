@@ -793,11 +793,11 @@ class PagesVersions extends Wire implements Module {
 	 * ~~~~~
 	 * // restore version 2 to live page
 	 * $page = $pages->get(1234);
-	 * $pagesVersions->restore($page, 2); // restore version 2
+	 * $pagesVersions->restorePageVersion($page, 2); // restore version 2
 	 * 
 	 * // this does the same as the above
 	 * $pageV2 = $pagesVersions->getPageVersion($page, 2);
-	 * $pagesVersions->restore($pageV2);
+	 * $pagesVersions->restorePageVersion($pageV2);
 	 * ~~~~~
 	 * 
 	 * #pw-group-saving
@@ -848,7 +848,12 @@ class PagesVersions extends Wire implements Module {
 			);
 		}
 
-		if($pageVersion) {
+		if($partialRestore) {
+			// Use a live page as the base so that unrequested fields remain unchanged
+			$livePage = $pageVersion ? $this->wire()->pages->getFresh($page->id) : $page;
+			$versionPage = $this->getPageVersion($livePage, $version, [ 'names' => $options['names'] ]);
+			$page = $livePage;
+		} else if($pageVersion) {
 			// given page is the one to restore
 			$versionPage = $page;
 		} else {
