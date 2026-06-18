@@ -56,7 +56,7 @@
  * HOOKABLE METHODS
  * ================
  * @method PageArray find($selectorString, array $options = array()) Find and return all pages matching the given selector string. Returns a PageArray. #pw-group-retrieve
- * @method bool save(Page $page, $options = array()) Save any changes made to the given $page. Same as $page->save(); Returns true on success. #pw-group-save
+ * @method bool|array save(Page $page, $options = array()) Save any changes made to the given $page. Same as $page->save(); Returns true on success. #pw-group-save
  * @method bool saveField(Page $page, $field, array $options = array()) Save just the named field from $page. Same as: $page->save('field') #pw-group-save
  * @method array saveFields(Page $page, $fields, array $options = array()) Saved multiple named fields for $page. @since 3.0.242 #pw-group-save
  * @method bool trash(Page $page, $save = true) Move a page to the trash. If you have already set the parent to somewhere in the trash, then this method won't attempt to set it again. #pw-group-trash
@@ -868,10 +868,13 @@ class Pages extends Wire {
 	 * - `adjustName` (boolean): Adjust page name to ensure it is unique within its parent (default=true).
 	 * - `forceID` (integer): Use this ID instead of an auto-assigned one (new page) or current ID (existing page).
 	 * - `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false).
+	 * - `getVerbose` (bool): Return verbose array of data about the save, rather than a boolean. 3.0.265+
+	 * - `saveAll` (bool): Call savePageField() method on all Fieldtypes, even if field not indicated as changed? (default=true, preserves historical behavior) 3.0.265+
+	 * - `throw` (bool): Throw exceptions on errors rather than returning false. 3.0.265+
 	 * - `noHooks` (boolean): Prevent before/after save hooks (default=false), please also use $pages->___save() for call.
 	 * - `noFields` (boolean): Bypass saving of custom fields, leaving only native properties to be saved (default=false).
-	 * @return bool True on success, false on failure
-	 * @throws WireException
+	 * @return bool|array True on success, false on failure, or verbose array of data if `getVerbose` option is true.
+	 * @throws WireException Throws on fatal errors unless `throw` option set to false.
 	 * @see Page::save(), Pages::saveField()
 	 *
 	 */

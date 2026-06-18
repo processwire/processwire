@@ -847,6 +847,7 @@ class PagesNames extends Wire {
 	 * #pw-group-manipulators
 	 * 
 	 * @param Page $page
+	 * @return array Returns array of conflict reasons, or empty array if no conflicts
 	 * @since 3.0.127
 	 * 
 	 */
@@ -858,6 +859,7 @@ class PagesNames extends Wire {
 		$statusPrevious = $page->statusPrevious;
 		$isNew = $page->isNew();
 		$nameChanged = !$isNew && $namePrevious !== null && $namePrevious !== $page->name;
+		$conflicts = [];
 
 		if($isNew || $nameChanged) {
 			// new page or changed name
@@ -867,7 +869,7 @@ class PagesNames extends Wire {
 			$checkStatus = true;
 		}
 		
-		if(!$checkName && !$checkStatus) return;
+		if(!$checkName && !$checkStatus) return [];
 	
 		do {
 			
@@ -875,6 +877,7 @@ class PagesNames extends Wire {
 			if(!$conflict) break;
 			
 			$this->warning($conflict);
+			$conflicts[] = $conflict;
 			
 			if($checkName) {
 				if($nameChanged) {
@@ -893,6 +896,8 @@ class PagesNames extends Wire {
 			}
 			
 		} while($conflict);
+		
+		return $conflicts;
 	}
 	
 }

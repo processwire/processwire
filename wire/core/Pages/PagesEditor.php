@@ -448,10 +448,13 @@ class PagesEditor extends Wire {
 	 * 	- `ignoreFamily` (bool): Bypass check of allowed family/parent settings when saving (default=false)
 	 *  - `noHooks` (bool): Prevent before/after save hooks from being called (default=false)
 	 *  - `noFields` (bool): Bypass saving of custom fields (default=false)
+	 *  - `getVerbose` (bool): Return verbose array of data about the save, rather than a boolean. 3.0.265+
+	 *  - `saveAll` (bool): Call savePageField() method on all Fieldtypes, even if field not indicated as changed? (default=true, preserves historical behavior) 3.0.265+
+	 *  - `throw` (bool): Throw exceptions on errors rather than returning false. (default=true). 3.0.265+
 	 *  - `caller` (string): Optional name of calling function (i.e. 'pages.trash'), for internal use (default='') 3.0.235+
 	 *  - `callback` (string|callable): Hook method name from $pages or callable to trigger after save. 
 	 *     It receives a single $page argument. For internal use. (default='') 3.0.235+
-	 * @return bool True on success, false on failure
+	 * @return bool|array True on success, false on failure, or verbose data if requested
 	 * @throws WireException
 	 *
 	 */
@@ -464,9 +467,12 @@ class PagesEditor extends Wire {
 			'forceID' => 0,
 			'ignoreFamily' => false,
 			'noHooks' => false, 
-			'noFields' => false, 
+			'noFields' => false,
+			'getVerbose' => false,
+			'saveAll' => true,
 			'caller' => '', 
 			'callback' => '',
+			'throw' => true, 
 		);
 
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
@@ -478,62 +484,138 @@ class PagesEditor extends Wire {
 		$caller = $options['caller'];
 		$callback = $options['callback'];
 		$useHooks = empty($options['noHooks']);
+		$getVerbose = $options['getVerbose'];
+		$verboseData = [];
+		$logMessages = [];
+		$logErrors = [];
+		$logHooks = [];
 		$result = false;
-
+		
+		if($getVerbose) {
+			$verboseData = [
+				'id' => 0,
+				'path' => '',
+				'user' => $user->name, 
+				'changes' => $page->getChanges(),
+				'savedFields' => [], 
+				'changedFields' => [],
+				'skippedFields' => [],
+				'messages' => [],
+				'errors' => [], 
+				'hooks' => [], 
+				'result' => false, 
+				'isNew' => false, 
+				'natives' => [],
+				'options' => $options,
+			];
+			$logMessages = &$verboseData['messages'];
+			$logErrors = &$verboseData['errors'];
+			$logHooks = &$verboseData['hooks'];
+		}
+		
+		
 		// if language support active, switch to default language so that saved fields and hooks don't need to be aware of language
 		if($languages && $page->id != $user->id && "$user->language") {
 			$language = $user->language;
-			$user->setLanguage($languages->getDefault());
+			$defaultLanguage = $languages->getDefault();
+			if($language->id != $defaultLanguage->id) {
+				$user->setLanguage($defaultLanguage);
+				$logMessages[] = "Changed language to: $defaultLanguage->name";
+			} else {
+				$language = null;
+			}
 		}
 
 		try {
 			$reason = '';
 			$isNew = $page->isNew();
-			if($isNew) $this->pages->setupNew($page);
-	
+			if($isNew) {
+				$this->pages->setupNew($page);
+				if($getVerbose) {
+					$verboseData['isNew'] = $isNew;
+					$logMessages[] = "Create: new page";
+				}
+			} else if($getVerbose) {
+				$logMessages[] = "Update: existing page";
+			}
+			
 			if(!$this->isSaveable($page, $reason, '', $options)) {
+				$logErrors[] = "Not saveable: $reason";
 				throw new WireException(rtrim("Can’t save page (id=$page->id): $page->path", ": ") . ": $reason");
 			}
-	
+			
 			if($page->hasStatus(Page::statusUnpublished) && $page->template->noUnpublish) {
 				$page->removeStatus(Page::statusUnpublished);
+				$logMessages[] = "Remove status: unpublished (template setting)";
 			}
-	
+			
 			if($parentPrevious && !$isNew) {
-				if($useHooks) $this->pages->moveReady($page);
+				if($useHooks) {
+					$this->pages->moveReady($page);
+					$logHooks[] = "moveReady";
+				}
 				if($caller !== 'pages.trash' && $caller !== 'pages.restore') {
 					if($page->isTrash() && !$parentPrevious->isTrash()) {
-						if($this->pages->trash($page, false)) $callback = 'trashed';
+						$logMessages[] = "Moving page to trash";
+						if($this->pages->trash($page, false)) {
+							$callback = 'trashed';
+						}
 					} else if($parentPrevious->isTrash() && !$page->parent->isTrash()) {
-						if($this->pages->restore($page, false)) $callback = 'restored';
+						$logMessages[] = "Restoring page to: " . $page->parent->path;
+						if($this->pages->restore($page, false)) {
+							$callback = 'restored';
+						}
 					}
 				}
 			}
-	
+			
 			if($options['adjustName'] && !$page->get('_hasUniqueName')) {
-				$this->pages->names()->checkNameConflicts($page);
+				foreach($this->pages->names()->checkNameConflicts($page) as $conflict) {
+					$logMessages[] = $conflict;
+				}
 			}
 			
 			if($page->namePrevious && !$isNew && $page->namePrevious != $page->name) {
-				if($useHooks) $this->pages->renameReady($page);
+				$logMessages[] = "Rename: '$page->namePrevious' => '$page->name'";
+				if($useHooks) {
+					$this->pages->renameReady($page);
+					$logHooks[] = "renameReady";
+				}
 			}
-	
-			$result = $this->savePageQuery($page, $options);
-			if($result) $result = $this->savePageFinish($page, $isNew, $options);
+			
+			$result = $this->savePageQuery($page, $options, $verboseData);
+			if($result) $result = $this->savePageFinish($page, $isNew, $options, $verboseData);
+			
+		} catch(\Exception $e) {
+			if($options['throw']) throw $e;
+			$this->trackException($e, false, $user->isSuperuser());
+			$logErrors[] = $e->getMessage();
+			$result = false;
 			
 		} finally {
-			if($language) $user->setLanguage($language); // restore language
+			if($language) {
+				$user->setLanguage($language); // restore language
+				$logMessages[] = "Restored language: $language->name";
+			}
 		}
 		
 		if($result && !empty($callback) && $useHooks) {
 			if(is_string($callback) && ctype_alnum($callback)) {
 				$this->pages->$callback($page); // hook method name in $pages
+				$logHooks[] = "$callback";
 			} else if(is_callable($callback)) {
 				$callback($page); // user defined callback
+				$logHooks[] = "custom-callable";
 			}
 		}
+	
+		if($getVerbose) {
+			$verboseData['result'] = $result;
+			$verboseData['id'] = $page->id;
+			$verboseData['path'] = $page->path;
+		}
 		
-		return $result;
+		return $getVerbose ? $verboseData : $result;
 	}
 
 	/**
@@ -543,11 +625,12 @@ class PagesEditor extends Wire {
 	 *
 	 * @param Page $page
 	 * @param array $options
+	 * @param array $verboseData
 	 * @return bool
 	 * @throws WireException|\Exception
 	 *
 	 */
-	protected function savePageQuery(Page $page, array $options) {
+	protected function savePageQuery(Page $page, array $options, array &$verboseData) {
 
 		$isNew = $page->isNew();
 		$database = $this->wire()->database;
@@ -556,24 +639,38 @@ class PagesEditor extends Wire {
 		$user = $this->wire()->user;
 		$userID = $user ? $user->id : $config->superUserPageID;
 		$systemVersion = $config->systemVersion;
+		$logMessages = &$verboseData['messages'];
+		$logErrors = &$verboseData['errors'];
+		$logHooks = &$verboseData['hooks'];
 		$sql = '';
 		
 		if(!$page->created_users_id) $page->created_users_id = $userID;
 		
-		if($page->isChanged('status') && empty($options['noHooks'])) {
-			$this->pages->statusChangeReady($page);
+		if($page->isChanged('status')) {
+			$logMessages[] = "Status change: $page->statusPrevious => $page->status";
+			if(empty($options['noHooks'])) {
+				$this->pages->statusChangeReady($page);
+				$logHooks[] = "statusChangeReady";
+			}
 		}
 		
 		if(empty($options['noHooks'])) {
-			$extraData = $this->pages->saveReady($page); 
+			$extraData = $this->pages->saveReady($page);
 			$this->pages->savePageOrFieldReady($page);
-			if($isNew) $this->pages->addReady($page);
+			$logHooks[] = "saveReady";
+			$logHooks[] = "savePageOrFieldReady";
+			if($isNew) {
+				$this->pages->addReady($page);
+				$logHooks[] = "addReady";
+			}
 		} else {
 			$extraData = array();
 		}
 
 		if($this->pages->names()->isUntitledPageName($page->name)) {
+			$untitled = $page->name; 
 			$this->pages->setupPageName($page);
+			$logMessages[] = "Set name from '$untitled' to '$page->name'";
 		}
 
 		$data = array(
@@ -584,9 +681,12 @@ class PagesEditor extends Wire {
 			'sort' =>  ($page->sort > -1 ? (int) $page->sort : 0)
 		);
 
-		if(is_array($extraData)) foreach($extraData as $column => $value) {
-			$column = $database->escapeCol($column);
-			$data[$column] = (strtoupper($value) === 'NULL' ? NULL : $value);
+		if(is_array($extraData) && !empty($extraData)) {
+			$verboseData['extraData'] = $extraData;
+			foreach($extraData as $column => $value) {
+				$column = $database->escapeCol($column);
+				$data[$column] = (strtoupper($value) === 'NULL' ? null : $value);
+			}
 		}
 
 		if($isNew) {
@@ -635,9 +735,11 @@ class PagesEditor extends Wire {
 
 		if($isNew) { 
 			if(empty($data['created'])) $sql .= ', created=NOW()';
-			$query = $database->prepare("INSERT INTO pages SET $sql");
+			$sql = "INSERT INTO pages SET $sql";
+			$query = $database->prepare($sql);
 		}  else {
-			$query = $database->prepare("UPDATE pages SET $sql WHERE id=:page_id");
+			$sql = "UPDATE pages SET $sql WHERE id=:page_id";
+			$query = $database->prepare($sql);
 			$query->bindValue(":page_id", (int) $page->id, \PDO::PARAM_INT);
 		}
 
@@ -645,6 +747,8 @@ class PagesEditor extends Wire {
 			if(is_null($value)) continue; // already bound above
 			$query->bindValue(":$column", $value, is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
 		}
+		
+		if($options['getVerbose']) $verboseData['natives'] = $data;
 
 		$tries = 0;
 		$maxTries = 100;
@@ -655,13 +759,15 @@ class PagesEditor extends Wire {
 			try {
 				$result = $database->execute($query);
 			} catch(\Exception $e) {
-				$keepTrying = $this->savePageQueryException($page, $query, $e, $options);
+				$logErrors[] = "Exception on save query (tries=$tries): " . $e->getMessage();
+				$keepTrying = $this->savePageQueryException($page, $query, $e, $options, $verboseData);
 				if(!$keepTrying) throw $e;
 			}
 		} while($keepTrying && (++$tries < $maxTries));
 
 		if($result && ($isNew || !$page->id)) {
 			$page->id = (int) $database->lastInsertId();
+			$logMessages[] = "Inserted new page: id=$page->id";
 			$page->setQuietly('_inserted', time());
 		}
 		
@@ -685,10 +791,11 @@ class PagesEditor extends Wire {
 	 * @param \PDOStatement $query
 	 * @param \PDOException|\Exception $exception
 	 * @param array $options
+	 * @param array $verboseData
 	 * @return bool True if it should give $query another shot, false if not
 	 * 
 	 */
-	protected function savePageQueryException(Page $page, $query, $exception, array $options) {
+	protected function savePageQueryException(Page $page, $query, $exception, array $options, array &$verboseData) {
 		
 		$errorCode = $exception->getCode();
 		
@@ -710,7 +817,9 @@ class PagesEditor extends Wire {
 		
 		// get either 'name' or 'name123' (where 123 is language ID)
 		$pageName = $page->get($nameField);
+		$pageNamePrev = $pageName;
 		$pageName = $this->pages->names()->incrementName($pageName);
+		if($pageName != $pageNamePrev) $verboseData['messages'][] = "Adjusted name from '$pageNamePrev' to '$pageName'";
 		$page->set($nameField, $pageName);
 		$query->bindValue(":$nameField", $sanitizer->pageName($pageName, Sanitizer::toAscii));
 		
@@ -728,14 +837,18 @@ class PagesEditor extends Wire {
 	 * @param Page $page
 	 * @param bool $isNew
 	 * @param array $options
+	 * @param array $verboseData
 	 * @return bool
 	 * @throws \Exception|WireException|\PDOException If any field-saving failure occurs while in a DB transaction
 	 *
 	 */
-	protected function savePageFinish(Page $page, $isNew, array $options) {
-		
-		$changes = $page->getChanges(2);
+	protected function savePageFinish(Page $page, $isNew, array $options, array &$verboseData) {
+	
+		$database = $this->wire()->database;
 		$changesValues = $page->getChanges(true);
+		$logMessages = &$verboseData['messages'];
+		$logErrors = &$verboseData['errors'];
+		$logHooks = &$verboseData['hooks'];
 
 		// update children counts for current/previous parent
 		if($isNew) {
@@ -746,17 +859,22 @@ class PagesEditor extends Wire {
 			// parent changed
 			$page->parentPrevious->numChildren--;
 			$page->parent->numChildren++;
+			$logMessages[] = "Parent changed from {$page->parentPrevious->path} to {$page->parent->path}";
 		}
 	
 		// save any needed updates to pages_parents table
 		$this->pages->parents()->save($page);
 		
 		// if page hasn't changed, don't continue further
+		$changes = $page->getChanges(2);
 		if(!$page->isChanged() && !$isNew) {
 			$this->pages->debugLog('save', '[not-changed]', true);
+			$logMessages[] = "Page unchanged";
 			if(empty($options['noHooks'])) {
 				$this->pages->saved($page, array());
 				$this->pages->savedPageOrField($page, array());
+				$logHooks[] = "saved"; 
+				$logHooks[] = "savePageOrField";
 			}
 			return true;
 		}
@@ -772,24 +890,54 @@ class PagesEditor extends Wire {
 		$corruptedFields = $page->hasStatus(Page::statusCorrupted) ? $page->_statusCorruptedFields : array();
 
 		// save each individual Fieldtype data in the fields_* tables
+		$sql = $database->lastSql();
+	
+		// iterate through fieldgroup and save each field
 		foreach($page->fieldgroup as $field) {
 			/** @var Field $field */
 			$fieldtype = $field->type;
 			$name = $field->name;
-			if($options['noFields'] || isset($corruptedFields[$name]) || !$fieldtype || !$page->hasField($field)) {
-				unset($changes[$name]);
-				unset($changesValues[$name]); 
-			} else {
-				try {
-					$fieldtype->savePageField($page, $field);
-				} catch(\Exception $e) {
-					$label = $field->getLabel();
-					$message = $e->getMessage();
-					if(strpos($message, $label) !== false) $label = $name;
-					$error = sprintf($this->_('Error saving field "%s"'), $label) . ' — ' . $message;
-					$this->trackException($e, true, $error);
-					if($this->wire()->database->inTransaction()) throw $e;
-				}
+			$skipped = '';
+			$changed = $page->isChanged($name);
+			if($changed) $verboseData['changedFields'][] = $name;
+			
+			if($options['noFields']) {
+				$skipped = 'Excluded with noFields option';
+			} else if(isset($corruptedFields[$name])) {
+				$skipped = 'Corrupted';
+			} else if(!$fieldtype) {
+				$skipped = 'No Fieldtype available';
+			} else if(!$page->hasField($field)) {
+				$skipped = 'Page does not have field';
+			}
+			
+			if($skipped) {
+				unset($changes[$name], $changesValues[$name]);
+			} else if(!$changed && !$isNew && !$options['saveAll']) {
+				$skipped = 'Not changed and saveAll=false';
+			}
+			
+			if($skipped) {
+				$verboseData['skippedFields'][$name] = $skipped;
+				continue;
+			}
+			
+			try {
+				$fieldtype->savePageField($page, $field);
+				$lastSql = $database->lastSql();
+				$changedLabel = $changed ? 'changed' : 'unchanged';
+				if($sql !== $lastSql) $changedLabel = 'changed(?)'; // fieldtype executed one or more queries
+				$verboseData['savedFields'][] = $field->name;
+				$logMessages[] = "Saved $changedLabel field: $field->name";
+				$sql = $lastSql;
+			} catch(\Exception $e) {
+				$label = $field->getLabel();
+				$message = $e->getMessage();
+				if(strpos($message, $label) !== false) $label = $name;
+				$error = sprintf($this->_('Error saving field "%s"'), $label) . ' — ' . $message;
+				$logErrors[] = "Error saving field: $field->name - $message";
+				$this->trackException($e, true, $error);
+				if($database->inTransaction()) throw $e;
 			}
 		}
 
@@ -827,26 +975,56 @@ class PagesEditor extends Wire {
 				if($page->hasField($field)) continue;
 				$field->type->deletePageField($page, $field);
 				$this->message("Deleted field '$field' on page {$page->url}", Notice::debug);
+				$logMessages[] = "Deleted field: $field->name";
 			}
 		}
 
-		if($options['uncacheAll']) $this->pages->uncacheAll($page);
+		if($options['uncacheAll']) {
+			$this->pages->uncacheAll($page);
+			$logMessages[] = "Uncached all pages";
+		}
 
 		// determine whether the pages_access table needs to be updated so that pages->find()
 		// operations can be access controlled. 
 		if($isNew || $page->parentPrevious || $page->templatePrevious) {
-			$this->newPagesAccess($page);
+			try {
+				$pa = $this->newPagesAccess($page);
+				foreach($pa->messages('array') as $message) $logMessages[] = $message;
+				foreach($pa->errors('array') as $message) $logErrors[] = $message;
+			} catch(\Exception $e) {
+				if($options['throw']) throw $e;
+				$logErrors[] = "Error updating pages_access: " . $e->getMessage();
+			}
 		}
 
 		// trigger hooks
 		if(empty($options['noHooks'])) {
 			$this->pages->saved($page, $changes, $changesValues);
 			$this->pages->savedPageOrField($page, $changes);
-			if($triggerAddedPage) $this->pages->added($triggerAddedPage);
-			if($page->namePrevious && $page->namePrevious != $page->name) $this->pages->renamed($page);
-			if($page->parentPrevious) $this->pages->moved($page);
-			if($page->templatePrevious) $this->pages->templateChanged($page);
-			if(in_array('status', $changes)) $this->pages->statusChanged($page);
+			$logHooks[] = "saved";
+			$logHooks[] = "savedPageOrField";
+			if($triggerAddedPage) {
+				$this->pages->added($triggerAddedPage);
+				$logHooks[] = "added";
+			}
+			if($page->namePrevious && $page->namePrevious != $page->name) {
+				$this->pages->renamed($page);
+				$logHooks[] = "renamed";
+			}
+			if($page->parentPrevious) {
+				$this->pages->moved($page);
+				$logHooks[] = "moved";
+			}
+			if($page->templatePrevious) {
+				$this->pages->templateChanged($page);
+				$logHooks[] = "templateChanged";
+			}
+			if(in_array('status', $changes)) {
+				$this->pages->statusChanged($page);
+				$logHooks[] = "statusChanged";
+			}
+		} else {
+			$logMessages[] = "Skipped hooks (noHooks=true)";
 		}
 		
 		if($triggerAddedPage && $page->rootParent()->id === $this->wire()->config->trashPageID) {
@@ -1154,7 +1332,7 @@ class PagesEditor extends Wire {
 			throw new WireException("status must be between 0 and " . Page::statusMax);
 		}
 
-		$sqlUpdate = "UPDATE pages SET status=";
+		$sqlUpdate = 'UPDATE ' . 'pages SET status=';
 	
 		if($remove === 2) {
 			// overwrite status (internal/undocumented)
