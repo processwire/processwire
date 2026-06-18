@@ -4367,6 +4367,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 	public function _parentSet($key, $value) {
 		parent::set($key, $value);
 	}
+	
+	/**
+	 * Like __isset() but applies only to loaded fields and properties
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $key
+	 * @return bool
+	 * @since 3.0.265
+	 *
+	 */
+	public function _isset($key) {
+		return isset($this->data[$key]) || isset($this->settings[$key]);
+	}
+	
 	/**
 	 * Ensures that isset() and empty() work for this classes properties.
 	 * 
