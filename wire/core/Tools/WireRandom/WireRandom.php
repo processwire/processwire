@@ -150,14 +150,26 @@ class WireRandom extends Wire {
 				foreach($options['require'] as $c) {
 					if(strpos($value, $c) === false) $n++;
 				}
-				if($n) continue;
+				if($n) {
+					$value = '';
+					continue;
+				}
 			}
 
 			// enforce returned value having at least one of each requested type (alpha, upper, lower, numeric)
 			if($options['strict'] && !strlen($options['allow'])) {
-				if($options['alpha'] && $options['upper'] && !preg_match('/[A-Z]/', $value)) continue;
-				if($options['alpha'] && $options['lower'] && !preg_match('/[a-z]/', $value)) continue;
-				if($options['numeric'] && !preg_match('/[0-9]/', $value)) continue;
+				if($options['alpha'] && $options['upper'] && !preg_match('/[A-Z]/', $value)) {
+					$value = '';
+					continue;
+				}
+				if($options['alpha'] && $options['lower'] && !preg_match('/[a-z]/', $value)) {
+					$value = '';
+					continue;
+				}
+				if($options['numeric'] && !preg_match('/[0-9]/', $value)) {
+					$value = '';
+					continue;
+				}
 			}
 
 			if(strlen($value) > $length) $value = substr($value, 0, $length);
@@ -380,6 +392,7 @@ class WireRandom extends Wire {
 		if(is_array($min)) {
 			$options = $min;
 			$min = isset($options['min']) ? (int) $options['min'] : 0;
+			$max = isset($options['max']) ? (int) $options['max'] : PHP_INT_MAX;
 		} else if(is_array($max)) {
 			$options = $max;
 			$max = isset($options['max']) ? (int) $options['max'] : PHP_INT_MAX;
