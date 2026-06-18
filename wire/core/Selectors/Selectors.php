@@ -903,7 +903,7 @@ class Selectors extends WireArray {
 		} else if(is_array($data)) {
 			$test = implode('', array_keys($data));
 			$dataType = ctype_digit($test) ? 'array' : 'assoc';
-			if($dataType == 'assoc' && isset($data['field'])) $dataType = 'verbose';
+			if($dataType == 'assoc' && (isset($data['field']) || isset($data['fields']))) $dataType = 'verbose';
 		} 
 		return $dataType;	
 	}
@@ -1211,9 +1211,11 @@ class Selectors extends WireArray {
 			$quote = '(';
 		}
 		
+		$value = $values instanceof Selectors ? $values : (count($values) > 1 ? $values : reset($values));
+
 		return array(
 			'field' => count($fields) > 1 ? $fields : reset($fields), 
-			'value' => count($values) > 1 ? $values : reset($values), 
+			'value' => $value,
 			'operator' => array_shift($operators), 
 			'altOperators' => $operators,
 			'not' => $not,
@@ -1724,7 +1726,7 @@ class Selectors extends WireArray {
 			if(!$has) break;
 		}
 
-		return $has;
+		return (bool) $has;
 	}
 
 	/**
