@@ -325,11 +325,12 @@ class WireTextTools extends Wire {
 		$n1 = strrpos($str, '<');
 		$n2 = strrpos($str, '>');
 		if($n1 > $n2) {
-			// string might end with a partial tag, i.e. "<span"
-			$test = substr($str, $n1 + 1, 1); // i.e. "s" from "<span", or "<" is last char in the string
-			if(ctype_alpha($test) || $test === false || $test === '') {
-				// going to assume this is a tag, so trucate 
-				$str = substr($str, 0, $n1 - 1);
+			// string might end with a partial tag, i.e. "<span" or "</span"
+			$test = substr($str, $n1 + 1, 1); // i.e. "s" from "<span", "/" from "</span", or blank
+			$test2 = $test === '/' ? substr($str, $n1 + 2, 1) : '';
+			if(ctype_alpha($test) || ($test === '/' && ctype_alpha($test2)) || $test === false || $test === '') {
+				// going to assume this is a tag, so truncate it
+				$str = substr($str, 0, $n1);
 			}
 		}
 
@@ -669,10 +670,6 @@ class WireTextTools extends Wire {
 
 			} while(!strlen($result) && count($tests));
 
-			// make sure we didn't break any HTML tags as a result of truncation
-			if(strlen($result) && count($options['keepTags']) && strpos($result, '<') !== false) {
-				$result = $this->fixUnclosedTags($result);
-			}
 		} else {
 			// if we didn't find any place to truncate, just return exact truncated string
 			$result = $this->trim($str, $options['trim']) . $options['more'];
@@ -684,6 +681,11 @@ class WireTextTools extends Wire {
 			while(strpos($result, "$more$more") !== false) {
 				$result = str_replace("$more$more", "$more", $result); 
 			}
+		}
+
+		// make sure we didn't break any HTML tags as a result of truncation
+		if(strlen($result) && count($options['keepTags']) && strpos($result, '<') !== false) {
+			$result = $this->fixUnclosedTags($result);
 		}
 		
 		return $result;

@@ -3678,7 +3678,7 @@ class Sanitizer extends Wire {
 				}
 				
 				// trim from end (right trim)
-				if($trimPos > 0 && $method !== 'L') do {
+				if($method !== 'L') do {
 					$x = 0; // qty removed only in this do/while iteration
 					$trimPos = $tt->strrpos($str, $trim);
 					if($trimPos === false) break;
