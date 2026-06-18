@@ -475,23 +475,35 @@ class WireApiDocs extends Wire implements CliModule {
 			if($isHookable) $name = substr($name, 3);
 
 			$description = '';
+			$group = '';
+			$fallbackGroup = '';
 			$docComment = $method->getDocComment();
 
 			if($docComment !== false) {
 				// Skip methods marked as internal
 				if(strpos($docComment, '#pw-internal') !== false) continue;
 
-				// Extract the first non-empty, non-tag description line
+				// Extract description and group; keep first group found
 				foreach(explode("\n", $docComment) as $line) {
 					$line = trim($line, " \t/*");
-					if($line === '' || $line[0] === '@' || $line[0] === '#') continue;
-					$description = $line;
-					break;
+					if($line === '') continue;
+					if($line[0] === '@') continue;
+					if($line[0] === '#') {
+						if(!$group && preg_match('/^#pw-group-(\S+)/', $line, $gm)) $group = $gm[1];
+						if(!$fallbackGroup && ($line === '#pw-advanced' || $line === '#pw-hooker')) {
+							$fallbackGroup = substr($line, 4); // strip '#pw-'
+						}
+						continue;
+					}
+					if(!$description) $description = $line;
 				}
+				if(!$group) $group = $fallbackGroup;
 			}
 
 			$methods[] = [
 				'name' => $name,
+				'hookable' => $isHookable,
+				'group' => $group,
 				'description' => $description,
 			];
 		}
@@ -746,6 +758,283 @@ class WireApiDocs extends Wire implements CliModule {
 		return trim($body);
 	}
 	
+	/**
+	 * Get short (unqualified) class name from a fully-qualified class name
+	 *
+	 * @param string $fqName
+	 * @return string
+	 *
+	 */
+	protected function shortClassName($fqName) {
+		$pos = strrpos($fqName, '\\');
+		return $pos !== false ? substr($fqName, $pos + 1) : $fqName;
+	}
+
+	/**
+	 * Get class info via reflection
+	 *
+	 * Returns an array with:
+	 * - `name` (string): Class name
+	 * - `parent` (string): Direct parent class name, or empty string if none
+	 * - `interfaces` (array): Interfaces implemented directly by this class (not inherited)
+	 * - `traits` (array): Traits used directly by this class
+	 * - `abstract` (bool): Is the class abstract?
+	 * - `summary` (string): Summary from class phpdoc (#pw-summary tag or first prose line)
+	 *
+	 * @param string $class Class name (with or without ProcessWire namespace)
+	 * @return array Empty array if class not found
+	 *
+	 */
+	public function getClassInfo($class) {
+		$cacheKey = 'classinfo:' . $class;
+		$cached = $this->getCache($cacheKey);
+		if($cached !== null) return $cached;
+
+		$fqClass = class_exists("ProcessWire\\$class") ? "ProcessWire\\$class" : $class;
+		if(!class_exists($fqClass)) return [];
+
+		try {
+			$ref = new \ReflectionClass($fqClass);
+		} catch(\ReflectionException $e) {
+			return [];
+		}
+
+		$parent = $ref->getParentClass();
+		$parentInterfaces = $parent ? $parent->getInterfaceNames() : [];
+
+		$interfaces = [];
+		foreach($ref->getInterfaceNames() as $name) {
+			if(!in_array($name, $parentInterfaces)) $interfaces[] = $this->shortClassName($name);
+		}
+
+		$traits = [];
+		foreach($ref->getTraitNames() as $name) {
+			$traits[] = $this->shortClassName($name);
+		}
+
+		$summary = '';
+		$body = '';
+		$docComment = $ref->getDocComment();
+		if($docComment) {
+			$inBody = false;
+			$bodyLines = [];
+			foreach(explode("\n", $docComment) as $line) {
+				$line = trim($line, " \t/*");
+				if($inBody) {
+					if($line === '#pw-body') {
+						$inBody = false;
+					} else {
+						$bodyLines[] = $line;
+					}
+					continue;
+				}
+				if(preg_match('/^#pw-summary\s+(.+)/', $line, $m)) {
+					$summary = trim($m[1]);
+				} else if(preg_match('/^#pw-body\s*=/', $line)) {
+					$inBody = true;
+					$rest = trim(substr($line, strpos($line, '=') + 1));
+					if($rest !== '') $bodyLines[] = $rest;
+				} else if(!$summary && $line !== '' && $line[0] !== '@' && $line[0] !== '#') {
+					$summary = $line;
+				}
+			}
+			$body = trim(implode("\n", $bodyLines));
+		}
+
+		$result = [
+			'name' => $class,
+			'parent' => $parent ? $this->shortClassName($parent->getName()) : '',
+			'interfaces' => $interfaces,
+			'traits' => $traits,
+			'abstract' => $ref->isAbstract(),
+			'summary' => $summary,
+			'body' => $body,
+		];
+
+		$this->setCache($cacheKey, $result);
+		return $result;
+	}
+
+	/**
+	 * Get public constants for given class
+	 *
+	 * Returns an array of arrays, each with these keys:
+	 * - `name` (string): Constant name
+	 * - `value` (mixed): Constant value
+	 * - `description` (string): Description from phpdoc docblock (may be empty)
+	 *
+	 * Only constants declared on the class itself are included (not inherited).
+	 * Non-public constants are excluded.
+	 *
+	 * @param string $class Class name (with or without ProcessWire namespace)
+	 * @return array
+	 *
+	 */
+	public function getConstants($class) {
+		$cacheKey = 'constants:' . $class;
+		$cached = $this->getCache($cacheKey);
+		if($cached !== null) return $cached;
+
+		$fqClass = class_exists("ProcessWire\\$class") ? "ProcessWire\\$class" : $class;
+		if(!class_exists($fqClass)) return [];
+
+		try {
+			$ref = new \ReflectionClass($fqClass);
+		} catch(\ReflectionException $e) {
+			return [];
+		}
+
+		$constants = [];
+		foreach($ref->getReflectionConstants() as $rc) {
+			if(!$rc->isPublic()) continue;
+			if($rc->getDeclaringClass()->getName() !== $ref->getName()) continue;
+			$description = '';
+			$docComment = $rc->getDocComment();
+			if($docComment) {
+				foreach(explode("\n", $docComment) as $line) {
+					$line = trim($line, " \t/*");
+					if($line === '' || $line[0] === '@' || $line[0] === '#') continue;
+					$description = $line;
+					break;
+				}
+			}
+			$constants[] = [
+				'name' => $rc->getName(),
+				'value' => $rc->getValue(),
+				'description' => $description,
+			];
+		}
+
+		$this->setCache($cacheKey, $constants);
+		return $constants;
+	}
+
+	/**
+	 * Get @property annotations from a class phpdoc
+	 *
+	 * Parses @property, @property-read, and @property-write tags from the class-level
+	 * phpdoc block. Returns an array of arrays, each with these keys:
+	 * - `name` (string): Property name (without leading $)
+	 * - `type` (string): Declared type
+	 * - `access` (string): One of 'read-write', 'read', or 'write'
+	 * - `description` (string): Description (may be empty)
+	 *
+	 * @param string $class Class name (with or without ProcessWire namespace)
+	 * @return array
+	 *
+	 */
+	public function getProperties($class) {
+		$cacheKey = 'properties:' . $class;
+		$cached = $this->getCache($cacheKey);
+		if($cached !== null) return $cached;
+
+		$fqClass = class_exists("ProcessWire\\$class") ? "ProcessWire\\$class" : $class;
+		if(!class_exists($fqClass)) return [];
+
+		try {
+			$ref = new \ReflectionClass($fqClass);
+		} catch(\ReflectionException $e) {
+			return [];
+		}
+
+		$properties = [];
+		$methodDescriptions = [];
+		$docComment = $ref->getDocComment();
+
+		if($docComment) {
+			foreach(explode("\n", $docComment) as $line) {
+				$line = trim($line, " \t/*");
+				// Collect @method descriptions as fallback for same-named properties
+				if(preg_match('/^@method(?:\s+static)?\s+\S+\s+(\w+)\s*\([^)]*\)\s*(.+)/', $line, $m)) {
+					$methodDescriptions[$m[1]] = trim($m[2]);
+					continue;
+				}
+				if(!preg_match('/^@(property(?:-read|-write)?)\s+(\S+)\s+\$(\S+)\s*(.*)/s', $line, $m)) continue;
+				$access = 'read-write';
+				if($m[1] === 'property-read') $access = 'read';
+				if($m[1] === 'property-write') $access = 'write';
+
+				// Extract and strip #pw-* tags from the description; keep first group found
+				$group = '';
+				$fallbackGroup = '';
+				$internal = false;
+				$desc = preg_replace_callback('/#pw-(\S+)/', function($pm) use (&$group, &$fallbackGroup, &$internal) {
+					$tag = $pm[1];
+					if(!$group && strpos($tag, 'group-') === 0) $group = substr($tag, 6);
+					if(!$fallbackGroup && ($tag === 'advanced' || $tag === 'hooker')) $fallbackGroup = $tag;
+					if($tag === 'internal') $internal = true;
+					return '';
+				}, trim($m[4]));
+
+				if($internal) continue;
+				if(!$group) $group = $fallbackGroup;
+
+				$properties[] = [
+					'name' => $m[3],
+					'type' => $m[2],
+					'access' => $access,
+					'group' => $group,
+					'description' => trim($desc),
+				];
+			}
+		}
+
+		// For properties with no description, fall back to the @method description
+		if(count($methodDescriptions)) {
+			foreach($properties as &$prop) {
+				if($prop['description'] !== '') continue;
+				if(isset($methodDescriptions[$prop['name']])) {
+					$prop['description'] = $methodDescriptions[$prop['name']];
+				}
+			}
+			unset($prop);
+		}
+
+		$this->setCache($cacheKey, $properties);
+		return $properties;
+	}
+
+	/**
+	 * Get group summaries from a class phpdoc
+	 *
+	 * Parses #pw-summary-[group] tags from the class-level phpdoc block.
+	 * Returns an associative array keyed by group name, values are the summary strings.
+	 *
+	 * Example phpdoc tag: `#pw-summary-access Access-control related methods/properties`
+	 *
+	 * @param string $class Class name (with or without ProcessWire namespace)
+	 * @return array e.g. ['access' => 'Access-control related methods/properties', ...]
+	 *
+	 */
+	public function getGroupSummaries($class) {
+		$cacheKey = 'groupsummaries:' . $class;
+		$cached = $this->getCache($cacheKey);
+		if($cached !== null) return $cached;
+
+		$fqClass = class_exists("ProcessWire\\$class") ? "ProcessWire\\$class" : $class;
+		if(!class_exists($fqClass)) return [];
+
+		try {
+			$ref = new \ReflectionClass($fqClass);
+		} catch(\ReflectionException $e) {
+			return [];
+		}
+
+		$summaries = [];
+		$docComment = $ref->getDocComment();
+		if($docComment) {
+			foreach(explode("\n", $docComment) as $line) {
+				$line = trim($line, " \t/*");
+				if(preg_match('/^#pw-summary-(\S+)\s+(.+)/', $line, $m)) {
+					$summaries[$m[1]] = trim($m[2]);
+				}
+			}
+		}
+
+		$this->setCache($cacheKey, $summaries);
+		return $summaries;
+	}
+
 	/**
 	 * Get key used for caching get() result
 	 * 
@@ -1266,7 +1555,7 @@ class WireApiDocs extends Wire implements CliModule {
 			case 'methods-text':
 				$out = isset($args[1]) ? $this->getMethods($args[1]) : $invalid;
 				if($useStr) {
-					foreach($out as $k => $v) $out[$k] = $v['name'];
+					foreach($out as $k => $v) $out[$k] = ($v['hookable'] ? '* ' : '  ') . $v['name'];
 					$out = implode("\n", $out);
 				}
 				break;
@@ -1278,8 +1567,63 @@ class WireApiDocs extends Wire implements CliModule {
 					$out = (isset($args[1]) && isset($args[2])) ? $this->getMethod($args[1], $args[2]) : $invalid;
 				}
 				break;
-			case 'vars-json':	
-			case 'vars-text':	
+			case 'classinfo-json':
+			case 'classinfo-text':
+				$out = isset($args[1]) ? $this->getClassInfo($args[1]) : $invalid;
+				if($useStr && is_array($out)) {
+					$lines = [];
+					foreach($out as $k => $v) {
+						if(is_array($v)) $v = implode(', ', $v);
+						if(is_bool($v)) $v = $v ? 'yes' : 'no';
+						if(is_string($v) && strpos($v, "\n") !== false) {
+							$lines[] = "$k:";
+							foreach(explode("\n", $v) as $bodyLine) $lines[] = "  $bodyLine";
+						} else {
+							$lines[] = "$k: $v";
+						}
+					}
+					$out = implode("\n", $lines);
+				}
+				break;
+			case 'constants-json':
+			case 'constants-text':
+				$out = isset($args[1]) ? $this->getConstants($args[1]) : $invalid;
+				if($useStr && is_array($out)) {
+					$lines = [];
+					foreach($out as $c) {
+						$line = "{$c['name']} = {$c['value']}";
+						if($c['description']) $line .= " — {$c['description']}";
+						$lines[] = $line;
+					}
+					$out = implode("\n", $lines);
+				}
+				break;
+			case 'properties-json':
+			case 'properties-text':
+				$out = isset($args[1]) ? $this->getProperties($args[1]) : $invalid;
+				if($useStr && is_array($out)) {
+					$lines = [];
+					foreach($out as $p) {
+						$line = "\${$p['name']} ({$p['type']}, {$p['access']}";
+						if($p['group']) $line .= ", {$p['group']}";
+						$line .= ')';
+						if($p['description']) $line .= " — {$p['description']}";
+						$lines[] = $line;
+					}
+					$out = implode("\n", $lines);
+				}
+				break;
+			case 'groups-json':
+			case 'groups-text':
+				$out = isset($args[1]) ? $this->getGroupSummaries($args[1]) : $invalid;
+				if($useStr && is_array($out)) {
+					$lines = [];
+					foreach($out as $group => $summary) $lines[] = "$group: $summary";
+					$out = implode("\n", $lines);
+				}
+				break;
+			case 'vars-json':
+			case 'vars-text':
 				$vars = $this->getApiVars();
 				$out = [];
 				foreach($vars as $class => $name) {
@@ -1335,8 +1679,12 @@ class WireApiDocs extends Wire implements CliModule {
 			'toc <class>' => 'Get table of contents for given class',
 			'chapter <class> <num>' => 'Get body for given class and chapter number',
 			"chapter <class> 'Title'" => 'Get body for given class and chapter title',
-			'methods <class>' => 'Get public methods for given class',
+			'methods <class>' => 'Get public methods for given class (* prefix = hookable)',
 			'method <class> <method>' => 'Get details for a single method (JSON only)',
+			'classinfo <class>' => 'Get class info: parent, interfaces, traits',
+			'constants <class>' => 'Get public constants for a class',
+			'properties <class>' => 'Get @property annotations for a class',
+			'groups <class>' => 'Get #pw-summary-[group] descriptions for a class',
 			'vars' => 'List all API variables and the classes they represent',
 			':note' => [
 				'WireApiDocs commands return JSON by default. To make command return plain text (not JSON),',

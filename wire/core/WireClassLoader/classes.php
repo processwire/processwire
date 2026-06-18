@@ -67,7 +67,7 @@ return [ // please keep alphabetical A-Z
 	'Textformatter' => 'Module>',
 	'Tfa' => 'Module>', // Trailing '>' translates to Module/Tfa/Tfa.php
 	'WireAction' => 'Module/',
-	'WireApiDocs' => 'Tools/',
+	'WireApiDocs' => 'Tools>',
 	'WireCacheDatabase' => 'WireCache/',
 	'WireCacheInterface' => 'WireCache/',
 	'WireDatabaseBackup' => 'WireDatabase/',
