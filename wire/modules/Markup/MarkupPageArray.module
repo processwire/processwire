@@ -124,8 +124,8 @@ class MarkupPageArray extends WireData implements Module {
 			if(!empty($options['baseUrl'])) $pager->setBaseUrl($options['baseUrl']); 
 				else $pager->setBaseUrl($this->page->url); 
 
-			if(empty($options['getVars'])) $pagerOptions['getVars'] = $options['getVars'];
-			if(empty($options['numPageLinks'])) $pagerOptions['numPageLinks'] = $options['numPageLinks'];
+			if(!empty($options['getVars'])) $pagerOptions['getVars'] = $options['getVars'];
+			if(!empty($options['numPageLinks'])) $pagerOptions['numPageLinks'] = $options['numPageLinks'];
 
 			$pagerOut = $pager->render($pageArray, $pagerOptions); 
 
@@ -168,4 +168,3 @@ class MarkupPageArray extends WireData implements Module {
 
 
 }
-
