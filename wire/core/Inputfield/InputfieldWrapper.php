@@ -2087,7 +2087,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				foreach($info['attr'] as $key => $value) {
 					$f->attr($key, $value);
 				}
-				unset($a['attr']);
+				unset($info['attr']);
 			}
 
 			foreach($info as $key => $value) {
