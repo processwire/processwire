@@ -1,10 +1,10 @@
 # WireApiDocs
 
-Provides access to `API.md` documentation files — locating, reading, and querying them
-by class name. Also exposes public methods of any class via reflection. Powers the
+The WireApiDocs class provides access to ProcessWire documentation files — locating, reading, and querying them
+by class name. It also exposes public methods of any class via reflection, and powers the
 `php index.php docs` CLI commands.
 
-Access via the `$wire` API object (lazy-loaded on first access):
+Access it via the `$wire` API object (lazy-loaded on first access):
 
 ```php
 $docs = $wire->docs();  // method call
