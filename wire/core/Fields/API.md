@@ -79,6 +79,39 @@ $ids = $fields->getAllIds(); // ['title' => 1, 'body' => 2, ...]
 
 ---
 
+### $fields->getFresh($key)
+
+Load and return a fresh `Field` instance directly from the database, bypassing any
+in-memory cache. The returned field is not added to the `$fields` collection.
+
+Useful when you need to verify the current database state of a field without affecting
+the cached instance, or when another process may have modified the field.
+
+- **Arguments:** `getFresh(int|string $key)` — field ID or name
+- **Returns:** `Field|null`
+
+~~~~~php
+$field = $fields->getFresh('body');     // by name
+$field = $fields->getFresh(3);          // by ID
+~~~~~
+
+---
+
+### $fields->getRaw($key)
+
+Get the raw database row for a field as an associative array, bypassing any cache.
+The `data` column is returned as the raw encoded JSON string (not decoded).
+
+- **Arguments:** `getRaw(int|string $key)` — field ID or name
+- **Returns:** `array|null`
+
+~~~~~php
+$row = $fields->getRaw('body');
+// ['id' => 3, 'name' => 'body', 'type' => 'FieldtypeTextarea', 'data' => '{"rows":5,...}', ...]
+~~~~~
+
+---
+
 ## Creating fields
 
 ### $fields->new($type, $name, $options)

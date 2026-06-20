@@ -33,6 +33,39 @@ foreach($templates as $template) {
 
 ---
 
+### $templates->getFresh($key)
+
+Load and return a fresh `Template` instance directly from the database, bypassing any
+in-memory cache. The returned template is not added to the `$templates` collection.
+
+Useful when you need to verify the current database state of a template without affecting
+the cached instance, or when another process may have modified the template.
+
+- **Arguments:** `getFresh(int|string $key)` — template ID or name
+- **Returns:** `Template|null`
+
+~~~~~php
+$template = $templates->getFresh('basic-page');  // by name
+$template = $templates->getFresh(2);             // by ID
+~~~~~
+
+---
+
+### $templates->getRaw($key)
+
+Get the raw database row for a template as an associative array, bypassing any cache.
+The `data` column is returned as the raw encoded JSON string (not decoded).
+
+- **Arguments:** `getRaw(int|string $key)` — template ID or name
+- **Returns:** `array|null`
+
+~~~~~php
+$row = $templates->getRaw('basic-page');
+// ['id' => 2, 'name' => 'basic-page', 'fieldgroups_id' => 5, 'data' => '{...}', ...]
+~~~~~
+
+---
+
 ## Creating templates
 
 ### $templates->add($name, $properties)

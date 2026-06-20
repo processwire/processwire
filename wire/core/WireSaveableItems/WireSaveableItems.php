@@ -25,7 +25,6 @@ require_once(__DIR__ . '/Interfaces.php');
  * @method void renameReady(Saveable $item, $oldName, $newName)
  * @method void renamed(Saveable $item, $oldName, $newName)
  *
- * 
  */
 
 abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
@@ -302,6 +301,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function ___save(Saveable $item) {
+		/** @var Saveable|Template|Field $item */
 
 		$blank = $this->makeBlankItem();
 		
@@ -384,6 +384,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function ___delete(Saveable $item) {
+		/** @var Saveable|Template|Field $item */
 		$blank = $this->makeBlankItem();
 		if(!$item instanceof $blank) {
 			$typeName = $blank->className();
@@ -424,6 +425,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function ___clone(Saveable $item, $name = '') {
+		/** @var Saveable|Template|Field $item */
 
 		$original = $item;
 		$item = clone $item;
@@ -480,6 +482,56 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$value = $this->getWireArray()->get($key);
 		if($value === null && $this->useLazy() && $key !== null) $value = $this->getLazy($key);
 		return $value;
+	}
+
+	/**
+	 * Get the raw database row for an item by ID or name, bypassing any cache
+	 *
+	 * @param int|string $key Item ID (int) or name (string)
+	 * @return array|null Associative array of raw DB columns, or null if not found
+	 * @since 3.0.267
+	 * @author Claude Sonnet 4.6
+	 *
+	 */
+	public function getRaw($key) {
+		$database = $this->wire()->database;
+		$table = $database->escapeTable($this->getTable());
+		if(ctype_digit("$key")) {
+			$col = 'id';
+			$value = (int) $key;
+		} else {
+			$col = 'name';
+			$value = (string) $key;
+		}
+		$query = $this->getLoadQuery();
+		$query->where("`$table`.`$col`=?", $value);
+		$stmt = $query->prepare();
+		$stmt->execute();
+		$row = $stmt->fetch(\PDO::FETCH_ASSOC);
+		$stmt->closeCursor();
+		return $row === false ? null : $row;
+	}
+
+	/**
+	 * Load and return a fresh instance of an item from the database, bypassing any cache
+	 *
+	 * The returned item is not added to any collection or cache.
+	 *
+	 * @param int|string $key Item ID (int) or name (string)
+	 * @return Saveable|null Returns the item or null if not found
+	 * @since 3.0.267
+	 * @author Claude Sonnet 4.6
+	 *
+	 */
+	public function getFresh($key) {
+		$row = $this->getRaw($key);
+		if($row === null) return null;
+		if(!empty($row['data']) && is_string($row['data'])) {
+			$row['data'] = $this->decodeData($row['data']);
+		} else {
+			unset($row['data']);
+		}
+		return $this->makeItem($row);
 	}
 
 	public function __get($name) {

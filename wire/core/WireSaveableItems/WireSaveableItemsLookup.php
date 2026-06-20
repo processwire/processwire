@@ -245,4 +245,26 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 		return $info;
 	}
 
+	/**
+	 * Not supported for lookup-table classes — the JOIN structure makes single-row retrieval incomplete
+	 *
+	 * @param int|string $key
+	 * @return null
+	 *
+	 */
+	public function getRaw($key) {
+		return null;
+	}
+
+	/**
+	 * Not supported for lookup-table classes — the JOIN structure makes single-row retrieval incomplete
+	 *
+	 * @param int|string $key
+	 * @return null
+	 *
+	 */
+	public function getFresh($key) {
+		return null;
+	}
+
 }
