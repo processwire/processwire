@@ -485,34 +485,26 @@ class PagesEditor extends Wire {
 		$callback = $options['callback'];
 		$useHooks = empty($options['noHooks']);
 		$getVerbose = $options['getVerbose'];
-		$verboseData = [];
-		$logMessages = [];
-		$logErrors = [];
-		$logHooks = [];
 		$result = false;
-		
-		if($getVerbose) {
-			$verboseData = [
-				'id' => 0,
-				'path' => '',
-				'user' => $user->name, 
-				'changes' => $page->getChanges(),
-				'savedFields' => [], 
-				'changedFields' => [],
-				'skippedFields' => [],
-				'messages' => [],
-				'errors' => [], 
-				'hooks' => [], 
-				'result' => false, 
-				'isNew' => false, 
-				'natives' => [],
-				'options' => $options,
-			];
-			$logMessages = &$verboseData['messages'];
-			$logErrors = &$verboseData['errors'];
-			$logHooks = &$verboseData['hooks'];
-		}
-		
+		$verboseData = [
+			'id' => 0,
+			'path' => '',
+			'user' => $getVerbose ? $user->name : '', 
+			'changes' => $getVerbose ? $page->getChanges() : [],
+			'savedFields' => [], 
+			'changedFields' => [],
+			'skippedFields' => [],
+			'messages' => [],
+			'errors' => [], 
+			'hooks' => [], 
+			'result' => false, 
+			'isNew' => false, 
+			'natives' => [],
+			'options' => $options,
+		];
+		$logMessages = &$verboseData['messages'];
+		$logErrors = &$verboseData['errors'];
+		$logHooks = &$verboseData['hooks'];
 		
 		// if language support active, switch to default language so that saved fields and hooks don't need to be aware of language
 		if($languages && $page->id != $user->id && "$user->language") {
