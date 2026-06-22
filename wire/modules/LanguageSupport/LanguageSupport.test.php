@@ -203,7 +203,7 @@ class WireTest_LanguageSupport extends WireTest {
 		$other = $this->getOtherLanguage();
 
 		$inputfield = $modules->get('InputfieldText');
-		$inputfield->name = 'wiretests_language';
+		$inputfield->name = WireTests::fieldPrefix . 'language';
 		$inputfield->value = 'Default input';
 
 		$this->check('Inputfield getLanguageValue(default) returns value', 'Default input', $inputfield->getLanguageValue($default));

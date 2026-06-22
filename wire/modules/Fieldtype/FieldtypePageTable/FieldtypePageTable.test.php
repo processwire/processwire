@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypePageTable extends WireTest {
 
-	protected $fieldName = 'test_pagetable';
+	protected $fieldName = WireTests::fieldPrefix . 'pagetable';
 	protected $itemTemplateName = 'test-pagetable-item';
 
 	public function init() {
@@ -17,6 +17,7 @@ class WireTest_FieldtypePageTable extends WireTest {
 		$pages = $this->wire()->pages;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$itemTemplateName = $this->itemTemplateName;
 
 		$page->of(false);
@@ -125,13 +126,13 @@ class WireTest_FieldtypePageTable extends WireTest {
 		$selectorItem->save();
 		$page->save($name);
 		$selectors = array(
-			"template=test, $name.count>0",
-			"template=test, $name.title*=Selector Test",
-			"template=test, $name.title=Selector Test Item",
-			"template=test, $name.template=$itemTemplateName",
+			"template=$template, $name.count>0",
+			"template=$template, $name.title*=Selector Test",
+			"template=$template, $name.title=Selector Test Item",
+			"template=$template, $name.template=$itemTemplateName",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
@@ -141,7 +142,7 @@ class WireTest_FieldtypePageTable extends WireTest {
 		$page->of(false);
 		$page->get($name)->removeAll();
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name.count=0");
+		$p = $pages->get("template=$template, $name.count=0");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name.count=0");
 		$this->li("Selector passed: $name.count=0");
 	}

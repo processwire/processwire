@@ -6,8 +6,8 @@
  */
 class WireTest_FieldtypeImage extends WireTest {
 
-	protected $fieldName = 'test_image';
-	protected $fieldNameSingle = 'test_image_single';
+	protected $fieldName = WireTests::fieldPrefix . 'image';
+	protected $fieldNameSingle = WireTests::fieldPrefix . 'image_single';
 
 	public function init() {
 		$this->ensureFields();
@@ -17,6 +17,7 @@ class WireTest_FieldtypeImage extends WireTest {
 		$pages = $this->wire()->pages;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$nameSingle = $this->fieldNameSingle;
 		$dir = __DIR__ . '/tests/images/';
 		$imgJpg = $dir . 'test1.jpg';
@@ -155,25 +156,25 @@ class WireTest_FieldtypeImage extends WireTest {
 		$wLess = $img->width - 1;
 		$hLess = $img->height - 1;
 		$selectors = array(
-			"template=test, $name=$imgJpgName",
-			"template=test, $name%=" . basename($imgJpgName, '.jpg'),
-			"template=test, $name.description%=bar",
-			"template=test, $name.width>$wLess",
-			"template=test, $name.height>$hLess",
-			"template=test, $name.ratio<1",
-			"template=test, $name.filesize>0",
-			"template=test, $name.count>0",
-			"template=test, $name!=\"\"",
+			"template=$template, $name=$imgJpgName",
+			"template=$template, $name%=" . basename($imgJpgName, '.jpg'),
+			"template=$template, $name.description%=bar",
+			"template=$template, $name.width>$wLess",
+			"template=$template, $name.height>$hLess",
+			"template=$template, $name.ratio<1",
+			"template=$template, $name.filesize>0",
+			"template=$template, $name.count>0",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->get($name)->deleteAll();
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

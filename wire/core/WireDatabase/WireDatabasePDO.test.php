@@ -6,7 +6,7 @@
  */
 class WireTest_WireDatabasePDO extends WireTest {
 
-	protected $table = 'wiretests_databasepdo';
+	protected $table = WireTests::fieldPrefix . 'databasepdo';
 	protected $originalDebugMode = null;
 
 	public function init() {

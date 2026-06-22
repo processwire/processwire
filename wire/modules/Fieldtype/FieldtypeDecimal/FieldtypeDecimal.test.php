@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeDecimal extends WireTest {
 
-	protected $fieldName = 'test_decimal';
+	protected $fieldName = WireTests::fieldPrefix . 'decimal';
 
 	public function init() {
 		$this->ensureField();
@@ -16,6 +16,7 @@ class WireTest_FieldtypeDecimal extends WireTest {
 		$pages = $this->wire()->pages;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 
 		$page->set($name, '123.45');
 		$page->save($name);
@@ -61,22 +62,22 @@ class WireTest_FieldtypeDecimal extends WireTest {
 		$page->set($name, '123.45');
 		$page->save($name);
 		$selectors = array(
-			"template=test, $name=123.45",
-			"template=test, $name>100",
-			"template=test, $name>=123.45",
-			"template=test, $name<200",
-			"template=test, $name<=123.45",
-			"template=test, $name!=\"\"",
+			"template=$template, $name=123.45",
+			"template=$template, $name>100",
+			"template=$template, $name>=123.45",
+			"template=$template, $name<200",
+			"template=$template, $name<=123.45",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, '');
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

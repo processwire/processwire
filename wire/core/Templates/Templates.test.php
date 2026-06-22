@@ -6,7 +6,7 @@
  */
 class WireTest_Templates extends WireTest {
 
-	protected $prefix = 'wiretests_templates';
+	protected $prefix = WireTests::fieldPrefix . 'templates';
 	protected $templateName = '';
 
 	public function init() {

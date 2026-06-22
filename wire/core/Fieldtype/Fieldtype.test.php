@@ -65,7 +65,7 @@ class WireTest_Fieldtype extends WireTest {
 		$this->check('getDatabaseSchema() marks schema as complete storage', true, $schema['xtra']['all']);
 
 		$verbose = $fieldtype->getDatabaseSchemaVerbose($field);
-		$this->check('getDatabaseSchemaVerbose() includes table name', 'field_wiretest_fieldtype', $verbose['table']);
+		$this->check('getDatabaseSchemaVerbose() includes table name', 'field_wire_test_fieldtype', $verbose['table']);
 		$this->check('getDatabaseSchemaVerbose() identifies data column', array('data' => 'int NOT NULL'), $verbose['cols']);
 		$this->check('getDatabaseSchemaVerbose() parses primary keys', array('pages_id'), $verbose['primaryKeys']);
 		$this->check('getDatabaseSchemaVerbose(property) returns requested value', 'pages_id', $fieldtype->getDatabaseSchemaVerbose($field, 'primaryKey'));
@@ -104,31 +104,31 @@ class WireTest_Fieldtype extends WireTest {
 
 		$query = $this->wire(new DatabaseQuerySelect());
 		$fieldtype->getLoadQuery($field, $query);
-		$this->check('getLoadQuery() selects field data alias', 'field_wiretest_fieldtype.data AS `wiretest_fieldtype__data`', $query->select[0]);
+		$this->check('getLoadQuery() selects field data alias', 'field_wire_test_fieldtype.data AS `wire_test_fieldtype__data`', $query->select[0]);
 
 		$query = $this->wire(new DatabaseQuerySelect());
 		$return = $fieldtype->getLoadQueryAutojoin($field, $query);
 		$this->check('getLoadQueryAutojoin() defaults to getLoadQuery()', $query, $return);
 
 		$query = $this->wire(new DatabaseQuerySelect());
-		$fieldtype->getMatchQuery($query, 'field_wiretest_fieldtype', 'data', '>=', 10);
+		$fieldtype->getMatchQuery($query, 'field_wire_test_fieldtype', 'data', '>=', 10);
 		$sql = $query->getQuery();
-		$this->check('getMatchQuery() adds comparison where', 'field_wiretest_fieldtype.data>=:', $sql, '*=');
+		$this->check('getMatchQuery() adds comparison where', 'field_wire_test_fieldtype.data>=:', $sql, '*=');
 		$this->check('getMatchQuery() binds comparison value', array(10), array_values($query->getBindValues()));
 
 		$query = $this->wire(new DatabaseQuerySelect());
-		$fieldtype->getMatchQuery($query, 'field_wiretest_fieldtype', 'data', '&', 4);
-		$this->check('getMatchQuery() preserves supported bitwise AND operator', 'field_wiretest_fieldtype.data&:', $query->getQuery(), '*=');
+		$fieldtype->getMatchQuery($query, 'field_wire_test_fieldtype', 'data', '&', 4);
+		$this->check('getMatchQuery() preserves supported bitwise AND operator', 'field_wire_test_fieldtype.data&:', $query->getQuery(), '*=');
 
 		$query = $this->wire(new DatabaseQuerySelect());
-		$fieldtype->getMatchQuery($query, 'field_wiretest_fieldtype', 'data', '=', array('red', 'blue'));
+		$fieldtype->getMatchQuery($query, 'field_wire_test_fieldtype', 'data', '=', array('red', 'blue'));
 		$sql = $query->getQuery();
-		$this->check('getMatchQuery() array values use OR grouping', 'field_wiretest_fieldtype.data=:', $sql, '*=');
-		$this->check('getMatchQuery() array values use OR operator', ' OR field_wiretest_fieldtype.data=:', $sql, '*=');
+		$this->check('getMatchQuery() array values use OR grouping', 'field_wire_test_fieldtype.data=:', $sql, '*=');
+		$this->check('getMatchQuery() array values use OR operator', ' OR field_wire_test_fieldtype.data=:', $sql, '*=');
 		$this->check('getMatchQuery() binds array values', array('red', 'blue'), array_values($query->getBindValues()));
 
 		try {
-			$fieldtype->getMatchQuery($this->wire(new DatabaseQuerySelect()), 'field_wiretest_fieldtype', 'data', '|', 4);
+			$fieldtype->getMatchQuery($this->wire(new DatabaseQuerySelect()), 'field_wire_test_fieldtype', 'data', '|', 4);
 			$this->fail('getMatchQuery() should reject unsupported bitwise operator');
 		} catch(PageFinderSyntaxException $e) {
 			$this->ok('getMatchQuery() rejects unsupported bitwise operator');
@@ -143,7 +143,7 @@ class WireTest_Fieldtype extends WireTest {
 	 */
 	protected function testFieldtypeMultiDefaults() {
 		$page = $this->wire(new Page());
-		$field = $this->makeField('wiretest_multi');
+		$field = $this->makeField(WireTests::fieldPrefix . 'multi');
 		$fieldtype = $this->wire(new FieldtypeWireTestMulti());
 		$field->type = $fieldtype;
 
@@ -170,7 +170,7 @@ class WireTest_Fieldtype extends WireTest {
 	 */
 	protected function makeBaseFixture() {
 		$page = $this->wire(new Page());
-		$field = $this->makeField('wiretest_fieldtype');
+		$field = $this->makeField(WireTests::fieldPrefix . 'fieldtype');
 		$fieldtype = $this->wire(new FieldtypeWireTestBasic());
 		$field->type = $fieldtype;
 		return array($fieldtype, $page, $field);

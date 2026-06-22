@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeFieldsetOpen extends WireTest {
 
-	protected $prefix = 'wiretests_fieldset';
+	protected $prefix = WireTests::fieldPrefix . 'fieldset';
 
 	public function init() {
 		$this->cleanup();

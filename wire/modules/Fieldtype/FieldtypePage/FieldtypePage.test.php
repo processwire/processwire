@@ -6,9 +6,9 @@
  */
 class WireTest_FieldtypePage extends WireTest {
 
-	protected $fieldName = 'test_page';
-	protected $fieldNameOrFalse = 'test_page_or_false';
-	protected $fieldNameOrNull = 'test_page_or_null';
+	protected $fieldName = WireTests::fieldPrefix . 'page';
+	protected $fieldNameOrFalse = WireTests::fieldPrefix . 'page_or_false';
+	protected $fieldNameOrNull = WireTests::fieldPrefix . 'page_or_null';
 
 	public function init() {
 		$this->ensureFields();
@@ -21,6 +21,7 @@ class WireTest_FieldtypePage extends WireTest {
 		if(!$refPage->id) $this->fail('Could not load reference page (id=1)');
 
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$page->of(false);
 		$page->set($name, $refPage);
 		$page->save($name);
@@ -121,22 +122,22 @@ class WireTest_FieldtypePage extends WireTest {
 		$page->save($name);
 		$refTemplateName = $refPage->template->name;
 		$selectors = array(
-			"template=test, $name=$refPage->id",
-			"template=test, $name=$refPage->name",
-			"template=test, $name=$refPage->path",
-			"template=test, $name.count>0",
-			"template=test, $name!=\"\"",
-			"template=test, $name.template=$refTemplateName",
+			"template=$template, $name=$refPage->id",
+			"template=$template, $name=$refPage->name",
+			"template=$template, $name=$refPage->path",
+			"template=$template, $name.count>0",
+			"template=$template, $name!=\"\"",
+			"template=$template, $name.template=$refTemplateName",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, null);
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

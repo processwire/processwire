@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeTextarea extends WireTest {
 
-	protected $fieldName = 'test_textarea';
+	protected $fieldName = WireTests::fieldPrefix . 'textarea';
 
 	public function init() {
 		$this->ensureField();
@@ -17,6 +17,7 @@ class WireTest_FieldtypeTextarea extends WireTest {
 		$fields = $this->wire()->fields;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$field = $fields->get($name);
 
 		$value = "Line one\nLine two\nLine three";
@@ -68,23 +69,23 @@ class WireTest_FieldtypeTextarea extends WireTest {
 		$page->set($name, 'The quick brown fox jumps over the lazy dog');
 		$page->save($name);
 		$selectors = array(
-			"template=test, $name*=quick brown",
-			"template=test, $name~=fox lazy",
-			"template=test, $name~|=cat brown bird",
-			"template=test, $name%=quick brown",
-			"template=test, $name^=The quick",
-			"template=test, $name\$=lazy dog",
-			"template=test, $name!=\"\"",
+			"template=$template, $name*=quick brown",
+			"template=$template, $name~=fox lazy",
+			"template=$template, $name~|=cat brown bird",
+			"template=$template, $name%=quick brown",
+			"template=$template, $name^=The quick",
+			"template=$template, $name\$=lazy dog",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, '');
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

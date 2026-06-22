@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeDatetime extends WireTest {
 
-	protected $fieldName = 'test_datetime';
+	protected $fieldName = WireTests::fieldPrefix . 'datetime';
 
 	public function init() {
 		$this->ensureField();
@@ -17,6 +17,7 @@ class WireTest_FieldtypeDatetime extends WireTest {
 		$fields = $this->wire()->fields;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$field = $fields->get($name);
 
 		$page->of(false);
@@ -71,25 +72,25 @@ class WireTest_FieldtypeDatetime extends WireTest {
 		$page->set($name, '2026-04-08 14:30:00');
 		$page->save($name);
 		$selectors = array(
-			"template=test, $name=2026-04-08",
-			"template=test, $name=2026-04-08 14:30:00",
-			"template=test, $name!=2026-04-09",
-			"template=test, $name^=2026-04",
-			"template=test, $name%=2026-04-08",
-			"template=test, $name>2026-01-01",
-			"template=test, $name>=2026-04-08",
-			"template=test, $name<2027-01-01",
-			"template=test, $name!=\"\"",
+			"template=$template, $name=2026-04-08",
+			"template=$template, $name=2026-04-08 14:30:00",
+			"template=$template, $name!=2026-04-09",
+			"template=$template, $name^=2026-04",
+			"template=$template, $name%=2026-04-08",
+			"template=$template, $name>2026-01-01",
+			"template=$template, $name>=2026-04-08",
+			"template=$template, $name<2027-01-01",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, '');
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

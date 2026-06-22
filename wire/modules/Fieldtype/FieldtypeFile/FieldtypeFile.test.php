@@ -6,8 +6,8 @@
  */
 class WireTest_FieldtypeFile extends WireTest {
 
-	protected $fieldName = 'test_file';
-	protected $fieldNameSingle = 'test_file_single';
+	protected $fieldName = WireTests::fieldPrefix . 'file';
+	protected $fieldNameSingle = WireTests::fieldPrefix . 'file_single';
 
 	public function init() {
 		$this->ensureFields();
@@ -17,6 +17,7 @@ class WireTest_FieldtypeFile extends WireTest {
 		$pages = $this->wire()->pages;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$nameSingle = $this->fieldNameSingle;
 		$pdf1 = __DIR__ . '/tests/files/php-cheat-sheet.pdf';
 		$pdf2 = __DIR__ . '/tests/files/test.pdf';
@@ -130,23 +131,23 @@ class WireTest_FieldtypeFile extends WireTest {
 		$page->get($name)->first()->description = 'PHP Cheat Sheet';
 		$page->save($name);
 		$selectors = array(
-			"template=test, $name=php-cheat-sheet.pdf",
-			"template=test, $name%^=php-cheat",
-			"template=test, $name%\$=sheet.pdf",
-			"template=test, $name.description%=Cheat",
-			"template=test, $name.filesize>0",
-			"template=test, $name.count>0",
-			"template=test, $name!=\"\"",
+			"template=$template, $name=php-cheat-sheet.pdf",
+			"template=$template, $name%^=php-cheat",
+			"template=$template, $name%\$=sheet.pdf",
+			"template=$template, $name.description%=Cheat",
+			"template=$template, $name.filesize>0",
+			"template=$template, $name.count>0",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->get($name)->deleteAll();
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

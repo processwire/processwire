@@ -6,7 +6,7 @@
  */
 class WireTest_Users extends WireTest {
 
-	protected $prefix = 'wiretests_rbac';
+	protected $prefix = WireTests::fieldPrefix . 'rbac';
 	protected $userNames = array();
 	protected $roleNames = array();
 	protected $permissionNames = array();

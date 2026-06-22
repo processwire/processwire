@@ -6,8 +6,8 @@
  */
 class WireTest_FieldtypeRepeater extends WireTest {
 
-	protected $fieldName = 'test_repeater';
-	protected $subFieldName = 'headline';
+	protected $fieldName = WireTests::fieldPrefix . 'repeater';
+	protected $subFieldName = WireTests::fieldPrefix . 'headline';
 
 	public function init() {
 		$this->ensureField();
@@ -18,6 +18,7 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$fields = $this->wire()->fields;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$subTextField = $fields->get($this->subFieldName);
 
 		$page->of(false);
@@ -112,14 +113,14 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$page->save($name);
 		$sub = $subTextField->name;
 		$selectors = array(
-			"template=test, $name.count>0",
-			"template=test, $name.count=1",
-			"template=test, $name.$sub*=Selector Test",
-			"template=test, $name.$sub~=Item",
-			"template=test, $name.$sub^=Selector",
+			"template=$template, $name.count>0",
+			"template=$template, $name.count=1",
+			"template=$template, $name.$sub*=Selector Test",
+			"template=$template, $name.$sub~=Item",
+			"template=$template, $name.$sub^=Selector",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
@@ -129,7 +130,7 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$items = $page->get($name);
 		foreach($items as $item) $items->remove($item);
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name.count=0");
+		$p = $pages->get("template=$template, $name.count=0");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name.count=0");
 		$this->li("Selector passed: $name.count=0");
 	}
@@ -161,8 +162,10 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			$repeaterFieldgroup->save();
 		}
 
-		if(!in_array($subTextField->id, $field->repeaterFields)) {
-			$field->repeaterFields = array($subTextField->id);
+		$repeaterFields = is_array($field->repeaterFields) ? $field->repeaterFields : array();
+		if(!in_array($subTextField->id, $repeaterFields)) {
+			$repeaterFields[] = $subTextField->id;
+			$field->repeaterFields = $repeaterFields;
 			$field->save();
 			$this->li("Repeater template: $repeaterTemplate->name, sub-fields: $subTextField->name");
 		}

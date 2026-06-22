@@ -64,29 +64,29 @@ class WireTest_Pages extends WireTest {
 		$this->check('get() returns NullPage when not found', 0, $noMatch->id);
 		$this->check('get() not-found result is NullPage instance', true, $noMatch instanceof NullPage);
 
-		$found = $pages->findOne("id=$page->id");
+		$found = $pages->findOne("id=$page->id, include=hidden");
 		$this->check('findOne() returns correct page', $page->id, $found->id);
 
 		$notFound = $pages->findOne('name=nonexistent-page-xyz-12345');
 		$this->check('findOne() returns NullPage when not found', 0, $notFound->id);
 
-		$results = $pages->find("id=$page->id");
+		$results = $pages->find("id=$page->id, include=hidden");
 		$this->check('find() returns PageArray', true, $results instanceof PageArray);
 		$this->check('find() PageArray contains the test page', true, $results->has($page));
 
-		$n = $pages->count("id=$page->id");
+		$n = $pages->count("id=$page->id, include=hidden");
 		$this->check('count() returns int', true, is_int($n));
 		$this->check('count() finds 1 for known page ID', 1, $n);
 		$this->check('count() returns 0 for no match', 0, $pages->count('name=nonexistent-page-xyz-12345'));
 
-		$this->check('has() returns page ID when found', $page->id, $pages->has("id=$page->id"));
+		$this->check('has() returns page ID when found', $page->id, $pages->has("id=$page->id, include=hidden"));
 		$this->check('has() returns 0 when not found', 0, $pages->has('name=nonexistent-page-xyz-12345'));
 
-		$ids = $pages->findIDs("id=$page->id");
+		$ids = $pages->findIDs("id=$page->id, include=hidden");
 		$this->check('findIDs() returns array', true, is_array($ids));
 		$this->check('findIDs() contains page ID', true, in_array($page->id, $ids));
 
-		$idsVerbose = $pages->findIDs("id=$page->id", true);
+		$idsVerbose = $pages->findIDs("id=$page->id, include=hidden", true);
 		$this->check('findIDs(verbose=true) returns nested array', true, is_array($idsVerbose));
 		$firstVerbose = reset($idsVerbose);
 		$this->check("findIDs(verbose=true) has 'id' key", true, isset($firstVerbose['id']));
@@ -100,7 +100,7 @@ class WireTest_Pages extends WireTest {
 		$this->check("getRaw() array has 'name' key", true, isset($rawArray['name']));
 		$this->check("getRaw() 'name' matches page name", $page->name, $rawArray['name']);
 
-		$rawResults = $pages->findRaw("id=$page->id", array('name'));
+		$rawResults = $pages->findRaw("id=$page->id, include=hidden", array('name'));
 		$this->check('findRaw() returns array indexed by page ID', true, isset($rawResults[$page->id]));
 		$this->check("findRaw() value has 'name' key", true, isset($rawResults[$page->id]['name']));
 		$this->check("findRaw() 'name' matches page name", $page->name, $rawResults[$page->id]['name']);

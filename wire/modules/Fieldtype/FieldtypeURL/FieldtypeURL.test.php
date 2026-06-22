@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeURL extends WireTest {
 
-	protected $fieldName = 'test_url';
+	protected $fieldName = WireTests::fieldPrefix . 'url';
 
 	public function init() {
 		$this->ensureField();
@@ -17,6 +17,7 @@ class WireTest_FieldtypeURL extends WireTest {
 		$fields = $this->wire()->fields;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$field = $fields->get($name);
 
 		$page->set($name, 'https://processwire.com/docs/');
@@ -55,21 +56,21 @@ class WireTest_FieldtypeURL extends WireTest {
 		$field->save();
 
 		$selectors = array(
-			"template=test, $name^=https://",
-			"template=test, $name*=processwire.com",
-			"template=test, $name\$=.com/",
-			"template=test, $name%=processwire",
-			"template=test, $name!=\"\"",
+			"template=$template, $name^=https://",
+			"template=$template, $name*=processwire.com",
+			"template=$template, $name\$=.com/",
+			"template=$template, $name%=processwire",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, '');
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

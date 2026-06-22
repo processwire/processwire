@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeCheckbox extends WireTest {
 
-	protected $fieldName = 'test_checkbox';
+	protected $fieldName = WireTests::fieldPrefix . 'checkbox';
 
 	public function init() {
 		$this->ensureField();

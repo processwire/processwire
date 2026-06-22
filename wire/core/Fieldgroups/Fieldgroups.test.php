@@ -6,7 +6,7 @@
  */
 class WireTest_Fieldgroups extends WireTest {
 
-	protected $prefix = 'wiretests_fieldgroups';
+	protected $prefix = WireTests::fieldPrefix . 'fieldgroups';
 	protected $fieldNames = array();
 	protected $fieldgroupNames = array();
 

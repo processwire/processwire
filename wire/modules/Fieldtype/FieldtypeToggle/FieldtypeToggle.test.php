@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeToggle extends WireTest {
 
-	protected $fieldName = 'test_toggle';
+	protected $fieldName = WireTests::fieldPrefix . 'toggle';
 
 	public function init() {
 		$this->ensureField();
@@ -17,6 +17,7 @@ class WireTest_FieldtypeToggle extends WireTest {
 		$fields = $this->wire()->fields;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$field = $fields->get($name);
 
 		$page->of(false);
@@ -107,29 +108,29 @@ class WireTest_FieldtypeToggle extends WireTest {
 		$page->set($name, 1);
 		$page->save($name);
 		$selectors = array(
-			"template=test, $name=1",
-			"template=test, $name=yes",
-			"template=test, $name!=0",
-			"template=test, $name!=\"\"",
+			"template=$template, $name=1",
+			"template=$template, $name=yes",
+			"template=$template, $name!=0",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, 0);
 		$page->save($name);
-		foreach(array("template=test, $name=0", "template=test, $name=no") as $selector) {
-			$p = $pages->findOne($selector);
+		foreach(array("template=$template, $name=0", "template=$template, $name=no") as $selector) {
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, '');
 		$page->save($name);
-		foreach(array("template=test, $name=\"\"", "template=test, $name=unknown") as $selector) {
-			$p = $pages->findOne($selector);
+		foreach(array("template=$template, $name=\"\"", "template=$template, $name=unknown") as $selector) {
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}

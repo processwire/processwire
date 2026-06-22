@@ -6,8 +6,8 @@
  */
 class WireTest_FieldtypeOptions extends WireTest {
 
-	protected $fieldName = 'test_options';
-	protected $fieldNameMulti = 'test_options_multi';
+	protected $fieldName = WireTests::fieldPrefix . 'options';
+	protected $fieldNameMulti = WireTests::fieldPrefix . 'options_multi';
 
 	public function init() {
 		$this->ensureFields();
@@ -18,6 +18,7 @@ class WireTest_FieldtypeOptions extends WireTest {
 		$fields = $this->wire()->fields;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$nameMulti = $this->fieldNameMulti;
 		$field = $fields->get($name);
 		$fieldMulti = $fields->get($nameMulti);
@@ -147,23 +148,23 @@ class WireTest_FieldtypeOptions extends WireTest {
 		$page->save($name);
 		$greenId = $field->getOptions()->getByTitle('Green')->id;
 		$selectors = array(
-			"template=test, $name=Green",
-			"template=test, $name.title=Green",
-			"template=test, $name.value=\"#00ff00\"",
-			"template=test, $name.id=$greenId",
-			"template=test, $name.count>0",
-			"template=test, $name!=Red",
-			"template=test, $name!=\"\"",
+			"template=$template, $name=Green",
+			"template=$template, $name.title=Green",
+			"template=$template, $name.value=\"#00ff00\"",
+			"template=$template, $name.id=$greenId",
+			"template=$template, $name.count>0",
+			"template=$template, $name!=Red",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, '');
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 
@@ -172,14 +173,14 @@ class WireTest_FieldtypeOptions extends WireTest {
 		$page->set($nameMulti, array($redId, $blueId));
 		$page->save($nameMulti);
 		$selectors = array(
-			"template=test, $nameMulti=Red",
-			"template=test, $nameMulti=Blue",
-			"template=test, $nameMulti=Red|Blue|Green",
-			"template=test, $nameMulti.count>1",
-			"template=test, $nameMulti!=Green",
+			"template=$template, $nameMulti=Red",
+			"template=$template, $nameMulti=Blue",
+			"template=$template, $nameMulti=Red|Blue|Green",
+			"template=$template, $nameMulti.count>1",
+			"template=$template, $nameMulti!=Green",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}

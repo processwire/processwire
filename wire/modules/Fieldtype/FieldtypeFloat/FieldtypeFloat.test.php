@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeFloat extends WireTest {
 
-	protected $fieldName = 'test_float';
+	protected $fieldName = WireTests::fieldPrefix . 'float';
 
 	public function init() {
 		$this->ensureField();
@@ -17,6 +17,7 @@ class WireTest_FieldtypeFloat extends WireTest {
 		$fields = $this->wire()->fields;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 		$field = $fields->get($name);
 
 		$page->set($name, 3.14);
@@ -65,21 +66,21 @@ class WireTest_FieldtypeFloat extends WireTest {
 		$page->set($name, 3.14);
 		$page->save($name);
 		$selectors = array(
-			"template=test, $name=3.14",
-			"template=test, $name!=3.15",
-			"template=test, $name>3",
-			"template=test, $name<4",
-			"template=test, $name!=\"\"",
+			"template=$template, $name=3.14",
+			"template=$template, $name!=3.15",
+			"template=$template, $name>3",
+			"template=$template, $name<4",
+			"template=$template, $name!=\"\"",
 		);
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
 
 		$page->set($name, '');
 		$page->save($name);
-		$p = $pages->findOne("template=test, $name=\"\"");
+		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 	}

@@ -6,7 +6,7 @@
  */
 class WireTest_FieldtypeText extends WireTest {
 
-	protected $fieldName = 'headline';
+	protected $fieldName = WireTests::fieldPrefix . 'headline';
 
 	public function init() {
 		$this->ensureField();
@@ -16,6 +16,7 @@ class WireTest_FieldtypeText extends WireTest {
 		$pages = $this->wire()->pages;
 		$page = $this->getTestPage();
 		$name = $this->fieldName;
+		$template = WireTests::templateName;
 
 		$value = 'Hello World ' . mt_rand();
 		$this->li('Setting value to: ' . htmlspecialchars($value));
@@ -35,11 +36,11 @@ class WireTest_FieldtypeText extends WireTest {
 			"$name|title~=World",
 			"$name~|=Foo Bar World",
 			"$name~|*=Wor War Woo",
-			"template=test, $name!=Foobar",
+			"template=$template, $name!=Foobar",
 		);
 
 		foreach($selectors as $selector) {
-			$p = $pages->findOne($selector);
+			$p = $pages->get($selector);
 			if($p->id !== $page->id) {
 				$this->fail("Selector failed: $selector (found page $p->id != $page->id test page)");
 			}
