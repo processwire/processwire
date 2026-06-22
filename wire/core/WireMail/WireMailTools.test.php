@@ -16,17 +16,18 @@ class WireTest_WireMailTools extends WireTest {
 		$test = $this;
 
 		$this->originalWireMailConfig = $wire->config->wireMail;
+		$wire->config->wireMail('module', 'WireMail');
 		$this->attachmentFile = $wire->config->paths->cache . 'wiretests-mail-attachment.txt';
 		file_put_contents($this->attachmentFile, 'WireMail attachment test');
 
-		$this->hookID = $wire->addHookBefore('WireMail::send', function(HookEvent $e) use ($test) {
+		$this->hookID = $wire->addHookBefore('WireMail::send', null, function(HookEvent $e) use ($test) {
 			/** @var WireMail $wireMail */
 			$wireMail = $e->object;
 			$emails = $wireMail->get('to');
 			$test->recordSend($wireMail);
 			$e->return = count($emails);
 			$e->replace = true;
-		});
+		}, array('priority' => 1));
 	}
 
 	public function execute() {

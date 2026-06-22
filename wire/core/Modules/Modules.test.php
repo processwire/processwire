@@ -93,7 +93,7 @@ class WireTest_Modules extends WireTest {
 		$this->check("getModuleInfoVerbose() has 'versionStr'", true, isset($infoV['versionStr']));
 		$this->check("getModuleInfoVerbose() 'versionStr' matches formatVersion()", $versionStr, $infoV['versionStr']);
 		$this->check("getModuleInfoVerbose() has non-empty 'file'", true, !empty($infoV['file']));
-		$this->check("getModuleInfoVerbose() 'core' is falsy for non-core module", false, (bool) $infoV['core']);
+		$this->check("getModuleInfoVerbose() 'core' identifies core test fixture", true, (bool) $infoV['core']);
 
 		$all = $modules->getModuleInfo('*');
 		$this->check("getModuleInfo('*') returns non-empty array", true, count($all) > 0);

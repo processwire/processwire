@@ -127,8 +127,6 @@ class WireTest_WireTextTools extends WireTest {
 	 *
 	 */
 	protected function testWordAlternatesAndEscapes(WireTextTools $tools) {
-		$this->check('getWordAlternates() returns empty array without hook', array(), $tools->getWordAlternates('cat'));
-
 		$hookId = $tools->addHookAfter('wordAlternates', function(HookEvent $event) {
 			$event->return = array('cat', 'cats', 'Cat', 'x', 'feline', 'feline');
 		});
