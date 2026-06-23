@@ -4,13 +4,13 @@
  * ProcessWire Debug 
  *
  * Provides methods useful for debugging or development. 
- *
- * Currently only provides timer capability. 
  * 
+ * Provides timer capability, backtraces, and value dumping. 
+ 
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * ~~~~~
@@ -263,7 +263,12 @@ class Debug {
 	 */
 	static public function getSavedTimers() {
 		$timers = self::$savedTimers;
-		arsort($timers); 
+		uasort($timers, function($a, $b) {
+			$a = (float) $a;
+			$b = (float) $b;
+			if($a === $b) return 0;
+			return $a > $b ? -1 : 1;
+		});
 		foreach($timers as $key => $timer) {
 			$timers[$key] = self::getSavedTimer($key); // to include notes
 		}

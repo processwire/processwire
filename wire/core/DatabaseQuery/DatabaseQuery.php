@@ -337,7 +337,7 @@ abstract class DatabaseQuery extends WireData {
 			foreach(array_keys($bindValues) as $bindKey) {
 				if(strpos($options['inSQL'], $bindKey) === false) {
 					unset($bindValues[$bindKey]);
-				} else if(!preg_match('/' . $bindKey . '\b/', $options['inSQL'])) {
+				} else if(!preg_match('/' . preg_quote($bindKey, '/') . '\b/', $options['inSQL'])) {
 					unset($bindValues[$bindKey]);
 				}
 			}
@@ -610,7 +610,12 @@ abstract class DatabaseQuery extends WireData {
 			if($bindKey[strlen($bindKey)-1] === $suffix) {
 				$sql = strtr($sql, array($bindKey => $bindValue));
 			} else {
-				$sql = preg_replace('/' . $bindKey . '\b/', $bindValue, $sql);
+				$pattern = '/' . preg_quote($bindKey, '/') . '\b/';
+				if(strpos($bindValue, '$') !== false || strpos($bindValue, '\\') !== false) {
+					$sql = preg_replace_callback($pattern, function() use ($bindValue) { return $bindValue; }, $sql);
+				} else {
+					$sql = preg_replace($pattern, $bindValue, $sql);
+				}
 			}
 		}
 		return $sql;
