@@ -22,7 +22,7 @@
  * 
  * Thanks to @horst for his assistance with several methods in this class.
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool|string send($url, $data = array(), $method = 'POST', array $options = array())
@@ -984,7 +984,7 @@ class WireHttp extends Wire {
 		$response = substr($response, $pos+4); 
 
 		// if response resulted in a redirect, follow it 
-		if($this->httpCode == 301 || $this->httpCode == 302) {
+		if($this->httpCode === 301 || $this->httpCode === 302) {
 			// follow redirects
 			$location = $this->getResponseHeader('location'); 
 			if(!empty($location) && ++$level <= 5) {
@@ -1486,7 +1486,7 @@ class WireHttp extends Wire {
 		if(!empty($key)) {
 			$key = strtolower($key);
 			$value = isset($this->responseHeaderArrays[$key]) ? $this->responseHeaderArrays[$key] : null;
-			if(!$value !== null && count($value) === 1 && !$forceArrays) $value = reset($value);
+			if($value !== null && count($value) === 1 && !$forceArrays) $value = reset($value);
 		} else if($forceArrays) {
 			$value = $this->responseHeaderArrays;
 		} else {
@@ -1708,8 +1708,9 @@ class WireHttp extends Wire {
 		
 		if($filename === false) {
 			echo $options['data'];
+			$bytesSent = strlen((string) $options['data']);
 		} else {
-			readfile($filename);
+			$bytesSent = readfile($filename);
 		}
 		
 		if($options['exit']) exit;

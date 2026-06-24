@@ -112,7 +112,7 @@ Get bind values with options. Supports the following options:
 
 ```php
 // Copy to a PDOStatement
-$stmt = $pdo->prepare($query->getQuery());
+$stmt = $database->prepare($query->getQuery());
 $query->getBindValues(['query' => $stmt]);
 
 // Count bind values
