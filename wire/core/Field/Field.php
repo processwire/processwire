@@ -12,7 +12,7 @@
  * #pw-body Field objects are managed by the `$fields` API variable. 
  * #pw-use-constants
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $id Numeric ID of field in the database #pw-group-properties
