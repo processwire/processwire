@@ -3,7 +3,7 @@
 /**
  * Tools for working with numbers
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.213
@@ -176,7 +176,9 @@ class WireNumberTools extends Wire {
 	 *
 	 */
 	public function bytesToStr($bytes, $options = array()) {
-		
+
+		if(is_int($options)) $options = array('decimals' => $options);
+
 		$defaults = array(
 			'type' => '',
 			'small' => false, 
@@ -216,7 +218,7 @@ class WireNumberTools extends Wire {
 			} else {
 				$label = isset($labels['bytes']) ? $labels['bytes'] : $this->_('bytes'); // plural 2+ bytes (or 0 bytes)
 			}
-		} else if($bytes < 1000000 || $type === 'k') {
+		} else if($bytes < 1048576 || $type === 'k') {
 			// kilobytes
 			$val = $bytes / 1024;
 			$label = isset($labels['k']) ? $labels['k'] : $this->_('kB');
