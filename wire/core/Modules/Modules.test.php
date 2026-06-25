@@ -10,9 +10,13 @@ class WireTest_Modules extends WireTest {
 	protected $alreadyInstalled = false;
 	protected $installedByTest = false;
 	protected $originalConfigData = null;
+	protected $refreshProbeName = 'WireTestRefreshProbe';
+	protected $refreshProbeDir = '';
+	protected $refreshProbeFile = '';
 
 	public function init() {
 		$modules = $this->wire()->modules;
+		$this->refreshProbeName = 'WireTestRefreshProbe' . mt_rand(100000, 999999);
 		$this->alreadyInstalled = $modules->isInstalled($this->moduleClass);
 		$this->installedByTest = false;
 		$this->originalConfigData = null;
@@ -26,11 +30,13 @@ class WireTest_Modules extends WireTest {
 		$this->testFinders();
 		$this->testConfiguration();
 		$this->testHelperProperties();
+		$this->testRefreshDiscoversNewModuleFile();
 		$this->testUninstallLifecycle();
 	}
 
 	public function finish() {
 		$modules = $this->wire()->modules;
+		$this->cleanupRefreshProbe();
 
 		if($this->originalConfigData !== null && $modules->isInstalled($this->moduleClass)) {
 			$modules->saveConfig($this->moduleClass, $this->originalConfigData);
@@ -176,6 +182,34 @@ class WireTest_Modules extends WireTest {
 		$this->check('$modules->flags is ModulesFlags instance', true, $modules->flags instanceof ModulesFlags);
 	}
 
+	protected function testRefreshDiscoversNewModuleFile() {
+		$modules = $this->wire()->modules;
+		$files = $this->wire()->files;
+		$config = $this->wire()->config;
+		$name = $this->refreshProbeName;
+
+		$this->cleanupRefreshProbe();
+		$modules->refresh();
+
+		$this->refreshProbeDir = $config->paths->siteModules . "$name/";
+		$this->refreshProbeFile = $this->refreshProbeDir . "$name.module.php";
+
+		if(!is_dir($this->refreshProbeDir)) $files->mkdir($this->refreshProbeDir);
+		file_put_contents($this->refreshProbeFile,
+			"<?php namespace ProcessWire;\n" .
+			"class $name extends WireData implements Module {\n" .
+			"\tpublic static function getModuleInfo() { return array('title' => 'WireTest refresh probe', 'version' => 1); }\n" .
+			"}\n"
+		);
+
+		$modules->refresh();
+		$this->check('refresh() discovers newly added module file', true, $modules->isInstallable($name));
+
+		$this->cleanupRefreshProbe();
+		$modules->refresh();
+		$this->check('refresh() removes deleted module file', false, $modules->isInstallable($name));
+	}
+
 	protected function testUninstallLifecycle() {
 		$modules = $this->wire()->modules;
 
@@ -186,5 +220,17 @@ class WireTest_Modules extends WireTest {
 			$this->installedByTest = false;
 			$this->li("Uninstalled $this->moduleClass");
 		}
+	}
+
+	protected function cleanupRefreshProbe() {
+		$files = $this->wire()->files;
+		$name = $this->refreshProbeName;
+		$dir = $this->refreshProbeDir ? $this->refreshProbeDir : $this->wire()->config->paths->siteModules . "$name/";
+		$file = $this->refreshProbeFile ? $this->refreshProbeFile : $dir . "$name.module.php";
+
+		if(is_file($file)) $files->unlink($file);
+		if(is_dir($dir)) $files->rmdir($dir);
+		$this->refreshProbeDir = '';
+		$this->refreshProbeFile = '';
 	}
 }

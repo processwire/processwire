@@ -127,6 +127,13 @@ class ModulesCli extends ModulesClass {
 				$force = in_array('--force', $args);
 				echo $this->update($name, $force, $getJson);
 				break;
+			case 'applyup':
+				$users = $this->wire()->users;
+				$u = $users->get($this->wire()->config->superUserPageID); 
+				$users->setCurrentUser($u);
+				$this->modules->getModule($name, [ 'configOnly' => true ]);
+				echo $this->wire()->notices->renderText();
+				break;
 			case 'delete':
 				$this->deleteModule($name, $getJson);
 				break;
@@ -371,8 +378,11 @@ class ModulesCli extends ModulesClass {
 	 */
 	public function getCliCommands() {
 		return [
+			':title' => 'Modules API', 
+			':summary' => 'Management of modules',
 			'list [site|core]' => 'List installed modules, optionally limited to site or core modules',
 			'unlist [site|core]' => 'List uninstalled modules, optionally limited to site or core modules',
+			'refresh' => 'Refresh modules list and caches (also detects new modules and versions)',
 			'info <name> [property]' => 'Get JSON of all info for module or optionally info property',
 			'install <name>' => 'Install module',
 			'uninstall <name>' => 'Uninstall module',
@@ -382,6 +392,7 @@ class ModulesCli extends ModulesClass {
 			'config <name> <property>' => 'Get value for property in module config',
 			'dir <name>' => 'Query ProcessWire modules directory for module info',
 			'updates [name]' => 'List available updates for installed site modules, or check one module',
+			'applyup <name>' => 'Apply module upgrade when file system version of module has changed',
 			'download <name> [--install]' => 'Download module from PW modules directory (+ optionally install)',
 			'download <url> [--install]' => 'Download module ZIP file from https URL (+ optionally install)',
 			'update <name> [--force]' => 'Download and apply an available module update',

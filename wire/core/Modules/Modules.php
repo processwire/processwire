@@ -2052,12 +2052,24 @@ class Modules extends WireArray implements CliModule {
 	public function ___refresh($showMessages = false) {
 		if($this->wire()->config->systemVersion < 6) return;
 		$this->refreshing = true;
-		$this->info->clearModuleInfoCache($showMessages);
+		// Scan directories first (cheap) so the file snapshot is up to date
 		$this->loader->loadModulesTable();
-		foreach($this->paths as $path) $this->files->findModuleFiles($path, false); 
+		$moduleFiles = array();
+		foreach($this->paths as $path) $moduleFiles[$path] = $this->files->findModuleFiles($path, false);
+		// Compare file snapshot to skip expensive info rebuild when nothing changed
+		$snapshotKey = 'moduleFileSnapshot';
+		$newSnapshot = $this->files->getModuleFileSnapshot($moduleFiles);
+		$oldSnapshot = $this->getCache($snapshotKey);
+		if(is_array($oldSnapshot) && $oldSnapshot === $newSnapshot) {
+			$this->refreshing = false;
+			return;
+		}
+		$this->installableFiles = array();
+		$this->info->clearModuleInfoCache($showMessages);
 		foreach($this->paths as $path) $this->loader->loadPath($path);
 		if($this->duplicates()->numNewDuplicates() > 0) $this->duplicates()->updateDuplicates(); // PR#1020
 		$this->loader->loaded();
+		$this->saveCache($snapshotKey, $newSnapshot);
 		$this->refreshing = false;
 	}
 
@@ -2579,6 +2591,7 @@ class Modules extends WireArray implements CliModule {
 	 */
 	public function saveCache($cacheName, $data) {
 		$database = $this->wire()->database;
+		$this->caches[$cacheName] = $data;
 		if(!$this->saveCacheReady) {
 			$this->saveCacheReady = true;
 			$col = $database->getColumns('modules', 'data');

@@ -430,6 +430,41 @@ class ModulesFiles extends ModulesClass {
 	}
 
 	/**
+	 * Get a snapshot of mtimes and sizes for all module files
+	 *
+	 * Returns array keyed by absolute file path, each value an array of [mtime, size].
+	 * Used by refresh() to detect whether any module files have changed since the last refresh.
+	 *
+	 * @param array $moduleFilesByPath Optional files indexed by base module path, each value relative files from findModuleFiles()
+	 * @return array ['/path/to/Module.module' => [mtime, size], ...]
+	 *
+	 */
+	public function getModuleFileSnapshot(array $moduleFilesByPath = array()) {
+		$snapshot = array();
+		if(count($moduleFilesByPath)) {
+			foreach($moduleFilesByPath as $basePath => $files) {
+				foreach($files as $file) {
+					$file = rtrim($basePath, '/') . '/' . ltrim($file, '/');
+					if($file && is_file($file)) $snapshot[$file] = array(filemtime($file), filesize($file));
+				}
+			}
+		} else {
+			$modules = $this->modules;
+			foreach($modules as $module) {
+				$file = $this->getModuleFile($module, ['fast' => true]);
+				if($file && is_file($file)) $snapshot[$file] = array(filemtime($file), filesize($file));
+			}
+			foreach($modules->installableFiles as $file) {
+				if($file && is_file($file) && !isset($snapshot[$file])) {
+					$snapshot[$file] = array(filemtime($file), filesize($file));
+				}
+			}
+		}
+		ksort($snapshot);
+		return $snapshot;
+	}
+
+	/**
 	 * Find modules that are missing their module file on the file system
 	 *
 	 * Return value is array:
