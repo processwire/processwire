@@ -4,6 +4,10 @@ This guide covers writing API.md documentation for ProcessWire core classes,
 core modules, and third-party modules. API.md files are the primary reference
 for developers and AI agents using the ProcessWire API.
 
+API.md files document the API surface for consuming the class — not internal
+implementation details. Agents are the most common audience, so write in a way
+that facilitates agent understanding: be explicit, concrete, and example-driven.
+
 ---
 
 ## Where API.md files live
@@ -40,8 +44,8 @@ focused on the API surface — not internal implementation details.
 
 ## Structure
 
-There is no rigid template — the structure should fit the class. A typical API.md
-includes some combination of:
+API.md files are organized by feature area, not by a fixed section template.
+The structure should fit the class. A typical API.md includes some combination of:
 
 1. **Title** — "ClassName" for most, or "ClassName / $varName" (if an API var)
 2. **Intro** — What is for, how to get an instance
@@ -62,8 +66,9 @@ sub-groups.
 
 ## Writing the intro
 
-Start with a `#` heading using the class name. Include the API variable name if there
-is one. Show how to get an instance.
+Start with an H1 heading using the class name. If the class is available as an API
+variable, include it after a slash: `# ClassName / $apiVar`. If not, use just the
+class name: `# ClassName`. Show how to get an instance.
 
 ~~~markdown
 # Pages / $pages
@@ -380,6 +385,12 @@ When writing an API.md, also review the source code for:
 
 If you find bugs, fix them before committing the API.md. Document the fixes in the
 commit message.
+
+While reviewing, feel free to test the class directly from a running ProcessWire
+installation (e.g. via `php index.php --at-eval` or `--at-stdin`, which require the
+AgentTools module to be installed), so long as you do so in a non-destructive manner.
+This is especially useful for verifying that code examples in the API.md produce the
+stated output.
 
 ---
 
