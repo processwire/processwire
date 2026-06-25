@@ -515,6 +515,91 @@ These properties are recognized by AdminThemeUikit to control visual presentatio
 
 ---
 
+## Multi-language support
+
+When the `LanguageSupport` module is installed, some Inputfield modules can provide per-language
+values. Not all Inputfield types support multi-language — those that do include
+`InputfieldText`, `InputfieldTextarea`, and others that opt in via the
+`useLanguages` property.
+
+### useLanguages
+
+Set to `true` to enable per-language inputs. The Inputfield will render one input
+per language when enabled.
+
+```php
+$f->useLanguages = true;
+```
+
+### setLanguageValue($language, $value)
+
+Set the value for a specific language. `$language` can be a Language object, ID
+(int), or name (string).
+
+```php
+$f->setLanguageValue($language, 'Spanish value');
+$f->setLanguageValue('es', 'Spanish value'); // same by name
+$f->setLanguageValue(1234, 'Spanish value'); // same by ID
+```
+
+### getLanguageValue($language)
+
+Get the value for a specific language. `$language` can be a Language object, ID
+(int), or name (string).
+
+```php
+$value = $f->getLanguageValue($language);
+$value = $f->getLanguageValue('es'); // by name
+```
+
+### Direct property access
+
+For non-default languages, values can also be accessed via `value{languageID}`:
+
+```php
+$f->set("value$language", 'Spanish value');
+$value = $f->get("value$language");
+```
+
+For the default language, use `->val()`, `->attr('value')` or `->value` as usual:
+
+```php
+$f->val('Default language value');
+$f->attr('value', 'Default language value');
+$f->value = 'Default language value';
+
+$value = $f->val();
+$value = $f->attr('value');
+$value = $f->value;
+```
+
+### Labels and text per language
+
+Labels, descriptions, notes, and placeholders can also be set per language.
+Make translatable with ProcessWire's built-in translation tools:
+```php
+// in modules or other Wire derived classes
+$f->label = $this->_('Your name'); 
+$f->description = $this->_('Your first and last name'); 
+
+// outside of classes
+$f->label = __('Your name');
+$f->description = __('Your first and last name');
+```
+
+Labels, descriptions, notes, placeholders and other relevant properties can 
+also be set directly per language:
+
+```php
+$f->set("label$language", 'Tu nombre');
+$f->set("placeholder$language", 'Escribe tu nombre');
+```
+
+See [InputfieldText API](../../modules/Inputfield/InputfieldText/API.md#multi-language)
+for a complete multi-language usage example.
+
+---
+
 ## Notes
 
 - **Source files:** `wire/core/Inputfield/Inputfield.php` and `InputfieldWrapper.php`
