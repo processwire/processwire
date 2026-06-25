@@ -197,6 +197,15 @@ php index.php docs method <class> <method>   # details for a single method (JSON
 Commands return JSON by default. Append `-text` to any command name for plain text output,
 e.g. `php index.php docs list-text` or `php index.php docs get-text Pages`.
 
+### Writing API.md files and tests
+
+When documenting a class or module that doesn't yet have an API.md, see the
+[HOWTO-API guide](wire/core/Tools/WireApiDocs/HOWTO-API.md) for structure,
+conventions, `#pw-` tag usage, and a quick checklist.
+
+When writing tests for a class, see the [WireTests README](wire/modules/System/WireTests/README.md)
+for instructions on creating `WireTest` classes.
+
 ---
 
 ## Hooks

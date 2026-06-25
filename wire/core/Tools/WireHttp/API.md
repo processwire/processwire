@@ -1,4 +1,4 @@
-# WireHttp / $http
+# WireHttp
 
 HTTP client for sending GET, POST, PUT, DELETE, PATCH, HEAD, and OPTIONS requests
 to URLs, downloading files, and sending files to the browser. Supports CURL, fopen,
