@@ -188,6 +188,38 @@ that you are matching by page ID.
 
 ---
 
+### Field context properties
+
+When an Inputfield is used in the page editor (via a Field on a Template), ProcessWire
+populates three runtime properties that provide context about where the Inputfield is
+being used. These are set automatically by the core. You don't typically set them
+yourself, but it's occasionally useful to read them and adjust behavior based on context.
+
+| Property       | Type                     | Description                                                                   |
+|----------------|--------------------------|-------------------------------------------------------------------------------|
+| `hasFieldtype` | `Fieldtype\|false\|null` | The Fieldtype module, `false` if standalone form, or `null` if undetermined   |
+| `hasField`     | `Field\|null`            | The Field object the Inputfield is collecting input for (when in page editor) |
+| `hasPage`      | `Page\|null`             | The Page object the field lives on (when in page editor)                      |
+
+The `hasFieldtype` property has three states:
+
+- **`null`** — Undetermined, not yet or not applicable (default for standalone forms).
+- **`false`** — Explicitly a standalone form (FormBuilder module sets this, for example).
+- **`Fieldtype` object** — Connected to a Field on a Page (page editor context).
+
+Some Inputfield types adjust their behavior based on `hasFieldtype`. For example,
+to provide additional features or configuration when used in the page editor.
+
+```php
+if($f->hasFieldtype) { 
+    // Fieldtype instance, likely page editor context
+    $field = $f->hasField; // Field instance
+    $page = $f->hasPage; // Page instance
+}
+```
+
+---
+
 ### Skip label
 
 Controls label rendering. Use `skipLabel` constants:
