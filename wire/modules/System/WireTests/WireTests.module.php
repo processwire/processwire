@@ -569,14 +569,26 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		if(!is_dir($path)) return [];
 
 		$tests = [];
-		$flags = \FilesystemIterator::SKIP_DOTS;
+		$flags = \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::FOLLOW_SYMLINKS;
+		$seenDirs = [];
+		$realpath = realpath($path);
+		if($realpath !== false) $seenDirs[rtrim(str_replace('\\', '/', $realpath), '/')] = true;
+
 		$iterator = $recursive ?
 			new \RecursiveIteratorIterator(
 				new \RecursiveCallbackFilterIterator(
 					new \RecursiveDirectoryIterator($path, $flags),
-					function($file) {
-						if($file->isDir()) return !$this->isExcludedTestPath($file->getPathname());
-						return true;
+					function($file) use (&$seenDirs) {
+						if(!$file->isDir()) return true;
+
+						$realpath = $file->getRealPath();
+						if($realpath === false) return false;
+
+						$realpath = rtrim(str_replace('\\', '/', $realpath), '/');
+						if(isset($seenDirs[$realpath])) return false;
+						$seenDirs[$realpath] = true;
+
+						return !$this->isExcludedTestPath($file->getPathname());
 					}
 				)
 			) :
