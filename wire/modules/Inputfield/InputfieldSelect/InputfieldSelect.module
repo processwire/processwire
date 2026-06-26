@@ -104,7 +104,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * 
 	 * @param string|int $value
 	 * @param string $label
-	 * @param Language|null $language
+	 * @param Language||string|int|null $language
 	 * @return $this
 	 * @since 3.0.176
 	 * 

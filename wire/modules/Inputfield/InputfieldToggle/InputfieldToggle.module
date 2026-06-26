@@ -3,7 +3,7 @@
 /**
  * Toggle Inputfield
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * #pw-body = 
@@ -87,8 +87,8 @@ class InputfieldToggle extends Inputfield {
 	 */
 	protected $labelTypes = array(
 		'yes' => self::labelTypeYes,
-		'true' => self::labelTypeOn,
-		'on' => self::labelTypeTrue,
+		'true' => self::labelTypeTrue,
+		'on' => self::labelTypeOn,
 		'enabled' => self::labelTypeEnabled,
 		'custom' => self::labelTypeCustom,
 	);
@@ -215,6 +215,7 @@ class InputfieldToggle extends Inputfield {
 		$strValue = strtolower("$value");
 		
 		if($this->hasCustomOptions()) { 
+			if(is_string($value) && preg_match('/^-?\d+$/', $value)) $value = (int) $value;
 			if($intValue !== '') $value = $intValue;
 			$value = isset($this->customOptions[$value]) ? $value : self::valueUnknown;
 				
@@ -675,6 +676,25 @@ class InputfieldToggle extends Inputfield {
 			throw new WireException('The addOption() method is not available for FieldtypeToggle');
 		}
 		if($label === null) $label = $value;
+		if(!is_int($value) && !(is_string($value) && preg_match('/^-?\d+$/', $value))) {
+			throw new WireException('InputfieldToggle custom option values must be integers');
+		}
+		$value = (int) $value;
+		if($value < -128 || $value > 127) {
+			throw new WireException('InputfieldToggle custom option values must be between -128 and 127');
+		}
+		return $this->addCustomOption($value, $label);
+	}
+
+	/**
+	 * Add a selectable option without API-level validation, for internal configuration inputs.
+	 *
+	 * @param int|string $value
+	 * @param string $label
+	 * @return $this
+	 *
+	 */
+	protected function addCustomOption($value, $label) {
 		$this->customOptions[$value] = $label;
 		return $this;
 	}
@@ -876,10 +896,10 @@ class InputfieldToggle extends Inputfield {
 		$f->set('inputfieldClass', $this->inputfieldClass);
 		$f->attr('name', 'defaultOption'); 
 		$f->label = $this->_('Default selected option');
-		$f->addOption('yes', $this->getValueLabel(self::valueYes));
-		$f->addOption('no', $this->getValueLabel(self::valueNo));
-		if($this->useOther) $f->addOption('other', $this->getValueLabel(self::valueOther));
-		$f->addOption('none', $this->_('No selection'));
+		$f->addCustomOption('yes', $this->getValueLabel(self::valueYes));
+		$f->addCustomOption('no', $this->getValueLabel(self::valueNo));
+		if($this->useOther) $f->addCustomOption('other', $this->getValueLabel(self::valueOther));
+		$f->addCustomOption('none', $this->_('No selection'));
 		$f->val($this->defaultOption);
 		$f->addClass('InputfieldToggle', 'wrapClass');
 		$fieldset->add($f);

@@ -3,7 +3,7 @@
 /**
  * Inputfield for floating point numbers
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @property int|null|string $precision Decimals precision (or -1 to disable rounding in 3.0.193+) (default=2)
@@ -72,23 +72,27 @@ class InputfieldFloat extends InputfieldInteger {
 	 * 
 	 */
 	protected function sanitizeValue($value) {
+		$precision = $this->getPrecision();
+		$precision = strlen("$precision") ? (int) $precision : null;
 		if(!strlen("$value")) {
 			$value = '';
 		} else if($this->digits > 0) {
 			$value = (string) $value;
 			if(!is_numeric("$value")) {
 				$value = $this->wire()->sanitizer->float($value, array(
-					'precision' => (int) $this->precision, 
+					'precision' => $precision,
 					'getString' => 'F', 
 					'blankValue' => '',
 				));
 			}
 		} else if(!is_float($value) && !is_int($value)) {
-			$value = $this->wire()->sanitizer->float($value, array('blankValue' => ''));
+			$value = $this->wire()->sanitizer->float($value, array(
+				'precision' => $precision,
+				'blankValue' => '',
+			));
 			if(!strlen("$value")) $value = '';
 		} else {
-			$precision = $this->precision;
-			if($precision === null || $precision === '') $precision = $this->getPrecision($value);
+			if($this->precision === null || $this->precision === '') $precision = $this->getPrecision($value);
 			$value = is_int($precision) && $precision > 0 ? round((float) $value, $precision) : $value;
 		}
 		return $value;
