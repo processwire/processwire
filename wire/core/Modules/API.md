@@ -302,5 +302,5 @@ Append `--json` to any command for verbose JSON output.
 
 ## More about modules and how to make them
 
-Please see the [Module](../Module/API.md) class documentation for details on the Module 
+Please see [[Module]] for details on the Module 
 interface, the different types of modules, and to learn more about how to create modules.

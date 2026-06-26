@@ -11,9 +11,9 @@ $f->label = 'Description';
 $f->rows = 10;
 ```
 
-Inherits all properties and validation from [InputfieldText](../InputfieldText/API.md)
-(minlength, maxlength, stripTags, noTrim, pattern, showCount, etc.). See also the
-[Inputfield API](../../core/Inputfield/API.md) for the shared Inputfield API.
+Inherits all properties and validation from [[InputfieldText]]
+(minlength, maxlength, stripTags, noTrim, pattern, showCount, etc.). See also
+[[Inputfield]] for the shared Inputfield API.
 
 ## What's different from InputfieldText
 
@@ -29,7 +29,7 @@ behaviors for multi-line text:
 ## Properties
 
 Only properties unique to InputfieldTextarea are listed here. See
-[InputfieldText](../InputfieldText/API.md) for inherited properties.
+[[InputfieldText]] for inherited properties.
 
 | Property      | Type  | Default | Description                                                              |
 |---------------|-------|---------|--------------------------------------------------------------------------|
@@ -114,9 +114,7 @@ the default is 0 (no limit).
 ## Multi-language
 
 InputfieldTextarea supports multi-language just like InputfieldText. See
-[InputfieldText Multi-language](../InputfieldText/API.md#multi-language) and
-the [Inputfield API multi-language section](../../core/Inputfield/API.md#multi-language-support)
-for details.
+the multi-language sections of [[InputfieldText]] and [[Inputfield]] for details.
 
 ## Usage with FieldtypeTextarea
 

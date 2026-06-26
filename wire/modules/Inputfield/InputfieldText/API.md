@@ -14,7 +14,7 @@ $f->maxlength = 20;
 ```
 
 For the shared Inputfield API (attributes, labels, collapsed states, showIf, rendering,
-processing, etc.), see [Inputfield API](../../core/Inputfield/API.md).
+processing, etc.), see [[Inputfield]].
 
 ## Properties
 
@@ -187,7 +187,7 @@ $f->set("placeholder", __('Enter your name')); // admin translatable
 
 When used as a Field on a Page (via FieldtypeText), the Inputfield's settings are
 configured on the Field object and applied automatically. See
-[FieldtypeText API](../../modules/Fieldtype/FieldtypeText/API.md) for details
+[[FieldtypeText]] for details
 on how text fields store and format values.
 
 For standalone forms (module config, Process modules, front-end forms), create

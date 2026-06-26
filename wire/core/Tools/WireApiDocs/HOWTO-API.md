@@ -48,7 +48,7 @@ API.md files are organized by feature area, not by a fixed section template.
 The structure should fit the class. A typical API.md includes some combination of:
 
 1. **Title** — "ClassName" for most, or "ClassName / $varName" (if an API var)
-2. **Intro** — What is for, how to get an instance
+2. **Intro** — What it is for, how to get an instance
 3. **Properties** — table of properties with types and descriptions
 4. **Methods** — grouped by category (retrieval, manipulation, access, etc.)
 5. **Constants** — if the class defines public constants 
@@ -150,11 +150,11 @@ Please note:
 
 ### Other method-specific tags
 
-| Tag            | Purpose                                                |
-|----------------|--------------------------------------------------------|
-| `#pw-internal` | Public method that is meant for internal use only.     |
-| `#pw-advanced` | Public API but more for advanced users or usage cases. |
-| `#pw-hooker`   | Method intended primarily for hooks.                   |
+| Tag            | Purpose                                                   |
+|----------------|-----------------------------------------------------------|
+| `#pw-internal` | Public method that is meant for internal use only         |
+| `#pw-advanced` | Public API but more for advanced users or usage cases     |
+| `#pw-hooker`   | Method intended primarily for hooks, should be documented |
 
 Methods tagged `#pw-internal` are public but not intended for external use. Generally
 exclude them from API.md unless there's a compelling reason an agent or developer would
@@ -225,7 +225,7 @@ class HelloWorld extends WireData implements Module {
 
 ---
 
-## Documenting properties
+## Documenting properties or constants
 
 Use a Markdown table with columns for property name, type, and description. Only
 document properties that are part of the API — not internal runtime state.
@@ -269,10 +269,8 @@ $name = $field->get('name');
 ### What to omit
 
 - Internal implementation details
-- Parameters that have dedicated accessor methods (e.g. if `getFieldgroups(true)`
-  is just a count shortcut for `numFieldgroups()`, document `getFieldgroups()`
-  without the `$getCount` parameter)
-- `#pw-internal` methods (usually)
+- Methods with `@deprecated` tag
+- Methods with `#pw-internal` tag (usually)
 
 ---
 
@@ -292,7 +290,7 @@ Include inherited hooks if they're relevant to the class's usage. For example,
 Field's API.md documents hooks from `Fields` (WireSaveableItems) because those
 hooks receive a `$field` argument.
 
-Add a brief example of demonstrating a hook in documentation:
+Add a brief example of a hook:
 
 ~~~markdown
 ```php
@@ -316,7 +314,7 @@ parent classes should be cross-referenced rather than duplicated.
 
 ### Inputfield modules
 
-For Inputfield modules, cross-reference the main [Inputfield API](../../core/Inputfield/API.md)
+For Inputfield modules, cross-reference the main [Inputfield API](../../../core/Inputfield/API.md)
 for shared API (attributes, labels, collapsed, showIf, rendering, processing). Focus on:
 
 - Properties unique to the Inputfield type
@@ -327,7 +325,7 @@ for shared API (attributes, labels, collapsed, showIf, rendering, processing). F
 
 ```markdown
 For the shared Inputfield API (attributes, labels, collapsed states, showIf,
-rendering, processing, etc.), see [Inputfield API](../../core/Inputfield/API.md).
+rendering, processing, etc.), see [Inputfield API](../../../core/Inputfield/API.md).
 ```
 
 ### Fieldtype modules
@@ -335,16 +333,65 @@ rendering, processing, etc.), see [Inputfield API](../../core/Inputfield/API.md)
 Document the value type, how values are stored, selector support, output formatting,
 and field settings. Cross-reference the corresponding Inputfield if applicable.
 
+#### TypeField.php companion class
+
+Each Fieldtype module should have a companion `[Type]Field.php` file in the same
+directory (e.g. `TextField.php` alongside `FieldtypeText.module`). This class extends
+`Field` and contains only PHPDoc `@property` annotations documenting all configurable
+settings exposed by the Fieldtype and its corresponding Inputfield. It serves as the
+typed annotation layer for IDEs and agents when working with a field of that type.
+
+Group the annotations by source under separate comments:
+
+```php
+<?php namespace ProcessWire;
+
+/**
+ * @property int $maxlength Maximum allowed length of text value
+ * @property string $pattern HTML5 pattern attribute applied to the input
+ *
+ * // InputfieldText settings:
+ * @property int $size Visual width of the input element
+ * @property string $placeholder Placeholder text shown when input is empty
+ */
+class TextField extends Field { }
+```
+
+The Fieldtype module must declare a `getFieldClass()` method returning the class name:
+
+```php
+public function getFieldClass(array $a = array()) {
+    return 'TextField';
+}
+```
+
+And load the companion file with a `require_once` at the bottom of the module file:
+
+```php
+require_once(__DIR__ . '/TextField.php');
+```
+
 ---
 
 ## Cross-references
 
-Use relative Markdown links to reference other API.md files:
+Use `[[ClassName]]` to reference other documented classes:
 
 ```markdown
-See [InputfieldText API](../InputfieldText/API.md) for inherited properties.
-See [FieldtypeText API](../../modules/Fieldtype/FieldtypeText/API.md) for details.
+See [[InputfieldText]] for inherited properties.
+See [[FieldtypeText]] for details.
+Extends [[Inputfield]] and inherits all its methods.
 ```
+
+This is the [wiki-link convention](https://en.wikipedia.org/wiki/Help:Link) used by Obsidian,
+MediaWiki, and many other documentation tools. Because all ProcessWire class names are unique,
+a bare class name is enough to locate the docs — no path needed.
+
+Each consumer resolves `[[ClassName]]` in its own way:
+- **processwire.com docs**: converts to a link at `processwire.com/api/ref/ClassName/`
+- **WireApiDocs / AgentTools CLI**: resolves to the local API.md file
+- **Agents**: see `[[ClassName]]` and know to call `php index.php docs ClassName`
+- **Plain Markdown renderers**: display as readable text `[[ClassName]]`
 
 Use cross-references generously — they help agents and developers find related
 documentation without duplicating content.
@@ -432,6 +479,7 @@ instructions on creating WireTest classes, see the
 - [ ] Cross-reference parent class API rather than duplicating
 - [ ] Document hooks if the class is commonly hooked
 - [ ] Check for bugs, copyright year, PHPDoc accuracy
+- [ ] For Fieldtype modules: write `[Type]Field.php` companion class with `@property` annotations
 - [ ] Write a WireTest class to verify the API
 - [ ] Run `php index.php test ClassName` and `php index.php test all`
 - [ ] Test on multiple installs if available (e.g. multi-language)

@@ -109,7 +109,7 @@ $cookies = $input->cookie();
 
 `WireInputData` proxies `$sanitizer` methods, letting you get and sanitize in one call.
 The first argument to the sanitizer method is the input variable name rather than a value.
-Most `$sanitizer` methods are supported; see the [Sanitizer API](../Sanitizer/API.md) for more details.
+Most `$sanitizer` methods are supported; see [[Sanitizer]] for more details.
 
 ~~~~~php
 // These pairs are equivalent:

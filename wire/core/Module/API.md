@@ -265,7 +265,7 @@ class MyModule extends WireData implements Module, ConfigurableModule {
 ```
 
 Module config data is also retrievable at runtime via `$modules->getConfig('ModuleName')`.
-See [Modules API](../Modules/API.md) for `getConfig()` / `saveConfig()` usage.
+See [[Modules]] for `getConfig()` / `saveConfig()` usage.
 
 ## Module types
 

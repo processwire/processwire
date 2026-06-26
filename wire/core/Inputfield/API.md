@@ -627,8 +627,7 @@ $f->set("label$language", 'Tu nombre');
 $f->set("placeholder$language", 'Escribe tu nombre');
 ```
 
-See [InputfieldText API](../../modules/Inputfield/InputfieldText/API.md#multi-language)
-for a complete multi-language usage example.
+See [[InputfieldText]] for a complete multi-language usage example.
 
 ---
 
