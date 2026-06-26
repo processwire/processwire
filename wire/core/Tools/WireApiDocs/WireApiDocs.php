@@ -71,6 +71,14 @@ class WireApiDocs extends Wire implements CliModule {
 	protected $verbose = false;
 	
 	/**
+	 * Chapter number, when compiling chapters
+	 * 
+	 * @var int 
+	 * 
+	 */
+	protected $chapterNum = 0;
+	
+	/**
 	 * Construct
 	 * 
 	 * @param ProcessWire|null $wire ProcessWire instance (optional)
@@ -351,16 +359,37 @@ class WireApiDocs extends Wire implements CliModule {
 	 * a `body` key along every `title` that contains the body text of the chapter. 
 	 * 
 	 * @param string $class
-	 * @param bool $recursive Recurse into sub-chapters?
-	 * @param bool $getBody Also return body of chapters?
+	 * @param array $options 
+	 *  - `recursive` (bool): Recurse into sub-chapters? 
+	 *  - `getBody` (bool): Also return body of chapters?
+	 *  - `getFlat` (bool): Get in flat array?
+	 *  - `getString` (bool): Get as string rather than array?
 	 * @return array
 	 * 
 	 */
-	public function getChapters($class, $recursive = false, $getBody = false) {
+	public function getChapters($class, array $options = []) {
+		$this->chapterNum = -1;
 		if(is_array($class)) $class = reset($class);
 		if(!is_string($class)) return [];
 		$docs = $this->get($class);
-		$chapters = $this->extractChapters($docs, 2, $recursive, $getBody);
+		if(substr_count("\n$docs", "\n# ") > 1) {
+			$hLevel = 1;
+		} else {
+			$hLevel = 2;
+		}
+		$getString = !empty($options['getString']);
+		if($getString) $options['getFlat'] = true;
+		$chapters = $this->extractChapters($docs, $hLevel, $options);
+		if($getString) {
+			$a = [];	
+			foreach($chapters as $chapter) {
+				$chapterNum = (string) $chapter['num'];
+				if(strlen($chapterNum) < 3) $chapterNum = str_pad($chapterNum, 3, '0', STR_PAD_LEFT);
+				$a[] = "$chapterNum: " . str_repeat('    ', $chapter['hLevel']-1) . "- $chapter[title]";
+			}
+			sort($a);
+			$chapters = implode("\n", $a); 
+		}
 		return $chapters;
 	}
 	
@@ -374,25 +403,39 @@ class WireApiDocs extends Wire implements CliModule {
 	public function getChapterBody($class, $chapter) {
 		if(ctype_digit("$chapter")) {
 			$chapter = (int) $chapter;
-			$chapters = $this->getChapters($class, false, true);
-			return $chapters[$chapter] ?? [];
-		}
-		$docs = $this->get($class);
-		$docs = preg_replace('/#\s{2,}/', '# ', $docs);
-		if(strpos($docs, '# ' . $chapter) === false) return '';
-		list($before, $body) = explode('# ' . $chapter, $docs, 2);
-		$a = explode("\n", $before);
-		$last = array_pop($a);
-		$hLevel = substr_count($last, '#') + 1;
-		$h = str_repeat('#', $hLevel);
-		list($body,) = explode("\n$h ", $body, 2);
-		while($hLevel > 1) {
-			$hLevel--;
+			$chapters = $this->getChapters($class, [
+				'recursive' => true, 
+				'getBody' => true, 
+				'getFlat' => true, 
+			]); 
+			$body = '';
+			if(isset($chapters[$chapter])) {
+				$c = $chapters[$chapter];
+				$h = str_repeat('#', $c['hLevel']);
+				$title = $c['title'];
+				$body = "$h $title\n\n$c[body]";
+			}
+		} else {
+			$docs = $this->get($class);
+			$docs = preg_replace('/#\s{2,}/', '# ', $docs);
+			if(strpos($docs, '# ' . $chapter) === false) return '';
+			list($before, $body) = explode('# ' . $chapter, $docs, 2);
+			$a = explode("\n", $before);
+			$last = array_pop($a);
+			$hLevel = substr_count($last, '#') + 1;
 			$h = str_repeat('#', $hLevel);
-			if(strpos($body, "\n$h ") !== false) {
-				list($body,) = explode("\n$h ", $body, 2);
+			list($body,) = explode("\n$h ", $body, 2);
+			while($hLevel > 1) {
+				$hLevel--;
+				$h = str_repeat('#', $hLevel);
+				if(strpos($body, "\n$h ") !== false) {
+					list($body,) = explode("\n$h ", $body, 2);
+				}
 			}
 		}
+		
+		$body = preg_replace('/\n{3,}/s', "\n\n", $body);
+		
 		return trim($body);
 	}
 	
@@ -401,34 +444,73 @@ class WireApiDocs extends Wire implements CliModule {
 	 * 
 	 * @param string $body
 	 * @param int $hLevel
-	 * @param bool $recursive Recurse into sub-chapters?
-	 * @param bool $getBody
+	 * @param array $options
+	 * - `recursive` (bool): Recurse into sub-chapters?
+	 * - `getBody` (bool): Also return body of chapters?
+	 * - `getFlat` (bool): Get in flat array?
+	 * - `getString` (bool): Get as string rather than array?
 	 * @return array
 	 * 
 	 */
-	protected function extractChapters($body, $hLevel = 2, $recursive = true, $getBody = false) {
+	protected function extractChapters($body, $hLevel = 2, array $options = []) {
+		$defaults = [
+			'recursive' => true,
+			'getBody' => false,
+			'getFlat' => false,
+			'getString' => false,
+		];
+		$options = array_merge($defaults, $options);
 		$hash = "\n" . str_repeat('#', $hLevel);
 		if(strpos($body, "$hash ") === false) return [];
 		$parts = explode("$hash ", $body);
-		array_shift($parts); // first part is headline/intro
+		if($hLevel > 1 && false) {
+			array_shift($parts); // first part is headline/intro
+		} else {
+			$parts[0] = ltrim($parts[0], ' #');
+		}
 		$chapters = [];
 		foreach($parts as $part) {
-			[ $title, $body ] = explode("\n", $part, 2);
-			if($recursive || $getBody) {
-				$chapter = ['title' => $title];
+			if(!is_string($part) || empty($part)) continue;
+			$num = ++$this->chapterNum;
+			[$title, $body] = explode("\n", $part, 2);
+			$body = (string) $body;
+			if($options['recursive'] || $options['getBody']) {
+				$chapter = [
+					'num' => str_pad($num, 3, '0', STR_PAD_LEFT),
+					'title' => $title
+				];
+				if($options['getFlat']) $chapter['hLevel'] = $hLevel;
 			} else {
 				$chapter = $title;
 			}
-			if($recursive && $hLevel < 6 && strpos($body, "$hash# ") !== false) {
+			if($options['recursive'] && $hLevel < 6 && strpos($body, "$hash# ") !== false) {
 				list($body, $rest) = explode("$hash# ", $body, 2);
-				if($getBody) $chapter['body'] = trim($body);
+				if($options['getBody']) $chapter['body'] = trim($body);
 				$nextHash = "\n" . str_repeat('#', $hLevel + 1);
-				$subchapters = $this->extractChapters("$nextHash $rest", $hLevel + 1, $recursive, $getBody);
-				$chapter['chapters'] = $subchapters;
-			} else if($getBody) {
+				$subchapters = $this->extractChapters("$nextHash $rest", $hLevel + 1, $options);
+				if($options['getFlat']) {
+					foreach($subchapters as $chapterNum => $subchapter) {
+						if($options['getBody']) {
+							$h = str_repeat('#', $hLevel+1); 
+							$chapter['body'] = "$chapter[body]\n\n$h $subchapter[title]\n\n$subchapter[body]";
+						}
+						if($options['getFlat']) {
+							$chapters[$chapterNum] = $subchapter;
+						} else {
+							$chapters[] = $subchapter;
+						}
+					}
+				} else {
+					$chapter['chapters'] = $subchapters;
+				}
+			} else if($options['getBody']) {
 				$chapter['body'] = trim($body);
 			}
-			$chapters[] = $chapter;
+			if($options['getFlat']) {
+				$chapters["$num"] = $chapter;
+			} else {
+				$chapters[] = $chapter;
+			}
 		}
 		return $chapters;
 	}
@@ -1329,8 +1411,8 @@ class WireApiDocs extends Wire implements CliModule {
 	/**
 	 * Get API docs for given class and API filename
 	 * 
-	 * @param string string $name Class name
-	 * @param string string $filename Docs file name (API.md)
+	 * @param string $name Class name
+	 * @param string $filename Docs file name (API.md)
 	 * @return array|false|string Returns array in verbose mode, false on fail, or string of docs
 	 * 
 	 */
@@ -1529,7 +1611,20 @@ class WireApiDocs extends Wire implements CliModule {
 			case 'list-verbose-text':
 			if(!empty($args[1]) && strpos($args[1], '*') === false) $args[1] = "*$args[1]";
 				$out = array_values($this->getVerbose(isset($args[1]) ? [ $args[1] ] : [])); 
-				if($useStr) $out = implode("\n", $out);
+				if($useStr) {
+					$str = '';
+					foreach($out as $item) {
+						$str .= 
+							"  Class: $item[className]\n" . 
+							"   File: $item[classFile]\n" . 
+							"API var: " . ($item['apiVarName'] ? $item['apiVarName'] : 'no') . "\n" . 
+							" Module: " . ($item['isModule'] ? 'yes' : 'no') . "\n" . 
+							"   Docs: $item[docsFile]\n" .
+							"Summary: $item[summary]\n" . 
+							"------------------------\n";
+					}
+					$out = $str; 
+				}
 				break;
 			case 'get-text': 
 				$out = (isset($args[1]) ? $this->get($args[1]) : $invalid); 
@@ -1539,17 +1634,18 @@ class WireApiDocs extends Wire implements CliModule {
 				if(is_array($out)) $out = reset($out);
 				break;
 			case 'toc-text':	
-			case 'toc-json':	
+			case 'toc-json':
+			case 'chapters-text':
+			case 'chapters-json':
 				$class = $args[1] ?? '';
-				if($class) $out = $this->getChapters($class);
-				if($class && $useStr) $out = implode("\n", $out);
+				$options = [ 'getString' => $useStr ];
+				if($class) $out = $this->getChapters($class, $options);
 				break;
 			case 'chapter-json':
 			case 'chapter-text':
 				$class = $args[1] ?? '';
 				$chapter = $args[2] ?? '';
-				$out = $class && $chapter ? $this->getChapterBody($class, $chapter) : [];
-				if($useStr) $out = "## $out[title]\n\n$out[body]" ?? '';
+				$out = $class && $chapter ? $this->getChapterBody($class, $chapter) : '';
 				break;
 			case 'methods-json':
 			case 'methods-text':
@@ -1672,12 +1768,12 @@ class WireApiDocs extends Wire implements CliModule {
 	public function getCliCommands() {
 		return [ 
 			'list' => 'List classes with API.md docs',
-			"list 'Class*'" => 'List classes matches wildcard pattern ',
+			"list 'Class*'" => 'List classes matching wildcard pattern',
 			'list-verbose' => 'List classes with API.md docs in verbose mode',
 			"list-verbose 'Class*'" => 'List classes matching pattern in verbose mode',
 			'get <class>' => 'Get API docs for given class',
-			'toc <class>' => 'Get table of contents for given class',
-			'chapter <class> <num>' => 'Get body for given class and chapter number',
+			'chapters <class>' => 'Get all chapters (table of contents) for given class',
+			'chapter <class> <num>' => 'Get body for given class and chapter num',
 			"chapter <class> 'Title'" => 'Get body for given class and chapter title',
 			'methods <class>' => 'Get public methods for given class (* prefix = hookable)',
 			'method <class> <method>' => 'Get details for a single method (JSON only)',
