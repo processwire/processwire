@@ -182,37 +182,37 @@ $pages->insertAfter($p, $afterPage);
 
 ### save() options
 
-| Option              | Default  | Description                                                         |
-|---------------------|----------|---------------------------------------------------------------------|
-| `uncacheAll`        | `true`   | Clear memory cache after save                                       |
-| `resetTrackChanges` | `true`   | Reset page's change tracking                                        |
-| `quiet`             | `false`  | Skip updating modified date/user                                    |
-| `adjustName`        | `true`   | Auto-adjust name to be unique within parent                         |
-| `ignoreFamily`      | `false`  | Bypass family/parent restriction checks                             |
-| `noHooks`           | `false`  | Skip before/after save hooks                                        |
-| `noFields`          | `false`  | Save only native page properties, not fields                        |
+| Option              | Default  | Description                                                                 |
+|---------------------|----------|-----------------------------------------------------------------------------|
+| `uncacheAll`        | `true`   | Clear memory cache after save                                               |
+| `resetTrackChanges` | `true`   | Reset page's change tracking                                                |
+| `quiet`             | `false`  | Skip updating modified date/user                                            |
+| `adjustName`        | `true`   | Auto-adjust name to be unique within parent                                 |
+| `ignoreFamily`      | `false`  | Bypass family/parent restriction checks                                     |
+| `noHooks`           | `false`  | Skip before/after save hooks                                                |
+| `noFields`          | `false`  | Save only native page properties, not fields                                |
 | `saveAll`           | `true`   | Call savePageField() on all fields, even those not marked changed. 3.0.265+ |
-| `throw`             | `true`   | Throw exceptions on errors rather than returning false. 3.0.265+   |
-| `getVerbose`        | `false`  | Return a verbose array describing the save instead of a bool. 3.0.265+ |
+| `throw`             | `true`   | Throw exceptions on errors rather than returning false. 3.0.265+            |
+| `getVerbose`        | `false`  | Return a verbose array describing the save instead of a bool. 3.0.265+      |
 
 When `getVerbose` is `true`, `$pages->save()` returns an array instead of a boolean:
 
-| Key             | Type     | Description                                              |
-|-----------------|----------|----------------------------------------------------------|
-| `result`        | `bool`   | Whether the save succeeded                               |
-| `id`            | `int`    | Page ID after save                                       |
-| `path`          | `string` | Page path after save                                     |
-| `isNew`         | `bool`   | Whether this was a newly created page                    |
-| `user`          | `string` | Name of the user who performed the save                  |
+| Key             | Type     | Description                                                |
+|-----------------|----------|------------------------------------------------------------|
+| `result`        | `bool`   | Whether the save succeeded                                 |
+| `id`            | `int`    | Page ID after save                                         |
+| `path`          | `string` | Page path after save                                       |
+| `isNew`         | `bool`   | Whether this was a newly created page                      |
+| `user`          | `string` | Name of the user who performed the save                    |
 | `changes`       | `array`  | Field names that were changed (from `$page->getChanges()`) |
-| `savedFields`   | `array`  | Field names that were saved to the database              |
-| `changedFields` | `array`  | Field names detected as changed during save              |
-| `skippedFields` | `array`  | Field names skipped (not saved)                          |
-| `natives`       | `array`  | Native page column values written to the `pages` table   |
-| `messages`      | `array`  | Log of informational messages from the save process      |
-| `errors`        | `array`  | Errors encountered during the save                       |
-| `hooks`         | `array`  | Hook methods that were called during the save            |
-| `options`       | `array`  | The resolved options array used for the save             |
+| `savedFields`   | `array`  | Field names that were saved to the database                |
+| `changedFields` | `array`  | Field names detected as changed during save                |
+| `skippedFields` | `array`  | Field names skipped (not saved)                            |
+| `natives`       | `array`  | Native page column values written to the `pages` table     |
+| `messages`      | `array`  | Log of informational messages from the save process        |
+| `errors`        | `array`  | Errors encountered during the save                         |
+| `hooks`         | `array`  | Hook methods that were called during the save              |
+| `options`       | `array`  | The resolved options array used for the save               |
 
 ```php
 $result = $pages->save($p, ['getVerbose' => true]);

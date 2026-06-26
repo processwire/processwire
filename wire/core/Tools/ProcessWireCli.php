@@ -125,15 +125,17 @@ class ProcessWireCli extends Wire {
 			return [];
 		}
 		
+		if(empty($args)) {
+			echo $this->renderHelp(ltrim($name, '-'));
+			return [];
+		}
+		
 		$cliModules = $this->getCliModules($name);
 		
 		foreach($cliModules as $mod) {
 			if(!wireInstanceOf($mod, 'CliModule') && !method_exists($mod, 'executeCli')) {
 				// module likely has its own CLI handler from a ProcessWire::ready hook
 				continue;
-			}
-			if(empty($args)) {
-				echo $this->renderHelp($name);
 			}
 			try {
 				$mod->executeCli($args);
@@ -206,12 +208,14 @@ class ProcessWireCli extends Wire {
 	public function ___renderHelp($cliName = '', array $args = []) {
 	
 		$modules = $this->wire()->modules;
-		$out = $this->renderProcessWire();
+		$out = $this->renderProcessWire() . "\n";
 		$commandItems = [];
 		$moduleInfos = [];
 		$max = 0; // max command line item length
 		$items = [];
 		$notes = [];
+		$titles = [];
+		$summaries = [];
 		$descriptions = [];
 		
 		foreach($modules->findByFlag(Modules::flagsCli, false) as $moduleName) {
@@ -233,20 +237,24 @@ class ProcessWireCli extends Wire {
 		// find modules with Cli flag and place their commands into $commandItems array
 		foreach($items as $varName => $moduleName) {
 			$isModule = true;
-			$info = [ 'cli' => '' ];
+			$info = [ 'cli' => '', 'title' => '', 'summary' => '' ];
 			
 			if(is_string($moduleName)) {
-				$info = $modules->getModuleInfo($moduleName);
-				if($cliName && empty($info['cli'])) continue;
-				if($cliName && $info['cli'] !== $cliName) continue;
+				$info = $modules->getModuleInfoVerbose($moduleName);
+				if($cliName && $cliName !== 'all') {
+					if(empty($info['cli'])) continue;
+					if($info['cli'] !== $cliName) continue;
+				}
+				if(!empty($info['title'])) $titles[$moduleName] = $info['title'];
+				if(!empty($info['summary'])) $summaries[$moduleName] = $info['summary'];
 			} else if($moduleName instanceof CliModule) {
-				if($cliName && $varName != $cliName && $cliName !== wireClassName($moduleName)) continue;
-				$info = [ 'cli' => $varName ];
+				if($cliName && $cliName !== 'all' && $varName != $cliName && $cliName !== wireClassName($moduleName)) continue;
+				$info = [ 'cli' => $varName, 'title' => wireClassName($moduleName), 'summary' => '' ];
 				$isModule = false;
 			}
 			
 			$commands = [];
-			
+		
 			if(wireInstanceOf($moduleName, 'CliModule') || wireMethodExists($moduleName, 'getCliCommands')) {
 				if($isModule) {
 					$module = $modules->getModule($moduleName, ['noInit' => true, 'noCache' => true]);
@@ -256,7 +264,11 @@ class ProcessWireCli extends Wire {
 				}
 				/** @var CliModule $module */
 				if($module && method_exists($module, 'getCliCommands')) {
-					$commands = $module->getCliCommands();
+					if($cliName) {
+						$commands = $module->getCliCommands();
+					} else {
+						$commands[$info['cli']] = "$moduleName commands";
+					}
 				}
 			}
 			
@@ -264,25 +276,50 @@ class ProcessWireCli extends Wire {
 			
 			if(is_array($commands)) {
 				// $commands['command syntax' => 'description'] or [0 => 'command syntax']
+				// $commands[':title'] Title of this command set
+				// $commands[':summary'] Summary of this command set
 				// $commands[':description'][] items appear above commands
 				// $commands[':note'][] items appear below commands
 				foreach($commands as $cmd => $label) {
 					if($cmd === ':note') {
 						if(!isset($notes[$moduleName])) $notes[$moduleName] = [];
-						if(is_array($label)) $notes[$moduleName] = array_merge($notes[$moduleName], $label); 
-							else $notes[$moduleName][] = $label;
+						if(is_array($label)) {
+							$notes[$moduleName] = array_merge($notes[$moduleName], $label);
+						} else {
+							$notes[$moduleName][] = $label;
+						}
 						continue;
 					} else if($cmd === ':description') {
 						if(!isset($descriptions[$moduleName])) $descriptions[$moduleName] = [];
-						if(is_array($label)) $descriptions[$moduleName] = array_merge($descriptions[$moduleName], $label);
-							else $descriptions[$moduleName][] = $label;
+						if(is_array($label)) {
+							$descriptions[$moduleName] = array_merge($descriptions[$moduleName], $label);
+						} else {
+							$descriptions[$moduleName][] = $label;
+						}
+						continue;
+					} else if($cmd === ':title') {
+						$titles[$moduleName] = $label;
+						continue;
+					} else if($cmd === ':summary') {
+						$summaries[$moduleName] = $label;
 						continue;
 					}
 					if(is_int($cmd)) [$cmd, $label] = [$label, ''];
-					$line = strpos($cmd, 'index.php') === false ? "php index.php $info[cli] $cmd " : "$cmd ";
-					$items[$line] = $label;
-					$len = strlen($line);
-					if($len > $max) $max = $len+1;
+					if(strpos($cmd, $info['cli']) === false) $cmd = "$info[cli] $cmd";
+					if(strpos($cmd, 'index.php') === false) $cmd = "php index.php $cmd";
+					
+					if(!$cliName) {
+						if(!empty($titles[$moduleName])) {
+							$label = $titles[$moduleName];
+							//if(!empty($summaries[$moduleName])) $label .= " - $summaries[$moduleName]";
+						} else if(!empty($summaries[$moduleName])) {
+							$label = $summaries[$moduleName];
+						}
+					}
+						
+					$items[$cmd] = $label;
+					$len = strlen($cmd);
+					if($len > $max) $max = $len+2;
 				}
 				
 			} else if(is_string($commands)) {
@@ -295,18 +332,29 @@ class ProcessWireCli extends Wire {
 				$moduleInfos[$moduleName] = $info;
 			}
 		}
-	
+		
+		if(!$cliName) {
+			$commandItems['all'] = [ 
+				"php index.php all" => "Show all commands from all tools above"
+			];
+		}
+		
 		foreach($commandItems as $moduleName => $commands) {
-			
+		
+			if($moduleName === 'all') continue;
 			$info = $moduleInfos[$moduleName];
 			if(!empty($info['title'])) {
 				$header = ($moduleName ? "$moduleName: " : "") . "$info[title]"; // module title header
 			} else {
 				$header = "$moduleName";
 			}
-			$sep = str_repeat('=', strlen($header)); // line under title header
-			$newline = "\n  ";
-			$out .= "$newline$header$newline$sep";
+			if($cliName) {
+				$sep = str_repeat('=', strlen($header)); // line under title header
+				$newline = "\n  ";
+				$out .= "$newline$header$newline$sep";
+			} else {
+				$newline = '  ';
+			}
 			
 			if(isset($descriptions[$moduleName])) {
 				$out .= $newline . implode($newline, $descriptions[$moduleName]) . $newline;
@@ -338,12 +386,19 @@ class ProcessWireCli extends Wire {
 	 */
 	public function renderProcessWire() {
 		$version = $this->wire()->config->versionName;
+		$content = "ProcessWire $version";
+		$width = strlen($content) + 2; // +2 for the spaces on each side
+		$line = str_repeat("─", $width);
+		return "┌{$line}┐\n│ {$content} │\n└{$line}┘";	
+	
+		/*
 		return "\n" .
 			"    ____                                _       ___          \n" .
 			"   / __ \_________  ________  _________| |     / (_)_______  \n" .
 			"  / /_/ / ___/ __ \/ ___/ _ \/ ___/ ___/ | /| / / / ___/ _ \ \n" .
 			" / ____/ /  / /_/ / /__/  __(__  |__  )| |/ |/ / / /  /  __/ \n" .
 			"/_/   /_/   \____/\___/\___/____/____/ |__/|__/_/_/   \___/ $version \n";
+		*/
 	}
 	
 	/**
