@@ -75,6 +75,22 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	protected $failed = 0;
 
 	/**
+	 * Names of failed tests
+	 *
+	 * @var array
+	 *
+	 */
+	protected $failedTestNames = [];
+
+	/**
+	 * Number of tests skipped
+	 *
+	 * @var int
+	 *
+	 */
+	protected $skipped = 0;
+
+	/**
 	 * Are we in CLI mode?
 	 *
 	 * @var bool
@@ -105,6 +121,46 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 *
 	 */
 	protected $testFileRecords = null;
+
+	/**
+	 * Is JSON output mode enabled?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $jsonOutput = false;
+
+	/**
+	 * JSON output run timer
+	 *
+	 * @var float|null
+	 *
+	 */
+	protected $jsonTimer = null;
+
+	/**
+	 * JSON output test results
+	 *
+	 * @var array
+	 *
+	 */
+	protected $jsonTests = [];
+
+	/**
+	 * JSON output top-level messages
+	 *
+	 * @var array
+	 *
+	 */
+	protected $jsonMessages = [];
+
+	/**
+	 * JSON output current test entry
+	 *
+	 * @var array|null
+	 *
+	 */
+	protected $jsonTest = null;
 
 	/**
 	 * Construct
@@ -149,8 +205,16 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 *
 	 */
 	public function executeCli($args) {
+		$this->jsonOutput = in_array('--json', $args, true);
+		if($this->jsonOutput) $args = array_values(array_diff($args, [ '--json' ]));
 		if(empty($args)) {
-			$this->line("\nNo test specified");
+			if($this->jsonOutput) {
+				$this->resetRunState();
+				$this->fail("No test specified");
+				$this->summary();
+			} else {
+				$this->line("\nNo test specified");
+			}
 		} else {
 			$this->runTests($args[0]);
 		}
@@ -177,6 +241,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 *
 	 */
 	public function line($line) {
+		if($this->jsonOutput) return;
 		if($this->cli) {
 			echo "$line\n";
 		} else {
@@ -192,6 +257,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 */
 	public function li($line) {
 		if(strpos($line, "\n")) $line = str_replace("\n", "\n  ", $line);
+		$this->addJsonMessage('li', $line);
 		$this->line("- $line");
 	}
 
@@ -202,6 +268,10 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 *
 	 */
 	public function ok($line) {
+		if($this->jsonOutput) {
+			$this->addJsonAssertion([ 'status' => 'ok', 'label' => $line ]);
+			return;
+		}
 		$this->li("OK: $line");
 	}
 
@@ -212,6 +282,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 *
 	 */
 	public function note($note) {
+		$this->addJsonMessage('note', $note);
 		$this->line($note);
 	}
 
@@ -223,6 +294,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 */
 	public function success($note = '') {
 		$this->passed++;
+		$this->finishJsonTest('pass');
 		$this->li("👍 SUCCESS $note " . $this->getElapsed());
 	}
 
@@ -230,10 +302,21 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 * Indicate test fail
 	 *
 	 * @param string $note Optional note
+	 * @param \Throwable|null $exception Optional exception
 	 *
 	 */
-	public function fail($note = '') {
+	public function fail($note = '', ?\Throwable $exception = null) {
 		$this->failed++;
+		$this->addFailedTestName();
+		if($this->jsonOutput && !$this->jsonTest) {
+			$this->jsonMessages[] = [
+				'type' => 'fail',
+				'text' => (string) $note,
+			];
+		}
+		$data = [ 'message' => $note ];
+		if($exception) $data['exception'] = $exception;
+		$this->finishJsonTest('fail', $data);
 		$this->li("👎 FAIL $note " . $this->getElapsed());
 	}
 
@@ -282,6 +365,14 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		}
 		if(!$ok) {
 			if(!$message) $message = "$testName: Expected: " . var_export($expectValue, true) . ", Received: " . var_export($actualValue, true);
+			$this->addJsonAssertion([
+				'status' => 'fail',
+				'label' => $testName,
+				'expected' => $expectValue,
+				'actual' => $actualValue,
+				'operator' => $operator,
+				'message' => $message
+			]);
 			throw new WireTestException($message);
 		}
 		$this->ok("$testName");
@@ -293,13 +384,18 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	 */
 	public function summary() {
 		$total = $this->passed + $this->failed;
-		if($total < 2) return;
+		if($this->jsonOutput) {
+			$this->renderJsonSummary();
+			return;
+		}
+		if($total < 2 && $this->failed === 0) return;
 		$this->line('');
 		$this->line("===================================");
 		if($this->failed === 0) {
 			$this->line("ALL $total TESTS PASSED 👍");
 		} else {
 			$this->line("RESULTS: {$this->passed} passed, {$this->failed} failed of $total tests");
+			$this->line($this->getFailedTestsSummary());
 		}
 		$this->line("===================================");
 	}
@@ -315,6 +411,201 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 
 	/**
+	 * Get elapsed seconds of last test without surrounding formatting
+	 *
+	 * @return string
+	 *
+	 */
+	protected function getElapsedSeconds() {
+		return $this->timer ? Debug::timer($this->timer) : '';
+	}
+
+	/**
+	 * Reset test run state
+	 *
+	 */
+	protected function resetRunState() {
+		$this->passed = 0;
+		$this->failed = 0;
+		$this->failedTestNames = [];
+		$this->skipped = 0;
+		$this->jsonTests = [];
+		$this->jsonMessages = [];
+		$this->jsonTest = null;
+		$this->jsonTimer = $this->jsonOutput ? microtime(true) : null;
+	}
+
+	/**
+	 * Add current test name to failed tests list
+	 *
+	 */
+	protected function addFailedTestName() {
+		$name = '';
+		if($this->jsonTest && !empty($this->jsonTest['name'])) {
+			$name = $this->jsonTest['name'];
+		} else if($this->testName !== 'all') {
+			$name = $this->testName;
+		}
+		if($name === '') return;
+		$this->failedTestNames[$name] = $name;
+	}
+
+	/**
+	 * Get failed tests summary line
+	 *
+	 * @return string
+	 *
+	 */
+	protected function getFailedTestsSummary() {
+		$names = array_values($this->failedTestNames);
+		if(empty($names)) return 'Failed: unknown';
+		$label = count($names) === 1 ? 'FAIL' : 'Failed';
+		return $label . ': ' . implode(', ', $names);
+	}
+
+	/**
+	 * Start JSON result entry for current test
+	 *
+	 * @param array $test
+	 *
+	 */
+	protected function startJsonTest(array $test) {
+		if(!$this->jsonOutput) return;
+		$this->jsonTest = [
+			'name' => $test['name'],
+			'file' => $this->getRelativePath($test['file'], $this->wire()->config->paths->root),
+			'class' => __NAMESPACE__ . "\\$test[class]",
+			'status' => 'run',
+			'assertions' => [],
+			'messages' => [],
+		];
+	}
+
+	/**
+	 * Finish JSON result entry for current test
+	 *
+	 * @param string $status
+	 * @param array $data
+	 *
+	 */
+	protected function finishJsonTest($status, array $data = []) {
+		if(!$this->jsonOutput || !$this->jsonTest) return;
+		if($this->jsonTest['status'] !== 'run') {
+			if(!empty($data['message'])) $this->addJsonMessage($status, $data['message']);
+			return;
+		}
+		$this->jsonTest['status'] = $status;
+		if($status !== 'skip') $this->jsonTest['elapsed'] = $this->getElapsedSeconds();
+		foreach($data as $key => $value) {
+			if($key === 'exception' && $value instanceof \Throwable) {
+				$this->jsonTest[$key] = [
+					'class' => get_class($value),
+					'message' => $value->getMessage(),
+					'code' => $value->getCode(),
+				];
+			} else {
+				$this->jsonTest[$key] = $this->normalizeJsonValue($value);
+			}
+		}
+		if(empty($this->jsonTest['assertions'])) unset($this->jsonTest['assertions']);
+		if(empty($this->jsonTest['messages'])) unset($this->jsonTest['messages']);
+		$this->jsonTests[] = $this->jsonTest;
+		$this->jsonTest = null;
+	}
+
+	/**
+	 * Add skipped JSON result entry
+	 *
+	 * @param array $test
+	 * @param string $reason
+	 *
+	 */
+	protected function skipJsonTest(array $test, $reason) {
+		$this->skipped++;
+		if(!$this->jsonOutput) return;
+		$this->startJsonTest($test);
+		$this->finishJsonTest('skip', [ 'reason' => $reason ]);
+	}
+
+	/**
+	 * Add JSON assertion to current test
+	 *
+	 * @param array $assertion
+	 *
+	 */
+	protected function addJsonAssertion(array $assertion) {
+		if(!$this->jsonOutput || !$this->jsonTest) return;
+		foreach($assertion as $key => $value) {
+			$assertion[$key] = $this->normalizeJsonValue($value);
+		}
+		$this->jsonTest['assertions'][] = $assertion;
+	}
+
+	/**
+	 * Add JSON diagnostic message to current test
+	 *
+	 * @param string $type
+	 * @param string $text
+	 *
+	 */
+	protected function addJsonMessage($type, $text) {
+		if(!$this->jsonOutput || !$this->jsonTest) return;
+		$this->jsonTest['messages'][] = [
+			'type' => $type,
+			'text' => (string) $text,
+		];
+	}
+
+	/**
+	 * Normalize value for JSON output
+	 *
+	 * @param mixed $value
+	 * @return mixed
+	 *
+	 */
+	protected function normalizeJsonValue($value) {
+		if($value === null || is_bool($value) || is_int($value) || is_float($value) || is_string($value)) return $value;
+		if(is_array($value)) {
+			foreach($value as $key => $item) $value[$key] = $this->normalizeJsonValue($item);
+			return $value;
+		}
+		if(is_object($value)) {
+			return [
+				'type' => 'object',
+				'class' => get_class($value),
+				'string' => method_exists($value, '__toString') ? (string) $value : ''
+			];
+		}
+		if(is_resource($value)) {
+			return [
+				'type' => 'resource',
+				'resourceType' => get_resource_type($value)
+			];
+		}
+		return (string) $value;
+	}
+
+	/**
+	 * Render JSON summary
+	 *
+	 */
+	protected function renderJsonSummary() {
+		$total = $this->passed + $this->failed + $this->skipped;
+		$out = [
+			'status' => $this->failed ? 'fail' : 'pass',
+			'passed' => $this->passed,
+			'failed' => $this->failed,
+			'skipped' => $this->skipped,
+			'total' => $total,
+			'elapsed' => $this->jsonTimer ? number_format(microtime(true) - $this->jsonTimer, 4, '.', '') : '',
+			'tests' => $this->jsonTests,
+		];
+		if(count($this->jsonMessages)) $out['messages'] = $this->jsonMessages;
+		echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+		if($this->cli && $this->failed) exit(1);
+	}
+
+	/**
 	 * Run tests
 	 *
 	 * @param string $name Test name or omit for 'all'
@@ -323,16 +614,18 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	public function runTests($name = 'all') {
 		if($this->cli) {
 			error_reporting(E_ALL);
-			ini_set('display_errors', 1);
+			ini_set('display_errors', $this->jsonOutput ? 0 : 1);
 		}
 
+		$this->resetRunState();
 		$this->testName = $name;
 		$this->cwd = getcwd();
 		$testFiles = $this->getTestFileRecords($name);
 		$numTests = count($testFiles);
 
 		if(!count($testFiles)) {
-			$this->fail("No tests to run");
+			if($this->failed === 0) $this->fail("No tests to run");
+			$this->summary();
 			return;
 		}
 
@@ -351,11 +644,13 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 				// Also allow tests for core classes (e.g. Sanitizer) that aren't installable modules
 				$coreClass = __NAMESPACE__ . "\\$className";
 				if(!class_exists($coreClass) && !class_exists($className)) {
+					$this->skipJsonTest($test, 'Not installed');
 					$this->line("Skipping '$className' - not installed");
 					continue;
 				}
 			} else {
 				if(!$this->wire()->modules->isInstalled($className)) {
+					$this->skipJsonTest($test, 'Not available');
 					$this->line("Skipping '$className' - not available");
 					continue;
 				}
@@ -367,6 +662,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 			try {
 				$testFile = $test['file'];
 				$wireTestClassName = __NAMESPACE__ . "\\$test[class]";
+				$this->startJsonTest($test);
 				$this->initTest($className);
 				chdir($test['path']);
 				include($testFile);
@@ -374,6 +670,8 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 					/** @var WireTest $testInstance */
 					$testInstance = new $wireTestClassName($this);
 					if(!$testInstance->allow()) {
+						$this->skipped++;
+						$this->finishJsonTest('skip', [ 'reason' => 'Not supported' ]);
 						$this->line("Skipping '$className' - not supported");
 						continue;
 					}
@@ -384,17 +682,17 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 				$success = true;
 
 			} catch(WireTestException $e) {
-				$this->fail($e->getMessage());
+				$this->fail($e->getMessage(), $e);
 
 			} catch(\Throwable $t) {
-				$this->fail($t->getMessage());
+				$this->fail($t->getMessage(), $t);
 
 			} finally {
 				if($testInstance) {
 					try {
 						$testInstance->finish();
 					} catch(\Throwable $e) {
-						$this->fail("Failed to finish/cleanup: " . $e->getMessage());
+						$this->fail("Failed to finish/cleanup: " . $e->getMessage(), $e);
 						$success = false;
 					}
 				}
