@@ -138,6 +138,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		$this->labels = array(
 			'save' => $this->_('Save'), // Save button label
+			'delete' => $this->_('Delete'),
 			'import' => $this->_('Import'), 
 			'export' => $this->_('Export'),
 			'ok' => $this->_('Ok'),
@@ -334,7 +335,8 @@ class ProcessField extends Process implements ConfigurableModule {
 	public function ___execute() {
 		
 		if($this->wire()->config->ajax) return $this->renderListJSON();
-	
+
+		$input = $this->wire()->input;
 		$session = $this->wire()->session;
 		$modules = $this->wire()->modules;
 		$textTools = $this->wire()->sanitizer->getTextTools();
@@ -397,6 +399,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 
 		$out .= "\n</div><!--/#ProcessFieldList-->";
+	
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
 
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
@@ -405,7 +410,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->value = $this->_x('Add New Field', 'list button'); 
 		$button->icon = 'plus-circle';
 		$button->showInHeader();
-		$out .= $button->render();
+		$form->add($button);
 
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
@@ -413,8 +418,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->href = './tags/';
 		$button->icon = 'tags';
 		$button->value = $this->labels['manage-tags'];
-		$out .= $button->render();
-
+		$form->add($button);
+		
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
 		$button->id = 'import_button';
@@ -422,7 +427,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->value = $this->labels['import'];
 		$button->icon = 'paste';
 		$button->setSecondary();
-		$out .= $button->render();
+		$form->add($button);
 
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
@@ -431,15 +436,80 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->value = $this->labels['export'];
 		$button->icon = 'copy';
 		$button->setSecondary();
-		$out .= $button->render();
+		$form->add($button);
+		
+		/** @var InputfieldSubmit $button */
+		$button = $modules->get('InputfieldSubmit');
+		$button->attr('name+id', 'submit_delete');
+		$button->value = $this->labels['delete'];
+		$button->icon = 'trash';
+		$button->setSecondary();
+		$form->add($button);
+		
+		$f = $form->InputfieldHidden;
+		$f->attr('id+name', 'checked_ids');
+		$form->add($f);
+		
+		$out .= $form->render();
+		
+		if($input->post('submit_delete')) {
+			$form->processInput($input->post);
+			$checkedIds = $this->wire()->sanitizer->intArray(explode(',', $input->post('checked_ids')));
+			if(count($checkedIds)) {
+				$session->CSRF()->validate();
+				$this->processDeleteChecked($checkedIds);
+				$session->location('./');
+			}
+		}
 
-		if($this->wire()->input->get('nosave')) {
+		if($input->get('nosave')) {
 			$session->removeFor($this, 'filterTemplate');
 			$session->removeFor($this, 'filterFieldtype');
 			$session->removeFor($this, 'filterShowSystem');
 		}
 
 		return $out;
+	}
+	
+	/**
+	 * Process multi-field deletion
+	 * 
+	 * @param array $fieldIds
+	 * @throws WireCSRFException
+	 * @throws WireException
+	 * 
+	 */
+	protected function processDeleteChecked(array $fieldIds) {
+		$fields = $this->wire()->fields;
+		$deletedNames = [];
+		
+		foreach($fields as $field) {
+			if(!in_array($field->id, $fieldIds, true)) continue; 
+			if($field->numFieldgroups() > 0) {
+				$this->warning(sprintf(
+					$this->_('Field "%s" cannot be deleted because it is currently in use'), 
+					$field->name
+				), Notice::noGroup);
+				continue;
+			}
+			if($fields->delete($field)) {
+				$this->fieldDeleted($field);
+				$deletedNames[] = $field->name;
+			}
+		}
+		if(count($deletedNames)) {
+			$this->message(sprintf(
+				$this->_('Deleted %d field(s): %s'), 
+				count($deletedNames), implode(', ', $deletedNames)
+			), Notice::noGroup);
+		} else {
+			$this->warning(
+				$this->_('No fields were deleted.') . ' ' .
+				(empty($fieldIds) ? $this->_('Select one or more field checkboxes to delete fields.') : ''), 
+				Notice::noGroup
+			);
+			
+		}
 	}
 
 	/**
@@ -620,7 +690,8 @@ class ProcessField extends Process implements ConfigurableModule {
 			$labels['name'], 
 			$labels['label'], 
 			$labels['type'], 
-			$labels['templates']
+			$labels['templates'],
+			''
 		); 
 
 		$table->headerRow($headerRow);
@@ -769,12 +840,20 @@ class ProcessField extends Process implements ConfigurableModule {
 		if(!$numTemplates) {
 			$label .= " <span class='notes'>" . $this->_('(not used)') . "</span>";
 		}
+	
+		/** @var InputfieldCheckbox $checkbox */
+		$checkbox = $this->wire()->modules->get('InputfieldCheckbox');
+		$checkbox->attr('name', 'ids[]');
+		$checkbox->attr('value', $field->id);
+		$checkbox->addClass('checkbox-ids');
+		$checkbox->checkboxOnly = true;
 		
 		return array(
 			"$fieldName" => $editUrl,
 			"$icon $label",
 			"$typeName$inputName",
-			"$flagsOut<a class='pw-tooltip' title='$numTemplatesLabel' href='$numTemplatesLink'>$numTemplates</a>"
+			"$flagsOut<a class='pw-tooltip' title='$numTemplatesLabel' href='$numTemplatesLink'>$numTemplates</a>",
+			$checkbox->render()
 		);
 	}
 
@@ -2847,7 +2926,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$event->arguments(1, true); 
 		}
 	}
-
+	
 	/**
 	 * Execute import 
 	 * 

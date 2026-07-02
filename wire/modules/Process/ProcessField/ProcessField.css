@@ -55,17 +55,6 @@ body.modal #fieldgroupContext {
  *
  */
 
-#add_field_button,
-#export_button,
-#import_button {
-	margin-top: 0;
-}
-#export_button,
-#import_button {
-	float: right;
-	margin-left: 0.25em;
-}
-
 #export_fields,
 #export_data,
 #import_data {

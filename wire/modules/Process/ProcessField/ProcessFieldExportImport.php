@@ -43,26 +43,33 @@ class ProcessFieldExportImport extends Wire {
 	 *
 	 */
 	public function ___buildExport() {
+		
+		$input = $this->wire()->input;
+		$fields = $this->wire()->fields;
+		$modules = $this->wire()->modules;
 
 		/** @var InputfieldForm $form */
-		$form = $this->wire('modules')->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 		$form->action = './';
 		$form->method = 'post';
 
-		$exportFields = $this->wire('input')->post('export_fields');
+		$exportFields = $input->post('export_fields');
 
 		if(empty($exportFields)) {
+			$inputIds = $this->wire()->input->get->intArray('ids');
+			$selectedNames = [];
 
-			$f = $this->wire('modules')->get('InputfieldSelectMultiple');
+			/** @var InputfieldSelectMultiple $f */
+			$f = $modules->get('InputfieldSelectMultiple');
 			$f->attr('id+name', 'export_fields');
 			$f->label = $this->_('Select the fields that you want to export');
 			$f->icon = 'copy';
-
+			
 			$maxName = 0;
 			$maxLabel = 0;
 			$numFields = 0;
 			
-			foreach($this->wire('fields') as $field) {
+			foreach($fields as $field) {
 				if(strlen($field->name) > $maxName) $maxName = strlen($field->name);
 				$label = $field->getLabel();
 				if(strlen($label) > $maxLabel) $maxLabel = strlen($label);
@@ -79,19 +86,22 @@ class ProcessFieldExportImport extends Wire {
 			
 			$f->addOption(0, $label, array('disabled' => 'disabled'));
 			
-			foreach($this->wire('fields') as $field) {
+			foreach($fields as $field) {
 				$fieldLabel = $field->getLabel();
 				$label = $field->name . ' ' . str_repeat('.', $maxName - strlen($field->name) + 3) . ' ' .
 					$fieldLabel . str_repeat('.', $maxLabel - strlen($fieldLabel) + 3) . ' ' .
 					str_replace('Fieldtype', '', $field->type);
 				$f->addOption($field->name, $label);
+				if(in_array($field->id, $inputIds)) $selectedNames[] = $field->name;
 			}
 			
 			$f->notes = $this->_('Shift+Click to select multiple in sequence. Ctrl+Click (or Cmd+Click) to select multiple individually. Ctrl+A (or Cmd+A) to select all.');
 			$f->attr('size', $numFields+1);
+			$f->val($selectedNames);
 			$form->add($f);
 
-			$f = $this->wire('modules')->get('InputfieldSubmit');
+			/** @var InputfieldSubmit $f */
+			$f = $modules->get('InputfieldSubmit');
 			$f->attr('name', 'submit_export');
 			$f->attr('value', $this->_x('Export', 'button'));
 			$form->add($f);

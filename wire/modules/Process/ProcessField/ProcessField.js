@@ -149,5 +149,22 @@ $(document).ready(function() {
 		Inputfields.reload('#Inputfield_overrides_table');
 	}); 
 
-
+	// handler for export, import and delete buttons in fields list
+	var $exportLink = $("#export_button").parent('a');
+	if($exportLink.length) {
+		var $importLink = $("#import_button").parent('a');
+		var exportHref = $exportLink.attr('href');
+		var importHref = $importLink.attr('href');
+		
+		$('.checkbox-ids').on('input', function() {
+			var ids = [];
+			$('.checkbox-ids:checked').each(function() {
+				ids.push($(this).val());
+			});
+			var idsStr = ids.join(',');
+			$('#checked_ids').val(idsStr);
+			$exportLink.attr('href', exportHref + '?ids=' + idsStr);
+			$importLink.attr('href', importHref + '?ids=' + idsStr);
+		});
+	}
 });
