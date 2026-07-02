@@ -289,7 +289,6 @@ class WireDataDB extends WireData implements \Countable {
 	 * 
 	 * @param int|null $id
 	 * @return int
-	 * @throws WireException
 	 * 
 	 */
 	public function sourceID($id = null) {
@@ -447,9 +446,15 @@ class WireDataDB extends WireData implements \Countable {
 		$this->wire()->database->exec("DROP TABLE `$table`"); 
 		return true;
 	}
-
-	#[\ReturnTypeWillChange] 
-	public function getIterator() {
+	
+	public function __debugInfo() {
+		$info = parent::__debugInfo();
+		$data = $this->getArray();
+		if(count($data)) $info['data'] = $data;
+		return $info;
+	}
+	
+	public function getIterator(): \Traversable {
 		return new \ArrayObject($this->getArray());
 	}
 
