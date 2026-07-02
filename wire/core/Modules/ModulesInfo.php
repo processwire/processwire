@@ -317,8 +317,14 @@ class ModulesInfo extends ModulesClass {
 		$info = array();
 		if(file_exists($filePHP)) {
 			/** @noinspection PhpIncludeInspection */
-			include($filePHP); // will populate $info automatically
-			if(!is_array($info) || !count($info)) $this->error("Invalid PHP module info file for $moduleName");
+			$returnValue = include($filePHP); // will populate $info automatically
+			if(empty($info) || !is_array($info)) {
+				if(is_array($returnValue)) {
+					$info = $returnValue;
+				} else {
+					$this->error("Invalid PHP module info file for $moduleName");
+				}
+			}
 
 		} else if(file_exists($fileJSON)) {
 			$info = file_get_contents($fileJSON);

@@ -69,7 +69,9 @@ class ModulesCli extends ModulesClass {
 			return;
 		} else if($command === 'refresh') {
 			$modules->refresh(true);
-			echo $this->wire()->notices->renderText();
+			$out = $this->wire()->notices->renderText();
+			$out = str_replace(["):", " - Apply"], ["):\n", ""], $out);
+			echo $out; 
 			return;
 		} else if($command === 'updates') {
 			$name = $this->getNameArg($args);
