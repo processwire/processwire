@@ -518,6 +518,9 @@ class PagesExportImport extends Wire {
 			$a['_filesPath'] = $page->filesManager()->path();
 		}
 
+		$meta = $page->meta()->getArray();
+		if(!empty($meta)) $a['meta'] = $meta;
+
 		if($of) $page->of(true);
 
 		return $a;
@@ -760,6 +763,10 @@ class PagesExportImport extends Wire {
 	
 		if($options['commit']) {
 			$pages->save($page, $options['saveOptions']);
+			if(!empty($a['meta'])) {
+				$pageMeta = $page->meta();
+				foreach($a['meta'] as $k => $v) $pageMeta->set($k, $v);
+			}
 		}
 
 		foreach($errors as $error) $page->error($error); 
