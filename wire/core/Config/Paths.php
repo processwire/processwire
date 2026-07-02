@@ -71,6 +71,7 @@
  * @property string $site ProcessWire site files /site/
  * @property string $assets Site-specific assets: /site/assets/
  * @property string $cache Site-specific cache: /site/assets/cache/ #pw-group-paths-only
+ * @property string $backups Site-specific backups: /site/assets/backups/ #pw-group-paths-only
  * @property string $logs Site-specific logs: /site/assets/logs/ #pw-group-paths-only
  * @property string $files Site-specific files: /site/assets/files/
  * @property string $tmp Temporary files: /site/assets/tmp/ #pw-group-paths-only

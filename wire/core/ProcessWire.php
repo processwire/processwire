@@ -1313,6 +1313,7 @@ class ProcessWire extends Wire {
 			'core' => "$coreDir/",
 			'assets' => "$assetsDir/",
 			'cache' => "$assetsDir/cache/",
+			'backups' => "$assetsDir/backups/",
 			'logs' => "$assetsDir/logs/",
 			'files' => "$assetsDir/files/",
 			'tmp' => "$assetsDir/tmp/",
