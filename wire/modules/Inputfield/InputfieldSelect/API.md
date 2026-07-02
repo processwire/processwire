@@ -21,11 +21,11 @@ rendering, processing, etc.).
 
 ## Properties
 
-| Property        | Type          | Default | Description                                                                            |
-|-----------------|---------------|---------|----------------------------------------------------------------------------------------|
-| `defaultValue`  | `string`      | `''`    | Value to select when field is required and empty (see [Default value](#default-value)) |
-| `valueAddOption`| `bool`        | `false` | When true, values set via API that are not existing options are added as options       |
-| `options`       | `array`       | `[]`    | Get or set all options as `[value => label]`. Also accepts options string.             |
+| Property         | Type     | Default | Description                                                                           |
+|------------------|----------|---------|---------------------------------------------------------------------------------------|
+| `defaultValue`   | `string` | `''`    | Value to select when field is required and empty, see [Default value](#default-value) |
+| `valueAddOption` | `bool`   | `false` | When true, values set via API that are not existing options are added as options      |
+| `options`        | `array`  | `[]`    | Get or set all options as `[value => label]`. Also accepts options string.            |
 
 ## Adding options
 

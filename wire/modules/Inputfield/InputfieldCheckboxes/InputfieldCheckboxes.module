@@ -15,15 +15,6 @@
 
 class InputfieldCheckboxes extends InputfieldSelectMultiple implements InputfieldHasArrayValue {
 
-	public static function getModuleInfo() {
-		return array(
-			'title' => __('Checkboxes', __FILE__), // Module Title
-			'summary' => __('Multiple checkbox toggles', __FILE__), // Module Summary
-			'version' => 108,
-			'permanent' => true, 
-		);
-	}
-
 	/**
 	 * Init
 	 * 

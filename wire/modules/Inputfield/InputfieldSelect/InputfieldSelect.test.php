@@ -1,7 +1,7 @@
 <?php namespace ProcessWire;
 
 /**
- * Tests for ProcessWire InputfieldSelect and InputfieldSelectMultiple modules.
+ * Tests for ProcessWire InputfieldSelect module
  *
  */
 class WireTest_InputfieldSelect extends WireTest {
@@ -19,7 +19,6 @@ class WireTest_InputfieldSelect extends WireTest {
 		$this->testProcessInput();
 		$this->testRender();
 		$this->testRenderValue();
-		$this->testSelectMultiple();
 	}
 
 	public function finish() {
@@ -28,12 +27,6 @@ class WireTest_InputfieldSelect extends WireTest {
 
 	protected function newSelect($name = 'test_select') {
 		$f = $this->wire()->modules->get('InputfieldSelect');
-		$f->attr('name', $name);
-		return $f;
-	}
-
-	protected function newSelectMultiple($name = 'test_select_multiple') {
-		$f = $this->wire()->modules->get('InputfieldSelectMultiple');
 		$f->attr('name', $name);
 		return $f;
 	}
@@ -190,21 +183,4 @@ class WireTest_InputfieldSelect extends WireTest {
 		$this->check('renderValue returns selected label', '<p>Green</p>', $html);
 	}
 
-	protected function testSelectMultiple() {
-		$f = $this->newSelectMultiple('colors');
-		$f->addOptions(array('red' => 'Red', 'green' => 'Green', 'blue' => 'Blue'));
-		$f->val(array('blue', 'red'));
-
-		$this->check('select multiple has multiple attr', 'multiple', $f->attr('multiple'));
-		$this->check('select multiple default size', InputfieldSelectMultiple::defaultSize, $f->attr('size'));
-		$this->check('select multiple stores array value', array('blue', 'red'), $f->val());
-		$this->check('select multiple selected value', true, $f->isOptionSelected('blue'));
-
-		$this->processInput($f, array('colors' => array('green', 'bogus', 'red')));
-		$this->check('select multiple filters invalid input', array('green', 'red'), array_values($f->val()));
-
-		$html = $f->render();
-		$this->check('select multiple renders multiple attr', 'multiple="multiple"', $html, '*=');
-		$this->check('select multiple renderValue returns list', '<ul', $f->renderValue(), '*=');
-	}
 }

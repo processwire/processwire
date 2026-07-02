@@ -33,21 +33,6 @@
 class InputfieldAsmSelect extends InputfieldSelectMultiple implements InputfieldHasArrayValue, InputfieldHasSortableValue {
 	
 	/**
-	 * Module info
-	 *
-	 * @return array
-	 *
-	 */
-	public static function getModuleInfo() {
-		return array(
-			'title' => __('asmSelect', __FILE__),
-			'version' => 203,
-			'summary' => __('Multiple selection, progressive enhancement to select multiple', __FILE__), // Module Summary
-			'permanent' => true,
-		);
-	}
-
-	/**
 	 * Custom defined AsmSelect options
 	 * 
 	 * @var array
