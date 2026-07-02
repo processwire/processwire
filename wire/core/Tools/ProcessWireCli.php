@@ -63,6 +63,11 @@ class ProcessWireCli extends Wire {
 		$this->commandName = $argv[1] ?? 'help';
 		$this->commandName = $this->wire()->sanitizer->name($this->commandName);
 		$this->args = array_values(array_slice($argv, 2));
+		$data = $wire->cache->get('system.config.cli');
+		if(!empty($data)) {
+			$wire->config->urls->root = $data['rootUrl'];
+			$wire->config->httpHost = $data['httpHost'];
+		}
 	}
 	
 	/**

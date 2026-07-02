@@ -2050,7 +2050,16 @@ class Modules extends WireArray implements CliModule {
 	 *
 	 */
 	public function ___refresh($showMessages = false) {
-		if($this->wire()->config->systemVersion < 6) return;
+		$config = $this->wire()->config;
+		
+		if(isset($_SERVER['HTTP_HOST'])) {
+			$this->wire()->cache->save('system.config.cli', [
+				'httpHost' => $config->httpHost,
+				'rootUrl' => $config->urls->root,
+			], WireCache::expireNever);
+		}
+		
+		if($config->systemVersion < 6) return;
 		$this->refreshing = true;
 		// Scan directories first (cheap) so the file snapshot is up to date
 		$this->loader->loadModulesTable();
@@ -2070,6 +2079,7 @@ class Modules extends WireArray implements CliModule {
 		if($this->duplicates()->numNewDuplicates() > 0) $this->duplicates()->updateDuplicates(); // PR#1020
 		$this->loader->loaded();
 		$this->saveCache($snapshotKey, $newSnapshot);
+		
 		$this->refreshing = false;
 	}
 
