@@ -573,7 +573,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$files = array();
 		if(!$page->id) return $files;
 		foreach($page->template->fieldgroup as $field) {
-			if(!$page->viewable($field)) continue;
+			if($field->useRoles && !$page->viewable($field)) continue;
 			$type = $field->type; /** @var Fieldtype $type */
 			if($type instanceof FieldtypeFile) {
 				$value = $page->get($field->name);
@@ -612,7 +612,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$field->collapsed = Inputfield::collapsedYes; 
 		if($this->page && $this->page->id) $field->notes = $this->_('Showing files on page:') .  ' **' . $this->page->url . '**';
 		$field->description = 
-			$this->_('Select the file from this page that you want to link to.') . ' ' . 
+			$this->_('Choose the file from this page that you want to link to.') . ' ' . 
 			$this->_("To select a file from another page, click 'Select Page' above and choose the page you want to select a file from."); // Instruction on how to select a file from another page
 		$field->icon = 'file-text-o';
 		return $field;

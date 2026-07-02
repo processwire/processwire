@@ -398,6 +398,10 @@ class WireClassLoader {
 						$found = file_exists($file) ? $file : false;
 					}
 				}
+			} else if(!$found && strpos($name, 'Inputfield') === 0) {
+				// core Inputfields have dedicated directories
+				$file = $this->wire->config->paths->modules . "Inputfield/$name/$name.php";
+				$found = file_exists($file) ? $file : false;
 			}
 		}
 		
