@@ -307,8 +307,8 @@ class ProcessPagesExportImport extends Process {
 			'update' => $importMode == 'all' || $importMode == 'update',
 			'create' => $importMode == 'all' || $importMode == 'create',
 			'saveOptions' => array('adjustName' => true, 'quiet' => true),
-			'fieldNames' => $fieldNames, 
-			'replaceFields' => isset($a['_replaceFields']) ? $a['_replaceFields'] : array(), 
+			'fieldNames' => $fieldNames,
+			'replaceFields' => isset($a['_replaceFields']) ? $a['_replaceFields'] : array(),
 			'commit' => $submitCommit,
 			'debug' => self::debug,
 			'changeTemplate' => false,
@@ -316,6 +316,7 @@ class ProcessPagesExportImport extends Process {
 			'changeName' => in_array('name', $fieldNames),
 			'changeStatus' => in_array('status', $fieldNames),
 			'changeSort' => in_array('sort', $fieldNames),
+			'importMeta' => in_array('meta', $fieldNames),
 			'filesPath' => $this->wire()->session->getFor($this, 'filesPath'), 
 			'originalHost' => isset($a['host']) ? $a['host'] : $config->httpHost, 
 			'originalRootUrl' => $rootUrl,
@@ -748,8 +749,16 @@ class ProcessPagesExportImport extends Process {
 		}
 		$f->addOption('name', "name|" . $this->_('Page name') . "|System");
 		$f->addOption('status', "status|" . $this->_('Page status') . "|System");
-		$f->addOption('sort', "sort|" . $this->_('Page sort index') . "|System"); 
-		$f->attr('value', $value); 
+		$f->addOption('sort', "sort|" . $this->_('Page sort index') . "|System");
+		$hasMeta = false;
+		foreach($a['pages'] as $item) {
+			if(!empty($item['meta'])) { $hasMeta = true; break; }
+		}
+		if($hasMeta) {
+			$f->addOption('meta', "meta|" . $this->_('Page meta') . "|System");
+			$value[] = 'meta';
+		}
+		$f->attr('value', $value);
 		if(!$input->post('submit_import')) $f->collapsed = Inputfield::collapsedYes;
 		$form->add($f);
 		

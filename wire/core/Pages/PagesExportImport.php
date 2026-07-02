@@ -679,8 +679,9 @@ class PagesExportImport extends Wire {
 			'filesPath' => '', // path where file field directories are located when importing from zip (internal use)
 			'originalHost' => $config->httpHost, 
 			'originalRootUrl' => $config->urls->root,
-			'commit' => true, // commit the import? If false, changes aren't saved (dry run). 
-			'debug' => false, 
+			'commit' => true, // commit the import? If false, changes aren't saved (dry run).
+			'importMeta' => true, // import $page->meta() data when present in import data?
+			'debug' => false,
 		);
 		
 		$options = array_merge($defaults, $options); 
@@ -759,11 +760,15 @@ class PagesExportImport extends Wire {
 			$warnings[] = "Skipped fields (not found): " . implode(', ', $missingFields); 
 		}
 	
-		$changes = array_unique(array_merge($changes, $page->getChanges())); 
-	
+		$changes = array_unique(array_merge($changes, $page->getChanges()));
+
+		if(!empty($a['meta']) && $options['importMeta']) {
+			$changes[] = 'meta';
+		}
+
 		if($options['commit']) {
 			$pages->save($page, $options['saveOptions']);
-			if(!empty($a['meta'])) {
+			if(!empty($a['meta']) && $options['importMeta']) {
 				$pageMeta = $page->meta();
 				foreach($a['meta'] as $k => $v) $pageMeta->set($k, $v);
 			}
