@@ -196,6 +196,48 @@ $cache->expireAll();
 
 ---
 
+## Raw cache access
+
+These advanced methods read and write the underlying cache row as a plain array,
+bypassing the normal serialization/deserialization. The primary use case is
+transferring a cache entry between installations with its exact expiry timestamp
+intact — something `get()`/`save()` cannot do since `save()` takes a TTL rather
+than an absolute datetime.
+
+### $cache->getRaw($name)
+
+Get the raw cache row by name.
+
+- **Arguments:** `getRaw(string $name)`
+- **Returns:** `array|null` — array with `name`, `expires` (ISO-8601 datetime string), and
+  `data` (raw string, JSON-encoded for array caches) keys; or `null` if not found.
+
+~~~~~php
+$raw = $cache->getRaw('my-cache');
+// [ 'name' => 'my-cache', 'expires' => '2026-01-01 00:00:00', 'data' => '...' ]
+~~~~~
+
+---
+
+### $cache->saveRaw($a)
+
+Save a raw cache row. Accepts the array format returned by `getRaw()`.
+
+- **Arguments:** `saveRaw(array $a)` — array must have `name`, `expires`, and `data` string keys
+- **Returns:** `bool`
+- `expires` must be an ISO-8601 datetime string (`Y-m-d H:i:s`); `WireCache::expireNever`
+  and `WireCache::expireSave` are valid values since they are stored as datetime strings.
+- Throws `WireException` if any required key is missing, non-string, or `expires` is not valid.
+
+~~~~~php
+// Transfer a cache entry to another name with original expiry preserved
+$raw = $cache->getRaw('source-cache');
+$raw['name'] = 'destination-cache';
+$cache->saveRaw($raw);
+~~~~~
+
+---
+
 ## Preloading
 
 Preloading methods are legacy/deprecated helpers. They still work, but new code usually

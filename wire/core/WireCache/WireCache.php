@@ -466,7 +466,33 @@ class WireCache extends Wire {
 		if(is_object($ns)) $ns = wireClassName($ns, false);
 		return $this->get($ns . "__$name", $expire, $func);
 	}
-
+	
+	/**
+	 * Get raw cache data by name
+	 * 
+	 * Returns array with the following:
+	 * ~~~~~
+	 * [
+	 *   'name' => 'name-of-cache', 
+	 *   'expires' => 'ISO 8601 DATETIME', 
+	 *   'data' => 'Raw cache data, whether JSON or string'  
+	 * ]
+	 * ~~~~~
+	 * Optional: To get from a namespace (ns), prefix namespace to `$name` like `ns__$name`.
+	 * 
+	 * #pw-advanced
+	 * 
+	 * @param string $name Cache name
+	 * @return array|null Returns array of raw cache row if found, null if not found
+	 * @since 3.0.268
+	 * @see WireCache::saveRaw()
+	 * 
+	 */
+	public function getRaw($name) {
+		$data = $this->cacher()->find([ 'names' => [ $name ] ]); 
+		return $data[0] ?? null;
+	}
+	
 	/**
 	 * Save data to cache with given name
 	 *
@@ -596,7 +622,49 @@ class WireCache extends Wire {
 		if(is_object($ns)) $ns = wireClassName($ns, false);
 		return $this->save($ns . "__$name", $data, $expire);
 	}
-
+	
+	/**
+	 * Save raw cache row from array returned by getRaw()
+	 *
+	 * Given array must contain the following:
+	 * ~~~~~
+	 * [
+	 *   'name' => 'name-of-cache',
+	 *   'expires' => '2028-04-08 03:10:01', // ISO-8601 DATE/TIME
+	 *   'data' => 'Raw cache data string JSON or other string'
+	 * ]
+	 * ~~~~~
+	 * Optional: To save with a namespace (ns), prefix namespace to `name`
+	 * like `ns__cacheName`, if name is not already namespaced.
+	 *
+	 * #pw-advanced
+	 *
+	 * @param array $a Array containing ['name' => '…', 'expires' => '…', 'data' => '…' ]
+	 * @return bool True on success, false on fail
+	 * @throws WireException On all errors
+	 * @since 3.0.268
+	 * @see WireCache::getRaw()
+	 *
+	 */
+	public function saveRaw(array $a) {
+		foreach([ 'name', 'expires', 'data' ] as $key) {
+			if(!isset($a[$key])) {
+				throw new WireException("Missing cache '$key' in given saveRaw(array)");
+			}
+			if(!is_string($a[$key])) {
+				throw new WireException("Cache '$key' in given saveRaw(array) must be string");
+			}
+		}
+		if(!preg_match('/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/', $a['expires'])) {
+			throw new WireException(
+				"Invalid 'expires' value '$a[expires]' in given saveRaw(array): " .
+				"must be ISO-8601 date/time"
+			);
+		}
+		return $this->cacher()->save($a['name'], $a['data'], $a['expires']);
+	}
+	
+	
 	/**
 	 * Given an expiration seconds, date, page, or template, convert it to an ISO-8601 date 
 	 *
@@ -1385,7 +1453,25 @@ class WireCache extends Wire {
 
 		return $value;
 	}
-
+	
+	/**
+	 * Return cache with optional namespace
+	 *
+	 * @param string $name
+	 * @param string|object $ns
+	 * @return string
+	 * @since 3.0.268
+	 *
+	 */
+	protected function cacheNameFor($name, $ns = null) {
+		$name = (string) $name;
+		if(!empty($ns)) {
+			if(is_object($ns)) $ns = wireClassName($ns, false);
+			if(strlen("$ns") && strpos($name, "{$ns}__") !== 0) $name = "{$ns}__$name";
+		}
+		return $name;
+	}
+	
 	/**
 	 * Set WireCache module to use for caching
 	 * 

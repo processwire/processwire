@@ -190,6 +190,38 @@ class WireTest_WireCache extends WireTest {
 		$this->check('cacheName(ns=false) removes namespace delimiter', 'Parent_Name', $cache->cacheName('Parent__Name', false));
 		$this->check('cacheName() hashes long non-namespaced names', 32, strlen($cache->cacheName(str_repeat('x', 220))));
 
+		// ===== RAW CACHE ACCESS =====
+
+		$this->check('getRaw() returns null for missing cache', null, $cache->getRaw($name('raw-missing')));
+
+		$cache->save($name('raw-string'), 'raw value', 3600);
+		$raw = $cache->getRaw($name('raw-string'));
+		$this->check('getRaw() returns array for existing cache', true, is_array($raw));
+		$this->check('getRaw() array has name key', $name('raw-string'), $raw['name'] ?? null);
+		$this->check('getRaw() array has expires key', true, !empty($raw['expires']));
+		$this->check('getRaw() array has data key', true, array_key_exists('data', $raw));
+		$this->check('getRaw() data is raw string (not decoded)', 'raw value', $raw['data']);
+
+		$cache->save($name('raw-array'), ['a' => 1], 3600);
+		$rawArray = $cache->getRaw($name('raw-array'));
+		$this->check('getRaw() returns raw JSON string for array cache', true, is_string($rawArray['data'] ?? null) && strpos($rawArray['data'], '{') === 0);
+
+		$cache->save($name('raw-source'), 'round-trip value', WireCache::expireNever);
+		$rawSource = $cache->getRaw($name('raw-source'));
+		$rawSource['name'] = $name('raw-copy');
+		$this->check('saveRaw() round-trip save returns true', true, $cache->saveRaw($rawSource));
+		$this->check('saveRaw() round-trip value retrievable via get()', 'round-trip value', $cache->get($name('raw-copy')));
+		$rawCopy = $cache->getRaw($name('raw-copy'));
+		$this->check('saveRaw() preserves expires timestamp', $rawSource['expires'], $rawCopy['expires'] ?? null);
+
+		$threw = false;
+		try { $cache->saveRaw(['name' => 'x', 'expires' => '2028-01-01 00:00:00']); } catch(\Exception $e) { $threw = true; }
+		$this->check('saveRaw() throws on missing data key', true, $threw);
+
+		$threw = false;
+		try { $cache->saveRaw(['name' => 'x', 'expires' => 'not-a-date', 'data' => '']); } catch(\Exception $e) { $threw = true; }
+		$this->check('saveRaw() throws on invalid expires format', true, $threw);
+
 		// ===== RENDER FILE =====
 
 		$out1 = $cache->renderFile($this->renderFile, 3600, [
