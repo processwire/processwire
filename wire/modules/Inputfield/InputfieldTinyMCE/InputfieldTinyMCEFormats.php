@@ -453,7 +453,7 @@ class InputfieldTinyMCEFormats extends InputfieldTinyMCEClass {
 				$styleNames = explode('|', $style);
 			} else {
 				$element = '*';
-				$styleNames[] = $style;
+				$styleNames = array($style);
 			}
 			if(strpos($element, '|')) {
 				$elements = explode('|', $element);
@@ -461,7 +461,7 @@ class InputfieldTinyMCEFormats extends InputfieldTinyMCEClass {
 				$elements = array($element);
 			}
 			foreach($elements as $element) {
-				if(isset($invalidStyles[$element])) {
+				if(isset($a[$element])) {
 					$a[$element] = array_unique(array_merge($a[$element], $styleNames));
 				} else {
 					$a[$element] = $styleNames;

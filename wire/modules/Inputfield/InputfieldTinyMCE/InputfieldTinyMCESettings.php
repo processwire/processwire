@@ -1,7 +1,7 @@
 <?php namespace ProcessWire;
 
 /**
- * InputfieldTinyMCETools
+ * InputfieldTinyMCESettings
  *
  * Helper for managing TinyMCE settings and defaults
  *

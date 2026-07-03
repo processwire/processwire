@@ -3,7 +3,7 @@
 /**
  * InputfieldTinyMCE
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-body = 
@@ -164,7 +164,6 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 			'readonly',
 			'content_css',
 			'content_css_url', // used when content_css=="custom", not part of tinyMCE
-			'external_plugins',
 			'skin_url',
 		),
 		'optionals' => array(
@@ -225,7 +224,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 			'content_css_url' => '',
 			'defaultsFile' => '',
 			'defaultsJSON' => '',
-			'extPluginOptions' => '',
+			'extPluginOpts' => '',
 			'styleFormatsCSS' => '', // optionals
 			'extraCSS' => '', 
 			'pasteFilter' => 'default', 
@@ -238,7 +237,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 		}
 			
 		// optionals 
-		$data['headlines'] = array('h1','h2','h3','h4','h5','h5','h6');
+		$data['headlines'] = array('h1','h2','h3','h4','h5','h6');
 		$data['menubar'] = 'default';
 		$data['contextmenu'] = 'default';
 		$data['removed_menuitems'] = 'default';

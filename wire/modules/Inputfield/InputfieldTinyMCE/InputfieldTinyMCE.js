@@ -41,7 +41,14 @@ var InputfieldTinyMCEUploadHandler = (blobInfo, progress) => new Promise((resolv
 			return;
 		}
 		
-		var response = JSON.parse(xhr.responseText);
+		var response;
+
+		try {
+			response = JSON.parse(xhr.responseText);
+		} catch(e) {
+			reject('Invalid JSON in response: ' + xhr.responseText);
+			return;
+		}
 		
 		if(!response) {
 			reject('Invalid JSON in response: ' + xhr.responseText);
@@ -453,6 +460,10 @@ var InputfieldTinyMCE = {
 			var editorId = $editor.attr('id');
 			var editor = tinymce.get(editorId);
 			$editor.removeClass(t.cls.loaded).removeClass(t.cls.lazy);
+			if(!editor) {
+				t.log('destroyEditor not found', editorId);
+				return;
+			}
 			t.log('destroyEditor', editor.id);
 			// $editor.css('display', 'none');
 			editor.destroy();
@@ -483,6 +494,10 @@ var InputfieldTinyMCE = {
 			if(!$editor.hasClass(t.cls.loaded)) return;
 			var editorId = $editor.attr('id');
 			var editor = tinymce.get(editorId);
+			if(!editor) {
+				$editor.removeClass(t.cls.loaded);
+				return;
+			}
 			editor.destroy();
 			$editor.removeClass(t.cls.loaded);
 			// t.init('#' + editorId, 'resetEditors');
@@ -562,7 +577,12 @@ var InputfieldTinyMCE = {
 		if(typeof dataSettings === 'undefined') {
 			dataSettings = null;
 		} else if(dataSettings && dataSettings.length > 2) {
-			dataSettings = JSON.parse(dataSettings);
+			try {
+				dataSettings = JSON.parse(dataSettings);
+			} catch(e) {
+				this.log('Invalid data-settings JSON for ' + $editor.attr('id'), dataSettings);
+				dataSettings = null;
+			}
 			jQuery.extend(settings, dataSettings);
 		}
 		
@@ -817,7 +837,7 @@ var InputfieldTinyMCE = {
 					} else {
 						// regular editor
 						var editor = tinymce.get($(this).attr('id'));
-						$(this).val(editor.getContent()); 
+						if(editor) $(this).val(editor.getContent());
 					}
 				}); 
 			});
