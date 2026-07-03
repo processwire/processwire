@@ -3,7 +3,7 @@
 /**
  * InputfieldForm: An Inputfield for containing form elements
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @property string $prependMarkup Optional markup to prepend to the form output (default='')
@@ -11,8 +11,8 @@
  * @property bool $protectCSRF Set to false to disable automatic CSRF protection (default=true)
  * @property int $columnWidthSpacing Optionally set the column width spacing (pixels) (default=auto)
  * @property string $description Optionally set a description headline for the form (default='')
- * @property string $confirmText Confirmation text that precedes list of changes when class InputfieldFormConfirm is active (default=There are unsaved changes:)
- * @property string $method Form method attribute (default=POST)
+ * @property string $confirmText Confirmation text that precedes list of changes when CSS class InputfieldFormConfirm is present (default=There are unsaved changes:)
+ * @property string $method Form method attribute (default=post)
  * @property string $action Form action attribute (default=./)
  * 
  * @method bool process() Process the form and return true on success, false on error (3.0.205+). 
@@ -135,7 +135,7 @@ class InputfieldForm extends InputfieldWrapper {
 
 		if($this->hasHook('renderOrProcessReady()')) $this->renderOrProcessReady('render');
 	
-		$method = strtolower($this->attr('method')); 
+		$method = strtolower($this->attr('method') ?: 'post');
 		$markup = self::getMarkup();
 		$classes = self::getClasses();
 		if(!empty($classes['form'])) $this->addClass($classes['form']); 
@@ -155,7 +155,7 @@ class InputfieldForm extends InputfieldWrapper {
 		$attrs = $this->getAttributes();
 		unset($attrs['value']); 
 
-		if($this->wire()->input->get('modal') && strpos($attrs['action'], 'modal=1') === false) {
+		if($this->wire()->input->get('modal') && strpos($attrs['action'] ?: '', 'modal=1') === false) {
 			// retain a modal=1 state in the form action
 			$attrs['action'] .= (strpos($attrs['action'], '?') === false ? '?' : '&') . 'modal=1';
 		}
@@ -213,7 +213,7 @@ class InputfieldForm extends InputfieldWrapper {
 	 */
 	public function ___process() {
 		$input = $this->wire()->input;
-		$method = strtolower($this->attr('method'));
+		$method = strtolower($this->attr('method') ?: 'post');
 		$this->processInput(($method === 'get' ? $input->get : $input->post));
 		return count($this->getErrors()) === 0; 
 	}
@@ -233,7 +233,7 @@ class InputfieldForm extends InputfieldWrapper {
 	
 		$this->getErrors(true); // reset
 		
-		if($this->getSetting('protectCSRF') && strtolower($this->attr('method')) === 'post') {
+		if($this->getSetting('protectCSRF') && strtolower($this->attr('method') ?: 'post') === 'post') {
 			$this->wire()->session->CSRF->validate(); // throws exception if invalid
 		}
 		
