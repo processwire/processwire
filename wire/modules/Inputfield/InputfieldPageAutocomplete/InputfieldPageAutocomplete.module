@@ -22,6 +22,7 @@
  * @property string $disableChars Autocomplete won't be triggered if input contains any of the characters in this string. (default=blank)
  * @property bool $useAndWords When true, each word will be isolated to a separate searchFields=searchValue, which enables it to duplicate ~= operator behavior while using a %= operator (default=false).
  * @property int $lang_id Force use of this language ID for results (default=0)
+ * @property null|bool|int $allowUnpub Allow unpublished pages in results? (null=not set, 0|false=no, 1|true=yes) (default=null)
  * @property string $usePageEdit Use page editor links for selected Page items, when user has edit permission? Use 'small', 'medium', 'large', 'tab', or '' to disable. 3.0.258+ (default='')
  * @property bool $hideDeleted Hide items when deleted. If false, items remain but are marked for deletion 3.0.258+ (default=false)
  * 
@@ -221,7 +222,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		if($this->maxSelectedItems == 1) $this->useList = false;
 		
 		$out = $this->useList ? $this->renderList() : '';
-		$value = implode(',', $this->value); 
+		$value = implode(',', $this->val());
 		$url = $this->getAjaxUrl();
 
 		// convert our list of search fields to a CSV string for use in the ProcessPageSearch query
