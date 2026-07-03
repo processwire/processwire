@@ -21,10 +21,9 @@
  * @property string $findPagesCode PHP eval code to use in finding pages that should be selectable @deprecated (default='')
  * @property string $findPagesSelector Selector string to use for finding selectable pages (default='')
  * @property string $findPagesSelect Same as findPageSelector, but configured interactively with InputfieldSelector. (default='') 
- * @property int|bool $addable Provide an option for creating new pages and adding them to selection? (deafult=false)
+ * @property int|bool $addable Provide an option for creating new pages and adding them to selection? (default=false)
  * @property int|bool $allowUnpub Allow selection of unpublished pages? (default=false)
  * @property int $derefAsPage Make the value attribute a single Page rather than PageArray? (default=0)
- * @property-read string $inputfieldClass Read-only public property alias of protected getInputfieldClass() method.
  * @property array $inputfieldClasses Class names of Inputfields that are allowed to be used for selection (default=9+ classes)
  * 
  * @method string renderAddable()
