@@ -30,7 +30,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 	}
 
 	/**
-	 * Whether render() has been called from renderValue() 
+	 * Whether render() has been called from renderValue()
 	 * 
 	 * @var bool
 	 * 
@@ -87,7 +87,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 		$textformatters = $this->getSetting('textformatters');
 		$description = (string) $this->getSetting('description');
 		
-		if($markupFunction !== null & is_callable($markupFunction)) {
+		if($markupFunction !== null && is_callable($markupFunction)) {
 			$out .= "\n" . call_user_func($markupFunction, $this);
 		}
 		if(is_string($markupText) && strlen($markupText)) {
@@ -116,7 +116,8 @@ class InputfieldMarkup extends InputfieldWrapper {
 			} else {
 				$out = "<div class='description'>$description</div>$out"; 
 			}
-			$this->description = ''; // prevents it from appearing again at the bottom
+			// Description is prepended above markup and cleared so the parent wrapper does not render it again below.
+			$this->description = '';
 		}
 
 		// prevent possible double render 
