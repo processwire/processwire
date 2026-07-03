@@ -24,8 +24,8 @@
  * 
  * @property array|string $tagsList Array of tags [ 'tag' => 'label' ], or newline separated string of "tag=label", or use addTag() to populate. (default=[])
  * @property string $tagsUrl Remote URL to find tags from, must have a '{q}' in it somewhere, which will be replaced with the query. (default=blank)
- * @property int|bool $allowUserTags Allow user-entered tags? (default=false)
- * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection? (default=true)
+ * @property int|bool $allowUserTags Allow user-entered tags? Stored as 0 or 1. (default=0)
+ * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection? Stored as 0 or 1. (default=1)
  * @property int $maxItems Max selectable items, 0 for no limit, 1 for single-select mode, or 2+ to limit selection to that number. (default=0)
  * @property int $maxSelectedItems Alias of maxItems (as used by InputfieldPage) (default=0)
  * @property bool|int $useAjax Whether ajax mode is enabled, used internally (default=false)
@@ -115,6 +115,7 @@ class InputfieldTextTags extends Inputfield implements
 	 */
 	public function get($key) {
 		if($key === 'arrayValue') return $this->getArrayValue();
+		if($key === 'maxSelectedItems') return parent::get('maxItems');
 		return parent::get($key);
 	}
 
@@ -355,8 +356,8 @@ class InputfieldTextTags extends Inputfield implements
 			if($key !== 'tagsList') {
 				$langTags = parent::get($key); /** @var array $langTags */
 				if(!is_array($langTags)) $langTags = array();
-				foreach($langTags as $key => $value) {
-					$tags[$key] = $value;
+				foreach($langTags as $tag => $label) {
+					$tags[$tag] = $label;
 				}
 			}
 		}
@@ -423,14 +424,19 @@ class InputfieldTextTags extends Inputfield implements
 	 */
 	public function removeTag($tag) {
 		$tagsList = parent::get('tagsList');
-		unset($tagsList[$tag]); 
+		unset($tagsList[$tag]);
+		parent::set('tagsList', $tagsList);
 		$languages = $this->wire()->languages;
 		if(!$languages) return $this;
 		foreach($languages as $language) {
 			if($language->isDefault()) continue;
-			$tagsList = parent::get("tagsList$language");
+			$key = $this->languageKey($language, 'tagsList');
+			$tagsList = parent::get($key);
 			if(!is_array($tagsList)) continue;
-			if(!empty($tagsList[$tag])) unset($tagsList[$tag]); 
+			if(!empty($tagsList[$tag])) {
+				unset($tagsList[$tag]);
+				parent::set($key, $tagsList);
+			}
 		}
 		return $this;
 	}
@@ -458,7 +464,7 @@ class InputfieldTextTags extends Inputfield implements
 	 * 
 	 * @param string $tag
 	 * @param Language|int|string|null $language 
-	 * @return mixed
+	 * @return string
 	 * 
 	 */
 	public function getTagLabel($tag, $language = null) {
