@@ -64,7 +64,8 @@ class InputfieldHidden extends Inputfield {
 	 */
 	public function getAttributes() {
 		$attrs = parent::getAttributes();
-		if(!strlen("$attrs[value]") && $this->initValue) $attrs['value'] = (string) $this->initValue; 
+		$value = isset($attrs['value']) ? (string) $attrs['value'] : '';
+		if(!strlen($value) && $this->initValue) $attrs['value'] = (string) $this->initValue;
 		return $attrs; 
 	}
 
@@ -80,9 +81,9 @@ class InputfieldHidden extends Inputfield {
 
 		// remove config fields that don't need to be here
 		$f = $inputfields->getChildByName('collapsed');
-		$inputfields->remove($f); 
+		if($f) $inputfields->remove($f);
 		$f = $inputfields->getChildByName('columnWidth');
-		$inputfields->remove($f); 
+		if($f) $inputfields->remove($f);
 
 		/** @var InputfieldText $field */
 		$field = $this->wire()->modules->get('InputfieldText');
