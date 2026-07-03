@@ -3,7 +3,7 @@
 /**
  * ProcessWire File Inputfield (configuration)
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
