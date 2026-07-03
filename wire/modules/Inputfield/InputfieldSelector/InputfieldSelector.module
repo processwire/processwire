@@ -10,7 +10,7 @@
  * Sponsored by Avoine
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for "custom: OR-group" option (https://processwire.com/talk/topic/13116-or-selecters-for-different-fields/)
@@ -47,17 +47,17 @@
  * @property bool $allowModifiers [true] Allow use of modifiers like include, limit?
  * @property bool $allowBlankValues [false] When no value is present, should it contribute to the selector?
  * @property bool|int $showFieldLabels [false] Show field labels rather than names? Or specify integer 2 to show both.
- * @property bool $showOptgroups [true] Whether or not to separate sytem, field, subfields, etc. into their own optgroups. If turned off, all types of fields will be shown together A-Z.
+ * @property bool $showOptgroups [true] Whether or not to separate system, field, subfields, etc. into their own optgroups. If turned off, all types of fields will be shown together A-Z.
  * @property array $limitFields [empty] Selectable fields whitelist (field names). Leave empty to allow any.
  * @property bool $parseVars [true] Whether variables in a selector should be parsed and converted to values
- * @property string $subfieldIdentifier ...
- * @property string $groupIdentifier (1)
+ * @property string $subfieldIdentifier Label suffix used for fields that open a subfield selector. (default= …)
+ * @property string $groupIdentifier Label suffix used for grouped subfield selectors. (default= (1))
  * @property int $maxUsers [20] Maximum number of users selectable. If more than regular text input used rather than select.
- * @property string $selectClass
- * @property string $inputClass
- * @property string $checkboxClass
- * @property string $lastSelector
- * @property int $maxSelectOptions If quantity of select options exceeds this number, use autocomplete instead for Page reference fields (since 3.0.148)
+ * @property string $selectClass Extra CSS class for generated select elements. (default='')
+ * @property string $inputClass Extra CSS class for generated input elements. (default='')
+ * @property string $checkboxClass Extra CSS class for generated checkbox inputs. (default='')
+ * @property string $lastSelector Last full selector string built from initValue and value. (default='')
+ * @property int $maxSelectOptions [100] If quantity of select options exceeds this number, use autocomplete instead for Page reference fields (since 3.0.148)
  *
  *
  */
@@ -220,7 +220,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->setting('datePlaceholder', $this->_('yyyy-mm-dd')); // date format placeholder (what users see)
 		$this->setting('timeFormat', $this->_('H:i')); // time format
 		$this->setting('timePlaceholder', $this->_('hh:mm')); // time format placeholder (what users see)
-		$this->setting('maxUsers', 20); // text input rather than select used when useres qty is greater than this
+		$this->setting('maxUsers', 20); // text input rather than select used when users qty is greater than this
 		$this->setting('maxSelectOptions', 100); // if quantity of pages meets or exceeds this number, use autocomplete for Page reference fields
 		
 
@@ -1758,7 +1758,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			return json_encode($data); 
 		}
 
-		/** @var Field|InputfieldPageAutocomplete $field */
+		/** @var Field $field */
 		$searchFields = $field->searchFields; // used by InputfieldPageAutocomplete
 		$labelFieldName = $field->labelFieldName; 
 		$labelFieldFormat = $field->labelFieldFormat;
