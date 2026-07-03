@@ -6,8 +6,9 @@
  * @property Page|null $parentPage Parent of page being edited
  * @property Page|null $editPage Page being edited
  * @property string $sanitizeMethod Default = 'pageName'
- * @property string $languageSupportLabel
+ * @property string $languageSupportLabel Label shown above the input when multi-language page names are enabled
  * @property bool|int $slashUrls whether a trailing slash should be shown in the URL preview (default=1)
+ * @property array $replacements Character replacements populated from module config (default=self::$defaultReplacements)
  * 
  * optional checkbox associated with the input, for use with language support
  * @property string $checkboxName Leave blank to disable 
@@ -243,7 +244,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 		$charset = $config->pageNameCharset;
 		if($charset == 'UTF8') {
 			$replacements = array(':' => '-', ',' => '-');
-			$whitelist = $this->config->pageNameWhitelist;
+			$whitelist = $config->pageNameWhitelist;
 		} else {
 			$replacements = empty($this->replacements) ? self::$defaultReplacements : $this->replacements; 
 			$whitelist = '';
@@ -349,6 +350,7 @@ function InputfieldPageName_saveModuleConfigData(HookEvent $event) {
 	if($arguments[0] != 'InputfieldPageName') return; 
 	$data = $arguments[1];
 	$name = 'replacements';	
+	if(!isset($data[$name])) $data[$name] = InputfieldPageName::getDefaultReplacements();
 	if(!is_array($data[$name])) $data[$name] = InputfieldPageName::replacementStringToArray($data[$name]); 
 	$arguments[1] = $data; 
 	$event->arguments = $arguments; 
