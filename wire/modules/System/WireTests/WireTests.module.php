@@ -727,6 +727,7 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		ksort($commands);
 		$commands['/path/to/myfile.php'] = "Run custom test in /path/to/myfile.php";
 		$commands['dir/to/myfile.php'] = "Run custom test file (relative to installation root)";
+		$commands[':note'] = [ 'Append --json to any test for machine readable JSON output' ]; 
 		return $commands;
 	}
 

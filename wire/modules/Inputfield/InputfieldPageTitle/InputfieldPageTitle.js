@@ -71,7 +71,7 @@ function InputfieldPageTitleCustom($titleField) {
 			lastc = c;
 			name += c;
 		}
-		if(strict && name.length && name.substring(-1) === delimiter) {
+		if(strict && name.length && name.slice(-1) === delimiter) {
 			name = name.substring(0, name.length - 1);
 		}
 		return name;
