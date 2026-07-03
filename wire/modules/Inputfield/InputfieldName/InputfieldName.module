@@ -33,19 +33,19 @@ class InputfieldName extends InputfieldText {
 		$this->attr('name', 'name'); 
 		$this->set('required', true); 
 		$this->label = $this->_('Name'); // default field label
-		$this->description = $this->_('Any combination of letters (a-z), numbers (0-9) and underscores (no spaces).'); // default field description
-		$this->set('sanitizeMethod', 'name'); // method from sanitizer to use for value sanitization
+		$this->description = $this->_('Letters, numbers, underscores, hyphens and periods. Spaces and unsupported characters are converted to underscores.'); // default field description
 	}
 
 	protected function setAttributeValue($value) {
 		$sanitizeMethod = $this->sanitizeMethod; 
 		if($this->isWired()) {
 			$sanitizer = $this->wire()->sanitizer;
-			$value = call_user_func(array($sanitizer, $sanitizeMethod), $value);
 		} else {
 			$sanitizer = wire()->sanitizer;
-			$value = $sanitizer->$sanitizeMethod($value);
 		}
+		$value = $sanitizer->$sanitizeMethod($value);
+		$maxLength = (int) $this->attr('maxlength');
+		if($maxLength > 0 && strlen($value) > $maxLength) $value = substr($value, 0, $maxLength);
 		return $value; 
 	}
 
