@@ -1767,7 +1767,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->attr('value', $this->field->icon);
 		$field->icon = 'puzzle-piece';
 		$field->label = $this->_('Icon');
-		$field->description = $this->_('If you want to associate an icon with the field, select an icon below. Click the "Show all icons" link for visual selection.'); // Description for field tags
+		$field->description = $this->_('If you want to associate an icon with the field, select an icon below. Use the search box to find icons by name, or [browse the icon gallery](https://fontawesome.com/v6/search?ic=free-collection).'); // Description for field icon
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->add($field);
 

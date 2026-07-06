@@ -964,7 +964,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$f->attr('value', $icon);
 		$f->icon = $icon ? $icon : 'puzzle-piece';
 		$f->label = $this->_('Icon');
-		$f->description = $this->_('Select an icon that will be associated with this template and pages using this template (in the admin).');
+		$f->description = $this->_('Select an icon that will be associated with this template and pages using this template (in the admin). Use the search box to find icons by name, or [browse the icon gallery](https://fontawesome.com/v6/search?ic=free-collection).');
 		$f->collapsed = Inputfield::collapsedBlank;
 		$t->add($f);
 		
