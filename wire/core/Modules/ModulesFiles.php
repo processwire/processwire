@@ -306,8 +306,6 @@ class ModulesFiles extends ModulesClass {
 			if($options['getURL']) $file = str_replace($config->paths->root, '/', $file);
 		}
 
-		if($this->wireIsLink) { $real = realpath($file); if($real !== false) $file = $real; }
-
 		return $file;
 	}
 
@@ -341,6 +339,9 @@ class ModulesFiles extends ModulesClass {
 			// temporarily set the $wire instance to 2nd instance during include()
 			ProcessWire::setCurrentInstance($wire2);
 		}
+
+		// when /wire/ is a symlink, resolve the real path so include_once uses the canonical path
+		if($this->wireIsLink) { $real = realpath($file); if($real !== false) $file = $real; }
 
 		// get compiled version (if it needs compilation)
 		$file = $this->compile($moduleName, $file);
