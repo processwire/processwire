@@ -4471,7 +4471,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * when the entire page is saved.
 	 * 
 	 * ~~~~~
-	 * $wire->addHook('Page:saveReady', function($e) {
+	 * $wire->addHook('Page::saveReady', function($e) {
 	 *   $page = $e->object;
 	 *   $name = $e->arguments(1);
 	 *   if($name) {

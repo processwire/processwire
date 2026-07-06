@@ -586,28 +586,28 @@ or `$wire->addHookAfter('Page::methodName', …)`. Hook the class to intercept a
 hook a specific instance to intercept just one page. You can also hook a custom page class to 
 capture only instances of that page type, i.e. `$wire->addHookAfter('ProductPage::added', …)`. 
 
-| Method | Description                                                                                                                             |
-|---|-----------------------------------------------------------------------------------------------------------------------------------------|
-| `getUnknown($key)` | Called when getting an unrecognized property; hook after and set `$event->return` to inject custom property values                      |
-| `path()` | Returns the page's URL path; hook after to rewrite or modify the path and url (since url uses path).                                    |
-| `loaded()` | Called after the page is fully loaded from the database                                                                                 |
-| `editReady(InputfieldWrapper $form)` | Called when page is loaded into the admin page editor; hook to modify the editing form                                                  |
-| `saveReady(array $changes, $name)` | Called right before the page is saved; `$name` is a field name string when saving a single field, or `false` when saving the whole page |
-| `saved(array $changes, $name)` | Called right after the page is saved; same `$name` convention as `saveReady`                                                            |
-| `addReady()` | Called when a new page is about to be saved to the database for the first time                                                          |
-| `added()` | Called after a new page has been saved to the database for the first time                                                               |
-| `moveReady(Page $oldParent, Page $newParent)` | Called when the page is about to be moved to a different parent                                                                         |
-| `moved(Page $oldParent, Page $newParent)` | Called after the page has been moved to a different parent                                                                              |
-| `deleteReady()` | Called right before the page is permanently deleted                                                                                     |
-| `deleted()` | Called after the page has been permanently deleted                                                                                      |
-| `cloneReady(Page $copy)` | Called right before the page is cloned; `$copy` is the new page being created                                                           |
-| `cloned(Page $copy)` | Called right after the page has been cloned; `$copy` is the new page                                                                    |
+| Method                                          | Description                                                                                                                             |
+|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| `getUnknown($key)`                              | Called when getting an unrecognized property; hook after and set `$event->return` to inject custom property values                      |
+| `path()`                                        | Returns the page's URL path; hook after to rewrite or modify the path and url (since url uses path).                                    |
+| `loaded()`                                      | Called after the page is fully loaded from the database                                                                                 |
+| `editReady(InputfieldWrapper $form)`            | Called when page is loaded into the admin page editor; hook to modify the editing form                                                  |
+| `saveReady(array $changes, $name)`              | Called right before the page is saved; `$name` is a field name string when saving a single field, or `false` when saving the whole page |
+| `saved(array $changes, $name)`                  | Called right after the page is saved; same `$name` convention as `saveReady`                                                            |
+| `addReady()`                                    | Called when a new page is about to be saved to the database for the first time                                                          |
+| `added()`                                       | Called after a new page has been saved to the database for the first time                                                               |
+| `moveReady(Page $oldParent, Page $newParent)`   | Called when the page is about to be moved to a different parent                                                                         |
+| `moved(Page $oldParent, Page $newParent)`       | Called after the page has been moved to a different parent                                                                              |
+| `deleteReady()`                                 | Called right before the page is permanently deleted                                                                                     |
+| `deleted()`                                     | Called after the page has been permanently deleted                                                                                      |
+| `cloneReady(Page $copy)`                        | Called right before the page is cloned; `$copy` is the new page being created                                                           |
+| `cloned(Page $copy)`                            | Called right after the page has been cloned; `$copy` is the new page                                                                    |
 | `renameReady(string $oldName, string $newName)` | Called right before the page's name is changed                                                                                          |
-| `renamed(string $oldName, string $newName)` | Called right after the page's name has been changed                                                                                     |
-| `addStatusReady(string $name, int $value)` | Called when a status flag is about to be added but not yet saved; hook before to cancel or modify                                       |
-| `addedStatus(string $name, int $value)` | Called after a status flag has been added and saved                                                                                     |
-| `removeStatusReady(string $name, int $value)` | Called when a status flag is about to be removed but not yet saved; hook before to cancel or modify                                     |
-| `removedStatus(string $name, int $value)` | Called after a status flag has been removed and saved                                                                                   |
+| `renamed(string $oldName, string $newName)`     | Called right after the page's name has been changed                                                                                     |
+| `addStatusReady(string $name, int $value)`      | Called when a status flag is about to be added but not yet saved; hook before to cancel or modify                                       |
+| `addedStatus(string $name, int $value)`         | Called after a status flag has been added and saved                                                                                     |
+| `removeStatusReady(string $name, int $value)`   | Called when a status flag is about to be removed but not yet saved; hook before to cancel or modify                                     |
+| `removedStatus(string $name, int $value)`       | Called after a status flag has been removed and saved                                                                                   |
 
 For a full list of hookable Page methods, see the phpdoc header of the `Page` class,
 or the [Page hooks](https://processwire.com/api/ref/page/#pwapi-methods-hooker) reference.
