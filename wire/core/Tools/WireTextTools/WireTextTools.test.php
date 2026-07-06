@@ -67,7 +67,7 @@ class WireTest_WireTextTools extends WireTest {
 
 		$html = '<p><strong>Hello</strong> wide world</p>';
 		$this->check('truncate(keepFormatTags) keeps inline formatting tag', '<strong>Hello</strong>', $tools->truncate($html, 24, array('keepFormatTags' => true)), '*=');
-		$this->check('truncate(keepFormatTags) repairs partial tags', false, strpos($tools->truncate($html, 18, array('keepFormatTags' => true)), '</str'));
+		$this->check('truncate(keepFormatTags) repairs partial tags by closing', '</strong>', $tools->truncate($html, 18, array('keepFormatTags' => true)), '*=');
 		$this->check('truncate(visible) counts visible chars', true, $tools->getVisibleLength($tools->truncate($html, 12, array('visible' => true))) <= 13);
 	}
 
