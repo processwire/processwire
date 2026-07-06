@@ -50,7 +50,7 @@ function InputfieldIcon() {
 					var iconHtml = ProcessWire.icon(val.replace(/^fa-/, ''), 'fw');
 					html += iconHtml.replace(/'><\/i>$/, " InputfieldIconItem' title='" + val + "'></i>");
 				} else {
-					html += "<i class='fa fw " + val + "' title='" + val + "'>";
+					html += "<i class='fa fw " + val + "' title='" + val + "'></i>";
 				}
 			});
 			$all.append(html);
