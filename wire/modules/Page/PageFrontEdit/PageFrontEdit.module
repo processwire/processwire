@@ -827,12 +827,24 @@ class PageFrontEdit extends WireData implements Module {
 		);
 		
 		// jQuery UI
+		// When the site loads jQuery 3.x, the bundled jQuery UI 1.10.4 is incompatible: its position
+		// utility calls $.fn.offset() on $(window), which in jQuery 3.x calls getClientRects() before
+		// checking ownerDocument, throwing a TypeError since window has no getClientRects. The shim
+		// below wraps $.fn.offset to guard against non-DOM elements, matching jQuery UI 1.12+ behavior.
 		$loadItems[] = array(
 			'test' => "function() { " .
-				"jQuery('[data-class^=pw-edit-attr]').each(function() { " . 
-					"jQuery(this).addClass(jQuery(this).attr('data-class')); " . 
-				"});" . 
-				"return (typeof jQuery.ui == 'undefined'); " . 
+				"jQuery('[data-class^=pw-edit-attr]').each(function() { " .
+					"jQuery(this).addClass(jQuery(this).attr('data-class')); " .
+				"});" .
+				"if(parseInt(jQuery.fn.jquery) >= 3) { " .
+					"(function(o) { " .
+						"jQuery.fn.offset = function(a) { " .
+							"if(this[0] && this[0].getClientRects) return o.apply(this, arguments); " .
+							"return a === undefined ? {top:0, left:0} : this; " .
+						"}; " .
+					"})(jQuery.fn.offset); " .
+				"}" .
+				"return (typeof jQuery.ui == 'undefined'); " .
 			"}",
 			'file' => $config->urls('JqueryUI') . ($config->debug === 'dev' ? 'dev/' : '') . 'JqueryUI.js'
 		);
