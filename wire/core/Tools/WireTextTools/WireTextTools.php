@@ -19,11 +19,19 @@ class WireTextTools extends Wire {
 
 	/**
 	 * mbstring support?
-	 * 
+	 *
 	 * @var bool
-	 * 
+	 *
 	 */
 	protected $mb;
+
+	/**
+	 * HTML block-level tag names
+	 *
+	 * @var array
+	 *
+	 */
+	protected $blockLevelTags = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'figure', 'figcaption'];
 
 	/**
 	 * Construct
@@ -576,6 +584,17 @@ class WireTextTools extends Wire {
 			$options['endBlocksWith'] = $blockEndChar;
 		}
 
+		// when block-level tags are kept, their structure provides visual separation,
+		// so there's no need for collapseLinesWith to insert a visible separator between blocks
+		if(count($options['keepTags']) && trim($options['collapseLinesWith'])) {
+			foreach($options['keepTags'] as $keepTag) {
+				if(in_array(strtolower(trim($keepTag, '<>/')), $this->blockLevelTags)) {
+					$options['collapseLinesWith'] = ' ';
+					break;
+				}
+			}
+		}
+
 		// collapse whitespace and strip tags
 		$str = $this->collapse($str, $options);
 		
@@ -685,7 +704,7 @@ class WireTextTools extends Wire {
 
 		// make sure we didn't break any HTML tags as a result of truncation
 		if(strlen($result) && count($options['keepTags']) && strpos($result, '<') !== false) {
-			$result = $this->fixUnclosedTags($result);
+			$result = $this->fixUnclosedTags($result, false);
 		}
 		
 		return $result;
