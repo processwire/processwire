@@ -533,6 +533,12 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 
 		$items = $pages->getById($ids, $loadOptions);
 		$value = $this->getBlankValue($page, $field);
+
+		// exclude trashed pages to prevent validation errors from stale field data
+		foreach($items->find('status&' . Page::statusTrash) as $trashedItem) {
+			$items->remove($trashedItem);
+		}
+
 		$value->import($items);
 		
 		if(count($sorts)) $value->sort($sorts);
