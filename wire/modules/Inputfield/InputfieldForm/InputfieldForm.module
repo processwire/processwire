@@ -497,8 +497,15 @@ class InputfieldForm extends InputfieldWrapper {
 		// get the inputfield that $child has a dependency on
 		$inputfield = $this->getChildByName($name);
 
-		// if field is not present in this form, we assume a blank value for it
+		// if field is not present in this form, fall back to the submitted POST value (e.g. dependency
+		// is on an AJAX-unloaded tab), so server-side evaluation matches what the browser used
 		if(!$inputfield) {
+			$inputData = $this->getInput();
+			$postValue = $inputData ? $inputData->$name : null;
+			if($postValue !== null) {
+				if(is_array($postValue)) $postValue = implode('|', $postValue);
+				return $selector->matches("$postValue");
+			}
 			if($name != 'collapsed') {
 				$this->error("Warning ($debugNote): dependency field '$name' is not present in this form.", Notice::debug);
 			}
