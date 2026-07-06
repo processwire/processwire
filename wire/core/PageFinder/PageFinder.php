@@ -2109,12 +2109,13 @@ class PageFinder extends Wire {
 					$pageFinder = $this->wire(new PageFinder());	
 					/** @var DatabaseQuerySelect $query */
 					$query = $pageFinder->find($selectors, array(
-						'returnQuery' => true, 
+						'returnQuery' => true,
 						'returnVerbose' => false,
 						'findAll' => true,
+						'allowCustom' => !empty($this->lastOptions['allowCustom']),
 						'bindOptions' => array(
-							'prefix' => 'pfor', 
-							'global' => true, 
+							'prefix' => 'pfor',
+							'global' => true,
 						)
 					));
 					if($n > 0) $sql .= " \n\tOR pages.id IN (\n";
