@@ -33,7 +33,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 		return array(
 			'title' => 'HTML Purifier', 
 			'summary' => 'Front-end to the HTML Purifier library.', 
-			'version' => 497, 
+			'version' => 498, 
 			'singular' => false, 
 			'autoload' => false, 
 		);
@@ -80,7 +80,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 		$this->settings->set('Cache.SerializerPath', $this->getCachePath());
 		$this->settings->set('Attr.AllowedRel', array('nofollow', 'noopener', 'noreferrer'));
 		$this->settings->set('HTML.DefinitionID', 'html5-definitions');
-		$this->settings->set('HTML.DefinitionRev', 1);
+		$this->settings->set('HTML.DefinitionRev', 2);
 		$this->def = $this->settings->maybeGetRawHTMLDefinition();
 		if($this->def) {
 			$this->def->addElement('figure', 'Block', 'Optional: (figcaption, Flow) | (Flow, figcaption) | Flow', 'Common');
