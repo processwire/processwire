@@ -11,7 +11,7 @@
  *
  * When possible, define module class with `implements CliModule` but you can also
  * implement by making sure the 'cli' key is populated in the getModuleInfo() and
- * that the getCliCommand() method is implemented. 
+ * that the getCliCommands() method is implemented.
  * 
  * Modules implementing CliModule do not need to be 'autoload' as ProcessWire will
  * load them on demand when they are requested. 
@@ -48,7 +48,7 @@
  *       echo "Specify 'hi' or 'bye' optionally followed by a name";
  *     }
  *   }
- *   public function getCommands() {
+ *   public function getCliCommands() {
  *     return [
  *       'hi' => 'Say hello',
  *       'bye' => 'Say goodbye',

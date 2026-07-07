@@ -101,8 +101,6 @@ If using Option 1 above, the returned array can also have these special keys:
 
 - `:description` (array): One or more texts that appear above the commands list.
 - `:note` (array): One or more texts that appear below the commands list.
-- `:title` (string): Optional title to use for the command set.
-- `:summary` (string): Optional short summary for the command set.
 
 For example:
 

@@ -281,10 +281,10 @@ class ProcessWireCli extends Wire {
 			
 			if(is_array($commands)) {
 				// $commands['command syntax' => 'description'] or [0 => 'command syntax']
-				// $commands[':title'] Title of this command set
-				// $commands[':summary'] Summary of this command set
 				// $commands[':description'][] items appear above commands
 				// $commands[':note'][] items appear below commands
+				// NOT CURRENTLY USED: $commands[':title'] Title of this command set
+				// NOT CURRENTLY USED: $commands[':summary'] Summary of this command set
 				foreach($commands as $cmd => $label) {
 					if($cmd === ':note') {
 						if(!isset($notes[$moduleName])) $notes[$moduleName] = [];
@@ -303,9 +303,11 @@ class ProcessWireCli extends Wire {
 						}
 						continue;
 					} else if($cmd === ':title') {
+						// not currently used
 						$titles[$moduleName] = $label;
 						continue;
 					} else if($cmd === ':summary') {
+						// not currently used
 						$summaries[$moduleName] = $label;
 						continue;
 					}
