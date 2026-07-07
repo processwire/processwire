@@ -69,8 +69,23 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	public function __construct() {
 		parent::__construct();
 		require_once(dirname(__FILE__) . '/htmlpurifier/HTMLPurifier.standalone.php'); 
+		$this->ensureConfigSchemaCompatibility();
 		$this->settings = \HTMLPurifier_Config::createDefault();
 		$this->settings->autoFinalize = false;
+	}
+
+	/**
+	 * Add config directives referenced by the bundled purifier when absent from its schema
+	 *
+	 */
+	protected function ensureConfigSchemaCompatibility() {
+		$schema = \HTMLPurifier_ConfigSchema::instance();
+		if(!isset($schema->info['Core.RemoveBlanks'])) {
+			$schema->add('Core.RemoveBlanks', false, 'bool', false);
+		}
+		if(!isset($schema->info['URI.AllowedSymbols'])) {
+			$schema->add('URI.AllowedSymbols', "!$&'()*+,;=", 'string', false);
+		}
 	}
 
 	/**

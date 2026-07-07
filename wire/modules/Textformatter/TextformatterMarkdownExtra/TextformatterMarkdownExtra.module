@@ -73,6 +73,7 @@ class TextformatterMarkdownExtra extends Textformatter implements ConfigurableMo
 	 * 
 	 */
 	public function markdown($str, $flavor = null, $safeMode = null) {
+		if($flavor === null) $flavor = (int) $this->flavor;
 		$parsedown = $this->getParsedown($flavor);
 		if(is_bool($safeMode)) $parsedown->setSafeMode($safeMode);
 		$str = $parsedown->text($str);
