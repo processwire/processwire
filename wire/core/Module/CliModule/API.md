@@ -9,8 +9,8 @@ php index.php <cli-name> [args...]
 
 ## Implementing CliModule
 
-The `CliModule` interface can be implemented directly with a PHP `implements` 
-statement in the class definition, or it can be implemented without it. 
+The `CliModule` interface can be implemented directly with a PHP `implements`
+statement in the class definition, or it can be implemented without it.
 ProcessWire core modules should implement it directly. But 3rd party modules
 may want to implement without the `implements CliModule` so that they remain
 compatible with ProcessWire versions prior to the addition of the `CliModule`
@@ -70,8 +70,8 @@ php index.php hello bye
 Handle a CLI invocation. `$args` contains everything typed after the CLI name.
 
 ```bash
-# php index.php hello hi Ryan  →  $args = ['hi', 'Ryan']
-# php index.php hello          →  $args = []
+# php index.php hello hi Ryan  →  executeCli(['hi', 'Ryan'])
+# php index.php hello          →  renders help from getCliCommands()
 ```
 
 Output directly with `echo` or `print`. ProcessWire appends a trailing newline
@@ -97,10 +97,12 @@ return ['sync', 'status'];
 // Option 3: String: freeform help text output as-is
 return "Usage: php index.php myjob [sync|status] [--verbose]";
 ```
-If using Option 1 above, the returned array can also have these special keys in it:
+If using Option 1 above, the returned array can also have these special keys:
 
 - `:description` (array): One or more texts that appear above the commands list.
-- `:note` (array): One or more text thats appear below the commands list. 
+- `:note` (array): One or more texts that appear below the commands list.
+- `:title` (string): Optional title to use for the command set.
+- `:summary` (string): Optional short summary for the command set.
 
 For example:
 
@@ -145,6 +147,8 @@ Resulting output when you type `php index.php hello`:
 ## Notes
 
 - CliModule modules do **not** need `'autoload' => true` — ProcessWire loads them on demand.
+- When a user runs `php index.php <cli>` with no arguments, ProcessWire renders help from
+  `getCliCommands()` and does not call `executeCli()`.
 - `implements CliModule` is not strictly required: a module with `'cli'`
   in `getModuleInfo()` and `executeCli()` / `getCliCommands()` defined will also work.
 - See [[WireTests]] for a real-world example of CliModule in the core.
