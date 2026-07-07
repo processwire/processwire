@@ -1,11 +1,12 @@
 <?php namespace ProcessWire;
 
 /**
- * ImageSizer Engine IMagick by Horst
- * 
- * @todo some class properties need phpdoc
- * 
- * @method imSaveReady($im, $filename) 
+ * ImageSizer Engine IMagick by Horst Nogajski
+ *
+ * ProcessWire 3.x, Copyright 2026 by Horst Nogajski and Ryan Cramer
+ * https://processwire.com
+ *
+ * @method imSaveReady(\Imagick $im, string $filename) Called before saving image, after all transformations
  *
  */
 class ImageSizerEngineIMagick extends ImageSizerEngine {
@@ -45,12 +46,40 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 */
 	static protected $formatSupport = array();
 
-	// @todo the following need phpdoc
+	/**
+	 * Working colorspace during resize (e.g. COLORSPACE_SRGB or COLORSPACE_GRAY)
+	 * @var int
+	 */
 	protected $workspaceColorspace;
+
+	/**
+	 * Detected image format string, e.g. 'JPEG', 'PNG', 'GIF'
+	 * @var string
+	 */
 	protected $imageFormat;
+
+	/**
+	 * Colorspace of the source image
+	 * @var int
+	 */
 	protected $imageColorspace;
+
+	/**
+	 * Image profiles/metadata indexed by type (icc, exif, iptc, xmp, etc.)
+	 * @var array
+	 */
 	protected $imageMetadata;
+
+	/**
+	 * Bit depth of the source image
+	 * @var int
+	 */
 	protected $imageDepth;
+
+	/**
+	 * Gamma value of the source image
+	 * @var float
+	 */
 	protected $imageGamma;
 
 	/**
@@ -118,12 +147,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 */
 	protected function validSourceImageFormats() {
 		// 2019/06/07: “PNG8” removed because some versions of ImageMagick have some bug, may be able to add back later
-		return array('JPG', 'JPEG', 'PNG24', 'PNG', 'GIF', 'GIF87'); 
-		//return array(
-		//    'PNG', 'PNG8', 'PNG24',
-		//    'JPG', 'JPEG',
-		//    'GIF', 'GIF87'
-		//);
+		return array('JPG', 'JPEG', 'PNG24', 'PNG', 'GIF', 'GIF87');
 	}
 
 	/**
@@ -229,7 +253,9 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->workspaceColorspace = \Imagick::COLORSPACE_SRGB;
 		$this->im->setColorspace($this->workspaceColorspace);
 
-		if(!$this->im->readImage($srcFilename)) {  // actually we get a filecopy from origFilename to destFilename from PageImage
+		try {
+			$this->im->readImage($srcFilename);  // actually we get a filecopy from origFilename to destFilename from PageImage
+		} catch(\ImagickException $e) {
 			$this->release();
 			return false;
 		}
@@ -249,12 +275,6 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			return false;
 		}
 
-		// check validity against PW (this does not seem to be reachable due to above code, so commented it out —Ryan)
-		// if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
-		//	$this->release();
-		//	throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images"), basename($dstFilename)));
-		// }
-
 		// check and retrieve different image parts and information: ICC, Colorspace, Colordepth, Metadata, etc
 		$this->imageColorspace = $this->im->getImageColorspace();
 		$this->workspaceColorspace = \Imagick::COLORSPACE_GRAY == $this->imageColorspace ? \Imagick::COLORSPACE_GRAY : $this->workspaceColorspace;
@@ -270,17 +290,13 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->imageGamma = $this->im->getImageGamma();
 		
 		if(0 == $this->imageGamma) {
-			// we seem to running on a IMagick version that lacks some features,
-			// at least the 'getImageGamma()', therefor we asume a Gamma of 2.2 here
+			// we seem to be running on an IMagick version that lacks some features,
+			// at least the 'getImageGamma()', therefore we assume a Gamma of 2.2 here
 			$this->imageGamma = 0.454545;
 		}
 
-		// remove not wanted / needed Metadata = this is the same behave as processed via GD-lib
+		// remove not wanted / needed Metadata = this is the same behavior as processed via GD-lib
 		foreach(array_keys($this->imageMetadata) as $k) {
-			#if('icc'==$k) continue;     // we keep embedded icc profiles
-			#if('iptc' == $k) continue;  // we keep embedded iptc data
-			#if('exif'==$k && $this->data['keepEXIF']) continue; // we have to keep exif data too
-			#if('xmp'==$k && $this->data['keepXMP']) continue; // we have to keep xmp data too
 			$this->im->profileImage("$k", null); // remove this one
 		}
 
@@ -343,7 +359,6 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 
 		if(is_array($this->cropExtra) && 4 == count($this->cropExtra)) { // crop before resize
 			list($cropX, $cropY, $cropWidth, $cropHeight) = $this->cropExtra;
-			#list($x, $y, $w, $h) = $this->cropExtra;
 			if(!$this->im->cropImage($cropWidth, $cropHeight, $cropX, $cropY)) {
 				$this->release();
 				return false;
@@ -359,9 +374,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 
 		if(0 == $resizemethod) {
 			$this->sharpening = 'none';  // no need for sharpening because we use original copy without scaling
-			// oh, do we need to save with more compression for JPEGs ??
-			#return true;
-			
+
 		} else if(2 == $resizemethod) { // 2 = resize with aspect ratio
 			if(!$this->im->resizeImage($finalWidth, $finalHeight, \Imagick::FILTER_LANCZOS, 1)) {
 				$this->release();
@@ -429,10 +442,8 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			// write to file
 			if(file_exists($dstFilename)) $this->wire('files')->unlink($dstFilename);
 			@clearstatcache(dirname($dstFilename));
-			##if(!$this->im->writeImage($this->destFilename)) {
-			// We use this approach for saving so that it behaves the same like core ImageSizer with images that
-			// have a wrong extension in their filename. When using writeImage() it automatically corrects the
-			// mimetype to match the fileextension, <- we want to avoid this!
+			// We use file_put_contents() here so that it behaves the same as core ImageSizer with images that
+			// have a wrong extension: writeImage() auto-corrects the mimetype to match the file extension, which we avoid.
 			if(!file_put_contents($dstFilename, $this->im)) {
 				$this->release();
 				return false;
@@ -454,9 +465,6 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			$this->imWebp->setImageFormat('webp');
 			$this->imWebp->setImageCompressionQuality($this->webpQuality);
 			$this->imWebp->setOption('webp:method', '6');
-			//$this->imWebp->setOption('webp:lossless', 'true');                    // is this useful?
- 			//$this->imWebp->setImageAlphaChannel(imagick::ALPHACHANNEL_ACTIVATE);  // is this useful?
-  			//$this->imWebp->setBackgroundColor(new ImagickPixel('transparent'));   // is this useful?
 			// save to file
 			$return = $this->imWebp->writeImage($webpFilename);
 		}
@@ -470,7 +478,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	/**
 	 * Called before saving of image
 	 *
-	 * @param resource $im
+	 * @param \Imagick $im
 	 * @param string $filename Source filename
 	 * @since 3.0.236
 	 *
@@ -531,7 +539,8 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 * 
 	 */
 	public function reduceByHalf($dstFilename = '') {
-		$imagick = $this->getImagick($this->filename); 
+		if(!$this->filename) throw new WireException('No image loaded. Call prepare() first.');
+		$imagick = $this->getImagick($this->filename);
 		$success = $imagick->minifyImage();
 		if($success) $success = $this->processSave($imagick, $dstFilename); 
 		return $success;
@@ -545,7 +554,8 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 * 
 	 */
 	public function convertToGreyscale($dstFilename = '') {
-		$imagick = $this->getImagick($this->filename); 
+		if(!$this->filename) throw new WireException('No image loaded. Call prepare() first.');
+		$imagick = $this->getImagick($this->filename);
 		$success = $imagick->transformImageColorspace(\imagick::COLORSPACE_GRAY);
 		if($success) $success = $this->processSave($imagick, $dstFilename);
 		return $success;
@@ -560,7 +570,8 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 * 
 	 */
 	public function convertToSepia($dstFilename = '', $sepia = 55) {
-		$sepia += 35; 
+		if(!$this->filename) throw new WireException('No image loaded. Call prepare() first.');
+		$sepia += 35;
 		$imagick = $this->getImagick($this->filename);
 		$success = $imagick->sepiaToneImage((float) $sepia); 
 		if($success) $success = $this->processSave($imagick, $dstFilename);
@@ -602,7 +613,9 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	public function getImagick($filename = '') {
 		$imagick = new \Imagick();
 		if($filename) {
-			if(!$imagick->readImage($filename)) {
+			try {
+				$imagick->readImage($filename);
+			} catch(\ImagickException $e) {
 				throw new WireException("Imagick unable to load file: " . basename($filename));
 			}
 		}
@@ -612,7 +625,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	/**
 	 * Sharpen the image
 	 * 
-	 * @param string $mode May be none|string|medium|soft
+	 * @param string $mode May be none|strong|medium|soft
 	 * @return bool
 	 * 
 	 */
