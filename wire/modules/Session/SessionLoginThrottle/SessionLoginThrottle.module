@@ -105,7 +105,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	 * 
 	 * @param string $name User name, may also be IP address 
 	 * @return bool
-	 * @throws WireException
+	 * @throws SessionLoginThrottleException
 	 * 
 	 */
 	protected function allowLogin($name) {
@@ -195,8 +195,8 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 
 
 	/**
-	 * Add custom config options (coming soon, just a placeholder for now)
-	 * 
+	 * Return module configuration inputfields
+	 *
 	 * @param array $data
 	 * @return InputfieldWrapper
 	 *
@@ -222,7 +222,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$f->attr('name', 'seconds');
 		$f->attr('value', $data['seconds']); 
 		$f->label = $this->_('Number of seconds to make user wait after failed login attempt'); 
-		$f->description = $this->_('This number is multiplied by the number of failed attempts, so each failed attempt increases the wait time exponentially. As a result, be careful about setting this too high.');
+		$f->description = $this->_('This number is multiplied by the number of failed attempts, so each failed attempt increases the wait time linearly. As a result, be careful about setting this too high.');
 		$inputfields->add($f);
 
 
@@ -230,7 +230,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$f->attr('name', 'maxSeconds');
 		$f->attr('value', $data['maxSeconds']); 
 		$f->label = $this->_('Maximum number of seconds a user would ever have to wait before attempting another login'); 
-		$f->description = $this->_('Because the wait time is increased exponentially on each attempt, this places a maximum (cap) on the wait time. You should leave this set to a fairly high number.');
+		$f->description = $this->_('Because the wait time is increased linearly on each attempt, this places a maximum (cap) on the wait time. You should leave this set to a fairly high number.');
 		$f->notes = $this->_('60=1 minute, 300=5 minutes, 600=10 minutes, 3600=1 hour, 86400=1 day'); 
 		$inputfields->add($f);
 	
