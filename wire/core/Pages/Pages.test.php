@@ -165,22 +165,22 @@ class WireTest_Pages extends WireTest {
 		$child1->of(false);
 		$child1->title = 'Pages Test Child A - Updated';
 		$pages->save($child1);
-		$this->check('save() persists title change', 'Pages Test Child A - Updated', $pages->getFresh($child1->id)->title);
+		$this->check('save() persists title change', 'Pages Test Child A - Updated', $pages->getFresh($child1->id)->getFormatted('title'));
 
 		$child1->of(false);
 		$child1->title = 'Pages Test Child A - saveField';
 		$pages->saveField($child1, 'title');
-		$this->check('saveField() persists single field', 'Pages Test Child A - saveField', $pages->getFresh($child1->id)->title);
+		$this->check('saveField() persists single field', 'Pages Test Child A - saveField', $pages->getFresh($child1->id)->getFormatted('title'));
 
 		$child1->of(false);
 		$child1->title = 'Pages Test Child A - saveFields';
 		$pages->saveFields($child1, 'title');
-		$this->check('saveFields() persists via CSV string', 'Pages Test Child A - saveFields', $pages->getFresh($child1->id)->title);
+		$this->check('saveFields() persists via CSV string', 'Pages Test Child A - saveFields', $pages->getFresh($child1->id)->getFormatted('title'));
 
 		$child1->of(false);
 		$child1->title = 'Pages Test Child A - saveFields array';
 		$pages->saveFields($child1, array('title'));
-		$this->check('saveFields() persists via array', 'Pages Test Child A - saveFields array', $pages->getFresh($child1->id)->title);
+		$this->check('saveFields() persists via array', 'Pages Test Child A - saveFields array', $pages->getFresh($child1->id)->getFormatted('title'));
 
 		$beforeModified = $pages->getFresh($child1->id)->modified;
 		$pages->touch($child1);

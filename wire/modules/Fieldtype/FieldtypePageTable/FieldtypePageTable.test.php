@@ -46,8 +46,9 @@ class WireTest_FieldtypePageTable extends WireTest {
 		$page->of(false);
 		$items = $page->get($name);
 		if($items->count() !== 1) $this->fail('Expected 1 item after save, got: ' . $items->count());
-		if($items->first()->title !== 'First Item') {
-			$this->fail("Expected title 'First Item', got: " . var_export($items->first()->title, true));
+		$itemTitle = $items->first()->getFormatted('title');
+		if($itemTitle !== 'First Item') {
+			$this->fail("Expected title 'First Item', got: " . var_export($itemTitle, true));
 		}
 		$this->li("Item saved and retrieved, title='First Item' verified");
 

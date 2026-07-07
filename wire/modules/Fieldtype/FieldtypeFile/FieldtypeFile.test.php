@@ -29,6 +29,7 @@ class WireTest_FieldtypeFile extends WireTest {
 		$page->of(false);
 		$page->get($name)->deleteAll();
 		$page->save($name);
+		$this->cleanupFixtureFiles($page, array('php-cheat-sheet', 'test'), 'pdf');
 
 		$page->get($name)->add($pdf1);
 		$page->save($name);
@@ -190,6 +191,16 @@ class WireTest_FieldtypeFile extends WireTest {
 				$fieldgroup->add($f);
 				$fieldgroup->save();
 				$this->li("Added field to fieldgroup: $f->name");
+			}
+		}
+	}
+
+	protected function cleanupFixtureFiles(Page $page, array $basenames, $extension) {
+		$path = $page->filesPath();
+		if(!is_dir($path)) return;
+		foreach($basenames as $basename) {
+			foreach(glob($path . $basename . '*.' . $extension) as $filename) {
+				$this->wire()->files->unlink($filename);
 			}
 		}
 	}

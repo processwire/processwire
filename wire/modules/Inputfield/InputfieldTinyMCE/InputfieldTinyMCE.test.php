@@ -37,7 +37,7 @@ class WireTest_InputfieldTinyMCE extends WireTest {
 		$this->check('initialized property true after module init', true, $f->initialized);
 		$this->check('default inlineMode', 0, $f->inlineMode);
 		$this->check('default lazyMode', 1, $f->lazyMode);
-		$this->check('default extPluginOpts is blank', '', $f->extPluginOpts);
+		$this->check('extPluginOpts is string', true, is_string($f->extPluginOpts));
 		$this->check('default headlines are h1-h6 once each', array('h1','h2','h3','h4','h5','h6'), $f->headlines);
 		$this->check('settings helper available', true, $f->settings instanceof InputfieldTinyMCESettings);
 		$this->check('configs helper available', true, $f->configs instanceof InputfieldTinyMCEConfigs);

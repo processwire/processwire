@@ -92,7 +92,7 @@ class WireTest_WireTextTools extends WireTest {
 		$this->check('populatePlaceholders(removeEmptyTags=false) leaves empty tag', 'Value: {empty}', $tools->populatePlaceholders('Value: {empty}', $vars, array('removeEmptyTags' => false)));
 
 		$page = $this->wire()->pages->get('/');
-		$this->check('populatePlaceholders(Page OR tags) uses first non-empty value', $page->title, $tools->populatePlaceholders('{missing_field|title|name}', $page));
+		$this->check('populatePlaceholders(Page OR tags) uses first non-empty value', $page->getFormatted('title'), $tools->populatePlaceholders('{missing_field|title|name}', $page));
 
 		$tags = $tools->findPlaceholders('Hello {name}, {site_name}.');
 		$this->check('findPlaceholders() returns tag names', array('name', 'site_name'), array_keys($tags));

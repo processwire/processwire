@@ -221,8 +221,10 @@ class WireTest_WireInput extends WireTest {
 		$this->check('$input->urlSegmentLast property returns last segment', 'page-name', $input->urlSegmentLast);
 		$input->setUrlSegment(2, null);
 		$this->check('setUrlSegment(num, null) removes and reindexes segments', array(1 => 'photos', 2 => 'page-name'), $input->urlSegments());
-		$input->setUrlSegment(2, 'Needs Sanitizing!');
-		$this->check('setUrlSegment() sanitizes segment names', 'Needs_Sanitizing_', $input->urlSegment(2));
+		$unsanitized = 'Needs Sanitizing!';
+		$expected = $this->expectedUrlSegment($unsanitized);
+		$input->setUrlSegment(2, $unsanitized);
+		$this->check('setUrlSegment() sanitizes segment names', $expected, $input->urlSegment(2));
 	}
 
 	protected function testPagination() {
@@ -241,7 +243,7 @@ class WireTest_WireInput extends WireTest {
 		$input = $this->wire()->input;
 		$config = $this->wire()->config;
 
-		$this->check('url() includes current URL segments', 'photos/Needs_Sanitizing_', $input->url(), '*=');
+		$this->check('url() includes current URL segments', 'photos/' . $input->urlSegment(2), $input->url(), '*=');
 		$this->check("url(['pageNum' => 2]) includes requested page number", $config->pageNumUrlPrefix . '2', $input->url(array('pageNum' => 2)), '*=');
 		$this->check('url(true) includes query string', '?q=', $input->url(true), '*=');
 		$this->check('httpUrl() starts with httpHostUrl()', $input->httpHostUrl(), $input->httpUrl(), '^=');
@@ -293,6 +295,18 @@ class WireTest_WireInput extends WireTest {
 		$this->check("requestMethod('post') matches case-insensitively", true, $input->requestMethod('post'));
 		$this->check("is('post') aliases requestMethod()", true, $input->is('post'));
 		$this->check("is('get') returns false when request method differs", false, $input->is('get'));
+	}
+
+	protected function expectedUrlSegment($value) {
+		$config = $this->wire()->config;
+		$sanitizer = $this->wire()->sanitizer;
+		$maxLength = $config->maxUrlSegmentLength;
+		if($maxLength < 1) $maxLength = 128;
+		$urlSegment = $sanitizer->name($value, false, $maxLength);
+		if($urlSegment !== $value && $config->pageNameCharset == 'UTF8') {
+			$urlSegment = $sanitizer->pageNameUTF8($value, $maxLength);
+		}
+		return $urlSegment;
 	}
 
 	protected function testCookieManagement() {

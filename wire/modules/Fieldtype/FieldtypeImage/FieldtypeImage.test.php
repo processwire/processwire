@@ -33,6 +33,7 @@ class WireTest_FieldtypeImage extends WireTest {
 		$page->of(false);
 		$page->get($name)->deleteAll();
 		$page->save($name);
+		$this->cleanupFixtureImages($page);
 
 		$page->get($name)->add($imgJpg);
 		$page->save($name);
@@ -217,6 +218,16 @@ class WireTest_FieldtypeImage extends WireTest {
 				$fieldgroup->add($f);
 				$fieldgroup->save();
 				$this->li("Added field to fieldgroup: $f->name");
+			}
+		}
+	}
+
+	protected function cleanupFixtureImages(Page $page) {
+		$path = $page->filesPath();
+		if(!is_dir($path)) return;
+		foreach(array('test1*.jpg', 'test2*.png', 'GIF-google*.gif', 'invalid-image*.jpg') as $pattern) {
+			foreach(glob($path . $pattern) as $filename) {
+				$this->wire()->files->unlink($filename);
 			}
 		}
 	}

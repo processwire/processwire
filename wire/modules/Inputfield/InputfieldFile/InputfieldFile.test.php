@@ -178,6 +178,7 @@ class WireTest_InputfieldFile extends WireTest {
 	protected function testDescriptionTagsSortAndDelete() {
 		$pagefile = $this->addFixtureFile();
 		$f = $this->newInputfield();
+		$f->noLang = 1;
 		$f->useTags = FieldtypeFile::useTagsNormal;
 		$id = $this->pagefileInputId($pagefile);
 		$data = array(

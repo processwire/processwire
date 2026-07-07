@@ -60,9 +60,18 @@ class WireTest_InputfieldPageName extends WireTest {
 
 	protected function testProcessInput() {
 		$f = $this->newInputfield('page_name');
-		$this->processInput($f, 'New Page Name!');
+		$page = $this->getTestPage();
+		$template = $page->template;
+		$noLang = $template->noLang;
+		$template->noLang = 1;
+		$f->editPage = $page;
 
-		$this->check('processInput() sanitizes submitted value', $this->expectedSanitized('New Page Name!'), $f->val());
+		try {
+			$this->processInput($f, 'New Page Name!');
+			$this->check('processInput() sanitizes submitted value', $this->expectedSanitized('New Page Name!'), $f->val());
+		} finally {
+			$template->noLang = $noLang;
+		}
 
 		$f = $this->newInputfield('page_name');
 		$f->attr('disabled', 'disabled');

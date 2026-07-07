@@ -21,7 +21,8 @@
  * http://htmlpurifier.org/live/configdoc/plain.html
  *
  * HTML Purifier by: http://htmlpurifier.org
- * ProcessWire module by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
+ * https://processwire.com
  * 
  * @method void initConfig(\HTMLPurifier_Config $settings, \HTMLPurifier_HTMLDefinition $def)
  *
@@ -165,8 +166,8 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	/**
 	 * Purify the given dirty HTML and return the clean HTML
 	 *
-	 * @param string Dirty HTML
- 	 * @return string Clean HTML
+	 * @param string $html Dirty HTML
+	 * @return string Clean HTML
 	 *
 	 */
 	public function purify($html) {
@@ -188,7 +189,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 *
 	 */
 	public function set($key, $value) {
-		if(strpos($key, '.')) {
+		if(strpos($key, '.') !== false) {
 			// HTML Purifier setting: http://htmlpurifier.org/live/configdoc/plain.html
 			$this->purifier = null;
 			$this->settings->set($key, $value); 
@@ -201,12 +202,12 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	/**
 	 * Get an HTMLPurifier config option
 	 *
- 	 * @param string $key
-	 * @return string|null
+	 * @param string $key
+	 * @return mixed|null
 	 *
 	 */
 	public function get($key) {
-		if(strpos($key, '.')) return $this->settings->get($key);
+		if(strpos($key, '.') !== false) return $this->settings->get($key);
 		return parent::get($key);
 	}
 
@@ -215,9 +216,9 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 *
 	 */
 	public function ___uninstall() {
-		$cachePath = $this->getCachePath();
-		wireRmdir($cachePath, true); 
-		$this->message("Removed: $cachePath"); 
+		$cachePath = $this->getCachePath(false);
+		if(is_dir($cachePath)) $this->wire()->files->rmdir($cachePath, true);
+		$this->message("Removed: $cachePath");
 	}
 
 }

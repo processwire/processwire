@@ -353,18 +353,18 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 			$ok = $expectValue >= $actualValue;
 		} else if($operator === '*=') {
 			$ok = strpos((string) $actualValue, (string) $expectValue) !== false;
-			$message = "$testName: " . var_export($actualValue, true) . " does not contain " . var_export($expectValue, true);
+			$message = "$testName: " . $this->exportValue($actualValue) . " does not contain " . $this->exportValue($expectValue);
 		} else if($operator === '^=') {
 			$ok = str_starts_with((string) $actualValue, (string) $expectValue);
-			$message = "$testName: " . var_export($actualValue, true) . " does not start with " . var_export($expectValue, true);
+			$message = "$testName: " . $this->exportValue($actualValue) . " does not start with " . $this->exportValue($expectValue);
 		} else if($operator === '$=') {
 			$ok = str_ends_with((string) $actualValue, (string) $expectValue);
-			$message = "$testName: " . var_export($actualValue, true) . " does not end with " . var_export($expectValue, true);
+			$message = "$testName: " . $this->exportValue($actualValue) . " does not end with " . $this->exportValue($expectValue);
 		} else {
 			throw new WireTestException("Operator '$operator' not supported");
 		}
 		if(!$ok) {
-			if(!$message) $message = "$testName: Expected: " . var_export($expectValue, true) . ", Received: " . var_export($actualValue, true);
+			if(!$message) $message = "$testName: Expected: " . $this->exportValue($expectValue) . ", Received: " . $this->exportValue($actualValue);
 			$this->addJsonAssertion([
 				'status' => 'fail',
 				'label' => $testName,
@@ -376,6 +376,36 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 			throw new WireTestException($message);
 		}
 		$this->ok("$testName");
+	}
+
+	/**
+	 * Export value for assertion failure messages without traversing circular objects
+	 *
+	 * @param mixed $value
+	 * @param int $depth
+	 * @return string
+	 *
+	 */
+	protected function exportValue($value, $depth = 0) {
+		if(is_object($value)) {
+			$label = get_class($value);
+			if($value instanceof Wire) $label = $value->className();
+			if($value instanceof Page && $value->id) $label .= "(id=$value->id, path=$value->path)";
+			return "object($label)";
+		}
+		if(is_array($value)) {
+			if($depth >= 2) return 'array(...)';
+			$items = array();
+			foreach($value as $k => $v) {
+				$items[] = $this->exportValue($k, $depth + 1) . ' => ' . $this->exportValue($v, $depth + 1);
+				if(count($items) >= 8) {
+					$items[] = '...';
+					break;
+				}
+			}
+			return 'array(' . implode(', ', $items) . ')';
+		}
+		return var_export($value, true);
 	}
 
 	/**

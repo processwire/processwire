@@ -115,13 +115,14 @@ class WireTest_InputfieldPage extends WireTest {
 	protected function testPageLabels() {
 		$page = $this->selectablePage();
 		$f = $this->newInputfield();
+		$title = $page->getFormatted('title');
 
 		$f->labelFieldName = 'title';
-		$this->check('getPageLabel uses labelFieldName', $page->title, $f->getPageLabel($page));
+		$this->check('getPageLabel uses labelFieldName', $title, $f->getPageLabel($page));
 
 		$f->labelFieldName = '.';
 		$f->labelFieldFormat = '{title} [{name}]';
-		$this->check('getPageLabel uses labelFieldFormat', $page->title . ' [' . $page->name . ']', $f->getPageLabel($page));
+		$this->check('getPageLabel uses labelFieldFormat', $title . ' [' . $page->name . ']', $f->getPageLabel($page));
 
 		$f->labelFieldName = '';
 		$f->labelFieldFormat = '';

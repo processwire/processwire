@@ -183,7 +183,8 @@ class WireTest_LanguageSupport extends WireTest {
 			$user->setQuietly('language', $other);
 			$this->check('__toString() resolves to current language value', 'Other value 2', (string) $value);
 			$value->setLanguageValue($other, '');
-			$this->check('Blank language value inherits default by default', 'Default value', (string) $value);
+			$expected = (int) $field->get('langBlankInherit') === LanguagesPageFieldValue::langBlankInheritDefault ? 'Default value' : '';
+			$this->check('Blank language value follows field inheritance setting', $expected, (string) $value);
 			$user->setQuietly('language', $default);
 		}
 
