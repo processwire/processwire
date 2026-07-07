@@ -383,6 +383,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	public function renderChooseTemplate() {
 		$pages = $this->wire()->pages;
 		$templates = $this->wire()->templates;
+		$sanitizer = $this->wire()->sanitizer;
 		
 		/** @var array $data */
 		$data = $this->executeNavJSON(array('getArray' => true)); 
@@ -418,7 +419,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 					foreach($parentParents as $p) {
 						/** @var Page $p */
 						if($p->id == 1 && $parentParents->count() > 1) continue;
-						$out .= $p->title . $rightIcon;
+						$out .= $sanitizer->entities($p->getUnformatted('title')) . $rightIcon;
 					}
 					$out .= "</a></li>";
 				}

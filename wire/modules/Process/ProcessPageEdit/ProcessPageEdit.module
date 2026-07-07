@@ -1586,13 +1586,15 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$this->_('(in page field)') => $references,
 				$this->_('(in href link)') => $links
 			);
+			$sanitizer = $this->wire()->sanitizer;
 			foreach($itemsByType as $label => $items) {
 				$label = "<span class='detail'>$label</span>";
 				foreach($items as $item) {
 					/** @var Page $item */
 					if($item->listable()) {
 						$url = $item->editable() ? $item->editUrl() : $item->url();
-						$out .= "<li><a href='$url' title='$item->url' target='_blank'>" . $item->get('title|path') . "</a> $label</li>";
+						$title = $sanitizer->entities($item->getUnformatted('title|path'));
+						$out .= "<li><a href='$url' title='$item->url' target='_blank'>$title</a> $label</li>";
 					} else {
 						$out .= "<li>$item->id $labelNotListable $label</li>";
 					}
