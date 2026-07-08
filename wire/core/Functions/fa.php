@@ -155,6 +155,7 @@ return array(
 		'fa-feed'                 => 'fa-rss',
 		'fa-file-archive-o'       => array('fa-file-zipper', 'far'),
 		'fa-file-movie-o'         => array('fa-file-video', 'far'),
+		'fa-files-o'              => array('fa-copy', 'far'),
 		'fa-file-photo-o'         => array('fa-file-image', 'far'),
 		'fa-file-picture-o'       => array('fa-file-image', 'far'),
 		'fa-file-sound-o'         => array('fa-file-audio', 'far'),
