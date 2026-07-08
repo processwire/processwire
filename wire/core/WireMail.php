@@ -763,10 +763,39 @@ class WireMail extends WireData implements WireMailInterface {
 			$content = chunk_split(base64_encode($content));
 	
 			if(stripos($content, $boundary) !== false) continue;
+
+			$info = pathinfo($filename);
+			$ext = $info['extension'];
+		
+			$fileContentTypes = $this->wire()->config->fileContentTypes;
+			
+			$contentTypes = array(
+				'?' => '+application/octet-stream',
+				'pdf' => 'application/pdf',
+				'doc' => '+application/msword',
+				'docx' => '+application/msword',
+				'xls' => '+application/excel',
+				'xlsx' => '+application/excel',
+				'rtf' => '+application/rtf',
+				'gif' => 'image/gif',
+				'jpg' => 'image/jpeg',
+				'jpeg' => 'image/jpeg',
+				'png' => 'image/x-png',
+			);
+		
+			if(is_array($fileContentTypes)) {
+				$contentTypes = array_merge($contentTypes, $fileContentTypes);
+			}
+
+			if(isset($contentTypes[$ext])) {
+				$contentType = $contentTypes[$ext];
+			} else {
+				$contentType = $contentTypes['?'];
+			}
 			
 			$body .=
 				"--$boundary\r\n" .
-				"Content-Type: application/octet-stream; name=\"$filename\"\r\n" .
+				"Content-Type: " . $contentType . "; name=\"$filename\"\r\n" .
 				"Content-Transfer-Encoding: base64\r\n" .
 				"Content-Disposition: attachment; filename=\"$filename\"\r\n\r\n" .
 				"$content\r\n\r\n";
