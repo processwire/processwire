@@ -17,6 +17,7 @@
  * @property string $noticeIncomplete
  * @property string $viewAction One of 'panel', 'modal', 'new', 'this' (see getViewActions method)
  * @property bool $useBookmarks
+ * @property string $useMeta Allow Page::meta() values on Settings tab for superuser? '', 'view' or 'edit'
  * 
  * @method Page loadPage($id)
  * @method string execute()
@@ -359,6 +360,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function __construct() {
 		$this->set('useBookmarks', false);
+		$this->set('useMeta', '');
 		$this->set('viewAction', 'this');
 		return parent::__construct();
 	}
@@ -1340,6 +1342,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$wrapper->add($this->buildFormInfo());
 		}
 		
+		if($superuser) {
+			$wrapper->add($this->buildFormMeta());
+		}
+		
 		return $wrapper; 
 	}
 
@@ -1851,6 +1857,54 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 
 		return $field; 
+	}
+	
+	/**
+	 * Form meta editor/viewer
+	 * 
+	 * @return InputfieldJson
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 * 
+	 */
+	protected function buildFormMeta() {
+		$modules = $this->wire()->modules;
+		$editUrl = $modules->getModuleEditUrl($this);
+		
+		if($this->useMeta) {
+			$value = $this->page->meta()->getArray();
+			$qty = count($value);
+			/** @var InputfieldJson $f */
+			$f = $modules->get('InputfieldJson');
+			$f->mode = $this->useMeta === 'edit' ? 'tree' : 'view';
+			$f->val($value);
+			$f->label = sprintf($this->_('Meta (%d)'), $qty);
+			if($this->useMeta === 'view') $f->notes = sprintf(
+				$this->_('To enable editing of meta data, see the page edit module [configuration](%s).'),
+				$editUrl
+			);
+			$f->notes = trim($f->notes . ' ' . $this->_('Meta data is currently accessible to superusers only.'));
+			
+		} else {
+			/** @var InputfieldMarkup $f */
+			$f = $modules->get('InputfieldMarkup');
+			$qty = 0;
+			$f->value = $this->wire()->sanitizer->entitiesMarkdown(
+				sprintf(
+					$this->_('To enable view or edit of page meta data (for superuser) see the page edit module [configuration](%s).'),
+					$editUrl
+				), true
+			);
+		}
+		
+		$f->label = $this->_('Meta') . ($qty ? " ($qty)" : "");
+		$f->icon = 'layer-group';
+		$f->attr('id+name', '_page_meta');
+		$f->collapsed = Inputfield::collapsedYesAjax;
+		$url = 'https://processwire.com/blog/posts/page-meta-method/';
+		$f->notes = trim($f->notes . ' ' . '[' . $this->_('What is page meta?') . "]($url)");
+		
+		return $f;
 	}
 
 	/**
@@ -2395,7 +2449,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 						$this->error("Parent $inputfield->value is not allowed for $page"); 
 						continue; 
 					}
-				}
+				} else if($name === '_page_meta' && $input->post('_page_meta') !== null) {
+					$this->processInputMeta($inputfield);
+					continue;
+				}	
 
 				if($name == 'status' && $this->processInputStatus($inputfield)) continue; 
 			}
@@ -2427,6 +2484,25 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if($forceAddStatus && !$page->hasStatus($forceAddStatus)) {
 				$page->addStatus($forceAddStatus);
 			}
+		}
+	}
+	
+	/**
+	 * Process Page::meta data
+	 * 
+	 * @param InputfieldJson $inputfield
+	 * 
+	 */
+	protected function processInputMeta($inputfield) {
+		if(!$this->wire()->user->isSuperuser()) return;
+		if(!$this->useMeta || $this->useMeta === 'view') return;
+		if(count($inputfield->getErrors())) return;
+		$value = json_decode($inputfield->val(), true);
+		if(!is_array($value)) return;
+		$valuePrevious = $this->page->meta()->getArray();
+		if($value !== $valuePrevious) {
+			$this->page->meta()->setArray($value);
+			$this->page->trackChange('meta');
 		}
 	}
 
@@ -3510,6 +3586,20 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$f->attr('value', 'this');
 		}
 		
+		$inputfields->add($f);
+		
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'useMeta');
+		$f->label = $this->_('Enable page meta on settings tab?');
+		$f->icon = 'database';
+		$f->addOption('', $this->_('Disabled'));
+		$f->addOption('view', $this->_('View-only'));
+		$f->addOption('edit', $this->_('Edit and view'));
+		$f->notes = 
+			$this->_('This setting applies to superuser only.') . ' ' . 
+			$this->_('Non-superusers cannot view or edit page meta data in the admin.');
+		$f->val($this->useMeta);
 		$inputfields->add($f);
 		
 		$bookmarks = $this->getPageBookmarks();
