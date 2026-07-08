@@ -1,0 +1,23 @@
+.InputfieldJsonContainer {
+	width: 100%;
+}
+
+.InputfieldJsonContainer > .jsoneditor-mode-code > .jsoneditor-outer > .ace-jsoneditor,
+.InputfieldJsonContainer > .jsoneditor-mode-text > .jsoneditor-outer > .jsoneditor-text {
+	min-height: 400px;
+}
+
+.InputfieldJson .jsoneditor {
+	border: 0;
+}
+
+.InputfieldJson:has(.jsoneditor-contextmenu) {
+	/* ensures context menu doesn't have z-index issues with Inputfield that comes after */
+	position: relative;
+	z-index: 1000;
+}
+
+.InputfieldJson .jsoneditor-field {
+	white-space: nowrap;
+}
+

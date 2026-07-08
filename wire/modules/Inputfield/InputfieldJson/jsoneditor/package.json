@@ -1,0 +1,79 @@
+{
+  "name": "jsoneditor",
+  "version": "10.4.3",
+  "main": "./dist/jsoneditor.min.js",
+  "description": "A web-based tool to view, edit, format, and validate JSON",
+  "tags": [
+    "json",
+    "editor",
+    "viewer",
+    "formatter"
+  ],
+  "author": "Jos de Jong <wjosdejong@gmail.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://jsoneditoronline.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/josdejong/jsoneditor.git"
+  },
+  "bugs": "https://github.com/josdejong/jsoneditor/issues",
+  "scripts": {
+    "build": "gulp",
+    "build-and-test": "npm run build && npm test && npm run lint",
+    "minify": "gulp minify",
+    "start": "gulp watch",
+    "test": "mocha test --require @babel/register",
+    "lint": "standard --env=mocha",
+    "format": "standard --env=mocha --fix",
+    "prepublishOnly": "npm run build-and-test"
+  },
+  "dependencies": {
+    "ace-builds": "^1.36.2",
+    "ajv": "^6.12.6",
+    "javascript-natural-sort": "^0.7.1",
+    "jmespath": "^0.16.0",
+    "json-source-map": "^0.6.1",
+    "jsonrepair": "^3.8.1",
+    "picomodal": "^3.0.0",
+    "vanilla-picker": "^2.12.3"
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.0",
+    "@babel/preset-env": "7.29.2",
+    "@babel/register": "7.28.6",
+    "babel-loader": "10.1.1",
+    "btoa": "1.2.1",
+    "date-format": "4.0.14",
+    "fancy-log": "2.0.0",
+    "gulp": "5.0.1",
+    "gulp-clean-css": "4.3.0",
+    "gulp-concat-css": "3.1.0",
+    "gulp-sass": "6.0.1",
+    "jsdom": "29.0.1",
+    "json-loader": "0.5.7",
+    "mkdirp": "3.0.1",
+    "mocha": "11.7.5",
+    "sass": "1.98.0",
+    "source-map-loader": "5.0.0",
+    "standard": "17.1.2",
+    "uglify-js": "3.19.3",
+    "webpack": "5.105.4"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "examples",
+    "src",
+    "HISTORY.md",
+    "index.js",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "standard": {
+    "ignore": [
+      "src/js/assets",
+      "examples/react*"
+    ]
+  }
+}
