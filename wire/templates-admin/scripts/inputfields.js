@@ -245,7 +245,14 @@ var Inputfields = {
 			if($inputfield.css('overflow') == 'hidden') $inputfield.css('overflow', '');
 			$toggleIcon.toggleClass($toggleIcon.attr('data-to')); // data-to=classes to toggle
 			$inputfield.removeClass('InputfieldStateToggling');
-			Inputfields.redraw($inputfield, 500); 
+			var $hIcon = $header.find('.InputfieldHeaderIcon[data-icon-o]');
+			if($hIcon.length) {
+				var iconO = $hIcon.attr('data-icon-o'), iconC = $hIcon.attr('data-icon-c');
+				var fromIcon = $inputfield.hasClass('InputfieldStateCollapsed') ? iconO : iconC;
+				var toIcon = $inputfield.hasClass('InputfieldStateCollapsed') ? iconC : iconO;
+				$hIcon.attr('class', (' ' + $hIcon.attr('class') + ' ').replace(' ' + fromIcon + ' ', ' ' + toIcon + ' ').trim());
+			}
+			Inputfields.redraw($inputfield, 500);
 			// setTimeout('InputfieldColumnWidths()', 500);
 			completed();
 		}
