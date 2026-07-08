@@ -545,11 +545,9 @@ $config->sessionFingerprint = 1;
  *
  * - `false` (bool): Use the `session_cache_limiter` setting defined in the php.ini.
  *
- * - `auto`: Let ProcessWire decide based on the installation date. Sites installed
- *    on or after 2026-07-08 get `private_no_expire` for guests (enabling bfcache).
- *    Older sites get `nocache` for guests (same as PHP's historical default),
- *    preserving backwards compatibility. Admin and loggedin contexts always get
- *    `nocache` regardless of installation date.
+ * - `auto`: When used as a per-context value, let ProcessWire decide based on the
+ *    installation date. Sites installed on or after 2026-07-08 get `private_no_expire`
+ *    (enabling bfcache); older sites get `nocache` (same as PHP's historical default).
  *
  * - You may optionally use an array with the headers you want to be sent, i.e.
  *   ~~~~~
@@ -583,7 +581,11 @@ $config->sessionFingerprint = 1;
  * @var array|callable|string|false
  *
  */
-$config->sessionCacheLimiter = 'auto';
+$config->sessionCacheLimiter = [
+	'guest' => 'auto',
+	'admin' => 'nocache',
+	'loggedin' => 'nocache',
+];
 
 /**
  * Force current session IP address (overriding auto-detect)
