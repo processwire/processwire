@@ -1480,21 +1480,23 @@ class ProcessModule extends Process {
 		$moduleInfoVerboseJSON = json_encode($moduleInfoVerbose, $jsonFlags);
 		$moduleInfoLabel = $this->_('Module info');
 		
-		/** @var InputfieldMarkup $f */
-		$f = $modules->get('InputfieldMarkup');
+		/** @var InputfieldJson $f */
+		$f = $modules->get('InputfieldJson');
 		$f->attr('name', 'module_info');
 		$f->label = $moduleInfoLabel . ' ' . $this->_('(regular)');
-		$f->value = "<pre>" . $sanitizer->entities($moduleInfoJSON) . "</pre>";
+		$f->value = $moduleInfoJSON;
 		$f->icon = 'code';
+		$f->mode = 'view';
 		$f->themeOffset = 1;
 		$form->add($f);
 
-		/** @var InputfieldMarkup $f */
-		$f = $modules->get('InputfieldMarkup');
+		/** @var InputfieldJson $f */
+		$f = $modules->get('InputfieldJson');
 		$f->attr('name', 'module_info_verbose');
 		$f->label = $moduleInfoLabel . ' ' . $this->_('(verbose)');
 		$f->icon = 'code';
-		$f->value = "<pre>" . $sanitizer->entities($moduleInfoVerboseJSON) . "</pre>";
+		$f->value = $moduleInfoVerboseJSON;
+		$f->mode = 'view';
 		$f->themeOffset = 1;
 		$form->add($f);
 		
@@ -1544,16 +1546,14 @@ class ProcessModule extends Process {
 		unset($moduleData['submit_save_module'], $moduleData['uninstall']); 
 		$jsonFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 		$moduleDataJSON = is_array($moduleData) ? json_encode($moduleData, $jsonFlags) : array();
-		$rows = substr_count($moduleDataJSON, "\n") + 2;
 		
-		/** @var InputfieldMarkup $f */
-		$f = $modules->get('InputfieldTextarea');
+		/** @var InputfieldJson $f */
+		$f = $modules->get('InputfieldJson');
 		$f->attr('name', 'module_config_json');
 		$f->label = $this->_('Module config (raw/JSON)');
 		$f->icon = 'code';
 		$f->value = $moduleDataJSON;
-		$f->attr('style', 'font-family:monospace;white-space:nowrap');
-		$f->attr('rows', $rows > 5 ? $rows : 5);
+		$f->mode = 'tree';
 		$form->add($f);
 
 		/** @var InputfieldSubmit $submit */
