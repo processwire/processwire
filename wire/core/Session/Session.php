@@ -581,7 +581,15 @@ class Session extends Wire implements \IteratorAggregate {
 		if($method !== 'GET' && $method !== 'HEAD') return false;
 		
 		$cacheLimiter = $this->config->sessionCacheLimiter;
-		
+
+		if($cacheLimiter === 'auto') {
+			$cacheLimiter = [
+				'guest' => $this->config->installedAfter('2026-07-08') ? 'private_no_expire' : 'nocache',
+				'admin' => 'nocache',
+				'loggedin' => 'nocache',
+			];
+		}
+
 		if(isset($_SERVER['REQUEST_URI'])) {
 			$root = $this->config->urls->root;
 			$url = $this->config->urls->admin;

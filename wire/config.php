@@ -541,11 +541,17 @@ $config->sessionFingerprint = 1;
  *
  * - `public`: Permits caching by both proxies and the client.
  * 
- * - `none`: Prevent PHP and ProcessWire from sending any cache headers. 
- * 
- * - `false` (bool): Use the `session_cache_limiter` setting defined in the php.ini. 
- * 
- * - You may optionally use an array with the headers you want to be sent, i.e. 
+ * - `none`: Prevent PHP and ProcessWire from sending any cache headers.
+ *
+ * - `false` (bool): Use the `session_cache_limiter` setting defined in the php.ini.
+ *
+ * - `auto`: Let ProcessWire decide based on the installation date. Sites installed
+ *    on or after 2026-07-08 get `private_no_expire` for guests (enabling bfcache).
+ *    Older sites get `nocache` for guests (same as PHP's historical default),
+ *    preserving backwards compatibility. Admin and loggedin contexts always get
+ *    `nocache` regardless of installation date.
+ *
+ * - You may optionally use an array with the headers you want to be sent, i.e.
  *   ~~~~~
  *   $config->sessionCacheLimiter = [
  *     'guest' => [ 
@@ -574,14 +580,10 @@ $config->sessionFingerprint = 1;
  *   ];
  *   ~~~~~
  * 
- * @var array|callable|false
- * 
- */ 
-$config->sessionCacheLimiter = [ 
-	'guest' => 'private_no_expire',
-	'admin' => 'nocache',
-	'loggedin' => 'nocache',
-];
+ * @var array|callable|string|false
+ *
+ */
+$config->sessionCacheLimiter = 'auto';
 
 /**
  * Force current session IP address (overriding auto-detect)
