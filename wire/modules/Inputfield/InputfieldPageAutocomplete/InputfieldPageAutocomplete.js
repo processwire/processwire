@@ -98,7 +98,7 @@ var InputfieldPageAutocomplete = {
 						term = term.replace(/\s+/g, ',');
 					}
 					term = encodeURIComponent(term);
-					var ajaxURL = url + '&' + searchField + operator + term;
+					var ajaxURL = url + '&' + searchField + operator.replace(/%/g, '%25') + term;
 
 					$.getJSON(ajaxURL, function(data) {
 
