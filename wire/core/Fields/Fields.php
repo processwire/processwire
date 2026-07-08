@@ -20,7 +20,7 @@
  * #pw-body
  * 
  * @method Field|null get($key) Get a field by name or id
- * @method Field new($type, $name, $label = '') Create and save a new Field of the given type (3.0.258+)
+ * @method Field new($type, $name = '', $options = []) Create and save a new Field of the given type (3.0.258+)
  * @method bool changeFieldtype(Field $field1, $keepSettings = false)
  * @method bool saveFieldgroupContext(Field $field, Fieldgroup $fieldgroup, $namespace = '') 
  * @method bool deleteFieldDataByTemplate(Field $field, Template $template) #pw-hooker
@@ -438,7 +438,7 @@ class Fields extends WireSaveableItems {
 	 *
 	 * @param string|array $type Fieldtype class name: 'FieldtypeText', 'Text', or 'text' all accepted, 
 	 *   or array containing 'type' and 'name' and anything else that would usually go in $options
-	 * @param string $name Field name (required)
+	 * @param string $name Field name, or omit when passing type+name in the $type array
 	 * @param string|array $options Field label or `[key=>val]` array of properties to set to Field (optional)
 	 * @return Field
 	 * @throws WireException if the fieldtype is not found or field cannot be saved
