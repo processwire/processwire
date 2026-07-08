@@ -2076,7 +2076,10 @@ class Sanitizer extends Wire {
 	 * @param array $options
 	 *  - `pretty` (bool): Make it readable/pretty (default=true)
 	 *  - `escaped` (bool): Escape unicode, slashes and line terminators? (default=true)
-	 * @return false|string
+	 *  - `throw` (bool): Throw \JsonException on errors? (default=false) 3.0.269+
+	 *  - `depth` (int): Maximum nesting depth when test decoding (default=512) 3.0.269+
+	 * @return false|string Returns JSON string on success, boolean false on error. 
+	 * @throws \JsonException If `throw` option is true and JSON encoding or decoding fails.
 	 * @since 3.0.256
 	 * 
 	 */
@@ -2084,11 +2087,14 @@ class Sanitizer extends Wire {
 		$defaults = [
 			'pretty' => true, 
 			'escaped' => false, 
+			'throw' => false, 
+			'depth' => 512, 
 			'_recursive' => false,
 		];
 		$options = array_merge($defaults, $options);
 		$flags = JSON_INVALID_UTF8_IGNORE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION; 
 		if($options['pretty']) $flags |= JSON_PRETTY_PRINT;
+		if($options['throw']) $flags |= JSON_THROW_ON_ERROR;
 		if(!$options['escaped']) $flags |= JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS;
 	
 		if(is_string($value)) {
@@ -2097,7 +2103,9 @@ class Sanitizer extends Wire {
 			$c2 = substr($value, -1); 
 			if(($c1 === '{' && $c2 === '}') || ($c1 === '[' && $c2 === ']')) {
 				// existing JSON string, decode before re-encode
-				$v = json_decode($value, true); 
+				$flags2 = 0;
+				if($options['throw']) $flags2 |= JSON_THROW_ON_ERROR;
+				$v = json_decode($value, true, $options['depth'], $flags2); 
 				if(is_array($v)) $value = $v;
 				unset($v);
 			}
@@ -3727,9 +3735,13 @@ class Sanitizer extends Wire {
 		static $whitespaceUTF8 = array();
 		static $whitespaceHTML = array();
 		
-		if(empty($whitespaceUTF8)) {
-			// json_decode can handle conversion of \u0000 sequences regardless of PHP version
-			$whitespaceUTF8 = json_decode('["\u' . implode('","\u', $this->whitespaceUTF8) . '"]', true); 
+		if(empty($whitespaceUTF8) && $this->multibyteSupport) {
+			// Convert UTF-8 whitespace code points from hex to characters
+			$whitespaceUTF8 = array_map(fn($hex) => mb_chr(hexdec($hex), 'UTF-8'), $this->whitespaceUTF8);
+		} else {
+			// Fallback conversion without mbstring
+			$u = chr(92) . 'u'; // backslash + "u"
+			$whitespaceUTF8 = json_decode('["' . $u . implode('","' . $u, $this->whitespaceUTF8) . '"]', true);
 		}
 		
 		if($html) {
