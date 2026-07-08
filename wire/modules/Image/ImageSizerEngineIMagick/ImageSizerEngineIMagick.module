@@ -295,6 +295,29 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			$this->imageGamma = 0.454545;
 		}
 
+		// If image has a wide-gamut ICC profile and sRGB conversion is enabled, convert
+		// pixels to sRGB before stripping the profile so colors survive the strip intact.
+		// Opt-in: $config->imageSizerOptions['sRGB'] = true
+		if($this->hasICC && !empty($this->options['sRGB'])) {
+			static $srgbBlob = null;
+			static $srgbDisabled = false;
+			if($srgbBlob === null && !$srgbDisabled) {
+				$srgbFile = __DIR__ . '/sRGB2014.icc';
+				$srgbBlob = is_file($srgbFile) ? file_get_contents($srgbFile) : '';
+				if($srgbBlob === '') $srgbDisabled = true;
+			}
+			if(!$srgbDisabled) {
+				try {
+					$this->im->setImageRenderingIntent(\Imagick::RENDERINGINTENT_PERCEPTUAL);
+					$this->im->profileImage('icc', $srgbBlob);
+				} catch(\Exception $e) {
+					$srgbDisabled = true;
+					$this->wire()->log->save('imagesizer',
+						'ImageSizerEngineIMagick: sRGB conversion unavailable (LCMS delegate missing?) - ' . $e->getMessage());
+				}
+			}
+		}
+
 		// remove not wanted / needed Metadata = this is the same behavior as processed via GD-lib
 		foreach(array_keys($this->imageMetadata) as $k) {
 			$this->im->profileImage("$k", null); // remove this one
