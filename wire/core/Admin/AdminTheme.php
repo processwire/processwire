@@ -151,6 +151,19 @@ abstract class AdminTheme extends WireData implements Module {
 		
 		if($isCurrent) $this->initConfig();
 	}
+	
+	/**
+	 * Get config.adminIcons
+	 * 
+	 * @return array|string[]
+	 * 
+	 */
+	protected function getConfigAdminIcons() {
+		$config = $this->wire()->config;
+		$icons = $config->adminIcons; 
+		if(!is_array($icons)) $icons = [ 'type' => 'fa', 'version' => '' ];
+		return $icons;
+	}
 
 	/**
 	 * Initialize configuration properties and JS config for when this is current admin theme
@@ -165,7 +178,7 @@ abstract class AdminTheme extends WireData implements Module {
 		$session = $this->wire()->session;
 		$page = $this->wire()->page;
 		$urls = $config->urls;
-		$icons = array_merge(['type' => 'fa', 'version' => ''], (array) $config->adminIcons);
+		$icons = $this->getConfigAdminIcons();
 		
 		// adjust $config adminThumbOptions[scale] for auto detect when requested
 		$o = $config->adminThumbOptions;
@@ -185,6 +198,7 @@ abstract class AdminTheme extends WireData implements Module {
 		));
 
 		$config->js('modals', true); // share at render time
+		$config->adminIcons = $icons;
 		$config->js('adminIcons', $icons);
 		$config->jsConfig('debug', $config->debug); 
 		

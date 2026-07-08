@@ -197,7 +197,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 		if(!strlen($headline)) $headline = $this->wire()->page->get('title|name');
 		if($headline !== 'en' && $this->wire()->languages) $headline = $this->_($headline);
 		$headline = $this->sanitizer->entities1($headline);
-		if(strpos($headline, '&lt;icon-') !== false && !$this->wire()->process instanceof WirePageEditor) {
+		$process = $this->wire()->page->process;
+		if(strpos($headline, '&lt;icon-') !== false && !wireInstanceOf($process, 'WirePageEditor')) {
 			if(preg_match('/&lt;icon-([-a-z0-9]+)&gt;/', $headline, $matches)) {
 				$headline = str_replace($matches[0], wireIconMarkup($matches[1]), $headline);
 			}

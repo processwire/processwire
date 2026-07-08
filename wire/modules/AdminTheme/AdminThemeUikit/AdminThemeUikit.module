@@ -171,9 +171,6 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		if(!$this->isCurrent()) return;
 		
 		$config = $this->wire->config;
-		$icons = $config->adminIcons;
-		if($icons['version'] === '') $icons['version'] = '6.7.2';
-		$config->adminIcons = $icons;
 	
 		$page = $this->wire()->page;
 		$pages = $this->wire()->pages;
@@ -272,6 +269,19 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				include_once(__DIR__ . '/themes/default/ask.php');
 			}
 		}
+	}
+	
+	/**
+	 * Get config.adminIcons
+	 *
+	 * @return array|string[]
+	 *
+	 */	
+	protected function getConfigAdminIcons() {
+		$config = $this->wire()->config;
+		$icons = $config->adminIcons;
+		if($icons['version'] === '') $icons['version'] = '6.7.2';
+		return $icons; 
 	}
 	
 	/**
