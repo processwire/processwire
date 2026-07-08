@@ -558,9 +558,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			if($isOpen) {
 				$wrap->collapsed = Inputfield::collapsedNo;
 				$numOpen++;
+			} else if($isMinItem) {
+				$wrap->collapsed = Inputfield::collapsedNo;
 			} else if($repeaterCollapse == FieldtypeRepeater::collapseExisting && !$page->get('_repeater_new') && !$isHidden) {
-				$wrap->collapsed = Inputfield::collapsedYes;
-			} else if($repeaterCollapse == FieldtypeRepeater::collapseExisting && $isMinItem) {
 				$wrap->collapsed = Inputfield::collapsedYes;
 			} else if($repeaterCollapse == FieldtypeRepeater::collapseAll) {
 				$wrap->collapsed = Inputfield::collapsedYes;
