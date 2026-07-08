@@ -41,6 +41,7 @@
  * 
  * ATTRIBUTES
  * ==========
+ *
  * @property string $name HTML 'name' attribute for Inputfield (required). #pw-group-attribute-properties
  * @property string $id HTML 'id' attribute for the Inputfield (if not yet, determined automatically). #pw-group-attribute-properties
  * @property mixed $value HTML 'value' attribute for the Inputfield. #pw-group-attribute-properties
@@ -57,6 +58,7 @@
  * @property string $notes Optional notes that appear under input area to provide additional notes. #pw-group-labels
  * @property string $detail Optional text details that appear under notes. @since 3.0.140 #pw-group-labels
  * @property string $icon Optional font-awesome icon name to accompany label (excluding the "fa-") part). #pw-group-labels
+ * @property string $collapsedIcon Optional font-awesome icon name to accompany label when collapsed (excluding the "fa-") part). @since 3.0.269 #pw-group-labels
  * @property string $requiredLabel Optional custom label to display when missing required value. @since 3.0.98 #pw-group-labels 
  * @property string $head Optional text that appears below label but above description (only used by some Inputfields). #pw-internal
  * @property string $tabLabel Label for tab if Inputfield rendered in its own tab via Inputfield::collapsedTab* setting. @since 3.0.201 #pw-group-labels
@@ -1754,6 +1756,7 @@ abstract class Inputfield extends WireData implements Module {
 			$f = $inputfields->InputfieldTextarea;
 			$f->attr('name', 'addClass');
 			$f->label = $this->_('Custom class attributes');
+			$f->icon = 'code';
 			$f->description =
 				$this->_('Optionally add to the class attribute for specific elements in this Inputfield.') . ' ' .
 				$this->_('Format is one per line of `element:class` where `element` is one of: “wrap”, “header”, “content” or “input” and `class` is one or more class names.') . ' ' .

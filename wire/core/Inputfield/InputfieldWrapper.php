@@ -98,7 +98,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		'item_head' => "<h2>{out}</h2>", 
 		'item_notes' => "<p class='notes'>{out}</p>",
 		'item_detail' => "<p class='detail'>{out}</p>", 
-		'item_icon' => "<i class='fa fa-fw fa-{name}'></i> ",
+		'item_icon' => "<i class='InputfieldHeaderIcon fa fa-fw fa-{name}'></i> ",
 		'item_toggle' => "<i class='toggle-icon fa fa-fw fa-angle-down' data-to='fa-angle-down fa-angle-right'></i>", 
 		// ALSO: 
 		// InputfieldAnything => array(any of the properties above to override on a per-Inputfield basis)
@@ -912,7 +912,20 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					$label = $inputfield->entityEncode($label);
 				}
 				$icon = $inputfield->getSetting('icon');
-				$icon = $icon ? str_replace('{name}', $sanitizer->name(str_replace(array('icon-', 'fa-'), '', $icon)), $markup['item_icon']) : ''; 
+				if($icon) {
+					$iconName = $sanitizer->name(str_replace(array('icon-', 'fa-'), '', $icon));
+					$collapsedIcon = $inputfield->getSetting('collapsedIcon');
+					if($collapsedIcon) {
+						$collapsedIconName = $sanitizer->name(str_replace(array('icon-', 'fa-'), '', $collapsedIcon));
+						$isCollapsed = strpos($ffAttrs['class'], $classes['item_collapsed']) !== false;
+						$activeName = $isCollapsed ? $collapsedIconName : $iconName;
+						$icon = "<i class='InputfieldHeaderIcon fa fa-fw fa-$activeName' data-icon-o='fa-$iconName' data-icon-c='fa-$collapsedIconName'></i> ";
+					} else {
+						$icon = str_replace('{name}', $iconName, $markup['item_icon']);
+					}
+				} else {
+					$icon = '';
+				}
 				$toggle = $collapsed == Inputfield::collapsedNever ? '' : $markup['item_toggle']; 
 				if($toggle && strpos($toggle, 'title=') === false) {
 					$toggle = str_replace("class=", "title='$toggleLabel' class=", $toggle);
