@@ -6,7 +6,7 @@
  * Manage all comments field data in chronological order. 
  *
  * ProcessWire 3.x 
- * Copyright (C) 2022 by Ryan Cramer 
+ * Copyright (C) 2026 by Ryan Cramer 
  * This file licensed under Mozilla Public License v2.0 http://mozilla.org/MPL/2.0/
  * 
  * https://processwire.com
@@ -353,13 +353,12 @@ class ProcessCommentsManager extends Process {
 		$form->attr('method', 'post');
 		$form->attr('action', "./?comment_id=$commentId&page_id=$pageId&field_id=$fieldId&modal=$modal");
 		
-		/** @var InputfieldTextarea $f */
-		$f = $modules->get('InputfieldTextarea'); 
+		/** @var InputfieldJson$f */
+		$f = $modules->get('InputfieldJson'); 
 		$f->attr('name', 'meta');
+		$f->mode = 'code';
 		$f->label = $this->_('Meta JSON editor'); 
 		$f->val($metaJSON); 
-		$f->attr('rows', $numRows); 
-		$f->attr('style', "font-family:monospace;"); 
 		$form->add($f);
 	
 		/** @var InputfieldSubmit $f */
@@ -384,6 +383,7 @@ class ProcessCommentsManager extends Process {
 				$this->message($this->_('No changes detected'));
 				$session->redirect($form->attr('action'));
 			} else {
+				if(empty($metaSaveJSON)) $metaSaveJSON = '{}';
 				$meta = json_decode($metaSaveJSON, true);
 				if(is_array($meta)) {
 					$result = $fieldtype->updateComment($page, $field, $comment, array('meta' => $meta));
@@ -662,7 +662,7 @@ class ProcessCommentsManager extends Process {
 		$f->attr('name', 'text');
 		$f->label = $this->_('Text');
 		$f->val($comment->text);
-		$f->attr('rows', 10);
+		$f->attr('rows', 15);
 		$f->required = true;
 		$form->add($f);
 		
