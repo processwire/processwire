@@ -769,8 +769,15 @@ class Languages extends PagesType {
 			}
 			
 			if(!$user->hasPermission('page-edit')) {
-				// page-edit is a pre-requisite permission
-				$has = false;
+				// page-edit is a pre-requisite, except when editing own profile via ProcessProfile
+				$process = $this->wire()->process;
+				if($process && wireInstanceOf($process, 'ProcessProfile')
+					&& $user->hasPermission('profile-edit')
+					&& $process->getPage()->id === $user->id) {
+					return true;
+				} else {
+					$has = false;
+				}
 			} else {
 				$permissionName = $this->getPageEditPermission($language);
 				// if a language-specific page-edit permission doesn't exist, then fallback to regular page-edit permission
