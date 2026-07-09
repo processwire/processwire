@@ -1041,12 +1041,22 @@ class WireTextTools extends Wire {
 					$fieldValue = $options['allowMarkup'] ? $vars->getMarkup($fieldName) : $vars->getText($fieldName);
 					if($fieldValue === '' && $vars->get($fieldName) === null) $fieldValue = null;
 				} else if($vars instanceof WireData) {
-					$fieldValue = $vars->get($fieldName);
+					$fieldValue = strpos($fieldName, '.') !== false ? $vars->getDot($fieldName) : $vars->get($fieldName);
 				} else {
 					$fieldValue = $vars->$fieldName;
 				}
 			} else if(is_array($vars)) {
-				$fieldValue = isset($vars[$fieldName]) ? $vars[$fieldName] : null;
+				if(strpos($fieldName, '.') !== false) {
+					list($key, $subKey) = explode('.', $fieldName, 2);
+					$subObj = isset($vars[$key]) ? $vars[$key] : null;
+					if($subObj instanceof WireData) {
+						$fieldValue = $subObj->getDot($subKey);
+					} else if($subObj instanceof Wire) {
+						$fieldValue = WireData::_getDot($subKey, $subObj);
+					}
+				} else {
+					$fieldValue = isset($vars[$fieldName]) ? $vars[$fieldName] : null;
+				}
 			}
 
 			// if value resolves to empty and we are not removing empty tags, then do not add to replacements
