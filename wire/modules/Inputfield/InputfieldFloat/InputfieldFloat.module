@@ -48,7 +48,7 @@ class InputfieldFloat extends InputfieldInteger {
 	 */
 	public function init() {
 		parent::init();
-		$this->attr('step', 'any'); // HTML5 attr required to support decimals with 'number' types
+		// step is computed dynamically in getAttributesString() based on precision
 	}
 
 	/**
@@ -142,13 +142,15 @@ class InputfieldFloat extends InputfieldInteger {
 				$value = $this->localeConvertValue($value);
 				$attributes['value'] = $value;
 			}
-			if(empty($attributes['step']) || $attributes['step'] === 'any') {
+			if(empty($attributes['step'])) {
 				$precision = (int) $this->precision;
 				if($precision === 0 && $value !== null) {
 					$precision = $this->getPrecision($value);
 				}
 				if($precision > 0) {
 					$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
+				} else {
+					$attributes['step'] = 'any';
 				}
 			}
 		} else if($this->digits > 0 && empty($attributes['inputmode'])) {
