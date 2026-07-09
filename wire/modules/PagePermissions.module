@@ -1009,6 +1009,7 @@ class PagePermissions extends WireData implements Module {
 
 			foreach($page->template->childTemplates as $id) {
 				$template = $this->wire()->templates->get($id);
+				if(!$template) continue; // childTemplates may contain IDs for templates since deleted
 				if(!$template->useRoles) $template = $page->getAccessTemplate('edit');
 				if($template && $user->hasPermission('page-create', $template)) $has = true;           
 				if($has) break;

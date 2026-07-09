@@ -452,6 +452,20 @@ class Templates extends WireSaveableItems {
 		$return = parent::___delete($item);
 
 		if($return) {
+			// remove references to the deleted template from other templates' family settings
+			foreach($this as $t) {
+				/** @var Template $t */
+				if($t->id == $id) continue;
+				$changed = false;
+				foreach(['childTemplates', 'parentTemplates'] as $key) {
+					$value = $t->$key;
+					if(!is_array($value) || !in_array($id, $value)) continue;
+					$t->set($key, array_values(array_diff($value, [$id])));
+					$changed = true;
+				}
+				if($changed) $this->save($t);
+			}
+
 			$fieldgroups = $this->wire()->fieldgroups;
 			$fieldgroup = $fieldgroups->get($name);
 			if($fieldgroup) {
