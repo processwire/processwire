@@ -393,17 +393,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$minItems = $this->repeaterMinItems;
 	
 		// if there are a minimum required number of items, set them up now
-		if(!$itemID && $minItems > 0 && $value instanceof PageArray) {
-			$process = $this->wire()->process; 
-			if($process instanceof WirePageEditor && $process->getPage()->id === $this->page->id) {
-				// do not enforce minItems when repeater page being edited directly
-			} else {
-				$notIDs = $value->explode('id');
-				while($value->count() < $minItems) {
-					$item = $this->getNextReadyPage($notIDs);
-					$value->add($item);
-					$notIDs[] = $item->id;
-				}
+		if(!$itemID && $minItems > 0 && $value instanceof PageArray && !($this->page instanceof RepeaterPage)) {
+			$notIDs = $value->explode('id');
+			while($value->count() < $minItems) {
+				$item = $this->getNextReadyPage($notIDs);
+				$value->add($item);
+				$notIDs[] = $item->id;
 			}
 		}
 		
