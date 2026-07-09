@@ -40,7 +40,7 @@ class WireTest_InputfieldFloat extends WireTest {
 		$this->check('default precision is 2', 2, $f->precision);
 		$this->check('default digits is 0', 0, $f->digits);
 		$this->check('default noE is false', 0, $f->noE);
-		$this->check('default step is any', 'any', $f->attr('step'));
+		$this->check('default step attr is blank until number render', '', $f->attr('step'));
 		$this->check('default size inherited from integer', '10', $f->attr('size'));
 	}
 
@@ -153,6 +153,12 @@ class WireTest_InputfieldFloat extends WireTest {
 		$f->precision = 3;
 		$f->attr('step', '0.5');
 		$this->check('explicit step is preserved', 'step="0.5"', $f->render(), '*=');
+
+		$f = $this->newInputfield();
+		$f->inputType = 'number';
+		$f->precision = 2;
+		$f->attr('step', 'any');
+		$this->check('explicit step any is preserved', 'step="any"', $f->render(), '*=');
 	}
 
 	protected function testScientificNotation() {
