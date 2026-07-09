@@ -279,6 +279,31 @@ class RepeaterPage extends Page {
 	}
 	 */
 	
+	/**
+	 * Override and() to return a properly constructed RepeaterPageArray
+	 *
+	 * @param WireArray|WireData|string|null $items
+	 * @return RepeaterPageArray|PageArray|WireArray
+	 *
+	 */
+	public function ___and($items = null) {
+		if(is_string($items)) $items = $this->get($items);
+		if($items instanceof WireArray) {
+			// parent handles cloning a WireArray and prepending $this
+			return parent::___and($items);
+		}
+		$forPage = $this->getForPage();
+		$forField = $this->getForField();
+		if($forPage && $forPage->id && $forField) {
+			/** @var RepeaterPageArray $a */
+			$a = $forField->type->getBlankValue($forPage, $forField);
+			$a->add($this);
+			if($items instanceof RepeaterPage) $a->add($items);
+			return $a;
+		}
+		return parent::___and($items);
+	}
+
 	public function getAccessTemplate($type = 'view') {
 		$p = $this->getForPageRoot();
 		return $p->id ? $p->getAccessTemplate($type) : parent::getAccessTemplate($type);
