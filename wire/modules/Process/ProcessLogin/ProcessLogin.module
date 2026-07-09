@@ -393,8 +393,13 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		}
 		
 		$this->loginFormProcessReady($this->form);
-		$this->form->processInput($input->post);
-	
+		try {
+			$this->form->processInput($input->post);
+		} catch(WireCSRFException $e) {
+			$this->error($e->getMessage());
+			return $this->renderLoginForm();
+		}
+
 		// at this point login form has been submitted
 		$name = $this->getLoginName();
 		$pass = substr($this->passField->attr('value'), 0, 128);
