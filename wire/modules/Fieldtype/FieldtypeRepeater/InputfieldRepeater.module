@@ -1139,7 +1139,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 */
 	protected function formToPage(InputfieldWrapper $wrapper, Page $page, $level = 0) {
 
-		$languages = $this->wire()->languages; 
+		$languages = $this->wire()->languages;
+		$pOf = $page->of();
+		if($pOf) $page->of(false);
 
 		foreach($wrapper as $inputfield) {
 			/** @var Inputfield $inputfield */
@@ -1168,9 +1170,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			}
 
 			if($inputfield instanceof InputfieldWrapper && count($inputfield->getChildren())) {
-				$this->formToPage($inputfield, $page, $level + 1); 
+				$this->formToPage($inputfield, $page, $level + 1);
 			}
 		}
+
+		if($pOf) $page->of(true);
 	}
 
 	/**

@@ -1657,7 +1657,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 			}
 
 			// save the repeater page
-			$pages->save($p, $saveOptions);				
+			$pages->save($p, $saveOptions);
 		}
 
 		// iterate through the pages that were removed
