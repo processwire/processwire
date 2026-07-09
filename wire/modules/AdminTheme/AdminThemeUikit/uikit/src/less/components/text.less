@@ -33,6 +33,8 @@
 
 @text-background-color:                         @global-primary-background;
 
+@text-stroke-text-stroke:                       ~'calc(1.4px + 0.002em)';
+
 
 /* ========================================================================
    Component: Text
@@ -239,6 +241,15 @@ td.uk-text-truncate { max-width: 0; }
  td.uk-text-break { word-break: break-word; }
 
 
+/* Stroke modifiers
+ ========================================================================== */
+
+.uk-text-stroke {
+    -webkit-text-stroke: @text-stroke-text-stroke;
+    -webkit-text-fill-color: transparent;
+}
+
+
 // Hooks
 // ========================================================================
 
@@ -255,7 +266,7 @@ td.uk-text-truncate { max-width: 0; }
 // Inverse
 // ========================================================================
 
-@inverse-text-lead-color:                      @inverse-global-color;
+@inverse-text-lead-color:                      @inverse-global-emphasis-color;
 @inverse-text-meta-color:                      @inverse-global-muted-color;
 @inverse-text-muted-color:                     @inverse-global-muted-color;
 @inverse-text-emphasis-color:                  @inverse-global-emphasis-color;

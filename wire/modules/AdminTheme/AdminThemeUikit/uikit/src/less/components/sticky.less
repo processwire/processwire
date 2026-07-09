@@ -39,22 +39,13 @@
     box-sizing: border-box;
 }
 
-/*
- * 1. Force new layer to resolve frame rate issues on devices with lower frame rates
- */
-
-.uk-sticky-fixed {
-    margin: 0 !important;
-    /* 1 */
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-}
+.uk-sticky-fixed { margin: 0 !important; }
 
 /*
  * Faster animations
  */
 
-.uk-sticky[class*='uk-animation-'] { animation-duration: @sticky-animation-duration; }
+.uk-sticky[class*="uk-animation-"] { animation-duration: @sticky-animation-duration; }
 
 .uk-sticky.uk-animation-reverse { animation-duration: @sticky-reverse-animation-duration; }
 

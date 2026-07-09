@@ -36,6 +36,8 @@
 @panel-scrollable-border-width:                 @global-border-width;
 @panel-scrollable-border:                       @global-border;
 
+@overflow-fade-size:                            100px;
+
 @border-rounded-border-radius:                  5px;
 
 @box-shadow-duration:                           0.1s;
@@ -48,6 +50,7 @@
 
 @dropcap-margin-right:                          10px;
 @dropcap-font-size:                             ((@global-line-height * 3) * 1em);
+@dropcap-line-height:                           1;
 
 @logo-font-size:                                @global-large-font-size;
 @logo-font-family:                              @global-font-family;
@@ -126,10 +129,10 @@
 .uk-float-right { float: right; }
 
 /* 1 */
-[class*='uk-float-'] { max-width: 100%; }
+[class*="uk-float-"] { max-width: 100%; }
 
 
-/* Overfow
+/* Overflow
  ========================================================================== */
 
 .uk-overflow-hidden { overflow: hidden; }
@@ -141,6 +144,55 @@
 .uk-overflow-auto { overflow: auto; }
 
 .uk-overflow-auto > :last-child { margin-bottom: 0; }
+
+/*
+ * Overflow fade
+ * 1. Overflow
+ * 2. Mask
+ * 3. Hide scrollbar
+ */
+
+@property --uk-overflow-fade-start-opacity {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 0;
+}
+
+@property --uk-overflow-fade-end-opacity {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 0;
+}
+
+.uk-overflow-fade-horizontal {
+    overflow-x: auto;
+    --uk-overflow-fade-direction: right;
+}
+
+.uk-overflow-fade-vertical {
+    overflow-y: auto;
+    --uk-overflow-fade-direction: bottom;
+}
+
+.uk-overflow-fade-horizontal,
+.uk-overflow-fade-vertical {
+    /* 1 */
+    -webkit-overflow-scrolling: touch;
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+    /* 2 */
+    mask-image: linear-gradient(
+        to var(--uk-overflow-fade-direction),
+        rgba(0,0,0,var(--uk-overflow-fade-start-opacity)),
+        #000 @overflow-fade-size,
+        #000 ~'calc(100% - @{overflow-fade-size})',
+        rgba(0,0,0,var(--uk-overflow-fade-end-opacity))
+    );
+    /* 3 */
+    scrollbar-width: none;
+}
+
+.uk-overflow-fade-horizontal > *,
+.uk-overflow-fade-vertical > * { min-width: max-content; }
 
 
 /* Box Sizing
@@ -179,7 +231,7 @@
  * 6. Clip child elements
  */
 
-[class*='uk-inline'] {
+[class*="uk-inline"] {
     /* 1 */
     display: inline-block;
     /* 2 */
@@ -210,7 +262,10 @@
 .uk-preserve-width canvas,
 .uk-preserve-width img,
 .uk-preserve-width svg,
-.uk-preserve-width video { max-width: none; }
+.uk-preserve-width video {
+    max-width: none;
+    object-fit: fill;
+}
 
 /*
  * Responsiveness
@@ -290,7 +345,7 @@
  * Fix `overflow: hidden` to be ignored with border-radius and CSS transforms in Webkit
  */
 
-.uk-inline-clip[class*='uk-border-'] { -webkit-transform: translateZ(0); }
+.uk-inline-clip[class*="uk-border-"] { -webkit-transform: translateZ(0); }
 
 
 /* Box-shadow
@@ -305,7 +360,7 @@
  * Hover
  */
 
-[class*='uk-box-shadow-hover'] { transition: box-shadow @box-shadow-duration ease-in-out; }
+[class*="uk-box-shadow-hover"] { transition: box-shadow @box-shadow-duration ease-in-out; }
 
 .uk-box-shadow-hover-small:hover { box-shadow: @global-small-box-shadow; }
 .uk-box-shadow-hover-medium:hover { box-shadow: @global-medium-box-shadow; }
@@ -370,7 +425,7 @@
     margin-right: @dropcap-margin-right;
     float: left;
     font-size: @dropcap-font-size;
-    line-height: 1;
+    line-height: @dropcap-line-height;
     .hook-dropcap();
 }
 
@@ -528,8 +583,7 @@
         .hook-inverse-logo-hover();
     }
 
-    .uk-logo > picture:not(:only-of-type) > :not(.uk-logo-inverse),
-    .uk-logo > :not(picture):not(.uk-logo-inverse):not(:only-of-type) { display: none; }
+    .uk-logo:has(.uk-logo-inverse) > :not(picture:has(.uk-logo-inverse)):not(.uk-logo-inverse) { display: none; }
     .uk-logo-inverse { display: block; }
 
 }

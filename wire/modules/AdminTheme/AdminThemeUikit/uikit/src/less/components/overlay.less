@@ -17,9 +17,10 @@
 @overlay-padding-horizontal:                    @global-gutter;
 @overlay-padding-vertical:                      @global-gutter;
 
-@overlay-default-background:                    fade(@global-background, 80%);
+@overlay-default-background:                    fade(@global-background, 90%);
+@overlay-default-color-mode:                    dark;
 
-@overlay-primary-background:                    fade(@global-secondary-background, 80%);
+@overlay-primary-background:                    fade(@global-secondary-background, 90%);
 @overlay-primary-color-mode:                    light;
 
 
@@ -55,15 +56,21 @@
  */
 
 .uk-overlay-default {
+    --uk-inverse: @overlay-default-color-mode;
     background: @overlay-default-background;
     .hook-overlay-default();
 }
+
+// Color Mode
+.uk-overlay-default:extend(.uk-light all) when (@overlay-default-color-mode = light) {}
+.uk-overlay-default:extend(.uk-dark all) when (@overlay-default-color-mode = dark) {}
 
 /*
  * Primary
  */
 
 .uk-overlay-primary {
+    --uk-inverse: @overlay-primary-color-mode;
     background: @overlay-primary-background;
     .hook-overlay-primary();
 }

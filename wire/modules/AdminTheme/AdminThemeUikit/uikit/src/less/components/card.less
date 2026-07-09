@@ -14,6 +14,7 @@
 //                  `uk-card-default`
 //                  `uk-card-primary`
 //                  `uk-card-secondary`
+//                  `uk-card-overlay`
 //                  `uk-card-small`
 //                  `uk-card-large`
 //
@@ -60,6 +61,7 @@
 @card-default-color:                           @global-color;
 @card-default-title-color:                     @global-emphasis-color;
 @card-default-hover-background:                darken(@card-default-background, 5%);
+@card-default-color-mode:                      dark;
 
 @card-primary-background:                      @global-primary-background;
 @card-primary-color:                           @global-inverse-color;
@@ -72,6 +74,12 @@
 @card-secondary-title-color:                   @card-secondary-color;
 @card-secondary-hover-background:              darken(@card-secondary-background, 5%);
 @card-secondary-color-mode:                    light;
+
+@card-overlay-background:                      fade(@global-background, 90%);
+@card-overlay-color:                           @global-color;
+@card-overlay-title-color:                     @global-emphasis-color;
+@card-overlay-hover-background:                fadein(@card-overlay-background, 10%);
+@card-overlay-color-mode:                      dark;
 
 @card-small-body-padding-horizontal:           @global-margin;
 @card-small-body-padding-vertical:             @global-margin;
@@ -148,13 +156,13 @@
  * Implemented by the theme
  */
 
-[class*='uk-card-media'] {
+[class*="uk-card-media"] {
     .hook-card-media();
 }
 
 .uk-card-media-top,
 .uk-grid-stack > .uk-card-media-left,
-.uk-grid-stack > .uk-card-media-right  {
+.uk-grid-stack > .uk-card-media-right {
     .hook-card-media-top();
 }
 
@@ -222,7 +230,7 @@
 /* Hover modifier
  ========================================================================== */
 
-.uk-card-hover:not(.uk-card-default):not(.uk-card-primary):not(.uk-card-secondary):hover {
+.uk-card-hover:not(.uk-card-default, .uk-card-primary, .uk-card-secondary, .uk-card-overlay):hover {
     background-color: @card-hover-background;
     .hook-card-hover();
 }
@@ -237,6 +245,7 @@
  */
 
 .uk-card-default {
+    --uk-inverse: @card-default-color-mode;
     background-color: @card-default-background;
     color: @card-default-color;
     .hook-card-default();
@@ -260,11 +269,18 @@
     .hook-card-default-footer();
 }
 
+// Color Mode
+.uk-card-default.uk-card-body:extend(.uk-light all) when (@card-default-color-mode = light) {}
+.uk-card-default > :not([class*="uk-card-media"]):extend(.uk-light all) when (@card-default-color-mode = light) {}
+.uk-card-default.uk-card-body:extend(.uk-dark all) when (@card-default-color-mode = dark) {}
+.uk-card-default > :not([class*="uk-card-media"]):extend(.uk-dark all) when (@card-default-color-mode = dark) {}
+
 /*
  * Primary
  */
 
 .uk-card-primary {
+    --uk-inverse: @card-primary-color-mode;
     background-color: @card-primary-background;
     color: @card-primary-color;
     .hook-card-primary();
@@ -282,15 +298,16 @@
 
 // Color Mode
 .uk-card-primary.uk-card-body:extend(.uk-light all) when (@card-primary-color-mode = light) {}
-.uk-card-primary > :not([class*='uk-card-media']):extend(.uk-light all) when (@card-primary-color-mode = light) {}
+.uk-card-primary > :not([class*="uk-card-media"]):extend(.uk-light all) when (@card-primary-color-mode = light) {}
 .uk-card-primary.uk-card-body:extend(.uk-dark all) when (@card-primary-color-mode = dark) {}
-.uk-card-primary > :not([class*='uk-card-media']):extend(.uk-dark all) when (@card-primary-color-mode = dark) {}
+.uk-card-primary > :not([class*="uk-card-media"]):extend(.uk-dark all) when (@card-primary-color-mode = dark) {}
 
 /*
  * Secondary
  */
 
 .uk-card-secondary {
+    --uk-inverse: @card-secondary-color-mode;
     background-color: @card-secondary-background;
     color: @card-secondary-color;
     .hook-card-secondary();
@@ -308,9 +325,38 @@
 
 // Color Mode
 .uk-card-secondary.uk-card-body:extend(.uk-light all) when (@card-secondary-color-mode = light) {}
-.uk-card-secondary > :not([class*='uk-card-media']):extend(.uk-light all) when (@card-secondary-color-mode = light) {}
+.uk-card-secondary > :not([class*="uk-card-media"]):extend(.uk-light all) when (@card-secondary-color-mode = light) {}
 .uk-card-secondary.uk-card-body:extend(.uk-dark all) when (@card-secondary-color-mode = dark) {}
-.uk-card-secondary > :not([class*='uk-card-media']):extend(.uk-dark all) when (@card-secondary-color-mode = dark) {}
+.uk-card-secondary > :not([class*="uk-card-media"]):extend(.uk-dark all) when (@card-secondary-color-mode = dark) {}
+
+
+/*
+ * Overlay
+ */
+
+.uk-card-overlay {
+    --uk-inverse: @card-overlay-color-mode;
+    background-color: @card-overlay-background;
+    color: @card-overlay-color;
+    .hook-card-overlay();
+}
+
+.uk-card-overlay .uk-card-title {
+    color: @card-overlay-title-color;
+    .hook-card-overlay-title();
+}
+
+.uk-card-overlay.uk-card-hover:hover {
+    background-color: @card-overlay-hover-background;
+    .hook-card-overlay-hover();
+}
+
+
+// Color Mode
+.uk-card-overlay.uk-card-body:extend(.uk-light all) when (@card-overlay-color-mode = light) {}
+.uk-card-overlay > :not([class*="uk-card-media"]):extend(.uk-light all) when (@card-overlay-color-mode = light) {}
+.uk-card-overlay.uk-card-body:extend(.uk-dark all) when (@card-overlay-color-mode = dark) {}
+.uk-card-overlay > :not([class*="uk-card-media"]):extend(.uk-dark all) when (@card-overlay-color-mode = dark) {}
 
 
 /* Size modifier
@@ -370,6 +416,9 @@
 .hook-card-secondary() {}
 .hook-card-secondary-title() {}
 .hook-card-secondary-hover() {}
+.hook-card-overlay() {}
+.hook-card-overlay-title() {}
+.hook-card-overlay-hover() {}
 .hook-card-misc() {}
 
 

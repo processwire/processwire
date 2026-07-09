@@ -50,15 +50,15 @@
  */
 
 :where(.uk-transition-fade),
-:where([class*='uk-transition-scale']),
-:where([class*='uk-transition-slide']) {
+:where([class*="uk-transition-scale"]),
+:where([class*="uk-transition-slide"]) {
     --uk-position-translate-x: 0;
     --uk-position-translate-y: 0;
 }
 
 .uk-transition-fade,
-[class*='uk-transition-scale'],
-[class*='uk-transition-slide'] {
+[class*="uk-transition-scale"],
+[class*="uk-transition-slide"] {
     --uk-translate-x: 0;
     --uk-translate-y: 0;
     --uk-scale-x: 1;
@@ -77,7 +77,7 @@
 
 .uk-transition-toggle:hover .uk-transition-fade,
 .uk-transition-toggle:focus .uk-transition-fade,
-.uk-transition-toggle .uk-transition-fade:focus-within,
+.uk-transition-toggle:focus-within .uk-transition-fade,
 .uk-transition-active.uk-active .uk-transition-fade { opacity: 1; }
 
 /*
@@ -86,7 +86,7 @@
  */
 
 /* 1 */
-[class*='uk-transition-scale'] { -webkit-backface-visibility: hidden; }
+[class*="uk-transition-scale"] { -webkit-backface-visibility: hidden; }
 
 .uk-transition-scale-up {
     --uk-scale-x: 1;
@@ -100,7 +100,7 @@
 /* Show */
 .uk-transition-toggle:hover .uk-transition-scale-up,
 .uk-transition-toggle:focus .uk-transition-scale-up,
-.uk-transition-toggle .uk-transition-scale-up:focus-within,
+.uk-transition-toggle:focus-within .uk-transition-scale-up,
 .uk-transition-active.uk-active .uk-transition-scale-up {
     --uk-scale-x: @transition-scale;
     --uk-scale-y: @transition-scale;
@@ -109,7 +109,7 @@
 
 .uk-transition-toggle:hover .uk-transition-scale-down,
 .uk-transition-toggle:focus .uk-transition-scale-down,
-.uk-transition-toggle .uk-transition-scale-down:focus-within,
+.uk-transition-toggle:focus-within .uk-transition-scale-down,
 .uk-transition-active.uk-active .uk-transition-scale-down {
     --uk-scale-x: 1;
     --uk-scale-y: 1;
@@ -136,10 +136,10 @@
 .uk-transition-slide-right-medium { --uk-translate-x: @transition-slide-medium-translate; }
 
 /* Show */
-.uk-transition-toggle:hover [class*='uk-transition-slide'],
-.uk-transition-toggle:focus [class*='uk-transition-slide'],
-.uk-transition-toggle [class*='uk-transition-slide']:focus-within,
-.uk-transition-active.uk-active [class*='uk-transition-slide'] {
+.uk-transition-toggle:hover [class*="uk-transition-slide"],
+.uk-transition-toggle:focus [class*="uk-transition-slide"],
+.uk-transition-toggle:focus-within [class*="uk-transition-slide"],
+.uk-transition-active.uk-active [class*="uk-transition-slide"] {
     --uk-translate-x: 0;
     --uk-translate-y: 0;
     opacity: 1;

@@ -37,8 +37,10 @@
 @tile-xlarge-padding-vertical-m:               (@global-large-margin + @global-xlarge-margin);
 
 @tile-default-background:                      @global-background;
+@tile-default-color-mode:                      dark;
 
 @tile-muted-background:                        @global-muted-background;
+@tile-muted-color-mode:                        dark;
 
 @tile-primary-background:                      @global-primary-background;
 @tile-primary-color-mode:                      light;
@@ -160,6 +162,7 @@
  */
 
 .uk-tile-default {
+    --uk-inverse: @tile-default-color-mode;
     background-color: @tile-default-background;
     .hook-tile-default();
 }
@@ -168,11 +171,16 @@
     .hook-tile-default-hover();
 }
 
+// Color Mode
+.uk-tile-default:not(.uk-preserve-color):extend(.uk-light all) when (@tile-default-color-mode = light) {}
+.uk-tile-default:not(.uk-preserve-color):extend(.uk-dark all) when (@tile-default-color-mode = dark) {}
+
 /*
  * Muted
  */
 
 .uk-tile-muted {
+    --uk-inverse: @tile-muted-color-mode;
     background-color: @tile-muted-background;
     .hook-tile-muted();
 }
@@ -181,11 +189,16 @@
     .hook-tile-muted-hover();
 }
 
+// Color Mode
+.uk-tile-muted:not(.uk-preserve-color):extend(.uk-light all) when (@tile-muted-color-mode = light) {}
+.uk-tile-muted:not(.uk-preserve-color):extend(.uk-dark all) when (@tile-muted-color-mode = dark) {}
+
 /*
  * Primary
  */
 
 .uk-tile-primary {
+    --uk-inverse: @tile-primary-color-mode;
     background-color: @tile-primary-background;
     .hook-tile-primary();
 }
@@ -203,6 +216,7 @@
  */
 
 .uk-tile-secondary {
+    --uk-inverse: @tile-secondary-color-mode;
     background-color: @tile-secondary-background;
     .hook-tile-secondary();
 }
