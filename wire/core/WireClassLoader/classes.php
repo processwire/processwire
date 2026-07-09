@@ -77,6 +77,7 @@ return [ // please keep alphabetical A-Z
 	'WireDataDB' => 'WireData/',
 	'WireDebugInfo' => 'Debug/',
 	'WireHttp' => 'Tools>',
+	'WireHttpMulti' => 'Tools/WireHttp>',
 	'WireInputDataCookie' => 'WireInput/',
 	'WireMail' => 'WireMail/',
 	'WireMailInterface' => 'WireMail/',
