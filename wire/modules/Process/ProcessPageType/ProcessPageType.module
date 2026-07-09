@@ -322,6 +322,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			$data = $this->wire()->modules->getConfig('ProcessPageListerPro');
 			if(isset($data['settings'][$this->page->name])) {
 				foreach($data['settings'][$this->page->name] as $key => $value) {
+					if($key === 'initSelector') continue; // already set by getListerSettings(), do not override
 					$lister->$key = $value;
 				}
 			}
