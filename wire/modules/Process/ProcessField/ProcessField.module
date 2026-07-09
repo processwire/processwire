@@ -2144,8 +2144,8 @@ class ProcessField extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function buildEditFormAccess() {
-		
-		if(!$this->allowAccessTab()) return null;	
+
+		if(!$this->allowAccessTab()) return null;
 
 		$roles = $this->wire()->roles;
 		$config = $this->wire()->config;
@@ -2159,13 +2159,29 @@ class ProcessField extends Process implements ConfigurableModule {
 		$tab->attr('id', 'access');
 		$tab->attr('title', $this->_x('Access', 'tab'));
 
+		$isSystemField = $this->field->hasFlag(Field::flagSystem);
+
+		if($isSystemField && !$config->advanced && !$this->field->useRoles) {
+			/** @var InputfieldMarkup $f */
+			$f = $modules->get('InputfieldMarkup');
+			$f->label = $this->_('Access control');
+			$f->icon = 'key';
+			$f->value = '<p>' . sprintf(
+				$this->_('This is a system field. Enabling access control for system fields is not recommended for production sites. To enable this option, add %s to your %s file and return to this tab.'),
+				'<code>$config->advanced = true;</code>',
+				'<code>/site/config.php</code>'
+			) . '</p>';
+			$tab->add($f);
+			return $tab;
+		}
+
 		/** @var InputfieldRadios $f */
 		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'useRoles');
 		$f->label = $this->_('Do you want to manage access control for this field?');
 		$f->description = $this->_('When enabled, you can limit view and edit access to this field by user role.');
-		if($this->field->hasFlag(Field::flagSystem)) {
-			$f->notes = $this->_('This is a system field, enabling access control is NOT recommend.');
+		if($isSystemField) {
+			$f->notes = $this->_('This is a system field, enabling access control is NOT recommended.');
 		}
 		$f->icon = 'key';
 		$f->addOption(1, $this->labels['yes']);
@@ -3528,10 +3544,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		if(!$this->field) return false;
 		if($this->field->type instanceof FieldtypeFieldsetOpen) return false;
 		if(!$this->wire()->user->isSuperuser()) return false;
-		if($this->field->useRoles) return true; // access control already enabled
-		if(!$this->field->hasFlag(Field::flagSystem)) return true;
-		if($this->wire()->config->advanced) return true;
-		return false;
+		return true;
 	}
 
 	/**
