@@ -8,17 +8,17 @@ function setupCommandSearch() {
 	
 	// Find the closest ancestor with class "pw-search-form"
 	const searchForm = searchInput.closest(".pw-search-form");
-	const sidebarSearchForm = sidebarSearchInput.closest(".pw-search-form");
-	
+	const sidebarSearchForm = sidebarSearchInput ? sidebarSearchInput.closest(".pw-search-form") : null;
+
 	const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 	const shortcutText = isMac ? "⌘+K" : "Ctrl+K";
 	const sidebarShortcutText = isMac ? "⌘+⇧+K" : "Ctrl+⇧+K";
-	
+
 	searchInput.setAttribute("placeholder", " ");
-	sidebarSearchInput.setAttribute("placeholder", " ");
-	
+	if(sidebarSearchInput) sidebarSearchInput.setAttribute("placeholder", " ");
+
 	searchForm.setAttribute("data-shortcut", shortcutText);
-	sidebarSearchForm.setAttribute("data-shortcut", sidebarShortcutText);
+	if(sidebarSearchForm) sidebarSearchForm.setAttribute("data-shortcut", sidebarShortcutText);
 	
 	function openSearch() {
 		previousFocusedElement = document.activeElement;
@@ -58,7 +58,7 @@ function setupCommandSearch() {
 		);
 		if (sidebarToggleEL) {
 			sidebarToggleEL.click();
-			sidebarSearchInput.blur();
+			if(sidebarSearchInput) sidebarSearchInput.blur();
 		}
 	}
 	
