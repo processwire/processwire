@@ -101,12 +101,10 @@ $page = $a->get("name=about"); // first match by property selector
 $page = $a->get("about");      // first page with name "about"
 $page = $a->get(1234);         // by key index (not page ID)
 
-// getPage() — like get() but always returns a Page (NullPage if not found)
+// getPage() — like get() but always returns Page|NullPage (never null/false)
 $page = $a->getPage("name=about");
-
-// Get page by ID or name (always returns a Page or NullPage)
-$page = $a->getPageByID(1234);
-$page = $a->getPageByName("about");
+$page = $a->getPageByID(1234);    // by page ID, always Page|NullPage
+$page = $a->getPageByName("about"); // by page name, always Page|NullPage
 
 // Random selection
 $page  = $a->getRandom();      // 1 random page (or null if empty)
@@ -151,10 +149,11 @@ These methods operate **in memory** — no database query is performed.
 $products = $a->find("template=product");
 $featured  = $a->find("featured=1, sort=-modified");
 
-// findOne() — returns first match or false
+// findOne() — returns first match or false (WireArray contract)
 $page = $a->findOne("name=about");
 
-// findOnePage() — like findOne() but returns NullPage instead of false
+// findOnePage() — like findOne() but returns Page|NullPage (never false)
+// Use this when you need consistent return types with $pages->findOne()
 $page = $a->findOnePage("name=about");
 
 // filter() — destructive, keeps only matching pages
@@ -346,8 +345,13 @@ $prevPage = $a->getPrev($page);   // page before $page in the array
   paginations (only differs from `count()` when a `limit` was used in the find).
 - `find()` and `filter()` operate on the in-memory set only, no database access.
   To perform database queries scoped to a parent, use `$page->find()` instead.
-- Methods like `$a->first()` and `$a->last()`return false if the PageArray is empty 
-  (not a NullPage). Use `$a->getPage("…")` or any of the `getPage*()` methods if you need 
-  a Page-or-NullPage guarantee.
+- Methods like `$a->first()` and `$a->last()` return `false` if the PageArray is empty
+  (not a NullPage). Use `$a->getPage("…")` or any of the `getPage*()` methods if you need
+  a `Page|NullPage` guarantee.
+- `get()` and `findOne()` follow the WireArray contract and may return `null` or `false`
+  when no match is found. For code that needs to work identically whether the source is
+  `$pages->find()` (database) or an in-memory PageArray, use the Page-typed variants:
+  `getPage()`, `getPageByID()`, `getPageByName()`, and `findOnePage()` — these always
+  return `Page|NullPage`, matching the return type of the database-layer methods.
 - Source files: `wire/core/PageArray/PageArray.php`, `wire/core/WireArray/WireArray.php`,
   `wire/core/WireArray/PaginatedArray.php`.

@@ -431,8 +431,11 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	}
 
 	/**
-	 * Like the base get() method but can only return Page objects (whether Page or NullPage)
-	 * 
+	 * Like the base get() method but always returns a Page or NullPage rather than null/false.
+	 *
+	 * Prefer this over get() when you need a consistent Page|NullPage return type,
+	 * matching the behavior of $pages->get() at the database layer.
+	 *
 	 * @param int|string|array $key Provide any of the following:
 	 *  - Key of Page to retrieve.
 	 *  - A selector string or selector array, to return the first item that matches the selector.
@@ -440,7 +443,10 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * @return Page|NullPage
 	 * @since 3.0.162
 	 * @see WireArray::get()
-	 * 
+	 * @see PageArray::getPageByID()
+	 * @see PageArray::getPageByName()
+	 * @see PageArray::findOnePage()
+	 *
 	 */
 	public function getPage($key) {
 		$value = $this->get($key);
@@ -466,12 +472,14 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	}
 
 	/**
-	 * Same as find() method, but returns a single Page rather than PageArray or FALSE if empty.
-	 * 
-	 * #pw-internal
+	 * Same as find() method, but returns a single Page rather than PageArray or false if not found.
+	 *
+	 * Returns false when not found (WireArray contract). If you need a Page|NullPage return
+	 * instead, use findOnePage() which is the Page-typed counterpart to this method.
 	 *
 	 * @param string $selector
-	 * @return Page|bool
+	 * @return Page|false First matching Page, or false if not found
+	 * @see PageArray::findOnePage()
 	 * @see WireArray::findOne()
 	 *
 	 */
@@ -482,11 +490,15 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	}
 
 	/**
-	 * Same as find() or findOne() methods, but always returns a Page (whether Page or NullPage)
+	 * Same as findOne() but always returns a Page or NullPage rather than false when not found.
+	 *
+	 * Prefer this over findOne() when you want a consistent Page|NullPage return type,
+	 * matching the behavior of $pages->findOne() and $pages->get() at the database layer.
 	 *
 	 * @param string $selector
-	 * @return Page|NullPage
+	 * @return Page|NullPage First matching Page, or NullPage if not found
 	 * @since 3.0.162
+	 * @see PageArray::findOne()
 	 *
 	 */
 	public function findOnePage($selector) {
