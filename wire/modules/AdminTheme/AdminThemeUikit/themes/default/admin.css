@@ -3150,7 +3150,7 @@ body.AdminThemeReno
 }
 
 .InputfieldStateRequired > .InputfieldHeader:first-child:after {
-	color: var(--pw-main-color);
+	color: red;
 }
 
 .Inputfields .InputfieldRepeater .InputfieldRepeaterDrag {
