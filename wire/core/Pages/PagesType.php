@@ -193,7 +193,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		if(ctype_digit("$selectorString")) $selectorString = "id=$selectorString"; 
 		if(strpos($selectorString, 'sort=') === false && !preg_match('/\bsort=/', $selectorString)) {
 			$template = reset($this->templates);
-			if($template->sortfield) {
+			if($template && $template->sortfield) {
 				$sortfield = $template->sortfield;
 			} else {
 				$sortfield = $this->getParent()->sortfield;

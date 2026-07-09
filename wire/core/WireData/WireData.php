@@ -59,6 +59,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 *
 	 */
 	public function set($key, $value) {
+		if($key === null) return $this;
 		if($key === 'data') {
 			if(!is_array($value)) $value = (array) $value;
 			return $this->setArray($value); 
