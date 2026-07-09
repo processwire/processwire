@@ -22,12 +22,31 @@ $useDarkModeSwitcher =
  * 
  */
 $adminTheme->addHookAfter('InputfieldTinyMCESettings::prepareSettingsForOutput', function(HookEvent $e) use($themeUrl) {
-	
+
 	$f = $e->object->__get('inputfield'); /** @var InputfieldTinyMCE $f */
-	
+
 	static $contentCss = '';
-	
+
 	$settings = $e->return;
+
+	// Inject color-scheme into TinyMCE iframe to match Konkat theme setting.
+	// Needed for Safari, which doesn't inherit color-scheme from the parent document into iframes.
+	$wire = $e->wire();
+	$darkMode = $wire->user->meta('adminDarkMode');
+	if($darkMode === 1) {
+		$colorScheme = 'dark';
+	} else if($darkMode === 0) {
+		$colorScheme = 'light';
+	} else {
+		$styleName = $wire->adminTheme->get('defaultStyleName');
+		$colorScheme = ($styleName === 'dark' || $styleName === 'light') ? $styleName : null;
+	}
+	if($colorScheme) {
+		$existingStyle = isset($settings['content_style']) ? $settings['content_style'] : '';
+		$settings['content_style'] = trim($existingStyle . ' :root { color-scheme: ' . $colorScheme . '; }');
+		$e->return = $settings;
+	}
+
 	$css = isset($settings['content_css']) ? $settings['content_css'] : $f->content_css;
 
 	if(strpos($css, 'document')) {
