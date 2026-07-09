@@ -22,7 +22,7 @@ var ProcessWireAdminTheme = {
 	 *
 	 */
 	ready: function() {
-		
+
 		this.setupCloneButton();
 		ProcessWireAdmin.init();
 		this.setupSearch();
