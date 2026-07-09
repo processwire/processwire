@@ -1721,9 +1721,16 @@ table.AdminDataTable:not(.uk-table) th {
 }
 
 .InputfieldHeader.ui-state-error,
-.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error {
+.pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader.ui-state-error,
+.pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader.ui-state-error > *,
+.pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader:has(.InputfieldFileDelete:hover),
+.pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader:has(.InputfieldFileDelete:hover) > *,
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error,
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader:has(.InputfieldRepeaterTrash:hover) {
 	background-color: var(--pw-alert-danger) !important;
 	color: var(--pw-error-inline-text-color) !important;
+	border-color: var(--pw-error-inline-text-color);
+	outline-color: var(--pw-error-inline-text-color);
 }
 
 .ui-state-error:not(:input),.ui-widget-content .ui-state-error:not(:input),.ui-widget-header .ui-state-error:not(:input) {
@@ -4108,16 +4115,15 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 	border-bottom: 1px solid var(--pw-border-color);
 }
 
-.Inputfields
-.InputfieldRepeater
-.InputfieldContent
-.InputfieldRepeaterItem
-> .InputfieldHeader.ui-state-error {
+.Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error {
 	text-decoration: line-through;
 	background: var(--pw-alert-danger);
 	color: var(--pw-text-color);
 	border-color: var(--pw-border-color);
 	outline-color: var(--pw-border-color);
+}
+.Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error:hover {
+	text-decoration: none;
 }
 
 .pw-notices .NoticeWarning a.notice-remove,
