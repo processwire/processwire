@@ -2432,6 +2432,19 @@ class Sanitizer extends Wire {
 			if(!$options['requireScheme']) {
 				// if a scheme was added above (for filter_var validation) and it's not required, remove it
 				$value = str_replace('http://', '', $value);
+			} else if(strpos($value, 'http://') === 0) {
+				// upgrade http:// to https:// when the URL host matches the current site host and site uses HTTPS
+				$config = $this->wire()->config;
+				if($config && $config->https) {
+					$urlHost = parse_url($value, PHP_URL_HOST);
+					if($urlHost) {
+						$httpHost = $config->httpHost;
+						$httpHosts = $config->httpHosts;
+						if($urlHost === $httpHost || (is_array($httpHosts) && in_array($urlHost, $httpHosts))) {
+							$value = 'https://' . substr($value, 7);
+						}
+					}
+				}
 			}
 		} else if($scheme !== 'tel') {
 			// URL already has a scheme
