@@ -887,10 +887,15 @@ class PagePermissions extends WireData implements Module {
 		}
 		
 		if(!$page->isLocked()) {
+			$user = $this->wire()->user;
+			if($user->isSuperuser()) {
+				// superuser can always trash (deleteable() returns false for current page, but trashing is reversible)
+				$event->return = true;
+				return;
+			}
 			$this->deleteable($event);
 			if(!$event->return && $this->wire()->permissions->has('page-edit-trash-created') && $page->editable()) {
 				// page can be trashable if user created it
-				$user = $this->wire()->user;
 				$trashable = ($page->created_users_id === $user->id && $user->hasPermission('page-edit-trash-created', $page));
 				$event->return = $trashable;
 			}
