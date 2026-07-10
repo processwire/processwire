@@ -5,7 +5,7 @@ require_once(__DIR__ . '/InputfieldPageListSelectCommon.php');
 /**
  * A Page List Selector for selecting a single page
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $parent_id Parent ID of selectable pages (default=0)
@@ -15,7 +15,7 @@ require_once(__DIR__ . '/InputfieldPageListSelectCommon.php');
  * @property string $selectLabel Label text to click to make selection (default=Select)
  * @property string $unselectLabel Label text to click to undo selection (default=Unselect)
  * @property string $moreLabel Label text to click for revealing more selectable pages (default=more)
- * @property bool $showPath Show path of selectable pages? (default=fales)
+ * @property bool $showPath Show path of selectable pages? (default=false)
  *
  */
 class InputfieldPageListSelect extends Inputfield implements InputfieldPageListSelection {
