@@ -12,7 +12,7 @@
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read string $url URL to the file on the server.
@@ -290,7 +290,7 @@ class Pagefile extends WireData implements WireArrayItem {
 			}
 		}
 		
-		if(strpos($key, 'description') === 0 && preg_match('/^description(\d+)$/', $value, $matches)) {
+		if(strpos($key, 'description') === 0 && preg_match('/^description(\d+)$/', $key, $matches)) {
 			// check if a language description is being set manually by description123 where 123 is language ID
 			$languages = $this->wire()->languages; 
 			if($languages) {
@@ -421,7 +421,7 @@ class Pagefile extends WireData implements WireArrayItem {
 	 * Set a description, optionally parsing JSON language-specific descriptions to separate properties
 	 *
 	 * @param string|array $value
-	 * @param Language|null Langage to set it for. Omit to determine automatically. 
+	 * @param Language|null $language Language to set it for. Omit to determine automatically.
 	 * @return $this
 	 *
 	 */
@@ -1039,7 +1039,7 @@ class Pagefile extends WireData implements WireArrayItem {
 	 *  - Multiple tags separated by a comma to determine if Pagefile has all of the tags. (since 3.0.17)
 	 * @return bool|string True if it has the given tag(s), false if not.
 	 * - If multiple tags were specified separated by a "|", then if at least one was present, this method returns the found tag.
-	 * - If multiple tags were specified separated by a space or comma, and all tags are present, it returns true. (since 3.0.17)
+	 * - If multiple tags were specified separated by a comma, and all tags are present, it returns true. (since 3.0.17)
 	 * @see Pagefile::tags(), Pagefile::addTag(), Pagefile::removeTag()
 	 *
 	 */

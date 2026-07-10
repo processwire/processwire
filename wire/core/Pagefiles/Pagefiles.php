@@ -38,7 +38,7 @@
  * Typically a Pagefiles object will be associated with a specific field attached to a Page. 
  * There may be multiple instances of Pagefiles attached to a given Page (depending on what fields are in it's fieldgroup).
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  *
