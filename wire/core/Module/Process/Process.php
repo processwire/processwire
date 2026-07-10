@@ -13,7 +13,7 @@
  * Please be sure to see the `Module` interface for full details on methods you can specify in a Process module. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * This file is licensed under the MIT license
@@ -650,7 +650,7 @@ abstract class Process extends WireData implements Module {
 	 * 
 	 * @param Page $page Requested page
 	 * @return bool|string
-	 * @sine 3.0.167
+	 * @since 3.0.167
 	 * 
 	 */
 	public static function getAfterLoginUrl(Page $page) {
