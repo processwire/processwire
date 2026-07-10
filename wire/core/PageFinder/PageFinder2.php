@@ -1227,7 +1227,7 @@ class PageFinder2 extends Wire {
 		
 		$options = array_merge($defaults, $options);
 		
-		if(!empty($options['startBeforeID']) || !empty($options['stopAfterID'])) {
+		if(!empty($options['startAfterID']) || !empty($options['stopBeforeID'])) {
 			$options['loadPages'] = true;
 			$options['getTotalType'] = 'calc';
 			$count = count($this->find($selectors, $options));

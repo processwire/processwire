@@ -7,7 +7,7 @@ require_once(__DIR__ . '/Exceptions.php');
  *
  * Matches selector strings to pages
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * Hookable methods: 
@@ -810,6 +810,7 @@ class PageFinder extends Wire {
 	 *     results (default=false).
 	 *  - `findAll` (bool): Specify that no page should be excluded - results can include unpublished, trash, system,
 	 *     no-access pages, etc. (default=false)
+	 *  - `alwaysAllowIDs` (array): Page IDs that are never excluded regardless of access or status settings (default=[]).
 	 *  - `getTotal` (bool|null): Whether the total quantity of matches should be determined and accessible from
 	 *     getTotal() method call. 
 	 *     - null: determine automatically (default is disabled when limit=1, enabled in all other cases).
@@ -1009,7 +1010,7 @@ class PageFinder extends Wire {
 	 * @return array of page IDs
 	 *
 	 */
-	public function findIDs($selectors, $options = array()) {
+	public function findIDs($selectors, array $options = array()) {
 		$options['returnVerbose'] = false; 
 		return $this->find($selectors, $options); 
 	}
@@ -1021,13 +1022,14 @@ class PageFinder extends Wire {
 	 * @param array $options
 	 *  - `joinFields` (array): Names of additional fields to join (default=[]) 3.0.172+
 	 *  - `joinSortfield` (bool): Include 'sortfield' in returned columns? Joined from pages_sortfields table. (default=false) 3.0.172+
+	 *  - `joinPath` (bool): Include 'path' in returned columns? Requires PagePaths module. (default=false) 3.0.172+
 	 *  - `getNumChildren` (bool): Include 'numChildren' in returned columns? Calculated in query. (default=false) 3.0.172+
 	 *  - `unixTimestamps` (bool): Return created/modified/published dates as unix timestamps rather than ISO-8601? (default=false) 3.0.172+
 	 * @return array|DatabaseQuerySelect
 	 * @since 3.0.153
 	 * 
 	 */
-	public function findVerboseIDs($selectors, $options = array()) {
+	public function findVerboseIDs($selectors, array $options = array()) {
 		$hasCustomOptions = count($options) > 0;
 		$options['returnVerbose'] = false;
 		$options['returnAllCols'] = true;
@@ -1051,7 +1053,7 @@ class PageFinder extends Wire {
 	 * @return array of page parent IDs
 	 *
 	 */
-	public function findParentIDs($selectors, $options = array()) {
+	public function findParentIDs($selectors, array $options = array()) {
 		$options['returnVerbose'] = false;
 		$options['returnParentIDs'] = true;
 		return $this->find($selectors, $options);
@@ -1066,7 +1068,7 @@ class PageFinder extends Wire {
 	 * @since 3.0.152
 	 * 
 	 */
-	public function findTemplateIDs($selectors, $options = array()) {
+	public function findTemplateIDs($selectors, array $options = array()) {
 		$options['returnVerbose'] = false;
 		$options['returnParentIDs'] = false;
 		$options['returnTemplateIDs'] = true;
@@ -1082,7 +1084,7 @@ class PageFinder extends Wire {
 	 * @since 3.0.121
 	 * 
 	 */
-	public function count($selectors, $options = array()) {
+	public function count($selectors, array $options = array()) {
 		
 		$defaults = array(
 			'getTotal' => true,
@@ -1093,7 +1095,7 @@ class PageFinder extends Wire {
 		
 		$options = array_merge($defaults, $options);
 		
-		if(!empty($options['startBeforeID']) || !empty($options['stopAfterID'])) {
+		if(!empty($options['startAfterID']) || !empty($options['stopBeforeID'])) {
 			$options['loadPages'] = true;
 			$options['getTotalType'] = 'calc';
 			$count = count($this->find($selectors, $options));
