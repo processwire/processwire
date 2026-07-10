@@ -77,7 +77,7 @@ abstract class FileValidatorModule extends WireData implements Module {
 	protected $_page = null;
 
 	/**
-	 * Page object associated with files, if applicable
+	 * Field object associated with files, if applicable
 	 *
 	 * @var Field|null
 	 *
@@ -142,11 +142,11 @@ abstract class FileValidatorModule extends WireData implements Module {
 
 	/**
 	 * Get the Page associated with any isValid() calls
-	 * 
-	 * If not applicable, it will be a NullPage()
-	 * 
-	 * @return NullPage|Page
-	 * 
+	 *
+	 * If not applicable, returns null.
+	 *
+	 * @return Page|null
+	 *
 	 */
 	public function getPage() {
 		$page = $this->_page ? $this->_page : null;
@@ -173,8 +173,8 @@ abstract class FileValidatorModule extends WireData implements Module {
 	 * 
 	 * If not applicable, it will be null.
 	 * 
-	 * @return Pagefile|null
-	 * 
+	 * @return Pagefile|Pageimage|null
+	 *
 	 */
 	public function getPagefile() {
 		$pagefile = $this->_pagefile ? $this->_pagefile : null;
@@ -199,7 +199,7 @@ abstract class FileValidatorModule extends WireData implements Module {
 	 * Message is saved to a log file in ProcessWire's logs path to a file with
 	 * the same name as the class, converted to hyphenated lowercase.
 	 *
-	 * @param string $str Text to log, or omit to just return the name of the log
+	 * @param string $str Text to log
 	 * @param array $options Optional extras to include:
 	 * 	- url (string): URL to record the with the log entry (default=auto-detect)
 	 * 	- name (string): Name of log to use (default=auto-detect)
