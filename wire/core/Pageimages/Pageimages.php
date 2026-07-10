@@ -25,7 +25,7 @@
  * Typically a Pageimages object will be associated with a specific field attached to a Page. 
  * There may be multiple instances of Pageimages attached to a given Page (depending on what fields are in it's fieldgroup).
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string render($markup = '', $options = array())

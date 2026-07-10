@@ -5,7 +5,7 @@
  * 
  * Helper class for Pageimage that handles variation collection methods
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @since 3.0.137
@@ -81,7 +81,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 	 * - `width` (int): Specified width in filename
 	 * - `height` (int): Specified height in filename
 	 * - `actualWidth` (int): Actual width when checked manually
-	 * - `actualHeight` (int): Acual height when checked manually
+	 * - `actualHeight` (int): Actual height when checked manually
 	 * - `crop` (string): Cropping info string or blank if none
 	 * - `suffix` (array): Array of suffixes
 	 *
@@ -221,7 +221,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 			'actualWidth' => $actualInfo['width'],
 			'actualHeight' => $actualInfo['height'],
 			'hidpiWidth' => $this->pageimage->hidpiWidth(0, $actualInfo['width']),
-			'hidpiHeight' => $this->pageimage->hidpiWidth(0, $actualInfo['height']),
+			'hidpiHeight' => $this->pageimage->hidpiHeight(0, $actualInfo['height']),
 			'parentName' => '', // present only when image has a parent variation
 			'parent' => null, // present only when image has a parent variation
 			'webpUrl' => '',
