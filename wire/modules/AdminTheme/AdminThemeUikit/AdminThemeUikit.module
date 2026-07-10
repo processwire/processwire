@@ -75,7 +75,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * Increment on core less file changes that will also require a recompile of /site/assets/admin.css
 	 * 
 	 */
-	const requireCssVersion = 4;
+	const requireCssVersion = 5;
 
 	/**
 	 * Default logo image file (relative to this dir)

@@ -44,8 +44,19 @@ em {
 #pw-masthead-mobile {
   line-height: @pw-masthead-height - 2px;
 }
+// UIkit 3.25+ changed align-items to stretch; restore original center alignment
+.uk-navbar-left,
+.uk-navbar-right,
+[class*="uk-navbar-center"] {
+  align-items: center;
+}
+// UIkit 3.25+ uses :where(.uk-logo) (zero specificity); restore class-level specificity
+.uk-logo {
+  display: inline-block;
+  vertical-align: middle;
+}
 .pw-logo {
-  max-height: 50px; 
+  max-height: 50px;
 }
 
 .pw-nav-icon {
