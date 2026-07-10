@@ -152,7 +152,7 @@ $file = $td . '/test.txt';
 - **Instantiation:** `new WireTempDir()` or `wire(new WireTempDir($objectOrName))`. The constructor accepts a deprecated `$name` + `$basePath` argument list; prefer calling `init()` separately instead.
 - **Auto-removal:** By default the temp directory is removed in `__destruct()`. Use `setRemove(false)` to keep it across multiple requests.
 - **Shared vs. scoped directories:** If the name is a fixed string (or derived from an object's class name), directories persist across requests until expired. If auto-generated via `createName()`, they are unique to the instance and therefore safe to **only** remove at destruction.
-- **Security:** `rmdir()` refuses to remove directories that are not under the class root and do not contain a `.wtd` marker file. `init()` replaces an out-of-tree `$basePath` with the default cache path.
+- **Security:** `rmdir()` refuses to remove directories that are not under the class root. Created directories receive a `.wtd` marker file, but the removal safety check is based on the class-root path. `init()` replaces an out-of-tree `$basePath` with the default cache path.
 - **Class root:** by default, files live under `$config->paths->cache . 'WireTempDir/'`.
 - **`__toString()`** returns the current temp-directory path, equivalent to calling `get()`.
 - **Source file:** `wire/core/Tools/WireTempDir/WireTempDir.php`

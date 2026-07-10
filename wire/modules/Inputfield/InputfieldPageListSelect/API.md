@@ -41,7 +41,7 @@ For shared Inputfield behavior, see the main [[Inputfield]] API documentation.
 
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
-| `parent_id` | `int` | `0` | Root page ID for the selectable tree. Must be set for the inputfield to render. |
+| `parent_id` | `int` | `0` | Root page ID for the selectable tree. `0` renders from the page-tree root. Empty string renders the parent-setting error. |
 | `labelFieldName` | `string` | `title` | Field name used for page labels in the tree (e.g. `title`, `name`). |
 | `showPath` | `bool` | `false` | Show the path of each page in the tree alongside the label. |
 | `startLabel` | `string` | `Change` | Label for the button/link that opens the page tree for selection. |
@@ -54,7 +54,7 @@ For shared Inputfield behavior, see the main [[Inputfield]] API documentation.
 
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
-| `parent_id` | `int` | `0` | Root page ID for the selectable tree. Must be set for the inputfield to render. |
+| `parent_id` | `int` | `0` | Root page ID for the selectable tree. `0` renders from the page-tree root. Empty string renders the parent-setting error. |
 | `labelFieldName` | `string` | `title` | Field name used for page labels in the tree (e.g. `title`, `name`). |
 | `startLabel` | `string` | `Add` | Label for the button/link that opens the page tree for adding pages. |
 | `cancelLabel` | `string` | `Close` | Label for the cancel/close button in the tree selector. |
@@ -203,8 +203,7 @@ $wire->addHookAfter('InputfieldPageListSelectMultiple::processInput', function(H
 
 ## Notes
 
-- `parent_id` must be configured for the inputfield to render. An empty or `0` 
-  value displays an error message in the admin.
+- `parent_id` controls the root of the selectable tree. The default `0` renders from the page-tree root; an empty string displays an error message in the admin.
 - The `parent_id` here refers to the **root** of the selectable tree, not a 
   direct parent — this is the semantic defined by the 
   `InputfieldPageListSelection` interface.

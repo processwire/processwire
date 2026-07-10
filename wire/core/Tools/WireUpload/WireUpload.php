@@ -4,7 +4,7 @@
  * ProcessWire WireUpload
  *
  * Saves uploads of single or multiple files, saving them to the destination path.
- * If the destination path does not exist, it will be created. 
+ * The destination path must already exist.
  * 
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
@@ -718,7 +718,8 @@ class WireUpload extends Wire {
 	 * 
 	 */
 	public function setTargetFilename($filename) {
-		$this->targetFilename = $filename; 
+		$this->targetFilename = $filename;
+		return $this;
 	}
 
 	/**

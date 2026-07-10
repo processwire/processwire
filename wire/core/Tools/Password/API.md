@@ -56,14 +56,14 @@ the magic methods.
 ### Setting a password: `$password->pass = '...'`
 
 Assign a plain-text password string to the `pass` property. This internally calls the
-hookable `setPass()` method, which generates a new salt, hashes the password with that
-salt, and stores the result. If the new password produces the same hash as the
-existing one, no change is recorded:
+hookable `setPass()` method, which generates a salt when needed, hashes the password
+with that salt, and stores the result. If the new password matches the existing stored
+hash when checked with the existing salt, no change is recorded:
 
 ```php
 $password = $page->pass;
-$password->pass = 'newSecret456';       // hash is recomputed
-$password->pass = 'newSecret456';       // no change — same hash, skipped
+$password->pass = 'newSecret456';       // hash is computed and stored
+$password->pass = 'newSecret456';       // no change — matches existing stored hash
 ```
 
 If the property is set to an empty string, the operation is silently ignored and the
