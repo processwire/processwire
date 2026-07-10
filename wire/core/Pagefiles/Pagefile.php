@@ -1033,10 +1033,11 @@ class Pagefile extends WireData implements WireArrayItem {
 	 * #pw-changelog 3.0.17 OR mode now returns found tag rather than boolean true.
 	 * #pw-group-tags
 	 *
-	 * @param string $tag Specify one of the following:
+	 * @param string|array $tag Specify one of the following:
 	 *  - Single tag without whitespace.
 	 *  - Multiple tags separated by a "|" to determine if Pagefile has at least one of the tags.
 	 *  - Multiple tags separated by a comma to determine if Pagefile has all of the tags. (since 3.0.17)
+	 *  - Array of tags to determine if Pagefile has all of the tags (AND mode).
 	 * @return bool|string True if it has the given tag(s), false if not.
 	 * - If multiple tags were specified separated by a "|", then if at least one was present, this method returns the found tag.
 	 * - If multiple tags were specified separated by a comma, and all tags are present, it returns true. (since 3.0.17)
@@ -1048,6 +1049,7 @@ class Pagefile extends WireData implements WireArrayItem {
 		$tags = $this->tags(false); // all tags in array, lowercase
 		if(empty($tags)) return false;
 		$modeAND = null;
+		if(is_array($tag)) $tag = implode(',', $tag);
 		$tag = trim(strtolower($tag));
 		
 		if(strpos($tag, '|') !== false) {
