@@ -730,7 +730,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *  - Procedural function name, if hook is implemented by a procedural function. 
 	 *  - Null if you want to use the 3rd argument and don't need this argument. 
 	 * @param string|array $toMethod Method from $toObject, or function name to call on a hook event. 
-	 *   This argument can be sustituted as the 2nd argument when the 2nd argument isn’t needed,
+	 *   This argument can be substituted as the 2nd argument when the 2nd argument isn’t needed,
 	 *   or it can be the $options argument. 
 	 * @param array $options Array of options that can modify behavior: 
 	 *  - `type` (string): May be either 'method' or 'property'. If property, then it will respond to $obj->property 
@@ -780,7 +780,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *  - Procedural function name, if hook is implemented by a procedural function.
 	 *  - Null if you want to use the 3rd argument and don't need this argument.
 	 * @param string|array $toMethod Method from $toObject, or function name to call on a hook event.
-	 *   This argument can be sustituted as the 2nd argument when the 2nd argument isn't needed,
+	 *   This argument can be substituted as the 2nd argument when the 2nd argument isn't needed,
 	 *   or it can be the $options argument. 
 	 * @param array $options Array of options that can modify behavior:
 	 *  - `type` (string): May be either 'method' or 'property'. If property, then it will respond to $obj->property
@@ -830,7 +830,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *  - Procedural function name, if hook is implemented by a procedural function.
 	 *  - Null if you want to use the 3rd argument and don't need this argument.
 	 * @param string|array $toMethod Method from $toObject, or function name to call on a hook event.
-	 *   This argument can be sustituted as the 2nd argument when the 2nd argument isn’t needed,
+	 *   This argument can be substituted as the 2nd argument when the 2nd argument isn’t needed,
 	 *   or it can be the $options argument. 
 	 * @param array $options Options typically aren't used in this context, but see Wire::addHookBefore() $options if you'd like.
 	 * @return string A special Hook ID (or CSV string of hook IDs) that should be retained if you need to remove the hook later.
@@ -892,7 +892,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *  - Procedural function name, if hook is implemented by a procedural function.
 	 *  - Null if you want to use the 3rd argument and don't need this argument.
 	 * @param string|array $toMethod Method from $toObject, or function name to call on a hook event.
-	 *   This argument can be sustituted as the 2nd argument when the 2nd argument isn’t needed, 
+	 *   This argument can be substituted as the 2nd argument when the 2nd argument isn’t needed, 
 	 *   or it can be the $options argument. 
 	 * @param array $options Options typically aren't used in this context, but see Wire::addHookBefore() $options if you'd like.
 	 * @return string A special Hook ID (or CSV string of hook IDs) that should be retained if you need to remove the hook later.
