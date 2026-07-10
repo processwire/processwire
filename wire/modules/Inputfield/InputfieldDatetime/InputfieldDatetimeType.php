@@ -104,10 +104,10 @@ abstract class InputfieldDatetimeType extends WireData {
 	}
 
 	/**
-	 * Sanitize value to unix timestamp integer or blank string (to represent no value)
+	 * Sanitize value to UNIX timestamp integer, blank string, or false when unparseable
 	 * 
 	 * @param string|int $value
-	 * @return int|string
+	 * @return int|string|bool
 	 * 
 	 */
 	public function sanitizeValue($value) {

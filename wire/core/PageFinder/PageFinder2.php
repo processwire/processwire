@@ -22,6 +22,16 @@ require_once(__DIR__ . '/Exceptions.php');
  * @property bool $checkAccess
  * 
  * @todo support status=published
+ * 
+ * Main Differences
+ *
+ * - PageFinder2 defaults getTotalType to count; PageFinder defaults to calc / SQL_CALC_FOUND_ROWS.
+ * - PageFinder2 has instance reuse through PageFinder2::getInstance() plus isFinished(), so it can reuse finished finder objects instead of creating new ones.
+ * - PageFinder2 adds useSubQueries, mainly for single-field FieldtypePage subselectors. Instead of first resolving a subselector to IDs and injecting those IDs, it can build a nested SQL subquery.
+ * - PageFinder2 adds a query option so subqueries can populate an existing DatabaseQuerySelect, which helps with shared bind options/prefixes.
+ * - It moves several repeated local arrays to static lookup maps: native fields, DB operators, modifier fields, no-array fields, etc.
+ * - It caches small things like NullPage and PagePaths-installed state.
+ * - It has some micro-optimizations in allowed-template logic, role lookup, native-field detection, and path handling.
  *
  */
 

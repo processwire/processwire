@@ -272,7 +272,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	 * Sanitize value
 	 * 
 	 * @param int|string $value
-	 * @return int|string
+	 * @return int|string|bool
 	 * 
 	 */
 	public function sanitizeValue($value) {
@@ -461,7 +461,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 
 		$f = $inputfields->InputfieldInteger;
 		$f->attr('name', 'numberOfMonths');
-		$f->label = $this->_('Number of month to show side-by-side in datepicker');
+		$f->label = $this->_('Number of months to show side-by-side in datepicker');
 		$f->val((int) $module->get('numberOfMonths'));
 		$f->columnWidth = 50;
 		$fieldset->add($f);

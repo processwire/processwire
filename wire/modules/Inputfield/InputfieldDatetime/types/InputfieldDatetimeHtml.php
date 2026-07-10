@@ -28,7 +28,7 @@ class InputfieldDatetimeHtml extends InputfieldDatetimeType {
 	 */
 	public function renderReady() {
 		if($this->getSetting('htmlType') === 'datetime') {
-			$this->inputfield->addClass('InputfieldDatetimeMulti', 'wrapClass'); // multiple unputs
+			$this->inputfield->addClass('InputfieldDatetimeMulti', 'wrapClass'); // multiple inputs
 		}
 	}
 
@@ -128,7 +128,7 @@ class InputfieldDatetimeHtml extends InputfieldDatetimeType {
 
 	/**
 	 * @param WireInputData $input
-	 * @return string
+	 * @return int|string
 	 *
 	 */
 	public function processInput(WireInputData $input) {
@@ -144,6 +144,7 @@ class InputfieldDatetimeHtml extends InputfieldDatetimeType {
 				// if time present but no date, substitute today's date
 				if(!strlen($dateValue) && strlen($timeValue)) $dateValue = date('Y-m-d'); 
 				$value = strlen($dateValue) ? strtotime(trim("$dateValue $timeValue")) : '';
+				if($value === false) $value = '';
 				break;
 			case 'date':
 			case 'time':
@@ -151,6 +152,7 @@ class InputfieldDatetimeHtml extends InputfieldDatetimeType {
 				break;
 			default:
 				$value = $value ? strtotime($value) : '';
+				if($value === false) $value = '';
 		}
 		
 		return $value; 
@@ -172,6 +174,7 @@ class InputfieldDatetimeHtml extends InputfieldDatetimeType {
 		} else if($htmlType === 'date') {
 			$subTime = $this->inputfield->subTime();
 			$value = strtotime("$value $subTime"); 
+			if($value === false) $value = '';
 		} else {
 			$value = parent::sanitizeValue($value);
 		}

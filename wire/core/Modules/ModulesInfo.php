@@ -1172,7 +1172,7 @@ class ModulesInfo extends ModulesClass {
 			),
 			*/
 			array(
-				'label' => $this->_('Found %d module(s) missing file:'),
+				'label' => $this->_('Found %d module(s) missing file or needing another refresh:'),
 				'items' => $missModules,
 			),
 			array(

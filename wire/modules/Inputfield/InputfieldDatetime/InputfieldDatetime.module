@@ -37,10 +37,10 @@
  * @property string $inputType Input type to use, one of: "text", "select" or "html" (when html type is used, also specify $htmlType).
  * @property int|bool $defaultToday When no value is present, default to today’s date/time?
  * @property int $subYear Substitute year when month+day or time only selections are made (default=2010)
- * @property int $subDay Substitute day when month+year or time only selectinos are made (default=8)
+ * @property int $subDay Substitute day when month+year or time only selections are made (default=8)
  * @property int $subMonth Substitute month when time-only selections are made (default=4)
  * @property int $subHour Substitute hour when date-only selections are made (default=0)
- * @property int $subMinute Substitute minute when date-only selection are made (default=0)
+ * @property int $subMinute Substitute minute when date-only selections are made (default=0)
  * @property bool|int $requiredAttr When combined with "required" option, this also makes it use the HTML5 "required" attribute (default=false).
  * 
  * Properties specific to "text" input type (with optional jQuery UI datepicker)
