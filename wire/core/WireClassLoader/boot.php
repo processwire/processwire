@@ -19,7 +19,7 @@ $corePreloads = array(
 	'Fuel/Fuel.php',
 	'Interfaces.php',
 	'WireException.php',
-	'Wire.php',
+	'Wire/Wire.php',
 	'WireHooks/WireHooks.php',
 	'WireData/WireData.php',
 	'WireArray/WireArray.php',
