@@ -174,6 +174,6 @@ exit;
 - Entity encoding follows [W3C feed validator](https://validator.w3.org/feed/) recommendations: `<`, `>`, `&`, `"`, `'` are emitted as hexadecimal entities (`&#x0003E;`, `&#x00026;`, etc.).
 - CDATA `<![CDATA[` and `]]>` markers in source HTML content are escaped to prevent breaking the outer CDATA wrapper.
 - The `itemAuthorField`, `itemAuthorElement`, and `stripTags` properties are not exposed in the module config screen — set them via the API only.
-- **Source file:** `wire/modules/Markup/MarkupRSS.module`
+- **Source file:** `wire/modules/Markup/MarkupRSS/MarkupRSS.module`
 - **Extends:** [[WireData]] — all WireData property access (`get`, `set`, `setArray`, etc.) is available.
 

@@ -5,7 +5,7 @@
  * 
  * This class is for “Tfa” modules to extend. See the TfaEmail and TfaTotp modules as examples. 
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -76,8 +76,8 @@
  * @method void getUserEnabledInputfields(User $user, InputfieldWrapper $fieldset, $settings) 
  * @method array processUserSettingsInputfields(User $user, InputfieldWrapper $fieldset, $settings, $settingsPrev) 
  * @method array processUserEnabledInputfields(User $user, InputfieldWrapper $fieldset, $settings, $settingsPrev)
- * @method install()
- * @method uninstall()
+ * @method void install()
+ * @method void uninstall()
  * 
  */
 class Tfa extends WireData implements Module, ConfigurableModule {
@@ -975,7 +975,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		}
 
 		if(!$this->saveUserSettings($user, array_merge($settings, array('enabled' => true)))) {
-			throw new WireException("Uneable to save user Tfa settings");
+			throw new WireException("Unable to save user Tfa settings");
 		}
 	}
 
@@ -1042,11 +1042,9 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			}
 		}
 
-		if(empty($moduleName)) {
-			$user->setQuietly('_tfa_settings', $tfaSettings);
-		}
-		
-		return $tfaSettings[$className]; 
+		$user->setQuietly('_tfa_settings', $tfaSettings);
+
+		return $tfaSettings[$className];
 	}
 
 	/**
