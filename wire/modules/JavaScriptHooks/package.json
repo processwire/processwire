@@ -1,0 +1,14 @@
+{
+  "name": "javascripthooks",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "dst/JavaScriptHooks.min.js",
+  "scripts": {
+    "build": "rollup -c rollup.config.js"
+  },
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "rollup": "^4.46"
+  }
+}
