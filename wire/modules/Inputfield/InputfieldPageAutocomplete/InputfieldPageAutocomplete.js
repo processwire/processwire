@@ -24,6 +24,7 @@ var InputfieldPageAutocomplete = {
 		var numFound = 0; // indicating number of pages matching during last ajax request
 		var disableChars = $input.attr('data-disablechars'); 
 		var noList = $input.hasClass('no_list');
+		var realName = $value.attr('name') ? $value.attr('name').replace('[]', '') : id.replace('Inputfield_', '');
 		
 		function hasDisableChar(str) {
 			if(!disableChars || !disableChars.length) return false;
@@ -75,7 +76,7 @@ var InputfieldPageAutocomplete = {
 		$icon.attr('data-class', $icon.attr('class')); 
 
 		function isAddAllowed() {
-			var allowed = $('#_' + id.replace('Inputfield_', '') + '_add_items').length > 0;
+			var allowed = $('#_' + realName + '_add_items').length > 0;
 			return allowed;
 		}
 
@@ -196,7 +197,7 @@ var InputfieldPageAutocomplete = {
 						if(noList) {
 							// adding new item while using input as the label
 							$value.val(page.page_id);
-							$("#_" + id.replace('Inputfield_', '') + '_add_items').val(page.label);
+							$("#_" + realName + '_add_items').val(page.label);
 							$input.addClass('added_item').trigger('blur');
 							$addNote = $note.siblings(".InputfieldPageAutocompleteNoteAdd");
 							if(!$addNote.length) {
@@ -221,13 +222,13 @@ var InputfieldPageAutocomplete = {
 				if(numAdded && noList) {
 					// some other key after an item already added, so remove added item info for potential new one
 					$addNote = $note.siblings(".InputfieldPageAutocompleteNoteAdd");
-					var $addText = $("#_" + id.replace('Inputfield_', '') + '_add_items');
+					var $addText = $("#_" + realName + '_add_items');
 					if($addNote.length && $addText.val() != $(this).val()) {
 						// added value has changed
 						$addNote.remove();
 						$value.val('');
 						$addText.val('');
-						$("#_" + id.replace('Inputfield_', '') + '_add_items').val('');
+						$("#_" + realName + '_add_items').val('');
 						numAdded--;
 					}
 				}
