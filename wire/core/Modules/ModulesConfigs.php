@@ -71,6 +71,9 @@ class ModulesConfigs extends ModulesClass {
 	 *
 	 * - Applicable only for modules that support configuration.
 	 * - Configuration data is stored encoded in the database "modules" table "data" field.
+	 * - When `$wire->config->ClassName` is set to an array in `site/config.php`,
+	 *   its top-level keys override the stored DB config on every read. The DB
+	 *   is never mutated by the overlay. (3.0.263+)
 	 *
 	 * ~~~~~~
 	 * // Getting, modifying and saving module config data
@@ -80,14 +83,18 @@ class ModulesConfigs extends ModulesClass {
 	 *
 	 * // Getting just one property 'apiKey' from module config data
 	 * $apiKey = $modules->getConfig('HelloWorld', 'apiKey');
+	 *
+	 * // Override config from site/config.php (3.0.263+):
+	 * // $config->HelloWorld = [ 'apiKey' => $_ENV['HELLOWORLD_API_KEY'] ];
 	 * ~~~~~~
 	 *
 	 * #pw-group-configuration
 	 * #pw-changelog 3.0.16 Changed from more verbose name `getModuleConfigData()`, which can still be used.
+	 * #pw-changelog 3.0.263 Module config can be overridden by setting `$config->ClassName` (array) in site/config.php.
 	 *
 	 * @param string|Module $class
 	 * @param string $property Optionally just get value for a specific property (omit to get all config)
-	 * @return array|string|int|float Module configuration data, returns array unless a specific $property was requested
+	 * @return array|string|int|float|null Module configuration data, returns array unless a specific $property was requested
 	 * @see Modules::saveConfig()
 	 * @since 3.0.16 Use method getModuleConfigData() with same arguments for prior versions (can also be used on any version).
 	 *
@@ -96,16 +103,18 @@ class ModulesConfigs extends ModulesClass {
 
 		$emptyReturn = $property ? null : array();
 		$className = $class;
-		
+
 		if(is_object($className)) $className = wireClassName($className->className(), false);
-		
+
 		$id = $this->moduleID($className);
 		if(!$id) return $emptyReturn;
-	
-		$data = isset($this->configData[$id]) ? $this->configData[$id] : null;
-		if($data === null) return $emptyReturn; // module has no config data
 
-		if(is_array($data)) {
+		$data = isset($this->configData[$id]) ? $this->configData[$id] : null;
+
+		if($data === null) {
+			// module has no stored config data; site/config.php overlay (below) may still apply
+			$data = array();
+		} else if(is_array($data)) {
 			// great
 		} else {
 			// configData===1 indicates data must be loaded from DB
@@ -120,6 +129,13 @@ class ModulesConfigs extends ModulesClass {
 			if(strlen($data)) $data = wireDecodeJSON($data);
 			if(empty($data)) $data = array();
 			$this->configData[(int) $id] = $data;
+		}
+
+		// Overlay values from $wire->config->ClassName (site/config.php) on top of stored config.
+		// Shallow merge; non-array overlays are ignored. DB rows are never mutated by this.
+		$overlay = $this->wire()->config->$className;
+		if(is_array($overlay) && !empty($overlay)) {
+			$data = array_merge($data, $overlay);
 		}
 
 		if($property) return isset($data[$property]) ? $data[$property] : null;
@@ -707,6 +723,43 @@ class ModulesConfigs extends ModulesClass {
 					if(empty($info['removeFlag']) || !($info['removeFlag'] & Modules::flagsNoUserConfig)) {
 						$this->modules->flags->setFlag($moduleName, Modules::flagsNoUserConfig, true); // add flag
 					}
+				}
+			}
+
+			// Indicate which fields are currently overridden by $wire->config->ClassName (3.0.263+).
+			// Override values are intentionally NOT shown — they often contain secrets. We only
+			// flag which keys are overridden so admins understand why edits here may have no runtime effect.
+			$overlay = $this->wire()->config->$moduleName;
+			if(is_array($overlay) && !empty($overlay)) {
+				$overriddenKeys = array();
+				foreach($form->getAll() as $inputfield) {
+					if($inputfield instanceof InputfieldWrapper) continue;
+					$name = $inputfield->attr('name');
+					if($name === '' || !array_key_exists($name, $overlay)) continue;
+					$overriddenKeys[] = $name;
+					$msg = sprintf(
+						$this->_('Currently overridden by `$config->%s[\'%s\']` in site/config.php. Saving here updates the stored value, but the override will continue to take precedence at runtime.'),
+						$moduleName,
+						$name
+					);
+					$existing = (string) $inputfield->notes;
+					$inputfield->notes = $existing === '' ? $msg : trim($existing) . "\n\n" . $msg;
+				}
+				if(!empty($overriddenKeys)) {
+					$sanitizer = $this->wire()->sanitizer;
+					$keysHtml = array();
+					foreach($overriddenKeys as $k) {
+						$keysHtml[] = '<code>' . $sanitizer->entities($k) . '</code>';
+					}
+					/** @var InputfieldMarkup $markup */
+					$markup = $this->wire()->modules->get('InputfieldMarkup');
+					$markup->markupText = '<p>' . sprintf(
+						$this->_('The following settings are currently overridden by %s in %s: %s'),
+						'<code>$config-&gt;' . $sanitizer->entities($moduleName) . '</code>',
+						'<code>site/config.php</code>',
+						implode(', ', $keysHtml)
+					) . '</p>';
+					$form->prepend($markup);
 				}
 			}
 		}
