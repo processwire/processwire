@@ -515,7 +515,7 @@ function pwModalDoubleClick() {
 			timer = setTimeout(function() {
 				clicks = 0;
 				allowClick = true;
-				$a[0].trigger('click');
+				$a[0].click();
 				return true;
 			}, 700);
 		} else {
