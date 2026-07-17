@@ -254,6 +254,18 @@ class WireTest_Modules extends WireTest {
 		$stale = !is_array($snapshot) || !isset($snapshot[$this->refreshProbeFile]) || $snapshot[$this->refreshProbeFile] !== $current;
 		$this->check('refresh() does not mark snapshot current for file changed mid-request', true, $stale);
 
+		// a module file dated far in the future (clock skew, bad timestamp) was not
+		// written during this request, so it must not disable the snapshot
+		// optimization for every subsequent request
+		touch($this->refreshProbeFile, $requestTime + 172800);
+		clearstatcache();
+		$modules->refresh();
+
+		$snapshot = $modules->getCache('moduleFileSnapshot');
+		$current = array(filemtime($this->refreshProbeFile), filesize($this->refreshProbeFile));
+		$saved = is_array($snapshot) && isset($snapshot[$this->refreshProbeFile]) && $snapshot[$this->refreshProbeFile] === $current;
+		$this->check('refresh() still saves snapshot when a module file mtime is far in the future', true, $saved);
+
 		$this->cleanupRefreshProbe();
 		$modules->refresh();
 	}

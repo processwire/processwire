@@ -2071,11 +2071,14 @@ class Modules extends WireArray implements CliModule {
 		// When a module file changed during this request (i.e. module upgrade), info
 		// rebuilt now may still come from the previously loaded (now outdated) class,
 		// so the snapshot cannot be trusted: invalidate it so that the next refresh
-		// rebuilds from the updated files
+		// rebuilds from the updated files. Files dated more than a day ahead did not
+		// change during this request (bad clock or timestamp) and are ignored, as
+		// they would otherwise disable the snapshot fast-path on every request.
 		$requestTime = isset($_SERVER['REQUEST_TIME']) ? (int) $_SERVER['REQUEST_TIME'] : 0;
 		$snapshotUsable = $requestTime > 0;
 		if($snapshotUsable) foreach($newSnapshot as $mtimeSize) {
 			if($mtimeSize[0] < $requestTime) continue;
+			if($mtimeSize[0] > $requestTime + 86400) continue;
 			$snapshotUsable = false;
 			break;
 		}
