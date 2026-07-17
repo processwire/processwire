@@ -2068,17 +2068,30 @@ class Modules extends WireArray implements CliModule {
 		// Compare file snapshot to skip expensive info rebuild when nothing changed
 		$snapshotKey = 'moduleFileSnapshot';
 		$newSnapshot = $this->files->getModuleFileSnapshot($moduleFiles);
-		$oldSnapshot = $this->getCache($snapshotKey);
-		if(is_array($oldSnapshot) && $oldSnapshot === $newSnapshot) {
-			$this->refreshing = false;
-			return;
+		// When a module file changed during this request (i.e. module upgrade), info
+		// rebuilt now may still come from the previously loaded (now outdated) class,
+		// so the snapshot cannot be trusted: invalidate it so that the next refresh
+		// rebuilds from the updated files
+		$requestTime = isset($_SERVER['REQUEST_TIME']) ? (int) $_SERVER['REQUEST_TIME'] : 0;
+		$snapshotUsable = $requestTime > 0;
+		if($snapshotUsable) foreach($newSnapshot as $mtimeSize) {
+			if($mtimeSize[0] < $requestTime) continue;
+			$snapshotUsable = false;
+			break;
+		}
+		if($snapshotUsable) {
+			$oldSnapshot = $this->getCache($snapshotKey);
+			if(is_array($oldSnapshot) && $oldSnapshot === $newSnapshot) {
+				$this->refreshing = false;
+				return;
+			}
 		}
 		$this->installableFiles = array();
 		$this->info->clearModuleInfoCache($showMessages);
 		foreach($this->paths as $path) $this->loader->loadPath($path);
 		if($this->duplicates()->numNewDuplicates() > 0) $this->duplicates()->updateDuplicates(); // PR#1020
 		$this->loader->loaded();
-		$this->saveCache($snapshotKey, $newSnapshot);
+		$this->saveCache($snapshotKey, $snapshotUsable ? $newSnapshot : array());
 		
 		$this->refreshing = false;
 	}

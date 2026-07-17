@@ -31,6 +31,7 @@ class WireTest_Modules extends WireTest {
 		$this->testConfiguration();
 		$this->testHelperProperties();
 		$this->testRefreshDiscoversNewModuleFile();
+		$this->testRefreshSnapshotAfterMidRequestChange();
 		$this->testUninstallLifecycle();
 	}
 
@@ -208,6 +209,53 @@ class WireTest_Modules extends WireTest {
 		$this->cleanupRefreshProbe();
 		$modules->refresh();
 		$this->check('refresh() removes deleted module file', false, $modules->isInstallable($name));
+	}
+
+	protected function testRefreshSnapshotAfterMidRequestChange() {
+		$modules = $this->wire()->modules;
+		$files = $this->wire()->files;
+		$config = $this->wire()->config;
+		$name = $this->refreshProbeName;
+		$requestTime = isset($_SERVER['REQUEST_TIME']) ? (int) $_SERVER['REQUEST_TIME'] : time();
+
+		$this->cleanupRefreshProbe();
+		$modules->refresh();
+
+		$this->refreshProbeDir = $config->paths->siteModules . "$name/";
+		$this->refreshProbeFile = $this->refreshProbeDir . "$name.module.php";
+
+		$moduleContents =
+			"<?php namespace ProcessWire;\n" .
+			"class $name extends WireData implements Module {\n" .
+			"\tpublic static function getModuleInfo() { return array('title' => 'WireTest refresh probe', 'version' => {version}); }\n" .
+			"}\n";
+
+		// module file as if written by a previous request (mtime predates this request)
+		if(!is_dir($this->refreshProbeDir)) $files->mkdir($this->refreshProbeDir);
+		file_put_contents($this->refreshProbeFile, str_replace('{version}', '1', $moduleContents));
+		touch($this->refreshProbeFile, $requestTime - 10);
+		clearstatcache();
+		$modules->refresh();
+
+		$snapshot = $modules->getCache('moduleFileSnapshot');
+		$expected = array(filemtime($this->refreshProbeFile), filesize($this->refreshProbeFile));
+		$saved = is_array($snapshot) && isset($snapshot[$this->refreshProbeFile]) && $snapshot[$this->refreshProbeFile] === $expected;
+		$this->check('refresh() saves file snapshot when no module files changed during request', true, $saved);
+
+		// simulate a module upgrade mid-request (as ModulesDownloader does): the file
+		// changes after its class may already be loaded, so module info rebuilt during
+		// this request can be stale and the snapshot must not mark these files current
+		file_put_contents($this->refreshProbeFile, str_replace('{version}', '2', $moduleContents));
+		clearstatcache();
+		$modules->refresh();
+
+		$snapshot = $modules->getCache('moduleFileSnapshot');
+		$current = array(filemtime($this->refreshProbeFile), filesize($this->refreshProbeFile));
+		$stale = !is_array($snapshot) || !isset($snapshot[$this->refreshProbeFile]) || $snapshot[$this->refreshProbeFile] !== $current;
+		$this->check('refresh() does not mark snapshot current for file changed mid-request', true, $stale);
+
+		$this->cleanupRefreshProbe();
+		$modules->refresh();
 	}
 
 	protected function testUninstallLifecycle() {
