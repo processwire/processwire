@@ -140,12 +140,9 @@ class PageTableArray extends PageArray {
 		// item does not yet have a parent so cannot be validated just yet
 		if(!$item->parent_id) return true;
 	
-		if($field->parent_id) { 
+		if($field->parent_id) {
 			// specific parent required
 			if($item->parent_id != $field->parent_id) return false;
-		} else {
-			// forPage required as parent
-			if($item->parent_id != $this->forPage->id) return false;
 		}
 	
 		return true;
