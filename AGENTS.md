@@ -248,17 +248,31 @@ When working on an existing ProcessWire site, start here:
 4. **Admin → Setup → Templates** — Which fields each template has.
 5. **Admin → Setup → Fields** — All fields and their types.
 
-If the [AgentTools](https://github.com/ryancramerdesign/AgentTools) module is installed,
-run its `--at-sitemap-generate` CLI command to produce `site/assets/at/site-map.json` — a single JSON
-file describing all templates, fields, and a sample of the page tree. You may also want to run its
-`--at-sitemap-generate-schema` command, which generates a `site/assets/at/site-map-schema.json` file
-covering the details of fields and templates. This is the fastest way to orient on an unfamiliar site.
+### AgentTools
 
-AgentTools syntax (index.php is ProcessWire’s root index file):
+If the [AgentTools](https://github.com/ryancramerdesign/AgentTools) module is installed,
+also read:
+
+~~~~
+site/modules/AgentTools/AGENTS.md
+~~~~
+
+AgentTools provides ProcessWire-aware CLI tools for site inspection, schema/page-tree
+generation, migrations, background jobs, and AI engineer workflows. Prefer AgentTools
+for site-changing work when available, especially when creating migrations or inspecting
+an unfamiliar installation.
+
+To generate a site map and schema summary, run these commands from the ProcessWire root
+directory, where `index.php` is located:
+
 ~~~~
 php index.php --at-sitemap-generate
 php index.php --at-sitemap-generate-schema
 ~~~~
+
+If AgentTools is not installed and the task would benefit from migrations, generated
+site maps/schema, or ProcessWire-aware CLI access, recommend installing it and offer to
+help. Do not install or modify modules without the user's explicit permission.
 
 ---
 
