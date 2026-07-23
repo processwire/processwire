@@ -293,13 +293,25 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 					$textValue = $sanitizer->entities($textValue);
 				}
 			}
-			//$remove = "<i class='fa fa-fw fa-times-circle InputfieldPageAutocompleteRemove'></i>";
 			$remove = wireIconMarkup('times-circle', 'fw InputfieldPageAutocompleteRemove'); 
 		}
 		
 		$addingLabel = $sanitizer->entities1($this->_('New item:'));
 		$dataClass = $sanitizer->entities(trim('InputfieldPageAutocompleteData ' . $this->attr('class')));
-		$icon = wireIconMarkup('angle-double-right', 'fw InputfieldPageAutocompleteStatus');
+	
+		$iconAttrs = '';
+		$iconClasses = [
+			'spin' => 'spinner spin',
+			'found' => 'angle-double-down',
+			'add' => 'plus-circle',
+			'none' => 'frown-o',
+		];
+		
+		foreach($iconClasses as $name => $c) {
+			$iconAttrs .= "data-$name-class='" . wireIconMarkup($c, false) . "' ";
+		}
+		
+		$icon = wireIconMarkup('angle-double-right fw InputfieldPageAutocompleteStatus',  $iconAttrs);
 		
 		$out .= "
 			<p>

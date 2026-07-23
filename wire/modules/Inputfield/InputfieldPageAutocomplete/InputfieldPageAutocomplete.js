@@ -91,7 +91,8 @@ var InputfieldPageAutocomplete = {
 						return;
 					}
 
-					$icon.attr('class', 'fa fa-fw fa-spin fa-spinner');
+					var baseClass = 'InputfieldPageAutocompleteStatus fw';
+					$icon.attr('class', $icon.attr('data-spin-class') + ' ' + baseClass);
 
 					if($input.hasClass('and_words') && term.indexOf(' ') > 0) {
 						// AND words mode
@@ -106,15 +107,17 @@ var InputfieldPageAutocomplete = {
 						numFound = data.total;
 
 						if(data.total > 0) {
-							$icon.attr('class', 'fa fa-fw fa-angle-double-down');
+							$icon.attr('class', $icon.attr('data-found-class'));
 
 						} else if(isAddAllowed()) {
-							$icon.attr('class', 'fa fa-fw fa-plus-circle');
+							$icon.attr('class', $icon.attr('data-add-class'));
 							$note.show();
 
 						} else {
-							$icon.attr('class', 'fa fa-fw fa-frown-o');
+							$icon.attr('class', $icon.attr('data-none-class'));
 						}
+						
+						$icon.addClass(baseClass);
 
 						response($.map(data.matches, function(item) {
 							return {

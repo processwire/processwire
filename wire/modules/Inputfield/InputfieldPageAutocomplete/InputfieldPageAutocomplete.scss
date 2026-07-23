@@ -60,7 +60,7 @@
 			.itemRemove {
 				/* the remove link in each list item */
 				position: absolute;
-				right: 3px;
+				right: 9px;
 				top: 0;
 			}
 			
@@ -89,19 +89,22 @@
 	p {
 		position: relative;
 		margin-bottom: 0;
-		
-		i.fa {
+
+		.InputfieldPageAutocompleteStatus {
 			/* icon placement */
 			position: absolute;
 			top: 0.5em;
 			left: 1px;
 			opacity: 0.5;
 		}
-		
-		i.fa.InputfieldPageAutocompleteRemove {
+
+		.InputfieldPageAutocompleteRemove {
 			/* remove icon, for no_list mode */
+			position: absolute;
+			top: 0.5em;
 			left: auto;
 			right: 3px;
+			opacity: 0.5;
 			cursor: pointer;
 			&:hover {
 				opacity: 1.0;

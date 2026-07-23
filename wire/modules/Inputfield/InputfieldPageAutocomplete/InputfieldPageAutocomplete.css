@@ -49,7 +49,7 @@
 .InputfieldPageAutocomplete ol li .itemRemove {
   /* the remove link in each list item */
   position: absolute;
-  right: 3px;
+  right: 9px;
   top: 0;
 }
 .InputfieldPageAutocomplete ol li .itemValue {
@@ -72,20 +72,23 @@
   position: relative;
   margin-bottom: 0;
 }
-.InputfieldPageAutocomplete p i.fa {
+.InputfieldPageAutocomplete p .InputfieldPageAutocompleteStatus {
   /* icon placement */
   position: absolute;
   top: 0.5em;
   left: 1px;
   opacity: 0.5;
 }
-.InputfieldPageAutocomplete p i.fa.InputfieldPageAutocompleteRemove {
+.InputfieldPageAutocomplete p .InputfieldPageAutocompleteRemove {
   /* remove icon, for no_list mode */
+  position: absolute;
+  top: 0.5em;
   left: auto;
   right: 3px;
+  opacity: 0.5;
   cursor: pointer;
 }
-.InputfieldPageAutocomplete p i.fa.InputfieldPageAutocompleteRemove:hover {
+.InputfieldPageAutocomplete p .InputfieldPageAutocompleteRemove:hover {
   opacity: 1;
 }
 .InputfieldPageAutocomplete .InputfieldPageAdd {
