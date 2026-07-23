@@ -172,7 +172,8 @@ class ProcessWireCli extends Wire {
 		
 		foreach($cliModules as $key => $cliModule) {
 			$info = $modules->getModuleInfo($cliModule);
-			if(!empty($info['cli']) && ($name === '' || $info['cli'] === $name)) {
+			$cli = $info['cli'] ?? '';
+			if(!empty($cli) && ($name === '' || $cli === $name || strpos($name, "--$cli-") === 0)) {
 				$cliModules[$cliModule] = $modules->getModule($cliModule);
 			} else {
 				unset($cliModules[$key]);
