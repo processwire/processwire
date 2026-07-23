@@ -603,6 +603,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			if($isMinItem) {
 				// allow this ready item to be added so that minimum is met
 				$wrap->addClass('InputfieldRepeaterMinItem');
+				if(!$isLoaded) $wrap->addClass('InputfieldStateCollapsed'); // so user click triggers AJAX load
 				$isReadyItem = false;
 			}
 			
