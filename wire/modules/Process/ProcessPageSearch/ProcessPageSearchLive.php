@@ -172,8 +172,18 @@ class ProcessPageSearchLive extends Wire {
 			$process->wire($this);
 			if($process instanceof ProcessPageSearch) $this->process = $process;
 			$searchFields = $this->wire()->config->ajax ? $process->searchFields2 : $process->searchFields;
-			$a = explode(' ', $searchFields);
-			if(count($a)) $this->defaultPageSearchFields = $a;
+			$fields = $this->wire()->fields;
+			$a = array();
+			foreach(explode(' ', $searchFields) as $name) {
+				if(!strlen($name)) continue;
+				$baseName = strpos($name, '.') !== false ? strstr($name, '.', true) : $name;
+				if($fields->isNative($baseName) || $fields->get($baseName)) $a[] = $name;
+			}
+			if(!empty($a)) {
+				$this->defaultPageSearchFields = $a;
+			} else if(strlen($searchFields)) {
+				$this->defaultPageSearchFields = array('name'); // fallback when all configured fields deleted
+			}
 		}
 		
 		if(!empty($liveSearch)) {
