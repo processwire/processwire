@@ -392,7 +392,10 @@ DirectoryIndex index.php index.html index.htm
   
   # Block access to any software identifying txt, markdown or textile files
   RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|htaccess)\.(txt|md|textile)$ [NC,OR]
-  
+
+  # Block access to AI agent markdown files
+  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/(.+/)?(AGENTS?|CLAUDE|SKILLS?|MEMORY|API)\.md$ [NC,OR]
+
   # Block potential arbitrary backup files within site directories for things like config
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$ [NC,OR]
   
