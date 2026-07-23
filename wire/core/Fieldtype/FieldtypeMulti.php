@@ -872,20 +872,33 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$orderByCols = $field->get('orderByCols');
 			if(count($orderByCols) > 0) return null;
 		}
-		$table = $database->escapeTable($field->table);	
+		$table = $database->escapeTable($field->table);
 		$schemaAll = $this->getDatabaseSchema($field);
-		$schema = $this->trimDatabaseSchema($schemaAll); 
-		$fieldName = $database->escapeCol($field->name); 
-		$separator = self::multiValueSeparator; 
+		$schema = $this->trimDatabaseSchema($schemaAll);
+		$fieldName = $database->escapeCol($field->name);
+		// hex literal so that the NUL byte in the separator never appears in the SQL string,
+		// where it corrupts PDO placeholder parsing (processwire-issues#1951)
+		$separator = '0x' . bin2hex(self::multiValueSeparator);
 		$orderBy = '';
+		$distinct = '';
 		if($field->distinctAutojoin) {
 			if(isset($schemaAll['sort'])) $orderBy = "ORDER BY $table.sort";
-			$table = "DISTINCT $table";
+			$distinct = 'DISTINCT ';
 		}
+		// pre-aggregate this field in its own derived table joined 1:1 to pages, so that
+		// autojoining multiple multi-value fields cannot cross-multiply into a cartesian
+		// product (over-concatenation, group_concat_max_len overflows, huge row products)
+		$alias = $table . '__aj';
+		$concats = array();
 		foreach($schema as $key => $unused) {
-			$query->select("GROUP_CONCAT($table.$key $orderBy SEPARATOR '$separator') AS `{$fieldName}__$key`"); // QA
-		}		
-		return $query; 
+			$concats[] = "GROUP_CONCAT($distinct$table.$key $orderBy SEPARATOR $separator) AS `$key`";
+			$query->select("$alias.`$key` AS `{$fieldName}__$key`"); // QA
+		}
+		$query->leftjoin(
+			"(SELECT $table.pages_id, " . implode(', ', $concats) . " " .
+			"FROM $table GROUP BY $table.pages_id) AS $alias ON $alias.pages_id=pages.id"
+		);
+		return $query;
 	}
 
 	/**
