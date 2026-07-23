@@ -2073,12 +2073,28 @@ class Modules extends WireArray implements CliModule {
 			$this->refreshing = false;
 			return;
 		}
+		// Check if any module file was written during this request. If so, the info rebuild
+		// below reads from the old class still in memory (PHP can't unload classes), so the
+		// rebuilt info may be stale. Save an empty snapshot to force a full rebuild on the
+		// next request, when a fresh process will load the correct new class.
+		// Bound to REQUEST_TIME + 86400 so far-future-dated files don't permanently disable
+		// the fast path.
+		$requestTime = isset($_SERVER['REQUEST_TIME']) ? (int) $_SERVER['REQUEST_TIME'] : 0;
+		$saveSnapshot = $newSnapshot;
+		if($requestTime > 0) {
+			foreach($newSnapshot as $mtimeSize) {
+				if($mtimeSize[0] >= $requestTime && $mtimeSize[0] <= $requestTime + 86400) {
+					$saveSnapshot = array();
+					break;
+				}
+			}
+		}
 		$this->installableFiles = array();
 		$this->info->clearModuleInfoCache($showMessages);
 		foreach($this->paths as $path) $this->loader->loadPath($path);
 		if($this->duplicates()->numNewDuplicates() > 0) $this->duplicates()->updateDuplicates(); // PR#1020
 		$this->loader->loaded();
-		$this->saveCache($snapshotKey, $newSnapshot);
+		$this->saveCache($snapshotKey, $saveSnapshot);
 		
 		$this->refreshing = false;
 	}
