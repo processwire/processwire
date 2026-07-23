@@ -614,18 +614,23 @@ function wireDate($format = '', $ts = null) {
  * #pw-group-markup
  * 
  * @param string $icon Icon name (currently a font-awesome icon name)
- * @param string $class Any of the following: 
+ * @param string|false $class Any of the following: 
  *  - Additional attributes for class (example: "fw" for fixed width)
  *  - Your own custom class(es) separated by spaces
  *  - Any additional attributes in format `key="val" key='val' or key=val` string (3.0.229+)
  *  - An optional trailing space to append an `&nbsp;` to the return icon markup (3.0.229+)
+ *  - Boolean false to just return the icon class(es) without markup (3.0.270+)
  *  - Any of the above may also be specified in the $icon argument in 3.0.229+. 
  * @return string
  * 
  */
 function wireIconMarkup($icon, $class = '') {
 	static $ver = null;
+	
 	if($ver === null) $ver = (int) substr((string) wire()->config->adminIcons['version'], 0, 1);
+	$returnClass = $class === false || $icon === false;
+	$icon = (string) $icon;
+	$class = (string) $class;
 	
 	if(strpos($icon, ' ')) {
 		list($icon, $extra) = explode(' ', $icon, 2);
@@ -640,9 +645,9 @@ function wireIconMarkup($icon, $class = '') {
 	}
 	
 	$append = '';
-	$attrs = array();
+	$attrs = [ 'class' => '' ]; // force class to be first attribute
 
-	if($class !== '') {
+	if($class !== '' && $class !== false) {
 		if(rtrim($class) !== $class) $append = '&nbsp;';
 		if(strpos($class, '=')) {
 			$re = '/\b([-_a-z\d]+)=("[^"]*"|\'[^\']*\'|[-_a-z\d]+)\s*/i';
@@ -658,10 +663,12 @@ function wireIconMarkup($icon, $class = '') {
 		}
 		if(isset($attrs['class'])) {
 			$class = trim("$class $attrs[class]");
-			unset($attrs['class']);
+			$attrs['class'] = ''; // ensures it remains first attribute
 		}
 	}
-
+	
+	if($returnClass) $attrs['returnClass'] = true;
+	
 	$func = __NAMESPACE__ . "\\" . ($ver >= 6 ? '_wireIconMarkupFA6' : '_wireIconMarkupFA4');
 
 	return $func($icon, $class, $attrs) . $append;
@@ -677,11 +684,15 @@ function wireIconMarkup($icon, $class = '') {
  * @param string $icon Icon name with `fa-` prefix
  * @param string $class Optional additional CSS classes
  * @param array $attrs Additional HTML attributes already formatted as `name='val'` strings
+ *  - `returnClass` (bool): If included in the $attrs, makes it return just the class. 
  * @return string
  *
  */
 function _wireIconMarkupFA4($icon, $class, array $attrs = array()) {
 	static $modifiers = null;
+	
+	$returnClass = isset($attrs['returnClass']); 
+	if($returnClass) unset($attrs['returnClass']);
 
 	if($modifiers === null) $modifiers = array_flip(array(
 		'lg', 'fw', '2x', '3x', '4x', '5x',
@@ -697,9 +708,13 @@ function _wireIconMarkupFA4($icon, $class, array $attrs = array()) {
 		if(empty($c)) continue;
 		$classes[] = isset($modifiers[$c]) ? "fa-$c" : $c;
 	}
+	
 	$class = implode(' ', $classes);
 
 	$class = wire()->sanitizer->entities(trim("fa $icon $class"));
+	
+	if($returnClass) return $class;
+	
 	$attrs['class'] = "class='$class'";
 
 	return '<i ' . implode(' ', $attrs) . '></i>';
@@ -715,11 +730,15 @@ function _wireIconMarkupFA4($icon, $class, array $attrs = array()) {
  * @param string $icon Icon name with `fa-` prefix
  * @param string $class Optional additional CSS classes
  * @param array $attrs Additional HTML attributes already formatted as `name='val'` strings
+ *  - `returnClass` (bool): If included in the $attrs, makes it return just the class.
  * @return string
  *
  */
 function _wireIconMarkupFA6($icon, $class, array $attrs = array()) {
 	static $fa = null;
+	
+	$returnClass = isset($attrs['returnClass']);
+	if($returnClass) unset($attrs['returnClass']);
 
 	if($fa === null) $fa = include(__DIR__ . '/fa.php');
 
@@ -759,6 +778,9 @@ function _wireIconMarkupFA6($icon, $class, array $attrs = array()) {
 	}
 
 	$class = wire()->sanitizer->entities(trim("$prefix $icon $class"));
+
+	if($returnClass) return $class;
+	
 	$attrs['class'] = "class='$class'";
 	
 	return '<i ' . implode(' ', $attrs) . '></i>';
