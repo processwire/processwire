@@ -520,6 +520,9 @@ class WireHttp extends Wire {
 	 *    then either call `$http->resetRequest()`, create a new WireHttp instance for each request, or specify this option 
 	 *    as true. 3.0.253+ (default=false)
 	 * - `headers` (array): Add these headers to the request, specify as `[ 'name' => 'value' ]` array. 3.0.253+ (default=[])
+	 * - `followRedirects` (bool|int): Follow redirects? Specify boolean, or int for max redirects to follow. Applies to all
+	 *    send types consistently: when following, reported http code and response headers are those of the final response;
+	 *    when false, those of the first response, with its 'location' header available. (default=true)
 	 * @return bool|string False on failure or string of contents received on success.
 	 *
 	 */
@@ -553,7 +556,7 @@ class WireHttp extends Wire {
 			} else if($use === 'fopen') {
 				$result = $this->sendFopen($url, $method, $options);
 			} else if($use === 'socket') {
-				$result = $this->sendSocket($options['_url'], $method);
+				$result = $this->sendSocket($options['_url'], $method, $options);
 			} else {
 				$error[] = "unrecognized type: $use";
 			}
@@ -585,6 +588,7 @@ class WireHttp extends Wire {
 		$defaults = array(
 			'use' => array('curl', 'fopen', 'socket'),
 			'proxy' => '',
+			'followRedirects' => true,
 			'_url' => $url, // original unmodified URL
 			'allowFopen' => true,
 			'allowCURL' => true,
@@ -696,12 +700,17 @@ class WireHttp extends Wire {
 		
 		$header .= "Connection: close\r\n";
 	
+		$followRedirects = isset($options['followRedirects']) ? $options['followRedirects'] : true;
 		$http = array(
 			'method' => $method,
 			'timeout' => $this->getTimeout(),
 			'content' => $content,
 			'header' => $header,
+			'follow_location' => $followRedirects ? 1 : 0,
 		);
+		// note: fopen counts max_redirects inclusive of first request, and 1 or less means follow none
+		if(is_int($followRedirects)) $http['max_redirects'] = $followRedirects + 1;
+		if($followRedirects === false) $http['ignore_errors'] = true; // so redirect response can be read rather than failing fopen()
 		if(!empty($options['proxy'])) $http['proxy'] = $options['proxy'];
 	
 		// merge fopen http options array if present, as well as any other options specified to fopen stream_context_create
@@ -727,7 +736,16 @@ class WireHttp extends Wire {
 		}
 
 		if(isset($http_response_header)) {
-			$this->setResponseHeader($http_response_header);
+			$responseHeader = $http_response_header;
+			// when redirects are followed, headers from every response in the chain are present in
+			// this array; reduce to those of the final response so that the reported http code and
+			// headers are consistent with what the CURL send type reports
+			for($i = count($responseHeader) - 1; $i > 0; $i--) {
+				if(!preg_match('!^HTTP/!i', $responseHeader[$i])) continue;
+				$responseHeader = array_slice($responseHeader, $i);
+				break;
+			}
+			$this->setResponseHeader($responseHeader);
 		}
 
 		if($fp) {
@@ -784,7 +802,13 @@ class WireHttp extends Wire {
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($curl, CURLOPT_USERAGENT, $this->getUserAgent());
 		
-		if(!ini_get('open_basedir')) curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+		$followRedirects = isset($options['followRedirects']) ? $options['followRedirects'] : true;
+		if($followRedirects && !ini_get('open_basedir')) {
+			curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+			curl_setopt($curl, CURLOPT_MAXREDIRS, is_int($followRedirects) ? $followRedirects : 20);
+		} else {
+			curl_setopt($curl, CURLOPT_FOLLOWLOCATION, false);
+		}
 
 		if(version_compare(PHP_VERSION, '5.6') >= 0) {
 			// CURLOPT_SAFE_UPLOAD value is default true (setopt not necessary)
@@ -851,6 +875,11 @@ class WireHttp extends Wire {
 		curl_setopt($curl, CURLOPT_HEADERFUNCTION, function($curl, $header) use(&$responseHeaders) {
 			if($curl) { /* ignore */ }
 			$length = strlen($header);
+			if(preg_match('!^HTTP/!i', trim($header))) {
+				// new response begins (i.e. a redirect was followed): discard headers from prior response
+				$responseHeaders = array();
+				return $length;
+			}
 			$header = explode(':', $header, 2);
 			if(count($header) < 2) return $length; // ignore invalid headers
 			$name = strtolower(trim($header[0]));
@@ -917,8 +946,8 @@ class WireHttp extends Wire {
 	 *
 	 */
 	protected function sendSocket($url, $method = 'POST', $options = array()) {
-		
-		static $level = 0; // recursion level
+
+		$level = isset($options['_redirectLevel']) ? (int) $options['_redirectLevel'] : 0; // recursion level
 
 		$this->resetResponse();
 		$this->lastSendType = 'socket';
@@ -983,16 +1012,19 @@ class WireHttp extends Wire {
 		$this->setResponseHeader(explode("\r\n", substr($response, 0, $pos))); 
 		$response = substr($response, $pos+4); 
 
-		// if response resulted in a redirect, follow it 
-		if($this->httpCode === 301 || $this->httpCode === 302) {
+		// if response resulted in a redirect, follow it
+		$followRedirects = isset($options['followRedirects']) ? $options['followRedirects'] : true;
+		if($followRedirects && in_array($this->httpCode, array(301, 302, 303, 307, 308))) {
 			// follow redirects
-			$location = $this->getResponseHeader('location'); 
-			if(!empty($location) && ++$level <= 5) {
+			$location = $this->getResponseHeader('location');
+			$maxLevel = is_int($followRedirects) ? $followRedirects : 5;
+			if(!empty($location) && $level < $maxLevel) {
 				if(strpos($location, '://') === false && preg_match('{(https?://[^/]+)}i', $url, $matches)) {
 					// if location is relative, convert to absolute
-					$location = $matches[1] . '/' . ltrim($location, '/'); 
+					$location = $matches[1] . '/' . ltrim($location, '/');
 				}
-				return $this->sendSocket($location, $method); 	
+				$options['_redirectLevel'] = $level + 1;
+				return $this->sendSocket($location, $method, $options);
 			}
 		}
 
