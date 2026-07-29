@@ -734,7 +734,6 @@ class Installer {
 		foreach($fields as $field) {
 			$value = $this->post($field, 'string');
 			$value = substr($value, 0, 255); 
-			if(strpos($value, "'") !== false) $value = str_replace("'", "\\" . "'", $value); // allow for single quotes (i.e. dbPass)
 			if($field != 'dbPass') $value = str_replace(array(';', '..', '=', '<', '>', '&', '"', "\t", "\n", "\r"), '', $value);
 			$values[$field] = trim($value); 
 		}
@@ -935,18 +934,18 @@ class Installer {
 			"\n */";
 
 		if($values['dbCon'] === 'Socket') {
-			$cfg .= "\n\$config->dbSocket = '$values[dbSocket]';";
+			$cfg .= "\n\$config->dbSocket = " . var_export($values['dbSocket'], true) . ";";
 		}
 		
 		$cfg .= 
-			"\n\$config->dbHost = '$values[dbHost]';" . 
-			"\n\$config->dbName = '$values[dbName]';" . 
-			"\n\$config->dbUser = '$values[dbUser]';" . 
-			"\n\$config->dbPass = '$values[dbPass]';" . 
-			"\n\$config->dbPort = '$values[dbPort]';";
+			"\n\$config->dbHost = " . var_export($values['dbHost'], true) . ";" .
+			"\n\$config->dbName = " . var_export($values['dbName'], true) . ";" .
+			"\n\$config->dbUser = " . var_export($values['dbUser'], true) . ";" .
+			"\n\$config->dbPass = " . var_export($values['dbPass'], true) . ";" .
+			"\n\$config->dbPort = " . var_export($values['dbPort'], true) . ";";
 		
 		if(!empty($values['dbCharset']) && strtolower($values['dbCharset']) != 'utf8') {
-			$cfg .= "\n\$config->dbCharset = '$values[dbCharset]';";
+			$cfg .= "\n\$config->dbCharset = " . var_export($values['dbCharset'], true) . ";";
 		}
 		if(!empty($values['dbEngine']) && $values['dbEngine'] == 'InnoDB') {
 			$cfg .= "\n\$config->dbEngine = 'InnoDB';";
@@ -983,14 +982,14 @@ class Installer {
 			"\n * Installer: File Permission Configuration" . 
 			"\n * " . 
 			"\n */" . 
-			"\n\$config->chmodDir = '0$values[chmodDir]'; // permission for directories created by ProcessWire" . 	
-			"\n\$config->chmodFile = '0$values[chmodFile]'; // permission for files created by ProcessWire " . 	
+			"\n\$config->chmodDir = " . var_export('0' . ((int) $values['chmodDir']), true) . "; // permission for directories created by ProcessWire" .
+			"\n\$config->chmodFile = " . var_export('0' . ((int) $values['chmodFile']), true) . "; // permission for files created by ProcessWire " .
 			"\n" . 
 			"\n/**" . 
 			"\n * Installer: Time zone setting" . 
 			"\n * " . 
 			"\n */" . 
-			"\n\$config->timezone = '$values[timezone]';" .
+			"\n\$config->timezone = " . var_export($values['timezone'], true) . ";" .
 			"\n";
 
 		if(strpos($s, '$config->defaultAdminTheme') === false) $cfg .=
@@ -1006,7 +1005,7 @@ class Installer {
 			"\n * Installer: Name of Uikit theme to use in admin" .
 			"\n * " .
 			"\n */" .
-			"\n\$config->AdminThemeUikit('themeName', '$values[themeName]');" .
+			"\n\$config->AdminThemeUikit('themeName', " . var_export($values['themeName'], true) . ");" .
 			"\n";
 
 		if(strpos($s, '$config->installed ') === false) $cfg .=
@@ -1032,14 +1031,14 @@ class Installer {
 			"\n\n";
 
 		if(!empty($values['httpHosts'])) {
-			$cfg .= 
-			"\n/**" . 
-			"\n * Installer: HTTP Hosts Whitelist" . 
-			"\n * " . 
-			"\n */" . 
-			"\n\$config->httpHosts = array("; 
-			foreach($values['httpHosts'] as $host) $cfg .= "'$host', ";
-			$cfg = rtrim($cfg, ", ") . ");\n\n";
+			$hosts = array();
+			foreach($values['httpHosts'] as $host) $hosts[] = var_export($host, true);
+			$cfg .=
+			"\n/**" .
+			"\n * Installer: HTTP Hosts Whitelist" .
+			"\n * " .
+			"\n */" .
+			"\n\$config->httpHosts = array(" . implode(', ', $hosts) . ");\n\n";
 		}
 		
 		$cfg .=
@@ -2503,8 +2502,7 @@ HELP;
 			} else if(is_array($value)) {
 				$cfg .= "\$config->$key = " . var_export($value, true) . ";\n";
 			} else {
-				$escaped = str_replace("'", "\\'", (string) $value);
-				$cfg .= "\$config->$key = '$escaped';\n";
+				$cfg .= "\$config->$key = " . var_export((string) $value, true) . ";\n";
 			}
 		}
 		if(file_put_contents('./site/config.php', $cfg, FILE_APPEND)) {
