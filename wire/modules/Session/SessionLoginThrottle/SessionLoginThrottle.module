@@ -5,7 +5,7 @@
  *
  * Throttles the frequency of logins for a given account, helps to reduce dictionary attacks.
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -21,7 +21,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Session Login Throttle', 
-			'version' => 103, 
+			'version' => 104, 
 			'summary' => 'Throttles login attempts to help prevent dictionary attacks.',
 			'permanent' => false, 
 			'singular' => true, 
@@ -109,88 +109,127 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	 * 
 	 */
 	protected function allowLogin($name) {
-		
+
+		$database = $this->wire()->database;
+		$name = $this->wire()->sanitizer->pageName($name, Sanitizer::toAscii);
+
 		if(isset($this->allowLoginResults[$name])) return $this->allowLoginResults[$name];
 
 		$time = time();
-		$database = $this->wire()->database;
-		$name = $this->wire()->sanitizer->pageName($name, Sanitizer::toAscii);
-		
-		$query = $database->prepare("SELECT attempts, last_attempt FROM session_login_throttle WHERE name=:name");
-		$query->bindValue(":name", $name);
+
+		// Atomic conditional update: the WHERE encodes the throttle decision, so that testing
+		// the allowance and recording the attempt happen as one indivisible statement. When
+		// several requests arrive at once the engine serializes them on the row (InnoDB) or on
+		// the table (MyISAM), and each re-evaluates the WHERE against the already updated row,
+		// so only one of them can match. This removes the read-then-write race without needing
+		// a transaction or a named lock, and behaves identically on both storage engines.
+		// The CAST calls keep the arithmetic signed, as attempts and last_attempt are unsigned.
+		$sql =
+			"UPDATE session_login_throttle " .
+			"SET attempts = IF(:timeA - CAST(last_attempt AS SIGNED) > :maxSecondsA, 1, attempts + 1), " .
+				"last_attempt = :timeB " .
+			"WHERE name = :name " .
+				"AND (attempts <= 1 " .
+				"OR :timeC - CAST(last_attempt AS SIGNED) >= " .
+					"LEAST((CAST(attempts AS SIGNED) - 1) * :seconds, :maxSecondsB))";
+
+		$query = $database->prepare($sql);
+		$query->bindValue(':timeA', $time, \PDO::PARAM_INT);
+		$query->bindValue(':timeB', $time, \PDO::PARAM_INT);
+		$query->bindValue(':timeC', $time, \PDO::PARAM_INT);
+		$query->bindValue(':maxSecondsA', (int) $this->maxSeconds, \PDO::PARAM_INT);
+		$query->bindValue(':maxSecondsB', (int) $this->maxSeconds, \PDO::PARAM_INT);
+		$query->bindValue(':seconds', (int) $this->seconds, \PDO::PARAM_INT);
+		$query->bindValue(':name', $name);
 		$query->execute();
-		$numRows = $query->rowCount();
-		if($numRows) {
-			list($attempts, $lastAttempt) = $query->fetch(\PDO::FETCH_NUM);
-		} else {
-			$attempts = 0;
-			$lastAttempt = 0;
-		}
+		$allowed = $query->rowCount() > 0;
 		$query->closeCursor();
-		$allowed = false;
 
-		if($numRows) {
-			if($attempts > 1) {
-				$requireSeconds = ($attempts-1) * $this->seconds; 
-				if($requireSeconds > $this->maxSeconds) $requireSeconds = $this->maxSeconds; 
-				$elapsedSeconds = $time - $lastAttempt; 
-				if($elapsedSeconds < $requireSeconds) {
-					if($this->logFails) {
-						$this->wire()->log->save(
-							"login-throttle", 
-							"Blocked login attempt for '$name' (attempts=$attempts, seconds=$requireSeconds)",
-							array('showUser' => false)
-						);
-					}
-					$error = 
-						$this->_('Login not attempted due to overflow.') . ' ' . 
-						sprintf($this->_("Please wait at least %d seconds before attempting another login."), $requireSeconds); 
-					if($this->wire()->process == 'ProcessLogin') {
-						parent::error($error);
-					} else {
-						throw new SessionLoginThrottleException($error); // ensures the error can't be missed in unknown API usage
-					}
-				} else {
-					$allowed = true; 
-				}
-			} else {
-				$allowed = true; 
+		if(!$allowed) {
+			// No row matched, so either this is the first attempt for the name or the attempt is
+			// throttled. INSERT IGNORE creates the row only when it does not already exist, so a
+			// non-zero row count means we created it and this is the first attempt.
+			$sql = "INSERT IGNORE INTO session_login_throttle (name, attempts, last_attempt) VALUES(:name, 1, :last_attempt)";
+			$insert = $database->prepare($sql);
+			$insert->bindValue(':name', $name);
+			$insert->bindValue(':last_attempt', $time, \PDO::PARAM_INT);
+			$insert->execute();
+			$allowed = $insert->rowCount() > 0;
+			$insert->closeCursor();
+
+			if(!$allowed) {
+				// The row already existed. Repeat the conditional update once, since the row may
+				// have been created by another request in between the two statements above, in
+				// which case this attempt is still within the allowance.
+				$query->execute();
+				$allowed = $query->rowCount() > 0;
+				$query->closeCursor();
 			}
-			$attempts++;
-
-			// if there have been more than $this->maxSeconds since the previous attempt, consider this as a first login attempt (@jlj)
-			if($time - $lastAttempt > $this->maxSeconds) $attempts = 1;
-
-			$sql = 'UPDATE session_login_throttle SET attempts=:attempts, last_attempt=:time WHERE name=:name';
-			$query = $database->prepare($sql);
-			$query->bindValue(':attempts', $attempts);
-			$query->bindValue(':time', $time);
-			$query->bindValue(':name', $name);
-			$query->execute();
-
-		} else {
-			$allowed = true;
-			$attempts = 1;
-
-			$sql = 'INSERT INTO session_login_throttle (name, attempts, last_attempt) VALUES(:name, :attempts, :last_attempt)';
-			$query = $database->prepare($sql);
-			$query->bindValue(":name", $name);
-			$query->bindValue(":attempts", $attempts, \PDO::PARAM_INT);
-			$query->bindValue(":last_attempt", $time, \PDO::PARAM_INT);
-			$query->execute();
 		}
-		
+
+		if(!$allowed) $this->loginThrottled($name, $time);
+
 		// delete saved login attempts that are no longer applicable
 		$expired = $time - $this->maxSeconds;
-		
+
 		$sql = "DELETE FROM session_login_throttle WHERE last_attempt < :expired ";
 		$query = $database->prepare($sql);
 		$query->bindValue(":expired", $expired, \PDO::PARAM_INT);
 		$query->execute();
-		
+
 		$this->allowLoginResults[$name] = $allowed;
-			
-		return $allowed; 
+
+		return $allowed;
+	}
+
+	/**
+	 * Report and record a login attempt that the throttle has blocked
+	 *
+	 * @param string $name User name or IP address, already sanitized
+	 * @param int $time
+	 * @throws SessionLoginThrottleException
+	 *
+	 */
+	protected function loginThrottled($name, $time) {
+
+		$database = $this->wire()->database;
+
+		$query = $database->prepare("SELECT attempts FROM session_login_throttle WHERE name=:name");
+		$query->bindValue(":name", $name);
+		$query->execute();
+		$attempts = $query->rowCount() ? (int) $query->fetchColumn() : 1;
+		$query->closeCursor();
+
+		$requireSeconds = ($attempts-1) * $this->seconds;
+		if($requireSeconds > $this->maxSeconds) $requireSeconds = $this->maxSeconds;
+
+		if($this->logFails) {
+			$this->wire()->log->save(
+				"login-throttle",
+				"Blocked login attempt for '$name' (attempts=$attempts, seconds=$requireSeconds)",
+				array('showUser' => false)
+			);
+		}
+
+		$error =
+			$this->_('Login not attempted due to overflow.') . ' ' .
+			sprintf($this->_("Please wait at least %d seconds before attempting another login."), $requireSeconds);
+
+		if($this->wire()->process == 'ProcessLogin') {
+			parent::error($error);
+		} else {
+			throw new SessionLoginThrottleException($error); // ensures the error can't be missed in unknown API usage
+		}
+
+		// Record the blocked attempt, as was done previously for browser logins. The increment is
+		// relative to the stored value, so simultaneous blocked attempts cannot overwrite each
+		// other. A blocked attempt is by definition within maxSeconds of the previous one, so the
+		// timeout reset applied by the conditional update above cannot apply here.
+		$sql = "UPDATE session_login_throttle SET attempts = attempts + 1, last_attempt = :time WHERE name = :name";
+		$query = $database->prepare($sql);
+		$query->bindValue(':time', $time, \PDO::PARAM_INT);
+		$query->bindValue(':name', $name);
+		$query->execute();
 	}
 
 
