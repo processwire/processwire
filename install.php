@@ -62,6 +62,12 @@ class Installer {
 	const DEFAULT_PROFILE = 'site-blank';
 
 	/**
+	 * Session key containing the token that identifies the active installer
+	 *
+	 */
+	const INSTALL_TOKEN_KEY = 'ProcessWireInstallToken';
+
+	/**
 	 * File permissions, determined in the dbConfig function
 	 *
 	 * Below are worst case scenario, last resort defaults
@@ -69,6 +75,14 @@ class Installer {
 	 */
 	protected $chmodDir = "0777";
 	protected $chmodFile = "0666";
+
+	/**
+	 * Token that identifies the active web installer
+	 *
+	 * @var string
+	 *
+	 */
+	protected $installToken = '';
 
 	/**
 	 * Number of errors that occurred during the request
@@ -99,10 +113,20 @@ class Installer {
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
 		$step = $this->post('step');
+
+		$this->initInstallSession($step);
+
+		if($step !== null && is_file($this->installLockFile())) {
+			$this->checkInstallLock();
+		} else if($step === '5' && !self::TEST_MODE) {
+			die("Unable to continue: installer session is not valid.");
+		}
 		
 		if($step === '5') require('./index.php');
 		
 		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc");
+		echo "<input type='hidden' name='install_token' value='" .
+			htmlentities($this->installToken, ENT_QUOTES, "UTF-8") . "' />";
 
 		if($step === null) {
 			$this->welcome();
@@ -124,6 +148,114 @@ class Installer {
 		}
 
 		require("./wire/modules/AdminTheme/AdminThemeUikit/install-foot.inc"); 
+	}
+
+	/**
+	 * Initialize and validate the session used by the web installer
+	 *
+	 * @param mixed $step
+	 *
+	 */
+	protected function initInstallSession($step) {
+
+		if(session_status() !== PHP_SESSION_ACTIVE) {
+			ini_set('session.use_strict_mode', '1');
+			session_name('ProcessWireInstaller');
+			if(!session_start()) die("Unable to start installer session.");
+		}
+
+		if(empty($_SESSION[self::INSTALL_TOKEN_KEY])) {
+			$_SESSION[self::INSTALL_TOKEN_KEY] = function_exists('random_bytes')
+				? bin2hex(random_bytes(32))
+				: sha1(mt_rand() . microtime(true) . __FILE__);
+		}
+
+		$this->installToken = $_SESSION[self::INSTALL_TOKEN_KEY];
+
+		if($step !== null) {
+			$postToken = $this->post('install_token');
+			$postToken = is_string($postToken) ? trim($postToken) : '';
+			if(!strlen($postToken) || !$this->hashEquals($this->installToken, $postToken)) {
+				die("Unable to continue: installer session is not valid.");
+			}
+		}
+
+		session_write_close();
+	}
+
+	/**
+	 * Timing-safe string comparison
+	 *
+	 * The fallback applies only to PHP versions prior to 5.6, which ProcessWire does not
+	 * support. It exists so that those versions can still reach the installer's PHP version
+	 * warning rather than failing with an undefined function error.
+	 *
+	 * @param string $known
+	 * @param string $user
+	 * @return bool
+	 *
+	 */
+	protected function hashEquals($known, $user) {
+		if(function_exists('hash_equals')) return hash_equals($known, $user);
+		return $known === $user;
+	}
+
+	/**
+	 * Return the filename used to lock an installation to one browser session
+	 *
+	 * @return string
+	 *
+	 */
+	protected function installLockFile() {
+		return __DIR__ . '/site/assets/install.lock';
+	}
+
+	/**
+	 * Atomically claim this installation for the current browser session
+	 *
+	 */
+	protected function createInstallLock() {
+
+		if(self::TEST_MODE) return;
+
+		$file = $this->installLockFile();
+		$hash = hash('sha256', $this->installToken);
+		$fp = @fopen($file, 'x');
+
+		if($fp === false) {
+			if(is_file($file)) {
+				$this->checkInstallLock();
+				return;
+			}
+			die("Unable to create /site/assets/install.lock. Verify that /site/assets/ exists and is writable.");
+		}
+
+		$result = fwrite($fp, $hash);
+		fclose($fp);
+
+		if($result !== strlen($hash)) {
+			@unlink($file);
+			die("Unable to create /site/assets/install.lock. Verify that /site/assets/ exists and is writable.");
+		}
+	}
+
+	/**
+	 * Require the current browser session to own the installation lock
+	 *
+	 */
+	protected function checkInstallLock() {
+
+		if(self::TEST_MODE) return;
+
+		$hash = @file_get_contents($this->installLockFile());
+		$expected = hash('sha256', $this->installToken);
+
+		if(!is_string($hash) || !$this->hashEquals($expected, trim($hash))) {
+			die(
+				"Installation is active in another browser session. If that session is no longer " .
+				"available, delete /site/assets/install.lock and restart the installer."
+			);
+		}
 	}
 
 
@@ -786,6 +918,9 @@ class Installer {
 
 		$this->h("fa-database Test Database and Save Configuration");
 		$this->alertOk("Database connection successful to " . htmlspecialchars($values['dbName'])); 
+
+		// prevent another browser session from changing configuration or completing the installation
+		$this->createInstallLock();
 		
 		$options = array(
 			'dbCharset' => strtolower($values['dbCharset']), 
@@ -1479,7 +1614,11 @@ class Installer {
 
 		// set a define that indicates installation is completed so that this script no longer runs
 		if(!self::TEST_MODE) {
-			file_put_contents("./site/assets/installed.php", "<?php // The existence of this file prevents the installer from running. Don't delete it unless you want to re-run the install or you have deleted ./install.php."); 
+			$result = file_put_contents("./site/assets/installed.php",
+				"<?php // The existence of this file prevents the installer from running. " .
+				"Don't delete it unless you want to re-run the install or you have deleted ./install.php."
+			);
+			if($result !== false) @unlink($this->installLockFile());
 		}
 
 	}
