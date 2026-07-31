@@ -381,8 +381,8 @@ DirectoryIndex index.php index.html index.htm
   # Block access to any files in /site/classes/ or /site-*/classes/
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/classes($|/.*) [NC,OR]
   
-  # Block access to any PHP files within /site/assets/ and further
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/) [NC,OR]
+  # Block access to any PHP/executable files within /site/assets/ and further
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.(ph(p|ps|tml|ar|p[0-9])|cgi|pl|py))($|/) [NC,OR]
   
   # Block access to any PHP, module, inc or info files in core or core modules directories
   RewriteCond %{REQUEST_URI} (^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)($|/) [NC,OR]
