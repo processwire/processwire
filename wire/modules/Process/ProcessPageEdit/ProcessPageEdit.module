@@ -245,6 +245,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 */
 	protected $changes = array();
+	
+	/**
+	 * True when main admin page has been renamed
+	 * 
+	 * @var bool 
+	 * 
+	 */
+	protected $adminRenamed = false;
 
 	/**
 	 * @var Modules
@@ -2257,6 +2265,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 							$name = $page->name;
 						}
 						$options['adjustName'] = true;
+						$this->adminRenamed = $page->id === $this->config->adminRootPageID;
 					}
 
 					$numChanges = $numChanges > 0 ? ' (' . sprintf($this->_n('%d change', '%d changes', $numChanges) . ')', $numChanges) : '';
@@ -3280,6 +3289,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(count($extras)) {
 			$url .= strpos($url, '?') === false ? "?" : "&"; 
 			$url .= implode('&', $extras);
+		}
+		if($this->adminRenamed) {
+			if(strpos($url, './') === 0) $url = $this->page->url . 'page/edit/' . substr($url, 2); 
 		}
 		return $url;
 	}
