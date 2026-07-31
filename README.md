@@ -100,7 +100,10 @@ it can be installed from the command line (CLI).
 
 ### HTTP instalation
 Extract the ProcessWire files to an http accessible location and
-load the URL in your web browser. This will start the installer. 
+load the URL in your web browser. This will start the installer. Complete the
+installation promptly after uploading the files. The installer's `noindex`
+directive only asks search engines not to index it; it does not prevent other
+visitors from accessing an incomplete installation.
 
 ### CLI installation
 Extract or place the ProcessWire files in a directory. Change to the directory

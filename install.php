@@ -14,8 +14,6 @@
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
- * @todo 3.0.190: provide option for command-line options to install
- * @todo have installer set session name
  * 
  */
 
@@ -56,6 +54,14 @@ class Installer {
 	const TEST_MODE = false;
 
 	/**
+	 * Test activation mode
+	 *
+	 * (makes it always require activation token, even for localhost DB)
+	 *
+	 */
+	const TEST_ACTIVATION = false;
+
+	/**
 	 * Default profile name
 	 * 
 	 */
@@ -66,6 +72,13 @@ class Installer {
 	 *
 	 */
 	const INSTALL_TOKEN_KEY = 'ProcessWireInstallToken';
+
+	/**
+	 * Labels identifying activation token lines in the /site/config.php PHPDoc
+	 *
+	 */
+	const ACTIVATION_TOKEN_GENERATED = 'INSTALLER ACTIVATION TOKEN (generated, temporary):';
+	const ACTIVATION_TOKEN_MANUAL = 'INSTALLER ACTIVATION TOKEN:';
 
 	/**
 	 * File permissions, determined in the dbConfig function
@@ -89,6 +102,30 @@ class Installer {
 	 *
 	 */
 	protected $installToken = '';
+
+	/**
+	 * Activation token proving filesystem access for remote database connections
+	 *
+	 * @var string
+	 *
+	 */
+	protected $installerActivationToken = '';
+
+	/**
+	 * Validated activation token value that may be repopulated into its input
+	 *
+	 * @var string
+	 *
+	 */
+	protected $installerActivationInput = '';
+
+	/**
+	 * Whether the activation token has been loaded or created during this request
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $activationTokenChecked = false;
 
 	/**
 	 * Number of errors that occurred during the request
@@ -206,6 +243,256 @@ class Installer {
 	protected function hashEquals($known, $user) {
 		if(function_exists('hash_equals')) return hash_equals($known, $user);
 		return $known === $user;
+	}
+
+	/**
+	 * Return the filename used to serialize activation-token creation
+	 *
+	 * @return string
+	 *
+	 */
+	protected function activationTokenLockFile() {
+		return dirname($this->siteConfigFile()) . '/assets/install-activation.lock';
+	}
+
+	/**
+	 * Return the site configuration filename
+	 *
+	 * @return string
+	 *
+	 */
+	protected function siteConfigFile() {
+		return __DIR__ . '/site/config.php';
+	}
+
+	/**
+	 * Read an installer activation token from a comment in PHP configuration source
+	 *
+	 * The returned array always contains "found" and "value".
+	 *
+	 * @param string $source
+	 * @return array
+	 *
+	 */
+	protected function parseInstallerActivationToken($source) {
+
+		$tokens = token_get_all($source);
+		foreach($tokens as $token) {
+			if(!is_array($token) || !in_array($token[0], array(T_COMMENT, T_DOC_COMMENT), true)) continue;
+			$labels = preg_quote(self::ACTIVATION_TOKEN_GENERATED, '/') . '|' .
+				preg_quote(self::ACTIVATION_TOKEN_MANUAL, '/');
+			$pattern = '/^[ \t]*(?:\/\/[ \t]*|\*[ \t]*)?(?:' . $labels . ')[ \t]*([^\r\n]*)$/mi';
+			if(!preg_match($pattern, $token[1], $matches)) continue;
+			$value = trim($matches[1]);
+			if(!preg_match('/^[a-f0-9]{32,}$/i', $value)) $value = '';
+			return array('found' => true, 'value' => $value);
+		}
+
+		return array('found' => false, 'value' => '');
+	}
+
+	/**
+	 * Replace a file atomically while retaining its permissions
+	 *
+	 * @param string $file
+	 * @param string $data
+	 * @return bool
+	 *
+	 */
+	protected function replaceFileAtomic($file, $data) {
+
+		$dir = dirname($file);
+		$temp = @tempnam($dir, '.pw-install-');
+		if(!is_string($temp) || !strlen($temp)) return false;
+
+		$result = @file_put_contents($temp, $data);
+		if($result !== strlen($data)) {
+			@unlink($temp);
+			return false;
+		}
+
+		$permissions = @fileperms($file);
+		if($permissions !== false) @chmod($temp, $permissions & 0777);
+
+		if(!@rename($temp, $file)) {
+			@unlink($temp);
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Insert the generated activation token into the config PHPDoc header
+	 *
+	 * @param string $source
+	 * @param string $token
+	 * @return string|false
+	 *
+	 */
+	protected function insertInstallerActivationToken($source, $token) {
+
+		$pattern = '/^[ \t]*\*[ \t]*ProcessWire Configuration File[ \t]*$/m';
+		if(!preg_match($pattern, $source, $matches, PREG_OFFSET_CAPTURE)) return false;
+
+		$title = $matches[0][0];
+		$offset = $matches[0][1] + strlen($title);
+		$newline = strpos($source, "\r\n") === false ? "\n" : "\r\n";
+		$line = ' * ' . self::ACTIVATION_TOKEN_GENERATED . ' ' . $token;
+
+		return substr($source, 0, $offset) . $newline . ' *' . $newline . $line . substr($source, $offset);
+	}
+
+	/**
+	 * Ensure /site/config.php contains an activation token for the web installer
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function ensureInstallerActivationToken() {
+
+		// CLI execution already proves filesystem access. TEST_ACTIVATION mode deliberately
+		// uses the real token lifecycle so it can also exercise remote-host protection.
+		if($this->cli) return true;
+		if($this->activationTokenChecked) return strlen($this->installerActivationToken) >= 32;
+		$this->activationTokenChecked = true;
+
+		$configFile = $this->siteConfigFile();
+		$source = @file_get_contents($configFile);
+		if(!is_string($source)) {
+			$this->alertErr(
+				"Unable to read /site/config.php. Add your own random lowercase hexadecimal token of at least " .
+				"32 characters to a PHPDoc line labeled <code>Installer activation token:</code> using a file " .
+				"manager, SFTP, or shell, then reload this page."
+			);
+			return false;
+		}
+
+		$parsed = $this->parseInstallerActivationToken($source);
+		if($parsed['found']) {
+			$this->installerActivationToken = is_string($parsed['value']) ? trim($parsed['value']) : '';
+			if(strlen($this->installerActivationToken) >= 32) return true;
+			$this->alertErr(
+				"The installer activation token comment in /site/config.php must contain at least 32 hexadecimal characters."
+			);
+			return false;
+		}
+
+		$lockFile = $this->activationTokenLockFile();
+		$lock = @fopen($lockFile, 'c');
+		if($lock === false || !@flock($lock, LOCK_EX)) {
+			if(is_resource($lock)) fclose($lock);
+			$this->alertErr(
+				"Unable to update /site/config.php. Add your own random lowercase hexadecimal token of at least " .
+				"32 characters to a PHPDoc line labeled <code>Installer activation token:</code> using a file " .
+				"manager, SFTP, or shell, then reload this page."
+			);
+			return false;
+		}
+
+		// Another installer request may have created the token while this request waited.
+		$source = @file_get_contents($configFile);
+		$parsed = is_string($source)
+			? $this->parseInstallerActivationToken($source)
+			: array('found' => false, 'value' => '');
+
+		if($parsed['found']) {
+			$this->installerActivationToken = is_string($parsed['value']) ? trim($parsed['value']) : '';
+			$result = strlen($this->installerActivationToken) >= 32;
+		} else {
+			$token = function_exists('random_bytes')
+				? bin2hex(random_bytes(16))
+				: substr(sha1(mt_rand() . microtime(true) . __FILE__), 0, 32);
+			$updated = is_string($source) ? $this->insertInstallerActivationToken($source, $token) : false;
+			$result = is_string($updated) && $this->replaceFileAtomic($configFile, $updated);
+			if($result) $this->installerActivationToken = $token;
+		}
+
+		@flock($lock, LOCK_UN);
+		fclose($lock);
+
+		if(!$result) {
+			$this->alertErr(
+				"Unable to update /site/config.php. Add your own random lowercase hexadecimal token of at least " .
+				"32 characters to a PHPDoc line labeled <code>Installer activation token:</code> using a file " .
+				"manager, SFTP, or shell, then reload this page."
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Does the normalized database configuration identify a local connection?
+	 *
+	 * @param array $values
+	 * @return bool
+	 *
+	 */
+	protected function isLocalDatabaseConnection(array $values) {
+		if(isset($values['dbCon']) && $values['dbCon'] === 'Socket') return true;
+		$host = isset($values['dbHost']) && is_string($values['dbHost'])
+			? strtolower(trim($values['dbHost']))
+			: '';
+		return in_array($host, array('localhost', '127.0.0.1', '::1', '[::1]'), true);
+	}
+
+	/**
+	 * Does this request require filesystem proof for its database connection?
+	 *
+	 * TEST_ACTIVATION mode requires proof even for local connections so the complete
+	 * activation flow can be tested on localhost. CLI execution remains exempt.
+	 *
+	 * @param array $values
+	 * @return bool
+	 *
+	 */
+	protected function requiresInstallerActivationToken(array $values) {
+		if($this->cli) return false;
+		return self::TEST_ACTIVATION || !$this->isLocalDatabaseConnection($values);
+	}
+
+	/**
+	 * Validate filesystem proof before connecting to a remote database
+	 *
+	 * @param array $values
+	 * @return bool
+	 *
+	 */
+	protected function validateInstallerActivationToken(array $values) {
+
+		if(!$this->requiresInstallerActivationToken($values)) return true;
+
+		$submitted = $this->post('installerActivationToken');
+		$submitted = is_string($submitted) ? trim($submitted) : '';
+		if(!strlen($submitted) || !$this->hashEquals($this->installerActivationToken, $submitted)) {
+			$this->alertErr("The installer activation token is missing or incorrect.");
+			return false;
+		}
+		$this->installerActivationInput = $submitted;
+
+		return true;
+	}
+
+	/**
+	 * Remove only the installer-generated activation token line
+	 *
+	 */
+	protected function removeInstallerActivationToken() {
+
+		if($this->cli) return;
+
+		$configFile = $this->siteConfigFile();
+		$source = @file_get_contents($configFile);
+		if(!is_string($source)) return;
+
+		$label = preg_quote(self::ACTIVATION_TOKEN_GENERATED, '/');
+		$pattern = '/(?:^[ \t]*\*[ \t]*\R)?^[ \t]*\*[ \t]*' . $label .
+			'[ \t]*[a-f0-9]{32,}[ \t]*\R?/mi';
+		$updated = preg_replace($pattern, '', $source, 1, $count);
+
+		if($count && is_string($updated)) $this->replaceFileAtomic($configFile, $updated);
+		@unlink($this->activationTokenLockFile());
 	}
 
 	/**
@@ -595,6 +882,8 @@ class Installer {
 			"There is no installation profile in /site/. Please place one there before continuing. " . 
 			"You can get it at https://processwire.com/download/"
 		);
+
+		$this->ensureInstallerActivationToken();
 		
 		if($hasNumTables) {
 			$this->sectionStart('fa-database Existing tables action'); 
@@ -653,14 +942,37 @@ class Installer {
 		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8mb4', 'utf8'));
 		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('InnoDB', 'MyISAM'));
 		$this->clear();
+		$this->p(
+			"The DB Engine option “InnoDB” requires MySQL 5.6.4 or newer.",
+			array('class' => 'detail', 'style' => 'margin-top:0')
+		);
+		$this->sectionStop();
+		$this->sectionStart('fa-key Installer activation token', [ 'id' => 'installer-activation' ]);
+		$this->p(
+			'A remote database host requires proof of filesystem access. ' .
+			'Copy the activation token from the PHP comment at the top of the <code>/site/config.php</code> file and paste it below.'
+		);
+		$this->input('installerActivationToken',
+			'Installer activation token',
+			$this->installerActivationInput,
+			array(
+				'type' => 'password',
+				'required' => false,
+				'width' => '600',
+				'wrapClass' => 'uk-margin-remove-bottom',
+			)
+		);
 	
 		// automatic required states for host, port and socket
+		$testActivation = self::TEST_ACTIVATION ? 'true' : 'false';
 		echo "
 			<script>
 				jQuery(document).ready(function($) {
 					let ho = $('input[name=dbHost]'), po = $('input[name=dbPort]'), 
-						so = $('input[name=dbSocket]'), co = $('select[name=dbCon]');
-					co.on('change', function() {
+						so = $('input[name=dbSocket]'), co = $('select[name=dbCon]'),
+						ao = $('input[name=installerActivationToken]'),
+						activation = $('#installer-activation');
+					function updateConnectionFields() {
 						if(co.val() === 'Hostname') {
 							ho.prop('required', true).closest('p').show();
 							po.prop('required', true).closest('p').show();
@@ -670,15 +982,21 @@ class Installer {
 							po.prop('required', false).closest('p').hide();
 							so.prop('required', true).closest('p').show();
 						}
-					}).change();
+						let testActivation = $testActivation,
+							host = $.trim(ho.val()).toLowerCase(),
+							localHosts = ['localhost', '127.0.0.1', '::1', '[::1]'],
+							activationRequired = testActivation ||
+								(co.val() === 'Hostname' && localHosts.indexOf(host) === -1);
+						ao.prop('required', activationRequired);
+						activation.toggle(activationRequired);
+					}
+					co.on('change', updateConnectionFields);
+					ho.on('input', updateConnectionFields);
+					updateConnectionFields();
 				});
 			</script>
 		";
-	
-		$this->p(
-			"The DB Engine option “InnoDB” requires MySQL 5.6.4 or newer.", 
-			array('class' => 'detail', 'style' => 'margin-top:0')
-		);
+
 		$this->sectionStop();
 
 		$cgi = false;
@@ -817,6 +1135,7 @@ class Installer {
 
 		$values = array();
 		$database = null;
+		$activationTokenReady = $this->ensureInstallerActivationToken();
 		
 		// file permissions
 		$fields = array('chmodDir', 'chmodFile');
@@ -881,6 +1200,12 @@ class Installer {
 			
 		} else if($values['dbCon'] === 'Hostname' && (empty($values['dbHost']) || empty($values['dbPort']))) {
 			$this->alertErr("Missing database host and/or port");
+
+		} else if(!$activationTokenReady) {
+			// Manual filesystem intervention is required before any database connection.
+
+		} else if(!$this->validateInstallerActivationToken($values)) {
+			// Remote database connections require filesystem proof before PDO is constructed.
 			
 		} else {
 	
@@ -984,6 +1309,7 @@ class Installer {
 			);
 			$this->dbConfig($values, $numTables);
 		} else if($this->dbSaveConfigFile($values)) {
+			$this->removeInstallerActivationToken();
 			$this->profileImport($database, $options);
 		} else {
 			$this->dbConfig($values);
@@ -1623,7 +1949,11 @@ class Installer {
 
 		$this->sectionStart("fa-coffee Get Started!");
 		$this->ok(
-			"Your admin URL is <a target='_blank' href='./$adminName/'>/$adminName/</a>"
+			"Your admin URL is <a target='_blank' href='./$adminName/'>/$adminName/</a>. "
+		);
+		$editUrl = $config->urls->admin . "page/edit/?id={$config->adminRootPageID}";
+		$this->ok(
+			"Optionally rename your admin by <a href='$editUrl' target='_blank'>editing the Admin page</a> and click on the Settings tab."
 		);
 		$this->ok(
 			"Learn more about ProcessWire in the <a target='_blank' href='https://processwire.com/docs/'>documentation</a> " . 
@@ -1915,6 +2245,7 @@ class Installer {
 			'type' => 'text', 
 			'required' => true,
 			'width' => 150, 
+			'wrapClass' => '',
 		);
 		$options = array_merge($defaults, $options);
 		$width = $options['width'];
@@ -1932,7 +2263,10 @@ class Installer {
 		}
 		$inputWidth = $width - 15;
 		$value = htmlentities($value, ENT_QUOTES, "UTF-8");
-		echo "\n<p style='width: {$width}px; float: left; margin-top: 0;'><label>$label $note<br />";
+		$wrapAttrs = "margin-top:0;width:{$width}px;";
+		$wrapClass = $options['wrapClass'] ? " class='$options[wrapClass]'" : '';
+		if($width < 500) $wrapAttrs .= "float:left;";
+		echo "\n<p$wrapClass style='$wrapAttrs'><label>$label $note<br />";
 		echo "<input class='uk-input' type='$options[type]' name='$name' value='$value' $required $pattern style='width:{$inputWidth}px;' />";
 		echo "</label></p>";
 		if($options['clear']) $this->clear();
@@ -2013,11 +2347,22 @@ class Installer {
 	 * Start section
 	 * 
 	 * @param string $headline
-	 * @param string $type
+	 * @param array $options
 	 * 
 	 */
-	public function sectionStart($headline = '', $type = 'muted') {
-		echo "\n<div class='uk-section uk-section-small uk-section-$type uk-padding uk-margin'>";
+	public function sectionStart($headline = '', $options = []) {
+		$defaults = [
+			'type' => 'muted',
+			'class' => '',
+			'id' => '',
+		];
+		if(!is_array($options)) $options = [ 'type' => $options ]; // legacy behavior
+		$options = array_merge($defaults, $options);
+		$class = "uk-section uk-section-small uk-section-$options[type] uk-padding uk-margin";
+		if(!empty($options['class'])) $class .= " $options[class]";
+		$attrs = "class='$class'";
+		if(!empty($options['id'])) $attrs .= " id='$options[id]'";
+		echo "\n<div $attrs>";
 		echo "\n\t<div class='uk-container'>";
 		if($headline) {
 			$headline = $this->iconize($headline);
