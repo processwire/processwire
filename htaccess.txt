@@ -100,7 +100,11 @@ ErrorDocument 404 /index.php
   # Header set X-XSS-Protection "1; mode=block"
 
   # Optionally (O) prevent mime-based attacks via content sniffing (IE+Chrome)
-  # Header set X-Content-Type-Options "nosniff" 
+  # Header always set X-Content-Type-Options "nosniff"
+
+  # Do not leak the PHP version via the X-Powered-By header (added by PHP when
+  # expose_php is On). Harmless when the header is absent.
+  Header always unset X-Powered-By
 </IfModule>
 
 
