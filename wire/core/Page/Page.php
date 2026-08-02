@@ -2617,19 +2617,34 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function isChanged($what = '') {
-		if($this->isNew()) return true; 
-		if(parent::isChanged($what)) return true; 
+		if($this->isNew()) return true;
+		if(parent::isChanged($what)) return true;
+		// Guard against reference cycles: Page reference fields can hold pages that
+		// (directly or transitively) reference back to this one, and when both
+		// directions are loaded as objects the sweep below would recurse forever.
+		// A page already being evaluated further up the current isChanged() call
+		// contributes no additional change signal, so return false for it.
+		// Keyed by spl_object_hash() for PHP 7.1 support; if the minimum is ever
+		// raised to 7.2, spl_object_id() gives cheaper integer keys.
+		static $checking = array();
+		$hash = spl_object_hash($this);
+		if(isset($checking[$hash])) return false;
+		$checking[$hash] = true;
 		$changed = false;
-		if($what) {
-			$data = array_key_exists($what, $this->data) ? array($this->data[$what]) : array();
-		} else {
-			$data = &$this->data;
+		try {
+			if($what) {
+				$data = array_key_exists($what, $this->data) ? array($this->data[$what]) : array();
+			} else {
+				$data = &$this->data;
+			}
+			foreach($data as $value) {
+				if($value instanceof Wire) $changed = $value->isChanged();
+				if($changed) break;
+			}
+		} finally {
+			unset($checking[$hash]);
 		}
-		foreach($data as $value) {
-			if($value instanceof Wire) $changed = $value->isChanged();
-			if($changed) break;
-		}
-		return $changed; 	
+		return $changed;
 	}
 
 	/**
