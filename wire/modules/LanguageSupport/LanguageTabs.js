@@ -107,7 +107,10 @@ function setupLanguageTabs($form) {
 			if(timeout) clearTimeout(timeout);
 			if($parent.width() < 500) return;
 			timeout = setTimeout(function() { $note.fadeOut('fast'); }, 250);
-		}).on('click', function() {
+		}).on('click', function(e) {
+			// prevent browser from navigating to the tab's href fragment, which
+			// would scroll the just-shown language input to the top of the viewport
+			e.preventDefault();
 			var $a = $(this);
 			var $items = $a.closest('ul').siblings('.LanguageSupport');
 			var $closeItem = $items.filter('.LanguageSupportCurrent');
