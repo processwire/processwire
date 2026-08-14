@@ -228,7 +228,7 @@ class WireHttpMulti extends WireHttp {
 			$seq = $nextSeq++;
 			$row = $this->spawn($mh, $nextSpec, $seq);
 			if($row !== null) {
-				$active[(int) $row['handle']] = $row;
+				$active[spl_object_id($row['handle'])] = $row;
 			} else {
 				$this->resultsBySeq[$seq] ??= $this->buildSpawnFailureResult($nextSpec);
 			}
@@ -241,7 +241,7 @@ class WireHttpMulti extends WireHttp {
 			while(($info = curl_multi_info_read($mh)) !== false) {
 				if(isset($info['handle']) && $info['handle'] instanceof \CurlHandle) {
 					$ch = $info['handle'];
-					$id = (int) $ch;
+					$id = spl_object_id($ch);
 					if(isset($active[$id])) {
 						$this->resultsBySeq[$active[$id]['seq']] ??= $this->finalize($active[$id]);
 						curl_multi_remove_handle($mh, $ch);
@@ -261,7 +261,7 @@ class WireHttpMulti extends WireHttp {
 					$seq = $nextSeq++;
 					$row = $this->spawn($mh, $nextSpec, $seq);
 					if($row !== null) {
-						$active[(int) $row['handle']] = $row;
+						$active[spl_object_id($row['handle'])] = $row;
 					} else {
 						$this->resultsBySeq[$seq] ??= $this->buildSpawnFailureResult($nextSpec);
 					}
