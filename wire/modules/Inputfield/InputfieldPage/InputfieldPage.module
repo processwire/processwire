@@ -451,6 +451,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	
 		// find variables identified by: page.field or page.field.subfield
 		if(strpos($selector, '=page.') !== false || strpos($selector, '=item.') !== false) {
+			$sanitizer = $page->wire()->sanitizer;
 			
 			// if an $inputfield is passed in, then we want to retrieve dependent values directly
 			// from the form, rather than from the $page
@@ -509,7 +510,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 					}
 				}
 				if(is_object($value) && $subfield) $value = $value->$subfield;
-				if(is_array($value)) $value = implode('|', $value); 
+				if($value instanceof WireArray) $value = $value->getValues();
+				$value = $sanitizer->selectorValue($value);
 				if(!strlen("$value") && (!$subfield || $subfield == 'id')) $value = '-1'; // force fail
 				$selector = str_replace($tag, "=$value", $selector); 
 			}

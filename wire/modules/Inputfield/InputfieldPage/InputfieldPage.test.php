@@ -10,6 +10,7 @@ class WireTest_InputfieldPage extends WireTest {
 		$this->testBasicProperties();
 		$this->testValueAssignment();
 		$this->testTemplateIDsAndSelector();
+		$this->testSelectorPlaceholderValues();
 		$this->testSelectablePages();
 		$this->testPageLabels();
 		$this->testDelegateInputfieldAndRender();
@@ -98,6 +99,40 @@ class WireTest_InputfieldPage extends WireTest {
 		$array = $f->createFindPagesSelector(array('getArray' => true));
 		$this->check('selector array includes parent_id', $page->parent_id, $array['parent_id']);
 		$this->check('selector array includes include mode', 'hidden', $array['include']);
+	}
+
+	protected function testSelectorPlaceholderValues() {
+		$page = $this->wire(new Page());
+		$f = $this->newInputfield();
+
+		$page->setQuietly('selector_test', 'title, include=all');
+		$f->findPagesSelector = 'id>0, sort=page.selector_test';
+		$selector = $f->createFindPagesSelector(array('page' => $page));
+		$this->check('selector placeholder quotes syntax characters', 'sort="title, include all"', $selector, '*=');
+		$this->check('selector placeholder cannot add include clause', false, strpos($selector, 'include=all') !== false);
+
+		$pages = $this->wire()->pages->newPageArray();
+		$pages->add($this->selectablePage());
+		$pages->add($this->editPage());
+		$page->setQuietly('selector_test', $pages);
+		$f->findPagesSelector = 'id=page.selector_test';
+		$selector = $f->createFindPagesSelector(array('page' => $page));
+		$this->check('PageArray placeholder keeps selector OR values', "id=$pages", $selector, '*=');
+
+		$values = $this->wire(new WireArray());
+		$values->add('red');
+		$values->add('blue');
+		$page->setQuietly('selector_test', $values);
+		$selector = $f->createFindPagesSelector(array('page' => $page));
+		$this->check('WireArray placeholder keeps selector OR values', 'id=red|blue', $selector, '*=');
+
+		$page->setQuietly('selector_test', '***');
+		$selector = $f->createFindPagesSelector(array('page' => $page));
+		$this->check('placeholder emptied by sanitizer forces failure', 'id=-1', $selector, '*=');
+
+		$page->setQuietly('selector_test', 'red|blue');
+		$selector = $f->createFindPagesSelector(array('page' => $page));
+		$this->check('scalar placeholder cannot add selector OR value', false, strpos($selector, '|') !== false);
 	}
 
 	protected function testSelectablePages() {
