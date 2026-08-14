@@ -87,15 +87,16 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$database = $this->wire()->database;
 		foreach($this->wire()->fields->findByType('FieldtypePage') as $field) {
 			$table = $database->escapeTable($field->table);
-			// delete references to this page
-			$query = $database->prepare("DELETE FROM `$table` WHERE data=:page_id");
+			// delete references to this page (data), and references this page is
+			// keeping to other pages (pages_id), in a single statement. Both columns
+			// are indexed, so MySQL resolves this as an index_merge union rather than
+			// a scan. One statement per table instead of two halves the number of
+			// round trips, which dominates when the database is not local.
+			$query = $database->prepare("DELETE FROM `$table` WHERE data=:page_id OR pages_id=:page_id2");
 			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
+			$query->bindValue(":page_id2", $page_id, \PDO::PARAM_INT);
 			$query->execute();
-			// delete references this page is keeping to other pages
-			$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id");
-			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
-			$query->execute();
-		}	
+		}
 	}
 
 	/**
