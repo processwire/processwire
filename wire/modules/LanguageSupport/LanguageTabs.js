@@ -107,7 +107,9 @@ function setupLanguageTabs($form) {
 			if(timeout) clearTimeout(timeout);
 			if($parent.width() < 500) return;
 			timeout = setTimeout(function() { $note.fadeOut('fast'); }, 250);
-		}).on('click', function() {
+		}).on('click', function(event) {
+			// prevent browser from following the href and scrolling to the anchor
+			event.preventDefault();
 			var $a = $(this);
 			var $items = $a.closest('ul').siblings('.LanguageSupport');
 			var $closeItem = $items.filter('.LanguageSupportCurrent');
