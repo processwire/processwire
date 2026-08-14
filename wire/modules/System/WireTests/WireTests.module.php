@@ -1294,7 +1294,27 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 
 		$testTemplate = $this->getTestTemplate(false);
 		if($testTemplate && $testTemplate->id != $this->testTemplateId) {
-			throw new WireException("Template $testTemplate->name exists, please remove it to install");
+			// test template exists but is not one this module knows about, which can be left
+			// behind by an uninstall that could not complete. Remove it when it is used only
+			// by this module's own test page, otherwise leave it alone as it may not be ours.
+			$pages = $this->wire()->pages;
+			$testPages = $pages->find('template=' . self::templateName . ', include=all');
+			foreach($testPages as $item) {
+				if($item->name !== self::pageName) {
+					throw new WireException(
+						"Template $testTemplate->name exists and is in use by $item->path, " .
+						"please remove it to install"
+					);
+				}
+			}
+			foreach($testPages as $item) {
+				$pages->delete($item, true);
+				$this->message("Removed test page left by a previous install: $item->name");
+			}
+			$fieldgroup = $testTemplate->fieldgroup;
+			$this->wire()->templates->delete($testTemplate);
+			if($fieldgroup) $this->wire()->fieldgroups->delete($fieldgroup);
+			$this->message("Removed template left by a previous install: $testTemplate->name");
 		}
 
 		$testPage = $this->getTestPage(false);
@@ -1337,22 +1357,48 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 				$this->error($e->getMessage());
 			}
 		}
+		// note: each removal below is isolated so that a failure in one of them
+		// cannot prevent the rest of the uninstall, particularly the field removal
 		$page = $this->getTestPage(false);
 		if($page && $page->id && $page->id === $this->testPageId) {
-			if($this->wire()->pages->delete($page)) {
-				$this->message("Deleted test page: $page->name");
+			try {
+				if($this->wire()->pages->delete($page)) {
+					$this->message("Deleted test page: $page->name");
+				}
+			} catch(\Exception $e) {
+				$this->error($e->getMessage());
 			}
 		}
 		$template = $this->getTestTemplate(false);
 		$fieldgroup = $template && $template->id === $this->testTemplateId ? $template->fieldgroup : false;
 		if($template && $template->id === $this->testTemplateId) {
-			if($this->wire()->templates->delete($template)) {
-				$this->message("Deleted template: $template->name");
+			try {
+				// remove any pages still using this template, as they would prevent it from
+				// being deleted. The template is one this module created, so any pages using
+				// it are test pages, whether or not they match the testPageId setting.
+				foreach($this->wire()->pages->find("template=$template->name, include=all") as $testPage) {
+					if($this->wire()->pages->delete($testPage, true)) {
+						$this->message("Deleted test page: $testPage->name");
+					}
+				}
+			} catch(\Exception $e) {
+				$this->error($e->getMessage());
+			}
+			try {
+				if($this->wire()->templates->delete($template)) {
+					$this->message("Deleted template: $template->name");
+				}
+			} catch(\Exception $e) {
+				$this->error($e->getMessage());
 			}
 		}
 		if($fieldgroup) {
-			if($this->wire()->fieldgroups->delete($fieldgroup)) {
-				$this->message("Deleted fieldgroup: $fieldgroup->name");
+			try {
+				if($this->wire()->fieldgroups->delete($fieldgroup)) {
+					$this->message("Deleted fieldgroup: $fieldgroup->name");
+				}
+			} catch(\Exception $e) {
+				$this->error($e->getMessage());
 			}
 		}
 	
