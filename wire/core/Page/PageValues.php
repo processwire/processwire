@@ -832,7 +832,7 @@ class PageValues extends Wire {
 	 */
 	public function hasField(Page $page, $field) {
 		$template = $page->template();
-		if(!$template) return false;
+		if(!$template || !$template->fieldgroup) return false;
 		if(is_string($field) && strpos($field, '|') !== false) {
 			$field = explode('|', $field);
 		}

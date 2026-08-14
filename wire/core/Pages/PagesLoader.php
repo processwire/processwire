@@ -1289,10 +1289,10 @@ class PagesLoader extends Wire {
 				$template = $templates->get($templates_id);
 			}
 
-			if($template) {
+			if($template && $template->fieldgroup) {
 				$fields = $template->fieldgroup;
 			} else {
-				// this condition likely unreachable?
+				// no template, or template has no fieldgroup (corrupt/incomplete template)
 				$fields = $this->wire()->fields;
 			}
 

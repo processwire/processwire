@@ -3876,7 +3876,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$trackChanges = $this->trackChanges();
 		if($trackChanges) $this->setTrackChanges(false); 
 		$template = $this->template();
-		$fieldgroup = $template ? $template->fieldgroup : array();
+		$fieldgroup = $template && $template->fieldgroup ? $template->fieldgroup : array();
 		foreach($fieldgroup as $field) { /** @var Field $field */
 			$value = parent::get($field->name);
 			if(!is_object($value)) continue;

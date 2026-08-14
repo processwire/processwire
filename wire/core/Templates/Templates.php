@@ -369,6 +369,11 @@ class Templates extends WireSaveableItems {
 			$item->fieldgroup->save();
 		}
 
+		if($item->fieldgroup->id != $item->fieldgroups_id) {
+			// fieldgroup was assigned to template before it had an id, so re-assign it now
+			$item->setFieldgroup($item->fieldgroup);
+		}
+
 		$rolesChanged = $item->isChanged('useRoles');
 
 		if($this->wire()->pages->get('/')->template->id == $item->id) {

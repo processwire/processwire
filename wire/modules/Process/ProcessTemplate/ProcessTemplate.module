@@ -514,8 +514,8 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 
 		$numPages = $template->getNumPages();
 		$numPagesLink = $config->urls->admin . "page/search/?show_options=1&template={$template->name}&sort=title";
-		$numFields = count($template->fieldgroup);
-		
+		$numFields = $template->fieldgroup ? count($template->fieldgroup) : 0;
+
 		if($template->fieldgroup && $template->fieldgroup->name != $template->name) {
 			$numFields .= " " . $template->fieldgroup->name;
 		}
