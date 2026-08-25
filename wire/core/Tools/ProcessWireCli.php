@@ -200,6 +200,16 @@ class ProcessWireCli extends Wire {
 			if($cliModule) $cliModules = [$name => $cliModule];
 		}
 		
+		$seen = [];
+		foreach($cliModules as $key => $cliModule) {
+			$id = spl_object_id($cliModule);
+			if(isset($seen[$id])) {
+				unset($cliModules[$key]);
+			} else {
+				$seen[$id] = true;
+			}
+		}
+		
 		return $cliModules;
 	}
 	
