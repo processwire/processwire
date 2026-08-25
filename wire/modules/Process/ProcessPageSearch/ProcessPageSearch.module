@@ -183,6 +183,64 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Is given field or property viewable in context of page?
+	 *
+	 * @param Page $page
+	 * @param string $name Field/property name, optionally dotted or pipe-separated
+	 * @return bool
+	 *
+	 */
+	protected function isPageFieldViewable(Page $page, $name) {
+		foreach(explode('|', $name) as $fieldName) {
+			$parts = explode('.', $fieldName);
+			if(!$this->isPageFieldPathViewable($page, $parts)) return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Is given field/property path viewable from given value?
+	 *
+	 * @param Page|PageArray|mixed $value
+	 * @param array $parts
+	 * @return bool
+	 *
+	 */
+	protected function isPageFieldPathViewable($value, array $parts) {
+		if($value instanceof PageArray) {
+			foreach($value as $page) {
+				if(!$this->isPageFieldPathViewable($page, $parts)) return false;
+			}
+			return true;
+		}
+		if(!$value instanceof Page) return true;
+		if(!$value->viewable(false)) return false;
+		if(!count($parts)) return true;
+		$name = array_shift($parts);
+		$field = $value->getField($name);
+		if($field && !$value->viewable($field)) return false;
+		if(!count($parts)) return true;
+		return $this->isPageFieldPathViewable($value->getUnformatted($name), $parts);
+	}
+
+	/**
+	 * Remove field placeholders that are not viewable in context of page
+	 *
+	 * @param Page $page
+	 * @param string $format
+	 * @return string
+	 *
+	 */
+	protected function filterPageDisplayFormat(Page $page, $format) {
+		$tags = $this->wire()->sanitizer->getTextTools()->findPlaceholders($format);
+		foreach($tags as $name => $tag) {
+			if($this->isPageFieldViewable($page, $name)) continue;
+			$format = str_replace($tag, '', $format);
+		}
+		return $format;
+	}
+
+	/**
 	 * Hookable function to optionally modify selector before it is sent to $pages->find()
 	 * 
 	 * Not applicable when Lister is handling the search/render. 
@@ -1288,6 +1346,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$viewUrl = $match->url();
 			$row = array();
 			foreach($display as $name) {
+				if(!$this->isPageFieldViewable($match, $name)) {
+					$row[] = '';
+					continue;
+				}
 				$value = $match->get($name);
 				if($value instanceof Page) $value = $value->name;
 				$value = strip_tags($value);
@@ -1364,10 +1426,11 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			
 			if(isset($display['name']) && isset($display['format'])) {
 				// use display format, returning a 'value' property containing the formatted value
+				$format = $this->filterPageDisplayFormat($page, $display['format']);
 				if($display['textOnly']) {
-					$value = $page->getText($display['format'], true, false);
+					$value = $page->getText($format, true, false);
 				} else {
-					$value = $page->getMarkup($display['format']);
+					$value = $page->getMarkup($format);
 				}
 				$p[$display['name']] = $value; 
 				
@@ -1378,6 +1441,11 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 					if($key == 'template_label') {
 						$p['template_label'] = $page->template->$templateLabel ? $page->template->$templateLabel : $page->template->label;
 						if(empty($p['template_label'])) $p['template_label'] = $page->template->name;
+						continue;
+					}
+
+					if(!$this->isPageFieldViewable($page, $key)) {
+						$p[$key] = '';
 						continue;
 					}
 
