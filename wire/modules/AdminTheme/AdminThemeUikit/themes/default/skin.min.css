@@ -3211,6 +3211,7 @@ svg {
 }
 .tox .tox-tbtn--disabled .tox-tbtn--enabled svg {
 	fill: var(--pw-text-color, rgba(34, 47, 62, 0.5));
+	fill: red; 
 }
 .tox .tox-tbtn--disabled,
 .tox .tox-tbtn--disabled:hover,
@@ -3230,11 +3231,17 @@ svg {
 }
 .tox .tox-tbtn--enabled,
 .tox .tox-tbtn--enabled:hover {
-	background: var(--pw-inputs-background, #c8cbcf);
-	border: 0;
+	/*background: var(--pw-inputs-background, #c8cbcf);*/
+	background: #ddd;
 	box-shadow: none;
 	color: var(--pw-text-color, #222f3e);
 }
+.dark-theme .tox .tox-tbtn--enabled,
+.dark-theme .tox .tox-tbtn--enabled:hover {
+	background: #333;
+	color: #ddd;
+}
+
 .tox .tox-tbtn--enabled:hover > *,
 .tox .tox-tbtn--enabled > * {
 	transform: none;
