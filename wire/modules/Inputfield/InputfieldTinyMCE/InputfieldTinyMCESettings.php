@@ -711,6 +711,19 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 		if(count($addSettings)) $addDefaults = $this->mergeSettings($addDefaults, $addSettings);
 		$addSettings = $addDefaults;
 
+		// remember which settings are modified by an "add_", "append_" or "replace_" prefix
+		// before applyAddSettings() consumes them. Settings like 'toolbar' are re-populated
+		// from the field afterwards, which would otherwise discard the modification.
+		$modifiedNames = array();
+		foreach(array_keys($addSettings) as $key) {
+			foreach(array('add_', 'append_', 'replace_') as $prefix) {
+				if(strpos($key, $prefix) !== 0) continue;
+				list(,$name) = explode($prefix, $key, 2);
+				if($name !== '') $modifiedNames[$name] = $name;
+				break;
+			}
+		}
+
 		if($configName && $configName !== 'default') {
 			$js = $config->js($inputfield->className());
 
@@ -734,6 +747,18 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 			// remove settings that cannot be set for field/template context
 			unset($mergedSettings['style_formats'], $mergedSettings['content_style'], $mergedSettings['content_css']); 
 			$dataSettings = $this->getSettings($mergedSettings);
+
+			// getSettings() repopulates settings like 'toolbar' from the field, which discards
+			// any "add_", "append_" or "replace_" modification made above. Restore those from
+			// the merged settings, which already have the modification applied. Only settings
+			// present in both are updated, so that those intentionally excluded from this
+			// context (i.e. style_formats, content_css) are not reintroduced.
+			foreach($modifiedNames as $name) {
+				if(!array_key_exists($name, $dataSettings)) continue;
+				if(!array_key_exists($name, $mergedSettings)) continue;
+				$dataSettings[$name] = $mergedSettings[$name];
+			}
+
 			$this->applySkin($dataSettings, $defaults);
 
 		} else {
