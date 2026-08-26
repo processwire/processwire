@@ -180,7 +180,7 @@ class PageField extends Field {
 			}
 			$f = $this->wire()->modules->get($inputfield);
 			if(!$f) throw new WireException("Inputfield not found: $inputfield");
-			$inputfield = $f->name;
+			$inputfield = $f->className();
 		}
 		if($inputfield) $this->set('inputfield', $inputfield);
 		return $this;
