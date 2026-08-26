@@ -255,3 +255,12 @@
 	// AdminThemeReno has wrong/reverse color here for ui-priority-secondary, not sure why
 	color: rgba(255,255,255,0.8) !important;
 }
+
+.InputfieldRepeater .Inputfields {
+	// Prevent the browser's scroll anchoring from dragging the viewport down while an
+	// opened item's ajax-loaded content expands (content is momentarily much taller than
+	// its final height before language tabs, TinyMCE, etc. initialize), which otherwise
+	// leaves the bottom of the item in view rather than the top.
+	// See processwire/processwire-issues#2320
+	overflow-anchor: none;
+}
