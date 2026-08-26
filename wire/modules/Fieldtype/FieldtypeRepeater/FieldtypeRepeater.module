@@ -1488,6 +1488,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 			if(in_array($operator, array('*=', '~=', '^=', '$=', '%='))) {
 				/** @var DatabaseQuerySelectFulltext $ft */
 				$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
+				// this column holds the IDs of the pages in the repeater rather than text, so
+				// a relevance score for it has no meaning to sort by. Disabling it also keeps
+				// a match on many IDs from adding a score column and orderby for every one of
+				// them, which can exceed the column limit for the temporary table that results.
+				$ft->allowOrder(false);
 				$ft->match($table, $subfield, $operator, $value);
 
 			} else if(empty($value)) {
