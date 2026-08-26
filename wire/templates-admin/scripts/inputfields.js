@@ -2792,6 +2792,19 @@ function InputfieldStates($target) {
 		}
 	});
 
+	// the 'change' event above does not occur until an input loses focus, so a value that has
+	// been typed but not yet blurred would not be seen as changed when navigating away. This
+	// marks the state while typing, without triggering the 'changed' event, which remains tied
+	// to the 'change' event so that it is not triggered on every keystroke.
+	$(document).on('input', '.InputfieldForm :input', function() {
+		var $this = $(this);
+		if($this.hasClass('InputfieldIgnoreChanges')) return;
+		if($this.closest('.InputfieldIgnoreChanges').length) return;
+		var $inputfield = $this.closest('.Inputfield');
+		if(!$inputfield.length || $inputfield.hasClass('InputfieldStateChanged')) return;
+		$inputfield.addClass('InputfieldStateChanged');
+	});
+
 	$(document).on('submit', '.InputfieldFormConfirm', function() {
 		$(this).addClass('InputfieldFormSubmitted');
 	});
