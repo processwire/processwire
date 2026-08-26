@@ -1505,9 +1505,10 @@ class Field extends WireData implements Saveable, Exportable {
 			$tagList = $tags;
 		}
 		if($this->tagList !== $tagList) {
+			$isInit = $this->tagList === null && implode(' ', $tagList) === (string) parent::get('tags');
 			$this->tagList = $tagList;
-			parent::set('tags', implode(' ', $tagList)); 
-			$this->wire()->fields->getTags('reset');
+			parent::set('tags', implode(' ', $tagList));
+			if(!$isInit) $this->wire()->fields->getTags('reset');
 		}
 		return $tagList;
 	}
