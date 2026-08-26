@@ -1466,7 +1466,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * // Get the formatted 'body' field (text formatters applied)
 	 * $body = $page->getFormatted('body');
 	 * ~~~~~
-	 * 
+	 *
+	 * Note that for fields where the value contains Page objects, such as Repeater and
+	 * RepeaterMatrix, those pages are themselves the value, so they are left with output
+	 * formatting on after this call. This also applies to subsequent access of the field,
+	 * as the same Page objects are returned. If you need them unformatted afterwards then
+	 * set that on the pages themselves:
+	 * ~~~~~
+	 * foreach($page->getFormatted('my_repeater') as $item) {
+	 *   // ...
+	 * }
+	 * foreach($page->my_repeater as $item) {
+	 *   $item->of(false); // needed before modifying and saving these items
+	 * }
+	 * ~~~~~
+	 *
 	 * #pw-advanced
 	 *
 	 * @param string $key Field or property name to retrieve
