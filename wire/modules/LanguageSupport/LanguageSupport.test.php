@@ -35,6 +35,18 @@ class WireTest_LanguageSupport extends WireTest {
 	const testExportFile = 'site/templates/wiretests-language-export.php';
 
 	/**
+	 * Base field name used for language-alternate field tests
+	 *
+	 */
+	protected $altBaseName = WireTests::fieldPrefix . 'altbase';
+
+	/**
+	 * Computed language-alternate field name (set in init())
+	 *
+	 */
+	protected $altFieldName = '';
+
+	/**
 	 * Allow this test only when LanguageSupport is installed
 	 *
 	 * @return bool
@@ -51,6 +63,7 @@ class WireTest_LanguageSupport extends WireTest {
 	public function init() {
 		$this->originalLanguage = $this->wire()->user->language;
 		if(!$this->getOtherLanguage()) $this->createTestLanguage();
+		$this->ensureAlternateFields();
 	}
 
 	/**
@@ -68,6 +81,7 @@ class WireTest_LanguageSupport extends WireTest {
 		$this->testPorter();
 		$this->testPageNameHooks();
 		$this->testLocaleHelpers();
+		$this->testLanguageAlternateFields();
 	}
 
 	/**
@@ -349,6 +363,126 @@ class WireTest_LanguageSupport extends WireTest {
 		$this->check('Languages::getLocale() returns locale string or false', true, is_string($locale) || $locale === false);
 		$this->check('Languages::getLocale(category, language) returns locale string or false', true, is_string($languages->getLocale(LC_ALL, $default)) || $languages->getLocale(LC_ALL, $default) === false);
 		$this->check('Language::getLocale() proxies Languages::getLocale()', $languages->getLocale(LC_ALL, $default), $default->getLocale());
+	}
+
+	/**
+	 * Test language-alternate field resolution
+	 *
+	 */
+	protected function testLanguageAlternateFields() {
+		$modules = $this->wire()->modules;
+		if(!$modules->isInstalled('LanguageSupportFields')) {
+			$this->ok('LanguageSupportFields not installed, skipping language-alternate field tests');
+			return;
+		}
+
+		$other = $this->getOtherLanguage();
+		if(!$other || !$this->altFieldName) {
+			$this->ok('No non-default language available, skipping language-alternate field tests');
+			return;
+		}
+
+		$pages = $this->wire()->pages;
+		$page = $this->getTestPage();
+		$baseName = $this->altBaseName;
+		$altName = $this->altFieldName;
+		$user = $this->wire()->user;
+
+		// Set values with output formatting off
+		$page->of(false);
+		$page->set($baseName, 'Default alternate value');
+		$page->set($altName, 'Other alternate value');
+		$page->save();
+
+		// Switch to other language with output formatting on
+		$user->setQuietly('language', $other);
+		$page = $pages->getFresh($page->id);
+		$page->of(true);
+		$this->check('Alternate field returns other language value with output formatting on', 'Other alternate value', $page->get($baseName));
+		$this->check('Alternate field name always returns its own value', 'Other alternate value', $page->get($altName));
+
+		// Clear alternate field and test fallback to default
+		$page->of(false);
+		$page->set($altName, '');
+		$page->save($altName);
+		$page = $pages->getFresh($page->id);
+		$page->of(true);
+		$this->check('Alternate field falls back to default when empty', 'Default alternate value', $page->get($baseName));
+
+		// With output formatting off, no substitution occurs
+		$page->of(false);
+		$page->set($altName, 'Other alternate value');
+		$page->save($altName);
+		$this->check('Base field returns default value with output formatting off', 'Default alternate value', $page->getUnformatted($baseName));
+
+		// Selector on base field should also search the alternate field
+		$user->setQuietly('language', $other);
+		$match = $pages->findOne("template=wire-test, include=hidden, $baseName*='Other alternate value'");
+		$this->check('Selector on base field searches alternate field', $page->id, $match->id);
+
+		// Restore original language and clean up values
+		$user->setQuietly('language', $this->originalLanguage);
+		$page = $pages->getFresh($page->id);
+		$page->of(false);
+		$page->set($baseName, '');
+		$page->set($altName, '');
+		$page->save();
+	}
+
+	/**
+	 * Create language-alternate test fields if needed
+	 *
+	 */
+	protected function ensureAlternateFields() {
+		$modules = $this->wire()->modules;
+		if(!$modules->isInstalled('LanguageSupportFields')) return;
+
+		$other = $this->getOtherLanguage();
+		if(!$other) return;
+
+		$fields = $this->wire()->fields;
+		$page = $this->getTestPage();
+
+		// language names with dashes/dots become underscores in alternate field names
+		$langSuffix = str_replace(array('-', '.'), '_', $other->name);
+		$this->altFieldName = $this->altBaseName . '_' . $langSuffix;
+
+		$baseField = $fields->get($this->altBaseName);
+		if(!$baseField) {
+			$baseField = new TextField();
+			$baseField->name = $this->altBaseName;
+			$baseField->type = $modules->get('FieldtypeText');
+			$baseField->label = 'WireTests Alternate Base';
+			$baseField->save();
+		}
+
+		$altField = $fields->get($this->altFieldName);
+		if(!$altField) {
+			$altField = new TextField();
+			$altField->name = $this->altFieldName;
+			$altField->type = $modules->get('FieldtypeText');
+			$altField->label = 'WireTests Alternate Language';
+			$altField->save();
+		}
+
+		$fieldgroup = $page->template->fieldgroup;
+		if(!$fieldgroup->hasField($baseField)) {
+			$fieldgroup->add($baseField);
+			$fieldgroup->save();
+		}
+		if(!$fieldgroup->hasField($altField)) {
+			$fieldgroup->add($altField);
+			$fieldgroup->save();
+		}
+
+		// Update LanguageSupportFields' in-memory alternate-field cache so the newly
+		// created fields are recognized in this same request.
+		$lsFields = $modules->get('LanguageSupportFields');
+		$property = new \ReflectionProperty($lsFields, 'multilangAlternateFields');
+		if(PHP_VERSION_ID < 80100) $property->setAccessible(true);
+		$cache = $property->getValue($lsFields);
+		$cache[$this->altBaseName] = array($this->altFieldName);
+		$property->setValue($lsFields, $cache);
 	}
 
 	/**

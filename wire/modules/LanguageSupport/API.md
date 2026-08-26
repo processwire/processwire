@@ -642,6 +642,78 @@ $language->save('language_files_site');
 
 ---
 
+## Language-alternate fields
+
+Language-alternate fields are separate fields whose value can substitute for another
+field when the user's language is not the default. Unlike multi-language fields, they
+are not a special fieldtype — they are regular fields that ProcessWire recognizes by
+name. This is useful when you need language-specific values for fieldtypes that do not
+support multi-language values, such as image or file fields. The **LanguageSupportFields**
+module must be installed for alternate-field resolution to work.
+
+### Naming convention
+
+A language-alternate field is named `{fieldname}_{language}`, where `{fieldname}` is an
+existing field and `{language}` is the language page's `name`.
+
+If the language name contains dashes (`-`) or dots (`.`), use underscores (`_`) in the
+field name instead, i.e. `{fieldname}_{sanitized_language_name}`.
+
+```php
+// If "body" exists and "dutch" is an installed language,
+// then "body_dutch" is the Dutch alternate for "body"
+echo $page->body_dutch;
+```
+
+### Resolution and fallback
+
+When output formatting is on and the current user's language is not the default,
+accessing the base field returns the alternate field's value if it is non-empty;
+otherwise it falls back to the base field's default-language value.
+
+```php
+// Current user's language is Dutch
+// Returns $page->body_dutch if populated, otherwise $page->body
+echo $page->body;
+```
+
+The alternate field always returns its own value, regardless of the current language:
+
+```php
+// Always the Dutch value
+echo $page->body_dutch;
+```
+
+### Supported fieldtypes
+
+Language-alternate fields work with any fieldtype, including image and file fields,
+which is the primary reason to use them over multi-language fields.
+
+### Selectors
+
+When querying with selectors, ProcessWire searches both the base field and the active
+language's alternate field.
+
+```php
+// User's language is Dutch: searches both "body" and "body_dutch"
+$results = $pages->find("body*=welkom vrienden");
+```
+
+### Setting values
+
+Language-alternate fields are set directly like any other field. Setting the base field
+always sets the default-language value.
+
+```php
+$page->of(false);
+$page->body        = 'Welcome friends';   // default language
+$page->body_dutch  = 'Welkom vrienden';   // Dutch alternate
+$page->body_spanish = 'Bienvenidos amigos'; // Spanish alternate
+$page->save();
+```
+
+---
+
 ## Notes
 
 - **Source files:** `wire/modules/LanguageSupport/` — key files are `Languages.php` (the
@@ -650,8 +722,9 @@ $language->save('language_files_site');
   `LanguageTranslator.php` (runtime translation lookup), and
   `wire/core/Functions/LanguageFunctions.php` (translation functions)
 - **Module prerequisites:** LanguageSupport must be installed for `$languages` to be
-  available; LanguageSupportFields must be installed for multi-language field values;
-  LanguageSupportPageNames must be installed for `localUrl()` and language-specific slugs
+  available; LanguageSupportFields must be installed for multi-language field values and
+  language-alternate fields; LanguageSupportPageNames must be installed for `localUrl()`
+  and language-specific slugs
 - **Language pages:** each language is a Page under `/processwire/setup/languages/`
   (where `/processwire/` is the admin URL); they have the built-in `language` template 
   and can carry custom fields.
