@@ -88,6 +88,18 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	static protected $initFields = array();
 
 	/**
+	 * Has the page delete hook been added? [ PW_instanceID => true ]
+	 *
+	 * Fieldtypes extending this one inherit its init() method, so without this the
+	 * hook would be added once for every installed Fieldtype that extends it, and
+	 * hookPagesDelete() would repeat the same work that many times.
+	 *
+	 * @var array
+	 *
+	 */
+	static protected $deleteHooked = array();
+
+	/**
 	 * ProcessWire instance ID
 	 *
 	 * @var int
@@ -146,7 +158,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	public function init() {
 		$this->instanceID = $this->wire()->getProcessWireInstanceID();
 		self::$initFields[$this->instanceID] = array();
-		$this->wire()->pages->addHookAfter('deleteReady', $this, 'hookPagesDelete');
+		if(empty(self::$deleteHooked[$this->instanceID])) {
+			// hook only needs to be added once, as hookPagesDelete() covers all
+			// Fieldtypes extending this one, not just the one that added it
+			self::$deleteHooked[$this->instanceID] = true;
+			$this->wire()->pages->addHookAfter('deleteReady', $this, 'hookPagesDelete');
+		}
 		$this->useLazy = $this->wire()->config->useLazyLoading;
 		parent::init();
 	}
