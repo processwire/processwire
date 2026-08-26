@@ -468,7 +468,7 @@ class WireTest_LanguageSupport extends WireTest {
 
 		$fields = $this->wire()->fields;
 		$property = new \ReflectionProperty($fields, 'nativeNamesLocal');
-		$property->setAccessible(true);
+		if(PHP_VERSION_ID < 80100) $property->setAccessible(true);
 		$nativeNamesLocal = $property->getValue($fields);
 		unset($nativeNamesLocal["name$languageID"]);
 		unset($nativeNamesLocal["status$languageID"]);
@@ -477,7 +477,7 @@ class WireTest_LanguageSupport extends WireTest {
 		foreach(array('PageFinder', 'PageFinder2') as $className) {
 			$class = __NAMESPACE__ . "\\$className";
 			$property = new \ReflectionProperty($class, 'pagesColumns');
-			$property->setAccessible(true);
+			if(PHP_VERSION_ID < 80100) $property->setAccessible(true);
 			$pagesColumns = $property->getValue();
 			foreach($pagesColumns as $key => $columns) {
 				unset($pagesColumns[$key]["name$languageID"]);
