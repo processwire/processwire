@@ -45,7 +45,7 @@ class Installer {
 	 * Minimum required PHP version to install ProcessWire
 	 *
 	 */
-	const MIN_REQUIRED_PHP_VERSION = '7.1.0';
+	const MIN_REQUIRED_PHP_VERSION = '7.2.0';
 
 	/**
 	 * Test mode for installer development, non destructive

@@ -2619,15 +2619,24 @@ class Page extends WireData implements \Countable, WireMatchable {
 	public function isChanged($what = '') {
 		if($this->isNew()) return true; 
 		if(parent::isChanged($what)) return true; 
+		// Prevent recursion when Page reference fields form a cycle
+		static $checking = array();
+		$id = spl_object_id($this);
+		if(isset($checking[$id])) return false;
+		$checking[$id] = true;
 		$changed = false;
-		if($what) {
-			$data = array_key_exists($what, $this->data) ? array($this->data[$what]) : array();
-		} else {
-			$data = &$this->data;
-		}
-		foreach($data as $value) {
-			if($value instanceof Wire) $changed = $value->isChanged();
-			if($changed) break;
+		try {
+			if($what) {
+				$data = array_key_exists($what, $this->data) ? array($this->data[$what]) : array();
+			} else {
+				$data = &$this->data;
+			}
+			foreach($data as $value) {
+				if($value instanceof Wire) $changed = $value->isChanged();
+				if($changed) break;
+			}
+		} finally {
+			unset($checking[$id]);
 		}
 		return $changed; 	
 	}

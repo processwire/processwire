@@ -19,6 +19,7 @@ class WireTest_Page extends WireTest {
 		$this->testMetaValues();
 		$this->testMetaCache();
 		$this->testMetaStorageBoundaries();
+		$this->testIsChangedReferenceCycle();
 	}
 
 	public function finish() {
@@ -105,6 +106,23 @@ class WireTest_Page extends WireTest {
 		$unsaved->meta($this->key('unsaved'), 'value');
 		$unsaved->meta()->reset();
 		$this->check('unsaved pages do not persist meta values', null, $unsaved->meta($this->key('unsaved')));
+	}
+
+	protected function testIsChangedReferenceCycle() {
+		$pageA = $this->wire(new Page());
+		$pageB = $this->wire(new Page());
+		$pageA->setIsNew(false);
+		$pageB->setIsNew(false);
+		$pageA->set('cycle', $pageB);
+		$pageB->set('cycle', $pageA);
+		$pageA->resetTrackChanges();
+		$pageB->resetTrackChanges();
+
+		$this->check('isChanged() returns false for clean Page reference cycle', false, $pageA->isChanged());
+		$this->check('isChanged(field) returns false for clean Page reference cycle', false, $pageA->isChanged('cycle'));
+
+		$pageB->set('marker', 'changed');
+		$this->check('isChanged() finds change within Page reference cycle', true, $pageA->isChanged());
 	}
 
 	protected function cleanup() {
