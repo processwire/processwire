@@ -21,7 +21,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Session Login Throttle', 
-			'version' => 104, 
+			'version' => 105, 
 			'summary' => 'Throttles login attempts to help prevent dictionary attacks.',
 			'permanent' => false, 
 			'singular' => true, 
@@ -288,13 +288,42 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	 */
 	public function ___install() { 
 
-		$sql = 	"CREATE TABLE `session_login_throttle` ( " . 
-				"`name` varchar(128) NOT NULL, " . 
-				"`attempts` int(10) unsigned NOT NULL default '0'," . 
-				"`last_attempt` int(10) unsigned NOT NULL," . 
-				"PRIMARY KEY (`name`))";
+		$sql = 	"CREATE TABLE `session_login_throttle` ( " .
+				"`name` varchar(128) NOT NULL, " .
+				"`attempts` int(10) unsigned NOT NULL default '0'," .
+				"`last_attempt` int(10) unsigned NOT NULL," .
+				"PRIMARY KEY (`name`), " .
+				"KEY `last_attempt` (`last_attempt`))";
 
 		$this->wire()->database->exec($sql);
+	}
+
+	/**
+	 * Add the last_attempt index to installations that predate it
+	 *
+	 * Expired attempts are removed with a delete matching on last_attempt, which runs on
+	 * every login attempt. Without an index for it that delete reads the whole table. The
+	 * table is normally small enough for this not to matter, but it grows when many
+	 * distinct names are attempting logins, which is when the cost is least welcome.
+	 *
+	 * @param int|string $fromVersion
+	 * @param int|string $toVersion
+	 *
+	 */
+	public function ___upgrade($fromVersion, $toVersion) {
+
+		$database = $this->wire()->database;
+		$table = 'session_login_throttle';
+		$indexName = 'last_attempt';
+
+		if($database->indexExists($table, $indexName)) return;
+
+		try {
+			$database->exec("ALTER TABLE `$table` ADD INDEX `$indexName` (`$indexName`)");
+			$this->message("Added index $indexName to $table");
+		} catch(\Exception $e) {
+			$this->error("Unable to add index $indexName to $table - " . $e->getMessage());
+		}
 	}
 
 	/**
