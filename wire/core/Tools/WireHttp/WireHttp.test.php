@@ -367,6 +367,11 @@ class WireTest_WireHttp extends WireTest {
 		$http = $this->newHttp();
 		$this->check('getError() returns empty string when no errors', '', $http->getError());
 
+		// getError() reports unrecognized HTTP error codes
+		$http->setHttpCode(418);
+		$this->check('getError() returns unrecognized HTTP error code', '418', $http->getError());
+		$this->check('getError(true) returns unrecognized HTTP error code', array('418'), $http->getError(true));
+
 		// getError(true) returns array
 		$this->check('getError(true) returns array', true, is_array($http->getError(true)));
 

@@ -753,8 +753,8 @@ class WireHttp extends Wire {
 
 		} else {
 			$code = $this->getHttpCode();
-			if($code && $code >= 400 && isset($this->httpCodes[$code])) {
-				// known http error code, no need to fallback to sockets
+			if($code && $code >= 400) {
+				// HTTP error code, no need to fallback to sockets
 				$result = false;
 			} else if($code && $code >= 200 && $code < 300) {
 				// PR #1281: known http success status code, no need to fallback to sockets
@@ -1124,7 +1124,7 @@ class WireHttp extends Wire {
 		fclose($fp); 
 			
 		$methods = implode(", ", $triedMethods);
-		if(count($this->error) || ($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode]))) {
+		if(count($this->error) || $this->httpCode >= 400) {
 			$this->wire()->files->unlink($toFile);
 			$error = $this->_('File could not be downloaded') . ' ' . htmlentities("($fromURL) ") . $this->getError() . " (tried: $methods)";
 			throw new WireException($error); 
@@ -1170,6 +1170,7 @@ class WireHttp extends Wire {
 			curl_setopt($curl, CURLOPT_TIMEOUT_MS, $timeoutMS);
 		}
 		curl_setopt($curl, CURLOPT_FILE, $fp); // write curl response to file
+		curl_setopt($curl, CURLOPT_USERAGENT, $this->getUserAgent());
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
 
@@ -1216,6 +1217,11 @@ class WireHttp extends Wire {
 		$options = array_merge($defaultOptions, $options);
 		$bufferSize = $options['fopen_bufferSize'];
 		unset($options['fopen_bufferSize']);
+		if(empty($options['header'])) {
+			$options['header'] = 'User-Agent: ' . $this->getUserAgent();
+		} else if(is_string($options['header']) && stripos($options['header'], 'user-agent:') === false) {
+			$options['header'] = 'User-Agent: ' . $this->getUserAgent() . "\r\n" . $options['header'];
+		}
 		
 		$context = stream_context_create(
 			array(
@@ -1273,8 +1279,10 @@ class WireHttp extends Wire {
 	 *
 	 */
 	protected function downloadSocket($fromURL, $fp, array $options) {
+		$userAgent = $this->getUserAgent();
 		$this->resetResponse();
 		$this->resetRequest();
+		$this->setUserAgent($userAgent);
 	
 		// download the file
 		$content = $this->sendSocket($fromURL, 'GET', $options);
@@ -1988,12 +1996,13 @@ class WireHttp extends Wire {
 	 */
 	public function getError($getArray = false) {
 		$error = $getArray ? $this->error : implode(', ', $this->error); 
-		if($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode])) {
-			$httpError = "$this->httpCode " . $this->httpCodes[$this->httpCode];
+		if($this->httpCode >= 400) {
+			$httpError = "$this->httpCode";
+			if(isset($this->httpCodes[$this->httpCode])) $httpError .= " " . $this->httpCodes[$this->httpCode];
 			if($getArray) {
 				array_unshift($error, $httpError); 
 			} else {
-				$error = "$httpError: $error";
+				$error = $error ? "$httpError: $error" : $httpError;
 			}
 		}
 		return $error; 
