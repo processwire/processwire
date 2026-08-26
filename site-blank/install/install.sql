@@ -281,7 +281,7 @@ CREATE TABLE `pages` (
   `sort` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name_parent_id` (`name`,`parent_id`),
-  KEY `parent_id` (`parent_id`),
+  KEY `parent_id` (`parent_id`,`sort`),
   KEY `templates_id` (`templates_id`),
   KEY `modified` (`modified`),
   KEY `created` (`created`),
