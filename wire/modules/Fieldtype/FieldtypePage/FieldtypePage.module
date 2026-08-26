@@ -49,16 +49,54 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	protected $caches = array();
 
-	/**	
+	/**
+	 * Page IDs already handled by hookPagesDelete() during this request
+	 *
+	 * Pages::delete() returns early for a page already deleted earlier in a recursive
+	 * call, but its after hook still runs, so the same page can arrive here more than
+	 * once. There is nothing left to delete on those repeat calls.
+	 *
+	 * @var array Page IDs are both keys and values
+	 *
+	 */
+	protected $deletedPageIds = array();
+
+	/**
+	 * Page IDs collected during a branch delete, or null when not deleting a branch
+	 *
+	 * @var array|null
+	 *
+	 */
+	protected $branchPageIds = null;
+
+	/**
+	 * Has the ProcessWire::finished hook been added to flush collected page IDs?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $finishedHookAdded = false;
+
+	/**
+	 * Maximum number of page IDs to include in one DELETE statement
+	 *
+	 */
+	const deleteChunkSize = 500;
+
+	/**
 	 * Setup a hook to Pages::delete so that we can remove references when pages are deleted
 	 *
 	 */
 	public function init() {
-		$pages = $this->wire()->pages; 
+		$pages = $this->wire()->pages;
 		if($pages) {
 			$pages->addHookAfter('delete', $this, 'hookPagesDelete');
+			$pages->addHookAfter('deleteBranchReady', $this, 'hookPagesDeleteBranchReady');
+			$pages->addHookAfter('deletedBranch', $this, 'hookPagesDeletedBranch');
 		} else {
 			$this->addHookAfter('Pages::delete', $this, 'hookPagesDelete');
+			$this->addHookAfter('Pages::deleteBranchReady', $this, 'hookPagesDeleteBranchReady');
+			$this->addHookAfter('Pages::deletedBranch', $this, 'hookPagesDeletedBranch');
 		}
 	}
 
@@ -83,18 +121,100 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	public function hookPagesDelete($event) {
 		if(!$event->return) return; // if delete failed, then don't continue
-		$page_id = $event->arguments[0]->id; 
+		$page_id = (int) $event->arguments[0]->id;
+		if(isset($this->deletedPageIds[$page_id])) return; // already handled this page
+		$this->deletedPageIds[$page_id] = $page_id;
+		if($this->branchPageIds !== null) {
+			// deleting a branch, so collect for one batched delete per field rather
+			// than a separate delete per field for every page in the branch
+			$this->branchPageIds[$page_id] = $page_id;
+			if(count($this->branchPageIds) >= self::deleteChunkSize) $this->deletePageRefs();
+			return;
+		}
+		$this->deletePageRefs(array($page_id));
+	}
+
+	/**
+	 * Start collecting page IDs when a branch delete begins
+	 *
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookPagesDeleteBranchReady($event) {
+		// flush anything left behind by a branch that could not complete
+		if($this->branchPageIds !== null) $this->deletePageRefs();
+		$this->branchPageIds = array();
+		if($this->finishedHookAdded) return;
+		// a branch that fails part way through never reaches deletedBranch, so make sure
+		// anything already collected is still deleted before the request ends
+		$this->finishedHookAdded = true;
+		$this->addHookAfter('ProcessWire::finished', $this, 'hookFinished');
+	}
+
+	/**
+	 * Delete references for any page IDs left collected at the end of the request
+	 *
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookFinished($event) {
+		if(empty($this->branchPageIds)) return;
+		try {
+			$this->deletePageRefs();
+		} catch(\Exception $e) {
+			// database may no longer be available, nothing further we can do here
+		}
+	}
+
+	/**
+	 * Delete references for all pages collected during a branch delete
+	 *
+	 * Note that the page the branch delete was initiated from is not included here,
+	 * as its own Pages::delete hook runs after this one, while no branch is active.
+	 *
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookPagesDeletedBranch($event) {
+		$this->deletePageRefs();
+		$this->branchPageIds = null;
+	}
+
+	/**
+	 * Delete all FieldtypePage references to and from the given page IDs
+	 *
+	 * @param array|null $pageIds Page IDs, or omit to use (and reset) those collected
+	 *   during the current branch delete.
+	 *
+	 */
+	protected function deletePageRefs(?array $pageIds = null) {
+
+		if($pageIds === null) {
+			$pageIds = $this->branchPageIds;
+			$this->branchPageIds = array();
+		}
+
+		$ids = array();
+		if(!empty($pageIds)) {
+			foreach($pageIds as $id) {
+				$id = (int) $id;
+				if($id > 0) $ids[$id] = $id;
+			}
+		}
+		if(empty($ids)) return;
+
+		// IDs are integers, so they are safe to embed directly
+		$in = implode(',', $ids);
 		$database = $this->wire()->database;
+
 		foreach($this->wire()->fields->findByType('FieldtypePage') as $field) {
 			$table = $database->escapeTable($field->table);
-			// delete references to this page (data), and references this page is
+			// delete references to these pages (data), and references these pages are
 			// keeping to other pages (pages_id), in a single statement. Both columns
 			// are indexed, so MySQL resolves this as an index_merge union rather than
-			// a scan. One statement per table instead of two halves the number of
-			// round trips, which dominates when the database is not local.
-			$query = $database->prepare("DELETE FROM `$table` WHERE data=:page_id OR pages_id=:page_id2");
-			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
-			$query->bindValue(":page_id2", $page_id, \PDO::PARAM_INT);
+			// a scan. One statement per table, rather than two per table for every page,
+			// is what keeps a large branch delete from being dominated by round trips.
+			$query = $database->prepare("DELETE FROM `$table` WHERE data IN($in) OR pages_id IN($in)");
 			$query->execute();
 		}
 	}
