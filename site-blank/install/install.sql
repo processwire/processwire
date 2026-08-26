@@ -353,7 +353,8 @@ DROP TABLE IF EXISTS `pages_parents`;
 CREATE TABLE `pages_parents` (
   `pages_id` int(10) unsigned NOT NULL,
   `parents_id` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`pages_id`,`parents_id`)
+  PRIMARY KEY (`pages_id`,`parents_id`),
+  KEY `parents_id` (`parents_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 INSERT INTO `pages_parents` (`pages_id`, `parents_id`) VALUES('2', '1');
