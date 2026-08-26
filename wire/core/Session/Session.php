@@ -1937,7 +1937,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 */
 	public function CSRF() {
-		if(!$this->sessionInit) $this->init(); // init required for CSRF
+		if(!$this->sessionInit && $this->sessionAllow) $this->init(); // init session for CSRF when allowed
 		if(is_null($this->CSRF)) $this->CSRF = $this->wire(new SessionCSRF());
 		return $this->CSRF; 
 	}
