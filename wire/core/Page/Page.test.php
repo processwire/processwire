@@ -19,6 +19,7 @@ class WireTest_Page extends WireTest {
 		$this->testMetaValues();
 		$this->testMetaCache();
 		$this->testMetaStorageBoundaries();
+		$this->testMetaAfterPageGetsId();
 		$this->testIsChangedReferenceCycle();
 	}
 
@@ -106,6 +107,26 @@ class WireTest_Page extends WireTest {
 		$unsaved->meta($this->key('unsaved'), 'value');
 		$unsaved->meta()->reset();
 		$this->check('unsaved pages do not persist meta values', null, $unsaved->meta($this->key('unsaved')));
+	}
+
+	protected function testMetaAfterPageGetsId() {
+		$pages = $this->wire()->pages;
+		$sourcePage = $this->getTestPage();
+		$page = $this->wire(new Page());
+		$beforeKey = $this->key('before_id');
+		$afterKey = $this->key('after_id');
+
+		$page->meta($beforeKey, 'before');
+		$page->id = $sourcePage->id;
+		$page->setIsNew(false);
+		$page->meta($afterKey, 'after');
+
+		$this->check('meta store binds to Page ID after insert', $sourcePage->id, $page->meta()->sourceID());
+		$this->check('meta cache drops value set before Page got ID', null, $page->meta($beforeKey));
+
+		$fresh = $pages->getFresh($sourcePage->id);
+		$this->check('meta value set before Page got ID is not persisted', null, $fresh->meta($beforeKey));
+		$this->check('meta value set after Page got ID is persisted', 'after', $fresh->meta($afterKey));
 	}
 
 	protected function testIsChangedReferenceCycle() {

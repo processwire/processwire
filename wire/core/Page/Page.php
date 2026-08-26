@@ -4234,7 +4234,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function meta($key = '', $value = null) {
 		/** @var Pages $pages */
-		if($this->_meta === null) $this->_meta = $this->wire(new WireDataDB($this->id, 'pages_meta')); 
+		if($this->_meta === null) {
+			$this->_meta = $this->wire(new WireDataDB($this->id, 'pages_meta'));
+		} else if($this->id && !$this->_meta->sourceID()) {
+			$this->_meta->reset();
+			$this->_meta->sourceID($this->id);
+		}
 		if(empty($key)) return $this->_meta; // return instance
 		if($value === null) return $this->_meta->get($key); // get value
 		return $this->_meta->set($key, $value); // set value
