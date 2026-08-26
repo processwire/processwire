@@ -137,6 +137,20 @@ ErrorDocument 404 /index.php
 </FilesMatch>
 
 
+# 5C. Block AI agent and API markdown files at all directory levels
+# -----------------------------------------------------------------------------------------------
+
+<FilesMatch "(?i)^(AGENTS?|CLAUDE|SKILLS?|MEMORY|API)\.md$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+
 # -----------------------------------------------------------------------------------------------
 # 6. Override a few PHP settings that can't be changed at runtime (not required)
 # Note: try commenting out this entire section below if getting Apache (500) errors.
@@ -391,10 +405,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
   
   # Block access to any software identifying txt, markdown or textile files
-  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|htaccess)\.(txt|md|textile)$ [NC,OR]
-
-  # Block access to AI agent markdown files
-  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/(.+/)?(AGENTS?|CLAUDE|SKILLS?|MEMORY|API)\.md$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess)\.(txt|md|textile)$ [NC,OR]
 
   # Block potential arbitrary backup files within site directories for things like config
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$ [NC,OR]
