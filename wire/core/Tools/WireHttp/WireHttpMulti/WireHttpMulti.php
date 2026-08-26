@@ -221,21 +221,26 @@ class WireHttpMulti extends WireHttp {
 		$this->queue = [];
 		$nextSeq = 0;
 
-		$ramp = min($this->maxConcurrent, count($pool));
-		for($i = 0; $i < $ramp; $i++) {
-			/** @var WireHttpRequestSpec $nextSpec */
-			$nextSpec = array_shift($pool);
-			$seq = $nextSeq++;
-			$row = $this->spawn($mh, $nextSpec, $seq);
-			if($row !== null) {
-				$active[spl_object_id($row['handle'])] = $row;
-			} else {
-				$this->resultsBySeq[$seq] ??= $this->buildSpawnFailureResult($nextSpec);
-			}
-		}
-
 		$running = 0;
 		do {
+			// fill any available slots at the start of every iteration, rather than only in
+			// response to a completion event, so that queued requests cannot be left behind
+			// when nothing spawns or when the active batch drains while the pool still has items
+			while(count($active) < $this->maxConcurrent && !empty($pool)) {
+				/** @var WireHttpRequestSpec $nextSpec */
+				$nextSpec = array_shift($pool);
+				$seq = $nextSeq++;
+				$row = $this->spawn($mh, $nextSpec, $seq);
+				if($row !== null) {
+					$active[spl_object_id($row['handle'])] = $row;
+				} else {
+					$this->resultsBySeq[$seq] ??= $this->buildSpawnFailureResult($nextSpec);
+				}
+			}
+
+			// nothing left to wait on, i.e. every remaining request failed to spawn
+			if(empty($active)) break;
+
 			curl_multi_exec($mh, $running);
 
 			while(($info = curl_multi_info_read($mh)) !== false) {
@@ -255,17 +260,6 @@ class WireHttpMulti extends WireHttp {
 						unset($active[$id]);
 					}
 				}
-				if(!empty($pool)) {
-					/** @var WireHttpRequestSpec $nextSpec */
-					$nextSpec = array_shift($pool);
-					$seq = $nextSeq++;
-					$row = $this->spawn($mh, $nextSpec, $seq);
-					if($row !== null) {
-						$active[spl_object_id($row['handle'])] = $row;
-					} else {
-						$this->resultsBySeq[$seq] ??= $this->buildSpawnFailureResult($nextSpec);
-					}
-				}
 			}
 
 			if($running > 0) {
@@ -277,7 +271,7 @@ class WireHttpMulti extends WireHttp {
 					$this->log(sprintf('[WireHttpMulti] active=%d, queued=%d', count($active), count($pool)));
 				}
 			}
-		} while($running > 0 || !empty($active));
+		} while($running > 0 || !empty($active) || !empty($pool));
 
 		/** @var array $active */
 		foreach($active as $row) {
