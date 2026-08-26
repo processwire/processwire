@@ -291,7 +291,7 @@ class LazyCron extends WireData implements Module, ConfigurableModule, CliModule
 		
 		$this->removeLockfile();
 		
-		$this->saveResult(implode("\n", $results), false);
+		if(count($results)) $this->saveResult(implode("\n", $results), false);
 	}
 
 	/**
