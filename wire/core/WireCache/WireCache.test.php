@@ -168,6 +168,25 @@ class WireTest_WireCache extends WireTest {
 		$cache->deleteFor($this->prefix, 'preload-for');
 		$this->check('preloadFor() serves next getFor() from memory', 'preloaded namespace', $cache->getFor($this->prefix, 'preload-for'));
 
+		// preloading a cache that does not exist must not prevent a later get() from
+		// generating it, nor report it as an empty cache rather than a missing one
+		$cache->delete($name('preload-missing'));
+		$cache->preload([$name('preload-missing')]);
+		$funcCalled = false;
+		$value = $cache->get($name('preload-missing'), 3600, function() use(&$funcCalled) {
+			$funcCalled = true;
+			return 'generated after preload';
+		});
+		$this->check('preload() of missing cache still calls $func', true, $funcCalled);
+		$this->check('preload() of missing cache returns generated value', 'generated after preload', $value);
+		$cache->delete($name('preload-missing'));
+
+		$cache->preload([$name('preload-missing')]);
+		$this->check('preload() of missing cache gets null, not empty string', null, $cache->get($name('preload-missing')));
+
+		$this->check('get() of multiple caches still returns placeholders', array('' , ''),
+			array_values($cache->get(array($name('preload-none1'), $name('preload-none2')))));
+
 		// ===== DELETING, INFO AND CACHE NAME HELPERS =====
 
 		$cache->save($name('delete-one'), 'delete me', 3600);

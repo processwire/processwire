@@ -351,9 +351,14 @@ class WireCache extends Wire {
 				if($value !== false) $values[$name] = $value;
 			}
 			unset($rows);
-			foreach($names as $s) {
-				// ensure there is at least a placeholder for all requested caches
-				if(!isset($values[$s]) && !isset($wildcards[$s])) $values[$s] = '';
+			if(!$this->preloading) {
+				// ensure there is at least a placeholder for all requested caches.
+				// this is skipped while preloading, as a placeholder there would be kept in
+				// $preloads and returned by a later get() for that name, in place of either
+				// generating the value from a given $func or reporting that it is not cached.
+				foreach($names as $s) {
+					if(!isset($values[$s]) && !isset($wildcards[$s])) $values[$s] = '';
+				}
 			}
 			if($expireNow) {
 				// warning: expireNow in getMultiple mode does not support render cache value
