@@ -930,7 +930,7 @@ class ProcessWire extends Wire {
 			if($files) $this->fileSave = $files->compile($file, array('skipIfNamespace' => true));
 		}
 		$this->pathSave = getcwd();
-		chdir(dirname($this->fileSave));
+		chdir(dirname($file));
 		try {
 			if(count($data)) extract($data);
 			$fuel = $this->fuel->getArray();
