@@ -98,7 +98,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		'item_head' => "<h2>{out}</h2>", 
 		'item_notes' => "<p class='notes'>{out}</p>",
 		'item_detail' => "<p class='detail'>{out}</p>", 
-		'item_icon' => "<i class='InputfieldHeaderIcon fa fa-fw fa-{name}'></i> ",
+		'item_icon' => "<i class='InputfieldHeaderIcon {prefix} fa-fw fa-{name}'></i> ",
 		'item_toggle' => "<i class='toggle-icon fa fa-fw fa-angle-down' data-to='fa-angle-down fa-angle-right'></i>", 
 		// ALSO: 
 		// InputfieldAnything => array(any of the properties above to override on a per-Inputfield basis)
@@ -921,7 +921,21 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 						$activeName = $isCollapsed ? $collapsedIconName : $iconName;
 						$icon = "<i class='InputfieldHeaderIcon fa fa-fw fa-$activeName' data-icon-o='fa-$iconName' data-icon-c='fa-$collapsedIconName'></i> ";
 					} else {
-						$icon = str_replace('{name}', $iconName, $markup['item_icon']);
+						// resolve style prefix and any rename the same way wireIconMarkup() does,
+						// so that brand icons get 'fab', outline icons 'far' and the rest 'fas'.
+						// a custom item_icon markup without a {prefix} placeholder is unaffected.
+						$iconParts = explode(' ', wireIconMarkup($iconName, false));
+						if(count($iconParts) > 1) {
+							$iconPrefix = $iconParts[0];
+							$iconName = ltrim(substr($iconParts[1], 3), '-'); // remove 'fa-'
+						} else {
+							$iconPrefix = 'fa';
+						}
+						$icon = str_replace(
+							array('{prefix}', '{name}'),
+							array($iconPrefix, $iconName),
+							$markup['item_icon']
+						);
 					}
 				} else {
 					$icon = '';
