@@ -771,8 +771,22 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 		/** @var Page $page */
 		$page = $event->arguments[0];
-		if($page->template->name != self::languageTemplateName) return; 
-		$language = $page; 
+		if($page->template->name != self::languageTemplateName) return;
+		$language = $page;
+
+		// if the language being deleted is the one currently in use, switch back to the
+		// default language. Its language specific columns are about to be dropped, so
+		// anything sorting or matching on them afterwards would refer to a column that
+		// no longer exists, for the remainder of this request.
+		$user = $this->wire()->user;
+		$default = $this->wire()->languages->getDefault();
+		if($user && $default && $default->id != $language->id) {
+			$userLanguage = $user->get('language');
+			if($userLanguage && $userLanguage->id == $language->id) {
+				$user->setLanguage($default);
+				$this->message("Switched to default language, as language $language->name was deleted");
+			}
+		}
 
 		// remove any language-specific values from any fields
 		foreach($this->wire()->fields as $field) {
