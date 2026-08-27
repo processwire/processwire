@@ -10,7 +10,7 @@ class JqueryCore extends ModuleJS {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'jQuery Core',
-			'version' => '1.12.4',
+			'version' => '1.12.4-pw1', // -pw1: unload listener gated to IE only, see JqueryCore.js
 			'summary' => 'jQuery Core as required by ProcessWire Admin and plugins',
 			'href' => 'https://jquery.com', 
 			'permanent' => true,
