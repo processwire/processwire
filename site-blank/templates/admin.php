@@ -14,5 +14,8 @@
  * 
  */
 
+// PLACE YOUR HOOKS HERE
+
 /** @var Config $config */
 require($config->paths->core . "admin.php"); 
+// END OF FILE!
