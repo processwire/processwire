@@ -1208,6 +1208,11 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function processSave($replace = false) {
+
+		// Saving a copy or replacing the original are non-RTE image editing actions
+		if($this->rte || !$this->wire()->user->hasPermission('page-edit-images', $this->masterPage)) {
+			throw new WirePermissionException($this->labels['noAccess']);
+		}
 		
 		if(!$this->field) throw new WireException("Field is not defined"); 
 		if(!$this->original) throw new WireException("Original is not set");
