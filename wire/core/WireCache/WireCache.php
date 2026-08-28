@@ -1033,10 +1033,24 @@ class WireCache extends Wire {
 			// cacheNameSelectors already loaded once and is in cache
 		}
 
+		// if page was moved (i.e. to the trash), also test selectors against its previous
+		// location. properties like has_parent, parent and path are resolved from the page's
+		// current parent, so by this point they reflect only where the page moved to, and a
+		// cache expiring on the location it moved from would not otherwise be expired.
+		$pagePrevious = null;
+		$parent = $page->parent;
+		$parentPrevious = $page->parentPrevious;
+		if($parentPrevious && (!$parent || $parentPrevious->id != $parent->id)) {
+			$pagePrevious = clone $page;
+			$pagePrevious->setQuietly('parent', $parentPrevious);
+		}
+
 		// determine which selectors match the page: the $clearNames array
 		// will hold the selectors that match this $page
 		foreach($this->cacheNameSelectors as $name => $selectors) {
-			if($page->matches($selectors)) {
+			$matches = $page->matches($selectors);
+			if(!$matches && $pagePrevious !== null) $matches = $pagePrevious->matches($selectors);
+			if($matches) {
 				if($this->delete($name)) $qty++;
 			}
 		}

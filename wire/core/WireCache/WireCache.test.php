@@ -154,6 +154,46 @@ class WireTest_WireCache extends WireTest {
 		$cache->save($name('ignore-expired'), 'stale', date(WireCache::dateFormat, time() - 3600));
 		$this->check('get(expireIgnore) returns cache regardless of expiration', 'stale', $cache->get($name('ignore-expired'), WireCache::expireIgnore));
 
+		// ===== EXPIRATION FOR MOVED PAGES =====
+
+		// properties like has_parent resolve from the page's current parent, so a page that
+		// moved away from a location (i.e. was trashed) no longer matches a selector for it.
+		// caches expiring on the previous location must still be expired.
+		$movedParent = $pages->new([
+			'template' => $page->template,
+			'parent' => $page->parent,
+			'name' => $this->prefix . '-moved-parent',
+			'title' => 'WireCache moved parent',
+		]);
+		$movedChild = $pages->new([
+			'template' => $page->template,
+			'parent' => $movedParent,
+			'name' => $this->prefix . '-moved-child',
+			'title' => 'WireCache moved child',
+		]);
+		$movedChild2 = $pages->new([
+			'template' => $page->template,
+			'parent' => $movedParent,
+			'name' => $this->prefix . '-moved-child2',
+			'title' => 'WireCache moved child 2',
+		]);
+
+		$cache->save($name('expire-trashed'), 'parent-bound', "has_parent=$movedParent->id");
+		$this->check('has_parent cache is available before page is trashed', 'parent-bound', $cache->get($name('expire-trashed')));
+		$pages->trash($movedChild);
+		$this->check('trashing page clears cache expiring on its previous parent', null, $cache->get($name('expire-trashed')));
+
+		$cache->save($name('expire-moved'), 'parent-bound', "has_parent=$movedParent->id");
+		$cache->save($name('expire-unmoved'), 'other-bound', "has_parent=$page->id");
+		$movedChild2->parent = $page->parent;
+		$pages->save($movedChild2);
+		$this->check('moving page clears cache expiring on its previous parent', null, $cache->get($name('expire-moved')));
+		$this->check('moving page does not clear cache for unrelated parent', 'other-bound', $cache->get($name('expire-unmoved')));
+
+		$pages->delete($movedChild, true);
+		$pages->delete($movedChild2, true);
+		$pages->delete($movedParent, true);
+
 		// ===== PRELOADING =====
 
 		$cache->save($name('preload-a'), 'preload A', 3600);
