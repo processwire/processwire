@@ -140,6 +140,191 @@ class WireTest_FieldtypePage extends WireTest {
 		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
+
+		$this->testTrashPageRefs();
+		$this->testTrashPageRefsChunkBoundary();
+	}
+
+	/**
+	 * Test optional removal and restoration of references to trashed pages
+	 *
+	 */
+	protected function testTrashPageRefs() {
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$source = $this->getTestPage();
+		$template = $source->template;
+		$fieldMulti = $fields->get($this->fieldName);
+		$fieldSingle = $fields->get($this->fieldNameOrFalse);
+		$settings = array(
+			$fieldMulti->id => (int) $fieldMulti->get('trashPageRefs'),
+			$fieldSingle->id => (int) $fieldSingle->get('trashPageRefs'),
+		);
+		$targetParent = null;
+		$targetChild = null;
+
+		try {
+			$fieldMulti->trashPageRefs = FieldtypePage::trashPageRefsRemove;
+			$fieldSingle->trashPageRefs = FieldtypePage::trashPageRefsRemove;
+			$fieldMulti->save();
+			$fieldSingle->save();
+
+			$targetParent = $pages->new(array(
+				'template' => $template,
+				'parent' => $source,
+				'title' => 'FieldtypePage trash reference parent',
+			));
+			$targetChild = $pages->new(array(
+				'template' => $template,
+				'parent' => $targetParent,
+				'title' => 'FieldtypePage trash reference child',
+			));
+
+			$source->of(false);
+			$source->set($fieldMulti->name, null);
+			$source->get($fieldMulti->name)->add($targetParent)->add($targetChild);
+			$source->set($fieldSingle->name, $targetParent);
+			$source->save($fieldMulti->name);
+			$source->save($fieldSingle->name);
+
+			$this->check('Trash branch succeeds', true, $pages->trash($targetParent));
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+			$this->check('Trashed branch references removed from multi field', 0, $source->get($fieldMulti->name)->count());
+			$this->check('Trashed page reference removed from single field', false, $source->get($fieldSingle->name));
+			$this->check(
+				'Empty-count selector matches after references are removed',
+				1,
+				$pages->count("id=$source->id, $fieldMulti->name.count=0, include=all")
+			);
+
+			$current = $pages->get(1);
+			$source->get($fieldMulti->name)->add($current);
+			$source->set($fieldSingle->name, $current);
+			$source->save($fieldMulti->name);
+			$source->save($fieldSingle->name);
+
+			// Defining a parent also supports test pages whose initial sort value cannot
+			// be parsed from their temporary trash name by getRestoreInfo().
+			$targetParent->parent = $source;
+			$this->check('Restore branch succeeds', true, $pages->restore($targetParent));
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+			$this->check(
+				'Restored branch references retain order before current multi value',
+				array($targetParent->id, $targetChild->id, $current->id),
+				$source->get($fieldMulti->name)->explode('id')
+			);
+			$this->check(
+				'Current single value takes precedence over restored reference',
+				$current->id,
+				$source->get($fieldSingle->name)->id
+			);
+			$this->check(
+				'Restored parent reference metadata removed',
+				null,
+				$targetParent->meta(FieldtypePageTrash::metaKey)
+			);
+			$this->check(
+				'Restored child reference metadata removed',
+				null,
+				$targetChild->meta(FieldtypePageTrash::metaKey)
+			);
+
+		} finally {
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+			$source->set($fieldMulti->name, null);
+			$source->set($fieldSingle->name, null);
+			$source->save($fieldMulti->name);
+			$source->save($fieldSingle->name);
+
+			foreach(array($targetChild, $targetParent) as $target) {
+				if(!$target instanceof Page || !$target->id) continue;
+				$target = $pages->get($target->id);
+				if($target->id) $pages->delete($target, true);
+			}
+
+			$fieldMulti->trashPageRefs = $settings[$fieldMulti->id];
+			$fieldSingle->trashPageRefs = $settings[$fieldSingle->id];
+			$fieldMulti->save();
+			$fieldSingle->save();
+		}
+	}
+
+	/**
+	 * Test trash reference handling across the 500-page chunk boundary
+	 *
+	 */
+	protected function testTrashPageRefsChunkBoundary() {
+		$pages = $this->wire()->pages;
+		$database = $this->wire()->database;
+		$source = $this->getTestPage();
+		$field = $this->wire()->fields->get($this->fieldName);
+		$setting = (int) $field->get('trashPageRefs');
+		$numTargets = FieldtypePage::deleteChunkSize + 1;
+		$branch = null;
+		$targetIds = array();
+
+		try {
+			$field->trashPageRefs = FieldtypePage::trashPageRefsRemove;
+			$field->save();
+			$branch = $pages->new(array(
+				'template' => $source->template,
+				'parent' => $source,
+				'title' => 'FieldtypePage trash chunk branch',
+			));
+			$value = $pages->newPageArray();
+			for($n = 1; $n <= $numTargets; $n++) {
+				$target = $pages->new(array(
+					'template' => $source->template,
+					'parent' => $branch,
+					'name' => "wire-test-trash-ref-$n",
+					'title' => "FieldtypePage trash reference $n",
+				));
+				$value->add($target);
+				$targetIds[] = $target->id;
+			}
+
+			$source->of(false);
+			$source->set($field->name, $value);
+			$source->save($field->name);
+			$this->check('Chunk-boundary branch trash succeeds', true, $pages->trash($branch));
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+			$this->check('Chunk-boundary references removed', 0, $source->get($field->name)->count());
+
+			$ids = implode(',', $targetIds);
+			$query = $database->prepare(
+				"SELECT COUNT(*) FROM pages_meta WHERE name=:name AND source_id IN($ids)"
+			);
+			$query->bindValue(':name', FieldtypePageTrash::metaKey);
+			$query->execute();
+			$this->check('Chunk-boundary metadata saved for every target', $numTargets, (int) $query->fetchColumn());
+
+			$branch->parent = $source;
+			$this->check('Chunk-boundary branch restore succeeds', true, $pages->restore($branch));
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+			$value = $source->get($field->name);
+			$this->check('Chunk-boundary references restored', $numTargets, $value->count());
+			$this->check('Chunk-boundary first reference retains order', reset($targetIds), $value->first()->id);
+			$this->check('Chunk-boundary last reference retains order', end($targetIds), $value->last()->id);
+			$query->execute();
+			$this->check('Chunk-boundary metadata removed after restore', 0, (int) $query->fetchColumn());
+
+		} finally {
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+			$source->set($field->name, null);
+			$source->save($field->name);
+			if($branch instanceof Page && $branch->id) {
+				$branch = $pages->get($branch->id);
+				if($branch->id) $pages->delete($branch, true);
+			}
+			$field->trashPageRefs = $setting;
+			$field->save();
+		}
 	}
 
 	protected function ensureFields() {

@@ -9,6 +9,8 @@
  *   0=PageArray (default), 1=Page or false when empty, 2=Page or NullPage when empty.
  *   Use FieldtypePage::derefAsPageArray, ::derefAsPageOrFalse, ::derefAsPageOrNullPage constants.
  * @property int|bool $allowUnpub Include unpublished pages in the field value? (default=false).
+ * @property int $trashPageRefs How references behave while their target page is in the trash:
+ *   0=keep references (default), 1=remove references and restore them with the page.
  *
  * Configured with InputfieldPage
  * ==============================

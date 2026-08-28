@@ -24,6 +24,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	const derefAsPageArray = 0; 
 	const derefAsPageOrFalse = 1; 
 	const derefAsPageOrNullPage = 2;
+	const trashPageRefsKeep = 0;
+	const trashPageRefsRemove = 1;
 
 	/**
 	 * Subfield names that will match to the 'pages' table, rather than custom fields
@@ -78,6 +80,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	protected $finishedHookAdded = false;
 
 	/**
+	 * Helper that removes and restores references when pages are trashed/restored
+	 *
+	 * @var FieldtypePageTrash|null
+	 *
+	 */
+	protected $fieldtypePageTrash = null;
+
+	/**
 	 * Maximum number of page IDs to include in one DELETE statement
 	 *
 	 */
@@ -98,6 +108,9 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			$this->addHookAfter('Pages::deleteBranchReady', $this, 'hookPagesDeleteBranchReady');
 			$this->addHookAfter('Pages::deletedBranch', $this, 'hookPagesDeletedBranch');
 		}
+		include_once(__DIR__ . '/FieldtypePageTrash.php');
+		$this->fieldtypePageTrash = $this->wire(new FieldtypePageTrash());
+		$this->fieldtypePageTrash->init();
 	}
 
 	/**
@@ -1732,6 +1745,18 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$checkbox->icon = 'eye-slash';
 		if(!$value) $checkbox->collapsed = Inputfield::collapsedYes;
 		$inputfields->append($checkbox);
+
+		/** @var InputfieldRadios $select */
+		$select = $modules->get('InputfieldRadios');
+		$select->attr('name', 'trashPageRefs');
+		$select->label = $this->_('References to pages in the trash');
+		$select->description = $this->_('Choose whether references remain stored while their referenced page is in the trash. Removed references are restored if the page is restored.');
+		$select->addOption(self::trashPageRefsKeep, $this->_('Keep references (default)'));
+		$select->addOption(self::trashPageRefsRemove, $this->_('Remove references while referenced page is in the trash'));
+		$select->attr('value', (int) $field->get('trashPageRefs'));
+		$select->icon = 'trash-o';
+		if(!$field->get('trashPageRefs')) $select->collapsed = Inputfield::collapsedYes;
+		$inputfields->append($select);
 
 		return $inputfields; 
 	}
