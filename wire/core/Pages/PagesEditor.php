@@ -999,15 +999,19 @@ class PagesEditor extends Wire {
 				$this->pages->added($triggerAddedPage);
 				$logHooks[] = "added";
 			}
-			if($page->namePrevious && $page->namePrevious != $page->name) {
+			// the namePrevious, parentPrevious and templatePrevious properties record the
+			// value the page was loaded with and are intentionally not reset by a save, so
+			// their presence alone does not indicate a change made by this particular save.
+			// consult $changes for that, same as statusChanged below.
+			if($page->namePrevious && in_array('name', $changes)) {
 				$this->pages->renamed($page);
 				$logHooks[] = "renamed";
 			}
-			if($page->parentPrevious) {
+			if($page->parentPrevious && in_array('parent', $changes)) {
 				$this->pages->moved($page);
 				$logHooks[] = "moved";
 			}
-			if($page->templatePrevious) {
+			if($page->templatePrevious && in_array('template', $changes)) {
 				$this->pages->templateChanged($page);
 				$logHooks[] = "templateChanged";
 			}
