@@ -166,8 +166,8 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
             $newFrames = array();
             foreach($originalFrames as $k => $v) {
                 $frame = @imagecreatefromstring($v);
-                if(!is_resource($frame)) continue;
-                if(!is_resource($bg)) {
+                if(!$this->isValidGDImage($frame)) continue;
+                if(!$this->isValidGDImage($bg)) {
                     $bg = imagecreatetruecolor($fullWidth, $fullHeight);
                     $this->prepareGDimage($bg);
                 }
@@ -189,7 +189,7 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
             if(count($newFrames) > 0) {
                 $frames = array();
                 foreach($newFrames as $nf) {
-                    if(!is_resource($nf)) continue;
+                    if(!$this->isValidGDImage($nf)) continue;
                     ob_start();
                     imagegif($nf);
                     $gifdata = ob_get_clean();
@@ -213,9 +213,9 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
             } else {
                 // $result = false;
             }
-            if(isset($bg) && is_resource($bg)) @imagedestroy($bg);
-            if(isset($frame) && is_resource($frame)) @imagedestroy($frame);
-            if(isset($newimg) && is_resource($newimg)) @imagedestroy($newimg);
+            if(isset($bg) && $this->isValidGDImage($bg)) @imagedestroy($bg);
+            if(isset($frame) && $this->isValidGDImage($frame)) @imagedestroy($frame);
+            if(isset($newimg) && $this->isValidGDImage($newimg)) @imagedestroy($newimg);
             unset($gif, $gifmerge, $originalFrames, $originalFramesMeta, $newFrames, $cropHeight, $cropWidth, $cropX, $cropY, $dstH, $dstW, $dstX, $dstY, $frames, $nf, $srcH, $srcW, $srcX, $srcY);
             $this->meta = null;
         }
@@ -250,10 +250,10 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
             $ratio = ($ratio_h > $ratio_w ? $ratio_h : $ratio_w);
             foreach($originalFrames as $k => $v) {
                 $frame = @imagecreatefromstring($v);
-                if(!is_resource($frame)) continue;
+                if(!$this->isValidGDImage($frame)) continue;
                 $newimg = imagecreatetruecolor($finalWidth, $finalHeight);
                 $this->prepareGDimage($newimg);
-                if(is_resource($bg)) {
+                if($this->isValidGDImage($bg)) {
                     imagecopy($newimg, $bg, 0, 0, 0, 0, $finalWidth, $finalHeight);
                 }
                 $srcX = 0;
@@ -266,7 +266,7 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
                 $dstH = ceil($originalFramesMeta[$k]['height'] / $ratio);
                 imagecopyresampled($newimg, $frame, $dstX, $dstY, $srcX, $srcY, $dstW, $dstH, $srcW, $srcH);
                 array_push($newFrames, $newimg);
-                if(!is_resource($bg)) {
+                if(!$this->isValidGDImage($bg)) {
                     $bg = imagecreatetruecolor($finalWidth, $finalHeight);
                     $this->prepareGDimage($bg);
                 }
@@ -283,10 +283,10 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
             $ratio = ($ratio_h > $ratio_w ? $ratio_h : $ratio_w);
             foreach($originalFrames as $k => $v) {
                 $frame = @imagecreatefromstring($v);
-                if(!is_resource($frame)) continue;
+                if(!$this->isValidGDImage($frame)) continue;
                 $newimg = imagecreatetruecolor($bgWidth, $bgHeight);
                 $this->prepareGDimage($newimg);
-                if(is_resource($bg)) {
+                if($this->isValidGDImage($bg)) {
                     imagecopy($newimg, $bg, 0, 0, 0, 0, $bgWidth, $bgHeight);
                 }
                 $srcX = 0;
@@ -298,7 +298,7 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
                 $dstW = ceil($originalFramesMeta[$k]['width'] / $ratio);
                 $dstH = ceil($originalFramesMeta[$k]['height'] / $ratio);
                 imagecopyresampled($newimg, $frame, $dstX, $dstY, $srcX, $srcY, $dstW, $dstH, $srcW, $srcH);
-                if(!is_resource($bg)) {
+                if(!$this->isValidGDImage($bg)) {
                     $bg = imagecreatetruecolor($bgWidth, $bgHeight);
                     $this->prepareGDimage($bg);
                 }
@@ -314,7 +314,7 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
         if(count($newFrames) > 0) {
             $frames = array();
             foreach($newFrames as $nf) {
-                if(!is_resource($nf)) continue;
+                if(!$this->isValidGDImage($nf)) continue;
                 ob_start();
                 imagegif($nf);
                 $gifdata = ob_get_clean();
@@ -334,9 +334,9 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
             $result = false;
         }
 
-        if(isset($bg) && is_resource($bg)) @imagedestroy($bg);
-        if(isset($frame) && is_resource($frame)) @imagedestroy($frame);
-        if(isset($newimg) && is_resource($newimg)) @imagedestroy($newimg);
+        if(isset($bg) && $this->isValidGDImage($bg)) @imagedestroy($bg);
+        if(isset($frame) && $this->isValidGDImage($frame)) @imagedestroy($frame);
+        if(isset($newimg) && $this->isValidGDImage($newimg)) @imagedestroy($newimg);
 
 		if(!$result) {
 			return false;
@@ -344,6 +344,20 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
 
 		$this->modified = true;
 		return true;
+	}
+
+	/**
+	 * Is the given value a valid GD image handle?
+	 *
+	 * GD uses resources before PHP 8 and GdImage objects in PHP 8+.
+	 *
+	 * @param mixed $image
+	 * @return bool
+	 *
+	 */
+	protected function isValidGDImage($image) {
+		return (is_resource($image) && get_resource_type($image) === 'gd') ||
+			(is_object($image) && $image instanceof \GdImage);
 	}
 
 	/**
