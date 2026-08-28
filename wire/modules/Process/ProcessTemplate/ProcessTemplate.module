@@ -253,6 +253,11 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 
 		$out .= "\n</div><!--/#ProcessTemplateList-->";
 
+		// buttons are added to a wrapper rather than rendered directly, so that they are
+		// positioned the same way as the equivalent buttons in the Fields list
+		/** @var InputfieldWrapper $buttons */
+		$buttons = $this->wire(new InputfieldWrapper());
+
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
 		$button->href = "./add";
@@ -260,7 +265,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$button->icon = 'plus-circle';
 		$button->addClass('add_template_button'); 
 		$button->showInHeader();
-		$out .= $button->render();
+		$buttons->add($button);
 
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
@@ -268,7 +273,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$button->href = './tags/';
 		$button->icon = 'tags';
 		$button->value = $this->labels['manageTags'];
-		$out .= $button->render();
+		$buttons->add($button);
 
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
@@ -277,7 +282,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$button->value = $this->labels['Import'];
 		$button->icon = 'paste';
 		$button->setSecondary();
-		$out .= $button->render();
+		$buttons->add($button);
 
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
@@ -286,7 +291,9 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$button->value = $this->labels['Export']; 
 		$button->icon = 'copy';
 		$button->setSecondary();
-		$out .= $button->render();
+		$buttons->add($button);
+
+		$out .= $buttons->render();
 
 		if($this->wire()->input->get('nosave')) {
 			$session->removeFor($this, 'filterSystem');
