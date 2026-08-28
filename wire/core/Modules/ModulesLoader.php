@@ -760,13 +760,13 @@ class ModulesLoader extends ModulesClass {
 		}
 
 		$info = $this->modules->getModuleInfo($module ? $module : $moduleName);
+
+		if(!$user instanceof User) $user = $this->wire()->user;
+		if($user && $user->isSuperuser()) return true;
 		
 		if(empty($info['permission']) && empty($info['permissionMethod'])) {
 			return ($strict ? false : true);
 		}
-
-		if(!$user instanceof User) $user = $this->wire()->user;
-		if($user && $user->isSuperuser()) return true;
 
 		if(!empty($info['permission'])) {
 			if(!$user->hasPermission($info['permission'])) return false;

@@ -25,7 +25,20 @@ class WireTest_ProcessController extends WireTest {
 	}
 
 	public function execute() {
+		$superuser = $this->wire()->users->get($this->wire()->config->superUserPageID);
+		$this->wire()->users->setCurrentUser($superuser);
+		$this->check(
+			'superuser can execute Process without permission settings',
+			true,
+			$this->canGetProcess('ProcessPageTrash')
+		);
+
 		$this->wire()->users->setCurrentUser($this->testUser);
+		$this->check(
+			'non-superuser cannot execute Process without permission settings',
+			false,
+			$this->canGetProcess('ProcessPageTrash')
+		);
 
 		ProcessTestPermission::$allow = false;
 		ProcessTestPermission::$calls = 0;
@@ -52,11 +65,12 @@ class WireTest_ProcessController extends WireTest {
 		}
 	}
 
-	protected function canGetProcess() {
+	protected function canGetProcess($moduleClass = '') {
+		if(!$moduleClass) $moduleClass = $this->moduleClass;
 		$controller = $this->wire(new ProcessController());
-		$controller->setProcessName($this->moduleClass);
+		$controller->setProcessName($moduleClass);
 		try {
-			return $controller->getProcess() instanceof ProcessTestPermission;
+			return wireInstanceOf($controller->getProcess(), $moduleClass);
 		} catch(ProcessControllerPermissionException $e) {
 			return false;
 		}
