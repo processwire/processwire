@@ -348,20 +348,17 @@ class MarkupPagerNav extends Wire implements Module {
 				if($item->type == 'current') $this->isLastPage = true; 
 			}
 
-			$itemExtraAttr = '';
-			if($item->type == 'current') {
-				$itemAriaLabel = $this->options['currentItemAriaLabel'];
-				$itemExtraAttr = ' ' . $this->options['currentItemExtraAttr'];
-			} else if($item->type == 'previous') {
-				$itemAriaLabel = $this->options['previousItemAriaLabel'];
-			} else if($item->type == 'next') {
-				$itemAriaLabel = $this->options['nextItemAriaLabel'];
-			} else if($item->type == 'last') {
-				$itemAriaLabel = $this->options['lastItemAriaLabel'];
+			if(isset($this->options[$item->type . 'ItemAriaLabel'])) {
+				$itemAriaLabel = $this->options[$item->type . 'ItemAriaLabel'];
 			} else {
 				$itemAriaLabel = $this->options['itemAriaLabel'];
 			}
-			$itemAriaLabel = str_replace('{n}', $item->pageNum, $itemAriaLabel);
+			$itemAriaLabel = str_replace('{n}', $item->pageNum, $itemAriaLabel);			
+			
+			$itemExtraAttr = '';
+			if($item->type == 'current') {
+				$itemExtraAttr = ' ' . $this->options['currentItemExtraAttr'];
+			}
 			
 			if(isset($this->options[$item->type . 'LinkMarkup'])) {
 				$linkMarkup = $this->options[$item->type . 'LinkMarkup'];
