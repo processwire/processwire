@@ -745,9 +745,14 @@ class PagesLoader extends Wire {
 						$tmpAutojoinFields[$field->id] = $field;
 					}
 				} else {
-					// set blank values where joinField didn't appear on page row 
+					// set blank values where joinField didn't appear on page row
 					$blankValue = $field->type->getBlankValue($page, $field);
 					$page->setFieldValue($field->name, $blankValue, false);
+					// setFieldValue() on a not-yet-loaded page queues the value for wakeup, but
+					// this blank value is already awake, and waking it fabricates a value for
+					// some fieldtypes (i.e. FieldtypeOptions resolves any object to its first
+					// option), so remove it from the wakeup queue
+					$page->wakeupNameQueue($field->name, false);
 				}
 			}
 
@@ -1331,9 +1336,12 @@ class PagesLoader extends Wire {
 					$table = $database->escapeTable($field->table);
 					// check autojoin not allowed, otherwise merge in the autojoin query
 					$fieldtype = $field->type;
-					if(!$fieldtype || !$fieldtype->getLoadQueryAutojoin($field, $query)) continue; 
-					// complete autojoin
-					$query->leftjoin("$table ON $table.pages_id=pages.id"); // QA
+					if(!$fieldtype) continue;
+					$numJoins = count($query->leftjoin);
+					if(!$fieldtype->getLoadQueryAutojoin($field, $query)) continue;
+					// complete autojoin, unless the fieldtype already added its own join
+					// (i.e. FieldtypeMulti joins a pre-aggregated derived table)
+					if(count($query->leftjoin) === $numJoins) $query->leftjoin("$table ON $table.pages_id=pages.id"); // QA
 				}
 			}
 			
@@ -2169,15 +2177,25 @@ class PagesLoader extends Wire {
 			$table = $field->getTable();
 		
 			// build selects and joins
-			foreach(array_keys($schema) as $colName) {
-				if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) {
-					$sep = FieldtypeMulti::multiValueSeparator;
-					$orderBy = "ORDER BY $table.sort";
-					$selects[] = "GROUP_CONCAT($table.$colName $orderBy SEPARATOR '$sep') AS `{$table}__$colName`";
-				} else {
-					$selects[] = "$table.$colName AS {$table}__$colName";
+			if($options['useFieldtypeMulti'] && $fieldtype instanceof FieldtypeMulti) {
+				// pre-aggregate each multi-value field in its own derived table joined 1:1
+				// so multiple multi-value fields cannot cross-multiply (cartesian product),
+				// and use a hex literal separator so the NUL byte never appears in the SQL
+				$sep = '0x' . bin2hex(FieldtypeMulti::multiValueSeparator);
+				$alias = $table . '__aj';
+				$concats = array();
+				foreach(array_keys($schema) as $colName) {
+					$concats[] = "GROUP_CONCAT($table.$colName ORDER BY $table.sort SEPARATOR $sep) AS `$colName`";
+					$selects[] = "$alias.`$colName` AS `{$table}__$colName`";
 				}
-				$joins[$table] = "LEFT JOIN $table ON $table.pages_id=pages.id";
+				$joins[$table] =
+					"LEFT JOIN (SELECT $table.pages_id, " . implode(', ', $concats) . " " .
+					"FROM $table GROUP BY $table.pages_id) AS $alias ON $alias.pages_id=pages.id";
+			} else {
+				foreach(array_keys($schema) as $colName) {
+					$selects[] = "$table.$colName AS {$table}__$colName";
+					$joins[$table] = "LEFT JOIN $table ON $table.pages_id=pages.id";
+				}
 			}
 			
 			unset($fieldNames[$fieldKey]);

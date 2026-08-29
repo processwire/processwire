@@ -1756,8 +1756,13 @@ class PageFinder extends Wire {
 					if(!$joinField instanceof Field) continue;
 					$joinTable = $database->escapeTable($joinField->getTable());
 					if(!$joinTable || !$joinField->type) continue;
+					$numJoins = count($query->leftjoin);
 					if($joinField->type->getLoadQueryAutojoin($joinField, $query)) {
-						$autojoinTables[$joinTable] = $joinTable; // added at end if not already joined
+						if(count($query->leftjoin) === $numJoins) {
+							// fieldtype did not add its own join (i.e. FieldtypeMulti joins a
+							// pre-aggregated derived table), so join the raw table at the end
+							$autojoinTables[$joinTable] = $joinTable; // added at end if not already joined
+						}
 						$this->pageArrayData['joinFields'][$joinField->name] = true;
 					} else {
 						// fieldtype does not support autojoin
