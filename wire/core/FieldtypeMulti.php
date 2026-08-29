@@ -254,7 +254,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $e ]); 
 		}
 		
-		if(!count($values)) {
+		if(!isset($values) || !count($values)) {
 			// no values to insert, exit early
 			if($useTransaction) $database->commit();
 			return true;
