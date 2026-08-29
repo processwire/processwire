@@ -8,724 +8,716 @@ a, .uk-link { /* RJC */
 	color: var(--pw-main-color);
 }
 
-.uk-section-primary:not(.uk-preserve-color),.uk-section-secondary:not(.uk-preserve-color),.uk-tile-primary:not(.uk-preserve-color),.uk-tile-secondary:not(.uk-preserve-color),.uk-card-primary.uk-card-body,.uk-card-primary>:not([class*='uk-card-media']),.uk-card-secondary.uk-card-body,.uk-card-secondary>:not([class*='uk-card-media']),.uk-overlay-primary {
-	color: light-dark(var(--pw-blocks-background), var(--pw-text-color));
-}
-
-.uk-section-primary:not(.uk-preserve-color) a,.uk-section-primary:not(.uk-preserve-color) .uk-link,.uk-section-secondary:not(.uk-preserve-color) a,.uk-section-secondary:not(.uk-preserve-color) .uk-link,.uk-tile-primary:not(.uk-preserve-color) a,.uk-tile-primary:not(.uk-preserve-color) .uk-link,.uk-tile-secondary:not(.uk-preserve-color) a,.uk-tile-secondary:not(.uk-preserve-color) .uk-link,.uk-card-primary.uk-card-body a,.uk-card-primary.uk-card-body .uk-link,.uk-card-primary>:not([class*='uk-card-media']) a,.uk-card-primary>:not([class*='uk-card-media']) .uk-link,.uk-card-secondary.uk-card-body a,.uk-card-secondary.uk-card-body .uk-link,.uk-card-secondary>:not([class*='uk-card-media']) a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link,.uk-overlay-primary a,.uk-overlay-primary .uk-link {
-	color: inherit;
-}
-
-a:hover,.uk-link:hover,.uk-link-toggle:hover .uk-link,.uk-section-primary:not(.uk-preserve-color) a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link,.uk-section-secondary:not(.uk-preserve-color) a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link,.uk-tile-primary:not(.uk-preserve-color) a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link,.uk-tile-secondary:not(.uk-preserve-color) a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link,.uk-card-primary.uk-card-body a:hover,.uk-card-primary.uk-card-body .uk-link:hover,.uk-card-primary.uk-card-body .uk-link-toggle:hover .uk-link,.uk-card-primary>:not([class*='uk-card-media']) a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link,.uk-card-secondary.uk-card-body a:hover,.uk-card-secondary.uk-card-body .uk-link:hover,.uk-card-secondary.uk-card-body .uk-link-toggle:hover .uk-link,.uk-card-secondary>:not([class*='uk-card-media']) a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link,.uk-overlay-primary a:hover,.uk-overlay-primary .uk-link:hover,.uk-overlay-primary .uk-link-toggle:hover .uk-link {
+a:hover,.uk-link:hover,.uk-link-toggle:hover .uk-link{
 	color: var(--pw-text-color)
 }
 
-:not(pre)>code,:not(pre)>kbd,:not(pre)>samp,.uk-section-primary:not(.uk-preserve-color) :not(pre)>code,.uk-section-primary:not(.uk-preserve-color) :not(pre)>kbd,.uk-section-primary:not(.uk-preserve-color) :not(pre)>samp,.uk-section-secondary:not(.uk-preserve-color) :not(pre)>code,.uk-section-secondary:not(.uk-preserve-color) :not(pre)>kbd,.uk-section-secondary:not(.uk-preserve-color) :not(pre)>samp,.uk-tile-primary:not(.uk-preserve-color) :not(pre)>code,.uk-tile-primary:not(.uk-preserve-color) :not(pre)>kbd,.uk-tile-primary:not(.uk-preserve-color) :not(pre)>samp,.uk-tile-secondary:not(.uk-preserve-color) :not(pre)>code,.uk-tile-secondary:not(.uk-preserve-color) :not(pre)>kbd,.uk-tile-secondary:not(.uk-preserve-color) :not(pre)>samp,.uk-card-primary.uk-card-body :not(pre)>code,.uk-card-primary.uk-card-body :not(pre)>kbd,.uk-card-primary.uk-card-body :not(pre)>samp,.uk-card-primary>:not([class*='uk-card-media']) :not(pre)>code,.uk-card-primary>:not([class*='uk-card-media']) :not(pre)>kbd,.uk-card-primary>:not([class*='uk-card-media']) :not(pre)>samp,.uk-card-secondary.uk-card-body :not(pre)>code,.uk-card-secondary.uk-card-body :not(pre)>kbd,.uk-card-secondary.uk-card-body :not(pre)>samp,.uk-card-secondary>:not([class*='uk-card-media']) :not(pre)>code,.uk-card-secondary>:not([class*='uk-card-media']) :not(pre)>kbd,.uk-card-secondary>:not([class*='uk-card-media']) :not(pre)>samp,.uk-overlay-primary :not(pre)>code,.uk-overlay-primary :not(pre)>kbd,.uk-overlay-primary :not(pre)>samp {
+:not(pre)>code,:not(pre)>kbd,:not(pre)>samp{
 	color: var(--pw-muted-color);
 	background-color: var(--pw-inputs-background)
 }
 
-em,.uk-section-primary:not(.uk-preserve-color) em,.uk-section-secondary:not(.uk-preserve-color) em,.uk-tile-primary:not(.uk-preserve-color) em,.uk-tile-secondary:not(.uk-preserve-color) em,.uk-card-primary.uk-card-body em,.uk-card-primary>:not([class*='uk-card-media']) em,.uk-card-secondary.uk-card-body em,.uk-card-secondary>:not([class*='uk-card-media']) em,.uk-overlay-primary em {
+em{
 	color: var(--pw-text-color)
 }
 
-h1,.uk-h1,h2,.uk-h2,h3,.uk-h3,h4,.uk-h4,h5,.uk-h5,h6,.uk-h6,.uk-heading-small,.uk-heading-medium,.uk-heading-large,.uk-heading-xlarge,.uk-heading-2xlarge,.uk-heading-3xlarge,.uk-section-primary:not(.uk-preserve-color) h1,.uk-section-primary:not(.uk-preserve-color) .uk-h1,.uk-section-primary:not(.uk-preserve-color) h2,.uk-section-primary:not(.uk-preserve-color) .uk-h2,.uk-section-primary:not(.uk-preserve-color) h3,.uk-section-primary:not(.uk-preserve-color) .uk-h3,.uk-section-primary:not(.uk-preserve-color) h4,.uk-section-primary:not(.uk-preserve-color) .uk-h4,.uk-section-primary:not(.uk-preserve-color) h5,.uk-section-primary:not(.uk-preserve-color) .uk-h5,.uk-section-primary:not(.uk-preserve-color) h6,.uk-section-primary:not(.uk-preserve-color) .uk-h6,.uk-section-primary:not(.uk-preserve-color) .uk-heading-small,.uk-section-primary:not(.uk-preserve-color) .uk-heading-medium,.uk-section-primary:not(.uk-preserve-color) .uk-heading-large,.uk-section-primary:not(.uk-preserve-color) .uk-heading-xlarge,.uk-section-primary:not(.uk-preserve-color) .uk-heading-2xlarge,.uk-section-primary:not(.uk-preserve-color) .uk-heading-3xlarge,.uk-section-secondary:not(.uk-preserve-color) h1,.uk-section-secondary:not(.uk-preserve-color) .uk-h1,.uk-section-secondary:not(.uk-preserve-color) h2,.uk-section-secondary:not(.uk-preserve-color) .uk-h2,.uk-section-secondary:not(.uk-preserve-color) h3,.uk-section-secondary:not(.uk-preserve-color) .uk-h3,.uk-section-secondary:not(.uk-preserve-color) h4,.uk-section-secondary:not(.uk-preserve-color) .uk-h4,.uk-section-secondary:not(.uk-preserve-color) h5,.uk-section-secondary:not(.uk-preserve-color) .uk-h5,.uk-section-secondary:not(.uk-preserve-color) h6,.uk-section-secondary:not(.uk-preserve-color) .uk-h6,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-small,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-medium,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-large,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-xlarge,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-2xlarge,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-3xlarge,.uk-tile-primary:not(.uk-preserve-color) h1,.uk-tile-primary:not(.uk-preserve-color) .uk-h1,.uk-tile-primary:not(.uk-preserve-color) h2,.uk-tile-primary:not(.uk-preserve-color) .uk-h2,.uk-tile-primary:not(.uk-preserve-color) h3,.uk-tile-primary:not(.uk-preserve-color) .uk-h3,.uk-tile-primary:not(.uk-preserve-color) h4,.uk-tile-primary:not(.uk-preserve-color) .uk-h4,.uk-tile-primary:not(.uk-preserve-color) h5,.uk-tile-primary:not(.uk-preserve-color) .uk-h5,.uk-tile-primary:not(.uk-preserve-color) h6,.uk-tile-primary:not(.uk-preserve-color) .uk-h6,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-small,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-medium,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-large,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-xlarge,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-2xlarge,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-3xlarge,.uk-tile-secondary:not(.uk-preserve-color) h1,.uk-tile-secondary:not(.uk-preserve-color) .uk-h1,.uk-tile-secondary:not(.uk-preserve-color) h2,.uk-tile-secondary:not(.uk-preserve-color) .uk-h2,.uk-tile-secondary:not(.uk-preserve-color) h3,.uk-tile-secondary:not(.uk-preserve-color) .uk-h3,.uk-tile-secondary:not(.uk-preserve-color) h4,.uk-tile-secondary:not(.uk-preserve-color) .uk-h4,.uk-tile-secondary:not(.uk-preserve-color) h5,.uk-tile-secondary:not(.uk-preserve-color) .uk-h5,.uk-tile-secondary:not(.uk-preserve-color) h6,.uk-tile-secondary:not(.uk-preserve-color) .uk-h6,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-small,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-medium,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-large,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-xlarge,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-2xlarge,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-3xlarge,.uk-card-primary.uk-card-body h1,.uk-card-primary.uk-card-body .uk-h1,.uk-card-primary.uk-card-body h2,.uk-card-primary.uk-card-body .uk-h2,.uk-card-primary.uk-card-body h3,.uk-card-primary.uk-card-body .uk-h3,.uk-card-primary.uk-card-body h4,.uk-card-primary.uk-card-body .uk-h4,.uk-card-primary.uk-card-body h5,.uk-card-primary.uk-card-body .uk-h5,.uk-card-primary.uk-card-body h6,.uk-card-primary.uk-card-body .uk-h6,.uk-card-primary.uk-card-body .uk-heading-small,.uk-card-primary.uk-card-body .uk-heading-medium,.uk-card-primary.uk-card-body .uk-heading-large,.uk-card-primary.uk-card-body .uk-heading-xlarge,.uk-card-primary.uk-card-body .uk-heading-2xlarge,.uk-card-primary.uk-card-body .uk-heading-3xlarge,.uk-card-primary>:not([class*='uk-card-media']) h1,.uk-card-primary>:not([class*='uk-card-media']) .uk-h1,.uk-card-primary>:not([class*='uk-card-media']) h2,.uk-card-primary>:not([class*='uk-card-media']) .uk-h2,.uk-card-primary>:not([class*='uk-card-media']) h3,.uk-card-primary>:not([class*='uk-card-media']) .uk-h3,.uk-card-primary>:not([class*='uk-card-media']) h4,.uk-card-primary>:not([class*='uk-card-media']) .uk-h4,.uk-card-primary>:not([class*='uk-card-media']) h5,.uk-card-primary>:not([class*='uk-card-media']) .uk-h5,.uk-card-primary>:not([class*='uk-card-media']) h6,.uk-card-primary>:not([class*='uk-card-media']) .uk-h6,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-small,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-medium,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-large,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-xlarge,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-2xlarge,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-3xlarge,.uk-card-secondary.uk-card-body h1,.uk-card-secondary.uk-card-body .uk-h1,.uk-card-secondary.uk-card-body h2,.uk-card-secondary.uk-card-body .uk-h2,.uk-card-secondary.uk-card-body h3,.uk-card-secondary.uk-card-body .uk-h3,.uk-card-secondary.uk-card-body h4,.uk-card-secondary.uk-card-body .uk-h4,.uk-card-secondary.uk-card-body h5,.uk-card-secondary.uk-card-body .uk-h5,.uk-card-secondary.uk-card-body h6,.uk-card-secondary.uk-card-body .uk-h6,.uk-card-secondary.uk-card-body .uk-heading-small,.uk-card-secondary.uk-card-body .uk-heading-medium,.uk-card-secondary.uk-card-body .uk-heading-large,.uk-card-secondary.uk-card-body .uk-heading-xlarge,.uk-card-secondary.uk-card-body .uk-heading-2xlarge,.uk-card-secondary.uk-card-body .uk-heading-3xlarge,.uk-card-secondary>:not([class*='uk-card-media']) h1,.uk-card-secondary>:not([class*='uk-card-media']) .uk-h1,.uk-card-secondary>:not([class*='uk-card-media']) h2,.uk-card-secondary>:not([class*='uk-card-media']) .uk-h2,.uk-card-secondary>:not([class*='uk-card-media']) h3,.uk-card-secondary>:not([class*='uk-card-media']) .uk-h3,.uk-card-secondary>:not([class*='uk-card-media']) h4,.uk-card-secondary>:not([class*='uk-card-media']) .uk-h4,.uk-card-secondary>:not([class*='uk-card-media']) h5,.uk-card-secondary>:not([class*='uk-card-media']) .uk-h5,.uk-card-secondary>:not([class*='uk-card-media']) h6,.uk-card-secondary>:not([class*='uk-card-media']) .uk-h6,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-small,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-medium,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-large,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-xlarge,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-2xlarge,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-3xlarge,.uk-overlay-primary h1,.uk-overlay-primary .uk-h1,.uk-overlay-primary h2,.uk-overlay-primary .uk-h2,.uk-overlay-primary h3,.uk-overlay-primary .uk-h3,.uk-overlay-primary h4,.uk-overlay-primary .uk-h4,.uk-overlay-primary h5,.uk-overlay-primary .uk-h5,.uk-overlay-primary h6,.uk-overlay-primary .uk-h6,.uk-overlay-primary .uk-heading-small,.uk-overlay-primary .uk-heading-medium,.uk-overlay-primary .uk-heading-large,.uk-overlay-primary .uk-heading-xlarge,.uk-overlay-primary .uk-heading-2xlarge,.uk-overlay-primary .uk-heading-3xlarge {
+h1,.uk-h1,h2,.uk-h2,h3,.uk-h3,h4,.uk-h4,h5,.uk-h5,h6,.uk-h6,.uk-heading-small,.uk-heading-medium,.uk-heading-large,.uk-heading-xlarge,.uk-heading-2xlarge,.uk-heading-3xlarge{
 	color: var(--pw-text-color)
 }
 
-blockquote,.uk-section-primary:not(.uk-preserve-color) blockquote,.uk-section-secondary:not(.uk-preserve-color) blockquote,.uk-tile-primary:not(.uk-preserve-color) blockquote,.uk-tile-secondary:not(.uk-preserve-color) blockquote,.uk-card-primary.uk-card-body blockquote,.uk-card-primary>:not([class*='uk-card-media']) blockquote,.uk-card-secondary.uk-card-body blockquote,.uk-card-secondary>:not([class*='uk-card-media']) blockquote,.uk-overlay-primary blockquote {
+blockquote{
 	color: var(--pw-text-color)
 }
 
-blockquote footer,.uk-section-primary:not(.uk-preserve-color) blockquote footer,.uk-section-secondary:not(.uk-preserve-color) blockquote footer,.uk-tile-primary:not(.uk-preserve-color) blockquote footer,.uk-tile-secondary:not(.uk-preserve-color) blockquote footer,.uk-card-primary.uk-card-body blockquote footer,.uk-card-primary>:not([class*='uk-card-media']) blockquote footer,.uk-card-secondary.uk-card-body blockquote footer,.uk-card-secondary>:not([class*='uk-card-media']) blockquote footer,.uk-overlay-primary blockquote footer {
+blockquote footer{
 	color: var(--pw-muted-color)
 }
 
-hr,.uk-hr,.uk-section-primary:not(.uk-preserve-color) hr,.uk-section-primary:not(.uk-preserve-color) .uk-hr,.uk-section-secondary:not(.uk-preserve-color) hr,.uk-section-secondary:not(.uk-preserve-color) .uk-hr,.uk-tile-primary:not(.uk-preserve-color) hr,.uk-tile-primary:not(.uk-preserve-color) .uk-hr,.uk-tile-secondary:not(.uk-preserve-color) hr,.uk-tile-secondary:not(.uk-preserve-color) .uk-hr,.uk-card-primary.uk-card-body hr,.uk-card-primary.uk-card-body .uk-hr,.uk-card-primary>:not([class*='uk-card-media']) hr,.uk-card-primary>:not([class*='uk-card-media']) .uk-hr,.uk-card-secondary.uk-card-body hr,.uk-card-secondary.uk-card-body .uk-hr,.uk-card-secondary>:not([class*='uk-card-media']) hr,.uk-card-secondary>:not([class*='uk-card-media']) .uk-hr,.uk-overlay-primary hr,.uk-overlay-primary .uk-hr {
+hr,.uk-hr{
 	border-top-color: var(--pw-border-color)
 }
 
-:focus-visible,.uk-section-primary:not(.uk-preserve-color) :focus-visible,.uk-section-secondary:not(.uk-preserve-color) :focus-visible,.uk-tile-primary:not(.uk-preserve-color) :focus-visible,.uk-tile-secondary:not(.uk-preserve-color) :focus-visible,.uk-card-primary.uk-card-body :focus-visible,.uk-card-primary>:not([class*='uk-card-media']) :focus-visible,.uk-card-secondary.uk-card-body :focus-visible,.uk-card-secondary>:not([class*='uk-card-media']) :focus-visible,.uk-overlay-primary :focus-visible {
+:focus-visible{
 	outline-color: var(--pw-text-color)
 }
 
-a.uk-link-muted,.uk-link-muted a,.uk-section-primary:not(.uk-preserve-color) a.uk-link-muted,.uk-section-primary:not(.uk-preserve-color) .uk-link-muted a,.uk-section-secondary:not(.uk-preserve-color) a.uk-link-muted,.uk-section-secondary:not(.uk-preserve-color) .uk-link-muted a,.uk-tile-primary:not(.uk-preserve-color) a.uk-link-muted,.uk-tile-primary:not(.uk-preserve-color) .uk-link-muted a,.uk-tile-secondary:not(.uk-preserve-color) a.uk-link-muted,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-muted a,.uk-card-primary.uk-card-body a.uk-link-muted,.uk-card-primary.uk-card-body .uk-link-muted a,.uk-card-primary>:not([class*='uk-card-media']) a.uk-link-muted,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-muted a,.uk-card-secondary.uk-card-body a.uk-link-muted,.uk-card-secondary.uk-card-body .uk-link-muted a,.uk-card-secondary>:not([class*='uk-card-media']) a.uk-link-muted,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-muted a,.uk-overlay-primary a.uk-link-muted,.uk-overlay-primary .uk-link-muted a {
+a.uk-link-muted,.uk-link-muted a{
 	color: var(--pw-muted-color)
 }
 
-a.uk-link-muted:hover,.uk-link-muted a:hover,.uk-link-toggle:hover .uk-link-muted,.uk-section-primary:not(.uk-preserve-color) a.uk-link-muted:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link-muted a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-muted,.uk-section-secondary:not(.uk-preserve-color) a.uk-link-muted:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link-muted a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-muted,.uk-tile-primary:not(.uk-preserve-color) a.uk-link-muted:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link-muted a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-muted,.uk-tile-secondary:not(.uk-preserve-color) a.uk-link-muted:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-muted a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-muted,.uk-card-primary.uk-card-body a.uk-link-muted:hover,.uk-card-primary.uk-card-body .uk-link-muted a:hover,.uk-card-primary.uk-card-body .uk-link-toggle:hover .uk-link-muted,.uk-card-primary>:not([class*='uk-card-media']) a.uk-link-muted:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-muted a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link-muted,.uk-card-secondary.uk-card-body a.uk-link-muted:hover,.uk-card-secondary.uk-card-body .uk-link-muted a:hover,.uk-card-secondary.uk-card-body .uk-link-toggle:hover .uk-link-muted,.uk-card-secondary>:not([class*='uk-card-media']) a.uk-link-muted:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-muted a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link-muted,.uk-overlay-primary a.uk-link-muted:hover,.uk-overlay-primary .uk-link-muted a:hover,.uk-overlay-primary .uk-link-toggle:hover .uk-link-muted {
+a.uk-link-muted:hover,.uk-link-muted a:hover,.uk-link-toggle:hover .uk-link-muted{
 	color: var(--pw-muted-color)
 }
 
-a.uk-link-text:hover,.uk-link-text a:hover,.uk-link-toggle:hover .uk-link-text,.uk-section-primary:not(.uk-preserve-color) a.uk-link-text:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link-text a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-text,.uk-section-secondary:not(.uk-preserve-color) a.uk-link-text:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link-text a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-text,.uk-tile-primary:not(.uk-preserve-color) a.uk-link-text:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link-text a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-text,.uk-tile-secondary:not(.uk-preserve-color) a.uk-link-text:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-text a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-text,.uk-card-primary.uk-card-body a.uk-link-text:hover,.uk-card-primary.uk-card-body .uk-link-text a:hover,.uk-card-primary.uk-card-body .uk-link-toggle:hover .uk-link-text,.uk-card-primary>:not([class*='uk-card-media']) a.uk-link-text:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-text a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link-text,.uk-card-secondary.uk-card-body a.uk-link-text:hover,.uk-card-secondary.uk-card-body .uk-link-text a:hover,.uk-card-secondary.uk-card-body .uk-link-toggle:hover .uk-link-text,.uk-card-secondary>:not([class*='uk-card-media']) a.uk-link-text:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-text a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link-text,.uk-overlay-primary a.uk-link-text:hover,.uk-overlay-primary .uk-link-text a:hover,.uk-overlay-primary .uk-link-toggle:hover .uk-link-text {
+a.uk-link-text:hover,.uk-link-text a:hover,.uk-link-toggle:hover .uk-link-text{
 	color: var(--pw-muted-color)
 }
 
-a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-heading,.uk-section-primary:not(.uk-preserve-color) a.uk-link-heading:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link-heading a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-heading,.uk-section-secondary:not(.uk-preserve-color) a.uk-link-heading:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link-heading a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-heading,.uk-tile-primary:not(.uk-preserve-color) a.uk-link-heading:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link-heading a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-heading,.uk-tile-secondary:not(.uk-preserve-color) a.uk-link-heading:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-heading a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-link-toggle:hover .uk-link-heading,.uk-card-primary.uk-card-body a.uk-link-heading:hover,.uk-card-primary.uk-card-body .uk-link-heading a:hover,.uk-card-primary.uk-card-body .uk-link-toggle:hover .uk-link-heading,.uk-card-primary>:not([class*='uk-card-media']) a.uk-link-heading:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-heading a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link-heading,.uk-card-secondary.uk-card-body a.uk-link-heading:hover,.uk-card-secondary.uk-card-body .uk-link-heading a:hover,.uk-card-secondary.uk-card-body .uk-link-toggle:hover .uk-link-heading,.uk-card-secondary>:not([class*='uk-card-media']) a.uk-link-heading:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-heading a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-link-toggle:hover .uk-link-heading,.uk-overlay-primary a.uk-link-heading:hover,.uk-overlay-primary .uk-link-heading a:hover,.uk-overlay-primary .uk-link-toggle:hover .uk-link-heading {
+a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-heading{
 	color: var(--pw-text-color)
 }
 
-.uk-heading-divider,.uk-section-primary:not(.uk-preserve-color) .uk-heading-divider,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-divider,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-divider,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-divider,.uk-card-primary.uk-card-body .uk-heading-divider,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-divider,.uk-card-secondary.uk-card-body .uk-heading-divider,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-divider,.uk-overlay-primary .uk-heading-divider {
+.uk-heading-divider{
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-heading-bullet::before,.uk-section-primary:not(.uk-preserve-color) .uk-heading-bullet::before,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-bullet::before,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-bullet::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-bullet::before,.uk-card-primary.uk-card-body .uk-heading-bullet::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-bullet::before,.uk-card-secondary.uk-card-body .uk-heading-bullet::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-bullet::before,.uk-overlay-primary .uk-heading-bullet::before {
+.uk-heading-bullet::before{
 	border-left-color: var(--pw-border-color)
 }
 
-.uk-heading-line>::before,.uk-heading-line>::after,.uk-section-primary:not(.uk-preserve-color) .uk-heading-line>::before,.uk-section-primary:not(.uk-preserve-color) .uk-heading-line>::after,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-line>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-heading-line>::after,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-line>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-heading-line>::after,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-line>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-heading-line>::after,.uk-card-primary.uk-card-body .uk-heading-line>::before,.uk-card-primary.uk-card-body .uk-heading-line>::after,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-line>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-heading-line>::after,.uk-card-secondary.uk-card-body .uk-heading-line>::before,.uk-card-secondary.uk-card-body .uk-heading-line>::after,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-line>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-heading-line>::after,.uk-overlay-primary .uk-heading-line>::before,.uk-overlay-primary .uk-heading-line>::after {
+.uk-heading-line>::before,.uk-heading-line>::after{
 	border-bottom-color: var(--pw-border-color)
 }
 
-.uk-divider-icon,.uk-section-primary:not(.uk-preserve-color) .uk-divider-icon,.uk-section-secondary:not(.uk-preserve-color) .uk-divider-icon,.uk-tile-primary:not(.uk-preserve-color) .uk-divider-icon,.uk-tile-secondary:not(.uk-preserve-color) .uk-divider-icon,.uk-card-primary.uk-card-body .uk-divider-icon,.uk-card-primary>:not([class*='uk-card-media']) .uk-divider-icon,.uk-card-secondary.uk-card-body .uk-divider-icon,.uk-card-secondary>:not([class*='uk-card-media']) .uk-divider-icon,.uk-overlay-primary .uk-divider-icon {
+.uk-divider-icon{
 	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%20%20%3Ccircle%20fill%3D%22none%22%20stroke%3D%22rgba%28255,255,255,0.2%29%22%20stroke-width%3D%222%22%20cx%3D%2210%22%20cy%3D%2210%22%20r%3D%227%22%20%2F%3E%0A%3C%2Fsvg%3E%0A")
 }
 
-.uk-divider-icon::before,.uk-divider-icon::after,.uk-section-primary:not(.uk-preserve-color) .uk-divider-icon::before,.uk-section-primary:not(.uk-preserve-color) .uk-divider-icon::after,.uk-section-secondary:not(.uk-preserve-color) .uk-divider-icon::before,.uk-section-secondary:not(.uk-preserve-color) .uk-divider-icon::after,.uk-tile-primary:not(.uk-preserve-color) .uk-divider-icon::before,.uk-tile-primary:not(.uk-preserve-color) .uk-divider-icon::after,.uk-tile-secondary:not(.uk-preserve-color) .uk-divider-icon::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-divider-icon::after,.uk-card-primary.uk-card-body .uk-divider-icon::before,.uk-card-primary.uk-card-body .uk-divider-icon::after,.uk-card-primary>:not([class*='uk-card-media']) .uk-divider-icon::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-divider-icon::after,.uk-card-secondary.uk-card-body .uk-divider-icon::before,.uk-card-secondary.uk-card-body .uk-divider-icon::after,.uk-card-secondary>:not([class*='uk-card-media']) .uk-divider-icon::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-divider-icon::after,.uk-overlay-primary .uk-divider-icon::before,.uk-overlay-primary .uk-divider-icon::after {
+.uk-divider-icon::before,.uk-divider-icon::after{
 	border-bottom-color: var(--pw-border-color)
 }
 
-.uk-divider-small::after,.uk-section-primary:not(.uk-preserve-color) .uk-divider-small::after,.uk-section-secondary:not(.uk-preserve-color) .uk-divider-small::after,.uk-tile-primary:not(.uk-preserve-color) .uk-divider-small::after,.uk-tile-secondary:not(.uk-preserve-color) .uk-divider-small::after,.uk-card-primary.uk-card-body .uk-divider-small::after,.uk-card-primary>:not([class*='uk-card-media']) .uk-divider-small::after,.uk-card-secondary.uk-card-body .uk-divider-small::after,.uk-card-secondary>:not([class*='uk-card-media']) .uk-divider-small::after,.uk-overlay-primary .uk-divider-small::after {
+.uk-divider-small::after{
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-divider-vertical,.uk-section-primary:not(.uk-preserve-color) .uk-divider-vertical,.uk-section-secondary:not(.uk-preserve-color) .uk-divider-vertical,.uk-tile-primary:not(.uk-preserve-color) .uk-divider-vertical,.uk-tile-secondary:not(.uk-preserve-color) .uk-divider-vertical,.uk-card-primary.uk-card-body .uk-divider-vertical,.uk-card-primary>:not([class*='uk-card-media']) .uk-divider-vertical,.uk-card-secondary.uk-card-body .uk-divider-vertical,.uk-card-secondary>:not([class*='uk-card-media']) .uk-divider-vertical,.uk-overlay-primary .uk-divider-vertical {
+.uk-divider-vertical{
 	border-left-color: var(--pw-border-color)
 }
 
-.uk-list-muted>::before,.uk-section-primary:not(.uk-preserve-color) .uk-list-muted>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-list-muted>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-list-muted>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-list-muted>::before,.uk-card-primary.uk-card-body .uk-list-muted>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-list-muted>::before,.uk-card-secondary.uk-card-body .uk-list-muted>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-muted>::before,.uk-overlay-primary .uk-list-muted>::before {
+.uk-list-muted>::before{
 	color: var(--pw-muted-color) !important
 }
 
-.uk-list-emphasis>::before,.uk-section-primary:not(.uk-preserve-color) .uk-list-emphasis>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-list-emphasis>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-list-emphasis>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-list-emphasis>::before,.uk-card-primary.uk-card-body .uk-list-emphasis>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-list-emphasis>::before,.uk-card-secondary.uk-card-body .uk-list-emphasis>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-emphasis>::before,.uk-overlay-primary .uk-list-emphasis>::before {
+.uk-list-emphasis>::before{
 	color: var(--pw-text-color) !important
 }
 
-.uk-list-primary>::before,.uk-section-primary:not(.uk-preserve-color) .uk-list-primary>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-list-primary>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-list-primary>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-list-primary>::before,.uk-card-primary.uk-card-body .uk-list-primary>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-list-primary>::before,.uk-card-secondary.uk-card-body .uk-list-primary>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-primary>::before,.uk-overlay-primary .uk-list-primary>::before {
+.uk-list-primary>::before{
 	color: var(--pw-text-color) !important
 }
 
-.uk-list-secondary>::before,.uk-section-primary:not(.uk-preserve-color) .uk-list-secondary>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-list-secondary>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-list-secondary>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-list-secondary>::before,.uk-card-primary.uk-card-body .uk-list-secondary>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-list-secondary>::before,.uk-card-secondary.uk-card-body .uk-list-secondary>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-secondary>::before,.uk-overlay-primary .uk-list-secondary>::before {
+.uk-list-secondary>::before{
 	color: var(--pw-text-color) !important
 }
 
-.uk-list-bullet>::before,.uk-section-primary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-card-primary.uk-card-body .uk-list-bullet>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-list-bullet>::before,.uk-card-secondary.uk-card-body .uk-list-bullet>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-bullet>::before,.uk-overlay-primary .uk-list-bullet>::before {
+.uk-list-bullet>::before{
 	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%226%22%20height%3D%226%22%20viewBox%3D%220%200%206%206%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%20%20%3Ccircle%20fill%3D%22rgba%28255,255,255,0.7%29%22%20cx%3D%223%22%20cy%3D%223%22%20r%3D%223%22%20%2F%3E%0A%3C%2Fsvg%3E")
 }
 
-.uk-list-divider>:nth-child(n+2),.uk-section-primary:not(.uk-preserve-color) .uk-list-divider>:nth-child(n+2),.uk-section-secondary:not(.uk-preserve-color) .uk-list-divider>:nth-child(n+2),.uk-tile-primary:not(.uk-preserve-color) .uk-list-divider>:nth-child(n+2),.uk-tile-secondary:not(.uk-preserve-color) .uk-list-divider>:nth-child(n+2),.uk-card-primary.uk-card-body .uk-list-divider>:nth-child(n+2),.uk-card-primary>:not([class*='uk-card-media']) .uk-list-divider>:nth-child(n+2),.uk-card-secondary.uk-card-body .uk-list-divider>:nth-child(n+2),.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-divider>:nth-child(n+2),.uk-overlay-primary .uk-list-divider>:nth-child(n+2) {
+.uk-list-divider>:nth-child(n+2){
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-list-striped>*:nth-of-type(odd),.uk-section-primary:not(.uk-preserve-color) .uk-list-striped>*:nth-of-type(odd),.uk-section-secondary:not(.uk-preserve-color) .uk-list-striped>*:nth-of-type(odd),.uk-tile-primary:not(.uk-preserve-color) .uk-list-striped>*:nth-of-type(odd),.uk-tile-secondary:not(.uk-preserve-color) .uk-list-striped>*:nth-of-type(odd),.uk-card-primary.uk-card-body .uk-list-striped>*:nth-of-type(odd),.uk-card-primary>:not([class*='uk-card-media']) .uk-list-striped>*:nth-of-type(odd),.uk-card-secondary.uk-card-body .uk-list-striped>*:nth-of-type(odd),.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-striped>*:nth-of-type(odd),.uk-overlay-primary .uk-list-striped>*:nth-of-type(odd) {
+.uk-list-striped>*:nth-of-type(odd){
 	border-top-color: var(--pw-border-color);
 	border-bottom-color: var(--pw-border-color)
 }
 
-.uk-list-striped>:nth-of-type(odd),.uk-section-primary:not(.uk-preserve-color) .uk-list-striped>:nth-of-type(odd),.uk-section-secondary:not(.uk-preserve-color) .uk-list-striped>:nth-of-type(odd),.uk-tile-primary:not(.uk-preserve-color) .uk-list-striped>:nth-of-type(odd),.uk-tile-secondary:not(.uk-preserve-color) .uk-list-striped>:nth-of-type(odd),.uk-card-primary.uk-card-body .uk-list-striped>:nth-of-type(odd),.uk-card-primary>:not([class*='uk-card-media']) .uk-list-striped>:nth-of-type(odd),.uk-card-secondary.uk-card-body .uk-list-striped>:nth-of-type(odd),.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-striped>:nth-of-type(odd),.uk-overlay-primary .uk-list-striped>:nth-of-type(odd) {
+.uk-list-striped>:nth-of-type(odd){
 	background-color: var(--pw-inputs-background)
 }
 
-.uk-table th,.uk-section-primary:not(.uk-preserve-color) .uk-table th,.uk-section-secondary:not(.uk-preserve-color) .uk-table th,.uk-tile-primary:not(.uk-preserve-color) .uk-table th,.uk-tile-secondary:not(.uk-preserve-color) .uk-table th,.uk-card-primary.uk-card-body .uk-table th,.uk-card-primary>:not([class*='uk-card-media']) .uk-table th,.uk-card-secondary.uk-card-body .uk-table th,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table th,.uk-overlay-primary .uk-table th {
+.uk-table th{
 	color: var(--pw-muted-color)
 }
 
-.uk-table caption,.uk-section-primary:not(.uk-preserve-color) .uk-table caption,.uk-section-secondary:not(.uk-preserve-color) .uk-table caption,.uk-tile-primary:not(.uk-preserve-color) .uk-table caption,.uk-tile-secondary:not(.uk-preserve-color) .uk-table caption,.uk-card-primary.uk-card-body .uk-table caption,.uk-card-primary>:not([class*='uk-card-media']) .uk-table caption,.uk-card-secondary.uk-card-body .uk-table caption,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table caption,.uk-overlay-primary .uk-table caption {
+.uk-table caption{
 	color: var(--pw-muted-color)
 }
 
-.uk-table>tr.uk-active,.uk-table tbody tr.uk-active,.uk-section-primary:not(.uk-preserve-color) .uk-table>tr.uk-active,.uk-section-primary:not(.uk-preserve-color) .uk-table tbody tr.uk-active,.uk-section-secondary:not(.uk-preserve-color) .uk-table>tr.uk-active,.uk-section-secondary:not(.uk-preserve-color) .uk-table tbody tr.uk-active,.uk-tile-primary:not(.uk-preserve-color) .uk-table>tr.uk-active,.uk-tile-primary:not(.uk-preserve-color) .uk-table tbody tr.uk-active,.uk-tile-secondary:not(.uk-preserve-color) .uk-table>tr.uk-active,.uk-tile-secondary:not(.uk-preserve-color) .uk-table tbody tr.uk-active,.uk-card-primary.uk-card-body .uk-table>tr.uk-active,.uk-card-primary.uk-card-body .uk-table tbody tr.uk-active,.uk-card-primary>:not([class*='uk-card-media']) .uk-table>tr.uk-active,.uk-card-primary>:not([class*='uk-card-media']) .uk-table tbody tr.uk-active,.uk-card-secondary.uk-card-body .uk-table>tr.uk-active,.uk-card-secondary.uk-card-body .uk-table tbody tr.uk-active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table>tr.uk-active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table tbody tr.uk-active,.uk-overlay-primary .uk-table>tr.uk-active,.uk-overlay-primary .uk-table tbody tr.uk-active {
+.uk-table>tr.uk-active,.uk-table tbody tr.uk-active{
 	background: var(--pw-inputs-background)
 }
 
-.uk-table-divider>tr:not(:first-child),.uk-table-divider>:not(:first-child)>tr,.uk-table-divider>:first-child>tr:not(:first-child),.uk-section-primary:not(.uk-preserve-color) .uk-table-divider>tr:not(:first-child),.uk-section-primary:not(.uk-preserve-color) .uk-table-divider>:not(:first-child)>tr,.uk-section-primary:not(.uk-preserve-color) .uk-table-divider>:first-child>tr:not(:first-child),.uk-section-secondary:not(.uk-preserve-color) .uk-table-divider>tr:not(:first-child),.uk-section-secondary:not(.uk-preserve-color) .uk-table-divider>:not(:first-child)>tr,.uk-section-secondary:not(.uk-preserve-color) .uk-table-divider>:first-child>tr:not(:first-child),.uk-tile-primary:not(.uk-preserve-color) .uk-table-divider>tr:not(:first-child),.uk-tile-primary:not(.uk-preserve-color) .uk-table-divider>:not(:first-child)>tr,.uk-tile-primary:not(.uk-preserve-color) .uk-table-divider>:first-child>tr:not(:first-child),.uk-tile-secondary:not(.uk-preserve-color) .uk-table-divider>tr:not(:first-child),.uk-tile-secondary:not(.uk-preserve-color) .uk-table-divider>:not(:first-child)>tr,.uk-tile-secondary:not(.uk-preserve-color) .uk-table-divider>:first-child>tr:not(:first-child),.uk-card-primary.uk-card-body .uk-table-divider>tr:not(:first-child),.uk-card-primary.uk-card-body .uk-table-divider>:not(:first-child)>tr,.uk-card-primary.uk-card-body .uk-table-divider>:first-child>tr:not(:first-child),.uk-card-primary>:not([class*='uk-card-media']) .uk-table-divider>tr:not(:first-child),.uk-card-primary>:not([class*='uk-card-media']) .uk-table-divider>:not(:first-child)>tr,.uk-card-primary>:not([class*='uk-card-media']) .uk-table-divider>:first-child>tr:not(:first-child),.uk-card-secondary.uk-card-body .uk-table-divider>tr:not(:first-child),.uk-card-secondary.uk-card-body .uk-table-divider>:not(:first-child)>tr,.uk-card-secondary.uk-card-body .uk-table-divider>:first-child>tr:not(:first-child),.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-divider>tr:not(:first-child),.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-divider>:not(:first-child)>tr,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-divider>:first-child>tr:not(:first-child),.uk-overlay-primary .uk-table-divider>tr:not(:first-child),.uk-overlay-primary .uk-table-divider>:not(:first-child)>tr,.uk-overlay-primary .uk-table-divider>:first-child>tr:not(:first-child) {
+.uk-table-divider>tr:not(:first-child),.uk-table-divider>:not(:first-child)>tr,.uk-table-divider>:first-child>tr:not(:first-child){
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-table-striped>tr:nth-of-type(odd),.uk-table-striped tbody tr:nth-of-type(odd),.uk-section-primary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(odd),.uk-section-primary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(odd),.uk-section-secondary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(odd),.uk-section-secondary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(odd),.uk-tile-primary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(odd),.uk-tile-primary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(odd),.uk-tile-secondary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(odd),.uk-tile-secondary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(odd),.uk-card-primary.uk-card-body .uk-table-striped>tr:nth-of-type(odd),.uk-card-primary.uk-card-body .uk-table-striped tbody tr:nth-of-type(odd),.uk-card-primary>:not([class*='uk-card-media']) .uk-table-striped>tr:nth-of-type(odd),.uk-card-primary>:not([class*='uk-card-media']) .uk-table-striped tbody tr:nth-of-type(odd),.uk-card-secondary.uk-card-body .uk-table-striped>tr:nth-of-type(odd),.uk-card-secondary.uk-card-body .uk-table-striped tbody tr:nth-of-type(odd),.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-striped>tr:nth-of-type(odd),.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-striped tbody tr:nth-of-type(odd),.uk-overlay-primary .uk-table-striped>tr:nth-of-type(odd),.uk-overlay-primary .uk-table-striped tbody tr:nth-of-type(odd) {
+.uk-table-striped>tr:nth-of-type(odd),.uk-table-striped tbody tr:nth-of-type(odd){
 	background: var(--pw-inputs-background);
 	border-top-color: var(--pw-border-color);
 	border-bottom-color: var(--pw-border-color)
 }
 
-.uk-table-hover>tr:hover,.uk-table-hover tbody tr:hover,.uk-section-primary:not(.uk-preserve-color) .uk-table-hover>tr:hover,.uk-section-primary:not(.uk-preserve-color) .uk-table-hover tbody tr:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-table-hover>tr:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-table-hover tbody tr:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-table-hover>tr:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-table-hover tbody tr:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-table-hover>tr:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-table-hover tbody tr:hover,.uk-card-primary.uk-card-body .uk-table-hover>tr:hover,.uk-card-primary.uk-card-body .uk-table-hover tbody tr:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-table-hover>tr:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-table-hover tbody tr:hover,.uk-card-secondary.uk-card-body .uk-table-hover>tr:hover,.uk-card-secondary.uk-card-body .uk-table-hover tbody tr:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-hover>tr:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-hover tbody tr:hover,.uk-overlay-primary .uk-table-hover>tr:hover,.uk-overlay-primary .uk-table-hover tbody tr:hover {
+.uk-table-hover>tr:hover,.uk-table-hover tbody tr:hover{
 	background: var(--pw-inputs-background)
 }
 
-.uk-icon-link,.uk-section-primary:not(.uk-preserve-color) .uk-icon-link,.uk-section-secondary:not(.uk-preserve-color) .uk-icon-link,.uk-tile-primary:not(.uk-preserve-color) .uk-icon-link,.uk-tile-secondary:not(.uk-preserve-color) .uk-icon-link,.uk-card-primary.uk-card-body .uk-icon-link,.uk-card-primary>:not([class*='uk-card-media']) .uk-icon-link,.uk-card-secondary.uk-card-body .uk-icon-link,.uk-card-secondary>:not([class*='uk-card-media']) .uk-icon-link,.uk-overlay-primary .uk-icon-link {
+.uk-icon-link{
 	color: var(--pw-muted-color)
 }
 
-.uk-icon-link:hover,.uk-section-primary:not(.uk-preserve-color) .uk-icon-link:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-icon-link:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-icon-link:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-icon-link:hover,.uk-card-primary.uk-card-body .uk-icon-link:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-icon-link:hover,.uk-card-secondary.uk-card-body .uk-icon-link:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-icon-link:hover,.uk-overlay-primary .uk-icon-link:hover {
+.uk-icon-link:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-icon-link:active,.uk-active>.uk-icon-link,.uk-section-primary:not(.uk-preserve-color) .uk-icon-link:active,.uk-section-primary:not(.uk-preserve-color) .uk-active>.uk-icon-link,.uk-section-secondary:not(.uk-preserve-color) .uk-icon-link:active,.uk-section-secondary:not(.uk-preserve-color) .uk-active>.uk-icon-link,.uk-tile-primary:not(.uk-preserve-color) .uk-icon-link:active,.uk-tile-primary:not(.uk-preserve-color) .uk-active>.uk-icon-link,.uk-tile-secondary:not(.uk-preserve-color) .uk-icon-link:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-active>.uk-icon-link,.uk-card-primary.uk-card-body .uk-icon-link:active,.uk-card-primary.uk-card-body .uk-active>.uk-icon-link,.uk-card-primary>:not([class*='uk-card-media']) .uk-icon-link:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-active>.uk-icon-link,.uk-card-secondary.uk-card-body .uk-icon-link:active,.uk-card-secondary.uk-card-body .uk-active>.uk-icon-link,.uk-card-secondary>:not([class*='uk-card-media']) .uk-icon-link:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-active>.uk-icon-link,.uk-overlay-primary .uk-icon-link:active,.uk-overlay-primary .uk-active>.uk-icon-link {
+.uk-icon-link:active,.uk-active>.uk-icon-link{
 	color: var(--pw-muted-color)
 }
 
-.uk-icon-button,.uk-section-primary:not(.uk-preserve-color) .uk-icon-button,.uk-section-secondary:not(.uk-preserve-color) .uk-icon-button,.uk-tile-primary:not(.uk-preserve-color) .uk-icon-button,.uk-tile-secondary:not(.uk-preserve-color) .uk-icon-button,.uk-card-primary.uk-card-body .uk-icon-button,.uk-card-primary>:not([class*='uk-card-media']) .uk-icon-button,.uk-card-secondary.uk-card-body .uk-icon-button,.uk-card-secondary>:not([class*='uk-card-media']) .uk-icon-button,.uk-overlay-primary .uk-icon-button {
+.uk-icon-button{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color)
 }
 
-.uk-icon-button:hover,.uk-section-primary:not(.uk-preserve-color) .uk-icon-button:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-icon-button:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-icon-button:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-icon-button:hover,.uk-card-primary.uk-card-body .uk-icon-button:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-icon-button:hover,.uk-card-secondary.uk-card-body .uk-icon-button:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-icon-button:hover,.uk-overlay-primary .uk-icon-button:hover {
+.uk-icon-button:hover{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color)
 }v
 
- .uk-icon-button:active,.uk-section-primary:not(.uk-preserve-color) .uk-icon-button:active,.uk-section-secondary:not(.uk-preserve-color) .uk-icon-button:active,.uk-tile-primary:not(.uk-preserve-color) .uk-icon-button:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-icon-button:active,.uk-card-primary.uk-card-body .uk-icon-button:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-icon-button:active,.uk-card-secondary.uk-card-body .uk-icon-button:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-icon-button:active,.uk-overlay-primary .uk-icon-button:active {
+ .uk-icon-button:active{
 	 background-color:var(--pw-blocks-background);
 	 color: var(--pw-muted-color)
  }
 
-.uk-input,.uk-select,.uk-textarea,.uk-section-primary:not(.uk-preserve-color) .uk-input,.uk-section-primary:not(.uk-preserve-color) .uk-select,.uk-section-primary:not(.uk-preserve-color) .uk-textarea,.uk-section-secondary:not(.uk-preserve-color) .uk-input,.uk-section-secondary:not(.uk-preserve-color) .uk-select,.uk-section-secondary:not(.uk-preserve-color) .uk-textarea,.uk-tile-primary:not(.uk-preserve-color) .uk-input,.uk-tile-primary:not(.uk-preserve-color) .uk-select,.uk-tile-primary:not(.uk-preserve-color) .uk-textarea,.uk-tile-secondary:not(.uk-preserve-color) .uk-input,.uk-tile-secondary:not(.uk-preserve-color) .uk-select,.uk-tile-secondary:not(.uk-preserve-color) .uk-textarea,.uk-card-primary.uk-card-body .uk-input,.uk-card-primary.uk-card-body .uk-select,.uk-card-primary.uk-card-body .uk-textarea,.uk-card-primary>:not([class*='uk-card-media']) .uk-input,.uk-card-primary>:not([class*='uk-card-media']) .uk-select,.uk-card-primary>:not([class*='uk-card-media']) .uk-textarea,.uk-card-secondary.uk-card-body .uk-input,.uk-card-secondary.uk-card-body .uk-select,.uk-card-secondary.uk-card-body .uk-textarea,.uk-card-secondary>:not([class*='uk-card-media']) .uk-input,.uk-card-secondary>:not([class*='uk-card-media']) .uk-select,.uk-card-secondary>:not([class*='uk-card-media']) .uk-textarea,.uk-overlay-primary .uk-input,.uk-overlay-primary .uk-select,.uk-overlay-primary .uk-textarea {
+.uk-input,.uk-select,.uk-textarea{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color);
 	background-clip: padding-box;
 	border-color:var(--pw-blocks-background)
 }
 
-.uk-input:focus,.uk-select:focus,.uk-textarea:focus,.uk-section-primary:not(.uk-preserve-color) .uk-input:focus,.uk-section-primary:not(.uk-preserve-color) .uk-select:focus,.uk-section-primary:not(.uk-preserve-color) .uk-textarea:focus,.uk-section-secondary:not(.uk-preserve-color) .uk-input:focus,.uk-section-secondary:not(.uk-preserve-color) .uk-select:focus,.uk-section-secondary:not(.uk-preserve-color) .uk-textarea:focus,.uk-tile-primary:not(.uk-preserve-color) .uk-input:focus,.uk-tile-primary:not(.uk-preserve-color) .uk-select:focus,.uk-tile-primary:not(.uk-preserve-color) .uk-textarea:focus,.uk-tile-secondary:not(.uk-preserve-color) .uk-input:focus,.uk-tile-secondary:not(.uk-preserve-color) .uk-select:focus,.uk-tile-secondary:not(.uk-preserve-color) .uk-textarea:focus,.uk-card-primary.uk-card-body .uk-input:focus,.uk-card-primary.uk-card-body .uk-select:focus,.uk-card-primary.uk-card-body .uk-textarea:focus,.uk-card-primary>:not([class*='uk-card-media']) .uk-input:focus,.uk-card-primary>:not([class*='uk-card-media']) .uk-select:focus,.uk-card-primary>:not([class*='uk-card-media']) .uk-textarea:focus,.uk-card-secondary.uk-card-body .uk-input:focus,.uk-card-secondary.uk-card-body .uk-select:focus,.uk-card-secondary.uk-card-body .uk-textarea:focus,.uk-card-secondary>:not([class*='uk-card-media']) .uk-input:focus,.uk-card-secondary>:not([class*='uk-card-media']) .uk-select:focus,.uk-card-secondary>:not([class*='uk-card-media']) .uk-textarea:focus,.uk-overlay-primary .uk-input:focus,.uk-overlay-primary .uk-select:focus,.uk-overlay-primary .uk-textarea:focus {
+.uk-input:focus,.uk-select:focus,.uk-textarea:focus{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color);
 	border-color: var(--pw-muted-color)
 }
 
-.uk-input::placeholder,.uk-section-primary:not(.uk-preserve-color) .uk-input::placeholder,.uk-section-secondary:not(.uk-preserve-color) .uk-input::placeholder,.uk-tile-primary:not(.uk-preserve-color) .uk-input::placeholder,.uk-tile-secondary:not(.uk-preserve-color) .uk-input::placeholder,.uk-card-primary.uk-card-body .uk-input::placeholder,.uk-card-primary>:not([class*='uk-card-media']) .uk-input::placeholder,.uk-card-secondary.uk-card-body .uk-input::placeholder,.uk-card-secondary>:not([class*='uk-card-media']) .uk-input::placeholder,.uk-overlay-primary .uk-input::placeholder {
+.uk-input::placeholder{
 	color: var(--pw-muted-color)
 }
 
-.uk-textarea::placeholder,.uk-section-primary:not(.uk-preserve-color) .uk-textarea::placeholder,.uk-section-secondary:not(.uk-preserve-color) .uk-textarea::placeholder,.uk-tile-primary:not(.uk-preserve-color) .uk-textarea::placeholder,.uk-tile-secondary:not(.uk-preserve-color) .uk-textarea::placeholder,.uk-card-primary.uk-card-body .uk-textarea::placeholder,.uk-card-primary>:not([class*='uk-card-media']) .uk-textarea::placeholder,.uk-card-secondary.uk-card-body .uk-textarea::placeholder,.uk-card-secondary>:not([class*='uk-card-media']) .uk-textarea::placeholder,.uk-overlay-primary .uk-textarea::placeholder {
+.uk-textarea::placeholder{
 	color: var(--pw-muted-color)
 }
 
-.uk-form-label,.uk-section-primary:not(.uk-preserve-color) .uk-form-label,.uk-section-secondary:not(.uk-preserve-color) .uk-form-label,.uk-tile-primary:not(.uk-preserve-color) .uk-form-label,.uk-tile-secondary:not(.uk-preserve-color) .uk-form-label,.uk-card-primary.uk-card-body .uk-form-label,.uk-card-primary>:not([class*='uk-card-media']) .uk-form-label,.uk-card-secondary.uk-card-body .uk-form-label,.uk-card-secondary>:not([class*='uk-card-media']) .uk-form-label,.uk-overlay-primary .uk-form-label {
+.uk-form-label{
 	color: var(--pw-text-color)
 }
 
-.uk-form-icon,.uk-section-primary:not(.uk-preserve-color) .uk-form-icon,.uk-section-secondary:not(.uk-preserve-color) .uk-form-icon,.uk-tile-primary:not(.uk-preserve-color) .uk-form-icon,.uk-tile-secondary:not(.uk-preserve-color) .uk-form-icon,.uk-card-primary.uk-card-body .uk-form-icon,.uk-card-primary>:not([class*='uk-card-media']) .uk-form-icon,.uk-card-secondary.uk-card-body .uk-form-icon,.uk-card-secondary>:not([class*='uk-card-media']) .uk-form-icon,.uk-overlay-primary .uk-form-icon {
+.uk-form-icon{
 	color: var(--pw-muted-color)
 }
 
-.uk-form-icon:hover,.uk-section-primary:not(.uk-preserve-color) .uk-form-icon:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-form-icon:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-form-icon:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-form-icon:hover,.uk-card-primary.uk-card-body .uk-form-icon:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-form-icon:hover,.uk-card-secondary.uk-card-body .uk-form-icon:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-form-icon:hover,.uk-overlay-primary .uk-form-icon:hover {
+.uk-form-icon:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-button-default,.uk-section-primary:not(.uk-preserve-color) .uk-button-default,.uk-section-secondary:not(.uk-preserve-color) .uk-button-default,.uk-tile-primary:not(.uk-preserve-color) .uk-button-default,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-default,.uk-card-primary.uk-card-body .uk-button-default,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-default,.uk-card-secondary.uk-card-body .uk-button-default,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-default,.uk-overlay-primary .uk-button-default {
+.uk-button-default{
 	background-color: transparent;
 	color: var(--pw-text-color);
 	border-color: var(--pw-muted-color)
 }
 
-.uk-button-default:hover,.uk-section-primary:not(.uk-preserve-color) .uk-button-default:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-button-default:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-button-default:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-default:hover,.uk-card-primary.uk-card-body .uk-button-default:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-default:hover,.uk-card-secondary.uk-card-body .uk-button-default:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-default:hover,.uk-overlay-primary .uk-button-default:hover {
+.uk-button-default:hover{
 	background-color: transparent;
 	color: var(--pw-text-color);
 	border-color: var(--pw-border-color)
 }
 
-.uk-button-default:active,.uk-button-default.uk-active,.uk-section-primary:not(.uk-preserve-color) .uk-button-default:active,.uk-section-primary:not(.uk-preserve-color) .uk-button-default.uk-active,.uk-section-secondary:not(.uk-preserve-color) .uk-button-default:active,.uk-section-secondary:not(.uk-preserve-color) .uk-button-default.uk-active,.uk-tile-primary:not(.uk-preserve-color) .uk-button-default:active,.uk-tile-primary:not(.uk-preserve-color) .uk-button-default.uk-active,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-default:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-default.uk-active,.uk-card-primary.uk-card-body .uk-button-default:active,.uk-card-primary.uk-card-body .uk-button-default.uk-active,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-default:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-default.uk-active,.uk-card-secondary.uk-card-body .uk-button-default:active,.uk-card-secondary.uk-card-body .uk-button-default.uk-active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-default:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-default.uk-active,.uk-overlay-primary .uk-button-default:active,.uk-overlay-primary .uk-button-default.uk-active {
+.uk-button-default:active,.uk-button-default.uk-active{
 	background-color: transparent;
 	color: var(--pw-text-color);
 	border-color: var(--pw-border-color)
 }
 
-.uk-button-primary,.uk-section-primary:not(.uk-preserve-color) .uk-button-primary,.uk-section-secondary:not(.uk-preserve-color) .uk-button-primary,.uk-tile-primary:not(.uk-preserve-color) .uk-button-primary,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-primary,.uk-card-primary.uk-card-body .uk-button-primary,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-primary,.uk-card-secondary.uk-card-body .uk-button-primary,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-primary,.uk-overlay-primary .uk-button-primary {
+.uk-button-primary{
 	background-color: var(--pw-text-color);
 	color: var(--pw-blocks-background);
 }
 
-.uk-button-primary:hover,.uk-section-primary:not(.uk-preserve-color) .uk-button-primary:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-button-primary:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-button-primary:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-primary:hover,.uk-card-primary.uk-card-body .uk-button-primary:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-primary:hover,.uk-card-secondary.uk-card-body .uk-button-primary:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-primary:hover,.uk-overlay-primary .uk-button-primary:hover {
+.uk-button-primary:hover{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-blocks-background);
 }
 
-.uk-button-primary:active,.uk-button-primary.uk-active,.uk-section-primary:not(.uk-preserve-color) .uk-button-primary:active,.uk-section-primary:not(.uk-preserve-color) .uk-button-primary.uk-active,.uk-section-secondary:not(.uk-preserve-color) .uk-button-primary:active,.uk-section-secondary:not(.uk-preserve-color) .uk-button-primary.uk-active,.uk-tile-primary:not(.uk-preserve-color) .uk-button-primary:active,.uk-tile-primary:not(.uk-preserve-color) .uk-button-primary.uk-active,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-primary:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-primary.uk-active,.uk-card-primary.uk-card-body .uk-button-primary:active,.uk-card-primary.uk-card-body .uk-button-primary.uk-active,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-primary:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-primary.uk-active,.uk-card-secondary.uk-card-body .uk-button-primary:active,.uk-card-secondary.uk-card-body .uk-button-primary.uk-active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-primary:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-primary.uk-active,.uk-overlay-primary .uk-button-primary:active,.uk-overlay-primary .uk-button-primary.uk-active {
+.uk-button-primary:active,.uk-button-primary.uk-active{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-blocks-background);
 }
 
-.uk-button-secondary,.uk-section-primary:not(.uk-preserve-color) .uk-button-secondary,.uk-section-secondary:not(.uk-preserve-color) .uk-button-secondary,.uk-tile-primary:not(.uk-preserve-color) .uk-button-secondary,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-secondary,.uk-card-primary.uk-card-body .uk-button-secondary,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-secondary,.uk-card-secondary.uk-card-body .uk-button-secondary,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-secondary,.uk-overlay-primary .uk-button-secondary {
+.uk-button-secondary{
 	background-color: var(--pw-text-color);
 	color: var(--pw-blocks-background);
 }
 
-.uk-button-secondary:hover,.uk-section-primary:not(.uk-preserve-color) .uk-button-secondary:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-button-secondary:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-button-secondary:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-secondary:hover,.uk-card-primary.uk-card-body .uk-button-secondary:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-secondary:hover,.uk-card-secondary.uk-card-body .uk-button-secondary:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-secondary:hover,.uk-overlay-primary .uk-button-secondary:hover {
+.uk-button-secondary:hover{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-blocks-background);
 }
 
-.uk-button-secondary:active,.uk-button-secondary.uk-active,.uk-section-primary:not(.uk-preserve-color) .uk-button-secondary:active,.uk-section-primary:not(.uk-preserve-color) .uk-button-secondary.uk-active,.uk-section-secondary:not(.uk-preserve-color) .uk-button-secondary:active,.uk-section-secondary:not(.uk-preserve-color) .uk-button-secondary.uk-active,.uk-tile-primary:not(.uk-preserve-color) .uk-button-secondary:active,.uk-tile-primary:not(.uk-preserve-color) .uk-button-secondary.uk-active,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-secondary:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-secondary.uk-active,.uk-card-primary.uk-card-body .uk-button-secondary:active,.uk-card-primary.uk-card-body .uk-button-secondary.uk-active,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-secondary:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-secondary.uk-active,.uk-card-secondary.uk-card-body .uk-button-secondary:active,.uk-card-secondary.uk-card-body .uk-button-secondary.uk-active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-secondary:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-secondary.uk-active,.uk-overlay-primary .uk-button-secondary:active,.uk-overlay-primary .uk-button-secondary.uk-active {
+.uk-button-secondary:active,.uk-button-secondary.uk-active{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-blocks-background);
 }
 
-.uk-button-text,.uk-section-primary:not(.uk-preserve-color) .uk-button-text,.uk-section-secondary:not(.uk-preserve-color) .uk-button-text,.uk-tile-primary:not(.uk-preserve-color) .uk-button-text,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-text,.uk-card-primary.uk-card-body .uk-button-text,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-text,.uk-card-secondary.uk-card-body .uk-button-text,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-text,.uk-overlay-primary .uk-button-text {
+.uk-button-text{
 	color: var(--pw-text-color)
 }
 
-.uk-button-text::before,.uk-section-primary:not(.uk-preserve-color) .uk-button-text::before,.uk-section-secondary:not(.uk-preserve-color) .uk-button-text::before,.uk-tile-primary:not(.uk-preserve-color) .uk-button-text::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-text::before,.uk-card-primary.uk-card-body .uk-button-text::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-text::before,.uk-card-secondary.uk-card-body .uk-button-text::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-text::before,.uk-overlay-primary .uk-button-text::before {
+.uk-button-text::before{
 	border-bottom-color: var(--pw-text-color)
 }
 
-.uk-button-text:hover,.uk-section-primary:not(.uk-preserve-color) .uk-button-text:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-button-text:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-button-text:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-text:hover,.uk-card-primary.uk-card-body .uk-button-text:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-text:hover,.uk-card-secondary.uk-card-body .uk-button-text:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-text:hover,.uk-overlay-primary .uk-button-text:hover {
+.uk-button-text:hover{
 	color: var(--pw-text-color)
 }
 
-.uk-button-text:disabled,.uk-section-primary:not(.uk-preserve-color) .uk-button-text:disabled,.uk-section-secondary:not(.uk-preserve-color) .uk-button-text:disabled,.uk-tile-primary:not(.uk-preserve-color) .uk-button-text:disabled,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-text:disabled,.uk-card-primary.uk-card-body .uk-button-text:disabled,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-text:disabled,.uk-card-secondary.uk-card-body .uk-button-text:disabled,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-text:disabled,.uk-overlay-primary .uk-button-text:disabled {
+.uk-button-text:disabled{
 	color: var(--pw-muted-color)
 }
 
-.uk-button-link,.uk-section-primary:not(.uk-preserve-color) .uk-button-link,.uk-section-secondary:not(.uk-preserve-color) .uk-button-link,.uk-tile-primary:not(.uk-preserve-color) .uk-button-link,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-link,.uk-card-primary.uk-card-body .uk-button-link,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-link,.uk-card-secondary.uk-card-body .uk-button-link,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-link,.uk-overlay-primary .uk-button-link {
+.uk-button-link{
 	color: var(--pw-text-color)
 }
 
-.uk-button-link:hover,.uk-section-primary:not(.uk-preserve-color) .uk-button-link:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-button-link:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-button-link:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-button-link:hover,.uk-card-primary.uk-card-body .uk-button-link:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-button-link:hover,.uk-card-secondary.uk-card-body .uk-button-link:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-button-link:hover,.uk-overlay-primary .uk-button-link:hover {
+.uk-button-link:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-card-badge,.uk-section-primary:not(.uk-preserve-color).uk-card-badge,.uk-section-secondary:not(.uk-preserve-color).uk-card-badge,.uk-tile-primary:not(.uk-preserve-color).uk-card-badge,.uk-tile-secondary:not(.uk-preserve-color).uk-card-badge,.uk-card-primary.uk-card-body.uk-card-badge,.uk-card-primary>:not([class*='uk-card-media']).uk-card-badge,.uk-card-secondary.uk-card-body.uk-card-badge,.uk-card-secondary>:not([class*='uk-card-media']).uk-card-badge,.uk-overlay-primary.uk-card-badge {
+.uk-card-badge{
 	background-color: var(--pw-text-color);
 	color: var(--pw-blocks-background)
 }
 
-.uk-close,.uk-section-primary:not(.uk-preserve-color) .uk-close,.uk-section-secondary:not(.uk-preserve-color) .uk-close,.uk-tile-primary:not(.uk-preserve-color) .uk-close,.uk-tile-secondary:not(.uk-preserve-color) .uk-close,.uk-card-primary.uk-card-body .uk-close,.uk-card-primary>:not([class*='uk-card-media']) .uk-close,.uk-card-secondary.uk-card-body .uk-close,.uk-card-secondary>:not([class*='uk-card-media']) .uk-close,.uk-overlay-primary .uk-close {
+.uk-close{
 	color: var(--pw-muted-color)
 }
 
-.uk-close:hover,.uk-section-primary:not(.uk-preserve-color) .uk-close:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-close:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-close:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-close:hover,.uk-card-primary.uk-card-body .uk-close:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-close:hover,.uk-card-secondary.uk-card-body .uk-close:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-close:hover,.uk-overlay-primary .uk-close:hover {
+.uk-close:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-totop,.uk-section-primary:not(.uk-preserve-color) .uk-totop,.uk-section-secondary:not(.uk-preserve-color) .uk-totop,.uk-tile-primary:not(.uk-preserve-color) .uk-totop,.uk-tile-secondary:not(.uk-preserve-color) .uk-totop,.uk-card-primary.uk-card-body .uk-totop,.uk-card-primary>:not([class*='uk-card-media']) .uk-totop,.uk-card-secondary.uk-card-body .uk-totop,.uk-card-secondary>:not([class*='uk-card-media']) .uk-totop,.uk-overlay-primary .uk-totop {
+.uk-totop{
 	color: var(--pw-muted-color)
 }
 
-.uk-totop:hover,.uk-section-primary:not(.uk-preserve-color) .uk-totop:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-totop:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-totop:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-totop:hover,.uk-card-primary.uk-card-body .uk-totop:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-totop:hover,.uk-card-secondary.uk-card-body .uk-totop:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-totop:hover,.uk-overlay-primary .uk-totop:hover {
+.uk-totop:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-totop:active,.uk-section-primary:not(.uk-preserve-color) .uk-totop:active,.uk-section-secondary:not(.uk-preserve-color) .uk-totop:active,.uk-tile-primary:not(.uk-preserve-color) .uk-totop:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-totop:active,.uk-card-primary.uk-card-body .uk-totop:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-totop:active,.uk-card-secondary.uk-card-body .uk-totop:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-totop:active,.uk-overlay-primary .uk-totop:active {
+.uk-totop:active{
 	color: var(--pw-text-color)
 }
 
-.uk-marker,.uk-section-primary:not(.uk-preserve-color) .uk-marker,.uk-section-secondary:not(.uk-preserve-color) .uk-marker,.uk-tile-primary:not(.uk-preserve-color) .uk-marker,.uk-tile-secondary:not(.uk-preserve-color) .uk-marker,.uk-card-primary.uk-card-body .uk-marker,.uk-card-primary>:not([class*='uk-card-media']) .uk-marker,.uk-card-secondary.uk-card-body .uk-marker,.uk-card-secondary>:not([class*='uk-card-media']) .uk-marker,.uk-overlay-primary .uk-marker {
+.uk-marker{
 	background: var(--pw-inputs-background);
 	color: var(--pw-blocks-background)
 }
 
-.uk-marker:hover,.uk-section-primary:not(.uk-preserve-color) .uk-marker:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-marker:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-marker:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-marker:hover,.uk-card-primary.uk-card-body .uk-marker:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-marker:hover,.uk-card-secondary.uk-card-body .uk-marker:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-marker:hover,.uk-overlay-primary .uk-marker:hover {
+.uk-marker:hover{
 	color: var(--pw-blocks-background)
 }
 
-.uk-badge,.uk-section-primary:not(.uk-preserve-color) .uk-badge,.uk-section-secondary:not(.uk-preserve-color) .uk-badge,.uk-tile-primary:not(.uk-preserve-color) .uk-badge,.uk-tile-secondary:not(.uk-preserve-color) .uk-badge,.uk-card-primary.uk-card-body .uk-badge,.uk-card-primary>:not([class*='uk-card-media']) .uk-badge,.uk-card-secondary.uk-card-body .uk-badge,.uk-card-secondary>:not([class*='uk-card-media']) .uk-badge,.uk-overlay-primary .uk-badge {
+.uk-badge{
 	background-color: var(--pw-text-color);
 	color: var(--pw-blocks-background) !important
 }
 
-.uk-label,.uk-section-primary:not(.uk-preserve-color) .uk-label,.uk-section-secondary:not(.uk-preserve-color) .uk-label,.uk-tile-primary:not(.uk-preserve-color) .uk-label,.uk-tile-secondary:not(.uk-preserve-color) .uk-label,.uk-card-primary.uk-card-body .uk-label,.uk-card-primary>:not([class*='uk-card-media']) .uk-label,.uk-card-secondary.uk-card-body .uk-label,.uk-card-secondary>:not([class*='uk-card-media']) .uk-label,.uk-overlay-primary .uk-label {
+.uk-label{
 	background-color: var(--pw-text-color);
 	color: var(--pw-blocks-background)
 }
 
-.uk-article-meta,.uk-section-primary:not(.uk-preserve-color) .uk-article-meta,.uk-section-secondary:not(.uk-preserve-color) .uk-article-meta,.uk-tile-primary:not(.uk-preserve-color) .uk-article-meta,.uk-tile-secondary:not(.uk-preserve-color) .uk-article-meta,.uk-card-primary.uk-card-body .uk-article-meta,.uk-card-primary>:not([class*='uk-card-media']) .uk-article-meta,.uk-card-secondary.uk-card-body .uk-article-meta,.uk-card-secondary>:not([class*='uk-card-media']) .uk-article-meta,.uk-overlay-primary .uk-article-meta {
+.uk-article-meta{
 	color: var(--pw-muted-color)
 }
 
-.uk-search-input,.uk-section-primary:not(.uk-preserve-color) .uk-search-input,.uk-section-secondary:not(.uk-preserve-color) .uk-search-input,.uk-tile-primary:not(.uk-preserve-color) .uk-search-input,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-input,.uk-card-primary.uk-card-body .uk-search-input,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-input,.uk-card-secondary.uk-card-body .uk-search-input,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-input,.uk-overlay-primary .uk-search-input {
+.uk-search-input{
 	color: var(--pw-muted-color)
 }
 
-.uk-search-input::placeholder,.uk-section-primary:not(.uk-preserve-color) .uk-search-input::placeholder,.uk-section-secondary:not(.uk-preserve-color) .uk-search-input::placeholder,.uk-tile-primary:not(.uk-preserve-color) .uk-search-input::placeholder,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-input::placeholder,.uk-card-primary.uk-card-body .uk-search-input::placeholder,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-input::placeholder,.uk-card-secondary.uk-card-body .uk-search-input::placeholder,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-input::placeholder,.uk-overlay-primary .uk-search-input::placeholder {
+.uk-search-input::placeholder{
 	color: var(--pw-muted-color)
 }
 
-.uk-search .uk-search-icon,.uk-section-primary:not(.uk-preserve-color) .uk-search .uk-search-icon,.uk-section-secondary:not(.uk-preserve-color) .uk-search .uk-search-icon,.uk-tile-primary:not(.uk-preserve-color) .uk-search .uk-search-icon,.uk-tile-secondary:not(.uk-preserve-color) .uk-search .uk-search-icon,.uk-card-primary.uk-card-body .uk-search .uk-search-icon,.uk-card-primary>:not([class*='uk-card-media']) .uk-search .uk-search-icon,.uk-card-secondary.uk-card-body .uk-search .uk-search-icon,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search .uk-search-icon,.uk-overlay-primary .uk-search .uk-search-icon {
+.uk-search .uk-search-icon{
 	color: var(--pw-muted-color)
 }
 
-.uk-search .uk-search-icon:hover,.uk-section-primary:not(.uk-preserve-color) .uk-search .uk-search-icon:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-search .uk-search-icon:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-search .uk-search-icon:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-search .uk-search-icon:hover,.uk-card-primary.uk-card-body .uk-search .uk-search-icon:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-search .uk-search-icon:hover,.uk-card-secondary.uk-card-body .uk-search .uk-search-icon:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search .uk-search-icon:hover,.uk-overlay-primary .uk-search .uk-search-icon:hover {
+.uk-search .uk-search-icon:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-search-default .uk-search-input,.uk-section-primary:not(.uk-preserve-color) .uk-search-default .uk-search-input,.uk-section-secondary:not(.uk-preserve-color) .uk-search-default .uk-search-input,.uk-tile-primary:not(.uk-preserve-color) .uk-search-default .uk-search-input,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-default .uk-search-input,.uk-card-primary.uk-card-body .uk-search-default .uk-search-input,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-default .uk-search-input,.uk-card-secondary.uk-card-body .uk-search-default .uk-search-input,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-default .uk-search-input,.uk-overlay-primary .uk-search-default .uk-search-input {
+.uk-search-default .uk-search-input{
 	background-color: transparent;
 	border-color:var(--pw-blocks-background)
 }
 
-.uk-search-default .uk-search-input:focus,.uk-section-primary:not(.uk-preserve-color) .uk-search-default .uk-search-input:focus,.uk-section-secondary:not(.uk-preserve-color) .uk-search-default .uk-search-input:focus,.uk-tile-primary:not(.uk-preserve-color) .uk-search-default .uk-search-input:focus,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-default .uk-search-input:focus,.uk-card-primary.uk-card-body .uk-search-default .uk-search-input:focus,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-default .uk-search-input:focus,.uk-card-secondary.uk-card-body .uk-search-default .uk-search-input:focus,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-default .uk-search-input:focus,.uk-overlay-primary .uk-search-default .uk-search-input:focus {
+.uk-search-default .uk-search-input:focus{
 	background-color: var(--pw-inputs-background);
 }
 
-.uk-search-navbar .uk-search-input,.uk-section-primary:not(.uk-preserve-color) .uk-search-navbar .uk-search-input,.uk-section-secondary:not(.uk-preserve-color) .uk-search-navbar .uk-search-input,.uk-tile-primary:not(.uk-preserve-color) .uk-search-navbar .uk-search-input,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-navbar .uk-search-input,.uk-card-primary.uk-card-body .uk-search-navbar .uk-search-input,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-navbar .uk-search-input,.uk-card-secondary.uk-card-body .uk-search-navbar .uk-search-input,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-navbar .uk-search-input,.uk-overlay-primary .uk-search-navbar .uk-search-input {
+.uk-search-navbar .uk-search-input{
 	background-color: transparent
 }
 
-.uk-search-large .uk-search-input,.uk-section-primary:not(.uk-preserve-color) .uk-search-large .uk-search-input,.uk-section-secondary:not(.uk-preserve-color) .uk-search-large .uk-search-input,.uk-tile-primary:not(.uk-preserve-color) .uk-search-large .uk-search-input,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-large .uk-search-input,.uk-card-primary.uk-card-body .uk-search-large .uk-search-input,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-large .uk-search-input,.uk-card-secondary.uk-card-body .uk-search-large .uk-search-input,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-large .uk-search-input,.uk-overlay-primary .uk-search-large .uk-search-input {
+.uk-search-large .uk-search-input{
 	background-color: transparent
 }
 
-.uk-search-toggle,.uk-section-primary:not(.uk-preserve-color) .uk-search-toggle,.uk-section-secondary:not(.uk-preserve-color) .uk-search-toggle,.uk-tile-primary:not(.uk-preserve-color) .uk-search-toggle,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-toggle,.uk-card-primary.uk-card-body .uk-search-toggle,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-toggle,.uk-card-secondary.uk-card-body .uk-search-toggle,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-toggle,.uk-overlay-primary .uk-search-toggle {
+.uk-search-toggle{
 	color: var(--pw-muted-color)
 }
 
-.uk-search-toggle:hover,.uk-section-primary:not(.uk-preserve-color) .uk-search-toggle:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-search-toggle:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-search-toggle:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-search-toggle:hover,.uk-card-primary.uk-card-body .uk-search-toggle:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-search-toggle:hover,.uk-card-secondary.uk-card-body .uk-search-toggle:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-search-toggle:hover,.uk-overlay-primary .uk-search-toggle:hover {
+.uk-search-toggle:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-accordion-title,.uk-section-primary:not(.uk-preserve-color) .uk-accordion-title,.uk-section-secondary:not(.uk-preserve-color) .uk-accordion-title,.uk-tile-primary:not(.uk-preserve-color) .uk-accordion-title,.uk-tile-secondary:not(.uk-preserve-color) .uk-accordion-title,.uk-card-primary.uk-card-body .uk-accordion-title,.uk-card-primary>:not([class*='uk-card-media']) .uk-accordion-title,.uk-card-secondary.uk-card-body .uk-accordion-title,.uk-card-secondary>:not([class*='uk-card-media']) .uk-accordion-title,.uk-overlay-primary .uk-accordion-title {
+.uk-accordion-title{
 	color: var(--pw-text-color)
 }
 
-.uk-accordion-title:hover,.uk-section-primary:not(.uk-preserve-color) .uk-accordion-title:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-accordion-title:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-accordion-title:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-accordion-title:hover,.uk-card-primary.uk-card-body .uk-accordion-title:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-accordion-title:hover,.uk-card-secondary.uk-card-body .uk-accordion-title:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-accordion-title:hover,.uk-overlay-primary .uk-accordion-title:hover {
+.uk-accordion-title:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-grid-divider>:not(.uk-first-column)::before,.uk-section-primary:not(.uk-preserve-color) .uk-grid-divider>:not(.uk-first-column)::before,.uk-section-secondary:not(.uk-preserve-color) .uk-grid-divider>:not(.uk-first-column)::before,.uk-tile-primary:not(.uk-preserve-color) .uk-grid-divider>:not(.uk-first-column)::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-grid-divider>:not(.uk-first-column)::before,.uk-card-primary.uk-card-body .uk-grid-divider>:not(.uk-first-column)::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-grid-divider>:not(.uk-first-column)::before,.uk-card-secondary.uk-card-body .uk-grid-divider>:not(.uk-first-column)::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-grid-divider>:not(.uk-first-column)::before,.uk-overlay-primary .uk-grid-divider>:not(.uk-first-column)::before {
+.uk-grid-divider>:not(.uk-first-column)::before{
 	border-left-color: var(--pw-border-color)
 }
 
-.uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-section-primary:not(.uk-preserve-color) .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-section-secondary:not(.uk-preserve-color) .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-tile-primary:not(.uk-preserve-color) .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-card-primary.uk-card-body .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-card-secondary.uk-card-body .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before,.uk-overlay-primary .uk-grid-divider.uk-grid-stack>.uk-grid-margin::before {
+.uk-grid-divider.uk-grid-stack>.uk-grid-margin::before{
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-nav-default>li>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default>li>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default>li>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default>li>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default>li>a,.uk-card-primary.uk-card-body .uk-nav-default>li>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default>li>a,.uk-card-secondary.uk-card-body .uk-nav-default>li>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default>li>a,.uk-overlay-primary .uk-nav-default>li>a {
+.uk-nav-default>li>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-default>li>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default>li>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default>li>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default>li>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default>li>a:hover,.uk-card-primary.uk-card-body .uk-nav-default>li>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default>li>a:hover,.uk-card-secondary.uk-card-body .uk-nav-default>li>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default>li>a:hover,.uk-overlay-primary .uk-nav-default>li>a:hover {
+.uk-nav-default>li>a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-default>li.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default>li.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default>li.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default>li.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default>li.uk-active>a,.uk-card-primary.uk-card-body .uk-nav-default>li.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default>li.uk-active>a,.uk-card-secondary.uk-card-body .uk-nav-default>li.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default>li.uk-active>a,.uk-overlay-primary .uk-nav-default>li.uk-active>a {
+.uk-nav-default>li.uk-active>a{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-default .uk-nav-header,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-header,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-header,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-header,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-header,.uk-card-primary.uk-card-body .uk-nav-default .uk-nav-header,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-header,.uk-card-secondary.uk-card-body .uk-nav-default .uk-nav-header,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-header,.uk-overlay-primary .uk-nav-default .uk-nav-header {
+.uk-nav-default .uk-nav-header{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-default .uk-nav-divider,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-divider,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-divider,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-divider,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-divider,.uk-card-primary.uk-card-body .uk-nav-default .uk-nav-divider,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-divider,.uk-card-secondary.uk-card-body .uk-nav-default .uk-nav-divider,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-divider,.uk-overlay-primary .uk-nav-default .uk-nav-divider {
+.uk-nav-default .uk-nav-divider{
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-nav-default .uk-nav-sub a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a,.uk-card-primary.uk-card-body .uk-nav-default .uk-nav-sub a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-sub a,.uk-card-secondary.uk-card-body .uk-nav-default .uk-nav-sub a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-sub a,.uk-overlay-primary .uk-nav-default .uk-nav-sub a {
+.uk-nav-default .uk-nav-sub a{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-default .uk-nav-sub a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub a:hover,.uk-card-primary.uk-card-body .uk-nav-default .uk-nav-sub a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-sub a:hover,.uk-card-secondary.uk-card-body .uk-nav-default .uk-nav-sub a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-sub a:hover,.uk-overlay-primary .uk-nav-default .uk-nav-sub a:hover {
+.uk-nav-default .uk-nav-sub a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-default .uk-nav-sub li.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-card-primary.uk-card-body .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-card-secondary.uk-card-body .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-default .uk-nav-sub li.uk-active>a,.uk-overlay-primary .uk-nav-default .uk-nav-sub li.uk-active>a {
+.uk-nav-default .uk-nav-sub li.uk-active>a{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-primary>li>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary>li>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary>li>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary>li>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary>li>a,.uk-card-primary.uk-card-body .uk-nav-primary>li>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary>li>a,.uk-card-secondary.uk-card-body .uk-nav-primary>li>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary>li>a,.uk-overlay-primary .uk-nav-primary>li>a {
+.uk-nav-primary>li>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-primary>li>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary>li>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary>li>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary>li>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary>li>a:hover,.uk-card-primary.uk-card-body .uk-nav-primary>li>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary>li>a:hover,.uk-card-secondary.uk-card-body .uk-nav-primary>li>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary>li>a:hover,.uk-overlay-primary .uk-nav-primary>li>a:hover {
+.uk-nav-primary>li>a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-primary>li.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary>li.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary>li.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary>li.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary>li.uk-active>a,.uk-card-primary.uk-card-body .uk-nav-primary>li.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary>li.uk-active>a,.uk-card-secondary.uk-card-body .uk-nav-primary>li.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary>li.uk-active>a,.uk-overlay-primary .uk-nav-primary>li.uk-active>a {
+.uk-nav-primary>li.uk-active>a{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-primary .uk-nav-header,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-header,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-header,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-header,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-header,.uk-card-primary.uk-card-body .uk-nav-primary .uk-nav-header,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-header,.uk-card-secondary.uk-card-body .uk-nav-primary .uk-nav-header,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-header,.uk-overlay-primary .uk-nav-primary .uk-nav-header {
+.uk-nav-primary .uk-nav-header{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-primary .uk-nav-divider,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-divider,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-divider,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-divider,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-divider,.uk-card-primary.uk-card-body .uk-nav-primary .uk-nav-divider,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-divider,.uk-card-secondary.uk-card-body .uk-nav-primary .uk-nav-divider,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-divider,.uk-overlay-primary .uk-nav-primary .uk-nav-divider {
+.uk-nav-primary .uk-nav-divider{
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-nav-primary .uk-nav-sub a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a,.uk-card-primary.uk-card-body .uk-nav-primary .uk-nav-sub a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-sub a,.uk-card-secondary.uk-card-body .uk-nav-primary .uk-nav-sub a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-sub a,.uk-overlay-primary .uk-nav-primary .uk-nav-sub a {
+.uk-nav-primary .uk-nav-sub a{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-primary .uk-nav-sub a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub a:hover,.uk-card-primary.uk-card-body .uk-nav-primary .uk-nav-sub a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-sub a:hover,.uk-card-secondary.uk-card-body .uk-nav-primary .uk-nav-sub a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-sub a:hover,.uk-overlay-primary .uk-nav-primary .uk-nav-sub a:hover {
+.uk-nav-primary .uk-nav-sub a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-card-primary.uk-card-body .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-card-secondary.uk-card-body .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-primary .uk-nav-sub li.uk-active>a,.uk-overlay-primary .uk-nav-primary .uk-nav-sub li.uk-active>a {
+.uk-nav-primary .uk-nav-sub li.uk-active>a{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-secondary>li>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary>li>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary>li>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary>li>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary>li>a,.uk-card-primary.uk-card-body .uk-nav-secondary>li>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary>li>a,.uk-card-secondary.uk-card-body .uk-nav-secondary>li>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary>li>a,.uk-overlay-primary .uk-nav-secondary>li>a {
+.uk-nav-secondary>li>a{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-secondary>li>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover,.uk-card-primary.uk-card-body .uk-nav-secondary>li>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary>li>a:hover,.uk-card-secondary.uk-card-body .uk-nav-secondary>li>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary>li>a:hover,.uk-overlay-primary .uk-nav-secondary>li>a:hover {
+.uk-nav-secondary>li>a:hover{
 	color: var(--pw-text-color);
 	background-color: var(--pw-inputs-background)
 }
 
-.uk-nav-secondary>li.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a,.uk-card-primary.uk-card-body .uk-nav-secondary>li.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary>li.uk-active>a,.uk-card-secondary.uk-card-body .uk-nav-secondary>li.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary>li.uk-active>a,.uk-overlay-primary .uk-nav-secondary>li.uk-active>a {
+.uk-nav-secondary>li.uk-active>a{
 	color: var(--pw-text-color);
 	background-color: var(--pw-inputs-background)
 }
 
-.uk-nav-secondary .uk-nav-subtitle,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-subtitle,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-subtitle,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-subtitle,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-subtitle,.uk-card-primary.uk-card-body .uk-nav-secondary .uk-nav-subtitle,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-subtitle,.uk-card-secondary.uk-card-body .uk-nav-secondary .uk-nav-subtitle,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-subtitle,.uk-overlay-primary .uk-nav-secondary .uk-nav-subtitle {
+.uk-nav-secondary .uk-nav-subtitle{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-card-primary.uk-card-body .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-card-secondary.uk-card-body .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary>li>a:hover .uk-nav-subtitle,.uk-overlay-primary .uk-nav-secondary>li>a:hover .uk-nav-subtitle {
+.uk-nav-secondary>li>a:hover .uk-nav-subtitle{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-card-primary.uk-card-body .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-card-secondary.uk-card-body .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle,.uk-overlay-primary .uk-nav-secondary>li.uk-active>a .uk-nav-subtitle {
+.uk-nav-secondary>li.uk-active>a .uk-nav-subtitle{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-secondary .uk-nav-header,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-header,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-header,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-header,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-header,.uk-card-primary.uk-card-body .uk-nav-secondary .uk-nav-header,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-header,.uk-card-secondary.uk-card-body .uk-nav-secondary .uk-nav-header,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-header,.uk-overlay-primary .uk-nav-secondary .uk-nav-header {
+.uk-nav-secondary .uk-nav-header{
 	color: var(--pw-text-color)
 }
 
-.uk-nav-secondary .uk-nav-divider,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-divider,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-divider,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-divider,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-divider,.uk-card-primary.uk-card-body .uk-nav-secondary .uk-nav-divider,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-divider,.uk-card-secondary.uk-card-body .uk-nav-secondary .uk-nav-divider,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-divider,.uk-overlay-primary .uk-nav-secondary .uk-nav-divider {
+.uk-nav-secondary .uk-nav-divider{
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-nav-secondary .uk-nav-sub a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a,.uk-card-primary.uk-card-body .uk-nav-secondary .uk-nav-sub a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-sub a,.uk-card-secondary.uk-card-body .uk-nav-secondary .uk-nav-sub a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-sub a,.uk-overlay-primary .uk-nav-secondary .uk-nav-sub a {
+.uk-nav-secondary .uk-nav-sub a{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-secondary .uk-nav-sub a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub a:hover,.uk-card-primary.uk-card-body .uk-nav-secondary .uk-nav-sub a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-sub a:hover,.uk-card-secondary.uk-card-body .uk-nav-secondary .uk-nav-sub a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-sub a:hover,.uk-overlay-primary .uk-nav-secondary .uk-nav-sub a:hover {
+.uk-nav-secondary .uk-nav-sub a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-card-primary.uk-card-body .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-card-secondary.uk-card-body .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav-secondary .uk-nav-sub li.uk-active>a,.uk-overlay-primary .uk-nav-secondary .uk-nav-sub li.uk-active>a {
+.uk-nav-secondary .uk-nav-sub li.uk-active>a{
 	color: var(--pw-text-color)
 }
 
-.uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-section-primary:not(.uk-preserve-color) .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-section-secondary:not(.uk-preserve-color) .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-tile-primary:not(.uk-preserve-color) .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-tile-secondary:not(.uk-preserve-color) .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-card-primary.uk-card-body .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-card-primary>:not([class*='uk-card-media']) .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-card-secondary.uk-card-body .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-card-secondary>:not([class*='uk-card-media']) .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider),.uk-overlay-primary .uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider) {
+.uk-nav.uk-nav-divider>:not(.uk-nav-divider)+:not(.uk-nav-header, .uk-nav-divider), .uk-nav-divider), .uk-nav-divider), .uk-nav-divider), .uk-nav-divider), .uk-nav-divider), .uk-nav-divider), .uk-nav-divider), .uk-nav-divider), .uk-nav-divider) {
 	border-top-color: var(--pw-border-color)
 }
 
-.uk-navbar-nav>li>a,.uk-section-primary:not(.uk-preserve-color) .uk-navbar-nav>li>a,.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-nav>li>a,.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-nav>li>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-nav>li>a,.uk-card-primary.uk-card-body .uk-navbar-nav>li>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-nav>li>a,.uk-card-secondary.uk-card-body .uk-navbar-nav>li>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-nav>li>a,.uk-overlay-primary .uk-navbar-nav>li>a {
+.uk-navbar-nav>li>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-navbar-nav>li:hover>a,.uk-navbar-nav>li>a[aria-expanded="true"],.uk-section-primary:not(.uk-preserve-color) .uk-navbar-nav>li:hover>a,.uk-section-primary:not(.uk-preserve-color) .uk-navbar-nav>li>a[aria-expanded="true"],.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-nav>li:hover>a,.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-nav>li>a[aria-expanded="true"],.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-nav>li:hover>a,.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-nav>li>a[aria-expanded="true"],.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-nav>li:hover>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-nav>li>a[aria-expanded="true"],.uk-card-primary.uk-card-body .uk-navbar-nav>li:hover>a,.uk-card-primary.uk-card-body .uk-navbar-nav>li>a[aria-expanded="true"],.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-nav>li:hover>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-nav>li>a[aria-expanded="true"],.uk-card-secondary.uk-card-body .uk-navbar-nav>li:hover>a,.uk-card-secondary.uk-card-body .uk-navbar-nav>li>a[aria-expanded="true"],.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-nav>li:hover>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-nav>li>a[aria-expanded="true"],.uk-overlay-primary .uk-navbar-nav>li:hover>a,.uk-overlay-primary .uk-navbar-nav>li>a[aria-expanded="true"] {
+.uk-navbar-nav>li:hover>a,.uk-navbar-nav>li>a[aria-expanded="true"]{
 	color: var(--pw-muted-color)
 }
 
-.uk-navbar-nav>li>a:active,.uk-section-primary:not(.uk-preserve-color) .uk-navbar-nav>li>a:active,.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-nav>li>a:active,.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-nav>li>a:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-nav>li>a:active,.uk-card-primary.uk-card-body .uk-navbar-nav>li>a:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-nav>li>a:active,.uk-card-secondary.uk-card-body .uk-navbar-nav>li>a:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-nav>li>a:active,.uk-overlay-primary .uk-navbar-nav>li>a:active {
+.uk-navbar-nav>li>a:active{
 	color: var(--pw-text-color)
 }
 
-.uk-navbar-nav>li.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-navbar-nav>li.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-nav>li.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-nav>li.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-nav>li.uk-active>a,.uk-card-primary.uk-card-body .uk-navbar-nav>li.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-nav>li.uk-active>a,.uk-card-secondary.uk-card-body .uk-navbar-nav>li.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-nav>li.uk-active>a,.uk-overlay-primary .uk-navbar-nav>li.uk-active>a {
+.uk-navbar-nav>li.uk-active>a{
 	color: var(--pw-text-color)
 }
 
-.uk-navbar-item,.uk-section-primary:not(.uk-preserve-color) .uk-navbar-item,.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-item,.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-item,.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-item,.uk-card-primary.uk-card-body .uk-navbar-item,.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-item,.uk-card-secondary.uk-card-body .uk-navbar-item,.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-item,.uk-overlay-primary .uk-navbar-item {
+.uk-navbar-item{
 	color: var(--pw-muted-color)
 }
 
-.uk-navbar-toggle,.uk-section-primary:not(.uk-preserve-color) .uk-navbar-toggle,.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-toggle,.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-toggle,.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-toggle,.uk-card-primary.uk-card-body .uk-navbar-toggle,.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-toggle,.uk-card-secondary.uk-card-body .uk-navbar-toggle,.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-toggle,.uk-overlay-primary .uk-navbar-toggle {
+.uk-navbar-toggle{
 	color: var(--pw-muted-color)
 }
 
-.uk-navbar-toggle:hover,.uk-navbar-toggle[aria-expanded="true"],.uk-section-primary:not(.uk-preserve-color) .uk-navbar-toggle:hover,.uk-section-primary:not(.uk-preserve-color) .uk-navbar-toggle[aria-expanded="true"],.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-toggle:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-navbar-toggle[aria-expanded="true"],.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-toggle:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-navbar-toggle[aria-expanded="true"],.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-toggle:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-navbar-toggle[aria-expanded="true"],.uk-card-primary.uk-card-body .uk-navbar-toggle:hover,.uk-card-primary.uk-card-body .uk-navbar-toggle[aria-expanded="true"],.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-toggle:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-navbar-toggle[aria-expanded="true"],.uk-card-secondary.uk-card-body .uk-navbar-toggle:hover,.uk-card-secondary.uk-card-body .uk-navbar-toggle[aria-expanded="true"],.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-toggle:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-navbar-toggle[aria-expanded="true"],.uk-overlay-primary .uk-navbar-toggle:hover,.uk-overlay-primary .uk-navbar-toggle[aria-expanded="true"] {
+.uk-navbar-toggle:hover,.uk-navbar-toggle[aria-expanded="true"]{
 	color: var(--pw-muted-color)
 }
 
-.uk-subnav>*>:first-child,.uk-section-primary:not(.uk-preserve-color) .uk-subnav>*>:first-child,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav>*>:first-child,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav>*>:first-child,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav>*>:first-child,.uk-card-primary.uk-card-body .uk-subnav>*>:first-child,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav>*>:first-child,.uk-card-secondary.uk-card-body .uk-subnav>*>:first-child,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav>*>:first-child,.uk-overlay-primary .uk-subnav>*>:first-child {
+.uk-subnav>*>:first-child{
 	color: var(--pw-muted-color)
 }
 
-.uk-subnav>*>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-subnav>*>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav>*>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav>*>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav>*>a:hover,.uk-card-primary.uk-card-body .uk-subnav>*>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav>*>a:hover,.uk-card-secondary.uk-card-body .uk-subnav>*>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav>*>a:hover,.uk-overlay-primary .uk-subnav>*>a:hover {
+.uk-subnav>*>a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-subnav>.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-subnav>.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav>.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav>.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav>.uk-active>a,.uk-card-primary.uk-card-body .uk-subnav>.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav>.uk-active>a,.uk-card-secondary.uk-card-body .uk-subnav>.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav>.uk-active>a,.uk-overlay-primary .uk-subnav>.uk-active>a {
+.uk-subnav>.uk-active>a{
 	color: var(--pw-text-color)
 }
 
-.uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-section-primary:not(.uk-preserve-color) .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-primary.uk-card-body .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-secondary.uk-card-body .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before,.uk-overlay-primary .uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before {
+.uk-subnav-divider>:nth-child(n+2):not(.uk-first-column)::before{
 	border-left-color: var(--pw-border-color)
 }
 
-.uk-subnav-pill>*>:first-child,.uk-section-primary:not(.uk-preserve-color) .uk-subnav-pill>*>:first-child,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>:first-child,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav-pill>*>:first-child,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>:first-child,.uk-card-primary.uk-card-body .uk-subnav-pill>*>:first-child,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav-pill>*>:first-child,.uk-card-secondary.uk-card-body .uk-subnav-pill>*>:first-child,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav-pill>*>:first-child,.uk-overlay-primary .uk-subnav-pill>*>:first-child {
+.uk-subnav-pill>*>:first-child{
 	background-color: transparent;
 	color: var(--pw-muted-color)
 }
 
-.uk-subnav-pill>*>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:hover,.uk-card-primary.uk-card-body .uk-subnav-pill>*>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:hover,.uk-card-secondary.uk-card-body .uk-subnav-pill>*>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:hover,.uk-overlay-primary .uk-subnav-pill>*>a:hover {
+.uk-subnav-pill>*>a:hover{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color)
 }
 
-.uk-subnav-pill>*>a:active,.uk-section-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav-pill>*>a:active,.uk-card-primary.uk-card-body .uk-subnav-pill>*>a:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:active,.uk-card-secondary.uk-card-body .uk-subnav-pill>*>a:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav-pill>*>a:active,.uk-overlay-primary .uk-subnav-pill>*>a:active {
+.uk-subnav-pill>*>a:active{
 	background-color: var(--pw-inputs-background);
 	color: var(--pw-muted-color)
 }
 
-.uk-subnav-pill>.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-subnav-pill>.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav-pill>.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav-pill>.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav-pill>.uk-active>a,.uk-card-primary.uk-card-body .uk-subnav-pill>.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav-pill>.uk-active>a,.uk-card-secondary.uk-card-body .uk-subnav-pill>.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav-pill>.uk-active>a,.uk-overlay-primary .uk-subnav-pill>.uk-active>a {
+.uk-subnav-pill>.uk-active>a{
 	background-color: var(--pw-text-color);
 	color: var(--pw-blocks-background)
 }
 
-.uk-subnav>.uk-disabled>a,.uk-section-primary:not(.uk-preserve-color) .uk-subnav>.uk-disabled>a,.uk-section-secondary:not(.uk-preserve-color) .uk-subnav>.uk-disabled>a,.uk-tile-primary:not(.uk-preserve-color) .uk-subnav>.uk-disabled>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-subnav>.uk-disabled>a,.uk-card-primary.uk-card-body .uk-subnav>.uk-disabled>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-subnav>.uk-disabled>a,.uk-card-secondary.uk-card-body .uk-subnav>.uk-disabled>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-subnav>.uk-disabled>a,.uk-overlay-primary .uk-subnav>.uk-disabled>a {
+.uk-subnav>.uk-disabled>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-breadcrumb>*>*,.uk-section-primary:not(.uk-preserve-color) .uk-breadcrumb>*>*,.uk-section-secondary:not(.uk-preserve-color) .uk-breadcrumb>*>*,.uk-tile-primary:not(.uk-preserve-color) .uk-breadcrumb>*>*,.uk-tile-secondary:not(.uk-preserve-color) .uk-breadcrumb>*>*,.uk-card-primary.uk-card-body .uk-breadcrumb>*>*,.uk-card-primary>:not([class*='uk-card-media']) .uk-breadcrumb>*>*,.uk-card-secondary.uk-card-body .uk-breadcrumb>*>*,.uk-card-secondary>:not([class*='uk-card-media']) .uk-breadcrumb>*>*,.uk-overlay-primary .uk-breadcrumb>*>* {
+.uk-breadcrumb>*>*{
 	color: var(--pw-muted-color)
 }
 
-.uk-breadcrumb>*>:hover,.uk-section-primary:not(.uk-preserve-color) .uk-breadcrumb>*>:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-breadcrumb>*>:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-breadcrumb>*>:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-breadcrumb>*>:hover,.uk-card-primary.uk-card-body .uk-breadcrumb>*>:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-breadcrumb>*>:hover,.uk-card-secondary.uk-card-body .uk-breadcrumb>*>:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-breadcrumb>*>:hover,.uk-overlay-primary .uk-breadcrumb>*>:hover {
+.uk-breadcrumb>*>:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-breadcrumb>:last-child>*,.uk-section-primary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*,.uk-section-secondary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*,.uk-tile-primary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*,.uk-tile-secondary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*,.uk-card-primary.uk-card-body .uk-breadcrumb>:last-child>*,.uk-card-primary>:not([class*='uk-card-media']) .uk-breadcrumb>:last-child>*,.uk-card-secondary.uk-card-body .uk-breadcrumb>:last-child>*,.uk-card-secondary>:not([class*='uk-card-media']) .uk-breadcrumb>:last-child>*,.uk-overlay-primary .uk-breadcrumb>:last-child>* {
+.uk-breadcrumb>:last-child>*{
 	color: var(--pw-muted-color)
 }
 
-.uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-section-primary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-section-secondary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-tile-primary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-primary.uk-card-body .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-secondary.uk-card-body .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,.uk-overlay-primary .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before {
+.uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before{
 	color: var(--pw-muted-color)
 }
 
-.uk-pagination>*>*,.uk-section-primary:not(.uk-preserve-color) .uk-pagination>*>*,.uk-section-secondary:not(.uk-preserve-color) .uk-pagination>*>*,.uk-tile-primary:not(.uk-preserve-color) .uk-pagination>*>*,.uk-tile-secondary:not(.uk-preserve-color) .uk-pagination>*>*,.uk-card-primary.uk-card-body .uk-pagination>*>*,.uk-card-primary>:not([class*='uk-card-media']) .uk-pagination>*>*,.uk-card-secondary.uk-card-body .uk-pagination>*>*,.uk-card-secondary>:not([class*='uk-card-media']) .uk-pagination>*>*,.uk-overlay-primary .uk-pagination>*>* {
+.uk-pagination>*>*{
 	color: var(--pw-muted-color)
 }
 
-.uk-pagination>*>:hover,.uk-section-primary:not(.uk-preserve-color) .uk-pagination>*>:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-pagination>*>:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-pagination>*>:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-pagination>*>:hover,.uk-card-primary.uk-card-body .uk-pagination>*>:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-pagination>*>:hover,.uk-card-secondary.uk-card-body .uk-pagination>*>:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-pagination>*>:hover,.uk-overlay-primary .uk-pagination>*>:hover {
+.uk-pagination>*>:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-pagination>.uk-active>*,.uk-section-primary:not(.uk-preserve-color) .uk-pagination>.uk-active>*,.uk-section-secondary:not(.uk-preserve-color) .uk-pagination>.uk-active>*,.uk-tile-primary:not(.uk-preserve-color) .uk-pagination>.uk-active>*,.uk-tile-secondary:not(.uk-preserve-color) .uk-pagination>.uk-active>*,.uk-card-primary.uk-card-body .uk-pagination>.uk-active>*,.uk-card-primary>:not([class*='uk-card-media']) .uk-pagination>.uk-active>*,.uk-card-secondary.uk-card-body .uk-pagination>.uk-active>*,.uk-card-secondary>:not([class*='uk-card-media']) .uk-pagination>.uk-active>*,.uk-overlay-primary .uk-pagination>.uk-active>* {
+.uk-pagination>.uk-active>*{
 	color: var(--pw-muted-color)
 }
 
-.uk-pagination>.uk-disabled>*,.uk-section-primary:not(.uk-preserve-color) .uk-pagination>.uk-disabled>*,.uk-section-secondary:not(.uk-preserve-color) .uk-pagination>.uk-disabled>*,.uk-tile-primary:not(.uk-preserve-color) .uk-pagination>.uk-disabled>*,.uk-tile-secondary:not(.uk-preserve-color) .uk-pagination>.uk-disabled>*,.uk-card-primary.uk-card-body .uk-pagination>.uk-disabled>*,.uk-card-primary>:not([class*='uk-card-media']) .uk-pagination>.uk-disabled>*,.uk-card-secondary.uk-card-body .uk-pagination>.uk-disabled>*,.uk-card-secondary>:not([class*='uk-card-media']) .uk-pagination>.uk-disabled>*,.uk-overlay-primary .uk-pagination>.uk-disabled>* {
+.uk-pagination>.uk-disabled>*{
 	color: var(--pw-muted-color)
 }
 
-.uk-tab::before,.uk-section-primary:not(.uk-preserve-color) .uk-tab::before,.uk-section-secondary:not(.uk-preserve-color) .uk-tab::before,.uk-tile-primary:not(.uk-preserve-color) .uk-tab::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-tab::before,.uk-card-primary.uk-card-body .uk-tab::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-tab::before,.uk-card-secondary.uk-card-body .uk-tab::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-tab::before,.uk-overlay-primary .uk-tab::before {
+.uk-tab::before{
 	border-color:var(--pw-blocks-background)
 }
 
-.uk-tab>*>a,.uk-section-primary:not(.uk-preserve-color) .uk-tab>*>a,.uk-section-secondary:not(.uk-preserve-color) .uk-tab>*>a,.uk-tile-primary:not(.uk-preserve-color) .uk-tab>*>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-tab>*>a,.uk-card-primary.uk-card-body .uk-tab>*>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-tab>*>a,.uk-card-secondary.uk-card-body .uk-tab>*>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-tab>*>a,.uk-overlay-primary .uk-tab>*>a {
+.uk-tab>*>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-tab>*>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-tab>*>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-tab>*>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-tab>*>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-tab>*>a:hover,.uk-card-primary.uk-card-body .uk-tab>*>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-tab>*>a:hover,.uk-card-secondary.uk-card-body .uk-tab>*>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-tab>*>a:hover,.uk-overlay-primary .uk-tab>*>a:hover {
+.uk-tab>*>a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-tab>.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-tab>.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-tab>.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-tab>.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-tab>.uk-active>a,.uk-card-primary.uk-card-body .uk-tab>.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-tab>.uk-active>a,.uk-card-secondary.uk-card-body .uk-tab>.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-tab>.uk-active>a,.uk-overlay-primary .uk-tab>.uk-active>a {
+.uk-tab>.uk-active>a{
 	color: var(--pw-text-color);
 	border-color: var(--pw-border-color)
 }
 
-.uk-tab>.uk-disabled>a,.uk-section-primary:not(.uk-preserve-color) .uk-tab>.uk-disabled>a,.uk-section-secondary:not(.uk-preserve-color) .uk-tab>.uk-disabled>a,.uk-tile-primary:not(.uk-preserve-color) .uk-tab>.uk-disabled>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-tab>.uk-disabled>a,.uk-card-primary.uk-card-body .uk-tab>.uk-disabled>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-tab>.uk-disabled>a,.uk-card-secondary.uk-card-body .uk-tab>.uk-disabled>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-tab>.uk-disabled>a,.uk-overlay-primary .uk-tab>.uk-disabled>a {
+.uk-tab>.uk-disabled>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-slidenav,.uk-section-primary:not(.uk-preserve-color) .uk-slidenav,.uk-section-secondary:not(.uk-preserve-color) .uk-slidenav,.uk-tile-primary:not(.uk-preserve-color) .uk-slidenav,.uk-tile-secondary:not(.uk-preserve-color) .uk-slidenav,.uk-card-primary.uk-card-body .uk-slidenav,.uk-card-primary>:not([class*='uk-card-media']) .uk-slidenav,.uk-card-secondary.uk-card-body .uk-slidenav,.uk-card-secondary>:not([class*='uk-card-media']) .uk-slidenav,.uk-overlay-primary .uk-slidenav {
+.uk-slidenav{
 	color: var(--pw-muted-color)
 }
 
-.uk-slidenav:hover,.uk-section-primary:not(.uk-preserve-color) .uk-slidenav:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-slidenav:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-slidenav:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-slidenav:hover,.uk-card-primary.uk-card-body .uk-slidenav:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-slidenav:hover,.uk-card-secondary.uk-card-body .uk-slidenav:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-slidenav:hover,.uk-overlay-primary .uk-slidenav:hover {
+.uk-slidenav:hover{
 	color: var(--pw-blocks-background)
 }
 
-.uk-slidenav:active,.uk-section-primary:not(.uk-preserve-color) .uk-slidenav:active,.uk-section-secondary:not(.uk-preserve-color) .uk-slidenav:active,.uk-tile-primary:not(.uk-preserve-color) .uk-slidenav:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-slidenav:active,.uk-card-primary.uk-card-body .uk-slidenav:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-slidenav:active,.uk-card-secondary.uk-card-body .uk-slidenav:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-slidenav:active,.uk-overlay-primary .uk-slidenav:active {
+.uk-slidenav:active{
 	color: var(--pw-muted-color)
 }
 
-.uk-dotnav>*>*,.uk-section-primary:not(.uk-preserve-color) .uk-dotnav>*>*,.uk-section-secondary:not(.uk-preserve-color) .uk-dotnav>*>*,.uk-tile-primary:not(.uk-preserve-color) .uk-dotnav>*>*,.uk-tile-secondary:not(.uk-preserve-color) .uk-dotnav>*>*,.uk-card-primary.uk-card-body .uk-dotnav>*>*,.uk-card-primary>:not([class*='uk-card-media']) .uk-dotnav>*>*,.uk-card-secondary.uk-card-body .uk-dotnav>*>*,.uk-card-secondary>:not([class*='uk-card-media']) .uk-dotnav>*>*,.uk-overlay-primary .uk-dotnav>*>* {
+.uk-dotnav>*>*{
 	background-color: transparent;
 	border-color: var(--pw-blocks-background)
 }
 
-.uk-dotnav>*>:hover,.uk-section-primary:not(.uk-preserve-color) .uk-dotnav>*>:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-dotnav>*>:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-dotnav>*>:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-dotnav>*>:hover,.uk-card-primary.uk-card-body .uk-dotnav>*>:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-dotnav>*>:hover,.uk-card-secondary.uk-card-body .uk-dotnav>*>:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-dotnav>*>:hover,.uk-overlay-primary .uk-dotnav>*>:hover {
+.uk-dotnav>*>:hover{
 	background-color: var(--pw-blocks-background);
 	border-color: transparent
 }
 
-.uk-dotnav>*>:active,.uk-section-primary:not(.uk-preserve-color) .uk-dotnav>*>:active,.uk-section-secondary:not(.uk-preserve-color) .uk-dotnav>*>:active,.uk-tile-primary:not(.uk-preserve-color) .uk-dotnav>*>:active,.uk-tile-secondary:not(.uk-preserve-color) .uk-dotnav>*>:active,.uk-card-primary.uk-card-body .uk-dotnav>*>:active,.uk-card-primary>:not([class*='uk-card-media']) .uk-dotnav>*>:active,.uk-card-secondary.uk-card-body .uk-dotnav>*>:active,.uk-card-secondary>:not([class*='uk-card-media']) .uk-dotnav>*>:active,.uk-overlay-primary .uk-dotnav>*>:active {
+.uk-dotnav>*>:active{
 	background-color: var(--pw-muted-color);
 	border-color: transparent
 }
 
-.uk-dotnav>.uk-active>*,.uk-section-primary:not(.uk-preserve-color) .uk-dotnav>.uk-active>*,.uk-section-secondary:not(.uk-preserve-color) .uk-dotnav>.uk-active>*,.uk-tile-primary:not(.uk-preserve-color) .uk-dotnav>.uk-active>*,.uk-tile-secondary:not(.uk-preserve-color) .uk-dotnav>.uk-active>*,.uk-card-primary.uk-card-body .uk-dotnav>.uk-active>*,.uk-card-primary>:not([class*='uk-card-media']) .uk-dotnav>.uk-active>*,.uk-card-secondary.uk-card-body .uk-dotnav>.uk-active>*,.uk-card-secondary>:not([class*='uk-card-media']) .uk-dotnav>.uk-active>*,.uk-overlay-primary .uk-dotnav>.uk-active>* {
+.uk-dotnav>.uk-active>*{
 	background-color: var(--pw-blocks-background);
 	border-color: transparent
 }
 
-.uk-thumbnav>*>*::after,.uk-section-primary:not(.uk-preserve-color) .uk-thumbnav>*>*::after,.uk-section-secondary:not(.uk-preserve-color) .uk-thumbnav>*>*::after,.uk-tile-primary:not(.uk-preserve-color) .uk-thumbnav>*>*::after,.uk-tile-secondary:not(.uk-preserve-color) .uk-thumbnav>*>*::after,.uk-card-primary.uk-card-body .uk-thumbnav>*>*::after,.uk-card-primary>:not([class*='uk-card-media']) .uk-thumbnav>*>*::after,.uk-card-secondary.uk-card-body .uk-thumbnav>*>*::after,.uk-card-secondary>:not([class*='uk-card-media']) .uk-thumbnav>*>*::after,.uk-overlay-primary .uk-thumbnav>*>*::after {
+.uk-thumbnav>*>*::after{
 	background-image: none;
 	background-color: var(--pw-text-color);
 }
 
-.uk-iconnav>*>a,.uk-section-primary:not(.uk-preserve-color) .uk-iconnav>*>a,.uk-section-secondary:not(.uk-preserve-color) .uk-iconnav>*>a,.uk-tile-primary:not(.uk-preserve-color) .uk-iconnav>*>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-iconnav>*>a,.uk-card-primary.uk-card-body .uk-iconnav>*>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-iconnav>*>a,.uk-card-secondary.uk-card-body .uk-iconnav>*>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-iconnav>*>a,.uk-overlay-primary .uk-iconnav>*>a {
+.uk-iconnav>*>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-iconnav>*>a:hover,.uk-section-primary:not(.uk-preserve-color) .uk-iconnav>*>a:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-iconnav>*>a:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-iconnav>*>a:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-iconnav>*>a:hover,.uk-card-primary.uk-card-body .uk-iconnav>*>a:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-iconnav>*>a:hover,.uk-card-secondary.uk-card-body .uk-iconnav>*>a:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-iconnav>*>a:hover,.uk-overlay-primary .uk-iconnav>*>a:hover {
+.uk-iconnav>*>a:hover{
 	color: var(--pw-muted-color)
 }
 
-.uk-iconnav>.uk-active>a,.uk-section-primary:not(.uk-preserve-color) .uk-iconnav>.uk-active>a,.uk-section-secondary:not(.uk-preserve-color) .uk-iconnav>.uk-active>a,.uk-tile-primary:not(.uk-preserve-color) .uk-iconnav>.uk-active>a,.uk-tile-secondary:not(.uk-preserve-color) .uk-iconnav>.uk-active>a,.uk-card-primary.uk-card-body .uk-iconnav>.uk-active>a,.uk-card-primary>:not([class*='uk-card-media']) .uk-iconnav>.uk-active>a,.uk-card-secondary.uk-card-body .uk-iconnav>.uk-active>a,.uk-card-secondary>:not([class*='uk-card-media']) .uk-iconnav>.uk-active>a,.uk-overlay-primary .uk-iconnav>.uk-active>a {
+.uk-iconnav>.uk-active>a{
 	color: var(--pw-muted-color)
 }
 
-.uk-text-lead,.uk-section-primary:not(.uk-preserve-color) .uk-text-lead,.uk-section-secondary:not(.uk-preserve-color) .uk-text-lead,.uk-tile-primary:not(.uk-preserve-color) .uk-text-lead,.uk-tile-secondary:not(.uk-preserve-color) .uk-text-lead,.uk-card-primary.uk-card-body .uk-text-lead,.uk-card-primary>:not([class*='uk-card-media']) .uk-text-lead,.uk-card-secondary.uk-card-body .uk-text-lead,.uk-card-secondary>:not([class*='uk-card-media']) .uk-text-lead,.uk-overlay-primary .uk-text-lead {
+.uk-text-lead{
 	color: var(--pw-muted-color)
 }
 
-.uk-text-meta,.uk-section-primary:not(.uk-preserve-color) .uk-text-meta,.uk-section-secondary:not(.uk-preserve-color) .uk-text-meta,.uk-tile-primary:not(.uk-preserve-color) .uk-text-meta,.uk-tile-secondary:not(.uk-preserve-color) .uk-text-meta,.uk-card-primary.uk-card-body .uk-text-meta,.uk-card-primary>:not([class*='uk-card-media']) .uk-text-meta,.uk-card-secondary.uk-card-body .uk-text-meta,.uk-card-secondary>:not([class*='uk-card-media']) .uk-text-meta,.uk-overlay-primary .uk-text-meta {
+.uk-text-meta{
 	color: var(--pw-muted-color)
 }
 
-.uk-text-muted,.uk-section-primary:not(.uk-preserve-color) .uk-text-muted,.uk-section-secondary:not(.uk-preserve-color) .uk-text-muted,.uk-tile-primary:not(.uk-preserve-color) .uk-text-muted,.uk-tile-secondary:not(.uk-preserve-color) .uk-text-muted,.uk-card-primary.uk-card-body .uk-text-muted,.uk-card-primary>:not([class*='uk-card-media']) .uk-text-muted,.uk-card-secondary.uk-card-body .uk-text-muted,.uk-card-secondary>:not([class*='uk-card-media']) .uk-text-muted,.uk-overlay-primary .uk-text-muted {
+.uk-text-muted{
 	color: var(--pw-muted-color) !important
 }
 
-.uk-text-emphasis,.uk-section-primary:not(.uk-preserve-color) .uk-text-emphasis,.uk-section-secondary:not(.uk-preserve-color) .uk-text-emphasis,.uk-tile-primary:not(.uk-preserve-color) .uk-text-emphasis,.uk-tile-secondary:not(.uk-preserve-color) .uk-text-emphasis,.uk-card-primary.uk-card-body .uk-text-emphasis,.uk-card-primary>:not([class*='uk-card-media']) .uk-text-emphasis,.uk-card-secondary.uk-card-body .uk-text-emphasis,.uk-card-secondary>:not([class*='uk-card-media']) .uk-text-emphasis,.uk-overlay-primary .uk-text-emphasis {
+.uk-text-emphasis{
 	color: var(--pw-text-color) !important
 }
 
-.uk-text-primary,.uk-section-primary:not(.uk-preserve-color) .uk-text-primary,.uk-section-secondary:not(.uk-preserve-color) .uk-text-primary,.uk-tile-primary:not(.uk-preserve-color) .uk-text-primary,.uk-tile-secondary:not(.uk-preserve-color) .uk-text-primary,.uk-card-primary.uk-card-body .uk-text-primary,.uk-card-primary>:not([class*='uk-card-media']) .uk-text-primary,.uk-card-secondary.uk-card-body .uk-text-primary,.uk-card-secondary>:not([class*='uk-card-media']) .uk-text-primary,.uk-overlay-primary .uk-text-primary {
+.uk-text-primary{
 	color: var(--pw-text-color) !important
 }
 
-.uk-text-secondary,.uk-section-primary:not(.uk-preserve-color) .uk-text-secondary,.uk-section-secondary:not(.uk-preserve-color) .uk-text-secondary,.uk-tile-primary:not(.uk-preserve-color) .uk-text-secondary,.uk-tile-secondary:not(.uk-preserve-color) .uk-text-secondary,.uk-card-primary.uk-card-body .uk-text-secondary,.uk-card-primary>:not([class*='uk-card-media']) .uk-text-secondary,.uk-card-secondary.uk-card-body .uk-text-secondary,.uk-card-secondary>:not([class*='uk-card-media']) .uk-text-secondary,.uk-overlay-primary .uk-text-secondary {
+.uk-text-secondary{
 	color: var(--pw-text-color) !important
 }
 
-.uk-column-divider,.uk-section-primary:not(.uk-preserve-color) .uk-column-divider,.uk-section-secondary:not(.uk-preserve-color) .uk-column-divider,.uk-tile-primary:not(.uk-preserve-color) .uk-column-divider,.uk-tile-secondary:not(.uk-preserve-color) .uk-column-divider,.uk-card-primary.uk-card-body .uk-column-divider,.uk-card-primary>:not([class*='uk-card-media']) .uk-column-divider,.uk-card-secondary.uk-card-body .uk-column-divider,.uk-card-secondary>:not([class*='uk-card-media']) .uk-column-divider,.uk-overlay-primary .uk-column-divider {
+.uk-column-divider{
 	column-rule-color:var(--pw-blocks-background)
 }
 
-.uk-logo,.uk-section-primary:not(.uk-preserve-color) .uk-logo,.uk-section-secondary:not(.uk-preserve-color) .uk-logo,.uk-tile-primary:not(.uk-preserve-color) .uk-logo,.uk-tile-secondary:not(.uk-preserve-color) .uk-logo,.uk-card-primary.uk-card-body .uk-logo,.uk-card-primary>:not([class*='uk-card-media']) .uk-logo,.uk-card-secondary.uk-card-body .uk-logo,.uk-card-secondary>:not([class*='uk-card-media']) .uk-logo,.uk-overlay-primary .uk-logo {
+.uk-logo{
 	color: var(--pw-text-color)
 }
 
-.uk-logo:hover,.uk-section-primary:not(.uk-preserve-color) .uk-logo:hover,.uk-section-secondary:not(.uk-preserve-color) .uk-logo:hover,.uk-tile-primary:not(.uk-preserve-color) .uk-logo:hover,.uk-tile-secondary:not(.uk-preserve-color) .uk-logo:hover,.uk-card-primary.uk-card-body .uk-logo:hover,.uk-card-primary>:not([class*='uk-card-media']) .uk-logo:hover,.uk-card-secondary.uk-card-body .uk-logo:hover,.uk-card-secondary>:not([class*='uk-card-media']) .uk-logo:hover,.uk-overlay-primary .uk-logo:hover {
+.uk-logo:hover{
 	color: var(--pw-text-color)
 }
 
-.uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-section-primary:not(.uk-preserve-color) .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-section-primary:not(.uk-preserve-color) .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-section-secondary:not(.uk-preserve-color) .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-section-secondary:not(.uk-preserve-color) .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-tile-primary:not(.uk-preserve-color) .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-tile-primary:not(.uk-preserve-color) .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-tile-secondary:not(.uk-preserve-color) .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-tile-secondary:not(.uk-preserve-color) .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-card-primary.uk-card-body .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-card-primary.uk-card-body .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-card-primary>:not([class*='uk-card-media']) .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-card-primary>:not([class*='uk-card-media']) .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-card-secondary.uk-card-body .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-card-secondary.uk-card-body .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-card-secondary>:not([class*='uk-card-media']) .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-card-secondary>:not([class*='uk-card-media']) .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type),.uk-overlay-primary .uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-overlay-primary .uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type) {
+.uk-logo>picture:not(:only-of-type)>:not(.uk-logo-inverse),.uk-logo>:not(picture):not(.uk-logo-inverse):not(:only-of-type){
 	display: none
 }
 
-.uk-logo-inverse,.uk-section-primary:not(.uk-preserve-color) .uk-logo-inverse,.uk-section-secondary:not(.uk-preserve-color) .uk-logo-inverse,.uk-tile-primary:not(.uk-preserve-color) .uk-logo-inverse,.uk-tile-secondary:not(.uk-preserve-color) .uk-logo-inverse,.uk-card-primary.uk-card-body .uk-logo-inverse,.uk-card-primary>:not([class*='uk-card-media']) .uk-logo-inverse,.uk-card-secondary.uk-card-body .uk-logo-inverse,.uk-card-secondary>:not([class*='uk-card-media']) .uk-logo-inverse,.uk-overlay-primary .uk-logo-inverse {
+.uk-logo-inverse{
 	display: block
 }
 
-.uk-table-striped>tr:nth-of-type(even):last-child,.uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-section-primary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(even):last-child,.uk-section-primary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-section-secondary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(even):last-child,.uk-section-secondary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-tile-primary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(even):last-child,.uk-tile-primary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-tile-secondary:not(.uk-preserve-color) .uk-table-striped>tr:nth-of-type(even):last-child,.uk-tile-secondary:not(.uk-preserve-color) .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-card-primary.uk-card-body .uk-table-striped>tr:nth-of-type(even):last-child,.uk-card-primary.uk-card-body .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-card-primary>:not([class*='uk-card-media']) .uk-table-striped>tr:nth-of-type(even):last-child,.uk-card-primary>:not([class*='uk-card-media']) .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-card-secondary.uk-card-body .uk-table-striped>tr:nth-of-type(even):last-child,.uk-card-secondary.uk-card-body .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-striped>tr:nth-of-type(even):last-child,.uk-card-secondary>:not([class*='uk-card-media']) .uk-table-striped tbody tr:nth-of-type(even):last-child,.uk-overlay-primary .uk-table-striped>tr:nth-of-type(even):last-child,.uk-overlay-primary .uk-table-striped tbody tr:nth-of-type(even):last-child {
+.uk-table-striped>tr:nth-of-type(even):last-child,.uk-table-striped tbody tr:nth-of-type(even):last-child{
 	border-bottom-color: var(--pw-border-color)
 }
 
-.uk-accordion-title::before,.uk-section-primary:not(.uk-preserve-color) .uk-accordion-title::before,.uk-section-secondary:not(.uk-preserve-color) .uk-accordion-title::before,.uk-tile-primary:not(.uk-preserve-color) .uk-accordion-title::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-accordion-title::before,.uk-card-primary.uk-card-body .uk-accordion-title::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-accordion-title::before,.uk-card-secondary.uk-card-body .uk-accordion-title::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-accordion-title::before,.uk-overlay-primary .uk-accordion-title::before {
+.uk-accordion-title::before{
 	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%20%20%3Crect%20fill%3D%22rgba%28255,255,255,0.7%29%22%20width%3D%2213%22%20height%3D%221%22%20x%3D%220%22%20y%3D%226%22%20%2F%3E%0A%20%20%20%20%3Crect%20fill%3D%22rgba%28255,255,255,0.7%29%22%20width%3D%221%22%20height%3D%2213%22%20x%3D%226%22%20y%3D%220%22%20%2F%3E%0A%3C%2Fsvg%3E")
 }
 
-.uk-open>.uk-accordion-title::before,.uk-section-primary:not(.uk-preserve-color) .uk-open>.uk-accordion-title::before,.uk-section-secondary:not(.uk-preserve-color) .uk-open>.uk-accordion-title::before,.uk-tile-primary:not(.uk-preserve-color) .uk-open>.uk-accordion-title::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-open>.uk-accordion-title::before,.uk-card-primary.uk-card-body .uk-open>.uk-accordion-title::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-open>.uk-accordion-title::before,.uk-card-secondary.uk-card-body .uk-open>.uk-accordion-title::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-open>.uk-accordion-title::before,.uk-overlay-primary .uk-open>.uk-accordion-title::before {
+.uk-open>.uk-accordion-title::before{
 	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2213%22%20height%3D%2213%22%20viewBox%3D%220%200%2013%2013%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%20%20%3Crect%20fill%3D%22rgba%28255,255,255,0.7%29%22%20width%3D%2213%22%20height%3D%221%22%20x%3D%220%22%20y%3D%226%22%20%2F%3E%0A%3C%2Fsvg%3E")
 }
 
@@ -1074,9 +1066,6 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 }
 
 .uk-overlay-default,
-.uk-overlay-primary {
-	background: var(--pw-modal-color)
-}
 
 .uk-article-meta,
 .uk-comment-meta {
@@ -2185,7 +2174,6 @@ table,
 	color: var(--pw-muted-color);
 }
 
-
 .pw .ui-button,
 .pw .ui-button.ui-state-default,
 .pw .ui-button.ui-state-hover,
@@ -2223,17 +2211,6 @@ table,
 }
 
 .pw .uk-button-default {
-	background-color: var(--pw-button-background);
-	color: var(--pw-button-color);
-}
-
-.uk-section-primary:not(.uk-preserve-color) .uk-button-default,
-.uk-section-secondary:not(.uk-preserve-color) .uk-button-default {
-	background-color: var(--pw-button-color);
-	color: var(--pw-button-background);
-}
-.pw .uk-section-primary:not(.uk-preserve-color) .uk-button-default:not(:disabled):hover,
-.pw .uk-section-secondary:not(.uk-preserve-color) .uk-button-default:not(:disabled):hover {
 	background-color: var(--pw-button-background);
 	color: var(--pw-button-color);
 }
@@ -2330,8 +2307,8 @@ button:disabled,
 }
 
 .AdminThemeUikit .uk-breadcrumb a,
-.uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-section-primary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-section-secondary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-tile-primary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-tile-secondary:not(.uk-preserve-color) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-card-primary.uk-card-body .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-card-primary>:not([class*='uk-card-media']) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-card-secondary.uk-card-body .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-card-secondary>:not([class*='uk-card-media']) .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before, .uk-overlay-primary .uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,
-.uk-breadcrumb>:last-child>*, .uk-section-primary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*, .uk-section-secondary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*, .uk-tile-primary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*, .uk-tile-secondary:not(.uk-preserve-color) .uk-breadcrumb>:last-child>*, .uk-card-primary.uk-card-body .uk-breadcrumb>:last-child>*, .uk-card-primary>:not([class*='uk-card-media']) .uk-breadcrumb>:last-child>*, .uk-card-secondary.uk-card-body .uk-breadcrumb>:last-child>*, .uk-card-secondary>:not([class*='uk-card-media']) .uk-breadcrumb>:last-child>*, .uk-overlay-primary .uk-breadcrumb>:last-child>* {
+.uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before,
+.uk-breadcrumb>:last-child>*{
 	color: var(--pw-muted-color);
 }
 
@@ -2826,7 +2803,6 @@ small {
 .pw .gridImage.gridImage--delete .gridImage__inner {
 	background: transparent !important;
 }
-
 
 .pw .InputfieldImageEdit__info {
 	color: var(--pw-muted-color);
@@ -3722,7 +3698,6 @@ input[type="radio"]:focus-visible:checked,
 .pw .uk-checkbox {
 	border-color: var(--pw-border-color);
 }
-
 
 .pw .uk-radio:checked {
 	background-image: url(data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%20%20%3Ccircle%20fill%3D%22%23fff%22%20cx%3D%228%22%20cy%3D%228%22%20r%3D%222%22%20%2F%3E%0A%3C%2Fsvg%3E) !important;
