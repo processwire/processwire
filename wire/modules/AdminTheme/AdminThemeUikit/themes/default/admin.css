@@ -5123,7 +5123,7 @@ body.uk-offcanvas-container #offcanvas-toggle > .fa-bars:before {
 :not(.InputfieldFieldset)>.InputfieldContent>.Inputfields>.InputfieldMarkup.InputfieldHeaderHidden:not(.InputfieldNoBorder, .InputfieldWrapper),
 .InputfieldForm>.Inputfields>.InputfieldMarkup.InputfieldHeaderHidden:not(.InputfieldNoBorder, .InputfieldWrapper) {
 	/* InputfieldMarkup */
-	outline: 1px solid var(--pw-border-color) !important;
+	outline: 1px solid var(--pw-border-color);
 	padding-left: 20px;
 	padding-right: 20px;
 }
