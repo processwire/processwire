@@ -1138,7 +1138,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function ___buildFormContent() {
 
-		$fields = $this->page->getInputfields(array('flat' => !$this->isPost));
+		$fields = $this->page->getInputfields(array(
+			'flat' => !$this->isPost,
+			// on the initial render, skip the fields in ajax loaded fieldsets, as they are built
+			// by the request that loads the fieldset. not applicable when processing a submitted
+			// form, nor when this request is the one loading an ajax fieldset.
+			'ajaxDefer' => !$this->isPost && !$this->config->ajax,
+		));
 		$id = $this->className() . 'Content'; 
 		$title = $this->page->template->getTabLabel('content'); 
 		if(!$title) $title = $this->_('Content'); // Tab Label: Content

@@ -536,6 +536,10 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *  - `flat` (bool): Return all Inputfields in a flattened InputfieldWrapper?
 	 *  - `populate` (bool): Populate page values to Inputfields? (default=true) since 3.0.208
 	 *  - `container` (InputfieldWrapper): The InputfieldWrapper element to add fields into, or omit for new. since 3.0.239
+	 *  - `ajaxDefer` (bool): Skip fields in ajax loaded fieldsets? (default=false) since 3.0.272
+	 *     Their Inputfields are neither created nor populated, avoiding the cost of loading values
+	 *     that are not yet needed. The fieldset open/close fields are still included, so the fieldset
+	 *     still renders its ajax placeholder, and its fields are built by the request that loads it.
 	 * @param string|array $fieldName Limit to a particular fieldName(s) or field IDs (optional).
 	 *  - If specifying a single field (name or ID) and it refers to a fieldset, then all fields in that fieldset will be included. 
 	 *  - If specifying an array of field names/IDs the returned InputfieldWrapper will maintain the requested order. 
@@ -554,7 +558,8 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 				'namespace' => $namespace,
 				'flat' => $flat, 
 				'populate' => true, // populate page values?
-				'container' => null, 
+				'container' => null,
+				'ajaxDefer' => false, // skip fields in ajax loaded fieldsets?
 			);
 			$options = $contextStr;
 			$options = array_merge($defaults, $options);
@@ -564,10 +569,16 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 			$populate = (bool) $options['populate'];
 			$flat = $options['flat'];
 			$container = $options['container'];
+			$ajaxDefer = (bool) $options['ajaxDefer'];
 		} else {
 			$populate = true;
 			$container = null;
+			$ajaxDefer = false;
 		}
+
+		// InputfieldWrapper does not use ajax render mode for a user that is not logged in, and
+		// instead renders the Inputfield inline, so its fields must be present for it to render
+		if($ajaxDefer && !$this->wire()->user->isLoggedin()) $ajaxDefer = false;
 	
 		if(!$container instanceof InputfieldWrapper) {
 			$container = $this->wire(new InputfieldWrapper());
@@ -577,6 +588,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		$inFieldset = false;
 		$inHiddenFieldset = false;
 		$inModalGroup = '';
+		$inAjaxFieldset = '';
 	
 		// for multiple named fields
 		$multiMode = false;
@@ -627,7 +639,29 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 					continue;
 				}
 			}
-			
+
+			if($inAjaxFieldset) {
+				// we are in an ajax loaded fieldset that should be skipped, since its fields are
+				// built and populated by the separate request that loads the fieldset
+				if($field->name == $inAjaxFieldset . "_END") {
+					// exit ajax fieldset (its closing field is still added below)
+					$inAjaxFieldset = '';
+				} else {
+					// skip field
+					continue;
+				}
+			} else if($ajaxDefer && !$fieldName && !$multiMode
+				&& $field->type instanceof FieldtypeFieldsetOpen
+				&& !($field->type instanceof FieldtypeFieldsetClose)
+				&& ($field->collapsed == Inputfield::collapsedYesAjax || $field->collapsed == Inputfield::collapsedTabAjax)
+				&& !$field->get('required')) {
+				// entering an ajax loaded fieldset, so skip the fields within it
+				// (the fieldset field itself is still added below)
+				// note that a required fieldset is not skipped, as InputfieldWrapper disables
+				// ajax mode for a required and empty Inputfield, which cannot be determined here
+				$inAjaxFieldset = $field->name;
+			}
+
 			if($fieldName) {
 				// limit to specific field name
 				if($inFieldset) {
