@@ -47,6 +47,20 @@ class WireTest extends Wire {
 	public function getTestPage() {
 		return $this->page;
 	}
+
+	/**
+	 * Get the template that we are using for tests
+	 *
+	 * Tests should use this rather than referring to templates from the site profile,
+	 * which are not guaranteed to be present or to have kept their original name.
+	 *
+	 * @return Template
+	 * @since 3.0.272
+	 *
+	 */
+	public function getTestTemplate() {
+		return $this->page->template;
+	}
 	
 	/**
 	 * Allow this test?

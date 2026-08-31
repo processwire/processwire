@@ -226,12 +226,10 @@ class WireTest_PagesVersions extends WireTest {
 	 */
 	protected function createPage() {
 		$pages = $this->wire()->pages;
-		$page = new Page();
-		$page->template = 'basic-page';
+		$page = $pages->newPage($this->getTestTemplate());
 		$page->parent = $pages->get('/');
 		$page->name = $this->pageName;
 		$page->title = 'Live title';
-		$page->headline = 'Live headline';
 		$page->save();
 		return $page;
 	}

@@ -17,8 +17,10 @@ class WireTest_Fieldgroups extends WireTest {
 	public function execute() {
 		$fieldgroups = $this->wire()->fieldgroups;
 
+		$templateName = $this->getTestTemplate()->name;
+
 		$this->check('$fieldgroups is Fieldgroups', true, $fieldgroups instanceof Fieldgroups);
-		$this->check('$fieldgroups->get(basic-page) returns Fieldgroup', true, $fieldgroups->get('basic-page') instanceof Fieldgroup);
+		$this->check('$fieldgroups->get(name) returns Fieldgroup', true, $fieldgroups->get($templateName) instanceof Fieldgroup);
 		$this->check('$fieldgroups->get(missing) returns null', null, $fieldgroups->get($this->name('missing')));
 		$this->check('$fieldgroups is iterable over Fieldgroup objects', true, $this->firstFieldgroupIsFieldgroup());
 
@@ -70,10 +72,11 @@ class WireTest_Fieldgroups extends WireTest {
 		$this->check('getFieldNames(object) returns title indexed by ID', 'title', $fieldNames[$fields->get('title')->id]);
 		$this->check('getFieldNames(object) returns temp field indexed by ID', $alpha->name, $fieldNames[$alpha->id]);
 
-		$basic = $fieldgroups->get('basic-page');
-		$fieldNamesByName = $fieldgroups->getFieldNames('basic-page');
+		$templateName = $this->getTestTemplate()->name;
+		$existing = $fieldgroups->get($templateName);
+		$fieldNamesByName = $fieldgroups->getFieldNames($templateName);
 		$this->check('getFieldNames(name) returns existing field', 'title', $fieldNamesByName[$fields->get('title')->id]);
-		$fieldNamesById = $fieldgroups->getFieldNames($basic->id);
+		$fieldNamesById = $fieldgroups->getFieldNames($existing->id);
 		$this->check('getFieldNames(id) returns existing field', 'title', $fieldNamesById[$fields->get('title')->id]);
 	}
 
@@ -125,16 +128,17 @@ class WireTest_Fieldgroups extends WireTest {
 
 	protected function testTemplatesAndDeleteProtection() {
 		$fieldgroups = $this->wire()->fieldgroups;
-		$basic = $fieldgroups->get('basic-page');
+		$template = $this->getTestTemplate();
+		$existing = $fieldgroups->get($template->name);
 
-		$this->check('getTemplates() returns TemplatesArray', true, $basic->getTemplates() instanceof TemplatesArray);
-		$this->check('getTemplates() includes basic-page template', true, $basic->getTemplates()->has($this->wire()->templates->get('basic-page')));
-		$this->check('getNumTemplates() returns count', true, $basic->getNumTemplates() >= 1);
-		$this->check('numTemplates() aliases getNumTemplates()', $basic->getNumTemplates(), $basic->numTemplates());
+		$this->check('getTemplates() returns TemplatesArray', true, $existing->getTemplates() instanceof TemplatesArray);
+		$this->check('getTemplates() includes its template', true, $existing->getTemplates()->has($template));
+		$this->check('getNumTemplates() returns count', true, $existing->getNumTemplates() >= 1);
+		$this->check('numTemplates() aliases getNumTemplates()', $existing->getNumTemplates(), $existing->numTemplates());
 
 		$threw = false;
 		try {
-			$fieldgroups->delete($basic);
+			$fieldgroups->delete($existing);
 		} catch(WireException $e) {
 			$threw = true;
 		}
