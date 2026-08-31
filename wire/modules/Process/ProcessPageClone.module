@@ -382,10 +382,7 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 		set_time_limit(3600);
 
 		if($cloneTree && $input->post('clone_tree_unpublished')) {
-			$this->wire()->pages->addHook('cloneReady', function(HookEvent $event) use($page) {
-				$child = $event->arguments(1); /** @var Page $child */
-				if($page->id !== $child->id) $child->addStatus(Page::statusUnpublished);
-			}); 
+			$this->addCloneTreeUnpublishedHook($page);
 		}
 		
 		$clone = $this->pages->clone($page, $page->parent, $cloneTree);
@@ -429,6 +426,24 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 		}
 
 		$this->wire()->session->location($redirectURL);
+	}
+
+	/**
+	 * Add hook that makes cloned tree children unpublished
+	 *
+	 * RepeaterPage instances are internal field storage rather than pages in the
+	 * cloned tree, and FieldtypeRepeater handles their status independently.
+	 *
+	 * @param Page $page Root page being cloned
+	 *
+	 */
+	protected function addCloneTreeUnpublishedHook(Page $page) {
+		$this->wire()->pages->addHook('cloneReady', function(HookEvent $event) use($page) {
+			$source = $event->arguments(0); /** @var Page $source */
+			$copy = $event->arguments(1); /** @var Page $copy */
+			if($source->id === $page->id || $copy instanceof RepeaterPage) return;
+			$copy->addStatus(Page::statusUnpublished);
+		});
 	}
 
 	/**
