@@ -250,7 +250,16 @@ var ProcessWireAdmin = {
 					var at = $ul.attr('data-at');
 					if(my) position.my = my;
 					if(at) position.at = at;
+					// the menu has to be rendered while it is positioned. jQuery cannot
+					// determine the current offset of a hidden element, and for a menu that
+					// a theme has made position:fixed (i.e. to keep it with a sticky
+					// masthead) that results in document relative coordinates being applied
+					// to a viewport relative element, leaving the menu off by the current
+					// scroll offset. show it while still invisible so that nothing paints
+					// at the pre-positioned location.
+					$ul.css('visibility', 'hidden').show();
 					$ul.position(position).css('z-index', 200);
+					$ul.hide().css('visibility', '');
 				}
 
 				$a.addClass('hover');
