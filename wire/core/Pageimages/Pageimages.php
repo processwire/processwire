@@ -140,7 +140,10 @@ class Pageimages extends Pagefiles {
 			$variations[$name] = array();	
 		}
 		
-		foreach(new \DirectoryIterator($this->path()) as $file) {
+		$path = $this->path();
+		if(!is_dir($path)) return $variations;
+
+		foreach(new \DirectoryIterator($path) as $file) {
 			
 			if($file->isDir() || $file->isDot()) continue;
 

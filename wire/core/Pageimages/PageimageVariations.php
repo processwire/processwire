@@ -331,6 +331,12 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 			$options['verbose'] = true; // non-verbose only allowed if info==true
 		}
 
+		if(!is_dir($this->pagefiles->path)) {
+			if($options['count']) return 0;
+			if($options['info']) return array();
+			return $this->wire(new Pageimages($this->pagefiles->page));
+		}
+
 		$variations = null;
 		$dir = new \DirectoryIterator($this->pagefiles->path);
 		$infos = array();
