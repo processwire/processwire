@@ -585,7 +585,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->form->setTrackChanges();
 		$this->page->editReady($this->form);
 
-		if($this->isPost && $this->form->isSubmitted()) $this->processSave();
+		if($this->isPost) {
+			if($this->form->isSubmitted()) {
+				$this->processSave();
+			} else if(!$this->config->ajax) {
+				$this->postNotSubmitted();
+			}
+		}
 
 		if($this->page->hasStatus(Page::statusLocked)) {
 			if($this->user->hasPermission('page-lock', $this->page)) {
@@ -2188,6 +2194,46 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 */
 	
+	/**
+	 * Called for a POST request that was not recognized as a valid form submission
+	 *
+	 * Nothing is saved in this case. The most likely cause is that PHP’s max_input_vars
+	 * setting was exceeded, since the CSRF token and the form landmark input are the last
+	 * inputs in the form, and thus the first ones dropped when PHP truncates the POST
+	 * variables. The page id is near the beginning of the form and survives, which is why
+	 * the request still appears to be a page edit POST. Without this notice the editor
+	 * simply re-renders and looks like a save that quietly lost its changes.
+	 *
+	 * #pw-hooker
+	 *
+	 * @since 3.0.272
+	 *
+	 */
+	protected function ___postNotSubmitted() {
+
+		$input = $this->wire()->input;
+		$session = $this->wire()->session;
+
+		$max = (int) ini_get('max_input_vars');
+		$tokenName = $session->CSRF()->getTokenName();
+		$hasToken = $input->post($tokenName) !== null;
+		$hasLandmark = $input->post('_InputfieldForm') === $this->form->getFormName();
+
+		// note that no max_input_vars notice is given here, as _checkForMaxInputVars() in
+		// wire/core/admin.php already reports that for any admin POST that reaches the limit.
+		// what it cannot know, and what is added here, is that the submission was discarded.
+		$this->error($this->_('Your changes were not saved because the submitted form could not be verified.'));
+
+		$this->error(
+			"POST for page $this->id was not processed " .
+			"(token=" . ($hasToken ? 'ok' : 'missing') . ", " .
+			"landmark=" . ($hasLandmark ? 'ok' : 'missing') . ", " .
+			"postVars=" . count($_POST, COUNT_RECURSIVE) . ", " .
+			"max_input_vars=$max)",
+			Notice::logOnly
+		);
+	}
+
 	/**
 	 * Save a submitted Page Edit form
 	 *
