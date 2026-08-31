@@ -703,9 +703,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}	
 	
 		if($clear) {
-			$session = $this->wire()->session; 
+			$session = $this->wire()->session;
 			$session->removeFor($this, 'prnav');
 			$session->removeFor($this, 'sidenav');
+			$session->removeFor($this, 'themeInfos');
 			$session->message("Cleared the admin theme navigation cache (primary nav)", Notice::debug);
 		}
 	}
@@ -1357,19 +1358,14 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$themeInfos = $session->getFor($this, 'themeInfos');
 			if(empty($themeInfos)) {
 				// wakeup
-				$config = $this->wire()->config;
-				$thisPath = $config->paths($this);
-				$themesPath = $thisPath . 'themes/';
-				$rootLen = strlen($config->paths->root);
+				$themesPath = $this->wire()->config->paths($this) . 'themes/';
 				if(is_dir($themesPath)) {
 					foreach(new \DirectoryIterator($themesPath) as $file) {
 						if(!$file->isDir() || $file->isDot()) continue;
 						$basename = $file->getBasename();
 						if(strpos($basename, '.') === 0) continue;
-						$themePath = $thisPath . "themes/$basename/";
-						$themeUrl = $config->urls->root . substr($themePath, $rootLen);
-						$themeInfo = ['name' => $basename, 'path' => $themePath, 'url' => $themeUrl];
-						$infoFile = $themePath . 'info.php';
+						$themeInfo = ['name' => $basename];
+						$infoFile = $themesPath . "$basename/info.php";
 						if(is_file($infoFile)) {
 							$a = include($infoFile);
 							$themeInfo = array_merge($a, $themeInfo);
@@ -1384,10 +1380,36 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$this->themeInfos = $themeInfos;
 			}
 		}
-		
-		if($themeName === 'all') return $themeInfos;
-		
-		return $themeName && isset($themeInfos[$themeName]) ? $themeInfos[$themeName] : [];
+
+		if($themeName === 'all') {
+			foreach($themeInfos as $basename => $themeInfo) {
+				$themeInfos[$basename] = $this->themeInfoPaths($themeInfo);
+			}
+			return $themeInfos;
+		}
+
+		return $themeName && isset($themeInfos[$themeName]) ? $this->themeInfoPaths($themeInfos[$themeName]) : [];
+	}
+
+	/**
+	 * Populate the runtime 'path' and 'url' properties of given theme info array
+	 *
+	 * These are determined at runtime rather than stored with the rest of the cached theme
+	 * info, because they depend on the location of the module file currently in use. When
+	 * both core and site copies of this module are present, the copy in use can differ from
+	 * the one that populated the cache, since the cache is shared by class name.
+	 *
+	 * @param array $themeInfo
+	 * @return array
+	 * @since 3.0.272
+	 *
+	 */
+	protected function themeInfoPaths(array $themeInfo) {
+		$config = $this->wire()->config;
+		$themePath = $config->paths($this) . "themes/$themeInfo[name]/";
+		$themeInfo['path'] = $themePath;
+		$themeInfo['url'] = $config->urls->root . substr($themePath, strlen($config->paths->root));
+		return $themeInfo;
 	}
 	
 	/**
