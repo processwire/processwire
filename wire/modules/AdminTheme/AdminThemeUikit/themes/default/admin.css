@@ -4761,6 +4761,10 @@ html.pw body.ProcessLogin:not(:has(#tools-toggle)) {
 
 html.pw body.ProcessLogin:not(:has(#tools-toggle)) #pw-mastheads {
 	position: static;
+	/* override the fixed 56px masthead height: the login logo box can be
+	   taller than 56px (i.e. wide custom logos in the 4/3 logo link box),
+	   and a fixed height makes it overflow/overlap the login fields below */
+	height: auto;
 }
 
 html.pw body.ProcessLogin:not(:has(#tools-toggle)) > #main {
