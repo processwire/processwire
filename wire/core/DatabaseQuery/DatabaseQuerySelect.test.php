@@ -483,5 +483,64 @@ class WireTest_DatabaseQuerySelect extends WireTest {
 		$q = new DatabaseQuerySelect();
 		$q->set('comment', 'test comment');
 		$this->check('comment property returns string', 'test comment', $q->comment);
+
+		$this->testAggregateExpression();
+	}
+
+	/**
+	 * Aggregation helpers used to keep grouped queries valid under ONLY_FULL_GROUP_BY
+	 * 
+	 */
+	protected function testAggregateExpression() {
+
+		$q = new DatabaseQuerySelect();
+
+		// isAggregateExpression()
+		$this->check('isAggregateExpression() detects COUNT', true, $q->isAggregateExpression('COUNT(t.id)'));
+		$this->check('isAggregateExpression() detects GROUP_CONCAT', true, $q->isAggregateExpression("GROUP_CONCAT(t.data SEPARATOR ',')"));
+		$this->check('isAggregateExpression() detects lowercase min', true, $q->isAggregateExpression('min(t.data)'));
+		$this->check('isAggregateExpression() detects nested aggregate', true, $q->isAggregateExpression('IF(x.a IS NULL, MAX(y.b), 0)'));
+		$this->check('isAggregateExpression() ignores plain column', false, $q->isAggregateExpression('pages.name'));
+		$this->check('isAggregateExpression() ignores non-aggregate function', false, $q->isAggregateExpression('UNIX_TIMESTAMP(pages.created)'));
+
+		// aggregateExpression() wraps and keeps the result column name
+		$this->check('aggregateExpression() wraps plain column and adds alias',
+			'MIN(pages.parent_id) AS parent_id', $q->aggregateExpression('pages.parent_id'));
+		$this->check('aggregateExpression() keeps an existing alias outside the wrapper',
+			'MIN(t.data) AS `title__data`', $q->aggregateExpression('t.data AS `title__data`'));
+		$this->check('aggregateExpression() wraps a non-aggregate function call',
+			'MIN(UNIX_TIMESTAMP(pages.created)) AS created', $q->aggregateExpression('UNIX_TIMESTAMP(pages.created) AS created'));
+
+		// already aggregated expressions are left alone
+		$this->check('aggregateExpression() leaves aggregate unchanged',
+			'COUNT(t.id) AS n', $q->aggregateExpression('COUNT(t.id) AS n'));
+		$this->check('aggregateExpression() leaves GROUP_CONCAT unchanged',
+			'GROUP_CONCAT(t.data) AS d', $q->aggregateExpression('GROUP_CONCAT(t.data) AS d'));
+
+		// wildcards cannot be wrapped in a function call
+		$this->check('aggregateExpression() leaves wildcard unchanged', 'pages.*', $q->aggregateExpression('pages.*'));
+
+		// expressions with no column reference are left alone
+		$this->check('aggregateExpression() leaves RAND() unchanged', 'RAND()', $q->aggregateExpression('RAND()'));
+
+		// ORDER BY expressions cannot carry an alias
+		$this->check('aggregateExpression() omits alias when requested',
+			'MIN(t.data)', $q->aggregateExpression('t.data', false));
+
+		// MAX is used for descending sorts so a page sorts by its best value
+		$this->check('aggregateExpression() can wrap with MAX',
+			'MAX(t.data)', $q->aggregateExpression('t.data', false, 'MAX'));
+		$this->check('aggregateExpression() falls back to MIN for unknown function',
+			'MIN(t.data)', $q->aggregateExpression('t.data', false, 'BOGUS'));
+
+		// a grouped query built through the API stays valid
+		$q = new DatabaseQuerySelect();
+		$q->select('pages.id');
+		$q->select($q->aggregateExpression('pages.name'));
+		$q->from('pages');
+		$q->groupby('pages.id');
+		$sql = $q->getQuery();
+		$this->check('grouped query aggregates its non-grouped column', true, strpos($sql, 'MIN(pages.name) AS name') !== false);
+		$this->check('grouped query still groups by pages.id', true, strpos($sql, 'GROUP BY pages.id') !== false);
 	}
 }
