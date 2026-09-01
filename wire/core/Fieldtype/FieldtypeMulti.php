@@ -323,7 +323,9 @@ abstract class FieldtypeMulti extends Fieldtype {
 					$query->bindValue(":$key", (int) $val, \PDO::PARAM_INT); 
 					
 				} else {
-					// string column
+					// string column, constrained to the column length (see truncateValueForColumn)
+					$schemaType = isset($schema[$key]) ? $schema[$key] : '';
+					$val = $this->truncateValueForColumn($field, $key, $val, $schemaType, $page);
 					$query->bindValue(":$key", $val); 
 				}
 			}
@@ -700,7 +702,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 				$key = $database->escapeCol($key);
 				if($key === $primaryKey) continue;
 				$sqls[] = "`$key`=:$key";
-				$binds[":$key"] = $item[$key];
+				$schemaType = isset($schema[$key]) ? $schema[$key] : '';
+				$binds[":$key"] = $this->truncateValueForColumn($field, $key, $item[$key], $schemaType, $page);
 			}
 			
 			if(!$id && is_int($sort)) {
@@ -919,7 +922,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$c = $database->escapeTable($this->className()) . "_" . $n;
 			$operator = $database->escapeOperator($operator); 
 
-			$query->select("$t.num_$t AS num_$t");
+			// aggregated for ONLY_FULL_GROUP_BY; the subquery yields one row per page so MIN() is a no-op
+			$query->select("MIN($t.num_$t) AS num_$t");
 			$query->leftjoin(
 				"(" .
 				"SELECT $c.pages_id, COUNT($c.pages_id) AS num_$t " .

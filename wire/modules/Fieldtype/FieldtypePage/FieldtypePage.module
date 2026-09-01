@@ -1319,7 +1319,10 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 		
 		$where = implode(' OR ', $wheres);
-		$sql = "SELECT id, $subfield FROM pages WHERE $where GROUP BY $subfield";
+		// one row per distinct $subfield value; id is aggregated because it is not functionally
+		// dependent on $subfield, which ONLY_FULL_GROUP_BY requires. This also makes the id that
+		// represents each value deterministic rather than arbitrary.
+		$sql = "SELECT MIN(id) AS id, $subfield FROM pages WHERE $where GROUP BY $subfield";
 		$query = $this->wire()->database->prepare($sql);
 		
 		foreach($binds as $bindKey => $bindValue) {

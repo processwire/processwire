@@ -27,11 +27,109 @@ class WireTest_PageFinder extends WireTest {
 		$this->testIncludeAndAccessModes();
 		$this->testCursorAndReverseOptions();
 		$this->testExceptionsAndTiming();
+		$this->testStrictSqlModes();
 	}
 
 	public function finish() {
 		$this->cleanupPages();
 		$this->cleanupTemplate();
+	}
+
+	/**
+	 * Core find queries must work under the MySQL 5.7+ default SQL modes
+	 * 
+	 * ProcessWire used to switch ONLY_FULL_GROUP_BY and STRICT_TRANS_TABLES off in
+	 * $config->dbSqlModes. It no longer does, so the queries built here have to be valid with
+	 * both enabled. Note that MariaDB does not infer functional dependency on a grouped primary
+	 * key the way MySQL 5.7+ does, so grouped queries must aggregate every other column.
+	 *
+	 */
+	protected function testStrictSqlModes() {
+
+		$database = $this->wire()->database;
+		$pages = $this->wire()->pages;
+		$parent = $this->getTestPage();
+		$originalMode = $database->sqlMode();
+
+		try {
+			$database->sqlMode('add', 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES');
+			$mode = $database->sqlMode();
+
+			if(strpos($mode, 'ONLY_FULL_GROUP_BY') === false) {
+				$this->check('ONLY_FULL_GROUP_BY can be enabled for this test', true, false);
+				return;
+			}
+
+			$this->check('ONLY_FULL_GROUP_BY is active for this test', true, true);
+
+			$sel = "parent=$parent, include=hidden";
+			$finder = $this->finder();
+
+			// sorting by a custom field requires a joined table, which is not functionally
+			// dependent on the grouped pages.id and so must be aggregated
+			$ids = $pages->findIDs("$sel, sort=title");
+			$this->check('sort by custom field returns all test pages', 3, count($ids));
+
+			$titles = array();
+			foreach($pages->find("$sel, sort=title") as $p) $titles[] = $p->title;
+			$this->check('sort by custom field is ascending',
+				array('PageFinder Test Alpha', 'PageFinder Test Bravo', 'PageFinder Test Charlie'), $titles);
+
+			$titles = array();
+			foreach($pages->find("$sel, sort=-title") as $p) $titles[] = $p->title;
+			$this->check('sort by custom field is descending',
+				array('PageFinder Test Charlie', 'PageFinder Test Bravo', 'PageFinder Test Alpha'), $titles);
+
+			// sorting by native columns, which are functionally dependent on the grouped column
+			$this->check('sort by native name works', 3, count($pages->findIDs("$sel, sort=name")));
+			$this->check('sort by native sort works', 3, count($pages->findIDs("$sel, sort=-sort")));
+			$this->check('sort by parent name works', 3, count($pages->findIDs("$sel, sort=parent.name")));
+			$this->check('sort random works', 3, count($pages->findIDs("$sel, sort=random")));
+
+			// pages load through a grouped autojoin query
+			$page = $pages->get(reset($ids));
+			$this->check('page loaded under strict modes has its title', true, strlen($page->title) > 0);
+			$this->check('page loaded under strict modes has its parent', $parent->id, $page->parent_id);
+
+			// returnAllCols expands pages.* into aggregated columns
+			$rows = $finder->findVerboseIDs($sel, array(
+				'joinSortfield' => true,
+				'getNumChildren' => true,
+				'joinFields' => array('title'),
+			));
+			$this->check('findVerboseIDs() returns all test pages', 3, count($rows));
+			$row = reset($rows);
+			$this->check('findVerboseIDs() row keeps id column', true, isset($row['id']));
+			$this->check('findVerboseIDs() row keeps name column', true, isset($row['name']));
+			$this->check('findVerboseIDs() row keeps parent_id column', $parent->id, (int) $row['parent_id']);
+			$this->check('findVerboseIDs() row includes numChildren', true, array_key_exists('numChildren', $row));
+			$this->check('findVerboseIDs() row includes joined field', true, array_key_exists('title__data', $row));
+
+			$rows = $finder->findVerboseIDs($sel, array('unixTimestamps' => true));
+			$row = reset($rows);
+			$this->check('findVerboseIDs() returns unix timestamps', true, ctype_digit((string) $row['created']));
+
+			// other return modes, each with their own column set
+			$this->check('findParentIDs() works', array($parent->id), $finder->findParentIDs($sel));
+			$this->check('findTemplateIDs() works', 3, count($finder->findTemplateIDs($sel)));
+			$this->check('count() works', 3, $finder->count($sel));
+
+			// selectors that add aggregate joins
+			$this->check('num_children selector works', 0, count($pages->findIDs("$sel, num_children>0")));
+			$this->check('children.count selector works', 0, count($pages->findIDs("$sel, children.count>0")));
+			$this->check('parent num_children selector works', 1, count($pages->findIDs("id=$parent, include=all, num_children>0")));
+
+			// getTotal via both SQL_CALC_FOUND_ROWS and a separate count query
+			$this->check('getTotal by count works', 3, $pages->find("$sel, limit=2")->getTotal());
+			$this->check('getTotal by calc works', 3, $pages->find("$sel, limit=2, getTotal=calc")->getTotal());
+
+		} catch(\Exception $e) {
+			$this->check('find queries run under strict SQL modes: ' . $e->getMessage(), true, false);
+		} finally {
+			$database->sqlMode('set', $originalMode);
+		}
+
+		$this->check('SQL mode restored after test', $originalMode, $database->sqlMode());
 	}
 
 	protected function finder() {
@@ -173,7 +271,9 @@ class WireTest_PageFinder extends WireTest {
 	protected function testSelectorsOptionsAndQuery() {
 		$page = $this->getTestPage();
 		$finder = $this->finder();
-		$selectors = $this->wire(new Selectors("parent=$page->parent_id, template=$page->templates_id, include=hidden, limit=1, start=0"));
+		// constrained by id because parent+template alone does not uniquely identify the test
+		// page, which made the limit=1 result depend on what else exists in the installation
+		$selectors = $this->wire(new Selectors("id=$page->id, parent=$page->parent_id, template=$page->templates_id, include=hidden, limit=1, start=0"));
 		$ids = $finder->findIDs($selectors, array('getTotalType' => 'count'));
 
 		$this->check('findIDs() accepts Selectors object', array($page->id), $ids);
