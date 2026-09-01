@@ -99,7 +99,9 @@ class PagesAccess extends Wire {
 		$template = $this->templates->get($accessTemplateID);
 		$doInsertions = !$template->hasRole('guest');
 
-		$sql = 	"SELECT pages.id, pages.templates_id, count(children.id) AS numChildren " .
+		// pages.templates_id is aggregated so this remains valid under ONLY_FULL_GROUP_BY; it is
+		// functionally dependent on the grouped pages.id, so MIN() does not change the value
+		$sql = 	"SELECT pages.id, MIN(pages.templates_id) AS templates_id, count(children.id) AS numChildren " .
 				"FROM pages " .
 				"LEFT JOIN pages AS children ON children.parent_id=pages.id " .
 				"WHERE pages.parent_id=:parent_id " .

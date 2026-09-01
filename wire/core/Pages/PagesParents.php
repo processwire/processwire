@@ -268,14 +268,17 @@ class PagesParents extends Wire {
 			if(!in_array('name', $columns)) $columns[] = 'name';
 		}
 		
+		// grouped by pages.id below, so the other pages columns are aggregated with MIN() to
+		// remain valid under ONLY_FULL_GROUP_BY. They are functionally dependent on pages.id, 
+		// so MIN() selects the same value it would without it, and each keeps its own name.
 		$sql['select'] = "SELECT pages.id, COUNT(children.id) AS numChildren";
-		if($getPages) $sql['select'] .= ", pages.templates_id";
+		if($getPages) $sql['select'] .= ", MIN(pages.templates_id) AS templates_id";
 	
 		foreach($columns as $key => $col) {
 			if($col === 'id' || $col === 'numChildren') continue; // already have it
 			$col = $database->escapeCol($col); 
 			if($col !== $columns[$key]) continue;
-			$sql['select'] .= ", pages.$col";
+			$sql['select'] .= ", MIN(pages.$col) AS $col";
 		}
 			
 		$sql['from'] = "FROM pages";
@@ -450,7 +453,7 @@ class PagesParents extends Wire {
 				SELECT parents.id, parents.parent_id 
 				FROM pages 
 				JOIN pages AS parents on pages.parent_id=parents.id AND parents.parent_id>=:id
-				GROUP BY pages.parent_id 
+				GROUP BY parents.id, parents.parent_id 
 			";
 			$query = $this->wire()->database->prepare(trim($sql));
 			$query->bindValue(':id', $minParentID, \PDO::PARAM_INT); 
