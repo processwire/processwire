@@ -1480,14 +1480,30 @@ $config->dbQueryLogMax = 500;
 
 /**
  * Remove 4-byte characters (like emoji) when dbEngine is not utf8mb4?
- * 
+ *
  * When charset is not “utf8mb4” and this value is true, 4-byte UTF-8 characters are stripped
- * out of inserted values when possible. Note that this can add some overhead to INSERTs. 
- * 
+ * out of inserted values when possible. Note that this can add some overhead to INSERTs.
+ *
  * @var bool
- * 
+ *
  */
 $config->dbStripMB4 = false;
+
+/**
+ * Use a database transaction for each page save?
+ *
+ * When enabled (and the database supports transactions), all queries of a page save commit
+ * together as one transaction: the save becomes atomic (a failed save leaves no partial
+ * data behind), and databases where each commit is costly (i.e. managed/replicated ones
+ * such as Amazon RDS Multi-AZ) perform one commit per save rather than one per query.
+ * Hooks triggered after a save (saved, added, renamed, etc.) run after the transaction
+ * has committed. Set to false to restore the previous per-query autocommit behavior.
+ *
+ * @var bool
+ * @since 3.0.272
+ *
+ */
+$config->pageSaveTransactions = true;
 
 /**
  * Optional settings for read-only “reader” database connection 
