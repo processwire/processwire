@@ -3,7 +3,7 @@
 /**
  * Base class for Page List rendering
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method array getPageActions(Page $page)
@@ -108,6 +108,16 @@ abstract class ProcessPageListRender extends Wire {
 	 * 
 	 */
 	protected $numChildrenHook = false;
+
+	/**
+	 * Viewable-children counts for pages in this list, indexed by page ID
+	 *
+	 * Populated by loadNumChildrenCounts(). Null when counts have not been batch loaded.
+	 *
+	 * @var array|null
+	 *
+	 */
+	protected $numChildrenCounts = null;
 
 	/**
 	 * @var array Field names for page list labels and versions they should translate to
@@ -569,7 +579,66 @@ abstract class ProcessPageListRender extends Wire {
 	 * 
 	 */
 	public function numChildren(Page $page, $selector = null) {
-		return $this->numChildrenHook ? $this->getNumChildren($page, $selector) : $page->numChildren($selector);
+		if($this->numChildrenHook) return $this->getNumChildren($page, $selector);
+		if($selector === 1) {
+			if($this->numChildrenCounts === null) $this->loadNumChildrenCounts();
+			if(isset($this->numChildrenCounts[$page->id])) return $this->numChildrenCounts[$page->id];
+		}
+		return $page->numChildren($selector);
+	}
+
+	/**
+	 * Batch load viewable-children counts for all children in this page list
+	 *
+	 * For non-superusers, Page::numChildren(1) runs a separate access-controlled count
+	 * query for every page that has children, making page list rendering cost two extra
+	 * queries per listed page. This method instead loads the same counts for all children
+	 * in the list with a single grouped query. Counts are identical to those returned by
+	 * Page::numChildren(1), which serves as the fallback for any page not in the list.
+	 *
+	 * @since 3.0.272
+	 *
+	 */
+	protected function loadNumChildrenCounts() {
+
+		$this->numChildrenCounts = array();
+
+		$user = $this->wire()->user;
+		if($user->isSuperuser()) return; // superuser counts require no extra queries
+
+		$ids = array();
+		foreach($this->children as $child) {
+			if((int) $child->get('numChildren') > 0) $ids[$child->id] = $child->id;
+		}
+
+		// include the list's own parent page for the pagination check in getMoreURL()
+		if($this->page->id && (int) $this->page->get('numChildren') > 0) {
+			$ids[$this->page->id] = $this->page->id;
+		}
+
+		if(!count($ids)) return;
+
+		// pages with children but none matching the grouped query below get a 0 count,
+		// rather than falling back to a per-page count query in numChildren()
+		$this->numChildrenCounts = array_fill_keys($ids, 0);
+
+		// same include mode as PageTraversal::numChildren() uses when given selector=1
+		$include = $user->hasPermission('page-edit') ? 'unpublished' : 'hidden';
+		$selectors = $this->wire(new Selectors('parent_id=' . implode('|', $ids) . ", include=$include"));
+		$finder = $this->wire(new PageFinder());
+
+		/** @var DatabaseQuerySelect $query */
+		$query = $finder->find($selectors, array('returnQuery' => true));
+		$query->set('select', array('pages.parent_id AS parent_id', 'COUNT(DISTINCT pages.id) AS num_children'));
+		$query->set('groupby', array('pages.parent_id'));
+		$query->set('orderby', array());
+		$query->set('limit', array());
+
+		$stmt = $query->execute();
+		while($row = $stmt->fetch(\PDO::FETCH_NUM)) {
+			$this->numChildrenCounts[(int) $row[0]] = (int) $row[1];
+		}
+		$stmt->closeCursor();
 	}
 
 }
