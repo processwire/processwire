@@ -175,7 +175,7 @@
  * @method string|mixed renderValue($value, $file) Returns rendered markup for $value using $file relative to templates/fields/. #pw-internal
  * @method PageArray references($selector = '', $field = '') Return pages that are pointing to this one by way of Page reference fields. #pw-group-traversal
  * @method PageArray links($selector = '', $field = '') Return pages that link to this one contextually in Textarea/HTML fields. #pw-group-traversal
- * @method string|mixed if($key, $yes, $no = '') If value is available for $key return or call $yes condition (with optional $no condition)
+ * @method string|mixed if($key, $yes = '', $no = '') If value is available for $key return or call $yes condition (with optional $no condition)
  * 
  * Hookable action methods called before or after a page is saved (3.0.253+)
  * -------------------------------------------------------------------------
