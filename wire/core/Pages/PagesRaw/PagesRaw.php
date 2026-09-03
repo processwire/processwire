@@ -684,6 +684,7 @@ class PagesRawFinder extends Wire {
 					$this->values[$key] = $this->flattenValues($value, '', $delimiter);
 				}
 			}
+			if(count($this->renameFields)) $this->renameFlatFields($this->values, $delimiter);
 		}
 
 		if($this->options['nulls']) {
@@ -1642,6 +1643,40 @@ class PagesRawFinder extends Wire {
 				}
 				$values[$key][$name] = $v;
 			}
+		}
+	}
+
+	/**
+	 * Apply path-specific field renames to a flattened row
+	 *
+	 * @param array $values
+	 * @param string $delimiter
+	 *
+	 */
+	protected function renameFlatFields(array &$values, $delimiter) {
+		$renames = array();
+		foreach($this->renameFields as $field => $name) {
+			if(strpos($field, '.') === false) continue;
+			$flatField = str_replace('.', $delimiter, $field);
+			$parts = explode('.', $field);
+			foreach($parts as $key => $part) {
+				if(isset($this->renameFields[$part])) $parts[$key] = $this->renameFields[$part];
+			}
+			$renamedField = implode($delimiter, $parts);
+			$renames[] = array($name, array_unique(array($flatField, $renamedField)));
+		}
+		foreach($values as $key => $row) {
+			if(!is_array($row)) continue;
+			foreach($renames as list($name, $fields)) {
+				foreach($fields as $field) {
+					if(!array_key_exists($field, $row)) continue;
+					$value = $row[$field];
+					unset($row[$field]);
+					$row[$name] = $value;
+					break;
+				}
+			}
+			$values[$key] = $row;
 		}
 	}
 

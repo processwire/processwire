@@ -105,6 +105,15 @@ class WireTest_Pages extends WireTest {
 		$this->check("findRaw() value has 'name' key", true, isset($rawResults[$page->id]['name']));
 		$this->check("findRaw() 'name' matches page name", $page->name, $rawResults[$page->id]['name']);
 
+		$rawResults = $pages->findRaw("id=$page->id, include=hidden", array(
+			'title' => 'renamed',
+			'parent.title' => 'parentTitle',
+		), array('flat' => true));
+		$rawRow = $rawResults[$page->id];
+		$this->check('findRaw(flat) applies root field rename', $page->title, $rawRow['renamed']);
+		$this->check('findRaw(flat) applies path-specific field rename', $page->parent->title, $rawRow['parentTitle']);
+		$this->check('findRaw(flat) path-specific rename replaces original name', false, isset($rawRow['parent.title']));
+
 		$fresh = $pages->getFresh($page->id);
 		$this->check('getFresh(id) returns correct page', $page->id, $fresh->id);
 		$fresh2 = $pages->getFresh($page);
