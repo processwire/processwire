@@ -519,7 +519,7 @@ if(typeof ProcessWire != "undefined") {
 	 * @param message Message to display (or question to ask)
 	 * @param funcOk Callback called on "Ok"
 	 * @param funcCancel Callback called on "Cancel" (optional)
-	 * @param bool Allow markup in confirm message? (default=false)
+	 * @param allowMarkup Allow markup in confirm message? (default=false)
 	 * 
 	 */
 	ProcessWire.confirm = function(message, funcOk, funcCancel, allowMarkup) {
@@ -559,9 +559,9 @@ if(typeof ProcessWire != "undefined") {
 				$(modal.dialog.$el).find('.uk-modal-body').html(messageHtml);
 			}
 			modal.then(function() {
-				if(funcOk != "undefined") funcOk();
+				if(typeof funcOk != "undefined") funcOk();
 			}, function () {
-				if(funcCancel != "undefined") funcCancel();
+				if(typeof funcCancel != "undefined") funcCancel();
 			});
 			
 		} else if(typeof vex != "undefined" && typeof funcOk != "undefined") {
