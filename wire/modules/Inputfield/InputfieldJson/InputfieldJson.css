@@ -17,6 +17,13 @@
 	z-index: 1000;
 }
 
+.InputfieldFieldset:has(.InputfieldJson .jsoneditor-contextmenu) {
+	/* same as above, but for when the JSON field is inside a fieldset: the fieldset's own
+	   stacking context otherwise traps the elevated z-index of the field inside it */
+	position: relative;
+	z-index: 1000;
+}
+
 .InputfieldJson .jsoneditor-field {
 	white-space: nowrap;
 }
