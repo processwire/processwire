@@ -1173,18 +1173,20 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			$subfield = $database->escapeCol($subfield);
 
 			if($operator == '!=') {
+				static $notCnt = 0;
 				$t = $database->escapeTable($query->field->getTable());
-				$where = "SELECT COUNT(*) FROM $t WHERE $t.pages_id=pages.id ";
+				$tAlias = $t . "__not" . (++$notCnt);
 				if($idstr) {
 					$value = explode(',', $value); 
 					$value = array_map('intval', $value); 
 					$value = implode(',', $value);
-					$where .= "AND $t.$subfield IN($value)"; 
+					$where = "$tAlias.$subfield IN($value)";
 				} else {
 					$bindKey = $query->bindValueGetKey($value);
-					$where .= "AND $t.$subfield=$bindKey";
+					$where = "$tAlias.$subfield=$bindKey";
 				}
-				$query->where("($where)=0");
+				$query->leftjoin("$t AS $tAlias ON $tAlias.pages_id=pages.id AND $where");
+				$query->where("$tAlias.pages_id IS NULL");
 			} else if($operator == '=' && $idstr) {
 				$value = explode(',', $value);
 				$value = array_map('intval', $value);

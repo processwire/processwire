@@ -135,11 +135,69 @@ class WireTest_FieldtypePage extends WireTest {
 			$this->li("Selector passed: $selector");
 		}
 
-		$page->set($name, null);
-		$page->save($name);
+		$field = $this->wire()->fields->get($name);
+		$otherRefPage = $pages->get($this->wire()->config->adminRootPageID);
+		$references = $pages->newPageArray();
+		$references->add($refPage)->add($otherRefPage);
+		try {
+			$page->set($name, $references);
+			$page->save($name);
+			$notSelectors = array(
+				"$name!=$refPage->name",
+				"$name!=$refPage->path",
+				"$name.name!=$refPage->name",
+				"$name!=$refPage->name|$otherRefPage->name",
+			);
+			foreach($notSelectors as $selector) {
+				$count = $pages->count("id=$page->id, $selector, include=all");
+				if($count !== 0) $this->fail("Selector should exclude test page: $selector");
+				$this->li("Not-equals selector excluded matching reference: $selector");
+			}
+
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$page->set($name, null);
+			$page->save($name);
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$page->set($name, $otherRefPage);
+			$page->save($name);
+			$selector = "$name!=$refPage->name";
+			$count = $pages->count("id=$page->id, $selector, include=all");
+			if($count !== 1) $this->fail("Selector should include test page: $selector");
+			$this->li("Not-equals selector included non-matching reference: $selector");
+			$page->set($name1, $refPage);
+			$page->save($name1);
+			$multiSelector = "$name|$name1!=$refPage->name";
+			$count = $pages->count("id=$page->id, $multiSelector, include=all");
+			if($count !== 1) $this->fail("Multi-field selector should include test page: $multiSelector");
+			$this->li("Multi-field not-equals selector retains OR behavior: $multiSelector");
+
+			$finder = $this->wire(new PageFinder());
+			$query = $finder->find(new Selectors("$selector, include=all"), array('returnQuery' => true));
+			$sql = $query->getQuery();
+			if(strpos($sql, 'SELECT COUNT(*) FROM ' . $field->getTable()) !== false) {
+				$this->fail('Not-equals selector should not use a correlated subquery');
+			}
+			$join = 'LEFT JOIN ' . $field->getTable() . ' AS ' . $field->getTable() . '__not';
+			if(strpos($sql, $join) === false || strpos($sql, '.pages_id IS NULL') === false) {
+				$this->fail('Not-equals selector should use an anti-join');
+			}
+			$this->li('Not-equals page-name selector uses anti-join verified');
+
+		} finally {
+			$page->set($name, null);
+			$page->set($name1, null);
+			$page->save($name);
+			$page->save($name1);
+		}
+
 		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
+		$p = $pages->get("id=$page->id, $name!=$refPage->name, include=all");
+		if($p->id !== $page->id) $this->fail("Selector failed for page without field value: $name!=$refPage->name");
+		$this->li('Not-equals selector includes page without field value verified');
 
 		$this->testTrashPageRefs();
 		$this->testTrashPageRefsChunkBoundary();
