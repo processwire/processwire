@@ -70,6 +70,11 @@ input.InputfieldDatetimeDatepicker {
 	z-index: 10;
 }
 
+input.InputfieldDatetimeDatepicker1 {
+	// leave room for the click-triggered calendar icon
+	max-width: calc(100% - 2em);
+}
+
 input.InputfieldDatetimeDatepicker2 {
 	// inline datepicker, do not show <input> element
 	display: none;
@@ -90,4 +95,3 @@ input.InputfieldDatetimeDatepicker2 {
 		width: auto;
 	}
 }
-
