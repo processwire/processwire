@@ -500,6 +500,15 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				if(strpos($wrapLabel, '#') !== false && preg_match('/(?<!&)#([0-9a-fA-F]{3,})/', $wrapLabel, $matches)) {
 					// background-color definition
 					if(strlen($matches[1]) === 3 || strlen($matches[1]) === 6) {
+						$backgroundColor = $matches[1];
+						if(strlen($backgroundColor) === 3) {
+							$backgroundColor = preg_replace('/(.)/', '$1$1', $backgroundColor);
+						}
+						$brightness =
+							(hexdec(substr($backgroundColor, 0, 2)) * 299 +
+							hexdec(substr($backgroundColor, 2, 2)) * 587 +
+							hexdec(substr($backgroundColor, 4, 2)) * 114) / 1000;
+						$textColor = $brightness > 186 ? '#111' : '#fff';
 						$wrapLabel = str_replace($matches[0], '', $wrapLabel);
 						$hasCustomColor = true;
 						$typeStyles[$itemTypeName] = 
@@ -508,16 +517,16 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 							".InputfieldHeader {" . 
 								"background-color: #$matches[1]; " . 
 								"outline-color: #$matches[1]; " . 
-								"color: #fff; " . 
+								"color: $textColor; " .
 								"--pw-inputs-background: #$matches[1]; " . 
 								"--pw-border-color: #$matches[1]; " . 	
-								"--pw-text-color: #fff; " . 
+								"--pw-text-color: $textColor; " .
 							"} " . 
 							".Inputfield_$this->name .InputfieldContent " .
 							".InputfieldRepeaterItem[data-typeName=\"$itemTypeName\"]:not(.InputfieldRepeaterDeletePending) > " . 
 							".InputfieldHeader .ui-priority-secondary {" .
-								"color: #fff; " . 
-								"--pw-text-color: #fff; " .
+								"color: $textColor; " .
+								"--pw-text-color: $textColor; " .
 								"opacity: 0.8" . 
 							"}";
 					}

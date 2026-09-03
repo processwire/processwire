@@ -133,6 +133,38 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$p = $pages->get("template=$template, $name.count=0");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name.count=0");
 		$this->li("Selector passed: $name.count=0");
+
+		$field = $fields->get($name);
+		$repeaterTitle = $field->repeaterTitle;
+		try {
+			$field->repeaterTitle = "{{$subTextField->name}} #f5f5f5";
+			$field->save();
+			$item = $page->get($name)->getNewItem();
+			$item->set($subTextField->name, 'Light color test');
+			$item->save();
+			$page->save($name);
+
+			$this->wire()->wire('adminTheme', $this->wire()->modules->get('AdminThemeUikit'));
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$inputfield = $field->type->getInputfield($page, $field);
+			$inputfield->render();
+			$styles = $this->wire()->adminTheme->getExtraMarkup();
+			if(strpos($styles['head'], 'background-color: #f5f5f5; outline-color: #f5f5f5; color: #111;') === false) {
+				$this->fail('Expected light custom repeater color to use dark header text');
+			}
+			if(strpos($styles['head'], '--pw-text-color: #111;') === false) {
+				$this->fail('Expected light custom repeater color to use a dark text color variable');
+			}
+			$this->li('Light custom repeater colors use dark header text verified');
+		} finally {
+			$field->repeaterTitle = $repeaterTitle;
+			$field->save();
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			foreach($page->get($name) as $item) $page->get($name)->remove($item);
+			$page->save($name);
+		}
 	}
 
 	protected function ensureField() {
