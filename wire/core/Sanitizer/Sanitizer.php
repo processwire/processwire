@@ -1035,23 +1035,34 @@ class Sanitizer extends Wire {
 			return $value; 
 		}
 		
-		$_value = $value; 
-		
+		$_value = $value;
+
 		// convert "xn-" single hyphen to recognized punycode "xn--" double hyphen
 		if(strpos($value, 'xn--') !== 0) $value = 'xn--' . substr($value, 3);
-		
+
+		if($version >= 2) {
+			// our stored "xn-" prefix always replaces whatever (if anything) idn_to_ascii()/Punycode::encode()
+			// returned at the very beginning of $_value, i.e. its first 3 characters. When that beginning was
+			// already "xn--" (double hyphen), our own "xn-" ends up identical to it, and $_value already is
+			// the correct native/multi-label value to decode. But when the name contains a literal "." and
+			// only part of it needed encoding, that beginning is not "xn--", and re-adding "xn--" as done
+			// above corrupts the ASCII label(s) that never needed it, since idn_to_utf8()/Punycode::decode()
+			// treat "." as a label separator and only decode labels that begin with "xn--".
+			$value = strpos($_value, 'xn--') === 0 ? $_value : substr($_value, 3);
+		}
+
 		if($version >= 3) {
 			// PHP IDN function
 			// 32=IDNA_NONTRANSITIONAL_TO_UNICODE
 			$info = array();
-			$value = idn_to_utf8($value, 32, INTL_IDNA_VARIANT_UTS46, $info); 
+			$value = idn_to_utf8($value, 32, INTL_IDNA_VARIANT_UTS46, $info);
 			if(empty($value)) $value = $info['result'];
-			
+
 		} else if($version === 2) {
 			// Punycode library
 			$pc = new Punycode();
 			$value = $pc->decode($value);
-			
+
 		} else {
 			// PHP IDN with old/buggy behavior post PHP 7.4
 			$value = @idn_to_utf8($value);
