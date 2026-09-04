@@ -165,6 +165,58 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			foreach($page->get($name) as $item) $page->get($name)->remove($item);
 			$page->save($name);
 		}
+
+		// verify that a "ready" item added to satisfy repeaterMinItems is rendered fully loaded
+		// and open, rather than as a collapsed ajax placeholder, so that its required field
+		// states are visible without first having to click to open/load it
+		$minItems = $field->repeaterMinItems;
+		$loading = $field->repeaterLoading;
+		$collapse = $field->repeaterCollapse;
+		$required = $subTextField->required;
+		try {
+			$field->repeaterMinItems = 1;
+			$field->repeaterLoading = FieldtypeRepeater::loadingAll;
+			$field->repeaterCollapse = FieldtypeRepeater::collapseExisting;
+			$field->save();
+			$subTextField->required = 1;
+			$subTextField->save();
+
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			foreach($page->get($name) as $item) $page->get($name)->remove($item);
+			$page->save($name);
+
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$inputfield = $field->type->getInputfield($page, $field);
+			$out = $inputfield->render();
+
+			if(strpos($out, 'InputfieldRepeaterMinItem') === false) {
+				$this->fail('Expected a min item to be present in rendered markup');
+			} else if(strpos($out, 'InputfieldRepeaterMinItem') !== false
+				&& preg_match('/InputfieldRepeaterMinItem[^"\']*InputfieldStateCollapsed|InputfieldStateCollapsed[^"\']*InputfieldRepeaterMinItem/', $out)) {
+				$this->fail('Expected min item to not be collapsed');
+			} else {
+				$this->li('Min item not rendered collapsed, verified');
+			}
+
+			if(strpos($out, 'InputfieldStateRequired') === false) {
+				$this->fail('Expected required field state to be present in min item markup (not ajax deferred)');
+			} else {
+				$this->li('Min item required field state visible without ajax load, verified');
+			}
+		} finally {
+			$field->repeaterMinItems = $minItems;
+			$field->repeaterLoading = $loading;
+			$field->repeaterCollapse = $collapse;
+			$field->save();
+			$subTextField->required = $required;
+			$subTextField->save();
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			foreach($page->get($name) as $item) $page->get($name)->remove($item);
+			$page->save($name);
+		}
 	}
 
 	protected function ensureField() {

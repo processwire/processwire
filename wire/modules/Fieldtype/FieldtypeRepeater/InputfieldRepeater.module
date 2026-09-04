@@ -425,7 +425,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			if($isOpen && $numOpen > 0 && $this->accordionMode) $isOpen = false;
 			
 			// get the inputfields for the repeater page
-			if(is_null($loadInputsForIDs) || in_array($page->id, $loadInputsForIDs) || $isOpen) {
+			// min items are always loaded (not ajax deferred), regardless of the ajax loading
+			// setting: they are blank ready-placeholder pages with nothing to defer, and since
+			// they are meant to be immediately ready-to-edit, they also need their required
+			// field states visible without an extra click to ajax-load them
+			if(is_null($loadInputsForIDs) || in_array($page->id, $loadInputsForIDs) || $isOpen || $isMinItem) {
 				$inputfields = $this->getRepeaterItemInputfields($page);
 				$isLoaded = true;
 			} else {
