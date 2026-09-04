@@ -1725,8 +1725,13 @@ table.AdminDataTable:not(.uk-table) th {
 .pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader.ui-state-error > *,
 .pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader:has(.InputfieldFileDelete:hover),
 .pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader:has(.InputfieldFileDelete:hover) > *,
-.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error,
-.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader:has(.InputfieldRepeaterTrash:hover) {
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error.ui-state-error,
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader:has(.InputfieldRepeaterTrash:hover):has(.InputfieldRepeaterTrash:hover) {
+	/* the doubled .ui-state-error/:has() selector is a deliberate specificity bump: this
+	   rule ties in specificity with (and previously lost to, since it comes first) the
+	   collapsed-item header background rule further down, leaving the "about to delete"
+	   preview showing pale red text on the normal pink header background instead of the
+	   intended dark red alert background */
 	background-color: var(--pw-alert-danger) !important;
 	color: var(--pw-error-inline-text-color) !important;
 	border-color: var(--pw-error-inline-text-color);
