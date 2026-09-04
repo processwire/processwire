@@ -4342,10 +4342,6 @@ body:not(.pw-narrow-width)
 	}
 }
 
-#pw-content-body ul.uk-pagination > li.uk-active + li > a {
-	border-left: none !important;
-}
-
 .uk-pagination a {
 	display: block;
 }
