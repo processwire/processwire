@@ -8,10 +8,22 @@
 
 @import "vars";
 
-$text-color: #333;
-$text-color-muted: #999;
-$headline-color: #222;
-$border-color: #ccc;
-$link-color: #0782C1;
+// light-dark() pairs use the same dark values as wire-dark.scss, so that when this
+// (the default content_css) is used in TinyMCE's inline mode -- which edits directly in
+// the admin page DOM rather than an isolated iframe -- it automatically adapts to the
+// admin theme's current color-scheme (system, light, or dark) instead of assuming a
+// light page background that may not match. Classic (non-inline/iframe) mode is a
+// separate, blank document that was always light-only and isn't part of the admin's
+// dark mode, so it's explicitly pinned back to light further down to preserve that.
+$text-color: light-dark(#333, #eee);
+$text-color-muted: light-dark(#999, #8a8f97);
+$headline-color: light-dark(#222, #fff);
+$border-color: light-dark(#ccc, #6d737b);
+$link-color: light-dark(#0782C1, #4099ff);
 
 @import "common";
+
+.mce-content-body:not(.InputfieldTinyMCEInline) {
+	// pin classic (iframe) mode to light regardless of OS/admin color-scheme -- see note above
+	color-scheme: light;
+}

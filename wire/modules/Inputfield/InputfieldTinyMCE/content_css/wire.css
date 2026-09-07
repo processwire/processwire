@@ -21,7 +21,7 @@ $code-font-family: Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;
   line-height: 1.5;
   margin: 1rem;
   font-size: 16px;
-  color: #333;
+  color: light-dark(#333, #eee);
 }
 .mce-content-body small {
   font-size: 14px;
@@ -35,7 +35,7 @@ $code-font-family: Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;
   font-style: italic;
 }
 .mce-content-body h1, .mce-content-body h2, .mce-content-body h3, .mce-content-body h4, .mce-content-body h5, .mce-content-body h6 {
-  color: #222;
+  color: light-dark(#222, #fff);
   font-weight: bold;
   line-height: 1.2em;
   text-transform: none;
@@ -71,7 +71,7 @@ $code-font-family: Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;
   font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
 }
 .mce-content-body a {
-  color: #0782C1;
+  color: light-dark(#0782C1, #4099ff);
   text-decoration: underline;
 }
 .mce-content-body table:not([cellpadding]) td,
@@ -88,7 +88,7 @@ $code-font-family: Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;
 }
 .mce-content-body table[border]:not([border="0"]):not([style*=border-color]) td,
 .mce-content-body table[border]:not([border="0"]):not([style*=border-color]) th {
-  border-color: #ccc;
+  border-color: light-dark(#ccc, #6d737b);
 }
 .mce-content-body span[lang] {
   font-style: italic;
@@ -97,8 +97,8 @@ $code-font-family: Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;
   border-collapse: collapse;
 }
 .mce-content-body blockquote {
-  color: #333;
-  border-color: #ccc;
+  color: light-dark(#333, #eee);
+  border-color: light-dark(#ccc, #6d737b);
   font-style: italic;
   font-family: Georgia, Times, "Times New Roman", serif;
   margin: 0;
@@ -128,7 +128,7 @@ $code-font-family: Consolas,Monaco,'Andale Mono','Ubuntu Mono',monospace;
   caption-side: bottom;
   line-height: 1.3em;
   font-size: 14px;
-  color: #999;
+  color: light-dark(#999, #8a8f97);
 }
 .mce-content-body .align_right, .mce-content-body .align-right, .mce-content-body .right {
   text-align: right;
@@ -182,11 +182,11 @@ a > .mce-content-body img {
   padding: 1px;
   margin: 1px;
   border: none;
-  outline: 1px solid #0782C1;
+  outline: 1px solid light-dark(#0782C1, #4099ff);
 }
 .mce-content-body pre {
-  color: #333;
-  border: 1px dashed #ccc;
+  color: light-dark(#333, #eee);
+  border: 1px dashed light-dark(#ccc, #6d737b);
   padding: 0.5rem 1rem !important;
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -205,6 +205,10 @@ a > .mce-content-body img {
   margin: 0.5em 0;
   padding: 0.5rem 1rem;
   color: #777;
+}
+
+.mce-content-body:not(.InputfieldTinyMCEInline) {
+  color-scheme: light;
 }
 
 /*# sourceMappingURL=wire.css.map */

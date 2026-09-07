@@ -4079,7 +4079,19 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 	translate: 0 55px;
 }
 
-.InputfieldTinyMCE .InputfieldTinyMCEInline.InputfieldTinyMCEInline,
+.InputfieldTinyMCE .InputfieldTinyMCEInline.InputfieldTinyMCEInline {
+	/* color is intentionally left out here (unlike the .tox-textarea-wrap and .tox-textfield
+	   rules below): inline mode edits real page content in place, and its content_css is what
+	   should control text color (as it does in normal iframe mode), not the admin input-field
+	   styling used for actual form fields. content_css/wire.css (the default) uses light-dark()
+	   so it adapts to this background automatically; a custom content_css is free to do the
+	   same, or override this background itself if it wants full control. */
+	background-color: var(--pw-inputs-background);
+	border: 1px solid;
+	border-color: var(--pw-border-color);
+	border-radius: var(--pw-input-radius);
+}
+
 .pw .tox .tox-textarea-wrap,
 .pw .tox .tox-textfield {
 	border: 1px solid;
@@ -4089,8 +4101,12 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 	color: var(--pw-text-color);
 }
 
-.InputfieldTinyMCE
-.InputfieldTinyMCEInline.InputfieldTinyMCEInline:focus-visible,
+.InputfieldTinyMCE .InputfieldTinyMCEInline.InputfieldTinyMCEInline:focus-visible {
+	border-color: var(--pw-border-color);
+	outline: none;
+	box-shadow: none;
+}
+
 .pw .tox .tox-textarea-wrap:focus-within,
 .pw .tox .tox-textfield:focus-visible {
 	border-color: var(--pw-border-color);
