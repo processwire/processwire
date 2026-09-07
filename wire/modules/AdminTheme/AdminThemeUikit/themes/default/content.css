@@ -57,13 +57,6 @@ a {
 	border-style: solid;
 	border-width: 1px 0 0 0;
 }
-.mce-content-body code {
-	border-radius: 3px;
-	padding: 0.1rem 0.2rem;
-	/* background-color: var(--pw-muted-color, #f5f2f0); */
-	color: var(--pw-text-color, #222);
-	font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
-}
 .mce-content-body a {
 	color: var(--pw-main-color, #0782c1);
 	text-decoration: underline;
@@ -241,6 +234,8 @@ a > .mce-content-body img {
 	border-radius: 4px;
 }
 .mce-content-body code {
+	border-radius: 3px;
+	padding: 0.1rem 0.2rem;
 	font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
 	font-size: 15px;
 	color: light-dark(#333, #fff);
