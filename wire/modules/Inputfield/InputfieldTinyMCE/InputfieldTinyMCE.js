@@ -736,7 +736,7 @@ var InputfieldTinyMCE = {
 		while(html.indexOf(' >') > -1) html = html.replace(' >', '>');
 		while(html.indexOf('&nbsp;') > -1) html = html.replace('&nbsp;', ' ', html);
 		
-		html = html.replaceAll(/<([-a-z0-9]+)[^>]*>\s*<\/\1>/ig, ''); // remove empty tags
+		html = html.replaceAll(/<(?!t[dh]\b)([-a-z0-9]+)[^>]*>\s*<\/\1>/ig, ''); // remove empty tags except table cells, which are structural
 		html = html.replaceAll(/<\/p>\s*<br[/ ]*>/ig, '</p>'); // replace </p><br> with </p>
 		
 		t.log('Completed pasteFilter ' + startLength + ' => ' + html.length + ' bytes'); 
