@@ -12,10 +12,10 @@
  * Please always use `$pages->method()` rather than `$pages->editor->method()` in cases where there is overlap. 
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
- * 
- */ 
+ *
+ */
 
 class PagesEditor extends Wire {
 
@@ -28,6 +28,17 @@ class PagesEditor extends Wire {
 	 *
 	 */
 	protected $cloning = 0;
+
+	/**
+	 * Page whose save() call opened the current save transaction, or null when none open
+	 *
+	 * Identifies the outermost save when saves nest (i.e. repeater items saved within
+	 * their parent page’s save), so that only that save commits or rolls back.
+	 *
+	 * @var Page|null
+	 *
+	 */
+	protected $saveTransactionPage = null;
 	
 	/**
 	 * @var Pages
@@ -575,16 +586,22 @@ class PagesEditor extends Wire {
 				}
 			}
 			
+			$this->beginSaveTransaction($page);
+
 			$result = $this->savePageQuery($page, $options, $verboseData);
 			if($result) $result = $this->savePageFinish($page, $isNew, $options, $verboseData);
-			
+
 		} catch(\Exception $e) {
 			if($options['throw']) throw $e;
 			$this->trackException($e, false, $user->isSuperuser());
 			$logErrors[] = $e->getMessage();
 			$result = false;
-			
+
 		} finally {
+			// no-op after a successful save (already committed in savePageFinish); rolls
+			// back when the save threw or returned false before reaching its commit
+			$this->rollbackSaveTransaction($page);
+
 			if($language) {
 				$user->setLanguage($language); // restore language
 				$logMessages[] = "Restored language: $language->name";
@@ -606,8 +623,59 @@ class PagesEditor extends Wire {
 			$verboseData['id'] = $page->id;
 			$verboseData['path'] = $page->path;
 		}
-		
+
 		return $getVerbose ? $verboseData : $result;
+	}
+
+	/**
+	 * Begin a transaction for the given page’s save, when supported and enabled
+	 *
+	 * Only the outermost save of a page begins a transaction: nested saves (i.e. repeater
+	 * items saved within their parent page’s save) and saves already within a transaction
+	 * started elsewhere are left alone, as are databases/tables that do not support
+	 * transactions. Disable entirely with `$config->pageSaveTransactions = false;`
+	 *
+	 * @param Page $page
+	 * @since 3.0.272
+	 *
+	 */
+	protected function beginSaveTransaction(Page $page) {
+		if($this->saveTransactionPage !== null) return;
+		if($this->wire()->config->pageSaveTransactions === false) return;
+		$database = $this->wire()->database;
+		if(!$database->allowTransaction()) return;
+		$database->beginTransaction();
+		$this->saveTransactionPage = $page;
+	}
+
+	/**
+	 * Commit the save transaction opened for the given page, if it opened one
+	 *
+	 * @param Page $page
+	 * @since 3.0.272
+	 *
+	 */
+	protected function commitSaveTransaction(Page $page) {
+		if($this->saveTransactionPage !== $page) return;
+		$this->saveTransactionPage = null;
+		$database = $this->wire()->database;
+		if($database->inTransaction()) $database->commit();
+	}
+
+	/**
+	 * Roll back the save transaction opened for the given page, if still open
+	 *
+	 * No-op after a successful save, since commitSaveTransaction() has already run.
+	 *
+	 * @param Page $page
+	 * @since 3.0.272
+	 *
+	 */
+	protected function rollbackSaveTransaction(Page $page) {
+		if($this->saveTransactionPage !== $page) return;
+		$this->saveTransactionPage = null;
+		$database = $this->wire()->database;
+		if($database->inTransaction()) $database->rollBack();
 	}
 
 	/**
@@ -862,6 +930,7 @@ class PagesEditor extends Wire {
 		if(!$page->isChanged() && !$isNew) {
 			$this->pages->debugLog('save', '[not-changed]', true);
 			$logMessages[] = "Page unchanged";
+			$this->commitSaveTransaction($page);
 			if(empty($options['noHooks'])) {
 				$this->pages->saved($page, array());
 				$this->pages->savedPageOrField($page, array());
@@ -988,6 +1057,11 @@ class PagesEditor extends Wire {
 				$logErrors[] = "Error updating pages_access: " . $e->getMessage();
 			}
 		}
+
+		// commit before triggering hooks, so that hook side effects (i.e. emails or
+		// other external actions) do not occur within the transaction, and so that
+		// writes performed by hooks commit individually, as they did previously
+		$this->commitSaveTransaction($page);
 
 		// trigger hooks
 		if(empty($options['noHooks'])) {
