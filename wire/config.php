@@ -1447,12 +1447,14 @@ $config->dbInitCommand = "SET NAMES '{charset}'";
  * array("5.7.0" => "remove:STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY/add:NO_ZERO_DATE")
  * ~~~~~
  * 
+ * Core queries are compatible with the MySQL 5.7+ default SQL modes, so nothing is adjusted 
+ * by default. Sites carrying legacy data or third party modules that need a looser mode can 
+ * still relax it here, i.e. `array("5.7.0" => "remove:STRICT_TRANS_TABLES")`.
+ * 
  * @var array
  * 
  */
-$config->dbSqlModes = array(
-	"5.7.0" => "remove:STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY"
-);
+$config->dbSqlModes = array();
 
 /**
  * A key=>value array of any additional driver-specific connection options.

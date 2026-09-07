@@ -1302,9 +1302,18 @@ class PagesLoader extends Wire {
 			$joinSortfield = empty($sortfield) && $options['joinSortfield'];
 			
 			// note that "false AS isLoaded" triggers the setIsLoaded() function in Page intentionally
-			$select = 'false AS isLoaded, pages.templates_id AS templates_id, pages.*, ';
+			// this query groups by pages.id (see below) so that autojoined multi-value fields can
+			// be collapsed with GROUP_CONCAT(). Every other column is functionally dependent on 
+			// pages.id, but MySQL cannot always infer that and MariaDB never does, so they are 
+			// wrapped in MIN() to remain valid under the ONLY_FULL_GROUP_BY SQL mode. Columns are
+			// aliased back to their own names since Page population fetches them by name. 
+			$select = 'false AS isLoaded, ';
+			foreach($this->getNativeColumns() as $col) {
+				$col = $database->escapeCol($col);
+				$select .= ($col === 'id' ? "pages.id, " : "MIN(pages.$col) AS $col, ");
+			}
 			if($joinSortfield) {
-				$select .= 'pages_sortfields.sortfield, ';
+				$select .= 'MIN(pages_sortfields.sortfield) AS sortfield, ';
 			}
 			if($options['getNumChildren']) {
 				$select .= "\n(SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren";

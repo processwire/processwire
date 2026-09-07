@@ -30,6 +30,14 @@ require_once(__DIR__ . '/Interfaces.php');
 abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 
 	/**
+	 * Cached [ column => type ] for this class's table
+	 * 
+	 * @var array|null
+	 * 
+	 */
+	protected $columnTypes = null;
+
+	/**
 	 * Return the WireArray that this DAO stores it's items in
 	 * 
 	 * @return WireArray
@@ -293,6 +301,26 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	}
 
 	/**
+	 * Get [ column => type ] for this class's table, i.e. [ 'label' => 'varchar(250)' ]
+	 * 
+	 * @return array
+	 * @since 3.0.271
+	 * 
+	 */
+	protected function getColumnTypes() {
+		if($this->columnTypes !== null) return $this->columnTypes;
+		$this->columnTypes = array();
+		try {
+			foreach($this->wire()->database->getColumns($this->getTable(), true) as $name => $info) {
+				if(isset($info['type'])) $this->columnTypes[$name] = $info['type'];
+			}
+		} catch(\Exception $e) {
+			// leave empty, truncation checks are skipped
+		}
+		return $this->columnTypes;
+	}
+
+	/**
 	 * Save the provided item to database
 	 *
 	 * @param Saveable $item The item to save
@@ -329,11 +357,27 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 			if($namePrevious) $this->renameReady($item, $namePrevious, $item->name);
 		}
 
+		$columnTypes = $this->getColumnTypes();
+		
 		foreach($data as $key => $value) {
 			if(!$this->saveItemKey($key)) continue; 
 			if($key === 'data') $value = is_array($value) ? $this->encodeData($value) : '';
 			$key = $database->escapeTableCol($key);
 			$bindKey = $database->escapeCol($key);
+			if(isset($columnTypes[$key])) {
+				// keep over-long values saving as they did without STRICT_TRANS_TABLES, but
+				// report the loss rather than letting the database discard it silently
+				$info = null;
+				$value = $database->truncateValueForColumn($columnTypes[$key], $value, $info);
+				if($info !== null) {
+					$itemName = $item->name ? "'$item->name'" : "item";
+					$this->warning(
+						"Value for $itemName was truncated to fit column '$table.$key' " . 
+						"($info[length] $info[unit] exceeded the maximum of $info[max])", 
+						Notice::log
+					);
+				}
+			}
 			$binds[":$bindKey"] = $value; 
 			$sql .= "`$key`=:$bindKey, ";
 		}

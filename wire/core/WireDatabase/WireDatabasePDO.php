@@ -1719,6 +1719,98 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Get the maximum length a column accepts, from its type definition
+	 * 
+	 * Returns array with `max` (int) and `unit` ('chars' or 'bytes'), or null when the type has
+	 * no length limit that a string value could exceed (int, float, datetime, etc). Note that
+	 * MySQL counts varchar/char limits in characters, but text/blob limits in bytes. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $columnType Column type or definition, i.e. "varchar(191)" or "text NOT NULL"
+	 * @return array|null
+	 * @since 3.0.271
+	 * 
+	 */
+	public function getColumnMaxLength($columnType) {
+		
+		if(!is_string($columnType) || $columnType === '') return null;
+		
+		$type = strtolower(trim($columnType));
+		
+		if(preg_match('/^(?:var)?(?:char|binary)\s*\(\s*(\d+)\s*\)/', $type, $matches)) {
+			return array(
+				'max' => (int) $matches[1],
+				'unit' => strpos($type, 'binary') === false ? 'chars' : 'bytes',
+			);
+		}
+		
+		$byteLimits = array(
+			'tinytext' => 255,
+			'tinyblob' => 255,
+			'mediumtext' => 16777215,
+			'mediumblob' => 16777215,
+			'longtext' => 4294967295,
+			'longblob' => 4294967295,
+			'text' => 65535,
+			'blob' => 65535,
+		);
+		
+		foreach($byteLimits as $name => $max) {
+			if(strpos($type, $name) === 0) return array('max' => $max, 'unit' => 'bytes');
+		}
+		
+		return null;
+	}
+
+	/**
+	 * Truncate a value so that it fits the given column
+	 * 
+	 * Without the STRICT_TRANS_TABLES SQL mode MySQL silently truncates over-long values on
+	 * write, and with it the write fails instead. This lets callers keep the value saving as it
+	 * always has, while being able to report the loss rather than let it pass silently. 
+	 * 
+	 * Returns the value unchanged when it already fits, when it is not a string, or when the
+	 * column type has no applicable limit. When it does truncate, `$info` is populated with 
+	 * `length`, `max` and `unit` so the caller can report what happened. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $columnType Column type or definition, i.e. "varchar(191)"
+	 * @param mixed $value
+	 * @param array|null $info Populated with details when the value was truncated
+	 * @return mixed
+	 * @since 3.0.271
+	 * 
+	 */
+	public function truncateValueForColumn($columnType, $value, &$info = null) {
+		
+		$info = null;
+		
+		if(!is_string($value) || $value === '') return $value;
+		
+		$limit = $this->getColumnMaxLength($columnType);
+		if($limit === null) return $value;
+		
+		$max = $limit['max'];
+		
+		if($limit['unit'] === 'chars') {
+			$length = function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
+			if($length <= $max) return $value;
+			$newValue = function_exists('mb_substr') ? mb_substr($value, 0, $max, 'UTF-8') : substr($value, 0, $max);
+		} else {
+			$length = strlen($value);
+			if($length <= $max) return $value;
+			// mb_strcut cuts to a byte count without splitting a multibyte character
+			$newValue = function_exists('mb_strcut') ? mb_strcut($value, 0, $max, 'UTF-8') : substr($value, 0, $max);
+		}
+		
+		$info = array('length' => $length, 'max' => $max, 'unit' => $limit['unit']);
+		
+		return $newValue;
+	}
+
+	/**
 	 * Get SQL mode, set SQL mode, add to existing SQL mode, or remove from existing SQL mode
 	 * 
 	 * #pw-group-custom

@@ -175,7 +175,58 @@ class WireTest_WireDatabasePDO extends WireTest {
 		$mode = $database->sqlMode();
 		$this->check('sqlMode() get returns string', true, is_string($mode));
 
-		$database->queryLog(true);
+		// ===== COLUMN LENGTHS (ONLY_FULL_GROUP_BY / STRICT_TRANS_TABLES support) =====
+
+		$limit = $database->getColumnMaxLength('varchar(191) NOT NULL');
+		$this->check('getColumnMaxLength() reads varchar length', 191, $limit['max']);
+		$this->check('getColumnMaxLength() counts varchar in characters', 'chars', $limit['unit']);
+
+		$limit = $database->getColumnMaxLength('char(40)');
+		$this->check('getColumnMaxLength() reads char length', 40, $limit['max']);
+
+		$limit = $database->getColumnMaxLength('varbinary(10)');
+		$this->check('getColumnMaxLength() counts binary in bytes', 'bytes', $limit['unit']);
+
+		$limit = $database->getColumnMaxLength('text NOT NULL');
+		$this->check('getColumnMaxLength() knows text limit', 65535, $limit['max']);
+		$this->check('getColumnMaxLength() counts text in bytes', 'bytes', $limit['unit']);
+
+		$this->check('getColumnMaxLength() knows tinytext limit', 255, $database->getColumnMaxLength('tinytext')['max']);
+		$this->check('getColumnMaxLength() knows mediumtext limit', 16777215, $database->getColumnMaxLength('mediumtext')['max']);
+		$this->check('getColumnMaxLength() returns null for int', null, $database->getColumnMaxLength('int NOT NULL'));
+		$this->check('getColumnMaxLength() returns null for datetime', null, $database->getColumnMaxLength('datetime'));
+		$this->check('getColumnMaxLength() returns null for empty', null, $database->getColumnMaxLength(''));
+
+		$info = null;
+		$value = $database->truncateValueForColumn('varchar(10)', 'short', $info);
+		$this->check('truncateValueForColumn() leaves fitting value alone', 'short', $value);
+		$this->check('truncateValueForColumn() reports no truncation', null, $info);
+
+		$value = $database->truncateValueForColumn('varchar(10)', str_repeat('a', 25), $info);
+		$this->check('truncateValueForColumn() truncates to varchar length', 10, strlen($value));
+		$this->check('truncateValueForColumn() reports original length', 25, $info['length']);
+		$this->check('truncateValueForColumn() reports max', 10, $info['max']);
+		$this->check('truncateValueForColumn() reports unit', 'chars', $info['unit']);
+
+		// varchar limits are counted in characters, not bytes
+		$value = $database->truncateValueForColumn('varchar(5)', str_repeat('é', 20), $info);
+		$this->check('truncateValueForColumn() counts varchar as characters', 5, mb_strlen($value, 'UTF-8'));
+		$this->check('truncateValueForColumn() keeps multibyte value valid', true, mb_check_encoding($value, 'UTF-8'));
+
+		// text limits are counted in bytes, and must not split a multibyte character
+		$value = $database->truncateValueForColumn('tinytext', str_repeat('é', 200), $info);
+		$this->check('truncateValueForColumn() counts text as bytes', true, strlen($value) <= 255);
+		$this->check('truncateValueForColumn() does not split multibyte char', true, mb_check_encoding($value, 'UTF-8'));
+		$this->check('truncateValueForColumn() reports byte unit', 'bytes', $info['unit']);
+
+		$value = $database->truncateValueForColumn('int NOT NULL', str_repeat('a', 25), $info);
+		$this->check('truncateValueForColumn() ignores columns without a length', 25, strlen($value));
+		$this->check('truncateValueForColumn() reports nothing for int column', null, $info);
+
+		$this->check('truncateValueForColumn() passes through non-strings', 123, $database->truncateValueForColumn('varchar(2)', 123, $info));
+		$this->check('truncateValueForColumn() passes through empty string', '', $database->truncateValueForColumn('varchar(2)', '', $info));
+
+				$database->queryLog(true);
 		$database->query("SELECT 1", 'WireTests queryLog');
 		$log = $database->queryLog();
 		$this->check('queryLog(true) starts and resets query log', true, count($log) >= 1);

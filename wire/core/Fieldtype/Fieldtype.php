@@ -1283,7 +1283,63 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
-		return $this->getLoadQuery($field, $query); 
+		
+		$numSelect = count($query->select);
+		$query = $this->getLoadQuery($field, $query); 
+		
+		if(!$query instanceof DatabaseQuerySelect) return $query;
+		
+		// The autojoin query groups by pages.id so that autojoined multi-value fields can be
+		// collapsed with GROUP_CONCAT(). Columns added by getLoadQuery() above are functionally 
+		// dependent on pages.id, but MySQL cannot always infer that and MariaDB never does, so 
+		// they must still be aggregated to remain valid under the ONLY_FULL_GROUP_BY SQL mode.
+		// This applies only here and not in getLoadQuery(), which is also used without a GROUP BY.
+		$select = $query->select;
+		$keys = array_keys($select);
+		
+		for($n = $numSelect; $n < count($keys); $n++) {
+			$key = $keys[$n];
+			$select[$key] = $query->aggregateExpression($select[$key]);
+		}
+		
+		$query->set('select', $select);
+		
+		return $query; 
+	}
+
+	/**
+	 * Truncate a value to fit its database column, warning when it had to be shortened
+	 * 
+	 * Without the STRICT_TRANS_TABLES SQL mode MySQL silently truncates over-long values on 
+	 * write. With it, the write fails instead. This keeps the value saving as it always has, 
+	 * while making the loss visible rather than silent. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Field $field
+	 * @param string $col Column name the value will be written to
+	 * @param mixed $value Value to write
+	 * @param string $schemaType Column definition, i.e. "varchar(191) NOT NULL"
+	 * @param Page|null $page Page the value belongs to, for the warning message
+	 * @return mixed Truncated value, or the original value when it already fits
+	 * @since 3.0.271
+	 * 
+	 */
+	protected function truncateValueForColumn(Field $field, $col, $value, $schemaType, ?Page $page = null) {
+		
+		$info = null;
+		$newValue = $this->wire()->database->truncateValueForColumn($schemaType, $value, $info);
+		
+		if($info === null) return $value; // fits as-is
+		
+		$where = $page && $page->id ? " on page $page->id" : '';
+		$this->warning(
+			"Value for field '$field->name'$where was truncated to fit column '$col' " . 
+			"($info[length] $info[unit] exceeded the maximum of $info[max])", 
+			Notice::log
+		);
+		
+		return $newValue;
 	}
 
 	/**
@@ -1341,8 +1397,10 @@ abstract class Fieldtype extends WireData implements Module {
 					if(empty($schema)) $schema = $this->getDatabaseSchema($field); 
 					$sql2 .= isset($schema[$k]) && stripos($schema[$k], ' DEFAULT NULL') ? ",NULL" : ",''";
 				} else {
+					if(empty($schema)) $schema = $this->getDatabaseSchema($field);
 					$bindKey = ':v' . (++$n);
-					$bindValues[$bindKey] = $v;
+					$schemaType = isset($schema[$k]) ? $schema[$k] : '';
+					$bindValues[$bindKey] = $this->truncateValueForColumn($field, $k, $v, $schemaType, $page);
 					$sql2 .= ",$bindKey";
 				}
 				
@@ -1359,7 +1417,9 @@ abstract class Fieldtype extends WireData implements Module {
 				$null = isset($schema['data']) && stripos($schema['data'], ' DEFAULT NULL') ? "NULL" : "''";
 				$sql = "INSERT INTO `$table` (pages_id, data) VALUES(:page_id, $null) ";	
 			} else {
-				$bindValues[":value"] = $value;
+				if(empty($schema)) $schema = $this->getDatabaseSchema($field);
+				$schemaType = isset($schema['data']) ? $schema['data'] : '';
+				$bindValues[":value"] = $this->truncateValueForColumn($field, 'data', $value, $schemaType, $page);
 				$sql = "INSERT INTO `$table` (pages_id, data) VALUES(:page_id, :value) ";	
 			}
 			

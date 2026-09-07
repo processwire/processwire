@@ -519,14 +519,16 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	
 		$database = $this->wire()->database;
 		$languages = $this->getLanguages();
-		$nameColumns = array('pages.name AS name');
+		// name columns are aggregated so this remains valid under ONLY_FULL_GROUP_BY; they are
+		// functionally dependent on the grouped pages.id, so MIN() does not change any value
+		$nameColumns = array('MIN(pages.name) AS name');
 		$numUpdated = 0;
 		
 		if($languages) {
 			foreach($languages as $language) {
 				/** @var Language $language */
 				if($language->isDefault()) continue;
-				$nameColumns[] = "pages.name$language->id AS name$language->id";
+				$nameColumns[] = "MIN(pages.name$language->id) AS name$language->id";
 			}
 		}
 		
