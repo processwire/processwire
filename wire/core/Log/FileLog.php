@@ -258,8 +258,8 @@ class FileLog extends Wire {
 				$this->removeLineFromChunk($line, $chunk, $chunkSize);
 				fseek($fp, 0, SEEK_END);
 				$oldLength = ftell($fp);
-				$newLength = $chunkLength > $oldLength ? $oldLength - $chunkLength : 0;
-				ftruncate($fp, $newLength); 
+				$newLength = max(0, $oldLength - $chunkLength);
+				ftruncate($fp, $newLength);
 				fseek($fp, 0, SEEK_END);
 				fwrite($fp, $chunk);
 			}	
