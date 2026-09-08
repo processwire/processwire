@@ -970,7 +970,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		
 		$value = $this->attr('value');
 
-		if(is_array($value) || $value instanceof PageArray) { 
+		if($value instanceof NullPage) {
+			// avoid Page::getText() returning its whitespace-only "markup(1)" fallback
+			// for an empty/unselected value (label formats like "{parent.title} {title}"
+			// resolve to a single space on a NullPage, which is non-empty per strlen())
+			$out = '';
+
+		} else if(is_array($value) || $value instanceof PageArray) {
 			$out = '<ul class="PageArray pw-bullets">';
 			foreach($value as $p) {
 				$of = $p->of();
