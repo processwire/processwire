@@ -4,7 +4,18 @@ $(document).ready(function() {
 	$("#select_parent_id").on('change', function() {
 		var val = $(this).val();
 		if(val > 0) $("#select_parent_submit").trigger('click');
-	});	
+	});
+
+	// when multiple predefined parents are available (i.e. combined Add User form with
+	// multiple user templates/parents), reloading with the newly selected parent lets the
+	// server rebuild the template selector with options compatible with that parent
+	$("#Inputfield_parent_id").on('change', function() {
+		var val = $(this).val();
+		if(val < 1) return;
+		var url = "./?parent_id=" + encodeURIComponent(val);
+		if($("input[name=modal]").val()) url += "&modal=1";
+		window.location.href = url;
+	});
 
 	var submitted = false;
 	$("#ProcessPageAdd").on('submit', function() {
