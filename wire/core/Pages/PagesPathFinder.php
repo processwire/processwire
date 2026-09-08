@@ -1291,6 +1291,12 @@ class PagesPathFinder extends Wire {
 			return false;
 		}
 
+		// if found page is in the trash do not redirect to it (behave as if no match)
+		if($info['status'] & Page::statusTrash) {
+			$this->addMethod('pathHistory', false, 'Found row but page is in trash');
+			return false;
+		}
+
 		// get page found in history
 		$page = $this->pages->getOneById((int) $info['id'], array(
 			'template' => (int) $info['templates_id'],

@@ -1003,7 +1003,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 
 		$page = $this->getPage($path);
 
-		if($page->id && $page->viewable()) {
+		if($page->id && !$page->isTrash() && $page->viewable()) {
 			// if a page was found, redirect to it...
 			$language = $page->get('_language');
 			if($language && $languages) {
