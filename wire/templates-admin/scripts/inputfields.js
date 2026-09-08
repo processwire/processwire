@@ -279,14 +279,25 @@ var Inputfields = {
 
 		// check if we need to open parent inputfields first
 		if(open && !$inputfield.is(':visible')) {
-			// if Inputfield is in a non-visible tab, open the tab
-			var $tabContent = $inputfield.parents('.InputfieldWrapper').last();
-			if($tabContent.length && !$tabContent.is(':visible')) {
-				var $tabButton = jQuery('#_' + $tabContent.attr('id'));
-				if($tabButton.length) {
-					$tabContent.show();
-					setTimeout(function() { $tabButton.trigger('click'); }, 25);
-				}
+			// if Inputfield is in a non-visible tab, open the tab: find the closest
+			// non-visible ancestor .InputfieldWrapper that has a matching tab button
+			// (rather than assuming the outermost .InputfieldWrapper is always the tab,
+			// which is not the case when the Inputfield is nested inside other wrappers,
+			// such as a Repeater within a FieldsetTab)
+			var $tabContent = null;
+			var $tabButton = null;
+			$inputfield.parents('.InputfieldWrapper').each(function() {
+				var $wrapper = jQuery(this);
+				if($wrapper.is(':visible')) return;
+				var $button = jQuery('#_' + $wrapper.attr('id'));
+				if(!$button.length) return;
+				$tabContent = $wrapper;
+				$tabButton = $button;
+				return false;
+			});
+			if($tabContent) {
+				$tabContent.show();
+				setTimeout(function() { $tabButton.trigger('click'); }, 25);
 			}
 			// inputfield is not visible likely due to parents being hidden
 			var $collapsedParent = $inputfield.closest('.InputfieldStateCollapsed:not([id=' + $inputfield.attr('id') + '])');
