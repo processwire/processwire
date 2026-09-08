@@ -34,7 +34,9 @@ function InputfieldDatetimeDatepicker($t) {
 		showAnim: 'fadeIn',
 		dateFormat: dateFormat,
 		gotoCurrent: true,
-		defaultDate: tsDate
+		defaultDate: tsDate,
+		onSelect: ___selected,
+		onClose: ___closed,
 	}; 
 	
 	var attrOptions = JSON.parse($t.attr('data-datepicker'));
@@ -88,6 +90,28 @@ function InputfieldDatetimeDatepicker($t) {
 	}
 	
 	$t.addClass('initDatepicker');
+
+	/**
+	 * Called whenever the $datepicker instance selects a date
+	 * 
+	 * Function stub to allow for JavaScript Hooks
+	 * @param datetime the datetime string
+	 * @param $datepicker the JQuery UI Datepicker instance
+	 * 
+	 * @see JavaScriptHooks module
+	 */
+	function ___selected(datetime, $datepicker) {}
+
+	/**
+	 * Called whenever the $datepicker instance is closed
+	 *
+	 * Function stub to allow for JavaScript Hooks
+	 * @param datetime the datetime string or empty if no date selected
+	 * @param $datepicker the JQuery UI Datepicker instance
+	 *
+	 * @see JavaScriptHooks module
+	 */
+	function ___closed(datetime = "", $datepicker) {}
 	
 }
 
@@ -196,12 +220,12 @@ jQuery(document).ready(function($) {
 
 	// init datepickers present when document is ready
 	$("input.InputfieldDatetimeDatepicker:not(.InputfieldDatetimeDatepicker3):not(.initDatepicker)").each(function(n) {
-		InputfieldDatetimeDatepicker($(this)); 
+		ProcessWire.wire(InputfieldDatetimeDatepicker($(this))); 
 	});
 
 	// init datepicker that should appear on focus (3) of text input, that wasn't present at document.ready
 	$(document).on('focus', 'input.InputfieldDatetimeDatepicker3:not(.hasDatepicker)', function() {
-		InputfieldDatetimeDatepicker($(this));
+		ProcessWire.wire(InputfieldDatetimeDatepicker($(this)));
 	});
 
 	// init date selects
