@@ -12,9 +12,11 @@
 // (the default content_css) is used in TinyMCE's inline mode -- which edits directly in
 // the admin page DOM rather than an isolated iframe -- it automatically adapts to the
 // admin theme's current color-scheme (system, light, or dark) instead of assuming a
-// light page background that may not match. Classic (non-inline/iframe) mode is a
-// separate, blank document that was always light-only and isn't part of the admin's
-// dark mode, so it's explicitly pinned back to light further down to preserve that.
+// light page background that may not match. Classic (iframe) mode picks up whatever
+// color-scheme applies to its (separate) document: normally the OS preference, or the
+// Konkat admin theme's explicit light/dark setting where that theme injects one via
+// TinyMCE's content_style option (see themes/default/init.php), matching this mode's
+// intended behavior since processwire/processwire-issues#2156.
 $text-color: light-dark(#333, #eee);
 $text-color-muted: light-dark(#999, #8a8f97);
 $headline-color: light-dark(#222, #fff);
@@ -22,8 +24,3 @@ $border-color: light-dark(#ccc, #6d737b);
 $link-color: light-dark(#0782C1, #4099ff);
 
 @import "common";
-
-.mce-content-body:not(.InputfieldTinyMCEInline) {
-	// pin classic (iframe) mode to light regardless of OS/admin color-scheme -- see note above
-	color-scheme: light;
-}

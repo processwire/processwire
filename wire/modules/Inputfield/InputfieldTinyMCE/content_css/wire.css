@@ -207,8 +207,4 @@ a > .mce-content-body img {
   color: #777;
 }
 
-.mce-content-body:not(.InputfieldTinyMCEInline) {
-  color-scheme: light;
-}
-
 /*# sourceMappingURL=wire.css.map */
