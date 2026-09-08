@@ -142,10 +142,12 @@ class InputfieldPageListSelectMultiple extends Inputfield
 			else $value = array();
 
 		foreach($value as $k => $v) {
-			$value[$k] = (int) $v; 
+			$value[$k] = (int) $v;
 		}
 
-		$this->attr('value', $value); 
+		$value = array_values(array_unique($value));
+
+		$this->attr('value', $value);
 
 		return $this; 
 	}
