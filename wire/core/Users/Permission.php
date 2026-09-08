@@ -80,10 +80,19 @@ class Permission extends Page {
 	 */
 	public function getParentPermission() {
 		
-		$name = $this->name; 
+		$name = $this->name;
 		$permissions = $this->wire()->permissions;
 		$permission = null;
-		
+
+		if(strpos($name, 'user-admin-') === 0) {
+			// user-admin-[roleName] permissions are dynamically named after roles, and the
+			// generic name-shortening fallback below can accidentally match another such
+			// permission rather than 'user-admin' itself when a role name contains a hyphen
+			// (i.e. a role named "member" causes user-admin-member-admin, for a role named
+			// "member-admin", to falsely nest under user-admin-member instead of user-admin)
+			return $permissions->get('user-admin');
+		}
+
 		do {
 			// first check if we have a static definition for this permission
 			if(isset(self::$parentPermissions[$name])) {
