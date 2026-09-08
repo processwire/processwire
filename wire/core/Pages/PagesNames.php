@@ -404,7 +404,8 @@ class PagesNames extends Wire {
 			
 			$utf8 = $this->wire()->config->pageNameCharset === 'UTF8';
 			$name = $utf8 ? $sanitizer->pageNameUTF8($name) : $sanitizer->pageName($name, Sanitizer::translate);
-			
+			$name = preg_replace('/[-_.]{2,}/', '-', $name);
+
 		} finally {
 			if($language) $languages->unsetLanguage();
 		}

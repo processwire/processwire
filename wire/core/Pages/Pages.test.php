@@ -42,6 +42,7 @@ class WireTest_Pages extends WireTest {
 	public function execute() {
 		$this->testFindingPages();
 		$this->testCreatingInstances();
+		$this->testPageNameFormats();
 		$this->testCreatingSavingSortingAndDeletingPages();
 	}
 
@@ -142,6 +143,21 @@ class WireTest_Pages extends WireTest {
 		$this->check('newNullPage() id=0', 0, $null1->id);
 		$this->check('newNullPage() returns a new instance', true, $null1 !== $null2);
 		$this->check('newNullPage(true) returns a new instance', true, $pages->newNullPage(true) !== $null1);
+	}
+
+	protected function testPageNameFormats() {
+		$page = $this->wire()->pages->newPage();
+		$names = $this->wire()->pages->names();
+
+		$page->title = 'Test: me';
+		$this->check('pageNameFromFormat() beautifies adjacent title separators', 'test-me', $names->pageNameFromFormat($page, 'title'));
+
+		$page->title = 'National Academy of Science and Technology - The Philippines';
+		$this->check('pageNameFromFormat() beautifies existing title separators', 'national-academy-of-science-and-technology-the-philippines', $names->pageNameFromFormat($page, 'title'));
+
+		$this->check('pageNameFromFormat() supports reversed date order', strtolower(wireDate('F-Y')), $names->pageNameFromFormat($page, 'F/Y'));
+		$this->check('pageNameFromFormat() normalizes date punctuation', strtolower(wireDate('F-Y')), $names->pageNameFromFormat($page, 'F, Y'));
+		$this->check('pageNameFromFormat() supports explicit date punctuation', strtolower(wireDate('F-Y')), $names->pageNameFromFormat($page, 'date:F, Y'));
 	}
 
 	protected function testCreatingSavingSortingAndDeletingPages() {
