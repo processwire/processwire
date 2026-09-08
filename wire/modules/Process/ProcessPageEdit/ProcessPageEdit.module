@@ -1579,13 +1579,31 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	}
 	
 	/**
+	 * Resolve repeater items in a PageArray to the (root) pages that own them
+	 *
+	 * @param PageArray $items
+	 * @return PageArray
+	 *
+	 */
+	protected function referencesRootPages(PageArray $items) {
+		$rootItems = $this->wire()->pages->newPageArray();
+		foreach($items as $item) {
+			if(wireInstanceOf($item, 'RepeaterPage')) $item = $item->getForPageRoot();
+			if($item->id) $rootItems->add($item);
+		}
+		$numDuplicates = $items->count() - $rootItems->count();
+		$rootItems->setTotal($items->getTotal() - $numDuplicates);
+		return $rootItems;
+	}
+
+	/**
 	 * Build the Settings > References fieldset on the Page Edit form
 	 *
 	 * @return InputfieldMarkup
 	 *
 	 */
 	protected function buildFormReferences() {
-	
+
 		/** @var InputfieldMarkup $field */
 		$field = $this->modules->get('InputfieldMarkup');
 		$field->attr('id', 'ProcessPageEditReferences');
@@ -1594,9 +1612,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field->collapsed = Inputfield::collapsedYesAjax;
 
 		if($this->input->get('renderInputfieldAjax') != 'ProcessPageEditReferences') return $field;
-		
-		$links = $this->page->links("include=all, limit=100");
-		$references = $this->page->references("include=all, limit=100");
+
+		$links = $this->referencesRootPages($this->page->links("include=all, limit=100"));
+		$references = $this->referencesRootPages($this->page->references("include=all, limit=100"));
 
 		$numTotal = $references->getTotal() + $links->getTotal();
 		$numShown = $references->count() + $links->count();
