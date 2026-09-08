@@ -199,8 +199,12 @@ class Permissions extends PagesType {
 		);
 
 		foreach($this->wire()->roles as $role) {
-			if($role->name === 'guest') continue;
-			$a["user-view-$role->name"] = sprintf($this->_('View users in role: %s'), $role->name); 
+			if($role->name === 'guest') {
+				// user-view-guest is only relevant for users that have no other roles
+				$a["user-view-$role->name"] = $this->_('View users that have no other roles (only the guest role)');
+				continue;
+			}
+			$a["user-view-$role->name"] = sprintf($this->_('View users in role: %s'), $role->name);
 			if($role->name === 'superuser') continue;
 			$a["user-admin-$role->name"] = sprintf($this->_('Administer users in role: %s'), $role->name);
 		}

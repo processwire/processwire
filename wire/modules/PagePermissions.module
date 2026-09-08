@@ -318,14 +318,20 @@ class PagePermissions extends WireData implements Module {
 			}
 			// check for match between user-view-[role] permission and roles of user being requested
 			$userViewable = false;
+			$hasNonGuestRole = false;
 			foreach($page->roles as $role) {
 				// check for "user-view-[roleName]" permissions
 				if($role->id == $guestRoleID) continue;
+				$hasNonGuestRole = true;
 				if($user->hasPermission("user-view-$role->name")) $userViewable = true;
 				if($userViewable) break;
 			}
+			if(!$userViewable && !$hasNonGuestRole && $user->hasPermission('user-view-guest')) {
+				// user has only the guest role, so the user-view-guest permission applies
+				$userViewable = true;
+			}
 			if($userViewable) return true;
-			
+
 		} else {
 			// if the current process is something other than ProcessUser (or a Process module that can be
 			// used within ProcessUser) they don't have permission
