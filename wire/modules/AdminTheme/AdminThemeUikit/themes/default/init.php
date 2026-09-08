@@ -42,7 +42,17 @@ $adminTheme->addHookAfter('InputfieldTinyMCESettings::prepareSettingsForOutput',
 		$colorScheme = ($styleName === 'dark' || $styleName === 'light') ? $styleName : null;
 	}
 	if($colorScheme) {
-		$existingStyle = isset($settings['content_style']) ? $settings['content_style'] : '';
+		// $settings here may be a settings-diff (only keys that differ from module defaults)
+		// rather than the complete settings, so an unset content_style doesn't necessarily
+		// mean there's no extraCSS to preserve -- it may just mean this field's content_style
+		// matches the module default (which already has extraCSS baked in by getDefaults()).
+		// Fall back to the field's own extraCSS rather than assuming there is none, so it
+		// doesn't get lost when this rule is added on top of it.
+		if(isset($settings['content_style'])) {
+			$existingStyle = $settings['content_style'];
+		} else {
+			$existingStyle = (string) $f->extraCSS;
+		}
 		$settings['content_style'] = trim($existingStyle . ' :root { color-scheme: ' . $colorScheme . '; }');
 		$e->return = $settings;
 	}
