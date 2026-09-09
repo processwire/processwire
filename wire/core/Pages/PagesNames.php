@@ -400,16 +400,43 @@ class PagesNames extends Wire {
 				}
 			}
 	
+			if($formatType === 'field') $name = $this->stripPeriods($name);
+
 			if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
-			
+
 			$utf8 = $this->wire()->config->pageNameCharset === 'UTF8';
 			$name = $utf8 ? $sanitizer->pageNameUTF8($name) : $sanitizer->pageName($name, Sanitizer::translate);
-			
+
 		} finally {
 			if($language) $languages->unsetLanguage();
 		}
 
 		return $name;
+	}
+
+	/**
+	 * Strip abbreviation and sentence periods from text that a page name is generated from
+	 *
+	 * Prevents titles containing abbreviations from generating page names with misplaced
+	 * periods, i.e. title “Report for the U.S. Virgin Islands” generates page name
+	 * “report-for-the-us-virgin-islands” rather than “report-for-the-u.s-virgin-islands”.
+	 * Periods between digits are kept (i.e. “PHP 8.4” generates “php-8.4”), as is text
+	 * without whitespace (i.e. filename-style title “sitemap.xml” generates “sitemap.xml”).
+	 * Periods remain valid page name characters and names assigned directly are not
+	 * affected, this applies only when generating a name from a field value like title.
+	 * See processwire/processwire-issues#1305
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $name Text that a page name will be generated from
+	 * @return string
+	 * @since 3.0.272
+	 *
+	 */
+	protected function stripPeriods($name) {
+		if(strpos($name, '.') === false) return $name;
+		if(!preg_match('/\s/', trim($name))) return $name; // filename-style, i.e. “sitemap.xml”
+		return preg_replace('/(?<!\d)\.|\.(?!\d)/', '', $name);
 	}
 
 	/**

@@ -19,8 +19,15 @@ function InputfieldPageTitle($nameField) {
 	if($("#ProcessPageAdd").length > 0) {
 
 		var titleKeyup = function() {
-			// var val = $(this).val().substring(0, 128); 
+			// var val = $(this).val().substring(0, 128);
 			var val = $(this).val(); // @adrian
+			if(val.indexOf('.') > -1 && /\s/.test(val.trim())) {
+				// strip abbreviation and sentence periods so "U.S. News" generates "us-news"
+				// rather than "u.s-news", keeping periods between digits ("PHP 8.4") and
+				// whitespace-free filename-style titles ("sitemap.xml") intact; periods stay
+				// valid in the name field itself (processwire-issues#1305)
+				val = val.replace(/(\d)\.(?=\d)/g, '$1\u0000').replace(/\./g, '').replace(/\u0000/g, '.');
+			}
 			var id = $(this).attr('id').replace(/Inputfield_title_*/, 'Inputfield__pw_page_name');
 			$nameField = $("#" + id);
 			if($nameField.hasClass('InputfieldPageNameNoUpdate')) return;
