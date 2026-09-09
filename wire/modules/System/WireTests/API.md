@@ -8,6 +8,7 @@ Run tests from the command line at the ProcessWire root:
 ```bash
 php index.php test ClassName                            # Run one test by name
 php index.php test all                                  # Run all discovered tests
+php index.php test ClassName,OtherClass                 # Run several, in the order given
 php index.php test ClassName --json                     # JSON output for CI/agents
 php index.php test site/modules/MyModule/MyTest.test.php  # Specific external file
 php index.php test site/modules/MyModule/               # All tests in a directory

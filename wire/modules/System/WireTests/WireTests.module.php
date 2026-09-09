@@ -757,7 +757,10 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		ksort($commands);
 		$commands['/path/to/myfile.php'] = "Run custom test in /path/to/myfile.php";
 		$commands['dir/to/myfile.php'] = "Run custom test file (relative to installation root)";
-		$commands[':note'] = [ 'Append --json to any test for machine readable JSON output' ]; 
+		$commands[':note'] = [ 
+			'Append --json to any test for machine readable JSON output',
+			'Separate multiple tests with commas to run them in the order given',
+		]; 
 		return $commands;
 	}
 
@@ -802,7 +805,8 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	/**
 	 * Get test file records corresponding to given name/path/scope
 	 *
-	 * @param string $name Name of test, path, path+name, directory, or all
+	 * @param string $name Name of test, path, path+name, directory, all, or a comma
+	 *   separated list of any of those, i.e. "Fieldtype,FieldtypeMulti"
 	 * @return array
 	 *
 	 */
@@ -810,6 +814,19 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		$root = $this->wire()->config->paths->root;
 		$name = trim((string) $name);
 		if($name === '') $name = 'all';
+
+		if(strpos($name, ',') !== false) {
+			// comma separated list of tests, which run in the order given
+			$records = [];
+			foreach(explode(',', $name) as $n) {
+				$n = trim($n);
+				if($n === '') continue;
+				foreach($this->getTestFileRecords($n) as $key => $record) {
+					$records[$key] = $record;
+				}
+			}
+			return $records;
+		}
 
 		if($name === 'all') return $this->discoverTestFiles();
 

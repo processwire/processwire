@@ -38,6 +38,10 @@ php index.php test FieldtypeText
 # Run all tests
 php index.php test all
 
+# Run several tests, in the order given (useful for isolating tests that
+# only fail when run alongside another)
+php index.php test Fieldtype,FieldtypeMulti
+
 # Run a test custom file 
 php index.php test site/classes/BasicPage.test.php
 
