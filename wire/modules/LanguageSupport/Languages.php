@@ -545,8 +545,27 @@ class Languages extends PagesType {
 	 *
 	 */
 	public function ___deleted(Page $language) {
-		$this->updated($language, 'deleted'); 
+		$this->forgetSavedLanguage($language);
+		$this->updated($language, 'deleted');
 		parent::___deleted($language);
+	}
+
+	/**
+	 * Drop any saved reference to given language, i.e. when it is being deleted
+	 *
+	 * Without this, a later unsetLanguage() or unsetDefault() would restore a language that
+	 * no longer exists, and queries referencing its per-language columns (i.e. sorting by
+	 * `name`, which becomes `pages.name[id]`) would fail with an unknown column error.
+	 *
+	 * @param Page|Language $language
+	 * @since 3.0.272
+	 *
+	 */
+	protected function forgetSavedLanguage(Page $language) {
+		$id = (int) $language->id;
+		if(!$id) return;
+		if($this->savedLanguage && (int) $this->savedLanguage->id === $id) $this->savedLanguage = null;
+		if($this->savedLanguage2 && (int) $this->savedLanguage2->id === $id) $this->savedLanguage2 = null;
 	}
 
 	/**
