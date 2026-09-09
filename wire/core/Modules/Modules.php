@@ -1717,6 +1717,17 @@ class Modules extends WireArray implements CliModule {
 	 *
 	 */
 	public function ___saveConfig($class, $data, $value = null) {
+		static $warned = false;
+		if(!$warned && $this->hasHook('saveModuleConfigData()')) {
+			// help module authors find hooks that are no longer triggered by core (debug mode only)
+			$warned = true;
+			$this->warning(
+				'A hook is attached to the deprecated Modules::saveModuleConfigData method, which core no ' .
+				'longer calls. Please hook Modules::saveConfig instead, as it is triggered regardless of ' .
+				'which of the two methods the caller used.',
+				Notice::debug
+			);
+		}
 		return $this->configs->saveConfig($class, $data, $value);
 	}
 
