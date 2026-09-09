@@ -91,6 +91,40 @@ $(document).ready(function() {
 	function InitOldSchool() {
 		$("body").addClass("ie-no-drop"); // ??
 
+		/**
+		 * Update the file selection label of given InputMask to match its file input
+		 *
+		 * Uses the HTML5 files list when available, so that all files appear when several
+		 * were selected at once, since input value contains only the first of them.
+		 *
+		 * @param $mask InputMask element containing the file input
+		 * @param $input The file input element
+		 *
+		 */
+		function updateFileLabel($mask, $input) {
+
+			var files = $input[0].files;
+			var names = [];
+
+			if(files && files.length) {
+				for(var n = 0; n < files.length; n++) names.push(files[n].name);
+			} else {
+				// browsers without the files list: value has the first file only
+				var name = $input.val();
+				var pos = name.lastIndexOf('/');
+				if(pos === -1) pos = name.lastIndexOf('\\');
+				name = name.substring(pos + 1);
+				if(name.length) names.push(name);
+			}
+
+			if(!names.length) return;
+
+			$mask.find('.ui-button-text')
+				.text(names.join(', '))
+				.prepend("<i class='fa fa-fw fa-file-o'></i>");
+			$mask.removeClass('ui-state-active');
+		}
+
 		$(document).on('change', '.InputfieldFileUpload input[type=file]', function() {
 		
 			var $t = $(this);
@@ -102,7 +136,11 @@ $(document).ready(function() {
 				$mask.removeClass("ui-state-disabled");
 			}
 
-			if($mask.next(".InputMask").length > 0) return; // not the last one
+			if($mask.next(".InputMask").length > 0) {
+				// not the last one, but its file may have just been replaced
+				updateFileLabel($mask, $t);
+				return;
+			}
 		
 			var $inputfield = $t.closest('.InputfieldFile');
 			var $upload = $t.closest('.InputfieldFileUpload');
@@ -144,12 +182,7 @@ $(document).ready(function() {
 			}
 		
 			// update file input to contain file name
-			var name = $t.val();
-			var pos = name.lastIndexOf('/');
-			if(pos === -1) pos = name.lastIndexOf('\\');
-			name = name.substring(pos+1);
-			$mask.find('.ui-button-text').text(name).prepend("<i class='fa fa-fw fa-file-o'></i>");
-			$mask.removeClass('ui-state-active');
+			updateFileLabel($mask, $t);
 			
 		});
 	}
