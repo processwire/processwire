@@ -199,8 +199,102 @@ class WireTest_FieldtypePage extends WireTest {
 		if($p->id !== $page->id) $this->fail("Selector failed for page without field value: $name!=$refPage->name");
 		$this->li('Not-equals selector includes page without field value verified');
 
+		$this->testCountValidRefs();
 		$this->testTrashPageRefs();
 		$this->testTrashPageRefsChunkBoundary();
+	}
+
+	/**
+	 * Test that 'count' subfield selectors count countable pages rather than stored rows
+	 *
+	 * A row referencing a trashed page (or an unpublished page, unless the field has
+	 * allowUnpub set) is not part of the field's value, so it must not match a count
+	 * selector either. See processwire/processwire-issues#1519
+	 *
+	 */
+	protected function testCountValidRefs() {
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$source = $this->getTestPage();
+		$template = $source->template;
+		$field = $fields->get($this->fieldName);
+		$name = $field->name;
+		$trashPageRefs = $field->get('trashPageRefs');
+		$allowUnpub = $field->get('allowUnpub');
+		$targets = array();
+
+		try {
+			// keep rows referencing trashed pages stored in the field table for this test
+			$field->set('trashPageRefs', FieldtypePage::trashPageRefsKeep);
+			$field->set('allowUnpub', 0);
+			$field->save();
+
+			foreach(array(1, 2, 3) as $num) {
+				$targets[$num] = $pages->new(array(
+					'template' => $template,
+					'parent' => $source,
+					'title' => "FieldtypePage count target $num",
+				));
+			}
+
+			$source->of(false);
+			$source->set($name, null);
+			foreach($targets as $target) $source->get($name)->add($target);
+			$source->save($name);
+
+			$this->check('Count matches with all referenced pages countable', 1,
+				$pages->count("id=$source->id, $name.count=3, include=all"));
+
+			$pages->trash($targets[3]);
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+
+			$this->check('Loaded value excludes trashed reference', 2, $source->get($name)->count());
+			$this->check('count=N matches count of loaded value, not stored rows', 1,
+				$pages->count("id=$source->id, $name.count=2, include=all"));
+			$this->check('count>N does not count trashed references', 0,
+				$pages->count("id=$source->id, $name.count>2, include=all"));
+			$this->check('Same field may use count twice in one selector', 1,
+				$pages->count("id=$source->id, $name.count>1, $name.count<3, include=all"));
+
+			$targets[2]->of(false);
+			$targets[2]->addStatus(Page::statusUnpublished);
+			$targets[2]->save();
+
+			$this->check('Unpublished reference not counted by default', 1,
+				$pages->count("id=$source->id, $name.count=1, include=all"));
+
+			$field->set('allowUnpub', 1);
+			$field->save();
+
+			$this->check('Unpublished reference counted when field allows unpublished pages', 1,
+				$pages->count("id=$source->id, $name.count=2, include=all"));
+			$this->check('Trashed reference still not counted when field allows unpublished pages', 0,
+				$pages->count("id=$source->id, $name.count=3, include=all"));
+
+			$field->set('allowUnpub', 0);
+			$field->save();
+
+			$pages->trash($targets[1]);
+
+			$this->check('count=0 matches when no countable references remain', 1,
+				$pages->count("id=$source->id, $name.count=0, include=all"));
+			$this->check('count>0 does not match when no countable references remain', 0,
+				$pages->count("id=$source->id, $name.count>0, include=all"));
+
+		} finally {
+			$field->set('trashPageRefs', $trashPageRefs);
+			$field->set('allowUnpub', $allowUnpub);
+			$field->save();
+			$source = $pages->getFresh($source->id);
+			$source->of(false);
+			$source->set($name, null);
+			$source->save($name);
+			foreach($targets as $target) {
+				$target = $pages->get((int) $target->id);
+				if($target->id) $pages->delete($target, true);
+			}
+		}
 	}
 
 	/**
