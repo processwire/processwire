@@ -1724,14 +1724,7 @@ table.AdminDataTable:not(.uk-table) th {
 .pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader.ui-state-error,
 .pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader.ui-state-error > *,
 .pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader:has(.InputfieldFileDelete:hover),
-.pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader:has(.InputfieldFileDelete:hover) > *,
-.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error.ui-state-error,
-.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader:has(.InputfieldRepeaterTrash:hover):has(.InputfieldRepeaterTrash:hover) {
-	/* the doubled .ui-state-error/:has() selector is a deliberate specificity bump: this
-	   rule ties in specificity with (and previously lost to, since it comes first) the
-	   collapsed-item header background rule further down, leaving the "about to delete"
-	   preview showing pale red text on the normal pink header background instead of the
-	   intended dark red alert background */
+.pw .Inputfields .InputfieldFile .InputfieldContent .InputfieldItemHeader:has(.InputfieldFileDelete:hover) > * {
 	background-color: var(--pw-alert-danger) !important;
 	color: var(--pw-error-inline-text-color) !important;
 	border-color: var(--pw-error-inline-text-color);
@@ -4147,6 +4140,17 @@ body .tox.tox-tinymce-inline .tox-editor-container {
 }
 .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error:hover {
 	text-decoration: none;
+}
+
+/* Delete preview for a repeater item, shown while hovering its trash icon and while it is
+   pending delete. Needs !important and this position, after the repeater header rule
+   earlier in this file that sets background-color with !important on the same element. */
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader.ui-state-error,
+.pw .Inputfields .InputfieldRepeater .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader:has(.InputfieldRepeaterTrash:hover) {
+	background-color: var(--pw-alert-danger) !important;
+	color: var(--pw-error-inline-text-color) !important;
+	border-color: var(--pw-error-inline-text-color);
+	outline-color: var(--pw-error-inline-text-color);
 }
 
 .pw-notices .NoticeWarning a.notice-remove,
