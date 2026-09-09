@@ -131,27 +131,23 @@ class PageBookmarks extends Wire {
 		$config = $this->wire()->config;
 		$config->styles->add($config->urls('ProcessPageEdit') . 'PageBookmarks.css'); 
 		$superuser = $this->wire()->user->isSuperuser();
-		$out = '';
+		$out = [];
 		$options = $this->initNavJSON();
-		$noneHeadline = $this->_('There are currently no bookmarks defined'); 
 		
 		foreach($options['items'] as $item) {
 			/** @var WireData $item */
 			if($item->id == 'bookmark') continue;
 			$url = str_replace('{id}', $item->id, $options['edit']);
 			$icon = $item->_icon ? wireIconMarkup($item->_icon, 'fw') . ' ' : '';
-			$out .= 
-				"<li class='$item->_class'>" . 
+			$out[] = 
+				"<span class='$item->_class'>" . 
 				"<a href='$url'>$icon" . $sanitizer->entities1($item->get('title|name')) . "</a>" . 
-				"</li>";
+				"</span>";
 		}
-	
-		$icon = wireIconMarkup('bookmark-o', 'fw lg') . ' ';
-		if($out) {
-			$out = "<h2>$icon" . $this->labels['bookmarks'] . "</h2><ul class='bookmarks'>$out</ul>";
-		} else {
-			$out = "<h2>$icon$noneHeadline</h2>";
-		}
+
+		if(empty($out)) $out[] = $this->_('There are currently no bookmarks defined');
+		
+		$out = "<p class='bookmarks'>" . implode('<br>', $out) . "</p>";
 		
 		if($superuser) {
 			/** @var InputfieldButton $button */
