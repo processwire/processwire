@@ -731,24 +731,26 @@ abstract class DatabaseQuery extends WireData {
 				$query = $this->prepare();
 				$result = $query->execute();
 			} catch(\PDOException $e) {
-				$msg = $e->getMessage();
-				$code = (int) $e->getCode();
-				$sqlState = substr($e->getCode(), 0, 5);
-				$isGoneAway = $code === 2006 || stripos($msg, 'MySQL server has gone away') !== false;
-				$isCommLinkFailure = $sqlState === '08S01' || $code === 1053;
-				$isDeadlock = $sqlState === '40001' || $code === 1213;
-				$retry = $isGoneAway || $isCommLinkFailure || $isDeadlock;
-				if($retry && $numTries < $options['maxTries']) {
-					if($isGoneAway || $isCommLinkFailure) {
+				$database = $this->wire()->database;
+				$errorType = $database->dialect()->getRetryableErrorType($e);
+				if($errorType !== '' && $database->inTransaction()) {
+					// a statement cannot be safely retried inside an open transaction:
+					// a deadlock means the server already rolled back the entire transaction,
+					// and reconnecting after a lost connection discards it, so retrying just
+					// this statement would silently lose the caller’s earlier statements.
+					// Report the exception so the transaction owner can retry the whole transaction.
+					$exception = $e;
+				} else if($errorType !== '' && $numTries < $options['maxTries']) {
+					if($errorType === 'gone-away' || $errorType === 'comm-failure') {
 						$this->wire()->database->closeConnection(); // note: it reconnects automatically
 					}
-					if($isDeadlock || $isCommLinkFailure) {
-						usleep(100000 * ($numTries + 1)); // backoff: 100ms, 200ms, 300ms
+					if($errorType === 'deadlock' || $errorType === 'comm-failure') {
+						usleep(100000 * ($numTries + 1)); // linear backoff: 100ms, 200ms, 300ms
 					}
+					$retry = true;
 					$numTries++;
 				} else {
 					$exception = $e;
-					$retry = false;
 				}
 			}
 		} while($retry);

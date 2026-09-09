@@ -1000,10 +1000,6 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				$result = $query->execute();
 			} catch(\PDOException $e) {
 				$result = false;
-				$code = $e->getCode();
-				$msg = $e->getMessage();
-				$sqlState = is_string($code) ? substr($code, 0, 5) : '';
-				$errCode = (int) $code;
 				if($query->errorCode() == '42S22') {
 					// unknown column error
 					$errorInfo = $query->errorInfo();
@@ -1011,18 +1007,22 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 						$this->unknownColumnError($matches[1]);
 					}
 				} else if($tries < $maxTries) {
-					$isGoneAway = $code === 'HY000' || $errCode === 2006
-						|| stripos($msg, 'MySQL server has gone away') !== false;
-					$isCommLinkFailure = $sqlState === '08S01' || $errCode === 1053;
-					$isDeadlock = $sqlState === '40001' || $errCode === 1213;
-					if($isGoneAway || $isCommLinkFailure) {
-						// connection lost — reconnect and retry
-						$this->reset();
+					$errorType = $this->dialect()->getRetryableErrorType($e);
+					if($errorType !== '' && $this->inTransaction()) {
+						// a statement cannot be safely retried inside an open transaction:
+						// a deadlock means the server already rolled back the entire
+						// transaction, and reconnecting after a lost connection discards it,
+						// so retrying just this statement would silently lose the caller’s
+						// earlier statements. Let the exception propagate so the transaction
+						// owner can retry the whole transaction.
+					} else if($errorType === 'deadlock') {
+						// deadlock — retry with linear backoff (no reconnect needed)
+						usleep(100000 * ($tries + 1)); // 100ms, 200ms, 300ms
 						$tryAgain = true;
 						$tries++;
-					} else if($isDeadlock) {
-						// deadlock — retry with backoff (no reconnect needed)
-						usleep(100000 * ($tries + 1));
+					} else if($errorType === 'gone-away' || $errorType === 'comm-failure') {
+						// connection lost — reconnect and retry
+						$this->reset();
 						$tryAgain = true;
 						$tries++;
 					}

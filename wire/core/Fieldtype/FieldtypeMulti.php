@@ -245,7 +245,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		for($attempt = 0; $attempt <= $maxRetries; $attempt++) {
 
 			if($attempt > 0) {
-				// exponential backoff before retry: 100ms, 200ms, 300ms
+				// linear backoff before retry: 100ms, 200ms, 300ms
 				usleep(100000 * $attempt);
 			}
 
@@ -358,15 +358,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 			}
 
 			if($exception) {
-				/** @var \PDOException $exception */
-				// check if this is a retryable error
-				$errCode = (int) $exception->getCode();
-				$sqlState = substr($exception->getCode(), 0, 5);
-				$errMsg = $exception->getMessage();
-				$isDeadlock = $sqlState === '40001' || $errCode === 1213;
-				$isGoneAway = $errCode === 2006 || stripos($errMsg, 'MySQL server has gone away') !== false;
-				$isCommLinkFailure = $sqlState === '08S01' || $errCode === 1053;
-				$isRetryable = $isDeadlock || $isGoneAway || $isCommLinkFailure;
+				// check if this is a transient error that can be resolved by retrying
+				$errorType = $exception instanceof \PDOException ? $database->dialect()->getRetryableErrorType($exception) : '';
 				if($useTransaction) {
 					try {
 						if($database->inTransaction()) $database->rollBack();
@@ -374,9 +367,15 @@ abstract class FieldtypeMulti extends Fieldtype {
 						// rollBack/inTransaction may fail if connection was lost — safe to
 						// ignore since the transaction is already gone server-side
 					}
+				} else if($errorType !== '' && $database->inTransaction()) {
+					// this save is running inside a transaction owned by the caller, which the
+					// error has already invalidated: retrying just this slice of it would
+					// silently lose the caller’s earlier statements, so propagate instead
+					// and let the transaction owner retry the whole transaction
+					$errorType = '';
 				}
-				if($isRetryable && $attempt < $maxRetries) {
-					if($isGoneAway || $isCommLinkFailure) {
+				if($errorType !== '' && $attempt < $maxRetries) {
+					if($errorType === 'gone-away' || $errorType === 'comm-failure') {
 						$database->closeConnection(); // reconnects automatically on next query
 					}
 					continue; // retry the entire transaction
