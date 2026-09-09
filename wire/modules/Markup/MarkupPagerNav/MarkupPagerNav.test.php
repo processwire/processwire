@@ -6,6 +6,21 @@
  */
 class WireTest_MarkupPagerNav extends WireTest {
 
+	protected $configData = null;
+
+	public function init() {
+		// these tests assert the module's own default markup, so isolate them from any
+		// admin theme config (i.e. AdminThemeUikit replaces 'listMarkup') that an earlier
+		// test in the same request may have brought into $config
+		$config = $this->wire()->config;
+		$this->configData = $config->get('MarkupPagerNav');
+		$config->set('MarkupPagerNav', array());
+	}
+
+	public function finish() {
+		$this->wire()->config->set('MarkupPagerNav', $this->configData);
+	}
+
 	public function execute() {
 		$this->testDirectRender();
 		$this->testLastPageAndNoPagination();

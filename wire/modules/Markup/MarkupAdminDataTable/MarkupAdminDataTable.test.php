@@ -6,6 +6,21 @@
  */
 class WireTest_MarkupAdminDataTable extends WireTest {
 
+	protected $configData = null;
+
+	public function init() {
+		// these tests assert the module's own default markup, so isolate them from any
+		// admin theme config (i.e. AdminThemeUikit sets an 'addClass') that an earlier
+		// test in the same request may have brought into $config
+		$config = $this->wire()->config;
+		$this->configData = $config->get('MarkupAdminDataTable');
+		$config->set('MarkupAdminDataTable', array());
+	}
+
+	public function finish() {
+		$this->wire()->config->set('MarkupAdminDataTable', $this->configData);
+	}
+
 	public function execute() {
 		$this->testFreshInstancesAndDefaults();
 		$this->testHeaderFooterRowsAndEncoding();
