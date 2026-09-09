@@ -757,7 +757,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$modules = $this->wire()->modules;
 		$configData = $modules->getModuleConfigData('LanguageSupport'); 
 		$configData['otherLanguagePageIDs'][] = $page->id; 
-		$modules->saveModuleConfigData('LanguageSupport', $configData); 
+		$modules->saveConfig('LanguageSupport', $configData); 
 
 	}
 
@@ -824,7 +824,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$key = array_search($page->id, $configData['otherLanguagePageIDs']); 
 		if($key !== false) {
 			unset($configData['otherLanguagePageIDs'][$key]);
-			$modules->saveModuleConfigData('LanguageSupport', $configData); 
+			$modules->saveConfig('LanguageSupport', $configData); 
 		}
 	}
 
@@ -1137,7 +1137,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 			$configData = $modules->getModuleConfigData('LanguageSupport');
 			if($configData['otherLanguagePageIDs'] != $ids) {
 				$configData['otherLanguagePageIDs'] = $ids;
-				$modules->saveModuleConfigData('LanguageSupport', $configData);
+				$modules->saveConfig('LanguageSupport', $configData);
 			}
 		}
 	}

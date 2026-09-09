@@ -1247,7 +1247,7 @@ class InputfieldTinyMCEConfigs extends InputfieldTinyMCEClass {
 		$value = isset($data['extPluginOpts']) ? $data['extPluginOpts'] : '';
 		$data['extPluginOpts'] = trim("$value\n$file");
 		$this->inputfield->set('extPluginOpts', $data['extPluginOpts']);
-		$modules->saveModuleConfigData($this->inputfield, $data);
+		$modules->saveConfig($this->inputfield, $data);
 	}
 
 	/**
@@ -1271,7 +1271,7 @@ class InputfieldTinyMCEConfigs extends InputfieldTinyMCEClass {
 		}
 		$data['extPluginOpts'] = count($value) ? implode("\n", $value) : '';
 		if($updated) {
-			$modules->saveModuleConfigData($this->inputfield, $data);
+			$modules->saveConfig($this->inputfield, $data);
 			$this->inputfield->extPluginOpts = $data['extPluginOpts']; 
 		}
 		return $updated;

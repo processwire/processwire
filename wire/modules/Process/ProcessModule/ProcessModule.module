@@ -1591,7 +1591,7 @@ class ProcessModule extends Process {
 		}
 		
 		if(count($changes)) {
-			$modules->saveModuleConfigData($moduleName, $data);
+			$modules->saveConfig($moduleName, $data);
 			$this->message($this->_('Updated module config data') . ' (' . implode(', ', $changes) . ')');
 		} else {
 			$this->message($this->_('No changes detected'));
@@ -1845,7 +1845,7 @@ class ProcessModule extends Process {
 				
 			} else {
 				unset($data['submit_save_module'], $data['uninstall']);
-				$modules->saveModuleConfigData($moduleName, $data);
+				$modules->saveConfig($moduleName, $data);
 				$updatedNames = count($updatedNames) ? ' (' . implode(', ', $updatedNames) . ')' : '';
 				$this->message($this->_("Saved Module") . " - $moduleName $updatedNames"); // Message shown before the name of a module that was just saved
 				$redirectURL = $submitSave === 'exit' ? './' : "./edit?name=$moduleName$collapseInfo"; 

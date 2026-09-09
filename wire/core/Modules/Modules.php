@@ -1694,8 +1694,14 @@ class Modules extends WireArray implements CliModule {
 	 * $value = $modules->getConfig('HelloWorld', 'some_property');
 	 * 
 	 * // Saving a single configuration property
-	 * $modules->saveConfig('HelloWorld', 'some_property', 'New Value'); 
+	 * $modules->saveConfig('HelloWorld', 'some_property', 'New Value');
 	 * ~~~~~~
+	 *
+	 * This is the method to hook if you want to act on module configuration saves, as it is
+	 * the method that performs the save, and thus is reached regardless of whether the caller
+	 * used this method or the deprecated saveModuleConfigData() alias (which delegates to it).
+	 * Note that the reverse is not true: hooks to Modules::saveModuleConfigData are triggered
+	 * only when that specific method is called, and are skipped for calls to this one.
 	 *
 	 * #pw-group-configuration
 	 * #pw-group-manipulation
@@ -1818,15 +1824,22 @@ class Modules extends WireArray implements CliModule {
 
 	/**
 	 * Alias of saveConfig() for backwards compatibility
-	 * 
-	 * 
+	 *
+	 * Note that while this method and saveConfig() are equivalent for persistence, they are
+	 * not interchangeable for hooks: this method delegates to saveConfig(), so calls to it
+	 * trigger hooks to both Modules::saveModuleConfigData and Modules::saveConfig, whereas
+	 * calls to saveConfig() trigger only the latter. Since core no longer calls this method
+	 * anywhere, hooks to Modules::saveModuleConfigData are triggered only by code that calls
+	 * this method directly. Hook Modules::saveConfig instead, which is reached either way.
+	 *
 	 * #pw-internal
-	 * 
+	 *
 	 * @param $className
 	 * @param array $configData
 	 * @return bool
 	 * @deprecated Please use saveConfig() method instead
-	 * 
+	 * @see Modules::saveConfig()
+	 *
 	 */
 	public function ___saveModuleConfigData($className, array $configData) {
 		return $this->saveConfig($className, $configData);

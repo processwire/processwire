@@ -252,7 +252,7 @@ class PageBookmarks extends Wire {
 			// update bookmarks for role
 			$data["bookmarks"]["_$role->id"] = $bookmarks;
 			// save to module config data
-			$modules->saveModuleConfigData($this->process, $data);
+			$modules->saveConfig($this->process, $data);
 			
 			$this->message($this->_('Saved bookmarks'));
 			$this->wire()->session->location("./?role=$role->id");

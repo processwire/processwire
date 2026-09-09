@@ -90,7 +90,7 @@ class SystemUpdate5 extends SystemUpdate {
 		/*
 		if($this->wire('modules')->isInstalled('ProcessLister')) {
 			$data = $this->wire('modules')->getModuleConfigData('ProcessLister');
-			if(!empty($data)) $this->wire('modules')->saveModuleConfigData('ProcessPageLister', $data); 
+			if(!empty($data)) $this->wire('modules')->saveConfig('ProcessPageLister', $data); 
 			$moduleID = $this->wire('modules')->getModuleID('ProcessLister');
 			$items = $this->wire('pages')->find("template=admin, process=$moduleID, include=all");
 			foreach($items as $item) {
@@ -128,7 +128,7 @@ class SystemUpdate5 extends SystemUpdate {
 		$data = $this->wire('modules')->getModuleConfigData('ProcessPageSearch'); 
 		if(!isset($data['searchFields']) || $data['searchFields'] == 'title body') {
 			$data['searchFields'] = 'title'; 
-			$this->wire('modules')->saveModuleConfigData('ProcessPageSearch', $data); 
+			$this->wire('modules')->saveConfig('ProcessPageSearch', $data); 
 		}
 	
 		// restore user's language setting, if applicable	

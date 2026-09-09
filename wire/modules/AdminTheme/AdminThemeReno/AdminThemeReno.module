@@ -121,7 +121,7 @@ class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
 				$profileConfig = $modules->getModuleConfigData('ProcessProfile');
 				if(!in_array($imageField->name, $profileConfig['profileFields'])) {
 					$profileConfig['profileFields'][] = $imageField->name;
-					$modules->saveModuleConfigData('ProcessProfile', $profileConfig);
+					$modules->saveConfig('ProcessProfile', $profileConfig);
 					$this->message(sprintf($this->_('Added field "%s" to fields editable by user in their profile.'), $imageField->name)); 
 				}
 			}

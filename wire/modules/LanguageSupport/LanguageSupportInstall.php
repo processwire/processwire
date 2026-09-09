@@ -102,7 +102,7 @@ class LanguageSupportInstall extends Wire {
 		$this->message("Created Language Translator Page: {$translatorPage->path}"); 
 
 		// save the module config data
-		$this->modules->saveModuleConfigData('LanguageSupport', $configData); 
+		$this->modules->saveConfig('LanguageSupport', $configData); 
 		
 		// install 'language' field that will be added to the user fieldgroup
 		$field = $this->wire(new Field()); 
@@ -121,7 +121,7 @@ class LanguageSupportInstall extends Wire {
 		// make the 'language' field part of the profile fields the user may edit
 		$profileConfig = $this->modules->getModuleConfigData('ProcessProfile'); 	
 		$profileConfig['profileFields'][] = 'language';
-		$this->modules->saveModuleConfigData('ProcessProfile', $profileConfig); 
+		$this->modules->saveConfig('ProcessProfile', $profileConfig); 
 
 		// add to 'user' fieldgroup
 		$userFieldgroup = $this->templates->get('user')->fieldgroup; 

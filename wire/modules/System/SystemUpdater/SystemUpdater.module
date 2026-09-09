@@ -168,7 +168,7 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 		}
 		
 		$this->configData['coreVersion'] = $toVersion;
-		$modules->saveModuleConfigData($this, $this->configData);
+		$modules->saveConfig($this, $this->configData);
 		
 		// remove admin theme cached info in session
 		foreach($session as $key => $value) {
@@ -192,7 +192,7 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 		$config->systemVersion = $version; 
 		$this->configData['systemVersion'] = $version;
 		$this->configData['coreVersion'] = $config->version;
-		$this->wire()->modules->saveModuleConfigData($this, $this->configData);
+		$this->wire()->modules->saveConfig($this, $this->configData);
 		$this->message("Update #$version: Completed!"); 
 		return true;
 	}

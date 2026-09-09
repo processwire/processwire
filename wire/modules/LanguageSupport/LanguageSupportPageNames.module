@@ -1544,7 +1544,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			$modules = $this->wire()->modules;
 			$data = $modules->getModuleConfigData($this); 
 			$data['moduleVersion'] = $info['version'];
-			$modules->saveModuleConfigData($this, $data);
+			$modules->saveConfig($this, $data);
 		}
 
 	}

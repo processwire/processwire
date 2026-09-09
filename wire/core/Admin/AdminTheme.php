@@ -508,7 +508,7 @@ abstract class AdminTheme extends WireData implements Module {
 			// make this field one that the user is allowed to configure in their profile
 			$data = $modules->getModuleConfigData('ProcessProfile');
 			$data['profileFields'][] = 'admin_theme';
-			$modules->saveModuleConfigData('ProcessProfile', $data); 
+			$modules->saveConfig('ProcessProfile', $data); 
 		}
 	}
 

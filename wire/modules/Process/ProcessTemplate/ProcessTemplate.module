@@ -2904,7 +2904,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 				if(!in_array($template->id, $cacheTemplates)) {
 					$cacheTemplates[] = $template->id;
 					$pwpc['cacheTemplates'] = $cacheTemplates;
-					$modules->saveModuleConfigData('ProCache', $pwpc);
+					$modules->saveConfig('ProCache', $pwpc);
 				}
 			}
 			if($cacheTime) $cacheTime = $cacheTime * -1; // negative value indicates use of ProCache over template cache

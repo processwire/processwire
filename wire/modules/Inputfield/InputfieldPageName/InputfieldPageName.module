@@ -304,7 +304,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 			return $fields;
 		}
 
-		$modules->addHookBefore('saveModuleConfigData', null, 'InputfieldPageName_saveModuleConfigData'); 
+		$modules->addHookBefore('saveConfig', null, 'InputfieldPageName_saveModuleConfigData'); 
 
 		$name = 'replacements';
 
@@ -346,12 +346,25 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 }
 
 function InputfieldPageName_saveModuleConfigData(HookEvent $event) {
-	$arguments = $event->arguments; 
-	if($arguments[0] != 'InputfieldPageName') return; 
+	$arguments = $event->arguments;
+	if($arguments[0] != 'InputfieldPageName') return;
+	$name = 'replacements';
 	$data = $arguments[1];
-	$name = 'replacements';	
-	if(!isset($data[$name])) $data[$name] = InputfieldPageName::getDefaultReplacements();
-	if(!is_array($data[$name])) $data[$name] = InputfieldPageName::replacementStringToArray($data[$name]); 
-	$arguments[1] = $data; 
-	$event->arguments = $arguments; 
+
+	if(is_array($data)) {
+		// full configuration array: saveConfig($class, $data)
+		if(!isset($data[$name])) $data[$name] = InputfieldPageName::getDefaultReplacements();
+		if(!is_array($data[$name])) $data[$name] = InputfieldPageName::replacementStringToArray($data[$name]);
+		$arguments[1] = $data;
+		$event->arguments = $arguments;
+
+	} else if($data === $name) {
+		// single property: saveConfig($class, 'replacements', $value), a form that was not
+		// possible with saveModuleConfigData() since it required an array. A null $value
+		// means the property is being removed, so that case is left alone.
+		if(isset($arguments[2]) && !is_array($arguments[2])) {
+			$arguments[2] = InputfieldPageName::replacementStringToArray($arguments[2]);
+			$event->arguments = $arguments;
+		}
+	}
 }

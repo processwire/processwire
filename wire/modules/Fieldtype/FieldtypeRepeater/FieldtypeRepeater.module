@@ -2210,7 +2210,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		}
 
 		$configData = array('repeatersRootPageID' => $page->id); 
-		$modules->saveModuleConfigData($this, $configData);
+		$modules->saveConfig($this, $configData);
 	}
 
 	/**
