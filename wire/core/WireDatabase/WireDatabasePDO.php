@@ -1006,11 +1006,26 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 					if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
 						$this->unknownColumnError($matches[1]);
 					}
-				} else if($e->getCode() === 'HY000' && $tries < $maxTries) {
-					// mysql server has gone away
-					$this->reset();
-					$tryAgain = true;
-					$tries++;
+				} else if($tries < $maxTries) {
+					$errorType = $this->dialect()->getRetryableErrorType($e);
+					if($errorType !== '' && $this->inTransaction()) {
+						// a statement cannot be safely retried inside an open transaction:
+						// a deadlock means the server already rolled back the entire
+						// transaction, and reconnecting after a lost connection discards it,
+						// so retrying just this statement would silently lose the caller’s
+						// earlier statements. Let the exception propagate so the transaction
+						// owner can retry the whole transaction.
+					} else if($errorType === 'deadlock') {
+						// deadlock — retry with linear backoff (no reconnect needed)
+						usleep(100000 * ($tries + 1)); // 100ms, 200ms, 300ms
+						$tryAgain = true;
+						$tries++;
+					} else if($errorType === 'gone-away' || $errorType === 'comm-failure') {
+						// connection lost — reconnect and retry
+						$this->reset();
+						$tryAgain = true;
+						$tries++;
+					}
 				}
 				if($tryAgain) {
 					// we will try again on next iteration
@@ -1392,7 +1407,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			}
 			if(!$stopwords) {
 				$query = $this->prepare('SELECT value FROM INFORMATION_SCHEMA.INNODB_FT_DEFAULT_STOPWORD');
-				$query->execute();
+				$this->execute($query);
 				$stopwords = $query->fetchAll(\PDO::FETCH_COLUMN, 0);
 				$query->closeCursor();
 				if($cache) $cache->save('InnoDB.stopwords', implode(',', $stopwords), WireCache::expireDaily);

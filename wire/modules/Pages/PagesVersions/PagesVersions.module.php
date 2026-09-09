@@ -143,7 +143,7 @@ class PagesVersions extends Wire implements Module {
 		$query = $database->prepare($sql);
 		$query->bindValue(':version', $version, \PDO::PARAM_INT);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		$hasRow = $query->rowCount() > 0;
 		$row = $hasRow ? $query->fetch(\PDO::FETCH_ASSOC) : null;
@@ -266,8 +266,8 @@ class PagesVersions extends Wire implements Module {
 			$query = $database->prepare($sql);
 			$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 			if($options['version']) $query->bindValue(':version', (int) $options['version'], \PDO::PARAM_INT);
-			$query->execute();
-			
+			$database->execute($query);
+
 		} catch(\Exception $e) {
 			if($e->getCode() === '42S22' && $options['useName']) {
 				// catch error when name column does not yet exist, add it, then retry
@@ -382,8 +382,9 @@ class PagesVersions extends Wire implements Module {
 	public function getAllPagesWithVersions() {
 		$table = self::versionsTable;
 		$sql = "SELECT DISTINCT(pages_id) FROM $table";
-		$query = $this->wire()->database->prepare($sql);
-		$query->execute();
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
+		$database->execute($query);
 		$ids = [];
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$ids[] = (int) $row[0];
@@ -423,8 +424,8 @@ class PagesVersions extends Wire implements Module {
 			$query->bindValue(':name', $version);
 		}
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
-		$n = $query->rowCount() ? (int) $query->fetchColumn() : 0; 
+		$database->execute($query);
+		$n = $query->rowCount() ? (int) $query->fetchColumn() : 0;
 		$query->closeCursor();
 		return $n > 0;
 	}
@@ -447,7 +448,7 @@ class PagesVersions extends Wire implements Module {
 		$sql = "SELECT COUNT(*) FROM $table WHERE pages_id=:pages_id";
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$qty = (int) $query->fetchColumn();
 		$query->closeCursor();
 		return $qty;
@@ -593,7 +594,7 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':modified_users_id', $user->id, \PDO::PARAM_INT);
 		$query->bindValue(':description', (string) $options['description']);
 		$query->bindValue(':data', json_encode($data));
-		$query->execute();
+		$database->execute($query);
 
 		if(!$options['copyFiles']) {
 			// files will be excluded from the data
@@ -734,7 +735,7 @@ class PagesVersions extends Wire implements Module {
 			$query = $database->prepare($sql);
 			$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 			$query->bindValue(':version', $version, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			$qty += $query->rowCount();
 		}
 
@@ -962,7 +963,7 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':field_id', $field->id, \PDO::PARAM_INT);
 		$query->bindValue(':version', $version, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		if($query->rowCount()) {
 			$value = $query->fetchColumn();
@@ -1004,7 +1005,7 @@ class PagesVersions extends Wire implements Module {
 		$sql = "SELECT * FROM pages WHERE id=:id";
 		$query = $database->prepare($sql);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$data = $query->fetch(\PDO::FETCH_ASSOC);
 		$query->closeCursor();
 		unset($data['id']);
@@ -1091,8 +1092,8 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':field_id', $field->id, \PDO::PARAM_INT);
 		$query->bindValue(':version', $version, \PDO::PARAM_INT);
 		$query->bindValue(':data', $value);
-		
-		return $query->execute();
+
+		return $database->execute($query);
 	}
 
 	/**
@@ -1139,7 +1140,7 @@ class PagesVersions extends Wire implements Module {
 
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		$numRows = $query->rowCount();
 
@@ -1189,7 +1190,7 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':field_id', $field->id, \PDO::PARAM_INT);
 		$query->bindValue(':version', $version, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		return $query->rowCount() > 0;
 	}
@@ -1224,7 +1225,7 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':version', $version, \PDO::PARAM_INT);
 		$query->bindValue(':value', $value);
-		return $query->execute();
+		return $database->execute($query);
 	}
 
 	/********************************************************************************
@@ -1400,10 +1401,11 @@ class PagesVersions extends Wire implements Module {
 		$versionFields = [];
 		$table = self::valuesTable;
 		$sql = "SELECT field_id FROM $table WHERE pages_id=:pages_id AND version=:version";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $pageId, \PDO::PARAM_INT);
 		$query->bindValue(':version', (int) $version, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$fieldId = (int) $row[0];
 			$field = $fields->get($fieldId);
@@ -1453,9 +1455,10 @@ class PagesVersions extends Wire implements Module {
 	public function getNextPageVersionNumber(Page $page) {
 		$table = self::versionsTable;
 		$sql = "SELECT MAX(version) from $table WHERE pages_id=:pages_id";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$version = (int) $query->fetchColumn() + 1;
 		if($version === 1) $version++; // version 1 is reserved for draft version
 		$query->closeCursor();

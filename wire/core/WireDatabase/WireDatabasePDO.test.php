@@ -182,6 +182,58 @@ class WireTest_WireDatabasePDO extends WireTest {
 		$this->check('queryLog() includes logged query', true, strpos(end($log), 'SELECT 1') !== false);
 		$this->check('queryLog(false) stops query logging', true, $database->queryLog(false));
 		$this->check('queryLog() ignores entries when stopped', false, $database->queryLog('SELECT 2'));
+
+		// ===== RETRYABLE ERROR CLASSIFICATION =====
+
+		$dialect = $database->dialect();
+		$this->check('dialect() returns WireDatabaseDialect', true, $dialect instanceof WireDatabaseDialect);
+
+		$e = $this->fakePDOException('Deadlock found when trying to get lock; try restarting transaction', '40001', 1213);
+		$this->check('getRetryableErrorType() deadlock by SQLSTATE 40001', 'deadlock', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException('Deadlock found when trying to get lock; try restarting transaction', 'HY000', 1213);
+		$this->check('getRetryableErrorType() deadlock by errno 1213 alone', 'deadlock', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException('Deadlock found when trying to get lock; try restarting transaction', 1213);
+		$this->check('getRetryableErrorType() deadlock by integer code', 'deadlock', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException('Communication link failure', '08S01', 1053);
+		$this->check('getRetryableErrorType() comm-failure by SQLSTATE 08S01', 'comm-failure', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException('Lost connection to MySQL server during query', 'HY000', 2013);
+		$this->check('getRetryableErrorType() comm-failure by errno 2013', 'comm-failure', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException('MySQL server has gone away', 'HY000', 2006);
+		$this->check('getRetryableErrorType() gone-away by errno 2006', 'gone-away', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException('MySQL server has gone away', 'HY000');
+		$this->check('getRetryableErrorType() gone-away by message alone', 'gone-away', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException("Unknown column 'foo.bar' in 'field list'", '42S22', 1054);
+		$this->check('getRetryableErrorType() blank for unknown column error', '', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException("Duplicate entry 'x' for key 'PRIMARY'", '23000', 1062);
+		$this->check('getRetryableErrorType() blank for duplicate entry error', '', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException('Incorrect string value', 'HY000', 1366);
+		$this->check('getRetryableErrorType() blank for generic HY000 error', '', $dialect->getRetryableErrorType($e));
+	}
+
+	/**
+	 * Make a PDOException carrying the given code and optional MySQL error number
+	 *
+	 * @param string $message
+	 * @param string|int $code SQLSTATE string or driver error number
+	 * @param int|null $errno MySQL error number for errorInfo[1], omit for no errorInfo
+	 * @return \PDOException
+	 *
+	 */
+	protected function fakePDOException($message, $code, $errno = null) {
+		$e = new \PDOException($message);
+		$property = new \ReflectionProperty($e, 'code');
+		$property->setValue($e, $code);
+		if($errno !== null) $e->errorInfo = array(is_string($code) ? $code : 'HY000', $errno, $message);
+		return $e;
 	}
 
 	public function finish() {

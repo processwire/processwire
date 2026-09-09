@@ -790,7 +790,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 					$query = $database->prepare('UPDATE pages SET modified=NOW(), modified_users_id=:user_id WHERE id=:id');
 					$query->bindValue(':id', $readyPage->id, \PDO::PARAM_INT);
 					$query->bindValue(':user_id', $this->wire('user')->id, \PDO::PARAM_INT);
-					$query->execute();
+					$database->execute($query);
 					break;
 				}
 			}
@@ -1978,7 +1978,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 			list(, $forPageId) = explode(self::repeaterPageNamePrefix, $name, 2);
 			$query = $database->prepare('SELECT COUNT(*) FROM pages WHERE id=:id');
 			$query->bindValue(':id', (int) $forPageId, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			$exists = (int) $query->fetchColumn();
 			$query->closeCursor();
 			if(!$exists || ($options['useLazyParents'] && !$forPageParent->numChildren)) {

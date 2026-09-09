@@ -182,4 +182,25 @@ abstract class WireDatabaseDialect extends Wire {
 	 *
 	 */
 	abstract public function getTime($getTimestamp = false);
+
+	/**
+	 * Classify a query exception as a transient error type that may be resolved by retrying
+	 *
+	 * Returns one of the following strings, or blank string when the error is not a known
+	 * transient condition for this database engine:
+	 *
+	 * - `deadlock`: Statement failed because the server chose it as a deadlock victim or could
+	 *    not serialize it. The server has already rolled back the entire transaction, so it is
+	 *    only safe to retry when no client-side transaction is open (or by retrying the whole
+	 *    transaction). No reconnect is needed.
+	 * - `gone-away`: Server closed an idle connection (i.e. “MySQL server has gone away”).
+	 *    Retry requires a reconnect, which discards any open transaction.
+	 * - `comm-failure`: Communication link between client and server failed mid-query.
+	 *    Retry requires a reconnect, which discards any open transaction.
+	 *
+	 * @param \PDOException $e
+	 * @return string One of 'deadlock', 'gone-away', 'comm-failure', or blank string
+	 *
+	 */
+	abstract public function getRetryableErrorType(\PDOException $e);
 }

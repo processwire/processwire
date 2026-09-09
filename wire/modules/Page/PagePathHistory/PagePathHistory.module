@@ -146,7 +146,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			// delete any possible entries that overlap with the $page current path since are no longer applicable
 			$query = $database->prepare("DELETE FROM $table WHERE path=:path LIMIT 1");
 			$query->bindValue(":path", rtrim($this->wire()->sanitizer->pagePathName($page->path, Sanitizer::toAscii), '/'));
-			$query->execute();
+			$database->execute($query);
 		}
 		
 		return $result;
@@ -184,7 +184,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		if($language) $query->bindValue(':language_id', $language->id, \PDO::PARAM_INT);
 
 		try {
-			$result = $query->execute();
+			$result = $database->execute($query);
 		} catch(\Exception $e) {
 			// ignore the exception because it means there is already a past URL (duplicate)
 			$result = false;
@@ -213,7 +213,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$query = $database->prepare($sql);
 		$query->bindValue(':path', $path);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		
 		$cnt = $query->rowCount();
 		$query->closeCursor();
@@ -236,7 +236,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		} else if($page instanceof Page && $page->id) {
 			$query = $database->prepare('DELETE FROM ' . self::dbTableName . ' WHERE pages_id=:pages_id');
 			$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 		} else {
 			throw new WireException("Invalid param: instance of Page or boolean true expected");
 		}
@@ -310,7 +310,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		}
 		
 		try {
-			$query->execute();
+			$database->execute($query);
 			
 			/** @noinspection PhpAssignmentInConditionInspection */
 			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
@@ -637,7 +637,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			foreach($binds as $bindKey => $bindValue) {
 				$query->bindValue(":$bindKey", $bindValue);
 			}
-			$query->execute();
+			$database->execute($query);
 			$rowCount = $query->rowCount();
 		} catch(\Exception $e) {
 			if(!$this->checkTableSchema()) throw $e;
@@ -749,7 +749,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			$error = false;
 			
 			try {
-				$query->execute();
+				$database->execute($query);
 			} catch(\Exception $e) {
 				if(strpos($e->getMessage(), '1054') !== false) $this->upgrade(1, 2);
 				$this->wire()->log->error('PagePathHistory::getPage() - ' . $e->getMessage());
@@ -865,7 +865,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$segments = array();
 		$sql = 'SELECT path FROM ' . self::dbTableName;
 		$query = $this->wire()->database->prepare($sql);
-		$query->execute();
+		$database->execute($query);
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$path = trim($row[0], '/');
 			list($segment,) = explode('/', $path, 2);
@@ -1028,7 +1028,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$table = self::dbTableName;
 		$query = $database->prepare("DELETE FROM $table WHERE pages_id=:pages_id"); 
 		$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 	}
 
 	/**

@@ -864,7 +864,7 @@ abstract class Fieldtype extends WireData implements Module {
 		$sql = rtrim($sql, ", ") . ') ' . $append;
 		
 		$query = $database->prepare($sql);
-		$result = $query->execute();
+		$result = $database->execute($query);
 
 		if(!$result) $this->error("Error creating table '{$table}'");
 
@@ -1376,8 +1376,8 @@ abstract class Fieldtype extends WireData implements Module {
 		}
 		
 		try {
-			$result = $query->execute();
-			
+			$result = $database->execute($query);
+
 		} catch(\PDOException $e) {
 			$code = (int) $e->getCode();
 			if($code === 23000) {
@@ -1412,7 +1412,7 @@ abstract class Fieldtype extends WireData implements Module {
 			$database = $this->wire()->database;
 			$table = $database->escapeTable($field->table); 
 			$query = $database->prepare("DROP TABLE `$table`"); // QA
-			$result = $query->execute();
+			$result = $database->execute($query);
 		} catch(\Exception $e) {
 			$result = false; 
 			$this->trackException($e, true, true);
@@ -1476,12 +1476,12 @@ abstract class Fieldtype extends WireData implements Module {
 		$table = $database->escapeTable($field->table);
 		$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id");
 		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT);
-		return $query->execute();
+		return $database->execute($query);
 	}
-	
+
 	/**
 	 * Move this field’s data from one page to another.
-	 * 
+	 *
 	 * #pw-group-saving
 	 *
 	 * @param Page $src Source Page
@@ -1499,7 +1499,7 @@ abstract class Fieldtype extends WireData implements Module {
 		$query = $database->prepare($sql);
 		$query->bindValue(':dstID', (int) $dst->id);
 		$query->bindValue(':srcID', (int) $src->id);
-		$result = $query->execute();
+		$result = $database->execute($query);
 		return $result;
 	}
 

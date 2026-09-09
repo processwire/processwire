@@ -671,13 +671,14 @@ class PagesNames extends Wire {
 		}
 
 		$sql = 'SELECT COUNT(*) FROM pages WHERE ' . implode(' AND ', $wheres);
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 
 		foreach($binds as $key => $value) {
 			$query->bindValue($key, $value);
 		}
 
-		$query->execute();
+		$database->execute($query);
 		$qty = (int) $query->fetchColumn();
 		$query->closeCursor();
 
@@ -798,10 +799,11 @@ class PagesNames extends Wire {
 		}
 	
 		$sql = "SELECT id, status, parent_id FROM pages WHERE name=:name AND id!=:id";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':name', $name);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		
 		if(!$query->rowCount()) {
 			$query->closeCursor();

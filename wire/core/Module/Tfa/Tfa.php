@@ -1024,9 +1024,10 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		
 		$table = $field->getTable();
 		$sql = "SELECT `settings` FROM `$table` WHERE pages_id=:user_id";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':user_id', $user->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$data = $query->fetchColumn();
 		$query->closeCursor();
 		
@@ -1069,10 +1070,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$table = $field->getTable();
 		$json = json_encode($tfaSettings);
 		$sql = "UPDATE `$table` SET `settings`=:json WHERE pages_id=:user_id";
-		$query = $this->wire('database')->prepare($sql);
+		$database = $this->wire('database');
+		$query = $database->prepare($sql);
 		$query->bindValue(':user_id', $user->id, \PDO::PARAM_INT);
 		$query->bindValue(':json', $json);
-		return $query->execute();
+		return $database->execute($query);
 	}
 	
 	/**

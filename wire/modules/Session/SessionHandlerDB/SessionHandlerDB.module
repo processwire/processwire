@@ -228,7 +228,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$sql = "DELETE FROM `$table` WHERE ts < DATE_SUB(NOW(), INTERVAL $seconds SECOND)";
 		try {
 			$query = $this->database->prepare($sql);
-			$query->execute();
+			$this->database->execute($query);
 			$n = (int) $query->rowCount();
 			$query->closeCursor();
 		} catch(\Exception $e) {
@@ -417,7 +417,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 				"ORDER BY ts DESC LIMIT $limit";
 		
 		$query = $this->database->prepare($sql); 
-		$query->execute();
+		$this->database->execute($query);
 	
 		$sessions = array();
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
@@ -472,7 +472,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 			$database = $this->database;
 			$sql = "ALTER TABLE $table MODIFY data MEDIUMTEXT NOT NULL";
 			$query = $database->prepare($sql);
-			$query->execute();
+			$this->database->execute($query);
 			$this->message("Updated sessions database for larger data storage", Notice::log);
 		}
 	}
@@ -491,7 +491,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$query = $this->database->prepare("DELETE FROM `$table` WHERE user_id=:user_id AND id!=:id");
 		$query->bindValue(':id', session_id()); 
 		$query->bindValue(':user_id', $user->id, \PDO::PARAM_INT);  
-		$query->execute();
+		$this->database->execute($query);
 		$n = $query->rowCount();
 		if($n) $this->message(sprintf(
 			$this->_('Previous login session for “%s” has been removed/logged-out.'), 

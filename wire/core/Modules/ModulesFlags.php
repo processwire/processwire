@@ -52,9 +52,10 @@ class ModulesFlags extends ModulesClass {
 		$id = ctype_digit("$id") ? (int) $id : $this->modules->getModuleID($id);
 		if(isset($this->moduleFlags[$id])) return $this->moduleFlags[$id];
 		if(!$id) return false;
-		$query = $this->wire()->database->prepare('SELECT flags FROM modules WHERE id=:id');
+		$database = $this->wire()->database;
+		$query = $database->prepare('SELECT flags FROM modules WHERE id=:id');
 		$query->bindValue(':id', $id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		if(!$query->rowCount()) return false;
 		list($flags) = $query->fetch(\PDO::FETCH_NUM);
 		$flags = (int) $flags;
@@ -98,7 +99,7 @@ class ModulesFlags extends ModulesClass {
 		$query->bindValue(':id', $id);
 		if($this->debug) $this->message("setFlags(" . $this->modules->getModuleClass($id) . ", " . $this->moduleFlags[$id] . " => $flags)");
 		$this->moduleFlags[$id] = $flags;
-		return $query->execute();
+		return $this->wire()->database->execute($query);
 	}
 
 	/**

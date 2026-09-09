@@ -2248,9 +2248,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'AND status<' . Page::statusTrash . ' ' . 
 			'GROUP BY parent_id LIMIT 500';
 		
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue('templates_id', $template->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$parentID = (int) $row[0];

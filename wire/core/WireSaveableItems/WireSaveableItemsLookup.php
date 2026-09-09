@@ -80,7 +80,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 		$this->getLookupField(); // preload
 		
 		$stmt = $database->prepare($sql);
-		$stmt->execute();
+		$database->execute($stmt);
 		$rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
 		
 		// note: non-use of lazyNameIndex/lazyIdIndex is intentional
@@ -188,13 +188,13 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 		if($item_id) {
 			$query = $database->prepare("DELETE FROM $lookupTable WHERE {$table}_id=:item_id");
 			$query->bindValue(":item_id", $item_id, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 		}
-			
-		$result = parent::___save($item); 
+
+		$result = parent::___save($item);
 		$item_id = (int) $item->id; // reload, in case it was 0 before
 
-		$sort = 0; 
+		$sort = 0;
 		if($item_id) {
 			$sql = "INSERT INTO $lookupTable SET {$table}_id=:item_id, $lookupField=:value_id, sort=:sort";
 			$query = $database->prepare($sql);
@@ -203,7 +203,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 				$query->bindValue(":item_id", $item_id, \PDO::PARAM_INT);
 				$query->bindValue(":value_id", $value_id, \PDO::PARAM_INT);
 				$query->bindValue(":sort", $sort, \PDO::PARAM_INT);
-				$query->execute();
+				$database->execute($query);
 				$sort++;
 			}
 			$this->resetTrackChanges();
@@ -226,7 +226,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 		$item_id = (int) $item->id; 
 		$query = $database->prepare("DELETE FROM $lookupTable WHERE {$table}_id=:item_id"); // QA
 		$query->bindValue(":item_id", $item_id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		return parent::___delete($item); 
 	}
 	

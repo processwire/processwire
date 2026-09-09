@@ -221,17 +221,18 @@ class Users extends PagesType {
 		if(!count($userIds)) return 0;
 		$field = $this->wire()->fields->get('admin_theme');
 		$table = $field->getTable();
-		$sql = 
-			"INSERT INTO `$table` (pages_id, data) VALUES(:pages_id, :data) " . 
+		$sql =
+			"INSERT INTO `$table` (pages_id, data) VALUES(:pages_id, :data) " .
 			"ON DUPLICATE KEY UPDATE pages_id=:update_pages_id, data=:update_data";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':data', (int) $moduleId, \PDO::PARAM_INT);
 		$query->bindValue(':update_data', (int) $moduleId, \PDO::PARAM_INT);
 		$qty = 0;
 		foreach($userIds as $userId) {
 			$query->bindValue(':pages_id', $userId, \PDO::PARAM_INT);
 			$query->bindValue(':update_pages_id', $userId, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			$qty++;
 		}
 		return $qty;

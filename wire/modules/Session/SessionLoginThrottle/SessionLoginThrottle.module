@@ -141,7 +141,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$query->bindValue(':maxSecondsB', (int) $this->maxSeconds, \PDO::PARAM_INT);
 		$query->bindValue(':seconds', (int) $this->seconds, \PDO::PARAM_INT);
 		$query->bindValue(':name', $name);
-		$query->execute();
+		$database->execute($query);
 		$allowed = $query->rowCount() > 0;
 		$query->closeCursor();
 
@@ -153,7 +153,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 			$insert = $database->prepare($sql);
 			$insert->bindValue(':name', $name);
 			$insert->bindValue(':last_attempt', $time, \PDO::PARAM_INT);
-			$insert->execute();
+			$database->execute($insert);
 			$allowed = $insert->rowCount() > 0;
 			$insert->closeCursor();
 
@@ -161,7 +161,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 				// The row already existed. Repeat the conditional update once, since the row may
 				// have been created by another request in between the two statements above, in
 				// which case this attempt is still within the allowance.
-				$query->execute();
+				$database->execute($query);
 				$allowed = $query->rowCount() > 0;
 				$query->closeCursor();
 			}
@@ -175,7 +175,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$sql = "DELETE FROM session_login_throttle WHERE last_attempt < :expired ";
 		$query = $database->prepare($sql);
 		$query->bindValue(":expired", $expired, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		$this->allowLoginResults[$name] = $allowed;
 

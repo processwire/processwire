@@ -66,7 +66,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 			$query = $database->prepare($sql); 
 			$query->bindValue(':pages_id', (int) $page->id); 
 			$query->bindValue(':data', (int) $page->id); 
-			$query->execute();
+			$database->execute($query);
 		}
 	}
 

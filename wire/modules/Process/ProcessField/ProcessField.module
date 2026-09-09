@@ -1001,7 +1001,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$query = $this->database->prepare($sql);
 			
 			try {
-				$query->execute();
+				$this->database->execute($query);
 				$cnt = $query->rowCount();
 				if($cnt > 0) {
 					if($field->name == $this->field->name) {
@@ -2393,7 +2393,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					$sql .= "OR pages.templates_id IN(" . implode(',', $templatesWithoutField) . ")";
 				}
 				$query = $this->wire()->database->prepare($sql);
-				$query->execute();
+				$this->wire()->database->execute($query);
 				$cnt = $query->rowCount();
 				if($cnt) $this->message($this->field->name . ": " . sprintf($this->_('Deleted %d orphaned rows'), $cnt));
 			}

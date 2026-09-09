@@ -247,9 +247,10 @@ class ModulesDuplicates extends Wire {
 
 		// update any modules that no longer have duplicates
 		$removals = array();
-		$query = $this->wire()->database->prepare("SELECT `class`, `flags` FROM modules WHERE `flags` & :flag");
+		$database = $this->wire()->database;
+		$query = $database->prepare("SELECT `class`, `flags` FROM modules WHERE `flags` & :flag");
 		$query->bindValue(':flag', Modules::flagsDuplicate, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		/** @noinspection PhpAssignmentInConditionInspection */
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {

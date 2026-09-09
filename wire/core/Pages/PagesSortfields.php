@@ -44,9 +44,10 @@ class PagesSortfields extends Wire {
 	public function get($page) {
 		$pageId = $page instanceof Page ? $page->id : (int) $page;
 		$sql = 'SELECT sortfield FROM pages_sortfields WHERE pages_id=:id';
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':id', $pageId, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		if($query->rowCount()) {
 			$sortfield = $query->fetchColumn();
 			$sortfield = $this->decode($sortfield); 
@@ -83,7 +84,7 @@ class PagesSortfields extends Wire {
 		$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
 		$query->bindValue(":sortfield", $sortfield, \PDO::PARAM_STR);
 		$query->bindValue(":sortfield_update", $sortfield, \PDO::PARAM_STR);
-		$result = $query->execute();
+		$result = $database->execute($query);
 		
 		return $result;
 	}
@@ -98,8 +99,8 @@ class PagesSortfields extends Wire {
 	public function delete(Page $page) {
 		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM pages_sortfields WHERE pages_id=:page_id"); // QA
-		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT); 
-		$result = $query->execute();
+		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT);
+		$result = $database->execute($query);
 		return $result;
 	}
 

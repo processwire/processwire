@@ -1523,12 +1523,13 @@ class PagesLoader extends Wire {
 		
 		if($getOne) $sql .= 'LIMIT 2';
 		
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		foreach($binds as $bindKey => $bindValue) {
 			$query->bindValue(":$bindKey", $bindValue);
 		}
-		
-		$query->execute();
+
+		$database->execute($query);
 		$rowCount = (int) $query->rowCount();
 		$rows = array();
 		
@@ -1768,7 +1769,7 @@ class PagesLoader extends Wire {
 				// one subdirectory, see if a page has the same name
 				$query = $database->prepare('SELECT id FROM pages WHERE parent_id=1 AND name=:name');
 				$query->bindValue(':name', $rootName);
-				$query->execute();
+				$database->execute($query);
 				if($query->rowCount() > 0) {
 					// leave subdirectory in path because page in site also matches subdirectory name
 				} else {
@@ -2039,9 +2040,10 @@ class PagesLoader extends Wire {
 	public function getNumChildren($page) {
 		$pageId = $page instanceof Page ? $page->id : (int) $page;
 		$sql = 'SELECT COUNT(*) FROM pages WHERE parent_id=:id';
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$query = $database->prepare($sql);
 		$query->bindValue(':id', $pageId, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$numChildren = (int) $query->fetchColumn(); 
 		$query->closeCursor();
 		return $numChildren;
@@ -2200,7 +2202,7 @@ class PagesLoader extends Wire {
 	
 		$query = $database->prepare($sql);
 		$query->bindValue(':pid', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		
 		$data = [];
 		$row = $query->fetch(\PDO::FETCH_ASSOC);
@@ -2508,9 +2510,10 @@ class PagesLoader extends Wire {
 	 */
 	public function getNativeColumns() {
 		if(empty($this->nativeColumns)) {
-			$query = $this->wire()->database->prepare("SELECT * FROM pages WHERE id=:id");
+			$database = $this->wire()->database;
+			$query = $database->prepare("SELECT * FROM pages WHERE id=:id");
 			$query->bindValue(':id', $this->wire()->config->rootPageID, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			$row = $query->fetch(\PDO::FETCH_ASSOC);
 			foreach(array_keys($row) as $colName) {
 				$this->nativeColumns[$colName] = $colName;
@@ -2540,7 +2543,7 @@ class PagesLoader extends Wire {
 		if($database->escapeCol($column) !== $column) throw new WireException("Invalid column name: $column");
 		$query = $database->prepare("SELECT `$column` FROM pages WHERE id=:id");
 		$query->bindValue(':id', $id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$value = $query->fetchColumn();
 		$query->closeCursor();
 		if(ctype_digit("$value") && strpos($column, 'name') !== 0) $value = (int) $value;

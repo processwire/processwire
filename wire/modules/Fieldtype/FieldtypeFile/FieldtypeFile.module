@@ -1265,7 +1265,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 				$query->bindValue(":created", $date);
 				$query->bindValue(":modified", $date);
 				try {
-					$query->execute();
+					$database->execute($query);
 					$this->message("Populated initial created/modified dates for '{$field->name}'", Notice::log);
 				} catch(\Exception $e) {
 					$this->error("Error populating created/modified dates to '{$field->name}'", Notice::log);
@@ -1654,7 +1654,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			$query->bindValue($key, $value, $type);
 		}
 		
-		$result = $query->execute() ? $query->rowCount() : 0;
+		$result = $database->execute($query) ? $query->rowCount() : 0;
 		if($isNew && $result) $pagefile->isNew(false);
 		
 		return (bool) $result;
@@ -1713,7 +1713,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			$query->bindValue($key, $value);
 		}
 		
-		$result = $query->execute() ? $query->rowCount() : 0;
+		$result = $database->execute($query) ? $query->rowCount() : 0;
 		
 		return (bool) $result;
 		

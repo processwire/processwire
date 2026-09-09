@@ -1511,7 +1511,7 @@ class PagesEditor extends Wire {
 		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM pages WHERE id=:page_id LIMIT 1"); // QA
 		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 
 		$this->pages->sortfields()->delete($page);
 		$page->setTrackChanges(false);
@@ -1853,35 +1853,35 @@ class PagesEditor extends Wire {
 		$query->bindValue(':parent_id', $page->parent_id, \PDO::PARAM_INT);
 		$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$rowCount = $query->rowCount();
 		$query->closeCursor();
-	
+
 		// move sort to after if requested
 		if($after && $rowCount) $sort += $rowCount;
-		
+
 		// update $page->sort property if needed
 		if($page->sort != $sort) $page->sort = $sort;
-		
+
 		// make sure that $page has the sort value indicated
 		$sql = 'UPDATE pages SET sort=:sort WHERE id=:id';
 		$query = $database->prepare($sql);
 		$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$database->execute($query);
 		$sortCnt = $query->rowCount();
-		
+
 		// no need for $page to have 'sort' indicated as a change, since we just updated it above
 		$page->untrackChange('sort');
 
 		if($rowCount) {
-			// update order of all siblings 
+			// update order of all siblings
 			$sql = 'UPDATE pages SET sort=sort+1 WHERE parent_id=:parent_id AND sort>=:sort AND id!=:id';
 			$query = $database->prepare($sql);
 			$query->bindValue(':parent_id', $page->parent_id, \PDO::PARAM_INT);
 			$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
 			$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			$sortCnt += $query->rowCount();
 		}
 	
@@ -1986,7 +1986,7 @@ class PagesEditor extends Wire {
 			$sql = 'SELECT id FROM pages WHERE parent_id=:parent_id ORDER BY sort, created';
 			$query = $database->prepare($sql);
 			$query->bindValue(':parent_id', $parent->id, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 
 			// establish new sort values
 			do {
@@ -2015,7 +2015,7 @@ class PagesEditor extends Wire {
 			'ON DUPLICATE KEY UPDATE sort=VALUES(sort)'
 		);
 
-		$query->execute();
+		$database->execute($query);
 		
 		return count($sorts);
 	}
@@ -2077,7 +2077,7 @@ class PagesEditor extends Wire {
 				if(strpos($sql, $bindKey) === false) continue;
 				$query->bindValue($bindKey, $bindValue);
 			}
-			$query->execute();
+			$database->execute($query);
 		}
 
 		$newPage->id = $id;

@@ -114,7 +114,7 @@ class ModulesConfigs extends ModulesClass {
 			$database = $this->wire()->database;
 			$query = $database->prepare("SELECT data FROM modules WHERE id=:id", "modules.getConfig($className)"); // QA
 			$query->bindValue(":id", (int) $id, \PDO::PARAM_INT);
-			$query->execute();
+			$database->execute($query);
 			$data = $query->fetchColumn();
 			$query->closeCursor();
 			if(strlen($data)) $data = wireDecodeJSON($data);
@@ -544,7 +544,7 @@ class ModulesConfigs extends ModulesClass {
 		$query = $database->prepare("UPDATE modules SET data=:data WHERE id=:id", "modules.saveConfig($moduleName)"); // QA
 		$query->bindValue(":data", $json, \PDO::PARAM_STR);
 		$query->bindValue(":id", (int) $id, \PDO::PARAM_INT);
-		$result = $query->execute();
+		$result = $database->execute($query);
 		// $this->log("Saved module '$moduleName' config data");
 
 		return $result;
