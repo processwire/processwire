@@ -330,7 +330,18 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 * 
 	 */
 	protected function getRepeaterItemInputfields(Page $page) {
-		return $page->template->fieldgroup->getPageInputfields($page, "_repeater{$page->id}");
+		// inputfields must be populated from unformatted values, but the item may arrive
+		// here output-formatted: FieldtypeRepeater::formatValue() enables output formatting
+		// on the item pages whenever something gets a formatted value of the repeater field
+		// (i.e. a hook or module doing so while rendering the page editor), and inputs built
+		// from formatted values would write those formatted values back to the database on
+		// the next save (i.e. Hanna Code tags replaced with their output, entity-encoded
+		// text re-encoded, etc.)
+		$of = $page->of();
+		if($of) $page->of(false);
+		$inputfields = $page->template->fieldgroup->getPageInputfields($page, "_repeater{$page->id}");
+		if($of) $page->of(true);
+		return $inputfields;
 	}
 	
 

@@ -217,6 +217,54 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			foreach($page->get($name) as $item) $page->get($name)->remove($item);
 			$page->save($name);
 		}
+
+		// verify item inputfields are built from unformatted values even after something
+		// got a formatted value of the repeater field first (issue #2343): a formatted get
+		// enables output formatting on the shared item pages, and inputs built from formatted
+		// values would destructively write them back to the database on the next save
+		$loading = $field->repeaterLoading;
+		$collapse = $field->repeaterCollapse;
+		try {
+			$field->repeaterLoading = FieldtypeRepeater::loadingAll;
+			$field->repeaterCollapse = FieldtypeRepeater::collapseNone;
+			$field->save();
+
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$item = $page->get($name)->getNewItem();
+			$item->set($subTextField->name, 'Ampersand & Test');
+			$item->save();
+			$page->save($name);
+
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			// simulate a module/hook getting a formatted value while the page editor renders
+			$page->getFormatted($name);
+			$item = $page->getUnformatted($name)->first();
+			if($item->of()) {
+				$this->li('Formatted get enabled output formatting on shared item page (precondition)');
+			} else {
+				$this->li('Note: formatted get no longer affects shared item pages');
+			}
+
+			$inputfield = $field->type->getInputfield($page, $field);
+			$out = $inputfield->render();
+			if(strpos($out, 'value="Ampersand &amp;amp; Test"') !== false) {
+				$this->fail('Item inputfield was built from FORMATTED value (would corrupt DB on next save)');
+			} else if(strpos($out, 'value="Ampersand &amp; Test"') === false) {
+				$this->fail('Expected raw item value in rendered inputfield markup');
+			} else {
+				$this->li('Item inputfields built from unformatted value after formatted get, verified');
+			}
+		} finally {
+			$field->repeaterLoading = $loading;
+			$field->repeaterCollapse = $collapse;
+			$field->save();
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			foreach($page->get($name) as $item) $page->get($name)->remove($item);
+			$page->save($name);
+		}
 	}
 
 	protected function ensureField() {
