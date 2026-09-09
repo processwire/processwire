@@ -465,8 +465,9 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 			// 1213: deadlock found when trying to get lock (server rolled back transaction)
 			return 'deadlock';
 		}
-		if($sqlState === '08S01' || $errno === 1053 || $errno === 2013) {
-			// 1053: server shutdown in progress, 2013: lost connection during query
+		if($sqlState === '08S01' || $errno === 1053 || $errno === 2013 || $errno === 2002 || $errno === 2003) {
+			// 1053: server shutdown in progress, 2013: lost connection during query,
+			// 2002/2003: cannot (re)connect while server is unavailable
 			return 'comm-failure';
 		}
 		if($errno === 2006 || stripos($e->getMessage(), 'MySQL server has gone away') !== false) {

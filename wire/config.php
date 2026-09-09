@@ -12,7 +12,7 @@
  * You may also make up your own configuration options by assigning them 
  * in /site/config.php 
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -1469,6 +1469,35 @@ $config->dbOptions = array();
  *
  */
 $config->dbSocket = '';
+
+/**
+ * Retry policy for queries that fail with a transient error
+ *
+ * ProcessWire automatically retries queries that fail with a transient error, such as a
+ * deadlock or lost connection, before treating the error as fatal. This setting adjusts
+ * how persistent those retries are. Specify any of the following options in the array
+ * (defaults shown):
+ *
+ * - `maxTries` (int): Max number of times a failed query is retried (default=3).
+ *    Specify 0 to disable retries entirely.
+ * - `delayMs` (int): Base delay in milliseconds between retries (default=100). The delay
+ *    grows linearly with each attempt, i.e. 100ms, 200ms, 300ms, etc.
+ * - `maxDelayMs` (int): Max delay in milliseconds for any single retry wait (default=5000).
+ * - `cliMaxTries` (int): When set (non-zero) and running from the command line—cron jobs,
+ *    background scripts, etc.—lost-connection errors use this in place of maxTries, letting
+ *    long-running scripts wait out a database failover or restart rather than fail. For
+ *    example, with default delays a value of 60 keeps retrying for roughly 3 minutes.
+ *    This option does not apply to deadlock errors or to web requests. (default=0)
+ *
+ * ~~~~~
+ * $config->dbRetryOptions = array('cliMaxTries' => 60);
+ * ~~~~~
+ *
+ * @var array
+ * @since 3.0.272
+ *
+ */
+$config->dbRetryOptions = array();
 
 /**
  * Maximum number of queries WireDatabasePDO will log in memory (when $config->debug is enabled)

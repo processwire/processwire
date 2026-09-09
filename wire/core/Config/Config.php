@@ -8,7 +8,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Holds ProcessWire configuration settings as defined in /wire/config.php and /site/config.php. 
@@ -129,6 +129,7 @@
  * @property string $dbInitCommand Database init command, for PDO::MYSQL_ATTR_INIT_COMMAND. Note placeholder {charset} gets replaced with $config->dbCharset. #pw-group-database
  * @property bool $dbStripMB4 When dbEngine is not utf8mb4 and this is true, we will attempt to remove 4-byte characters (like emoji) from inserts when possible. Note that this adds some overhead. #pw-group-database
  * @property array|null $dbReader Configuration values for read-only database connection (if available). #pw-group-database @since 3.0.175
+ * @property array $dbRetryOptions Retry policy for queries that fail with a transient error (deadlock, lost connection). See /wire/config.php $config->dbRetryOptions for details. #pw-group-database @since 3.0.272
  * 
  * @property array $pageList Settings specific to Page lists. #pw-group-modules
  * @property array $pageEdit Settings specific to Page editors. #pw-group-modules

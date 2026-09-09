@@ -704,7 +704,8 @@ abstract class DatabaseQuery extends WireData {
 	 * 
 	 * @param array $options
 	 *  - `throw` (bool): Throw exceptions? (default=true)
-	 *  - `maxTries` (int): Max times to retry if connection lost during query. (default=3)
+	 *  - `maxTries` (int|null): Max times to retry on transient errors (deadlock, lost connection),
+	 *     or null to use the `$config->dbRetryOptions` policy. (default=null)
 	 *  - `returnQuery` (bool): Return PDOStatement query? If false, returns bool result of execute. (default=true)
 	 * @return \PDOStatement|bool
 	 * @throws WireDatabaseQueryException|\PDOException
@@ -714,7 +715,7 @@ abstract class DatabaseQuery extends WireData {
 		
 		$defaults = array(
 			'throw' => true, 
-			'maxTries' => 3, 
+			'maxTries' => null, 
 			'returnQuery' => true,
 		);
 	
@@ -733,6 +734,7 @@ abstract class DatabaseQuery extends WireData {
 			} catch(\PDOException $e) {
 				$database = $this->wire()->database;
 				$errorType = $database->dialect()->getRetryableErrorType($e);
+				$delay = $errorType === '' ? false : $database->retryDelay($errorType, $numTries, $options['maxTries']);
 				if($errorType !== '' && $database->inTransaction()) {
 					// a statement cannot be safely retried inside an open transaction:
 					// a deadlock means the server already rolled back the entire transaction,
@@ -740,13 +742,11 @@ abstract class DatabaseQuery extends WireData {
 					// this statement would silently lose the caller’s earlier statements.
 					// Report the exception so the transaction owner can retry the whole transaction.
 					$exception = $e;
-				} else if($errorType !== '' && $numTries < $options['maxTries']) {
+				} else if($delay !== false) {
 					if($errorType === 'gone-away' || $errorType === 'comm-failure') {
-						$this->wire()->database->closeConnection(); // note: it reconnects automatically
+						$database->closeConnection(); // note: it reconnects automatically
 					}
-					if($errorType === 'deadlock' || $errorType === 'comm-failure') {
-						usleep(100000 * ($numTries + 1)); // linear backoff: 100ms, 200ms, 300ms
-					}
+					if($delay > 0) usleep($delay); // linear backoff per $config->dbRetryOptions
 					$retry = true;
 					$numTries++;
 				} else {

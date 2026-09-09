@@ -8,6 +8,8 @@ class WireTest_WireDatabasePDO extends WireTest {
 
 	protected $table = WireTests::fieldPrefix . 'databasepdo';
 	protected $originalDebugMode = null;
+	protected $originalRetryOptions = false;
+	protected $originalCli = null;
 
 	public function init() {
 		$database = $this->wire()->database;
@@ -120,6 +122,15 @@ class WireTest_WireDatabasePDO extends WireTest {
 			$this->check('commit() persists inserted row', 1, (int) $database->query("SELECT COUNT(*) FROM `$table` WHERE name='commit-test'")->fetchColumn());
 		}
 
+		// inTransaction() must answer without establishing a new connection: a connection
+		// that does not exist has no transaction, and reconnecting here would throw from
+		// inside retry handlers when the server is unavailable
+		$database->closeConnection();
+		$this->check('inTransaction() false after closeConnection()', false, $database->inTransaction());
+		$writerProperty = new \ReflectionProperty($database, 'writer');
+		$writer = $writerProperty->getValue($database);
+		$this->check('inTransaction() does not reconnect a closed connection', null, $writer['pdo']);
+
 		// ===== SCHEMA =====
 
 		$tables = $database->getTables(false);
@@ -217,6 +228,55 @@ class WireTest_WireDatabasePDO extends WireTest {
 
 		$e = $this->fakePDOException('Incorrect string value', 'HY000', 1366);
 		$this->check('getRetryableErrorType() blank for generic HY000 error', '', $dialect->getRetryableErrorType($e));
+
+		// reconnect attempts while the server is unavailable must classify as retryable,
+		// otherwise a retry loop dies on its first reconnect attempt during an outage
+		$e = $this->fakePDOException('SQLSTATE[HY000] [2002] Connection refused', 2002);
+		$this->check('getRetryableErrorType() comm-failure for errno 2002 connection refused', 'comm-failure', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException("SQLSTATE[HY000] [2003] Can't connect to MySQL server on 'db' (111)", 'HY000', 2003);
+		$this->check('getRetryableErrorType() comm-failure for errno 2003 cannot connect', 'comm-failure', $dialect->getRetryableErrorType($e));
+
+		// ===== RETRY POLICY =====
+
+		$config = $this->wire()->config;
+		$this->originalRetryOptions = $config->dbRetryOptions;
+		$this->originalCli = $config->cli;
+
+		// default policy
+		$config->dbRetryOptions = array();
+		$config->cli = false;
+		$this->check('retryDelay() first deadlock retry waits 100ms', 100000, $database->retryDelay('deadlock', 0));
+		$this->check('retryDelay() second comm-failure retry waits 200ms', 200000, $database->retryDelay('comm-failure', 1));
+		$this->check('retryDelay() gone-away retry also delayed', 100000, $database->retryDelay('gone-away', 0));
+		$this->check('retryDelay() false once default maxTries reached', false, $database->retryDelay('deadlock', 3));
+		$this->check('retryDelay() false for blank error type', false, $database->retryDelay('', 0));
+
+		// explicit per-call maxTries overrides configured policy
+		$this->check('retryDelay() explicit maxTries extends retries', 400000, $database->retryDelay('comm-failure', 3, 5));
+		$this->check('retryDelay() explicit maxTries=0 disables retries', false, $database->retryDelay('comm-failure', 0, 0));
+
+		// configured maxTries, delay and cap
+		$config->dbRetryOptions = array('maxTries' => 5, 'delayMs' => 1000, 'maxDelayMs' => 2500);
+		$this->check('retryDelay() honors configured delayMs below cap', 2000000, $database->retryDelay('deadlock', 1));
+		$this->check('retryDelay() caps single delay at maxDelayMs', 2500000, $database->retryDelay('deadlock', 2));
+		$this->check('retryDelay() allows retry up to configured maxTries', 2500000, $database->retryDelay('deadlock', 4));
+		$this->check('retryDelay() false past configured maxTries', false, $database->retryDelay('deadlock', 5));
+
+		// CLI-extended retries apply to connection-loss errors only
+		$config->dbRetryOptions = array('maxTries' => 3, 'cliMaxTries' => 10);
+		$config->cli = true;
+		$this->check('retryDelay() CLI extends comm-failure retries', true, is_int($database->retryDelay('comm-failure', 9)));
+		$this->check('retryDelay() CLI extends gone-away retries', true, is_int($database->retryDelay('gone-away', 5)));
+		$this->check('retryDelay() CLI comm-failure exhausted at cliMaxTries', false, $database->retryDelay('comm-failure', 10));
+		$this->check('retryDelay() CLI does not extend deadlock retries', false, $database->retryDelay('deadlock', 3));
+		$config->cli = false;
+		$this->check('retryDelay() cliMaxTries ignored for web requests', false, $database->retryDelay('comm-failure', 3));
+
+		$config->dbRetryOptions = $this->originalRetryOptions;
+		$config->cli = $this->originalCli;
+		$this->originalRetryOptions = false;
+		$this->originalCli = null;
 	}
 
 	/**
@@ -246,5 +306,10 @@ class WireTest_WireDatabasePDO extends WireTest {
 		if($this->originalDebugMode !== null) {
 			$database->setDebugMode($this->originalDebugMode);
 		}
+
+		// restore config in case execute() did not reach its own restore
+		$config = $this->wire()->config;
+		if($this->originalRetryOptions !== false) $config->dbRetryOptions = $this->originalRetryOptions;
+		if($this->originalCli !== null) $config->cli = $this->originalCli;
 	}
 }

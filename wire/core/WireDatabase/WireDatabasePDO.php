@@ -825,7 +825,11 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function inTransaction() {
-		return (bool) $this->pdoWriter()->inTransaction();
+		// a connection that is not established has no transaction; answering without
+		// connecting also lets retry handlers safely test transaction state while
+		// the server is unavailable
+		if(!$this->writer['pdo']) return false;
+		return (bool) $this->writer['pdo']->inTransaction();
 	}
 
 	/**
@@ -972,8 +976,9 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * true or false as to whether it was successful. 
 	 * 
 	 * Unlike other PDO methods, this one (native to ProcessWire) will retry queries
-	 * if they failed due to a lost connection. By default it will retry up to 3 times,
-	 * but you can adjust this number as needed in the arguments. 
+	 * that failed due to a transient error such as a deadlock or lost connection.
+	 * By default the retry policy comes from `$config->dbRetryOptions`, but you can
+	 * specify an explicit max number of retries in the arguments.
 	 * 
 	 * ~~~~~
 	 * // prepare the query
@@ -986,12 +991,13 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 * @param \PDOStatement $query
 	 * @param bool $throw Whether or not to throw exception on query error (default=true)
-	 * @param int $maxTries Max number of times it will attempt to retry query on lost connection error
+	 * @param int|null $maxTries Max number of times it will attempt to retry query on transient error,
+	 *   or null to use the `$config->dbRetryOptions` policy (default=null)
 	 * @return bool True on success, false on failure. Note if you want this, specify $throw=false in your arguments.
 	 * @throws \PDOException
 	 *
 	 */
-	public function execute(\PDOStatement $query, $throw = true, $maxTries = 3) {
+	public function execute(\PDOStatement $query, $throw = true, $maxTries = null) {
 		$tries = 0;
 
 		do {
@@ -1006,8 +1012,9 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 					if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
 						$this->unknownColumnError($matches[1]);
 					}
-				} else if($tries < $maxTries) {
+				} else {
 					$errorType = $this->dialect()->getRetryableErrorType($e);
+					$delay = $errorType === '' ? false : $this->retryDelay($errorType, $tries, $maxTries);
 					if($errorType !== '' && $this->inTransaction()) {
 						// a statement cannot be safely retried inside an open transaction:
 						// a deadlock means the server already rolled back the entire
@@ -1015,14 +1022,15 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 						// so retrying just this statement would silently lose the caller’s
 						// earlier statements. Let the exception propagate so the transaction
 						// owner can retry the whole transaction.
-					} else if($errorType === 'deadlock') {
-						// deadlock — retry with linear backoff (no reconnect needed)
-						usleep(100000 * ($tries + 1)); // 100ms, 200ms, 300ms
-						$tryAgain = true;
-						$tries++;
-					} else if($errorType === 'gone-away' || $errorType === 'comm-failure') {
-						// connection lost — reconnect and retry
-						$this->reset();
+					} else if($delay !== false) {
+						if($delay > 0) usleep($delay); // linear backoff per $config->dbRetryOptions
+						if($errorType !== 'deadlock') try {
+							// connection lost — reconnect and retry
+							$this->reset();
+						} catch(\PDOException $resetError) {
+							// server not yet accepting connections — the next attempt
+							// fails with a comm error and is retried per the policy
+						}
 						$tryAgain = true;
 						$tries++;
 					}
@@ -1051,6 +1059,73 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 */
 	protected function ___unknownColumnError($column) { }
+
+	/**
+	 * Get the retry policy for queries that fail with transient errors
+	 *
+	 * Returns the `$config->dbRetryOptions` settings merged over the defaults.
+	 * See the `$config->dbRetryOptions` documentation in /wire/config.php for details.
+	 *
+	 * #pw-group-queries
+	 *
+	 * @return array
+	 * @since 3.0.272
+	 *
+	 */
+	public function retryOptions() {
+		$options = array(
+			'maxTries' => 3,
+			'delayMs' => 100,
+			'maxDelayMs' => 5000,
+			'cliMaxTries' => 0,
+		);
+		$config = $this->wire()->config;
+		$configOptions = $config ? $config->dbRetryOptions : null;
+		if(is_array($configOptions)) {
+			$options = array_merge($options, array_intersect_key($configOptions, $options));
+		}
+		return $options;
+	}
+
+	/**
+	 * Get microseconds to delay before next retry of a query that failed with a transient error
+	 *
+	 * Applies the policy from `$config->dbRetryOptions`: linear backoff of `delayMs` per attempt
+	 * (capped at `maxDelayMs`) for up to `maxTries` retries. When running from the command line
+	 * (CLI) and `cliMaxTries` is set, connection-loss errors are instead allowed that many retries,
+	 * enabling long-running scripts (cron jobs, etc.) to wait out a database failover or restart.
+	 *
+	 * #pw-group-queries
+	 *
+	 * @param string $errorType Error type from `WireDatabaseDialect::getRetryableErrorType()`,
+	 *   one of 'deadlock', 'gone-away' or 'comm-failure'.
+	 * @param int $numTries Number of retries already attempted.
+	 * @param int|null $maxTries Explicit max retries that overrides the configured policy, or null
+	 *   to use the configured policy (default=null).
+	 * @return int|false Microseconds to delay before the next retry, or boolean false if
+	 *   retries are exhausted (or $errorType is not a retryable type).
+	 * @since 3.0.272
+	 *
+	 */
+	public function retryDelay($errorType, $numTries, $maxTries = null) {
+		if($errorType !== 'deadlock' && $errorType !== 'gone-away' && $errorType !== 'comm-failure') return false;
+		$options = $this->retryOptions();
+		if($maxTries === null) {
+			$maxTries = (int) $options['maxTries'];
+			if($errorType !== 'deadlock' && (int) $options['cliMaxTries'] > 0) {
+				$config = $this->wire()->config;
+				if($config && $config->cli) {
+					// connection-loss error in CLI: allow waiting out a longer outage
+					$maxTries = (int) $options['cliMaxTries'];
+				}
+			}
+		} else {
+			$maxTries = (int) $maxTries;
+		}
+		if($numTries >= $maxTries) return false;
+		$delayMs = min((int) $options['delayMs'] * ($numTries + 1), (int) $options['maxDelayMs']);
+		return $delayMs * 1000;
+	}
 
 	/**
 	 * Log a query, start/stop query logging, or return logged queries

@@ -5,7 +5,7 @@
  *
  * Interface and some functionality for Fieldtypes that can contain multiple values.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool savePageFieldRows(Page $page, Field $field, $value)
@@ -239,15 +239,10 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$page_id = (int) $page->id;
 		$schema = $this->getDatabaseSchema($field);
 		$useSort = isset($schema['sort']);
-		$maxRetries = 3;
+		$attempt = 0;
 		$result = true;
 
-		for($attempt = 0; $attempt <= $maxRetries; $attempt++) {
-
-			if($attempt > 0) {
-				// linear backoff before retry: 100ms, 200ms, 300ms
-				usleep(100000 * $attempt);
-			}
+		while(true) {
 
 			$exception = false;
 
@@ -374,10 +369,13 @@ abstract class FieldtypeMulti extends Fieldtype {
 					// and let the transaction owner retry the whole transaction
 					$errorType = '';
 				}
-				if($errorType !== '' && $attempt < $maxRetries) {
+				$delay = $errorType === '' ? false : $database->retryDelay($errorType, $attempt);
+				if($delay !== false) {
 					if($errorType === 'gone-away' || $errorType === 'comm-failure') {
 						$database->closeConnection(); // reconnects automatically on next query
 					}
+					if($delay > 0) usleep($delay); // linear backoff per $config->dbRetryOptions
+					$attempt++;
 					continue; // retry the entire transaction
 				}
 				if($config->allowExceptions) throw $exception; // throw original

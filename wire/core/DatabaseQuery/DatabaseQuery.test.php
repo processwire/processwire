@@ -46,6 +46,7 @@ class WireTest_DatabaseQuery extends WireTest {
 		$this->testExecution();
 		$this->testProperties();
 		$this->testErrorHandling();
+		$this->testRetryPolicy();
 	}
 
 	public function finish() {
@@ -562,5 +563,51 @@ class WireTest_DatabaseQuery extends WireTest {
 			$threw = true;
 		}
 		$this->check('Missing named param throws WireException', true, $threw);
+	}
+
+	protected function testRetryPolicy() {
+		$database = $this->wire()->database;
+		$config = $this->wire()->config;
+		$table = $database->escapeTable($this->table);
+
+		// second connection used to kill the primary connection, simulating a lost connection
+		$dsn = WireDatabasePDO::dsn(array(
+			'name' => $config->dbName,
+			'host' => $config->dbHost,
+			'port' => $config->dbPort,
+			'socket' => $config->dbSocket,
+		));
+		try {
+			$killer = new \PDO($dsn, $config->dbUser, $config->dbPass);
+		} catch(\Exception $e) {
+			// cannot open a second connection in this environment, skip these tests
+			return;
+		}
+
+		$originalRetryOptions = $config->dbRetryOptions;
+
+		// execute() recovers from a lost connection by reconnecting and retrying
+		$config->dbRetryOptions = array('maxTries' => 2, 'delayMs' => 10);
+		$killer->exec('KILL ' . (int) $database->query('SELECT CONNECTION_ID()')->fetchColumn());
+		$q = $this->wire(new DatabaseQuerySelect());
+		$q->select('COUNT(*)')->from($table);
+		$count = (int) $q->execute()->fetchColumn();
+		$this->check('execute() recovers from lost connection by retrying', 3, $count);
+
+		// with retries disabled by config, the same lost connection is a hard failure
+		$config->dbRetryOptions = array('maxTries' => 0);
+		$killer->exec('KILL ' . (int) $database->query('SELECT CONNECTION_ID()')->fetchColumn());
+		$q = $this->wire(new DatabaseQuerySelect());
+		$q->select('COUNT(*)')->from($table);
+		$threw = false;
+		try {
+			$q->execute();
+		} catch(\Exception $e) {
+			$threw = true;
+		}
+		$this->check('execute() honors dbRetryOptions maxTries=0 and does not retry', true, $threw);
+
+		$database->closeConnection(); // reconnects automatically on next query
+		$config->dbRetryOptions = $originalRetryOptions;
 	}
 }
