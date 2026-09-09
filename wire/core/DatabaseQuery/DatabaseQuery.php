@@ -731,15 +731,27 @@ abstract class DatabaseQuery extends WireData {
 				$query = $this->prepare();
 				$result = $query->execute();
 			} catch(\PDOException $e) {
-				$msg = $e->getMessage();
-				$code = (int) $e->getCode();
-				$retry = $code === 2006 || stripos($msg, 'MySQL server has gone away') !== false;
-				if($retry && $numTries < $options['maxTries']) {
-					$this->wire()->database->closeConnection(); // note: it reconnects automatically
+				$database = $this->wire()->database;
+				$errorType = $database->dialect()->getRetryableErrorType($e);
+				if($errorType !== '' && $database->inTransaction()) {
+					// a single statement cannot be safely retried within an open transaction:
+					// on deadlock the server has already rolled back the entire transaction, and
+					// reconnecting after a lost connection discards it, so retrying just this
+					// statement would run it in autocommit and silently lose the statements that
+					// came before it. Report the exception instead, so that the owner of the
+					// transaction can retry the transaction as a whole.
+					$exception = $e;
+				} else if($errorType !== '' && $numTries < $options['maxTries']) {
+					if($errorType === 'gone-away' || $errorType === 'comm-failure') {
+						$database->closeConnection(); // note: it reconnects automatically
+					}
+					if($errorType === 'deadlock' || $errorType === 'comm-failure') {
+						usleep(100000 * ($numTries + 1)); // backoff: 100ms, 200ms, 300ms
+					}
+					$retry = true;
 					$numTries++;
 				} else {
 					$exception = $e;
-					$retry = false;
 				}
 			}
 		} while($retry);

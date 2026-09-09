@@ -1006,11 +1006,26 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 					if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
 						$this->unknownColumnError($matches[1]);
 					}
-				} else if($e->getCode() === 'HY000' && $tries < $maxTries) {
-					// mysql server has gone away
-					$this->reset();
-					$tryAgain = true;
-					$tries++;
+				} else if($tries < $maxTries) {
+					$errorType = $this->dialect()->getRetryableErrorType($e);
+					if($errorType !== '' && $this->inTransaction()) {
+						// a single statement cannot be safely retried within an open transaction:
+						// on deadlock the server has already rolled back the entire transaction, and
+						// reconnecting after a lost connection discards it, so retrying just this
+						// statement would run it in autocommit and silently lose the statements that
+						// came before it. Let the exception propagate instead, so that the owner of
+						// the transaction can retry the transaction as a whole.
+					} else if($errorType === 'deadlock') {
+						// deadlock: server already rolled back, so retry needs no reconnect
+						usleep(100000 * ($tries + 1)); // backoff: 100ms, 200ms, 300ms
+						$tryAgain = true;
+						$tries++;
+					} else if($errorType === 'gone-away' || $errorType === 'comm-failure') {
+						// connection lost, so reconnect before retrying
+						$this->reset();
+						$tryAgain = true;
+						$tries++;
+					}
 				}
 				if($tryAgain) {
 					// we will try again on next iteration

@@ -447,4 +447,38 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 		$value = $query->fetchColumn();
 		return $getTimestamp ? (int) $value : $value;
 	}
+
+	/**
+	 * Classify a query exception as a transient error that may be resolved by retrying
+	 *
+	 * @param \PDOException $e
+	 * @return string One of 'deadlock', 'gone-away', 'comm-failure', or blank string
+	 * @since 3.0.272
+	 *
+	 */
+	public function getRetryableErrorType(\PDOException $e) {
+
+		// getCode() is the SQLSTATE, while errorInfo[1] has the MySQL error number,
+		// though some drivers report the error number in getCode() instead
+		$code = $e->getCode();
+		$sqlState = is_string($code) ? substr($code, 0, 5) : '';
+		$errno = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : (int) $code;
+
+		if($sqlState === '40001' || $errno === 1213) {
+			// 1213: deadlock found when trying to get lock (server rolled back transaction)
+			return 'deadlock';
+		}
+
+		if($sqlState === '08S01' || $errno === 1053 || $errno === 2013) {
+			// 1053: server shutdown in progress, 2013: lost connection during query
+			return 'comm-failure';
+		}
+
+		if($errno === 2006 || stripos($e->getMessage(), 'MySQL server has gone away') !== false) {
+			// 2006: MySQL server has gone away (idle connection closed)
+			return 'gone-away';
+		}
+
+		return '';
+	}
 }

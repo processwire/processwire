@@ -240,115 +240,138 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$schema = $this->getDatabaseSchema($field);
 		$useSort = isset($schema['sort']); 
 
-		// use transaction when possible
-		if($useTransaction) $database->beginTransaction();
-
-		try {
-			// since we don't manage IDs of existing values for multi fields, we delete the existing data and insert all of it again
-			$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id"); // QA
-			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
-			$query->execute();
-		} catch(\Exception $e) {
-			if($useTransaction) $database->rollBack();
-			if($config->allowExceptions) throw $e; // throw original
-			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $e ]); 
-		}
-		
-		if(!count($values)) {
-			// no values to insert, exit early
-			if($useTransaction) $database->commit();
-			return true;
-		}
-
-		// if the first value is not an associative (key indexed) array, then force it to be with 'data' as the key.
-		// this is to allow for this method to be able to save fields that have more than just a 'data' field,
-		// even though most instances will probably just use only the data field
-
-		$value = reset($values); // first value to find definitions
-		if(is_array($value)) {
-			unset($value['pages_id'], $value['sort']); // likely not present, but just in case
-			$keys = array_keys($value);
-			foreach($keys as $k => $v) $keys[$k] = $database->escapeTableCol($v);
-		} else {
-			$keys = array('data');
-		}
-	
-		// $keys is just the columns unique to the Fieldtype
-		// whereas $cols is same as keys except it also has pages_id and sort
-
-		$cols = array('pages_id');
-		if($useSort) $cols[] = 'sort';
-		foreach($keys as $col) $cols[] = $col;
-		$intCols = $this->trimDatabaseSchema($schema, array('findType' => '*int', 'trimDefault' => false)); 
-		$nullers = false;
-
-		$sql = "INSERT INTO `$table` (`" . implode('`, `', $cols) . "`) VALUES(:" . implode(', :', $cols) . ")";
-		$query = $database->prepare($sql);
-		$query->bindValue(':pages_id', $page_id, \PDO::PARAM_INT);
-		$sort = 0;
+		// a deadlock or lost connection invalidates the entire transaction rather than only the
+		// statement that reported it, so the delete+insert below is retried as a complete unit
+		$maxRetries = 3;
 		$result = true;
-		$exception = false;
 
-		// cycle through the values to generate the query
-		foreach($values as $value) {
-			
-			if($useSort) {
-				$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
-			}
+		for($attempt = 0; $attempt <= $maxRetries; $attempt++) {
 
-			// if the value is not an associative array, then force it to be one
-			if(!is_array($value)) {
-				$value = array('data' => $value);
-			}
+			$exception = null;
 
-			// cycle through the keys, which represent DB fields (i.e. data, description, etc.) and generate the insert query
-			foreach($keys as $key) {
-				$val = isset($value[$key]) ? $value[$key] : null;
-				
-				if($val === null) {
-					// null column
-					// some SQL modes require NULL for auto_increment primary key (rather than blank)
-					if(isset($schema[$key]) && $nullers === false) $nullers = array_merge(
-						$this->trimDatabaseSchema($schema, array('findDefaultNULL' => true)),
-						$this->trimDatabaseSchema($schema, array('findAutoIncrement' => true))
-					);
-					if($nullers && isset($nullers[$key])) {
-						$query->bindValue(":$key", null, \PDO::PARAM_NULL); 
-					} else {
-						$query->bindValue(":$key", '');
-					}
-					
-				} else if(isset($intCols[$key])) {
-					// integer column
-					$query->bindValue(":$key", (int) $val, \PDO::PARAM_INT); 
-					
-				} else {
-					// string column
-					$query->bindValue(":$key", $val); 
-				}
-			}
-			
 			try {
-				$result = $query->execute();
+				// use transaction when possible
+				if($useTransaction) $database->beginTransaction();
+
+				// since we don't manage IDs of existing values for multi fields, we delete the existing data and insert all of it again
+				$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id"); // QA
+				$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
+				$query->execute();
+
+				if(!count($values)) {
+					// no values to insert, exit early
+					if($useTransaction) $database->commit();
+					return true;
+				}
+
+				// if the first value is not an associative (key indexed) array, then force it to be with 'data' as the key.
+				// this is to allow for this method to be able to save fields that have more than just a 'data' field,
+				// even though most instances will probably just use only the data field
+
+				$value = reset($values); // first value to find definitions
+				if(is_array($value)) {
+					unset($value['pages_id'], $value['sort']); // likely not present, but just in case
+					$keys = array_keys($value);
+					foreach($keys as $k => $v) $keys[$k] = $database->escapeTableCol($v);
+				} else {
+					$keys = array('data');
+				}
+
+				// $keys is just the columns unique to the Fieldtype
+				// whereas $cols is same as keys except it also has pages_id and sort
+
+				$cols = array('pages_id');
+				if($useSort) $cols[] = 'sort';
+				foreach($keys as $col) $cols[] = $col;
+				$intCols = $this->trimDatabaseSchema($schema, array('findType' => '*int', 'trimDefault' => false));
+				$nullers = false;
+
+				$sql = "INSERT INTO `$table` (`" . implode('`, `', $cols) . "`) VALUES(:" . implode(', :', $cols) . ")";
+				$query = $database->prepare($sql);
+				$query->bindValue(':pages_id', $page_id, \PDO::PARAM_INT);
+				$sort = 0;
+
+				// cycle through the values to generate the query
+				foreach($values as $value) {
+
+					if($useSort) {
+						$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
+					}
+
+					// if the value is not an associative array, then force it to be one
+					if(!is_array($value)) {
+						$value = array('data' => $value);
+					}
+
+					// cycle through the keys, which represent DB fields (i.e. data, description, etc.) and generate the insert query
+					foreach($keys as $key) {
+						$val = isset($value[$key]) ? $value[$key] : null;
+
+						if($val === null) {
+							// null column
+							// some SQL modes require NULL for auto_increment primary key (rather than blank)
+							if(isset($schema[$key]) && $nullers === false) $nullers = array_merge(
+								$this->trimDatabaseSchema($schema, array('findDefaultNULL' => true)),
+								$this->trimDatabaseSchema($schema, array('findAutoIncrement' => true))
+							);
+							if($nullers && isset($nullers[$key])) {
+								$query->bindValue(":$key", null, \PDO::PARAM_NULL);
+							} else {
+								$query->bindValue(":$key", '');
+							}
+
+						} else if(isset($intCols[$key])) {
+							// integer column
+							$query->bindValue(":$key", (int) $val, \PDO::PARAM_INT);
+
+						} else {
+							// string column
+							$query->bindValue(":$key", $val);
+						}
+					}
+
+					$result = $query->execute();
+					$sort++;
+				}
+
+				if($useTransaction) $database->commit();
+
+				return $result;
+
 			} catch(\Exception $e) {
 				$exception = $e;
+				if($useTransaction && $database->inTransaction()) {
+					try {
+						$database->rollBack();
+					} catch(\Exception $e2) {
+						// rollBack can fail when the connection is gone, in which case the
+						// transaction is already discarded server-side, so this is safe to ignore
+					}
+				}
 			}
-			
-			if($exception) break;
 
-			$sort++;
-		}
-	
-		if($exception) {
-			/** @var \PDOException $exception */
-			if($useTransaction) $database->rollBack();
-			if($config->allowExceptions) throw $exception; // throw original
-			WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $exception ]);
-		} else {
-			if($useTransaction) $database->commit();
+			$errorType = $exception instanceof \PDOException ? $database->dialect()->getRetryableErrorType($exception) : '';
+
+			if($errorType !== '' && !$useTransaction && $database->inTransaction()) {
+				// this save is part of a transaction owned by the caller, which the error has
+				// already invalidated: retrying just this portion of it would silently lose the
+				// caller's earlier statements, so let the transaction owner retry it as a whole
+				$errorType = '';
+			}
+
+			if($errorType === '' || $attempt >= $maxRetries) {
+				if($config->allowExceptions) throw $exception; // throw original
+				WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $exception ]);
+			}
+
+			if($errorType === 'gone-away' || $errorType === 'comm-failure') {
+				$database->closeConnection(); // note: it reconnects automatically
+			}
+
+			usleep(100000 * ($attempt + 1)); // backoff: 100ms, 200ms, 300ms
 		}
 
-		return $result;
+		return $result; // not reached: loop above always returns or throws
 	}
 
 	/**
