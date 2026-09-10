@@ -139,6 +139,19 @@ class WireTest_LanguageSupport extends WireTest {
 	 * Test request-scoped language switching
 	 *
 	 */
+	/**
+	 * TODO: add coverage for set/unset pairing leaving no saved language armed.
+	 *
+	 * This method exercises setLanguage()/unsetLanguage() and setDefault()/unsetDefault()
+	 * but only checks $user->language afterward, never whether a saved language is still
+	 * held internally. That gap hid a bug where unsetDefault() restored its saved language
+	 * without clearing it, so a later correctly paired setDefault()/unsetDefault() elsewhere
+	 * in the same request would restore a language saved by this test (fixed 3.0.272).
+	 *
+	 * Worth asserting that after a full set/unset cycle a further unsetLanguage() and
+	 * unsetDefault() are both no-ops and leave $user->language alone.
+	 *
+	 */
 	protected function testLanguageSwitching() {
 		$languages = $this->wire()->languages;
 		$user = $this->wire()->user;
