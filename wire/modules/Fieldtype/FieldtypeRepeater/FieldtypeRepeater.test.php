@@ -217,6 +217,55 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			foreach($page->get($name) as $item) $page->get($name)->remove($item);
 			$page->save($name);
 		}
+
+		// verify item inputfields are built from unformatted values even after something
+		// got a formatted value of the repeater field first (issue #2343)
+		$loading = $field->repeaterLoading;
+		$collapse = $field->repeaterCollapse;
+		$textformatters = $subTextField->textformatters;
+		try {
+			$field->repeaterLoading = FieldtypeRepeater::loadingAll;
+			$field->repeaterCollapse = FieldtypeRepeater::collapseNone;
+			$field->save();
+			if(!in_array('TextformatterEntities', (array) $subTextField->textformatters, true)) {
+				$subTextField->textformatters = array_merge((array) $subTextField->textformatters, array('TextformatterEntities'));
+				$subTextField->save();
+			}
+
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$item = $page->get($name)->getNewItem();
+			$item->set($subTextField->name, 'Ampersand & Test');
+			$item->save();
+			$page->save($name);
+
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$page->getFormatted($name);
+			$item = $page->getUnformatted($name)->first();
+			if(!$item->of()) $this->fail('Formatted get did not enable output formatting on shared item page');
+
+			$inputfield = $field->type->getInputfield($page, $field);
+			$out = $inputfield->render();
+			if(!$item->of()) $this->fail('Item output formatting state was not restored after rendering inputs');
+			if(strpos($out, 'value="Ampersand &amp;amp; Test"') !== false) {
+				$this->fail('Item inputfield was built from formatted value');
+			} else if(strpos($out, 'value="Ampersand &amp; Test"') === false) {
+				$this->fail('Expected raw item value in rendered inputfield markup');
+			} else {
+				$this->li('Item inputfields built from unformatted value after formatted get, verified');
+			}
+		} finally {
+			$field->repeaterLoading = $loading;
+			$field->repeaterCollapse = $collapse;
+			$field->save();
+			$subTextField->textformatters = $textformatters;
+			$subTextField->save();
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			foreach($page->get($name) as $item) $page->get($name)->remove($item);
+			$page->save($name);
+		}
 	}
 
 	protected function ensureField() {

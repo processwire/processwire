@@ -327,10 +327,17 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 * 
 	 * @param Page $page
 	 * @return InputfieldWrapper
-	 * 
+	 *
 	 */
 	protected function getRepeaterItemInputfields(Page $page) {
-		return $page->template->fieldgroup->getPageInputfields($page, "_repeater{$page->id}");
+		$of = $page->of();
+		if($of) $page->of(false);
+		try {
+			$inputfields = $page->template->fieldgroup->getPageInputfields($page, "_repeater{$page->id}");
+		} finally {
+			if($of) $page->of(true);
+		}
+		return $inputfields;
 	}
 	
 
