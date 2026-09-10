@@ -40,9 +40,12 @@ class WireTest_SessionCSRF extends WireTest {
 		$cookieName = session_name() . SessionCSRF::bindingCookieSuffix;
 		$this->originalCookie = isset($_COOKIE[$cookieName]) ? $_COOKIE[$cookieName] : null;
 
+		$originalFallback = (bool) $config->csrfOriginFallback;
+
 		try {
 			$config->csrfMode = 'session';
 			$this->testSessionMode();
+			$this->testOriginFallback();
 			$config->csrfMode = 'signed';
 			$this->testSignedMode();
 			$this->testSignedModeRotation();
@@ -50,6 +53,7 @@ class WireTest_SessionCSRF extends WireTest {
 		} finally {
 			// restore state
 			$config->csrfMode = $this->originalMode;
+			$config->csrfOriginFallback = $originalFallback;
 			$config->ajax = $this->originalAjax;
 			$input->post()->removeAll()->setArray($this->originalPost);
 			if($this->originalCookie === null) {
@@ -120,6 +124,73 @@ class WireTest_SessionCSRF extends WireTest {
 		$this->simulatePost($token['name'], $token['value']);
 		$this->check('session-mode single-use token valid on first check', true, $csrf->hasValidToken($token['id']));
 		$this->check('session-mode single-use token invalid on second check', false, $csrf->hasValidToken($token['id']));
+	}
+
+	/**
+	 * Test the Origin fallback ($config->csrfOriginFallback)
+	 *
+	 */
+	protected function testOriginFallback() {
+		$config = $this->wire()->config;
+
+		$originalServer = $_SERVER;
+		$originalPost = $_POST;
+		$originalHosts = $config->httpHosts;
+
+		try {
+			$this->wipeTokens();
+			$csrf = $this->wire(new SessionCSRF());
+			$csrf->getTokenValue(); // establish the current token
+
+			// simulate a stale token: PW-shaped name from a session that no longer exists
+			$staleName = 'TOKEN123456X123456';
+			$_POST = array($staleName => 'stale-value-from-dead-session');
+			$this->simulatePost($staleName, 'stale-value-from-dead-session');
+			$_SERVER['REQUEST_METHOD'] = 'POST';
+			$config->httpHosts = array('example.com');
+			$scheme = $config->https ? 'https' : 'http';
+
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://example.com";
+			$config->csrfOriginFallback = false;
+			$this->check('fallback disabled: stale token rejected despite same-origin', false, $csrf->hasValidToken());
+
+			$config->csrfOriginFallback = true;
+			$this->check('fallback enabled: stale token accepted with matching Origin', true, $csrf->hasValidToken());
+
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://evil.example.net";
+			$this->check('fallback rejects mismatched Origin host', false, $csrf->hasValidToken());
+
+			$_SERVER['HTTP_ORIGIN'] = ($scheme === 'https' ? 'http' : 'https') . '://example.com';
+			$this->check('fallback rejects mismatched Origin scheme', false, $csrf->hasValidToken());
+
+			unset($_SERVER['HTTP_ORIGIN']);
+			$_SERVER['HTTP_SEC_FETCH_SITE'] = 'same-origin';
+			$this->check('fallback accepts Sec-Fetch-Site same-origin when no Origin', true, $csrf->hasValidToken());
+
+			$_SERVER['HTTP_SEC_FETCH_SITE'] = 'cross-site';
+			$this->check('fallback rejects Sec-Fetch-Site cross-site', false, $csrf->hasValidToken());
+
+			unset($_SERVER['HTTP_SEC_FETCH_SITE']);
+			$this->check('fallback rejects request with neither header', false, $csrf->hasValidToken());
+
+			// tokenless POSTs are never rescued
+			$_SERVER['HTTP_SEC_FETCH_SITE'] = 'same-origin';
+			$_POST = array('some_field' => 'some_value');
+			$this->simulatePost('some_field', 'some_value');
+			$this->check('fallback never rescues a tokenless POST', false, $csrf->hasValidToken());
+
+			// single-use tokens are never rescued (would permit replay)
+			$token = $csrf->getSingleUseToken();
+			$_POST = array($token['name'] => $token['value']);
+			$this->simulatePost($token['name'], $token['value']);
+			$this->check('single-use token valid on first check (fallback on)', true, $csrf->hasValidToken($token['id']));
+			$this->check('fallback does NOT rescue a replayed single-use token', false, $csrf->hasValidToken($token['id']));
+		} finally {
+			$_SERVER = $originalServer;
+			$_POST = $originalPost;
+			$config->httpHosts = $originalHosts;
+			$config->csrfOriginFallback = false;
+		}
 	}
 
 	/**

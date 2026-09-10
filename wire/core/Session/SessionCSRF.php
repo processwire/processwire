@@ -36,6 +36,12 @@
  *   rotated at login (via resetAll) and whenever tokens are reset. Single-use tokens
  *   are always session-based.
  *
+ * Independently of the mode, `$config->csrfOriginFallback` (off by default) accepts a
+ * POST whose submitted token fails validation when the browser proves the request is
+ * same-origin (Origin header matching `$config->httpHosts`, or Sec-Fetch-Site when no
+ * Origin header is present). This applies only to the default token, and only when a
+ * token was actually submitted.
+ *
  * #pw-body
  *
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
@@ -162,6 +168,11 @@ class SessionCSRF extends Wire {
 	/**
 	 * Returns true if the current POST request contains a valid CSRF token, false if not
 	 * 
+	 * When `$config->csrfOriginFallback` is enabled and the submitted token fails
+	 * validation, the default token (no $id) is still accepted if the request is
+	 * provably same-origin — see requestIsSameOrigin(). Named and single-use tokens
+	 * never use the fallback.
+	 *
 	 * #pw-group-validating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token, but required if checking a single use token.
@@ -197,6 +208,10 @@ class SessionCSRF extends Wire {
 		if($config->ajax && is_string($headerValue) && hash_equals($tokenValue, $headerValue)) {
 			$valid = true;
 		} else if(is_string($postValue) && hash_equals($tokenValue, $postValue)) {
+			$valid = true;
+		}
+
+		if(!$valid && $id === '' && $config->csrfOriginFallback && $this->originFallbackValid()) {
 			$valid = true;
 		}
 
@@ -423,6 +438,72 @@ class SessionCSRF extends Wire {
 	 */
 	protected function signedTokenValue($id = '') {
 		return $this->signedHash("value$id");
+	}
+
+	/**
+	 * May the Origin fallback accept the current request despite a failed token check?
+	 *
+	 * Requires all of: a POST request, a submitted ProcessWire-shaped token (proving the
+	 * client rendered one of our forms — the fallback never rescues tokenless POSTs),
+	 * and browser-asserted same-origin headers.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function originFallbackValid() {
+		$method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : '';
+		if($method !== 'POST') return false;
+		if(!$this->postedTokenExists()) return false;
+		return $this->requestIsSameOrigin();
+	}
+
+	/**
+	 * Does the request carry a ProcessWire-shaped CSRF token (POST field or X-TOKEN… header)?
+	 *
+	 * Every token name this class generates — session, signed, named or not — matches
+	 * TOKEN<digits>X<digits>, submitted as a POST field or an X-TOKEN… request header.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function postedTokenExists() {
+		foreach(array_keys($_POST) as $key) {
+			if(is_string($key) && preg_match('/^TOKEN\d+X\d+$/', $key)) return true;
+		}
+		foreach(array_keys($_SERVER) as $key) {
+			if(is_string($key) && preg_match('/^HTTP_X_TOKEN\d+X\d+$/', $key)) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Do the request headers prove it originated from this site?
+	 *
+	 * The Origin header is set by the browser and cannot be forged cross-site: trust it
+	 * only when its scheme matches the current request and its host is one of ours. When
+	 * no Origin header is present, defer to the browser's Sec-Fetch-Site classification —
+	 * 'same-origin', or 'none' (user-initiated with no initiator), is safe; anything
+	 * else (or neither header) is not.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function requestIsSameOrigin() {
+		$config = $this->wire()->config;
+		$origin = isset($_SERVER['HTTP_ORIGIN']) ? (string) $_SERVER['HTTP_ORIGIN'] : '';
+
+		if($origin !== '') {
+			$scheme = parse_url($origin, PHP_URL_SCHEME);
+			$host = parse_url($origin, PHP_URL_HOST);
+			if($scheme !== ($config->https ? 'https' : 'http')) return false;
+			if(!is_string($host) || $host === '') return false;
+			$hosts = $config->httpHosts;
+			if(empty($hosts)) $hosts = array((string) $config->httpHost);
+			return in_array(strtolower($host), array_map('strtolower', (array) $hosts), true);
+		}
+
+		$sfs = isset($_SERVER['HTTP_SEC_FETCH_SITE']) ? $_SERVER['HTTP_SEC_FETCH_SITE'] : '';
+		return $sfs === 'same-origin' || $sfs === 'none';
 	}
 
 }

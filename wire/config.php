@@ -1150,6 +1150,24 @@ $config->protectCSRF = true;
 $config->csrfMode = 'session';
 
 /**
+ * Accept same-origin requests when CSRF token validation fails?
+ *
+ * When true, a POST that submitted a CSRF token which fails validation (typically
+ * because the session that issued it no longer exists) is still accepted if the
+ * browser proves the request is same-origin: an Origin header whose scheme matches the
+ * current request and whose host is in $config->httpHosts, or - when no Origin header
+ * is present - a Sec-Fetch-Site header of 'same-origin' or 'none'. Browsers set these
+ * headers and they cannot be forged cross-site, so cross-site forgery remains blocked.
+ *
+ * Applies only to the default token (never named or single-use tokens) and only when a
+ * token was actually submitted - tokenless POSTs are never rescued.
+ *
+ * @var bool
+ *
+ */
+$config->csrfOriginFallback = false;
+
+/**
  * Maximum URL segments
  * 
  * Maximum number of extra stacked URL segments allowed in a page's URL (including page numbers).

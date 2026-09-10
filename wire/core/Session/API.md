@@ -301,6 +301,17 @@ Tokens come in two modes, selected by `$config->csrfMode`:
 
 Both modes use the same API — no form or validation code changes when switching modes.
 
+### Origin fallback
+
+Independently of the token mode, `$config->csrfOriginFallback = true` accepts a POST
+whose submitted token fails validation when the browser proves the request is
+same-origin: an Origin header whose scheme matches the current request and whose host
+is in `$config->httpHosts`, or — when no Origin header is present — a `Sec-Fetch-Site`
+header of `same-origin` or `none`. These headers are set by the browser and cannot be
+forged cross-site, so cross-site forgery remains blocked. The fallback applies only to
+the default token (never named or single-use tokens) and only when a token was actually
+submitted — tokenless POSTs are never rescued. Off by default.
+
 ### Single-use tokens
 
 Use these for one-time actions such as delete confirmations.
