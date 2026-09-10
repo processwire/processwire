@@ -1297,7 +1297,11 @@ function InputfieldImage($) {
 		//var sizePrev = gridSize;
 		
 		var toggleClick = function(e) {
-			
+
+			// note: propagation intentionally not stopped, as the InputfieldStateToggle handler
+			// in inputfields.js already ignores clicks on links within an InputfieldHeader
+			e.preventDefault();
+
 			var $a = $(this);
 			var $inputfield = $a.closest('.Inputfield');
 			var href = $a.attr('href');
@@ -1338,8 +1342,6 @@ function InputfieldImage($) {
 			//sizePrev = size;
 			setupSortable($inputfield.find('.gridImages'));
 			$a.trigger('blur');
-			
-			return false;
 		};
 		
 		$list.on('click', toggleClick);

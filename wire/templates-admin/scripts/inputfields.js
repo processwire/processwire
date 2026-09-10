@@ -1325,7 +1325,7 @@ var Inputfields = {
 	
 		if(tooltip.length) $icon.attr('title', tooltip).attr('uk-tooltip', tooltip);
 		
-		$icon.on('click', function() {
+		$icon.on('click', function(event) {
 			if(actionType === 'link') {
 				if(settings.modal) {
 					pwModalWindow(settings.href);
@@ -1356,7 +1356,9 @@ var Inputfields = {
 				if(settings.callback) settings.callback($icon);
 				if(settings.event) $icon.trigger(settings.event, [ $icon ]);
 			}
-			return false;
+			// note: propagation intentionally not stopped, as the InputfieldStateToggle handler
+			// already ignores clicks on .InputfieldHeaderAction elements
+			event.preventDefault();
 		});
 		
 		if(settings.overIcon.length || settings.overCallback || settings.overEvent) {
@@ -2734,15 +2736,32 @@ function InputfieldStates($target) {
 		var isAjax = $li.hasClass('collapsed10') || $li.hasClass('collapsed11');
 	
 		if(!$li.length) return;
-		if($li.hasClass('InputfieldAjaxLoading')) return false;
-		if($li.hasClass('InputfieldStateToggling')) return false;
-		
+
+		// this handler matches both the toggle icon and the header that contains it, so make
+		// sure that only one of the two acts upon any given click
+		if(event.inputfieldToggled) return;
+
+		// clicks on links or buttons in the header have their own behavior and should not
+		// also toggle the Inputfield open or closed
+		if(!isIcon && event.target !== this) {
+			if($(event.target).closest('a, button, .InputfieldHeaderAction', this).length) return;
+		}
+
+		event.inputfieldToggled = true;
+
+		// note that propagation is intentionally not stopped here (i.e. no 'return false') so
+		// that click handlers elsewhere, such as in 3rd party modules, still receive the event
+		event.preventDefault();
+
+		if($li.hasClass('InputfieldAjaxLoading')) return;
+		if($li.hasClass('InputfieldStateToggling')) return;
+
 		if(typeof data != "undefined") {
 			if(typeof data.duration != "undefined") duration = data.duration;
 		}
 
-		if(isCollapsed && isAjax) {	
-			if(InputfieldStateAjaxClick($li)) return false;
+		if(isCollapsed && isAjax) {
+			if(InputfieldStateAjaxClick($li)) return;
 		}
 			
 		if(isCollapsed || wasCollapsed || isIcon) {
@@ -2763,8 +2782,6 @@ function InputfieldStates($target) {
 			}
 			Inputfields.focus($li);
 		}
-
-		return false;
 	});
 
 	 // Make the first field in any form have focus, if it is a text field that is blank
