@@ -211,11 +211,17 @@ class WireTest_Pages extends WireTest {
 		$pages->touch($child1);
 		$this->check('touch() updated or preserved modified timestamp', true, $pages->getFresh($child1->id)->modified >= $beforeModified);
 
-		$cloned = $pages->clone($child1);
+		$child1 = $pages->getFresh($child1->id);
+		$cloned = $pages->clone($child1, null, false, array(
+			'set' => array('status' => $child1->status | Page::statusUnpublished),
+		));
 		$this->createdPageIDs[$cloned->id] = $cloned->id;
 		$this->check('clone() returns a Page with new id', true, $cloned->id > 0 && $cloned->id !== $child1->id);
 		$this->check('clone() page has same parent', $child1->parent->id, $cloned->parent->id);
 		$this->check('clone() page has same template', $child1->template->name, $cloned->template->name);
+		$this->check('clone() unpublished page has published=0', 0, $cloned->published);
+		$this->check('clone() page has no previous name', '', (string) $cloned->namePrevious);
+		$this->check('clone() unpublished timestamp matches database', $pages->getFresh($cloned->id)->published, $cloned->published);
 
 		$pages->uncache($child1);
 		$pages->uncache(array($child1->id, $child2->id));

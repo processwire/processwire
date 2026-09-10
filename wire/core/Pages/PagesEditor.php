@@ -1594,7 +1594,8 @@ class PagesEditor extends Wire {
 		$copy->setQuietly('numChildren', 0);
 		$copy->setQuietly('created', time());
 		$copy->setQuietly('modified', time());
-		$copy->name = $name;
+		$copy->setQuietly('published', 0);
+		$copy->setQuietly('name', $name);
 		$copy->parent = $parent;
 		
 		if(!isset($options['quiet']) || $options['quiet']) {
