@@ -111,8 +111,10 @@ class WireTest_Pages extends WireTest {
 			'parent.title' => 'parentTitle',
 		), array('flat' => true));
 		$rawRow = $rawResults[$page->id];
-		$this->check('findRaw(flat) applies root field rename', $page->title, $rawRow['renamed']);
-		$this->check('findRaw(flat) applies path-specific field rename', $page->parent->title, $rawRow['parentTitle']);
+		// cast to string since findRaw() returns raw strings, while $page->title is a
+		// LanguagesPageFieldValue object when multi-language support is installed
+		$this->check('findRaw(flat) applies root field rename', (string) $page->title, $rawRow['renamed']);
+		$this->check('findRaw(flat) applies path-specific field rename', (string) $page->parent->title, $rawRow['parentTitle']);
 		$this->check('findRaw(flat) path-specific rename replaces original name', false, isset($rawRow['parent.title']));
 
 		$fresh = $pages->getFresh($page->id);

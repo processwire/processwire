@@ -162,7 +162,10 @@ class WireTest_InputfieldPage extends WireTest {
 		$f->labelFieldName = '';
 		$f->labelFieldFormat = '';
 		$page->of(false);
-		$oldTitle = $page->title;
+		// cast to string: with multi-language support the title is a LanguagesPageFieldValue
+		// object, so keeping the object here would just be a reference to the same value that
+		// the line below blanks, leaving nothing to restore
+		$oldTitle = (string) $page->title;
 		$page->title = '';
 		$this->check('getPageLabel falls back to page name', $page->name, $f->getPageLabel($page));
 		$page->title = $oldTitle;
