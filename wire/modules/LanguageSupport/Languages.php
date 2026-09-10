@@ -328,11 +328,15 @@ class Languages extends PagesType {
 	 * @see Languages::setDefault()
 	 * 
 	 */
-	public function unsetDefault() { 
-		if(!$this->savedLanguage || !$this->defaultLanguage) return;
+	public function unsetDefault() {
+		// consume the saved language, so that a later unpaired unsetDefault() call cannot
+		// restore a language saved by some earlier, unrelated setDefault() call
+		$language = $this->savedLanguage;
+		$this->savedLanguage = null;
+		if(!$language || !$this->defaultLanguage) return;
 		$user = $this->wire()->user;
 		$previouslyChanged = $user->isChanged('language');
-		$user->language = $this->savedLanguage; 
+		$user->language = $language;
 		if(!$previouslyChanged) $user->untrackChange('language');
 	}
 
@@ -439,9 +443,13 @@ class Languages extends PagesType {
 	 */
 	public function unsetLanguage() {
 		$user = $this->wire()->user;
-		if(!$this->savedLanguage2) return false;
-		if($user->language && $user->language->id == $this->savedLanguage2->id) return false;
-		$user->setQuietly('language', $this->savedLanguage2);
+		// consume the saved language, so that a later unpaired unsetLanguage() call cannot
+		// restore a language saved by some earlier, unrelated setLanguage() call
+		$language = $this->savedLanguage2;
+		$this->savedLanguage2 = null;
+		if(!$language) return false;
+		if($user->language && $user->language->id == $language->id) return false;
+		$user->setQuietly('language', $language);
 		return true;
 	}
 	
