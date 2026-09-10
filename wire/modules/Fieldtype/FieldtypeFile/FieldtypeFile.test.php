@@ -151,6 +151,64 @@ class WireTest_FieldtypeFile extends WireTest {
 		$p = $pages->get("template=$template, $name=\"\"");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
+
+		$this->testCustomFieldsTemplateUpgrade();
+	}
+
+	protected function testCustomFieldsTemplateUpgrade() {
+		$fields = $this->wire()->fields;
+		$templates = $this->wire()->templates;
+		$fieldgroups = $this->wire()->fieldgroups;
+		$fieldtype = $this->wire()->modules->get('FieldtypeFile');
+		$suffix = substr(md5(microtime(true)), 0, 8);
+		$fieldNames = array(
+			'FieldtypeFile' => WireTests::fieldPrefix . "file_custom_$suffix",
+			'FieldtypeImage' => WireTests::fieldPrefix . "image_custom_$suffix",
+		);
+		$templateNames = array(
+			"field-{$fieldNames['FieldtypeFile']}",
+			"field-x-{$fieldNames['FieldtypeFile']}",
+			"field-{$fieldNames['FieldtypeImage']}",
+		);
+		$customFields = array();
+		$customTemplates = array();
+
+		try {
+			foreach($fieldNames as $type => $fieldName) {
+				$field = $fields->newField($type, $fieldName, 'Test Custom Fields');
+				$field->save();
+				$customFields[] = $field;
+			}
+
+			foreach($templateNames as $templateName) {
+				$customTemplates[] = $templates->add($templateName, array('noGlobal' => true));
+			}
+
+			$customTemplates[0]->noGlobal = 0;
+			$customTemplates[0]->save();
+			$fieldtype->upgrade(107, 108);
+			$this->check('upgrade ignores field-* template without noGlobal', 0, (int) $customTemplates[0]->noParents);
+			$this->check('upgrade sets noParents on field-x-* template', 1, (int) $customTemplates[1]->noParents);
+			$this->check('upgraded field-x-* template disallows new pages', false, $customTemplates[1]->allowNewPages());
+			$this->check('upgrade sets noParents on image field template', 1, (int) $customTemplates[2]->noParents);
+			$this->check('upgraded image field template disallows new pages', false, $customTemplates[2]->allowNewPages());
+
+			$customTemplates[0]->noGlobal = 1;
+			$customTemplates[0]->save();
+			$fieldtype->upgrade(107, 108);
+			$this->check('upgrade sets noParents on field-* template', 1, (int) $customTemplates[0]->noParents);
+			$this->check('upgraded field-* template disallows new pages', false, $customTemplates[0]->allowNewPages());
+		} finally {
+			foreach($customTemplates as $template) {
+				if(!$template->id) continue;
+				$fieldgroup = $template->fieldgroup;
+				$templates->delete($template);
+				if($fieldgroup && $fieldgroup->id) $fieldgroups->delete($fieldgroup);
+			}
+			foreach($customFields as $field) {
+				if($field->id) $fields->delete($field);
+			}
+		}
 	}
 
 	protected function ensureFields() {

@@ -19,7 +19,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Files', __FILE__),
-			'version' => 107,
+			'version' => 108,
 			'summary' => __('Field that stores one or more files', __FILE__),
 			'permanent' => true,
 		);
@@ -1880,6 +1880,27 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			$template = $templates->get("field-x-$prevName");
 			if($template) {
 				$templates->rename($template, "field-x-$field->name");
+			}
+		}
+	}
+
+	/**
+	 * Upgrade FieldtypeFile module
+	 *
+	 * @param int $fromVersion
+	 * @param int $toVersion
+	 *
+	 */
+	public function upgrade($fromVersion, $toVersion) {
+		// FieldtypeImage has its own module version; this upgrade finds inherited types below
+		if($this->className() !== 'FieldtypeFile' || $fromVersion >= 108) return;
+		$templates = $this->wire()->templates;
+		foreach($this->wire()->fields->findByType('FieldtypeFile') as $field) {
+			foreach(array("field-$field->name", "field-x-$field->name") as $templateName) {
+				$template = $templates->get($templateName);
+				if(!$template || !$template->noGlobal || $template->noParents) continue;
+				$template->noParents = 1;
+				$template->save();
 			}
 		}
 	}
