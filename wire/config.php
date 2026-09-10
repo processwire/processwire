@@ -1129,6 +1129,27 @@ $config->httpHost = '';
 $config->protectCSRF = true;
 
 /**
+ * CSRF token mode
+ *
+ * How CSRF tokens (used by $session->CSRF and all PW forms) are generated and validated:
+ *
+ * - `session` (default): tokens are random values stored in the user's session. A token
+ *   is only valid for the session that created it, so a token survives neither session
+ *   expiration nor a session the browser could not retain.
+ *
+ * - `signed`: tokens are derived (HMAC-SHA256, keyed by $config->userAuthSalt) from a
+ *   long-lived, httpOnly binding cookie that is independent of the session. Tokens stay
+ *   valid across session expiration and re-creation, and on pages restored from the
+ *   browser back/forward cache, for as long as the binding cookie lasts (1 year). The
+ *   cookie is rotated at login and whenever tokens are reset. Single-use tokens remain
+ *   session-based in either mode.
+ *
+ * @var string
+ *
+ */
+$config->csrfMode = 'session';
+
+/**
  * Maximum URL segments
  * 
  * Maximum number of extra stacked URL segments allowed in a page's URL (including page numbers).

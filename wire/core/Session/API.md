@@ -283,6 +283,24 @@ if($session->CSRF->hasValidToken()) {
 $session->CSRF->validate();
 ~~~~~
 
+### Token modes
+
+Tokens come in two modes, selected by `$config->csrfMode`:
+
+- **`session`** (default): tokens are random values stored in the user's session. A token
+  is only valid for the session that created it — if the session expires, is re-created,
+  or the browser restores a stale page from its back/forward cache, a previously rendered
+  token no longer validates.
+
+- **`signed`**: tokens are derived (HMAC-SHA256, keyed by `$config->userAuthSalt`) from a
+  long-lived, httpOnly binding cookie that is independent of the session. Tokens stay
+  valid across session expiration and re-creation, and on pages restored from the browser
+  back/forward cache, for as long as the binding cookie lasts (1 year). The cookie is
+  rotated at login and whenever tokens are reset. Single-use tokens remain session-based
+  in either mode.
+
+Both modes use the same API — no form or validation code changes when switching modes.
+
 ### Single-use tokens
 
 Use these for one-time actions such as delete confirmations.
