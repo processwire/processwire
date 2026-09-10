@@ -860,7 +860,8 @@ class SelectableOptionManager extends Wire {
 		}
 
 		$database = $this->wire()->database;
-		
+		$indexLimitHit = false;
+
 		foreach($sqls as $sql) {
 			try {
 				$database->exec($sql);
@@ -868,7 +869,14 @@ class SelectableOptionManager extends Wire {
 				if($this->isIndexLimitException($e)) {
 					// table reached max indexes allowed by DB engine: column remains
 					// usable without index (fulltext matches fall back to LIKE)
-					$this->warning("$sql -- " . $e->getMessage());
+					if(!$indexLimitHit) {
+						$indexLimitHit = true;
+						$this->warning(sprintf(
+							$this->_('FieldtypeOptions: The %s table has reached the maximum number of indexes allowed by the database, so some indexes were skipped. Affected options remain fully functional and text matching for them falls back to LIKE automatically.'),
+							self::optionsTable
+						));
+					}
+					$this->warning("$sql -- " . $e->getMessage(), Notice::debug);
 				} else {
 					$this->error("$sql -- " . $e->getMessage());
 				}
