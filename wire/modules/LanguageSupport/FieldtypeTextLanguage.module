@@ -53,7 +53,8 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 
 		$user = $this->wire()->user;
 		$language = $user ? $user->language : null;
-		$template = $page->template;
+		// note: getPageTemplate() rather than $page->template, so repeater items inherit noLang
+		$template = $this->wire()->languages->getPageTemplate($page);
 
 		if(!$language) return $pageValue;
 

@@ -673,7 +673,9 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 		$field = $event->object; /** @var Field $field */
 		$page = $event->arguments[0]; /** @var Page $page */
-		$template = $page ? $page->template : null; /** @var Template|null $template */
+		// note: uses getPageTemplate() rather than $page->template so that repeater items
+		// inherit the noLang setting of the template their repeater field lives on
+		$template = $this->wire()->languages->getPageTemplate($page); /** @var Template|null $template */
 		$inputfield = $event->return; /** @var Inputfield $inputfield */	
 		
 		if(!$inputfield) return;

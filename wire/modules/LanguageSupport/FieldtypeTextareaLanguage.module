@@ -38,7 +38,8 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 		if(is_array($value)) $value = reset($value); 
 		
 		$value = (string) $value;
-		$template = $page->template;
+		// note: getPageTemplate() rather than $page->template, so repeater items inherit noLang
+		$template = $this->wire()->languages->getPageTemplate($page);
 		$pageValue = $page->data($field->name); 
 		
 		if(!$pageValue instanceof LanguagesPageFieldValue) { // string, array or null

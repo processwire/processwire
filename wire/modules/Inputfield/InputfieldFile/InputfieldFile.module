@@ -288,7 +288,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			}
 			if($value instanceof Pagefiles) {
 				$page = $value->page;
-				if($page && $page->template->noLang) $this->noLang = true;
+				if($page) {
+					// note: $languages->getPageTemplate() rather than $page->template, so that file
+					// descriptions in a repeater item inherit noLang from the template the repeater
+					// field lives on, since the repeater's own template does not have the setting
+					$languages = $this->wire()->languages;
+					$template = $languages ? $languages->getPageTemplate($page) : $page->template;
+					if($template && $template->noLang) $this->noLang = true;
+				}
 			}
 		}
 		return parent::setAttribute($key, $value);

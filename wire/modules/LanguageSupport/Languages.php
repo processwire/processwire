@@ -390,6 +390,47 @@ class Languages extends PagesType {
 	}
 
 	/**
+	 * Get the Template that determines multi-language behavior for given Page
+	 *
+	 * This is the page’s own template in nearly all cases. The exception is Repeater and
+	 * FieldsetPage items, which use their own internal template (i.e. `repeater_body`) that
+	 * has no `noLang` setting of its own. For those we return the template of the page that
+	 * the repeater field lives on, so that a `noLang` setting is inherited by fields within
+	 * the repeater rather than being ignored by them.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page|null $page
+	 * @return Template|null Returns Template or null if it cannot be determined
+	 * @since 3.0.272
+	 *
+	 */
+	public function getPageTemplate($page) {
+
+		if(!$page instanceof Page) return null;
+
+		// note: this method is called for every multi-language value converted to string, so
+		// the common case of a non-repeater page must stay as cheap as possible. method_exists()
+		// is a simple hash lookup that triggers no autoload, unlike wireInstanceOf().
+		if(!method_exists($page, 'getForPageRoot')) return $page->template;
+
+		$template = $page->template;
+
+		// a repeater item that has noLang of its own has nothing to inherit
+		if(!$template || $template->noLang) return $template;
+
+		/** @var RepeaterPage $page */
+		$forPage = $page->getForPageRoot();
+		if(!$forPage || !$forPage->id) return $template;
+
+		$forTemplate = $forPage->template;
+
+		// only substitute when the owner has something to inherit, so that this method
+		// returns the page’s own template in every other case
+		return $forTemplate && $forTemplate->noLang ? $forTemplate : $template;
+	}
+
+	/**
 	 * Undo a previous setLanguage() call, restoring the previous user language
 	 * 
 	 * @return bool Returns true if language restored, false if no restore necessary

@@ -315,7 +315,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 */
 	protected function ___getStringValue() {
 		
-		$template = $this->page->template;
+		$template = $this->wire()->languages->getPageTemplate($this->page);
 		$language = $this->wire()->user->language; 	
 		$defaultValue = (string) $this->data[$this->defaultLanguagePageID()];
 		
