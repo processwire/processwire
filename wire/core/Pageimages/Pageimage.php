@@ -330,18 +330,20 @@ class Pageimage extends Pagefile {
 			// UNSET
 			$this->filedata(false, 'focus');
 			
-		} else if($left !== null) {
+		} else if(is_array($top) || $left !== null) {
 			// SET
 			if(is_array($top)) {
-				if(isset($top['left'])) {
-					$left = $top['left'];
-					$top = $top['top'];
-					$zoom = isset($top['zoom']) ? $top['zoom'] : 0;
+				// read all values from a copy, since $top is re-assigned from it below
+				$a = $top;
+				if(isset($a['left'])) {
+					$top = isset($a['top']) ? $a['top'] : 50;
+					$left = $a['left'];
 				} else {
-					$top = $top[0];
-					$left = $top[1];
-					$zoom = isset($top[2]) ? $top[2] : 0;
+					$top = isset($a[0]) ? $a[0] : 50;
+					$left = isset($a[1]) ? $a[1] : 50;
 				}
+				$zoom = isset($a['zoom']) ? $a['zoom'] : (isset($a[2]) ? $a[2] : 0);
+				unset($a);
 			}
 			
 			$top = (float) $top;
