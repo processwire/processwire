@@ -2348,6 +2348,12 @@ function InputfieldImage($) {
 		
 		$(document).on('reloaded', '.InputfieldImage', function() {
 			var $inputfield = $(this);
+			// the event is also triggered on Inputfields within this one (i.e. the custom
+			// fields of each image), so collapse a batch of them into a single init rather
+			// than re-initializing once per Inputfield within
+			if($inputfield.data('reloadedInitPending')) return;
+			$inputfield.data('reloadedInitPending', true);
+			setTimeout(function() { $inputfield.removeData('reloadedInitPending'); }, 0);
 			$inputfield.removeClass('InputfieldImageInit');
 			initInputfield($inputfield);
 			initUploadHTML5($inputfield);
