@@ -493,7 +493,9 @@ class PagePermissions extends WireData implements Module {
 		}
 		if($field instanceof Field) {
 			// delegate to Field::viewable method
-			return $field->useRoles ? $field->viewable($page) : true;
+			$viewable = $field->useRoles ? $field->viewable($page) : true;
+			if(!$viewable) $viewable = $this->fieldEditable($page, $field);
+			return $viewable;
 		} else if($this->wire($name)) {
 			// API vars are not viewable
 			return false;
@@ -720,7 +722,9 @@ class PagePermissions extends WireData implements Module {
 			if($page->editable() && (!$checkTemplateFile || $page->template->filenameExists())) $viewable = true; 
 		}
 		
-		if($field && $viewable) {
+		// when asking about a specific field, let the field-level check decide, both when the
+		// page is viewable and when it is one the user can edit, since edit implies view
+		if($field && ($viewable || (!$user->isGuest() && $page->editable()))) {
 			$viewable = $this->fieldViewable($page, $field, false);
 		} else if($pagefile) { 
 			if(!$viewable && wireInstanceOf($page, 'RepeaterPage')) {
