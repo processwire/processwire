@@ -535,6 +535,8 @@ class PagePermissions extends WireData implements Module {
 			}
 		}
 		
+		if($user->isSuperuser()) return true;
+		
 		if($name === 'template' || $name === 'templates_id') {
 			if($page->template->noChangeTemplate) return false;
 			if(!$user->hasPermission('page-template', $page)) return false; 
