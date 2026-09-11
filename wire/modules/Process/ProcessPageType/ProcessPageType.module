@@ -416,6 +416,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		$urlSegment = ucfirst($this->wire()->input->urlSegment2);
 		$editPage = $this->getPage(); 
 		$this->browserTitle("$pageTitle > " . $editPage->name); 
+		$this->setupEditBreadcrumbs($editPage);
 		
 		if($urlSegment && (method_exists($editor, "___execute$urlSegment") || method_exists($editor, "execute$urlSegment"))) {
 			// i.e. executeTemplate() and executeSaveTemplate()
@@ -424,6 +425,61 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			// regular edit
 			return $editor->execute();
 		}
+	}
+
+	/**
+	 * Replace breadcrumbs when editing a page of this type that lives outside the admin
+	 *
+	 * Pages of a given type are normally stored under this Process in the admin, so the
+	 * default breadcrumbs (i.e. Admin > Access > Users) describe where they are. But these
+	 * page types can also support alternate parents, letting a page live anywhere in the
+	 * site's page tree, and then the admin path says nothing about where it actually is.
+	 *
+	 * For that case we replace the breadcrumbs with the page tree path of the page being
+	 * edited, much like it would get in the regular page editor. The exception is the first
+	 * breadcrumb, where this Process (i.e. “Users”) is used in place of the site root, since
+	 * that is where the page was navigated from and is the more useful link here.
+	 *
+	 * @param Page $editPage Page being edited
+	 * @return bool True if breadcrumbs were replaced, false if left as-is
+	 * @since 3.0.272
+	 *
+	 */
+	protected function setupEditBreadcrumbs(Page $editPage) {
+
+		if(!$editPage->id) return false;
+
+		$parent = $editPage->parent();
+		if(!$parent || !$parent->id) return false;
+
+		$config = $this->wire()->config;
+
+		// page is under the admin where it normally lives, so existing breadcrumbs are fine
+		if($parent->rootParent()->id == $config->adminRootPageID) return false;
+
+		// site root is represented by the breadcrumb to this Process instead
+		$parents = $this->wire()->pages->newPageArray();
+		foreach($editPage->parents() as $p) {
+			if($p->id == $config->rootPageID) continue;
+			$parents->add($p);
+		}
+
+		// nothing left to show a tree path with, so leave the existing breadcrumbs alone
+		if(!count($parents)) return false;
+
+		$adminUrl = $config->urls->admin;
+		$this->wire()->breadcrumbs->removeAll();
+
+		// note: this Process page's own URL rather than a relative '../', since admin URLs
+		// can be requested without a trailing slash, where '../' would resolve one level
+		// higher than intended
+		$this->breadcrumb($this->page->url, $this->page->get('title|name'));
+
+		foreach($parents as $p) {
+			$this->breadcrumb($adminUrl . "page/?open=$p->id", $p->get('title|name'));
+		}
+
+		return true;
 	}
 
 	/**

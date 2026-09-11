@@ -351,6 +351,9 @@ class ProcessController extends Wire {
 		$adminTheme = $this->wire()->adminTheme;
 		$headline = $this->wire('processHeadline'); 
 		$numBreadcrumbs = $breadcrumbs ? count($breadcrumbs) : null;
+		// also remember the last breadcrumb, since a Process that replaces the breadcrumbs
+		// rather than adding to them can leave the count unchanged (see below)
+		$lastBreadcrumb = $numBreadcrumbs ? $breadcrumbs->last() : null;
 		$process = $this->getProcess();
 		
 		if(!$process) {
@@ -384,7 +387,11 @@ class ProcessController extends Wire {
 		// setup breadcrumbs if in some method other than the main execute() method
 		if($method !== 'execute') {
 			// some method other than the main one
-			if($numBreadcrumbs === count($breadcrumbs)) {
+			// note: the count alone is not enough to tell whether the Process left the
+			// breadcrumbs alone, since one that replaces them can arrive at the same count
+			$sameBreadcrumbs = $numBreadcrumbs === count($breadcrumbs)
+				&& (!$numBreadcrumbs || $lastBreadcrumb === $breadcrumbs->last());
+			if($sameBreadcrumbs) {
 				// process added no breadcrumbs, but there should be more
 				if($headline === $this->wire('processHeadline')) {
 					$process->headline(str_replace('execute', '', $method));
