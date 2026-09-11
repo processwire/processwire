@@ -410,20 +410,21 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			$out .= "<dt><a class='label' href='./$item[url]'>$icon $item[label]</a></dt><dd>";
 			
 			if(count($parents)) {
-				$out .= "<ul>";
+				$o = '';
+				$out .= '<p>';
 				foreach($parents as $parent) {
 					$url = $item['url'];
 					if(strpos($url, 'parent_id') === false) $url .= "&parent_id=$parent->id";
-					$out .= "<li><a href='./$url'>";
+					$o .= "<a href='./$url'>";
 					$parentParents = $parent->parents()->and($parent);
 					foreach($parentParents as $p) {
 						/** @var Page $p */
 						if($p->id == 1 && $parentParents->count() > 1) continue;
-						$out .= $sanitizer->entities($p->getUnformatted('title')) . $rightIcon;
+						$o .= $sanitizer->entities($p->getUnformatted('title')) . $rightIcon;
 					}
-					$out .= "</a></li>";
+					$o .= "</a>\n";
 				}
-				$out .= "</ul>";
+				$out .= nl2br(wireIconMarkup('fw') . ' ' . rtrim($o)) . '</p>';
 			}
 			$out .= "</dd>";
 		}
