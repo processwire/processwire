@@ -12,7 +12,7 @@
  *
  * @method TemplatesArray find($selector) Return the templates matching the the given selector query. #pw-internal
  * @method bool save(Template $template) Save the given Template.
- * @method bool delete() delete(Template $template) Delete the given Template. Note that this will throw a fatal error if the template is in use by any pages.
+ * @method bool delete(Template $template) Delete the given Template. Note that this will throw a fatal error if the template is in use by any pages.
  * @method bool|Saveable|Template clone(Saveable $item, $name = '') #pw-internal
  * @method array getExportData(Template $template) Export Template data for external use. #pw-advanced
  * @method array setImportData(Template $template, array $data) Given an array of Template export data, import it to the given Template. #pw-advanced
