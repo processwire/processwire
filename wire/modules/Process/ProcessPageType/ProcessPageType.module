@@ -411,7 +411,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	public function ___executeEdit() {
 	
 		$pageTitle = $this->page->get('title|name');
-		$this->breadcrumb('../', $pageTitle); 
+		$this->breadcrumb($this->page->url, $pageTitle); 
 		$editor = $this->getEditor('ProcessPageEdit'); 
 		$urlSegment = ucfirst($this->wire()->input->urlSegment2);
 		$editPage = $this->getPage(); 
@@ -434,7 +434,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 */
 	public function ___executeAdd() {
 		$pageTitle = $this->page->get('title|name');
-		$this->breadcrumb('../', $pageTitle); 
+		$this->breadcrumb($this->page->url, $pageTitle); 
 		/** @var ProcessPageAdd $editor */
 		$editor = $this->getEditor("ProcessPageAdd"); 
 		$editor->template = $this->template;
