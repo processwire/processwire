@@ -439,10 +439,12 @@ function InputfieldRepeater($) {
 		}
 
 		$.get(ajaxURL, function(data) {
+			// note this selects the InputfieldWrapper rather than the Inputfields within it,
+			// so that an ajax loaded item keeps the same markup structure as one that was
+			// not ajax loaded
 			var $inputs = $(data).find('#' + repeaterID + ' > ' +
 				'.InputfieldContent > .Inputfields > ' +
-				'.InputfieldRepeaterItem > .InputfieldContent > .Inputfields > .InputfieldWrapper > ' +
-				'.Inputfields > .Inputfield');
+				'.InputfieldRepeaterItem > .InputfieldContent > .Inputfields > .InputfieldWrapper');
 
 			$inputfields.append($inputs);
 			$item.removeClass('InputfieldRepeaterItemLoading');
