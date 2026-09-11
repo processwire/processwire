@@ -608,9 +608,15 @@ class InputfieldTextTags extends Inputfield implements
 			$script = 'script';
 			$cfgName = $opts['cfgName'];
 			$out .= "<$script>";
+			// ensure the config property exists, as renderReady() only populates it during a
+			// full page render, so it is not present when this is the first time the field
+			// has rendered in the request, i.e. ajax loaded repeater items
+			$out .= "ProcessWire.config.$cfgName = ProcessWire.config.$cfgName || {};";
 			foreach($tags as $val => $label) {
-				$val = json_encode($val);
-				$label = json_encode($label);
+				// JSON_HEX_TAG since this is populated within a script element, where a label
+				// containing "</script>" would otherwise close the element early
+				$val = json_encode($val, JSON_HEX_TAG);
+				$label = json_encode($label, JSON_HEX_TAG);
 				$out .= "ProcessWire.config." . $cfgName . "[$val] = $label;";
 			}
 			$out .= "</$script>";
