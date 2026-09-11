@@ -48,7 +48,7 @@
 	--pw-button-color: light-dark(var(--pw-blocks-background), var(--pw-text-color));
 	--pw-button-border: transparent;
 	--pw-button-muted-background: light-dark(#737373, #404040);
-	--pw-button-muted-color: light-dark(var(--pw-blocks-background), var(--pw-text-color));;
+	--pw-button-muted-color: light-dark(var(--pw-blocks-background), var(--pw-text-color));
 	--pw-button-muted-border: transparent;
 	--pw-button-hover-background: light-dark(var(--pw-main-color), var(--pw-text-color));
 	--pw-button-hover-color: var(--pw-blocks-background);
