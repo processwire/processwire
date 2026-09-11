@@ -117,7 +117,10 @@
  * - closeReady: Called before Inputfield is closed/collapsed, triggered on .Inputfield element.
  * - closed: Called after Inputfield is closed/collapsed, triggered on .Inputfield element.
  * - reload: Can be triggered on an .Inputfield element to force it to reload via ajax (where supported). 
- * - reloaded: Triggered on an .Inputfield element after it has reloaded via ajax. 
+ * - reloaded: Triggered on an .Inputfield element after it has reloaded via ajax. Receives a
+ *   source string and the reloaded .Inputfield after the event argument, i.e.
+ *   function(event, source, $inputfield). It is also triggered on Inputfields within the
+ *   reloaded one, so compare against the 3rd argument to identify the one that reloaded.
  * - resized: Triggered on an .Inputfield element after something has caused it to resize. 
  * - columnWidth: Triggered on .Inputfield when an API call to set column width, receives width percent after event argument.
  * 
@@ -2656,13 +2659,18 @@ function InputfieldStates($target) {
 			$parent.slideDown();
 			var $inputfields = $li.find('.Inputfield');
 			if($inputfields.length) {
-				$inputfields.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
+				// 3rd argument is the Inputfield that was reloaded, enabling listeners to
+				// identify it, since the event is triggered on all Inputfields within it
+				$inputfields.trigger('reloaded', [ 'InputfieldAjaxLoad', $li ]);
+				// also trigger on the reloaded Inputfield itself, so that it can be detected
+				// with a single event where event.target is the Inputfield that reloaded
+				$li.trigger('reloaded', [ 'InputfieldAjaxLoad', $li ]);
 				InputfieldStates($li);	
 				InputfieldRequirements($li);
 				InputfieldHeaderActions($li);
 				InputfieldColumnWidths();
 			} else {
-				$li.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
+				$li.trigger('reloaded', [ 'InputfieldAjaxLoad', $li ]);
 				InputfieldColumnWidths();
 			}
 			if($li.closest('.InputfieldFormNoDependencies').length == 0) {
@@ -3025,7 +3033,7 @@ function InputfieldReloadEvent(event, extraData) {
 			$t.children(".InputfieldContent").html($content.html());
 			//InputfieldStates($t);
 			InputfieldsInit($t);
-			$t.trigger('reloaded', ['reload']);
+			$t.trigger('reloaded', ['reload', $t]);
 		}
 	});
 	event.stopPropagation();
