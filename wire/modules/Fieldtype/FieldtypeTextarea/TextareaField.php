@@ -3,7 +3,8 @@
 /**
  * Textarea Field (for FieldtypeTextarea)
  *
- * FieldtypeTextarea extends FieldtypeText, so TextField settings also apply.
+ * FieldtypeTextarea extends FieldtypeText, so this class extends TextField
+ * and all TextField settings also apply.
  *
  * Configured with FieldtypeTextarea
  * ==============================
@@ -18,5 +19,5 @@
  * @since 3.0.258
  *
  */
-class TextareaField extends Field {
+class TextareaField extends TextField {
 }

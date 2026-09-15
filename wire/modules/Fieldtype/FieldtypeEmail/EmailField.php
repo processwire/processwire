@@ -3,7 +3,8 @@
 /**
  * Email Field (for FieldtypeEmail)
  *
- * FieldtypeEmail extends FieldtypeText, so TextField settings also apply.
+ * FieldtypeEmail extends FieldtypeText, so this class extends TextField
+ * and all TextField settings also apply.
  *
  * Configured with InputfieldEmail or FieldtypeEmail
  * =================================================
@@ -15,5 +16,5 @@
  * @since 3.0.258
  *
  */
-class EmailField extends Field {
+class EmailField extends TextField {
 }

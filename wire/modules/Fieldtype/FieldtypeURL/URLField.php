@@ -3,7 +3,8 @@
 /**
  * URL Field (for FieldtypeURL)
  *
- * FieldtypeURL extends FieldtypeText, so TextField settings also apply.
+ * FieldtypeURL extends FieldtypeText, so this class extends TextField
+ * and all TextField settings also apply.
  *
  * Configured with FieldtypeURL / InputfieldURL
  * ==============================
@@ -15,5 +16,5 @@
  * @since 3.0.258
  *
  */
-class URLField extends Field {
+class URLField extends TextField {
 }
