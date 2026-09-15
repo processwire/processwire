@@ -1,0 +1,448 @@
+/**
+ * Base stylesheet
+ *
+ * The stable foundation for this site: reset, typography, layout primitives
+ * and default components. Everything is driven by the custom properties
+ * (design tokens) below, which main.css overrides to give the site its look.
+ *
+ * Prefer changing tokens and adding components in main.css over editing
+ * this file, so the foundation stays predictable.
+ *
+ * Contents:
+ * 1. Tokens (defaults)
+ * 2. Reset
+ * 3. Typography
+ * 4. Layout primitives: .container .stack .cluster .grid .card-grid
+ * 5. Site structure: header, nav, breadcrumbs, page header, footer
+ * 6. Content: .prose
+ * 7. Components: .card .button .subnav .page-image .image-placeholder
+ * 8. Utilities: .skip-link .visually-hidden
+ *
+ */
+
+/* 1. Tokens (defaults) ------------------------------------------------------ */
+
+:root {
+	/* Colors */
+	--color-bg: #ffffff;
+	--color-surface: #f5f5f4;
+	--color-text: #1c1917;
+	--color-muted: #57534e;
+	--color-border: #e7e5e4;
+	--color-accent: #2563eb;
+	--color-accent-contrast: #ffffff;
+	--color-focus: #2563eb;
+
+	/* Fonts */
+	--font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	--font-heading: var(--font-body);
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+	/* Type scale */
+	--text-sm: 0.875rem;
+	--text-base: 1rem;
+	--text-lg: 1.25rem;
+	--text-xl: 1.5rem;
+	--text-2xl: clamp(1.75rem, 1.4rem + 1.5vw, 2.25rem);
+	--text-3xl: clamp(2.125rem, 1.6rem + 2.5vw, 3rem);
+	--leading-body: 1.6;
+	--leading-heading: 1.2;
+	--weight-heading: 700;
+
+	/* Spacing scale */
+	--space-2xs: 0.25rem;
+	--space-xs: 0.5rem;
+	--space-sm: 0.75rem;
+	--space-md: 1rem;
+	--space-lg: 1.5rem;
+	--space-xl: 2.5rem;
+	--space-2xl: 4rem;
+
+	/* Shape and layout */
+	--radius: 6px;
+	--border-width: 1px;
+	--container-max: 72rem;
+	--measure: 68ch;
+	--gutter: clamp(1rem, 4vw, 2rem);
+}
+
+/* 2. Reset ------------------------------------------------------------------ */
+
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, ul, ol {
+	margin: 0;
+}
+
+ul[role="list"], ol[role="list"] {
+	list-style: none;
+	padding: 0;
+}
+
+img, picture, svg, video {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+
+input, button, textarea, select {
+	font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* 3. Typography ------------------------------------------------------------- */
+
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+body {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	line-height: var(--leading-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+	font-family: var(--font-heading);
+	font-weight: var(--weight-heading);
+	line-height: var(--leading-heading);
+	text-wrap: balance;
+}
+
+h1 { font-size: var(--text-3xl); }
+h2 { font-size: var(--text-2xl); }
+h3 { font-size: var(--text-xl); }
+h4 { font-size: var(--text-lg); }
+
+a {
+	color: var(--color-accent);
+	text-underline-offset: 0.15em;
+}
+
+a:hover {
+	text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+	outline: 3px solid var(--color-focus);
+	outline-offset: 2px;
+}
+
+/* 4. Layout primitives ------------------------------------------------------ */
+
+/* Centered, padded content column */
+.container {
+	width: 100%;
+	max-width: var(--container-max);
+	margin-inline: auto;
+	padding-inline: var(--gutter);
+}
+
+/* Vertical rhythm between direct children */
+.stack > * + * {
+	margin-block-start: var(--stack-space, var(--space-lg));
+}
+
+/* Horizontal group that wraps */
+.cluster {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--cluster-space, var(--space-md));
+}
+
+/* Responsive grid of equal columns */
+.grid, .card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--grid-min, 16rem)), 1fr));
+	gap: var(--grid-space, var(--space-lg));
+}
+
+/* 5. Site structure --------------------------------------------------------- */
+
+.site-header {
+	border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.site-header-inner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-sm) var(--space-lg);
+	padding-block: var(--space-md);
+}
+
+.site-brand {
+	font-family: var(--font-heading);
+	font-weight: var(--weight-heading);
+	font-size: var(--text-lg);
+	color: var(--color-text);
+	text-decoration: none;
+}
+
+.site-nav ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-xs) var(--space-md);
+}
+
+.site-nav a {
+	color: var(--color-muted);
+	text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current="page"],
+.site-nav a.is-active {
+	color: var(--color-text);
+	text-decoration: underline;
+}
+
+.site-main {
+	flex: 1;
+	padding-block: var(--space-xl) var(--space-2xl);
+}
+
+.breadcrumbs ol {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2xs);
+	font-size: var(--text-sm);
+	color: var(--color-muted);
+}
+
+.breadcrumbs li + li::before {
+	content: "/";
+	margin-inline-end: var(--space-2xs);
+}
+
+.breadcrumbs a {
+	color: inherit;
+}
+
+.page-header > * + * {
+	margin-block-start: var(--space-sm);
+}
+
+.page-summary {
+	max-width: var(--measure);
+	font-size: var(--text-lg);
+	color: var(--color-muted);
+}
+
+.site-footer {
+	border-top: var(--border-width) solid var(--color-border);
+	font-size: var(--text-sm);
+	color: var(--color-muted);
+}
+
+.site-footer-inner {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: var(--space-sm) var(--space-lg);
+	padding-block: var(--space-lg);
+}
+
+.site-footer a {
+	color: inherit;
+}
+
+/* 6. Content ---------------------------------------------------------------- */
+
+/* Rich text output, such as the TinyMCE body field */
+.prose {
+	max-width: var(--measure);
+}
+
+.prose > * + * {
+	margin-block-start: var(--space-md);
+}
+
+.prose > :is(h2, h3, h4) {
+	margin-block-start: var(--space-xl);
+}
+
+.prose :is(ul, ol) {
+	padding-inline-start: var(--space-lg);
+}
+
+.prose li + li {
+	margin-block-start: var(--space-2xs);
+}
+
+.prose blockquote {
+	padding-inline-start: var(--space-md);
+	border-inline-start: 4px solid var(--color-border);
+	color: var(--color-muted);
+}
+
+.prose img {
+	border-radius: var(--radius);
+}
+
+.prose hr {
+	border: 0;
+	border-top: var(--border-width) solid var(--color-border);
+	margin-block: var(--space-xl);
+}
+
+.prose table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--text-sm);
+}
+
+.prose :is(th, td) {
+	padding: var(--space-xs) var(--space-sm);
+	border-bottom: var(--border-width) solid var(--color-border);
+	text-align: start;
+}
+
+.prose :is(code, pre) {
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+}
+
+.prose pre {
+	overflow-x: auto;
+	padding: var(--space-md);
+	background: var(--color-surface);
+	border-radius: var(--radius);
+}
+
+/* 7. Components ------------------------------------------------------------- */
+
+.card {
+	padding: var(--space-lg);
+	background: var(--color-surface);
+	border: var(--border-width) solid var(--color-border);
+	border-radius: var(--radius);
+}
+
+.card > * + * {
+	margin-block-start: var(--space-xs);
+}
+
+.card-title {
+	font-size: var(--text-lg);
+}
+
+.card-title a {
+	color: var(--color-text);
+	text-decoration: none;
+}
+
+.card-title a:hover {
+	text-decoration: underline;
+}
+
+.button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-xs);
+	padding: var(--space-xs) var(--space-md);
+	background: var(--color-accent);
+	color: var(--color-accent-contrast);
+	border: 0;
+	border-radius: var(--radius);
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.button:hover {
+	filter: brightness(1.1);
+}
+
+.subnav ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-xs) var(--space-md);
+}
+
+.page-image {
+	--placeholder-ratio: 16 / 9;
+}
+
+.page-image img {
+	width: 100%;
+	border-radius: var(--radius);
+}
+
+/* Placeholder shown where an image field is empty (see siteImage() in _func.php) */
+.image-placeholder {
+	position: relative;
+	display: grid;
+	place-items: center;
+	aspect-ratio: var(--placeholder-ratio, 3 / 2);
+	margin: 0;
+	overflow: hidden;
+	border-radius: var(--radius);
+	background: var(--color-surface);
+}
+
+.image-placeholder::before {
+	content: "";
+	position: absolute;
+	inset: -15%;
+	background:
+		radial-gradient(circle at 28% 38%, color-mix(in srgb, var(--color-accent) 45%, transparent) 0 16%, transparent 42%),
+		radial-gradient(circle at 72% 62%, color-mix(in srgb, var(--color-muted) 45%, transparent) 0 20%, transparent 50%),
+		linear-gradient(135deg, var(--color-surface), var(--color-border));
+	filter: blur(28px);
+}
+
+.image-placeholder-label {
+	position: relative;
+	padding: var(--space-2xs) var(--space-sm);
+	font-size: var(--text-sm);
+	color: var(--color-text);
+	background: color-mix(in srgb, var(--color-bg) 75%, transparent);
+	border-radius: var(--radius);
+}
+
+/* 8. Utilities -------------------------------------------------------------- */
+
+.skip-link {
+	position: absolute;
+	inset-inline-start: var(--space-md);
+	top: -100px;
+	z-index: 100;
+	padding: var(--space-xs) var(--space-md);
+	background: var(--color-accent);
+	color: var(--color-accent-contrast);
+	border-radius: var(--radius);
+}
+
+.skip-link:focus {
+	top: var(--space-md);
+}
+
+.visually-hidden {
+	position: absolute !important;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}

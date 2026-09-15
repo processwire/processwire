@@ -1,0 +1,33 @@
+/**
+ * Site stylesheet
+ *
+ * Loaded after base.css. Give the site its own look by changing the design
+ * tokens below (they override the defaults in base.css), then add
+ * site-specific components after them.
+ *
+ * For dark mode, redefine the color tokens inside
+ * @media (prefers-color-scheme: dark) { :root { ... } } in this file.
+ *
+ */
+
+:root {
+	/* Colors */
+	--color-bg: #ffffff;
+	--color-surface: #f5f5f4;
+	--color-text: #1c1917;
+	--color-muted: #57534e;
+	--color-border: #e7e5e4;
+	--color-accent: #2563eb;
+	--color-accent-contrast: #ffffff;
+	--color-focus: #2563eb;
+
+	/* Fonts */
+	--font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	--font-heading: var(--font-body);
+
+	/* Shape and layout */
+	--radius: 6px;
+	--container-max: 72rem;
+}
+
+/* Site components ----------------------------------------------------------- */
