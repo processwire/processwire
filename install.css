@@ -9,9 +9,7 @@
  * a single accent color, Inter typography, square inputs and pill buttons, and
  * automatic light/dark mode.
  *
- * Class names use a "pwi-" prefix. Legacy "uk-" and "ui-" class names emitted by
- * the installer are supported as aliases so that both can be used during the
- * transition.
+ * All installer class names use a "pwi-" prefix.
  *
  * This file is removed along with install.php when installation is finished.
  *
@@ -145,8 +143,7 @@ img {
 
 /* 3. Layout ----------------------------------------------------------------- */
 
-.pwi-container,
-.uk-container {
+.pwi-container {
 	width: 100%;
 	max-width: var(--pwi-max-width);
 	margin-inline: auto;
@@ -198,8 +195,7 @@ img {
 
 /* 4. Sections and panels ---------------------------------------------------- */
 
-.pwi-section,
-.uk-section {
+.pwi-section {
 	margin-block: calc(var(--pwi-space) * 1.5);
 	padding: calc(var(--pwi-space) * 1.5);
 	background: var(--pwi-panel);
@@ -207,22 +203,19 @@ img {
 	border-radius: var(--pwi-radius);
 }
 
-.pwi-section > .pwi-container,
-.uk-section > .uk-container {
+.pwi-section > .pwi-container {
 	max-width: none;
 	padding-inline: 0;
 	margin-inline: 0;
 }
 
-.pwi-section h2,
-.uk-section h2 {
+.pwi-section h2 {
 	margin-top: 0;
 	font-size: 1.25rem;
 	font-weight: 600;
 }
 
-.pwi-section > *:last-child,
-.uk-section > .uk-container > *:last-child {
+.pwi-section > *:last-child {
 	margin-bottom: 0;
 }
 
@@ -239,10 +232,7 @@ input[type="password"],
 input[type="number"],
 select,
 textarea,
-.pwi-input,
-.uk-input,
-.uk-select,
-.uk-textarea {
+.pwi-input {
 	max-width: 100%;
 	padding: 0.5rem 0.65rem;
 	background: var(--pwi-input-background);
@@ -253,13 +243,11 @@ textarea,
 	font-size: 1rem;
 }
 
-select,
-.uk-select {
+select {
 	padding-right: 2rem;
 }
 
-textarea,
-.uk-textarea {
+textarea {
 	width: 100%;
 	line-height: 1.5;
 }
@@ -273,14 +261,25 @@ textarea:focus {
 
 input[type="radio"],
 input[type="checkbox"],
-.uk-radio,
-.uk-checkbox {
+.pwi-radio,
+.pwi-checkbox {
 	accent-color: var(--pwi-accent);
 	margin-right: 0.35rem;
 }
 
+/* Label text inside a button, so an icon and label stay on one line */
+.pwi-button-text {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	white-space: nowrap;
+}
+
 /* Field wrappers: the installer emits <p> elements containing label + input */
 .pwi-field {
+	display: inline-block;
+	vertical-align: top;
+	width: 100%;
 	margin: 0 1.25rem var(--pwi-space) 0;
 }
 
@@ -288,11 +287,24 @@ input[type="checkbox"],
 	color: var(--pwi-muted);
 }
 
+.pwi-field .pwi-input,
+.pwi-field select,
+.pwi-field textarea {
+	width: 100%;
+	margin-top: 0.25rem;
+}
+
+/* Field widths, from the pixel widths passed to input() and select() */
+.pwi-w-xs { max-width: 9rem; }
+.pwi-w-sm { max-width: 15rem; }
+.pwi-w-md { max-width: 23rem; }
+.pwi-w-lg { max-width: 31rem; }
+.pwi-w-full { max-width: 100%; }
+
 /* 6. Buttons ---------------------------------------------------------------- */
 
 button,
-.pwi-button,
-.ui-button {
+.pwi-button {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4rem;
@@ -309,19 +321,16 @@ button,
 }
 
 button:hover,
-.pwi-button:hover,
-.ui-button:hover {
+.pwi-button:hover {
 	background: var(--pwi-button-hover-background);
 	color: #fff;
 }
 
-.pwi-button-secondary,
-.ui-priority-secondary {
+.pwi-button-secondary {
 	background: var(--pwi-button-muted-background);
 }
 
-.pwi-button .fa,
-.ui-button .fa {
+.pwi-button .fa {
 	opacity: 0.8;
 }
 
@@ -337,27 +346,24 @@ a:has(> p > button) {
 
 /* 7. Alerts and status lines ------------------------------------------------ */
 
-.pwi-alert,
-.uk-alert {
+.pwi-alert {
 	margin-block: var(--pwi-space);
 	padding: 0.85rem 1rem;
 	background: var(--pwi-alert-primary);
 	border-radius: var(--pwi-radius);
 }
 
-.pwi-alert > *:last-child,
-.uk-alert > *:last-child {
+.pwi-alert > *:last-child {
 	margin-bottom: 0;
 }
 
-.pwi-alert-success,
-.uk-alert-success { background: var(--pwi-alert-success); }
+.pwi-alert-primary { background: var(--pwi-alert-primary); }
 
-.pwi-alert-warning,
-.uk-alert-warning { background: var(--pwi-alert-warning); }
+.pwi-alert-success { background: var(--pwi-alert-success); }
 
-.pwi-alert-danger,
-.uk-alert-danger { background: var(--pwi-alert-danger); }
+.pwi-alert-warning { background: var(--pwi-alert-warning); }
+
+.pwi-alert-danger { background: var(--pwi-alert-danger); }
 
 /* Status lines within a section, as output by ok(), warn() and err() */
 .pwi-ok,
@@ -370,31 +376,50 @@ a:has(> p > button) {
 
 .pwi-warn,
 .pwi-err,
-.pwi-danger,
-.uk-text-danger {
+.pwi-danger {
 	color: var(--pwi-danger-text);
 }
 
 /* 8. Utilities -------------------------------------------------------------- */
 
 .detail,
-.pwi-detail,
-.uk-text-muted {
+.pwi-detail {
 	color: var(--pwi-muted);
 	font-size: 0.9rem;
 }
 
-.pwi-small,
-.uk-text-small {
+.pwi-small {
 	font-size: 0.85rem;
 }
 
-.uk-float-left {
-	float: left;
+/* Inline note shown beside a field label, e.g. "(a-z 0-9)" */
+.pwi-note {
+	font-size: 0.8rem;
+	font-weight: 400;
+	color: var(--pwi-muted);
 }
 
-.uk-margin-remove-bottom {
+.pwi-no-margin-bottom {
 	margin-bottom: 0;
+}
+
+/* Section inner wrapper: the section itself provides the padding */
+.pwi-section-inner > *:last-child {
+	margin-bottom: 0;
+}
+
+/* Section types, from sectionStart() */
+.pwi-section-muted {
+	background: var(--pwi-panel);
+}
+
+.pwi-section-primary {
+	background: var(--pwi-panel);
+	border-color: var(--pwi-accent);
+}
+
+.pwi-float-left {
+	float: left;
 }
 
 .profile-preview img {
@@ -411,8 +436,7 @@ a:has(> p > button) {
 @media (max-width: 640px) {
 	h1 { font-size: 2rem; }
 
-	.pwi-section,
-	.uk-section {
+	.pwi-section {
 		padding: var(--pwi-space);
 	}
 

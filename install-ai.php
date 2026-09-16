@@ -184,7 +184,7 @@ class InstallerAi {
 
 		if(!$this->isAvailable()) {
 			$installer->p(
-				"<span class='uk-text-muted'>" . htmlentities($this->getUnavailableReason(), ENT_QUOTES, 'UTF-8') . "</span>",
+				"<span class='pwi-detail'>" . htmlentities($this->getUnavailableReason(), ENT_QUOTES, 'UTF-8') . "</span>",
 				'detail'
 			);
 			return;
@@ -320,7 +320,14 @@ class InstallerAi {
 		);
 
 		$installer->btn('Test key and continue', ['value' => self::stepProvider, 'icon' => 'angle-right']);
-		$installer->btn('Skip AI setup', ['value' => 2, 'icon' => 'angle-right', 'secondary' => true, 'name' => 'step_skip_ai']);
+		// formnovalidate so that the required provider fields do not block skipping
+		$installer->btn('Skip AI setup', [
+			'value' => 2,
+			'icon' => 'angle-right',
+			'secondary' => true,
+			'name' => 'step_skip_ai',
+			'novalidate' => true,
+		]);
 	}
 
 	/**
