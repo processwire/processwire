@@ -142,6 +142,91 @@ class Installer {
 	protected $inSection = false;
 
 	/**
+	 * AI-assisted installer helper, or null if not present/loaded
+	 *
+	 * @var InstallerAi|null
+	 *
+	 */
+	protected $ai = null;
+
+	/**
+	 * Load the AI-assisted installer helper, if the install-ai.php file is present
+	 *
+	 * All AI-specific logic lives in that file, so that this class stays focused on
+	 * installing ProcessWire. When the file is not present, no AI options are offered.
+	 *
+	 */
+	/**
+	 * Render the installer document head, masthead and opening form tag
+	 *
+	 * The installer renders its own document rather than using an admin theme, so that
+	 * it stays consistent and self-contained regardless of admin theme changes. Styles
+	 * are in install.css, which is removed along with install.php when finished.
+	 *
+	 * @param string $title
+	 * @param string $formAction
+	 *
+	 */
+	protected function renderHead($title, $formAction) {
+
+		$title = htmlentities($title, ENT_QUOTES, 'UTF-8');
+		$formAction = htmlentities($formAction, ENT_QUOTES, 'UTF-8');
+		$logo = 'wire/modules/AdminTheme/AdminThemeUikit/uikit-pw/images/pw-mark.png';
+		$fontAwesome = 'wire/templates-admin/styles/font-awesome/css/font-awesome.min.css';
+
+		echo "<!DOCTYPE html>\n" .
+			"<html lang='en'>\n" .
+			"<head>\n" .
+			"\t<meta charset='utf-8' />\n" .
+			"\t<meta name='viewport' content='width=device-width, initial-scale=1.0' />\n" .
+			"\t<meta name='robots' content='noindex, nofollow' />\n" .
+			"\t<title>$title</title>\n" .
+			"\t<link rel='stylesheet' href='install.css' />\n" .
+			"\t<link rel='stylesheet' href='$fontAwesome' />\n" .
+			"</head>\n" .
+			"<body>\n" .
+			"\t<header class='pwi-masthead'>\n" .
+			"\t\t<div class='pwi-container'>\n" .
+			"\t\t\t<a class='pwi-logo' href='https://processwire.com' target='_blank' rel='noopener'>" .
+			"<img src='$logo' alt='ProcessWire' /></a>\n" .
+			"\t\t\t<span class='pwi-masthead-title'>$title</span>\n" .
+			"\t\t</div>\n" .
+			"\t</header>\n" .
+			"\t<main class='pwi-main'>\n" .
+			"\t\t<div class='pwi-container'>\n";
+
+		if(!empty($formAction)) echo "\t\t<form action='$formAction' method='post'>\n";
+	}
+
+	/**
+	 * Render the installer closing form tag, footer and document end
+	 *
+	 * @param string $formAction
+	 *
+	 */
+	protected function renderFoot($formAction) {
+		if(!empty($formAction)) echo "\n\t\t</form>";
+		echo "\n\t\t</div>\n" .
+			"\t</main>\n" .
+			"\t<footer class='pwi-footer'>\n" .
+			"\t\t<div class='pwi-container'>\n" .
+			"\t\t\t<p>ProcessWire " . PROCESSWIRE_INSTALL . " &copy; " . date('Y') . "</p>\n" .
+			"\t\t</div>\n" .
+			"\t</footer>\n" .
+			"</body>\n" .
+			"</html>";
+	}
+
+	protected function initAi() {
+		if($this->ai !== null) return;
+		$file = __DIR__ . '/install-ai.php';
+		if(!is_file($file)) return;
+		/** @noinspection PhpIncludeInspection */
+		require_once($file);
+		if(class_exists(__NAMESPACE__ . '\InstallerAi')) $this->ai = new InstallerAi($this);
+	}
+
+	/**
 	 * Execution controller
 	 *
 	 */
@@ -154,12 +239,28 @@ class Installer {
 			die("This installer has already run. Please delete it.");
 		}
 
-		// these two vars used by install-head.inc
+		// these two vars are used by renderHead()
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
+		$this->initAi();
 		$step = $this->post('step');
 
+		// AI installer buttons post their own input names; translate them to steps here
+		// so that the install token is validated the same way as any other step
+		if($this->ai !== null && $step === null) {
+			if($this->post('step_ai') !== null) {
+				$step = (string) InstallerAi::stepStartAi;
+			} else if($this->post('step_skip_ai') !== null) {
+				$step = (string) InstallerAi::stepSkipAi;
+			}
+		}
+
 		$this->initInstallSession($step);
+
+		// Read AI installer state while the installer session is still the active one.
+		// At step 5 the installer boots ProcessWire, which starts its own session and
+		// replaces the installer session for the remainder of the request.
+		if($this->ai !== null) $this->ai->loadState();
 
 		if($step !== null && is_file($this->installLockFile())) {
 			$this->checkInstallLock();
@@ -169,7 +270,7 @@ class Installer {
 		
 		if($step === '5') require('./index.php');
 		
-		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc");
+		$this->renderHead($title, $formAction);
 		echo "<input type='hidden' name='install_token' value='" .
 			htmlentities($this->installToken, ENT_QUOTES, "UTF-8") . "' />";
 
@@ -180,7 +281,31 @@ class Installer {
 			switch($step) {
 				case 0: $this->initProfile(); break;
 				case 1: $this->compatibilityCheck(); break;
-				case 2: $this->dbConfig();  break;
+				case 2:
+					// AI mode inserts the provider step between compatibility check and DB config
+					if($this->ai !== null && $this->ai->isEnabled() && !$this->ai->hasProvider()) {
+						$this->ai->providerStep();
+					} else {
+						$this->dbConfig();
+					}
+					break;
+				case 3: // InstallerAi::stepProvider
+					if($this->ai === null) {
+						$this->dbConfig();
+					} else if($this->post('ai_api_key') === null) {
+						$this->ai->providerStep();
+					} else if($this->ai->providerSave()) {
+						$this->dbConfig();
+					}
+					break;
+				case 6: // InstallerAi::stepStartAi
+					if($this->ai !== null) $this->ai->setEnabled(true);
+					$this->initProfile();
+					break;
+				case 7: // InstallerAi::stepSkipAi
+					if($this->ai !== null) $this->ai->setEnabled(false);
+					$this->dbConfig();
+					break;
 				case 4: $this->dbSaveConfig();  break;
 				case 5: 
 					/** @var ProcessWire $wire */
@@ -192,7 +317,7 @@ class Installer {
 			} 
 		}
 
-		require("./wire/modules/AdminTheme/AdminThemeUikit/install-foot.inc"); 
+		$this->renderFoot($formAction);
 	}
 
 	/**
@@ -569,7 +694,8 @@ class Installer {
 			"If you need help or have questions during installation, please stop by our " . 
 			"<a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help."
 		);
-		$this->btn("Get Started", array('icon' => 'sign-in')); 
+		$this->btn("Get Started", array('icon' => 'sign-in'));
+		if($this->ai !== null) $this->ai->welcomeOption();
 	}
 
 
@@ -689,11 +815,19 @@ class Installer {
 				Select an installation profile to see more information.
 			</p>
 			$out
-			<script type='text/javascript'>
-			$('#select-profile').change(function() {
-				$('.profile-preview').hide();	
-				$('#' + $(this).val()).fadeIn('fast');
-			}).change();
+			<script>
+			(function() {
+				var select = document.getElementById('select-profile');
+				if(!select) return;
+				function updatePreview() {
+					var previews = document.querySelectorAll('.profile-preview');
+					for(var i = 0; i < previews.length; i++) previews[i].style.display = 'none';
+					var active = select.value ? document.getElementById(select.value) : null;
+					if(active) active.style.display = '';
+				}
+				select.addEventListener('change', updatePreview);
+				updatePreview();
+			})();
 			</script>
 		";
 		
@@ -967,33 +1101,32 @@ class Installer {
 		$testActivation = self::TEST_ACTIVATION ? 'true' : 'false';
 		echo "
 			<script>
-				jQuery(document).ready(function($) {
-					let ho = $('input[name=dbHost]'), po = $('input[name=dbPort]'), 
-						so = $('input[name=dbSocket]'), co = $('select[name=dbCon]'),
-						ao = $('input[name=installerActivationToken]'),
-						activation = $('#installer-activation');
+				(function() {
+					function el(selector) { return document.querySelector(selector); }
+					function row(input) { return input ? input.closest('p') : null; }
+					function display(node, show) { if(node) node.style.display = show ? '' : 'none'; }
+					var ho = el('input[name=dbHost]'), po = el('input[name=dbPort]'),
+						so = el('input[name=dbSocket]'), co = el('select[name=dbCon]'),
+						ao = el('input[name=installerActivationToken]'),
+						activation = el('#installer-activation');
+					if(!co) return;
 					function updateConnectionFields() {
-						if(co.val() === 'Hostname') {
-							ho.prop('required', true).closest('p').show();
-							po.prop('required', true).closest('p').show();
-							so.prop('required', false).closest('p').hide();
-						} else {
-							ho.prop('required', false).closest('p').hide();
-							po.prop('required', false).closest('p').hide();
-							so.prop('required', true).closest('p').show();
-						}
-						let testActivation = $testActivation,
-							host = $.trim(ho.val()).toLowerCase(),
+						var useHost = co.value === 'Hostname';
+						if(ho) { ho.required = useHost; display(row(ho), useHost); }
+						if(po) { po.required = useHost; display(row(po), useHost); }
+						if(so) { so.required = !useHost; display(row(so), !useHost); }
+						var testActivation = $testActivation,
+							host = (ho ? ho.value : '').trim().toLowerCase(),
 							localHosts = ['localhost', '127.0.0.1', '::1', '[::1]'],
 							activationRequired = testActivation ||
-								(co.val() === 'Hostname' && localHosts.indexOf(host) === -1);
-						ao.prop('required', activationRequired);
-						activation.toggle(activationRequired);
+								(useHost && localHosts.indexOf(host) === -1);
+						if(ao) ao.required = activationRequired;
+						display(activation, activationRequired);
 					}
-					co.on('change', updateConnectionFields);
-					ho.on('input', updateConnectionFields);
+					co.addEventListener('change', updateConnectionFields);
+					if(ho) ho.addEventListener('input', updateConnectionFields);
 					updateConnectionFields();
-				});
+				})();
 			</script>
 		";
 
@@ -1796,6 +1929,16 @@ class Installer {
 				'file' => '/.gitignore',
 			)
 		);
+
+		if(is_file($root . 'install.css')) {
+			$items['install-css'] = array(
+				'label' => 'Remove installer stylesheet (install.css) when finished',
+				'file' => '/install.css',
+				'path' => $root . 'install.css',
+			);
+		}
+
+		if($this->ai !== null) $items = array_merge($items, $this->ai->getRemoveableItems($root));
 		
 		foreach($this->findProfiles() as $name => $profile) {
 			if($name === 'site') continue;
@@ -1929,7 +2072,12 @@ class Installer {
 
 		$this->sectionStop();
 		
-		$this->finish($wire, $user); 
+		$this->finish($wire, $user);
+
+		if($this->ai !== null && $this->ai->isEnabled()) {
+			$this->ai->installAgentTools($wire);
+			$this->ai->siteBuilderLink($wire, $adminName);
+		}
 
 		$this->sectionStart("fa-life-buoy Complete &amp; Secure Your Installation");
 		$this->getRemoveableItems(false, true); 

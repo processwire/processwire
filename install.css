@@ -1,0 +1,430 @@
+/**
+ * ProcessWire installer stylesheet
+ *
+ * Self-contained styles for install.php and install-ai.php. Requires no CSS
+ * framework and no admin theme files, so that the installer keeps working and
+ * looking consistent regardless of what the admin theme does.
+ *
+ * Styling follows the look of ProcessWire's default admin theme: greyscale with
+ * a single accent color, Inter typography, square inputs and pill buttons, and
+ * automatic light/dark mode.
+ *
+ * Class names use a "pwi-" prefix. Legacy "uk-" and "ui-" class names emitted by
+ * the installer are supported as aliases so that both can be used during the
+ * transition.
+ *
+ * This file is removed along with install.php when installation is finished.
+ *
+ * Contents:
+ *   1. Fonts and tokens
+ *   2. Base elements
+ *   3. Layout: masthead, main, footer
+ *   4. Sections and panels
+ *   5. Forms
+ *   6. Buttons
+ *   7. Alerts and status lines
+ *   8. Utilities
+ *   9. Responsive
+ *
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+/* 1. Fonts and tokens ------------------------------------------------------- */
+
+@font-face {
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url("wire/modules/AdminTheme/AdminThemeUikit/themes/default/fonts/Inter-Regular.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Inter";
+	font-style: normal;
+	font-weight: 600;
+	font-display: swap;
+	src: url("wire/modules/AdminTheme/AdminThemeUikit/themes/default/fonts/Inter-SemiBold.woff2") format("woff2");
+}
+
+:root {
+	color-scheme: light dark;
+
+	--pwi-accent: #eb1d61;
+	--pwi-text: light-dark(#111, #fff);
+	--pwi-muted: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));
+	--pwi-border: light-dark(rgba(0, 0, 0, 0.16), #444);
+	--pwi-background: light-dark(#eee, #222);
+	--pwi-panel: light-dark(#fff, #000);
+	--pwi-input-background: light-dark(#f8f8f8, #161616);
+
+	--pwi-button-background: light-dark(#111, var(--pwi-accent));
+	--pwi-button-color: #fff;
+	--pwi-button-hover-background: var(--pwi-accent);
+	--pwi-button-muted-background: light-dark(#737373, #404040);
+
+	--pwi-alert-primary: light-dark(#f4f4f4, #2b2b2b);
+	--pwi-alert-success: light-dark(#c1e7cd, #139472);
+	--pwi-alert-warning: light-dark(#fff0be, #d57f00);
+	--pwi-alert-danger: light-dark(#fee6e6, #8a1919);
+	--pwi-danger-text: light-dark(#cd0a0a, #ff7171);
+	--pwi-code-background: light-dark(#f3f3f3, #3c3c3c);
+
+	--pwi-radius: 0;
+	--pwi-button-radius: 99999px;
+	--pwi-space: 1rem;
+	--pwi-max-width: 900px;
+	--pwi-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 2. Base elements ---------------------------------------------------------- */
+
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--pwi-background);
+	color: var(--pwi-text);
+	font-family: var(--pwi-font);
+	font-size: 16px;
+	line-height: 1.6;
+	-webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+	font-weight: 400;
+	line-height: 1.2;
+	margin: 0 0 var(--pwi-space);
+	text-wrap: balance;
+}
+
+h1 { font-size: 2.75rem; letter-spacing: -0.02em; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.15rem; }
+
+p {
+	margin: 0 0 var(--pwi-space);
+}
+
+a {
+	color: var(--pwi-accent);
+	text-underline-offset: 0.15em;
+}
+
+a:hover {
+	text-decoration-thickness: 2px;
+}
+
+code {
+	padding: 0.1em 0.35em;
+	background: var(--pwi-code-background);
+	border-radius: 2px;
+	font-size: 0.9em;
+}
+
+hr {
+	height: 0;
+	margin: calc(var(--pwi-space) * 1.5) 0;
+	border: 0;
+	border-top: 1px solid var(--pwi-border);
+}
+
+img {
+	max-width: 100%;
+	height: auto;
+}
+
+:focus-visible {
+	outline: 2px solid var(--pwi-accent);
+	outline-offset: 2px;
+}
+
+/* 3. Layout ----------------------------------------------------------------- */
+
+.pwi-container,
+.uk-container {
+	width: 100%;
+	max-width: var(--pwi-max-width);
+	margin-inline: auto;
+	padding-inline: clamp(1rem, 4vw, 2rem);
+}
+
+.pwi-masthead {
+	background: var(--pwi-panel);
+	border-bottom: 1px solid var(--pwi-border);
+}
+
+.pwi-masthead .pwi-container {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding-block: 0.75rem;
+}
+
+.pwi-logo {
+	display: flex;
+	align-items: center;
+	line-height: 0;
+}
+
+.pwi-logo img {
+	width: 32px;
+	height: 32px;
+}
+
+.pwi-masthead-title {
+	font-size: 0.95rem;
+	color: var(--pwi-muted);
+}
+
+.pwi-main {
+	padding-block: calc(var(--pwi-space) * 2) calc(var(--pwi-space) * 3);
+}
+
+.pwi-footer {
+	padding-block: var(--pwi-space);
+	border-top: 1px solid var(--pwi-border);
+	font-size: 0.85rem;
+	color: var(--pwi-muted);
+}
+
+.pwi-footer p {
+	margin: 0;
+}
+
+/* 4. Sections and panels ---------------------------------------------------- */
+
+.pwi-section,
+.uk-section {
+	margin-block: calc(var(--pwi-space) * 1.5);
+	padding: calc(var(--pwi-space) * 1.5);
+	background: var(--pwi-panel);
+	border: 1px solid var(--pwi-border);
+	border-radius: var(--pwi-radius);
+}
+
+.pwi-section > .pwi-container,
+.uk-section > .uk-container {
+	max-width: none;
+	padding-inline: 0;
+	margin-inline: 0;
+}
+
+.pwi-section h2,
+.uk-section h2 {
+	margin-top: 0;
+	font-size: 1.25rem;
+	font-weight: 600;
+}
+
+.pwi-section > *:last-child,
+.uk-section > .uk-container > *:last-child {
+	margin-bottom: 0;
+}
+
+/* 5. Forms ------------------------------------------------------------------ */
+
+label {
+	display: inline-block;
+	font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+select,
+textarea,
+.pwi-input,
+.uk-input,
+.uk-select,
+.uk-textarea {
+	max-width: 100%;
+	padding: 0.5rem 0.65rem;
+	background: var(--pwi-input-background);
+	color: var(--pwi-text);
+	border: 1px solid var(--pwi-border);
+	border-radius: var(--pwi-radius);
+	font-family: inherit;
+	font-size: 1rem;
+}
+
+select,
+.uk-select {
+	padding-right: 2rem;
+}
+
+textarea,
+.uk-textarea {
+	width: 100%;
+	line-height: 1.5;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: var(--pwi-accent);
+	outline: none;
+}
+
+input[type="radio"],
+input[type="checkbox"],
+.uk-radio,
+.uk-checkbox {
+	accent-color: var(--pwi-accent);
+	margin-right: 0.35rem;
+}
+
+/* Field wrappers: the installer emits <p> elements containing label + input */
+.pwi-field {
+	margin: 0 1.25rem var(--pwi-space) 0;
+}
+
+.pwi-field label {
+	color: var(--pwi-muted);
+}
+
+/* 6. Buttons ---------------------------------------------------------------- */
+
+button,
+.pwi-button,
+.ui-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.55rem 1.25rem;
+	background: var(--pwi-button-background);
+	color: var(--pwi-button-color);
+	border: 1px solid transparent;
+	border-radius: var(--pwi-button-radius);
+	font-family: inherit;
+	font-size: 0.95rem;
+	font-weight: 600;
+	line-height: 1.2;
+	cursor: pointer;
+}
+
+button:hover,
+.pwi-button:hover,
+.ui-button:hover {
+	background: var(--pwi-button-hover-background);
+	color: #fff;
+}
+
+.pwi-button-secondary,
+.ui-priority-secondary {
+	background: var(--pwi-button-muted-background);
+}
+
+.pwi-button .fa,
+.ui-button .fa {
+	opacity: 0.8;
+}
+
+/* Buttons are wrapped in <p> by the installer; keep them on one row */
+p:has(> button) {
+	display: inline-block;
+	margin-right: 0.5rem;
+}
+
+a:has(> p > button) {
+	text-decoration: none;
+}
+
+/* 7. Alerts and status lines ------------------------------------------------ */
+
+.pwi-alert,
+.uk-alert {
+	margin-block: var(--pwi-space);
+	padding: 0.85rem 1rem;
+	background: var(--pwi-alert-primary);
+	border-radius: var(--pwi-radius);
+}
+
+.pwi-alert > *:last-child,
+.uk-alert > *:last-child {
+	margin-bottom: 0;
+}
+
+.pwi-alert-success,
+.uk-alert-success { background: var(--pwi-alert-success); }
+
+.pwi-alert-warning,
+.uk-alert-warning { background: var(--pwi-alert-warning); }
+
+.pwi-alert-danger,
+.uk-alert-danger { background: var(--pwi-alert-danger); }
+
+/* Status lines within a section, as output by ok(), warn() and err() */
+.pwi-ok,
+.pwi-warn,
+.pwi-err {
+	margin-block: 0.35rem;
+}
+
+.pwi-ok .fa { color: var(--pwi-accent); }
+
+.pwi-warn,
+.pwi-err,
+.pwi-danger,
+.uk-text-danger {
+	color: var(--pwi-danger-text);
+}
+
+/* 8. Utilities -------------------------------------------------------------- */
+
+.detail,
+.pwi-detail,
+.uk-text-muted {
+	color: var(--pwi-muted);
+	font-size: 0.9rem;
+}
+
+.pwi-small,
+.uk-text-small {
+	font-size: 0.85rem;
+}
+
+.uk-float-left {
+	float: left;
+}
+
+.uk-margin-remove-bottom {
+	margin-bottom: 0;
+}
+
+.profile-preview img {
+	border: 1px solid var(--pwi-border);
+}
+
+.fa-fw {
+	width: 1.2em;
+	text-align: center;
+}
+
+/* 9. Responsive ------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+	h1 { font-size: 2rem; }
+
+	.pwi-section,
+	.uk-section {
+		padding: var(--pwi-space);
+	}
+
+	/* Installer form rows use fixed pixel widths and floats; stack them instead */
+	.pwi-main p[style*="width"],
+	.pwi-main p[style*="float"] {
+		width: 100% !important;
+		float: none !important;
+	}
+
+	.pwi-main input[style*="width"],
+	.pwi-main select[style*="width"] {
+		width: 100% !important;
+	}
+}
