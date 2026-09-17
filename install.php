@@ -695,7 +695,7 @@ class Installer {
 			"<a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help."
 		);
 		if($this->ai !== null) $this->ai->welcomeText();
-		$this->btn("Get Started", array('icon' => 'sign-in'));
+		$this->btn("Standard Install", array('icon' => 'sign-in'));
 		if($this->ai !== null) $this->ai->welcomeButton();
 	}
 

@@ -204,7 +204,7 @@ class InstallerAi {
 	 */
 	public function welcomeButton() {
 		if(!$this->isAvailable()) return;
-		$this->installer->btn("AI-Assisted Install", ['name' => 'step_ai', 'value' => '0', 'icon' => 'magic', 'secondary' => true]);
+		$this->installer->btn("AI-Assisted Install", ['name' => 'step_ai', 'value' => '0', 'icon' => 'magic']);
 	}
 
 	/**
