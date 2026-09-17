@@ -122,7 +122,7 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 	color: var(--pw-text-color) !important
 }
 
-.uk-list-bullet>::before,.uk-section-primary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-card-primary.uk-card-body .uk-list-bullet>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-list-bullet>::before,.uk-card-secondary.uk-card-body .uk-list-bullet>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-bullet>::before,.uk-overlay-primary .uk-list-bullet>::before {
+.uk-section-primary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-section-secondary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-tile-primary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-tile-secondary:not(.uk-preserve-color) .uk-list-bullet>::before,.uk-card-primary.uk-card-body .uk-list-bullet>::before,.uk-card-primary>:not([class*='uk-card-media']) .uk-list-bullet>::before,.uk-card-secondary.uk-card-body .uk-list-bullet>::before,.uk-card-secondary>:not([class*='uk-card-media']) .uk-list-bullet>::before,.uk-overlay-primary .uk-list-bullet>::before {
 	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%226%22%20height%3D%226%22%20viewBox%3D%220%200%206%206%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%20%20%3Ccircle%20fill%3D%22rgba%28255,255,255,0.7%29%22%20cx%3D%223%22%20cy%3D%223%22%20r%3D%223%22%20%2F%3E%0A%3C%2Fsvg%3E")
 }
 
@@ -794,6 +794,18 @@ a.uk-link-heading:hover,.uk-link-heading a:hover,.uk-link-toggle:hover .uk-link-
 
 .uk-divider-small::after {
 	border-top-color: var(--pw-border-color);
+}
+
+.uk-list-bullet>::before {
+	/* Uikit's bullet is a fixed-color SVG, so draw it from the current text color instead */
+	background-image: none;
+	background-color: currentColor;
+	opacity: 0.5;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	top: 0.55em;
+	left: 12px;
 }
 
 .uk-list-muted>::before {
