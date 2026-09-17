@@ -66,8 +66,15 @@
 	--pwi-alert-primary: light-dark(#f4f4f4, #2b2b2b);
 	--pwi-alert-success: light-dark(#c1e7cd, #139472);
 	--pwi-alert-warning: light-dark(#fff0be, #d57f00);
-	--pwi-alert-danger: light-dark(#fee6e6, #8a1919);
-	--pwi-danger-text: light-dark(#cd0a0a, #ff7171);
+	/* danger colors are mixed from the accent, so they stay in the same color family */
+	--pwi-alert-danger: light-dark(
+		color-mix(in srgb, var(--pwi-accent) 12%, #fff),
+		color-mix(in srgb, var(--pwi-accent) 38%, #000)
+	);
+	--pwi-danger-text: light-dark(
+		color-mix(in srgb, var(--pwi-accent) 85%, #000),
+		color-mix(in srgb, var(--pwi-accent) 65%, #fff)
+	);
 	--pwi-code-background: light-dark(#f3f3f3, #3c3c3c);
 
 	--pwi-radius: 0;
@@ -385,7 +392,10 @@ a:has(> p > button) {
 
 .pwi-alert-warning { background: var(--pwi-alert-warning); }
 
-.pwi-alert-danger { background: var(--pwi-alert-danger); }
+.pwi-alert-danger {
+	background: var(--pwi-alert-danger);
+	border-left: 3px solid var(--pwi-accent);
+}
 
 /* Status lines within a section, as output by ok(), warn() and err() */
 .pwi-ok,
