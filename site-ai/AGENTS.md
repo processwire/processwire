@@ -35,6 +35,15 @@ Region ids defined in `_main.php`:
 For example, to add stylesheet only on one template, output
 `<link rel="stylesheet" href="…" pw-append="html-head">` from that template file.
 
+`_main.php` already outputs the page title and `summary` in `page-header`, and the `body` field in
+`content`, on every template. Do not repeat them in a template file: a hero section that outputs
+`$page->title` and `$page->summary` again gives the page two headlines and two copies of the
+summary. Output only what the regions don't already cover, and where a template needs a different
+header, replace the region (`<header id="page-header">…</header>`) or remove it
+(`<header id="page-header" pw-remove></header>`) instead of adding a second one. On the homepage
+the site name in `site-header` is the home page's title too, so a homepage hero repeating the title
+shows it three times.
+
 ## Files
 
 | File | Purpose |
