@@ -142,6 +142,91 @@ class Installer {
 	protected $inSection = false;
 
 	/**
+	 * AI-assisted installer helper, or null if not present/loaded
+	 *
+	 * @var InstallerAi|null
+	 *
+	 */
+	protected $ai = null;
+
+	/**
+	 * Load the AI-assisted installer helper, if the install/install-ai.php file is present
+	 *
+	 * All AI-specific logic lives in that file, so that this class stays focused on
+	 * installing ProcessWire. When the file is not present, no AI options are offered.
+	 *
+	 */
+	/**
+	 * Render the installer document head, masthead and opening form tag
+	 *
+	 * The installer renders its own document rather than using an admin theme, so that
+	 * it stays consistent and self-contained regardless of admin theme changes. Styles
+	 * are in install/install.css, which is removed along with install.php when finished.
+	 *
+	 * @param string $title
+	 * @param string $formAction
+	 *
+	 */
+	protected function renderHead($title, $formAction) {
+
+		$title = htmlentities($title, ENT_QUOTES, 'UTF-8');
+		$formAction = htmlentities($formAction, ENT_QUOTES, 'UTF-8');
+		$logo = 'wire/modules/AdminTheme/AdminThemeUikit/uikit-pw/images/pw-mark.png';
+		$fontAwesome = 'wire/templates-admin/styles/font-awesome/css/font-awesome.min.css';
+
+		echo "<!DOCTYPE html>\n" .
+			"<html lang='en'>\n" .
+			"<head>\n" .
+			"\t<meta charset='utf-8' />\n" .
+			"\t<meta name='viewport' content='width=device-width, initial-scale=1.0' />\n" .
+			"\t<meta name='robots' content='noindex, nofollow' />\n" .
+			"\t<title>$title</title>\n" .
+			"\t<link rel='stylesheet' href='install/install.css' />\n" .
+			"\t<link rel='stylesheet' href='$fontAwesome' />\n" .
+			"</head>\n" .
+			"<body>\n" .
+			"\t<header class='pwi-masthead'>\n" .
+			"\t\t<div class='pwi-container'>\n" .
+			"\t\t\t<a class='pwi-logo' href='https://processwire.com' target='_blank' rel='noopener'>" .
+			"<img src='$logo' alt='ProcessWire' /></a>\n" .
+			"\t\t\t<span class='pwi-masthead-title'>$title</span>\n" .
+			"\t\t</div>\n" .
+			"\t</header>\n" .
+			"\t<main class='pwi-main'>\n" .
+			"\t\t<div class='pwi-container'>\n";
+
+		if(!empty($formAction)) echo "\t\t<form action='$formAction' method='post'>\n";
+	}
+
+	/**
+	 * Render the installer closing form tag, footer and document end
+	 *
+	 * @param string $formAction
+	 *
+	 */
+	protected function renderFoot($formAction) {
+		if(!empty($formAction)) echo "\n\t\t</form>";
+		echo "\n\t\t</div>\n" .
+			"\t</main>\n" .
+			"\t<footer class='pwi-footer'>\n" .
+			"\t\t<div class='pwi-container'>\n" .
+			"\t\t\t<p>ProcessWire " . PROCESSWIRE_INSTALL . " &copy; " . date('Y') . "</p>\n" .
+			"\t\t</div>\n" .
+			"\t</footer>\n" .
+			"</body>\n" .
+			"</html>";
+	}
+
+	protected function initAi() {
+		if($this->ai !== null) return;
+		$file = __DIR__ . '/install/install-ai.php';
+		if(!is_file($file)) return;
+		/** @noinspection PhpIncludeInspection */
+		require_once($file);
+		if(class_exists(__NAMESPACE__ . '\InstallerAi')) $this->ai = new InstallerAi($this);
+	}
+
+	/**
 	 * Execution controller
 	 *
 	 */
@@ -154,12 +239,28 @@ class Installer {
 			die("This installer has already run. Please delete it.");
 		}
 
-		// these two vars used by install-head.inc
+		// these two vars are used by renderHead()
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
+		$this->initAi();
 		$step = $this->post('step');
 
+		// AI installer buttons post their own input names; translate them to steps here
+		// so that the install token is validated the same way as any other step
+		if($this->ai !== null && $step === null) {
+			if($this->post('step_ai') !== null) {
+				$step = (string) InstallerAi::stepStartAi;
+			} else if($this->post('step_skip_ai') !== null) {
+				$step = (string) InstallerAi::stepSkipAi;
+			}
+		}
+
 		$this->initInstallSession($step);
+
+		// Read AI installer state while the installer session is still the active one.
+		// At step 5 the installer boots ProcessWire, which starts its own session and
+		// replaces the installer session for the remainder of the request.
+		if($this->ai !== null) $this->ai->loadState();
 
 		if($step !== null && is_file($this->installLockFile())) {
 			$this->checkInstallLock();
@@ -169,7 +270,7 @@ class Installer {
 		
 		if($step === '5') require('./index.php');
 		
-		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc");
+		$this->renderHead($title, $formAction);
 		echo "<input type='hidden' name='install_token' value='" .
 			htmlentities($this->installToken, ENT_QUOTES, "UTF-8") . "' />";
 
@@ -180,7 +281,31 @@ class Installer {
 			switch($step) {
 				case 0: $this->initProfile(); break;
 				case 1: $this->compatibilityCheck(); break;
-				case 2: $this->dbConfig();  break;
+				case 2:
+					// AI mode inserts the provider step between compatibility check and DB config
+					if($this->ai !== null && $this->ai->isEnabled() && !$this->ai->hasProvider()) {
+						$this->ai->providerStep();
+					} else {
+						$this->dbConfig();
+					}
+					break;
+				case 3: // InstallerAi::stepProvider
+					if($this->ai === null) {
+						$this->dbConfig();
+					} else if($this->post('ai_api_key') === null) {
+						$this->ai->providerStep();
+					} else if($this->ai->providerSave()) {
+						$this->dbConfig();
+					}
+					break;
+				case 6: // InstallerAi::stepStartAi
+					if($this->ai !== null) $this->ai->setEnabled(true);
+					$this->initProfile();
+					break;
+				case 7: // InstallerAi::stepSkipAi
+					if($this->ai !== null) $this->ai->setEnabled(false);
+					$this->dbConfig();
+					break;
 				case 4: $this->dbSaveConfig();  break;
 				case 5: 
 					/** @var ProcessWire $wire */
@@ -192,7 +317,7 @@ class Installer {
 			} 
 		}
 
-		require("./wire/modules/AdminTheme/AdminThemeUikit/install-foot.inc"); 
+		$this->renderFoot($formAction);
 	}
 
 	/**
@@ -569,7 +694,9 @@ class Installer {
 			"If you need help or have questions during installation, please stop by our " . 
 			"<a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help."
 		);
-		$this->btn("Get Started", array('icon' => 'sign-in')); 
+		if($this->ai !== null) $this->ai->welcomeText();
+		$this->btn("Standard Install", array('icon' => 'sign-in'));
+		if($this->ai !== null) $this->ai->welcomeButton();
 	}
 
 
@@ -679,7 +806,7 @@ class Installer {
 			and click the “Refresh” button to make it available here.
 			</p> 
 			<p style='width: 240px;'>
-				<select class='uk-select' name='profile' id='select-profile'>
+				<select name='profile' id='select-profile'>
 					<option value=''>Installation Profiles</option>
 					$options
 				</select>
@@ -689,11 +816,19 @@ class Installer {
 				Select an installation profile to see more information.
 			</p>
 			$out
-			<script type='text/javascript'>
-			$('#select-profile').change(function() {
-				$('.profile-preview').hide();	
-				$('#' + $(this).val()).fadeIn('fast');
-			}).change();
+			<script>
+			(function() {
+				var select = document.getElementById('select-profile');
+				if(!select) return;
+				function updatePreview() {
+					var previews = document.querySelectorAll('.profile-preview');
+					for(var i = 0; i < previews.length; i++) previews[i].style.display = 'none';
+					var active = select.value ? document.getElementById(select.value) : null;
+					if(active) active.style.display = '';
+				}
+				select.addEventListener('change', updatePreview);
+				updatePreview();
+			})();
 			</script>
 		";
 		
@@ -958,8 +1093,8 @@ class Installer {
 			array(
 				'type' => 'password',
 				'required' => false,
-				'width' => '600',
-				'wrapClass' => 'uk-margin-remove-bottom',
+				'width' => 300,
+				'wrapClass' => 'pwi-no-margin-bottom',
 			)
 		);
 	
@@ -967,33 +1102,32 @@ class Installer {
 		$testActivation = self::TEST_ACTIVATION ? 'true' : 'false';
 		echo "
 			<script>
-				jQuery(document).ready(function($) {
-					let ho = $('input[name=dbHost]'), po = $('input[name=dbPort]'), 
-						so = $('input[name=dbSocket]'), co = $('select[name=dbCon]'),
-						ao = $('input[name=installerActivationToken]'),
-						activation = $('#installer-activation');
+				(function() {
+					function el(selector) { return document.querySelector(selector); }
+					function row(input) { return input ? input.closest('p') : null; }
+					function display(node, show) { if(node) node.style.display = show ? '' : 'none'; }
+					var ho = el('input[name=dbHost]'), po = el('input[name=dbPort]'),
+						so = el('input[name=dbSocket]'), co = el('select[name=dbCon]'),
+						ao = el('input[name=installerActivationToken]'),
+						activation = el('#installer-activation');
+					if(!co) return;
 					function updateConnectionFields() {
-						if(co.val() === 'Hostname') {
-							ho.prop('required', true).closest('p').show();
-							po.prop('required', true).closest('p').show();
-							so.prop('required', false).closest('p').hide();
-						} else {
-							ho.prop('required', false).closest('p').hide();
-							po.prop('required', false).closest('p').hide();
-							so.prop('required', true).closest('p').show();
-						}
-						let testActivation = $testActivation,
-							host = $.trim(ho.val()).toLowerCase(),
+						var useHost = co.value === 'Hostname';
+						if(ho) { ho.required = useHost; display(row(ho), useHost); }
+						if(po) { po.required = useHost; display(row(po), useHost); }
+						if(so) { so.required = !useHost; display(row(so), !useHost); }
+						var testActivation = $testActivation,
+							host = (ho ? ho.value : '').trim().toLowerCase(),
 							localHosts = ['localhost', '127.0.0.1', '::1', '[::1]'],
 							activationRequired = testActivation ||
-								(co.val() === 'Hostname' && localHosts.indexOf(host) === -1);
-						ao.prop('required', activationRequired);
-						activation.toggle(activationRequired);
+								(useHost && localHosts.indexOf(host) === -1);
+						if(ao) ao.required = activationRequired;
+						display(activation, activationRequired);
 					}
-					co.on('change', updateConnectionFields);
-					ho.on('input', updateConnectionFields);
+					co.addEventListener('change', updateConnectionFields);
+					if(ho) ho.addEventListener('input', updateConnectionFields);
 					updateConnectionFields();
-				});
+				})();
 			</script>
 		";
 
@@ -1088,11 +1222,11 @@ class Installer {
 		$yesChecked = empty($noChecked) ? "checked='checked'" : "";
 		$this->p(
 			"<label>" . 
-				"<input type='radio' class='uk-radio' name='debugMode' $yesChecked value='1'> <strong>ON:</strong> " . 
+				"<input type='radio' class='pwi-radio' name='debugMode' $yesChecked value='1'> <strong>ON:</strong> " .
 				"<span>Recommended while site is in development or while testing ProcessWire.</span>" . 
 			"</label><br />" .
 			"<label>" . 
-				"<input type='radio' class='uk-radio' name='debugMode' $noChecked value='0'> <strong>OFF:</strong> " . 
+				"<input type='radio' class='pwi-radio' name='debugMode' $noChecked value='0'> <strong>OFF:</strong> " .
 				"<span>Recommended once a site goes live or becomes publicly accessible.</span>" . 
 			"</label> " 
 		);
@@ -1108,12 +1242,12 @@ class Installer {
 		$originalChecked = $themeName === 'original' ? ' checked' : '';
 		$this->p(
 			"<label>" .
-				"<input type='radio' class='uk-radio' name='themeName' $defaultChecked value='default'> <strong>Konkat Default:</strong> " .
+				"<input type='radio' class='pwi-radio' name='themeName' $defaultChecked value='default'> <strong>Konkat Default:</strong> " .
 				"<span>Modern with light and dark modes, customizable main colors, made by Konkat Studio.</span>" .
 			"</label><br />" .
 			"<label>" .
-				"<input type='radio' class='uk-radio' name='themeName' $originalChecked value='original'> <strong>Core Original:</strong> " .
-				"<span>Classic ProcessWire with colors like this installer, widely used and very stable.</span>" .
+				"<input type='radio' class='pwi-radio' name='themeName' $originalChecked value='original'> <strong>Core Original:</strong> " .
+				"<span>The classic ProcessWire admin theme, widely used and very stable.</span>" .
 			"</label> "
 		);
 		$this->p(
@@ -1796,7 +1930,15 @@ class Installer {
 				'file' => '/.gitignore',
 			)
 		);
-		
+
+		if(is_dir($root . 'install')) {
+			$items['install-files'] = array(
+				'label' => 'Remove installer support files (/install/) when finished',
+				'file' => '/install/',
+				'path' => $root . 'install/',
+			);
+		}
+
 		foreach($this->findProfiles() as $name => $profile) {
 			if($name === 'site') continue;
 			$title = empty($profile['title']) ? $name : $profile['title'];
@@ -1814,7 +1956,7 @@ class Installer {
 			$note = $disabled ? "<span class='detail'>(not writable/deletable by this installer)</span>" : "";
 			$markup =
 				"<label style='font-weight: normal;'>" .
-				"<input class='uk-checkbox' type='checkbox' $checked $disabled name='remove_items[]' value='$name' /> $item[label] $note" .
+				"<input class='pwi-checkbox' type='checkbox' $checked $disabled name='remove_items[]' value='$name' /> $item[label] $note" .
 				"</label>";
 			$items[$name]['markup'] = $markup;
 			$out .= $out ? "<br />$markup" : $markup; 
@@ -1929,7 +2071,12 @@ class Installer {
 
 		$this->sectionStop();
 		
-		$this->finish($wire, $user); 
+		$this->finish($wire, $user);
+
+		if($this->ai !== null && $this->ai->isEnabled()) {
+			$this->ai->installAgentTools($wire);
+			$this->ai->siteBuilderLink($wire, $adminName);
+		}
 
 		$this->sectionStart("fa-life-buoy Complete &amp; Secure Your Installation");
 		$this->getRemoveableItems(false, true); 
@@ -2013,7 +2160,7 @@ class Installer {
 	 */
 	protected function alert($str, $type = 'primary', $icon = 'check') {
 		$icon = $this->icon($icon);
-		echo "\n<div class='uk-alert uk-alert-$type'>$icon $str</div>";
+		echo "\n<div class='pwi-alert pwi-alert-$type'>$icon $str</div>";
 	}
 
 	/**
@@ -2074,7 +2221,7 @@ class Installer {
 		} else {
 			$this->numErrors++;
 			$icon = $this->icon('exclamation-triangle');
-			echo "\n<div class='uk-text-danger'>$icon $str</div>";
+			echo "\n<div class='pwi-danger'>$icon $str</div>";
 		}
 		return false;
 	}
@@ -2092,7 +2239,7 @@ class Installer {
 		} else {
 			$this->numErrors++;
 			$icon = $this->icon('asterisk');
-			echo "\n<div class='uk-text-danger'>$icon $str</div>";
+			echo "\n<div class='pwi-danger'>$icon $str</div>";
 		}
 		return false;
 	}
@@ -2168,10 +2315,12 @@ class Installer {
 			'href' => '',
 			'type' => 'submit',
 			'class' => '',
+			'novalidate' => false,
 		);
 		$options = array_merge($defaults, $options);
-		$options['class'] = trim($options['class'] . ' ' . ($options['secondary'] ? 'ui-priority-secondary' : ''));
-		if($options['float']) $options['class'] = trim("$options[class] uk-float-left");
+		$novalidate = $options['novalidate'] ? " formnovalidate" : "";
+		$options['class'] = trim($options['class'] . ' ' . ($options['secondary'] ? 'pwi-button-secondary' : ''));
+		if($options['float']) $options['class'] = trim("$options[class] pwi-float-left");
 		if($options['href']) {
 			$options['type'] = 'button';
 			echo "<a href='$options[href]' target='_blank'>";
@@ -2179,9 +2328,9 @@ class Installer {
 		$icon = $this->icon($options['icon'], false); 
 		echo "\n" . 
 			"<p>" . 
-			"<button name='$options[name]' type='$options[type]' value='$options[value]' " . 
-			"class='ui-button ui-widget ui-state-default $options[class] ui-corner-all'>" . 
-			"<span class='ui-button-text'>$icon $label</span>" . 
+			"<button name='$options[name]' type='$options[type]' value='$options[value]'$novalidate " .
+			"class='pwi-button $options[class]'>" .
+			"<span class='pwi-button-text'>$icon $label</span>" .
 			"</button>" . 
 			"</p>";
 		if($options['href']) echo "</a>";
@@ -2231,6 +2380,27 @@ class Installer {
 	}
 
 	/**
+	 * Get the field width class for a pixel width used by input() and select()
+	 *
+	 * The installer previously applied pixel widths inline. Widths are now expressed
+	 * as classes so that install/install.css controls the layout, including how fields stack
+	 * on narrow screens. The pixel values remain the API for these methods.
+	 *
+	 * @param int $width Width in pixels
+	 * @return string Class name
+	 *
+	 */
+	protected function widthClass($width) {
+		$width = (int) $width;
+		if($width < 1) return 'pwi-w-full';
+		if($width <= 160) return 'pwi-w-xs';
+		if($width <= 260) return 'pwi-w-sm';
+		if($width <= 400) return 'pwi-w-md';
+		if($width < 500) return 'pwi-w-lg';
+		return 'pwi-w-full';
+	}
+
+	/**
 	 * Output an <input type='text'>
 	 *
 	 * @param string $name
@@ -2259,15 +2429,12 @@ class Installer {
 			$options['type'] = 'text';
 			$pattern = "pattern='[-_a-z0-9]{2,50}' ";
 			if($name == 'admin_name') $width = ($width*2);
-			$note = "<span class='uk-text-small uk-text-muted'>(a-z 0-9)</span>";
+			$note = "<span class='pwi-note'>(a-z 0-9)</span>";
 		}
-		$inputWidth = $width - 15;
 		$value = htmlentities($value, ENT_QUOTES, "UTF-8");
-		$wrapAttrs = "margin-top:0;width:{$width}px;";
-		$wrapClass = $options['wrapClass'] ? " class='$options[wrapClass]'" : '';
-		if($width < 500) $wrapAttrs .= "float:left;";
-		echo "\n<p$wrapClass style='$wrapAttrs'><label>$label $note<br />";
-		echo "<input class='uk-input' type='$options[type]' name='$name' value='$value' $required $pattern style='width:{$inputWidth}px;' />";
+		$wrapClass = trim('pwi-field ' . $this->widthClass($width) . ' ' . $options['wrapClass']);
+		echo "\n<p class='$wrapClass'><label>$label $note<br />";
+		echo "<input class='pwi-input' type='$options[type]' name='$name' value='$value' $required $pattern />";
 		echo "</label></p>";
 		if($options['clear']) $this->clear();
 	}
@@ -2283,18 +2450,12 @@ class Installer {
 	 *
 	 */
 	public function select($name, $label, $value, array $options, $width = 150) {
-		
-		if($width) {
-			$inputWidth = $width - 15;
-			$inputStyle = " style='width: {$inputWidth}px'";
-			echo "\n<p style='width: {$width}px; float: left; margin-top: 0;'>";
-		} else {
-			$inputStyle = '';
-			echo "\n<p style='margin-top:0'>";
-		}
-		
-		if($label) echo "<label>$label</label><br />";
-		echo "\n\t<select class='uk-select' name='$name'$inputStyle>";
+
+		$wrapClass = trim('pwi-field ' . $this->widthClass($width));
+		echo "\n<p class='$wrapClass'>";
+
+		if($label) echo "<label>$label</label>";
+		echo "\n\t<select name='$name'>";
 		
 		foreach($options as $k => $v) {
 			if(is_int($k)) $k = $v; // make non-assoc array behave same as assoc
@@ -2313,8 +2474,8 @@ class Installer {
 	 * 
 	 */
 	protected function selectTimezone($value) {
-		echo "\n<p style='width:240px'>";
-		echo "\n\t<select class='uk-select' name='timezone'>";
+		echo "\n<p class='pwi-field pwi-w-sm'>";
+		echo "\n\t<select name='timezone'>";
 		foreach($this->timezones() as $key => $timezone) {
 			$label = $timezone;
 			if(strpos($label, '|')) list($label, $timezone) = explode('|', $label);
@@ -2338,8 +2499,8 @@ class Installer {
 		$rows = $rows ? " rows='$rows'" : "";
 		$value = htmlentities($value, ENT_QUOTES, 'UTF-8');
 		echo "\n<p>";
-		if($label) echo "\n\t<label for='textarea_$name'>$label</label><br />";
-		echo "\n\t<textarea class='uk-textarea' id='textarea_$name' name='$name'$rows style='width: 100%;'>$value</textarea>";
+		if($label) echo "\n\t<label for='textarea_$name'>$label</label>";
+		echo "\n\t<textarea id='textarea_$name' name='$name'$rows>$value</textarea>";
 		echo "\n</p>";
 	}
 
@@ -2358,12 +2519,12 @@ class Installer {
 		];
 		if(!is_array($options)) $options = [ 'type' => $options ]; // legacy behavior
 		$options = array_merge($defaults, $options);
-		$class = "uk-section uk-section-small uk-section-$options[type] uk-padding uk-margin";
+		$class = "pwi-section pwi-section-$options[type]";
 		if(!empty($options['class'])) $class .= " $options[class]";
 		$attrs = "class='$class'";
 		if(!empty($options['id'])) $attrs .= " id='$options[id]'";
 		echo "\n<div $attrs>";
-		echo "\n\t<div class='uk-container'>";
+		echo "\n\t<div class='pwi-section-inner'>";
 		if($headline) {
 			$headline = $this->iconize($headline);
 			echo "<h2>$headline</h2>";
