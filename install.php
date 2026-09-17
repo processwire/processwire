@@ -694,8 +694,9 @@ class Installer {
 			"If you need help or have questions during installation, please stop by our " . 
 			"<a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help."
 		);
+		if($this->ai !== null) $this->ai->welcomeText();
 		$this->btn("Get Started", array('icon' => 'sign-in'));
-		if($this->ai !== null) $this->ai->welcomeOption();
+		if($this->ai !== null) $this->ai->welcomeButton();
 	}
 
 
@@ -1246,7 +1247,7 @@ class Installer {
 			"</label><br />" .
 			"<label>" .
 				"<input type='radio' class='pwi-radio' name='themeName' $originalChecked value='original'> <strong>Core Original:</strong> " .
-				"<span>Classic ProcessWire with colors like this installer, widely used and very stable.</span>" .
+				"<span>The classic ProcessWire admin theme, widely used and very stable.</span>" .
 			"</label> "
 		);
 		$this->p(
@@ -2455,7 +2456,7 @@ class Installer {
 		$wrapClass = trim('pwi-field ' . $this->widthClass($width));
 		echo "\n<p class='$wrapClass'>";
 
-		if($label) echo "<label>$label</label><br />";
+		if($label) echo "<label>$label</label>";
 		echo "\n\t<select name='$name'>";
 		
 		foreach($options as $k => $v) {
@@ -2500,7 +2501,7 @@ class Installer {
 		$rows = $rows ? " rows='$rows'" : "";
 		$value = htmlentities($value, ENT_QUOTES, 'UTF-8');
 		echo "\n<p>";
-		if($label) echo "\n\t<label for='textarea_$name'>$label</label><br />";
+		if($label) echo "\n\t<label for='textarea_$name'>$label</label>";
 		echo "\n\t<textarea id='textarea_$name' name='$name'$rows>$value</textarea>";
 		echo "\n</p>";
 	}

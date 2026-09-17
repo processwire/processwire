@@ -173,31 +173,38 @@ class InstallerAi {
 	/*** INSTALLER HOOK POINTS ****************************************************************/
 
 	/**
-	 * Render the AI-assisted option on the welcome screen
+	 * Render the AI-assisted option description on the welcome screen
 	 *
-	 * Called from Installer::welcome() after the standard "Get Started" button.
+	 * Called from Installer::welcome() before the buttons, so that the standard and
+	 * AI-assisted buttons appear together at the bottom of the screen.
 	 *
 	 */
-	public function welcomeOption() {
+	public function welcomeText() {
 
 		$installer = $this->installer;
 
 		if(!$this->isAvailable()) {
-			$installer->p(
-				"<span class='pwi-detail'>" . htmlentities($this->getUnavailableReason(), ENT_QUOTES, 'UTF-8') . "</span>",
-				'detail'
-			);
+			$installer->p(htmlentities($this->getUnavailableReason(), ENT_QUOTES, 'UTF-8'), 'pwi-detail');
 			return;
 		}
 
 		$installer->p(
-			"Or let an AI agent build your site for you. You'll need an API key from an AI provider " .
-			"such as Anthropic, or any OpenAI-compatible provider. After installation, you'll be asked " .
-			"what you would like to build, and an AI agent will create the fields, templates, pages and " .
-			"files for your site."
+			"You can install ProcessWire the standard way, or let an AI agent build your site for you. " .
+			"For AI-assisted installation you'll need an API key from an AI provider such as Anthropic, " .
+			"or any OpenAI-compatible provider. After installation, you'll be asked what you would like " .
+			"to build, and an AI agent will create the fields, templates, pages and files for your site."
 		);
+	}
 
-		$installer->btn("AI-Assisted Install", ['name' => 'step_ai', 'value' => '0', 'icon' => 'magic', 'secondary' => true]);
+	/**
+	 * Render the AI-assisted install button on the welcome screen
+	 *
+	 * Called from Installer::welcome() after the standard "Get Started" button.
+	 *
+	 */
+	public function welcomeButton() {
+		if(!$this->isAvailable()) return;
+		$this->installer->btn("AI-Assisted Install", ['name' => 'step_ai', 'value' => '0', 'icon' => 'magic', 'secondary' => true]);
 	}
 
 	/**
@@ -286,18 +293,19 @@ class InstallerAi {
 
 		$installer->sectionStart('fa-plug AI Provider');
 
+		// all four fields share one width, in two rows: format and model, then endpoint and key
+		$width = 320;
+
 		$installer->select('ai_provider', 'Request format', $values['provider'], [
 			self::providerAnthropic => 'Anthropic (Claude)',
 			self::providerOpenAI => 'OpenAI-compatible',
-		], 220);
+		], $width);
 
-		$installer->input('ai_model', 'Model', $values['model'], ['width' => 320]);
+		$installer->input('ai_model', 'Model', $values['model'], ['width' => $width]);
 		$installer->clear();
 
-		$installer->input('ai_endpoint', 'Endpoint URL', $values['endpoint'], ['width' => 540, 'required' => false]);
-		$installer->clear();
-
-		$installer->input('ai_api_key', 'API key', '', ['type' => 'password', 'width' => 540]);
+		$installer->input('ai_endpoint', 'Endpoint URL', $values['endpoint'], ['width' => $width, 'required' => false]);
+		$installer->input('ai_api_key', 'API key', '', ['type' => 'password', 'width' => $width]);
 		$installer->clear();
 
 		$installer->p(

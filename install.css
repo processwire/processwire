@@ -243,8 +243,19 @@ textarea,
 	font-size: 1rem;
 }
 
+/* Custom caret, drawn in currentColor so it works in light and dark mode */
 select {
-	padding-right: 2rem;
+	-webkit-appearance: none;
+	appearance: none;
+	padding-right: 2.5rem;
+	background-image:
+		linear-gradient(45deg, transparent 50%, currentColor 50%),
+		linear-gradient(135deg, currentColor 50%, transparent 50%);
+	background-position:
+		calc(100% - 1.15rem) 55%,
+		calc(100% - 0.85rem) 55%;
+	background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
+	background-repeat: no-repeat;
 }
 
 textarea {
@@ -284,6 +295,7 @@ input[type="checkbox"],
 }
 
 .pwi-field label {
+	display: block;
 	color: var(--pwi-muted);
 }
 
@@ -334,10 +346,20 @@ button:hover,
 	opacity: 0.8;
 }
 
-/* Buttons are wrapped in <p> by the installer; keep them on one row */
+/* Buttons are wrapped in <p> (and sometimes <a>) by the installer; align them in a row */
+p:has(> button),
+a:has(> p > button) {
+	display: inline-flex;
+	vertical-align: top;
+}
+
 p:has(> button) {
-	display: inline-block;
-	margin-right: 0.5rem;
+	margin: 0 0.5rem var(--pwi-space) 0;
+}
+
+/* Floats on buttons break row alignment, so ignore them */
+.pwi-button.pwi-float-left {
+	float: none;
 }
 
 a:has(> p > button) {
