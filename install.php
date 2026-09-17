@@ -150,7 +150,7 @@ class Installer {
 	protected $ai = null;
 
 	/**
-	 * Load the AI-assisted installer helper, if the install-ai.php file is present
+	 * Load the AI-assisted installer helper, if the install/install-ai.php file is present
 	 *
 	 * All AI-specific logic lives in that file, so that this class stays focused on
 	 * installing ProcessWire. When the file is not present, no AI options are offered.
@@ -161,7 +161,7 @@ class Installer {
 	 *
 	 * The installer renders its own document rather than using an admin theme, so that
 	 * it stays consistent and self-contained regardless of admin theme changes. Styles
-	 * are in install.css, which is removed along with install.php when finished.
+	 * are in install/install.css, which is removed along with install.php when finished.
 	 *
 	 * @param string $title
 	 * @param string $formAction
@@ -181,7 +181,7 @@ class Installer {
 			"\t<meta name='viewport' content='width=device-width, initial-scale=1.0' />\n" .
 			"\t<meta name='robots' content='noindex, nofollow' />\n" .
 			"\t<title>$title</title>\n" .
-			"\t<link rel='stylesheet' href='install.css' />\n" .
+			"\t<link rel='stylesheet' href='install/install.css' />\n" .
 			"\t<link rel='stylesheet' href='$fontAwesome' />\n" .
 			"</head>\n" .
 			"<body>\n" .
@@ -219,7 +219,7 @@ class Installer {
 
 	protected function initAi() {
 		if($this->ai !== null) return;
-		$file = __DIR__ . '/install-ai.php';
+		$file = __DIR__ . '/install/install-ai.php';
 		if(!is_file($file)) return;
 		/** @noinspection PhpIncludeInspection */
 		require_once($file);
@@ -1093,7 +1093,7 @@ class Installer {
 			array(
 				'type' => 'password',
 				'required' => false,
-				'width' => '600',
+				'width' => 300,
 				'wrapClass' => 'pwi-no-margin-bottom',
 			)
 		);
@@ -1931,16 +1931,14 @@ class Installer {
 			)
 		);
 
-		if(is_file($root . 'install.css')) {
-			$items['install-css'] = array(
-				'label' => 'Remove installer stylesheet (install.css) when finished',
-				'file' => '/install.css',
-				'path' => $root . 'install.css',
+		if(is_dir($root . 'install')) {
+			$items['install-files'] = array(
+				'label' => 'Remove installer support files (/install/) when finished',
+				'file' => '/install/',
+				'path' => $root . 'install/',
 			);
 		}
 
-		if($this->ai !== null) $items = array_merge($items, $this->ai->getRemoveableItems($root));
-		
 		foreach($this->findProfiles() as $name => $profile) {
 			if($name === 'site') continue;
 			$title = empty($profile['title']) ? $name : $profile['title'];
@@ -2385,7 +2383,7 @@ class Installer {
 	 * Get the field width class for a pixel width used by input() and select()
 	 *
 	 * The installer previously applied pixel widths inline. Widths are now expressed
-	 * as classes so that install.css controls the layout, including how fields stack
+	 * as classes so that install/install.css controls the layout, including how fields stack
 	 * on narrow screens. The pixel values remain the API for these methods.
 	 *
 	 * @param int $width Width in pixels

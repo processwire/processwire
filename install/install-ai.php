@@ -248,25 +248,6 @@ class InstallerAi {
 		return self::stepProvider;
 	}
 
-	/**
-	 * Get removable installer items to add to Installer::getRemoveableItems()
-	 *
-	 * @param string $root Installation root path with trailing slash
-	 * @return array
-	 *
-	 */
-	public function getRemoveableItems($root) {
-		$items = [];
-		if(is_file($root . 'install-ai.php')) {
-			$items['install-ai-php'] = [
-				'label' => 'Remove AI installer (install-ai.php) when finished',
-				'file' => '/install-ai.php',
-				'path' => $root . 'install-ai.php',
-			];
-		}
-		return $items;
-	}
-
 	/*** PROVIDER STEP ************************************************************************/
 
 	/**
@@ -301,7 +282,7 @@ class InstallerAi {
 			self::providerOpenAI => 'OpenAI-compatible',
 		], $width);
 
-		$installer->input('ai_model', 'Model', $values['model'], ['width' => $width]);
+		$installer->input('ai_model', 'Model ID (e.g. claude-opus-5)', $values['model'], ['width' => $width]);
 		$installer->clear();
 
 		$installer->input('ai_endpoint', 'Endpoint URL', $values['endpoint'], ['width' => $width, 'required' => false]);
