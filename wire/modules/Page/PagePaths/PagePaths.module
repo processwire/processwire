@@ -6,9 +6,9 @@
  * Keeps a cache of page paths to improve performance and 
  * make paths more queryable by selectors.
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
- * 
+ *
  * @property array $rootSegments
  *
  */
@@ -17,8 +17,8 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => 'Page Paths', 
-			'version' => 4, 
+			'title' => 'Page Paths',
+			'version' => 5,
 			'summary' => "Enables page paths/urls to be queryable by selectors. Also offers potential for improved load performance. Builds an index at install (may take time on a large site).",
 			'singular' => true, 
 			'autoload' => true, 
@@ -36,6 +36,14 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	protected $languages = null;
+
+	/**
+	 * Cache of template ID => bool, whether template's page class implements custom path logic
+	 *
+	 * @var array
+	 *
+	 */
+	protected $customPathTemplates = array();
 
 	/**
 	 * Construct
@@ -436,6 +444,9 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			$hasChildren = $page instanceof Page ? $page->numChildren > 0 : true;
 		}
 
+		// paths that children derive their own paths from, when different from $paths
+		$childPaths = array();
+
 		if(empty($paths)) {
 			// determine the paths
 			if(!is_object($page) || !$page instanceof Page) {
@@ -455,17 +466,22 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 				// single language
 				$paths[0] = $page->path();
 			}
+			if($hasChildren) $childPaths = $this->getChildBasePaths($page, $paths);
 		} else {
 			// $paths already populated
 			$pageId = (int) "$page";
 		}
-		
+
 		if($pageId === $rootPageId) $rebuildRoot = true;
 
 		// sanitize and prepare paths for DB storage
 		foreach($paths as $languageId => $path) {
 			$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
 			$paths[$languageId] = trim($path, '/');
+		}
+		foreach($childPaths as $languageId => $path) {
+			$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
+			$childPaths[$languageId] = trim($path, '/');
 		}
 		
 		$sql = 	
@@ -489,7 +505,8 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 				// but is used on children
 				$paths[0] = $homeDefaultName;
 			}
-			$numUpdated += $this->updatePagePathsChildren($pageId, $paths);
+			if(empty($childPaths)) $childPaths = $paths;
+			$numUpdated += $this->updatePagePathsChildren($pageId, $childPaths);
 		}
 		
 		if($level === 1 && $numUpdated > 0) {
@@ -507,21 +524,28 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Companion to updatePagePaths method to handle children 
-	 * 
+	 * Companion to updatePagePaths method to handle children
+	 *
+	 * For speed, child paths are assumed to be the parent path plus the child page name,
+	 * except for children using a template whose page class implements its own path logic
+	 * (see templateHasCustomPath method), which have their paths determined from the page
+	 * API instead. Hook this method if you need to replace the logic entirely.
+	 *
+	 * #pw-hookable
+	 *
 	 * @param int $pageId
 	 * @param array $paths Paths indexed by language ID, index 0 for default language
 	 * @return int
-	 * @since 3.0.186
+	 * @since 3.0.186 Hookable since 3.0.272
 	 *
 	 */
-	protected function updatePagePathsChildren($pageId, array $paths) {
-	
+	protected function ___updatePagePathsChildren($pageId, array $paths) {
+
 		$database = $this->wire()->database;
 		$languages = $this->getLanguages();
 		$nameColumns = array('pages.name AS name');
 		$numUpdated = 0;
-		
+
 		if($languages) {
 			foreach($languages as $language) {
 				/** @var Language $language */
@@ -529,9 +553,9 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 				$nameColumns[] = "pages.name$language->id AS name$language->id";
 			}
 		}
-		
+
 		$sql =
-			"SELECT pages.id AS id, " . implode(', ', $nameColumns) . ", " .
+			"SELECT pages.id AS id, pages.templates_id AS templates_id, " . implode(', ', $nameColumns) . ", " .
 			"COUNT(children.id) AS kids " .
 			"FROM pages " .
 			"LEFT JOIN pages AS children ON children.id=pages.parent_id " .
@@ -544,44 +568,107 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$query = $database->prepare($sql);
 		$query->bindValue(":id", $pageId, \PDO::PARAM_INT);
 		$rows = array();
-		
+
 		if(!$this->executeQuery($query)) return $numUpdated;
-		
+
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 			$rows[] = $row;
 		}
-		
+
 		$query->closeCursor();
 
 		foreach($rows as $row) {
+			$hasChildren = $row['kids'] > 0;
+			if($this->templateHasCustomPath((int) $row['templates_id'])) {
+				// page class implements its own path logic, so determine paths from the
+				// page API rather than assuming parent path + child name
+				$child = $this->wire()->pages->get((int) $row['id']);
+				if($child->id) {
+					$numUpdated += $this->updatePagePaths($child, $hasChildren);
+					continue;
+				}
+			}
 			$childPaths = array();
 			foreach($paths as $languageId => $path) {
 				$key = $languageId ? "name$languageId" : "name";
 				$name = !empty($row[$key]) ? $row[$key] : $row["name"];
 				$childPaths[$languageId] = "$path/$name";
 			}
-			$numUpdated += $this->updatePagePaths((int) $row['id'], $row['kids'] > 0, $childPaths);
+			$numUpdated += $this->updatePagePaths((int) $row['id'], $hasChildren, $childPaths);
 		}
-		
+
 		return $numUpdated;
 	}
 
 	/**
-	 * Alternate proposed replacement for updatePagePathsChildren() method
-	 * 
-	 * @param int $pageId
-	 * @param array $paths
-	 * @return int
-	 * @throws WireException
-	 * 
-	public function updatePagePathsChildren($pageId, array $paths) {
-		$numUpdated = 0;
-		foreach($this->wire()->pages->findMany("parent=$pageId,include=all") as $childPage) {
-			$numUpdated += $this->updatePagePaths($childPage);
+	 * Does the page class used by given template implement its own path logic?
+	 *
+	 * Returns true if the template’s page class (or a parent class other than Page) overrides
+	 * the path(), ___path() or localPath() methods, making the page’s actual path potentially
+	 * differ from the “parent path + page name” assumption that updatePagePathsChildren()
+	 * uses for speed.
+	 *
+	 * @param int $templateId
+	 * @return bool
+	 * @since 3.0.272
+	 *
+	 */
+	protected function templateHasCustomPath($templateId) {
+		$templateId = (int) $templateId;
+		if(isset($this->customPathTemplates[$templateId])) return $this->customPathTemplates[$templateId];
+		$has = false;
+		$template = $this->wire()->templates->get($templateId);
+		$class = $template ? $template->getPageClass(true) : '';
+		if($class && $class !== Page::class && class_exists($class)) {
+			foreach(array('path', '___path', 'localPath', '___localPath') as $name) {
+				if(!method_exists($class, $name)) continue;
+				$method = new \ReflectionMethod($class, $name);
+				if($method->getDeclaringClass()->getName() !== Page::class) {
+					$has = true;
+					break;
+				}
+			}
 		}
-		return $numUpdated;
+		$this->customPathTemplates[$templateId] = $has;
+		return $has;
 	}
-	*/
+
+	/**
+	 * Get the paths that children of given page derive their own paths from
+	 *
+	 * These are usually the same as the page’s own paths (in which case an empty array is
+	 * returned), but when the page’s class implements custom path logic, children instead
+	 * derive their paths from the tree/names-based path, consistent with the Page::___path()
+	 * implementation, which determines a path from parent names rather than parent paths.
+	 *
+	 * @param Page $page
+	 * @param array $paths The page’s own paths indexed by language ID, index 0 for default language
+	 * @return array Child base paths indexed by language ID, or empty array if same as $paths
+	 * @since 3.0.272
+	 *
+	 */
+	protected function getChildBasePaths(Page $page, array $paths) {
+		if($page->id === 1) return array();
+		if(!$this->templateHasCustomPath((int) $page->templates_id)) return array();
+		$parent = $page->parent();
+		if(!$parent->id) return array();
+		$languages = $this->getLanguages();
+		$childPaths = array();
+		foreach($paths as $languageId => $path) {
+			if($languageId) {
+				$language = $languages ? $languages->get($languageId) : null;
+				if(!$language || !$language->id) continue;
+				$parentPath = $parent->localPath($language);
+				$name = $page->get("name$languageId");
+				if(!strlen("$name")) $name = $page->name;
+			} else {
+				$parentPath = $languages ? $parent->localPath($languages->getDefault()) : $parent->path();
+				$name = $page->name;
+			}
+			$childPaths[$languageId] = rtrim($parentPath, '/') . "/$name";
+		}
+		return $childPaths;
+	}
 
 	
 	/*** ROOT SEGMENTS ******************************************************************************/
