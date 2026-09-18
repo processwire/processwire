@@ -1543,7 +1543,7 @@ class Installer {
 
 		if(function_exists('random_bytes')) {
 			$authSalt = sha1(random_bytes(random_int(40, 128)));
-			$tableSalt = sha1(random_int(0, 65535) . "$host$file$time"); 
+			$tableSalt = sha1(random_bytes(random_int(40, 128)));
 		} else {
 			$authSalt = md5(mt_rand() . microtime(true));
 			$tableSalt = md5(mt_rand() . "$host$file$time"); 
