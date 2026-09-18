@@ -16,6 +16,11 @@ $templatesUrl = $config->urls->templates;
 $summary = (string) $page->get('summary'); // entity-encoded by TextformatterEntities
 $isHome = $page->id === $home->id;
 
+// The homepage title is the site name, which site-header already shows, so on the
+// homepage the summary becomes the headline rather than repeating the site name
+$headline = $isHome && $summary !== '' ? $summary : $page->title;
+$showSummary = $summary !== '' && $headline !== $summary;
+
 ?><!DOCTYPE html>
 <html lang="en">
 <head id="html-head">
@@ -65,8 +70,8 @@ $isHome = $page->id === $home->id;
 			<?php endif; ?>
 
 			<header id="page-header" class="page-header">
-				<h1 id="headline"><?= $page->title ?></h1>
-				<?php if($summary !== ''): ?>
+				<h1 id="headline"><?= $headline ?></h1>
+				<?php if($showSummary): ?>
 				<p class="page-summary"><?= $summary ?></p>
 				<?php endif; ?>
 			</header>

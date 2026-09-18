@@ -27,8 +27,8 @@ Region ids defined in `_main.php`:
 | `site-header` | `<header>` | Site name and main navigation |
 | `site-nav` | `<nav>` | Homepage and its visible children |
 | `breadcrumbs` | `<nav>` | Parent page links (not on the homepage) |
-| `page-header` | `<header>` | `h1#headline` title and the `summary` field |
-| `headline` | `<h1>` | Page title |
+| `page-header` | `<header>` | `h1#headline` and the `summary` field (on the homepage, the summary is the headline) |
+| `headline` | `<h1>` | Page title; on the homepage, the `summary` (falls back to the title) |
 | `content` | `<div>` | The `body` field |
 | `site-footer` | `<footer>` | Copyright and edit link |
 
@@ -40,9 +40,13 @@ For example, to add stylesheet only on one template, output
 `$page->title` and `$page->summary` again gives the page two headlines and two copies of the
 summary. Output only what the regions don't already cover, and where a template needs a different
 header, replace the region (`<header id="page-header">…</header>`) or remove it
-(`<header id="page-header" pw-remove></header>`) instead of adding a second one. On the homepage
-the site name in `site-header` is the home page's title too, so a homepage hero repeating the title
-shows it three times.
+(`<header id="page-header" pw-remove></header>`) instead of adding a second one.
+
+The home page's title is the site name, which `site-header` shows on every page and which ends
+each page's `<title>`. So on the homepage, `page-header` uses the home `summary` as the headline
+instead of the title, and does not repeat it below. Write the home `summary` as a short headline
+saying what the site offers, not as a description of the page, and set the home title to the
+site or business name.
 
 ## Files
 

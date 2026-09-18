@@ -240,6 +240,11 @@ a:hover {
 	margin-block-start: var(--space-sm);
 }
 
+/* The homepage headline is a sentence (the summary), so keep its lines to a readable length */
+.template-home .page-header h1 {
+	max-width: 24ch;
+}
+
 .page-summary {
 	max-width: var(--measure);
 	font-size: var(--text-lg);
