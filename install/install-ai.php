@@ -524,7 +524,7 @@ class InstallerAi {
 		$message = $this->getResponseError($response['body']);
 
 		if($response['error'] !== '') {
-			$error = "Could not reach the provider: $response[error]";
+			$error = "Could not reach the provider: " . $this->truncate($response['error']);
 		} else if($status === 401 || $status === 403) {
 			$error = "The provider rejected this API key" . ($message ? ": $message" : '.');
 		} else if($status === 404) {
@@ -581,17 +581,31 @@ class InstallerAi {
 	}
 
 	/**
-	 * Truncate and entity-encode a provider message for display
+	 * Truncate and entity-encode a message for display
 	 *
 	 * @param string $str
 	 * @param int $maxLength
-	 * @return string
+	 * @return string Markup
 	 *
 	 */
 	protected function truncate($str, $maxLength = 300) {
+		return htmlentities($this->shorten($str, $maxLength), ENT_QUOTES, 'UTF-8');
+	}
+
+	/**
+	 * Collapse whitespace and truncate a message, without encoding it
+	 *
+	 * For text that will be encoded later, such as exception messages.
+	 *
+	 * @param string $str
+	 * @param int $maxLength
+	 * @return string Plain text
+	 *
+	 */
+	protected function shorten($str, $maxLength = 300) {
 		$str = trim(preg_replace('/\s+/', ' ', (string) $str));
 		if(strlen($str) > $maxLength) $str = substr($str, 0, $maxLength) . '…';
-		return htmlentities($str, ENT_QUOTES, 'UTF-8');
+		return $str;
 	}
 
 	/**
@@ -777,7 +791,7 @@ class InstallerAi {
 
 			$this->clearCredentials();
 
-		} catch(\Exception $e) {
+		} catch(\Throwable $e) {
 			$this->discardPrefetch();
 			$this->installAgentToolsFailed($wire, $stage, $e->getMessage(), $values);
 			$installer->sectionStop();
@@ -817,7 +831,7 @@ class InstallerAi {
 		];
 
 		$installer->err(isset($reasons[$stage]) ? $reasons[$stage] : $reasons['install']);
-		$installer->p("Details: " . htmlentities($this->truncate($error), ENT_QUOTES, 'UTF-8'), 'detail');
+		$installer->p("Details: " . $this->truncate($error), 'detail');
 
 		if($stage === 'configure') {
 			$installer->p(
@@ -832,7 +846,7 @@ class InstallerAi {
 		try {
 			$cache = $wire->wire('cache');
 			if($cache) $kept = (bool) $cache->save(self::pendingSettingsCacheName, $this->getAgentToolsSettings($values), self::pendingSettingsExpire);
-		} catch(\Exception $e) {
+		} catch(\Throwable $e) {
 			$kept = false;
 		}
 
@@ -873,7 +887,7 @@ class InstallerAi {
 		$data = $response['status'] === 200 ? json_decode($response['body'], true) : null;
 		if(!is_array($data)) {
 			return "The ProcessWire modules directory could not be reached" .
-				($response['error'] !== '' ? " (" . htmlentities($this->truncate($response['error']), ENT_QUOTES, 'UTF-8') . ")." : ".");
+				($response['error'] !== '' ? " (" . $this->truncate($response['error']) . ")." : ".");
 		}
 
 		$zipUrl = (string) ($data['download_url'] ?? '');
@@ -883,7 +897,7 @@ class InstallerAi {
 		if($response['status'] !== 200 || !$this->isZipFile($file)) {
 			@unlink($file);
 			return "The download from " . htmlentities((string) parse_url($zipUrl, PHP_URL_HOST), ENT_QUOTES, 'UTF-8') .
-				" failed" . ($response['error'] !== '' ? " (" . htmlentities($this->truncate($response['error']), ENT_QUOTES, 'UTF-8') . ")." : ".");
+				" failed" . ($response['error'] !== '' ? " (" . $this->truncate($response['error']) . ")." : ".");
 		}
 
 		return '';
@@ -964,7 +978,7 @@ class InstallerAi {
 
 		$data = $http->getJSON($url);
 		if(!is_array($data)) throw new \Exception("Unable to reach the ProcessWire modules directory.");
-		if(($data['status'] ?? '') === 'error') throw new \Exception("Modules directory: " . $this->truncate($data['error'] ?? 'unknown error'));
+		if(($data['status'] ?? '') === 'error') throw new \Exception("Modules directory: " . $this->shorten($data['error'] ?? 'unknown error'));
 
 		$zipUrl = (string) ($data['download_url'] ?? $data['project_url'] ?? '');
 		if(stripos($zipUrl, 'https://') !== 0) throw new \Exception("The AgentTools module has no secure download URL.");
