@@ -18,9 +18,11 @@
  *     and writes the provider settings to it.
  *  4. Hands off to the AgentTools Site Builder to build the site.
  *
- * Provider credentials are kept in the installer session only, and are written to
- * the AgentTools module configuration once at the end of installation. They are
- * never written to any file by this class.
+ * Provider credentials are kept in the installer session until the end of installation,
+ * then written to the AgentTools module configuration and removed from the session. If
+ * AgentTools can't be installed, they are kept in the ProcessWire cache for a week instead,
+ * for AgentTools to apply when it is installed manually. They are never written to any
+ * file by this class.
  *
  * This file is removed along with install.php when the installer is finished.
  *
@@ -85,6 +87,20 @@ class InstallerAi {
 	 */
 	const defaultAnthropicEndpoint = 'https://api.anthropic.com/v1/messages';
 	const defaultOpenAIEndpoint = 'https://api.openai.com/v1/chat/completions';
+
+	/**
+	 * Cache name for provider settings kept when AgentTools could not be installed
+	 *
+	 * AgentTools applies and deletes these when it is installed.
+	 *
+	 */
+	const pendingSettingsCacheName = 'AgentTools.installerSettings';
+
+	/**
+	 * Seconds to keep those settings (7 days)
+	 *
+	 */
+	const pendingSettingsExpire = 604800;
 
 	/**
 	 * Seconds to wait for the provider test request
@@ -187,6 +203,19 @@ class InstallerAi {
 	}
 
 	/**
+	 * Begin a new installation, discarding any AI state from a previous one
+	 *
+	 * The installer session outlives an installation, so without this a second install in
+	 * the same browser would reuse the previous provider settings and skip the provider step.
+	 *
+	 * @param bool $enabled Whether the new installation is AI-assisted
+	 *
+	 */
+	public function reset($enabled) {
+		$this->sessionWrite(['enabled' => (bool) $enabled]);
+	}
+
+	/**
 	 * Are validated provider settings present?
 	 *
 	 * @return bool
@@ -226,7 +255,7 @@ class InstallerAi {
 	/**
 	 * Render the AI-assisted install button on the welcome screen
 	 *
-	 * Called from Installer::welcome() after the standard "Get Started" button.
+	 * Called from Installer::welcome() after the Standard Install button.
 	 *
 	 */
 	public function welcomeButton() {
@@ -263,16 +292,6 @@ class InstallerAi {
 		} else {
 			$installer->err("/site/modules/ must be writable to install the AgentTools module");
 		}
-	}
-
-	/**
-	 * Get the step number that the compatibility check should continue to
-	 *
-	 * @return int
-	 *
-	 */
-	public function getNextStepAfterCompatibility() {
-		return self::stepProvider;
 	}
 
 	/*** PROVIDER STEP ************************************************************************/
@@ -377,7 +396,7 @@ class InstallerAi {
 		}
 
 		if($values['model'] === '') {
-			$this->providerStep($values, 'Please enter the model name to use, for example claude-sonnet-5.');
+			$this->providerStep($values, 'Please enter the model ID to use, for example claude-opus-5.');
 			return false;
 		}
 
@@ -395,8 +414,45 @@ class InstallerAi {
 
 		$this->setValues($values);
 
+		$host = (string) parse_url($values['endpoint'], PHP_URL_HOST);
+		$message = "Successfully connected to model <b>" . $this->entities($values['model']) . "</b>";
+		if($host !== '') $message .= " at " . $this->entities($host);
+		if($result['model'] !== '' && $result['model'] !== $values['model']) {
+			$message .= " (reported by the provider as <b>" . $this->entities($result['model']) . "</b>)";
+		}
+		$this->connectedMessage = "$message.";
+
 		return true;
 	}
+
+	/**
+	 * Get the confirmation from the last successful provider test, for display on the next step
+	 *
+	 * @return string Markup, or blank if no test has succeeded in this request
+	 *
+	 */
+	public function getConnectedMessage() {
+		return $this->connectedMessage;
+	}
+
+	/**
+	 * Entity-encode a value for output
+	 *
+	 * @param string $value
+	 * @return string
+	 *
+	 */
+	protected function entities($value) {
+		return htmlentities((string) $value, ENT_QUOTES, 'UTF-8');
+	}
+
+	/**
+	 * Confirmation from the last successful provider test in this request
+	 *
+	 * @var string
+	 *
+	 */
+	protected $connectedMessage = '';
 
 	/**
 	 * Send a minimal request to the provider to verify the key, endpoint and model
@@ -433,7 +489,13 @@ class InstallerAi {
 		$response = $this->httpPost($values['endpoint'], $headers, json_encode($payload));
 		$status = (int) $response['status'];
 
-		if($status >= 200 && $status < 300) return ['ok' => true, 'error' => '', 'status' => $status];
+		if($status >= 200 && $status < 300) {
+			// Both API formats report the model that answered, which can differ from the one
+			// requested when a provider resolves an alias or routes to another model
+			$data = json_decode((string) $response['body'], true);
+			$model = is_array($data) && isset($data['model']) && is_string($data['model']) ? $data['model'] : '';
+			return ['ok' => true, 'error' => '', 'status' => $status, 'model' => $model];
+		}
 
 		$message = $this->getResponseError($response['body']);
 
@@ -573,11 +635,11 @@ class InstallerAi {
 	 */
 	public function getRecommendedModelsNote() {
 		return
-			"Site building works best with a capable coding model. We recommend " .
-			"<b>Claude Sonnet 5</b>, <b>Opus 4.6</b> or newer (Anthropic format); " .
-			"<b>GPT 5.5</b> or newer, <b>GLM 5.2</b> or newer, or <b>Kimi K2.7 Code</b> " .
-			"(OpenAI-compatible format). Smaller or older models may struggle to produce a " .
-			"complete site. You can change the model later in the AgentTools module settings.";
+			"Site building works best with a recent, capable coding model. We recommend a current " .
+			"<b>OpenAI GPT</b> model (OpenAI-compatible format), or <b>Claude</b> Sonnet, Opus or " .
+			"Fable (Anthropic format). Any other recent and capable model available through either " .
+			"format may also work, such as GLM, DeepSeek, Kimi, MiniMax or Qwen. You can change the " .
+			"model later in the AgentTools module settings.";
 	}
 
 	/*** AGENTTOOLS INSTALLATION **************************************************************/
@@ -605,33 +667,32 @@ class InstallerAi {
 
 		$installer->sectionStart('fa-magic AI Site Builder');
 
+		$stage = 'download';
+
 		try {
 			if(!$modules->isInstalled('AgentTools')) {
 				$file = $this->downloadAgentTools($wire);
 				if($file === '') throw new \Exception("Unable to download the AgentTools module.");
+				$stage = 'extract';
 				$this->extractAgentTools($wire, $file);
 				@unlink($file);
 				$modules->refresh();
 			}
 
+			$stage = 'install';
 			if(!$modules->isInstalled('AgentTools')) $modules->install('AgentTools');
 			if(!$modules->isInstalled('AgentTools')) throw new \Exception("Unable to install the AgentTools module.");
 
 			$installer->ok("Installed the AgentTools module");
 
+			$stage = 'configure';
 			$this->configureAgentTools($wire, $values);
 			$installer->ok("Saved your AI provider settings to AgentTools");
 
 			$this->clearCredentials();
 
 		} catch(\Exception $e) {
-			$installer->err(htmlentities($e->getMessage(), ENT_QUOTES, 'UTF-8'));
-			$installer->p(
-				"ProcessWire is installed and ready to use. To build your site with AI, install the " .
-				"<a target='_blank' href='https://processwire.com/modules/agent-tools/'>AgentTools</a> " .
-				"module manually and enter your API key in its module settings.",
-				'detail'
-			);
+			$this->installAgentToolsFailed($wire, $stage, $e->getMessage(), $values);
 			$installer->sectionStop();
 			$this->clearCredentials();
 			return false;
@@ -640,6 +701,63 @@ class InstallerAi {
 		$installer->sectionStop();
 
 		return true;
+	}
+
+	/**
+	 * Explain an AgentTools installation failure, and keep the provider settings for later
+	 *
+	 * ProcessWire itself is installed at this point, so the failure only affects the AI
+	 * Site Builder. Unless AgentTools was already installed, the provider settings are kept
+	 * in the cache for a week, for AgentTools to apply when it is installed manually, so the
+	 * user doesn't have to enter them again.
+	 *
+	 * @param ProcessWire $wire
+	 * @param string $stage One of: download, extract, install, configure
+	 * @param string $error Technical error message
+	 * @param array $values Provider settings
+	 *
+	 */
+	protected function installAgentToolsFailed($wire, $stage, $error, array $values) {
+
+		$installer = $this->installer;
+
+		$reasons = [
+			'download' => "AgentTools could not be downloaded. This server may not have access to the internet, " .
+				"or it may have been a temporary network problem.",
+			'extract' => "AgentTools was downloaded but could not be unpacked into /site/modules/.",
+			'install' => "AgentTools was downloaded but could not be installed.",
+			'configure' => "AgentTools was installed, but your AI provider settings could not be saved to it.",
+		];
+
+		$installer->err(isset($reasons[$stage]) ? $reasons[$stage] : $reasons['install']);
+		$installer->p("Details: " . htmlentities($this->truncate($error), ENT_QUOTES, 'UTF-8'), 'detail');
+
+		if($stage === 'configure') {
+			$installer->p(
+				"ProcessWire is installed and ready to use. To build your site with AI, enter your " .
+				"AI provider settings in the AgentTools module settings.",
+				'detail'
+			);
+			return;
+		}
+
+		$kept = false;
+		try {
+			$cache = $wire->wire('cache');
+			if($cache) $kept = (bool) $cache->save(self::pendingSettingsCacheName, $this->getAgentToolsSettings($values), self::pendingSettingsExpire);
+		} catch(\Exception $e) {
+			$kept = false;
+		}
+
+		$installer->p(
+			"ProcessWire is installed and ready to use. To build your site with AI, install the " .
+			"<a target='_blank' href='https://processwire.com/modules/agent-tools/'>AgentTools</a> " .
+			"module from Modules &gt; New in your admin. " .
+			($kept
+				? "Your AI provider settings have been kept, and will be applied automatically if you install it within the next 7 days."
+				: "Then enter your AI provider settings in its module settings."),
+			'detail'
+		);
 	}
 
 	/**
@@ -740,13 +858,7 @@ class InstallerAi {
 		$modules = $wire->wire('modules');
 		$agentTools = $modules->get('AgentTools');
 
-		$settings = [
-			'provider' => $values['provider'],
-			'apiKey' => $values['apiKey'],
-			'model' => $values['model'],
-			'endpoint' => $values['endpoint'],
-			'label' => 'Installed with ProcessWire',
-		];
+		$settings = $this->getAgentToolsSettings($values);
 
 		if(method_exists($agentTools, 'configurePrimaryAgent')) {
 			$agentTools->configurePrimaryAgent($settings);
@@ -759,6 +871,23 @@ class InstallerAi {
 		$data['engineer_model'] = $settings['model'];
 		$data['engineer_endpoint'] = $settings['endpoint'];
 		$modules->saveConfig('AgentTools', $data);
+	}
+
+	/**
+	 * Get provider settings in the form AgentTools::configurePrimaryAgent() accepts
+	 *
+	 * @param array $values Provider values from the installer
+	 * @return array
+	 *
+	 */
+	protected function getAgentToolsSettings(array $values) {
+		return [
+			'provider' => $values['provider'],
+			'apiKey' => $values['apiKey'],
+			'model' => $values['model'],
+			'endpoint' => $values['endpoint'],
+			'label' => 'Installed with ProcessWire',
+		];
 	}
 
 	/**
@@ -818,12 +947,12 @@ class InstallerAi {
 	}
 
 	/**
-	 * Remove the API key from the installer session
+	 * Remove the provider settings, including the API key, from the installer session
 	 *
 	 */
 	public function clearCredentials() {
 		$data = $this->sessionRead();
-		if(isset($data['values']['apiKey'])) $data['values']['apiKey'] = '';
+		unset($data['values']);
 		$this->sessionWrite($data);
 	}
 
@@ -838,11 +967,11 @@ class InstallerAi {
 	 */
 	protected function sessionRead() {
 		if($this->state !== null) return $this->state;
-		if(session_status() !== PHP_SESSION_ACTIVE) @session_start();
+		$restore = $this->sessionOpen();
 		$data = isset($_SESSION[self::sessionKey]) && is_array($_SESSION[self::sessionKey])
 			? $_SESSION[self::sessionKey]
 			: [];
-		session_write_close();
+		$this->sessionClose($restore);
 		$this->state = $data;
 		return $data;
 	}
@@ -867,6 +996,10 @@ class InstallerAi {
 	 *
 	 */
 	public function loadState() {
+		$name = session_name();
+		$id = (string) session_id();
+		if($id === '' && isset($_COOKIE[$name]) && is_string($_COOKIE[$name])) $id = $_COOKIE[$name];
+		$this->installerSession = [$name, $id, (string) session_save_path()];
 		$this->state = null;
 		$this->sessionRead();
 	}
@@ -878,9 +1011,65 @@ class InstallerAi {
 	 *
 	 */
 	protected function sessionWrite(array $data) {
-		if(session_status() !== PHP_SESSION_ACTIVE) @session_start();
+		$restore = $this->sessionOpen();
 		$_SESSION[self::sessionKey] = $data;
-		session_write_close();
+		$this->sessionClose($restore);
 		$this->state = $data; // keep the request cache in step, so a later read sees this write
+	}
+
+	/**
+	 * Name, ID and save path of the installer's own session, captured by loadState()
+	 * before ProcessWire boots
+	 *
+	 * @var array
+	 *
+	 */
+	protected $installerSession = ['', '', ''];
+
+	/**
+	 * Open the installer's own session, closing any other session that is active
+	 *
+	 * At the final step ProcessWire has started its own session, and moved PHP's session
+	 * save path to /site/assets/sessions/, so opening "the" session would reach ProcessWire's
+	 * instead, and a write meant for the installer session would land in the wrong place. This
+	 * closes ProcessWire's session, opens the installer session by name, ID and save path, and
+	 * returns what sessionClose() needs to restore ProcessWire's session afterwards.
+	 *
+	 * @return array|null Name, ID and save path of the session to restore, or null if none
+	 *
+	 */
+	protected function sessionOpen() {
+		list($name, $id, $path) = $this->installerSession;
+		$restore = null;
+		if(session_status() === PHP_SESSION_ACTIVE) {
+			if($name === '' || (session_name() === $name && session_id() === $id)) return null;
+			$restore = [session_name(), session_id(), (string) session_save_path(), ini_get('session.use_cookies')];
+			session_write_close();
+			// the browser already has the installer session cookie, so don't send it again
+			ini_set('session.use_cookies', '0');
+		}
+		if($name !== '' && $id !== '') {
+			if($path !== '') session_save_path($path);
+			session_name($name);
+			session_id($id);
+		}
+		@session_start();
+		return $restore;
+	}
+
+	/**
+	 * Close the installer session, and reopen the session sessionOpen() closed, if any
+	 *
+	 * @param array|null $restore Return value of sessionOpen()
+	 *
+	 */
+	protected function sessionClose($restore) {
+		session_write_close();
+		if($restore === null) return;
+		session_save_path($restore[2]);
+		session_name($restore[0]);
+		session_id($restore[1]);
+		@session_start();
+		ini_set('session.use_cookies', (string) $restore[3]);
 	}
 }

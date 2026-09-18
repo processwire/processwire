@@ -60,7 +60,8 @@
 
 	--pwi-button-background: light-dark(#111, var(--pwi-accent));
 	--pwi-button-color: #fff;
-	--pwi-button-hover-background: var(--pwi-accent);
+	/* dark mode buttons are already the accent color, so hover darkens them instead */
+	--pwi-button-hover-background: light-dark(var(--pwi-accent), color-mix(in srgb, var(--pwi-accent) 78%, #000));
 	--pwi-button-muted-background: light-dark(#737373, #404040);
 
 	--pwi-alert-primary: light-dark(#f4f4f4, #2b2b2b);
@@ -277,12 +278,38 @@ textarea:focus {
 	outline: none;
 }
 
-input[type="radio"],
 input[type="checkbox"],
-.pwi-radio,
 .pwi-checkbox {
 	accent-color: var(--pwi-accent);
 	margin-right: 0.35rem;
+}
+
+/* Radios are drawn here rather than with accent-color, because the browser's checked
+ * radio puts a white ring inside the accent that looks harsh in dark mode */
+input[type="radio"],
+.pwi-radio {
+	appearance: none;
+	display: inline-block;
+	width: 1.05em;
+	height: 1.05em;
+	margin: 0 0.35rem 0 0;
+	border: 2px solid var(--pwi-muted);
+	border-radius: 50%;
+	background: var(--pwi-input-background);
+	vertical-align: -0.15em;
+	cursor: pointer;
+}
+
+input[type="radio"]:checked,
+.pwi-radio:checked {
+	border-color: var(--pwi-accent);
+	background: radial-gradient(circle, var(--pwi-accent) 0 36%, transparent 42%);
+}
+
+input[type="radio"]:focus-visible,
+.pwi-radio:focus-visible {
+	outline: 2px solid var(--pwi-accent);
+	outline-offset: 2px;
 }
 
 /* Label text inside a button, so an icon and label stay on one line */

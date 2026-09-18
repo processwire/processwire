@@ -150,18 +150,29 @@ class Installer {
 	protected $ai = null;
 
 	/**
-	 * Load the AI-assisted installer helper, if the install/install-ai.php file is present
+	 * Render the installer stylesheet inline
 	 *
-	 * All AI-specific logic lives in that file, so that this class stays focused on
-	 * installing ProcessWire. When the file is not present, no AI options are offered.
+	 * Inlined rather than linked, because the final step removes the /install/ directory while
+	 * that page is still being delivered, so a linked stylesheet would be gone by the time the
+	 * browser requested it.
+	 *
+	 * @return string
 	 *
 	 */
+	protected function renderStyles() {
+		$css = @file_get_contents(__DIR__ . '/install/install.css');
+		if(!is_string($css) || $css === '') return '';
+		// font URLs in the stylesheet are relative to /install/, but this page is served from the root
+		$css = str_replace('url("../', 'url("', $css);
+		return "\t<style>\n$css\n\t</style>\n";
+	}
+
 	/**
 	 * Render the installer document head, masthead and opening form tag
 	 *
 	 * The installer renders its own document rather than using an admin theme, so that
 	 * it stays consistent and self-contained regardless of admin theme changes. Styles
-	 * are in install/install.css, which is removed along with install.php when finished.
+	 * come from install/install.css, output inline by renderStyles().
 	 *
 	 * @param string $title
 	 * @param string $formAction
@@ -181,7 +192,7 @@ class Installer {
 			"\t<meta name='viewport' content='width=device-width, initial-scale=1.0' />\n" .
 			"\t<meta name='robots' content='noindex, nofollow' />\n" .
 			"\t<title>$title</title>\n" .
-			"\t<link rel='stylesheet' href='install/install.css' />\n" .
+			$this->renderStyles() .
 			"\t<link rel='stylesheet' href='$fontAwesome' />\n" .
 			"</head>\n" .
 			"<body>\n" .
@@ -217,6 +228,13 @@ class Installer {
 			"</html>";
 	}
 
+	/**
+	 * Load the AI-assisted installer helper, if the install/install-ai.php file is present
+	 *
+	 * All AI-specific logic lives in that file, so that this class stays focused on
+	 * installing ProcessWire. When the file is not present, no AI options are offered.
+	 *
+	 */
 	protected function initAi() {
 		if($this->ai !== null) return;
 		$file = __DIR__ . '/install/install-ai.php';
@@ -238,6 +256,12 @@ class Installer {
 		} else if($this->isInstalled()) {
 			die("This installer has already run. Please delete it.");
 		}
+
+		// Buffer output so that headers are not sent before the page is complete. Some steps
+		// write to the installer session after output has begun, and PHP cannot start a
+		// session once headers are sent, so without this those writes are silently lost on
+		// servers where output_buffering is off (PHP's own default).
+		ob_start();
 
 		// these two vars are used by renderHead()
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
@@ -266,7 +290,7 @@ class Installer {
 		// At step 5 the installer boots ProcessWire, which starts its own session and
 		// replaces the installer session for the remainder of the request.
 		if($this->ai !== null) $this->ai->loadState();
-		if($startStandard && $this->ai !== null) $this->ai->setEnabled(false);
+		if($startStandard && $this->ai !== null) $this->ai->reset(false);
 
 		if($step !== null && is_file($this->installLockFile())) {
 			$this->checkInstallLock();
@@ -301,11 +325,12 @@ class Installer {
 					} else if($this->post('ai_api_key') === null) {
 						$this->ai->providerStep();
 					} else if($this->ai->providerSave()) {
+						$this->alertOk($this->ai->getConnectedMessage());
 						$this->dbConfig();
 					}
 					break;
 				case 6: // InstallerAi::stepStartAi
-					if($this->ai !== null) $this->ai->setEnabled(true);
+					if($this->ai !== null) $this->ai->reset(true);
 					$this->initProfile();
 					break;
 				case 7: // InstallerAi::stepSkipAi
@@ -2115,13 +2140,13 @@ class Installer {
 			
 		$this->p(
 			"<a target='_blank' href='https://processwire.com/docs/security/'>" . 
-			"Lean more about securing your ProcessWire installation " . $this->icon('angle-right', false) . "</a>"
+			"Learn more about securing your ProcessWire installation " . $this->icon('angle-right', false) . "</a>"
 		);
 		$this->sectionStop();
 		
 		if(is_writable("./site/modules/")) wireChmod("./site/modules/", true); 
 
-		$this->sectionStart("fa-coffee Get Started!");
+		$this->sectionStart("fa-info-circle Installation details");
 		$this->ok(
 			"Your admin URL is <a target='_blank' href='./$adminName/'>/$adminName/</a>. "
 		);
