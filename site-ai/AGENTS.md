@@ -35,6 +35,11 @@ Region ids defined in `_main.php`:
 For example, to add stylesheet only on one template, output
 `<link rel="stylesheet" href="…" pw-append="html-head">` from that template file.
 
+Link stylesheets and scripts through `$config->versionUrl($url, true)`, as `_main.php` does.
+It adds the file's modification time to the URL, so browsers fetch a file again after it
+changes rather than using a stale cached copy. Pass `true`: without it, outside debug mode the
+version is ProcessWire's core version, which doesn't change when the site's own files do.
+
 `_main.php` already outputs the page title and `summary` in `page-header`, and the `body` field in
 `content`, on every template. Do not repeat them in a template file: a hero section that outputs
 `$page->title` and `$page->summary` again gives the page two headlines and two copies of the

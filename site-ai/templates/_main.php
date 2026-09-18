@@ -30,9 +30,9 @@ $showSummary = $summary !== '' && $headline !== $summary;
 	<?php if($summary !== ''): ?>
 	<meta name="description" content="<?= $summary ?>">
 	<?php endif; ?>
-	<link rel="stylesheet" href="<?= $templatesUrl ?>styles/base.css">
-	<link rel="stylesheet" href="<?= $templatesUrl ?>styles/main.css">
-	<script src="<?= $templatesUrl ?>scripts/main.js" defer></script>
+	<link rel="stylesheet" href="<?= $config->versionUrl($templatesUrl . 'styles/base.css', true) ?>">
+	<link rel="stylesheet" href="<?= $config->versionUrl($templatesUrl . 'styles/main.css', true) ?>">
+	<script src="<?= $config->versionUrl($templatesUrl . 'scripts/main.js', true) ?>" defer></script>
 </head>
 <body id="html-body" class="template-<?= $page->template->name ?>">
 
