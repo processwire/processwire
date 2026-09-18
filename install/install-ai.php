@@ -312,8 +312,8 @@ class InstallerAi {
 
 		$installer->p(
 			"Enter the API key for the AI provider that will build your site. " .
-			"Your key is kept in this installer session and saved to the AgentTools module " .
-			"configuration at the end of installation. It is not stored anywhere else."
+			"Your key is kept in this installer session until the end of installation, " .
+			"then saved to the AgentTools module configuration."
 		);
 
 		if($error) $installer->err($error);
@@ -332,7 +332,12 @@ class InstallerAi {
 		$installer->clear();
 
 		$installer->input('ai_endpoint', 'Endpoint URL', $values['endpoint'], ['width' => $width, 'required' => false]);
-		$installer->input('ai_api_key', 'API key', '', ['type' => 'password', 'width' => $width]);
+		$savedKey = $this->getValues()['apiKey'] !== '';
+		$installer->input('ai_api_key', $savedKey ? 'API key (blank keeps the one you entered)' : 'API key', '', [
+			'type' => 'password',
+			'width' => $width,
+			'required' => !$savedKey,
+		]);
 		$installer->clear();
 
 		$installer->p(
@@ -353,6 +358,8 @@ class InstallerAi {
 			"Providers may retain or use that data under their own policies.",
 			'detail'
 		);
+
+		$installer->p("Continuing tests your key and downloads the AgentTools module (about 2 MB).", 'detail');
 
 		$installer->btn('Test key and continue', ['value' => self::stepProvider, 'icon' => 'angle-right']);
 		// formnovalidate so that the required provider fields do not block skipping
@@ -391,6 +398,12 @@ class InstallerAi {
 		}
 
 		if($values['apiKey'] === '') {
+			// retrying after a failed download: reuse the key that was already accepted
+			$saved = $this->getValues();
+			$values['apiKey'] = (string) $saved['apiKey'];
+		}
+
+		if($values['apiKey'] === '') {
 			$this->providerStep($values, 'Please enter your API key.');
 			return false;
 		}
@@ -414,25 +427,36 @@ class InstallerAi {
 
 		$this->setValues($values);
 
+		// Download AgentTools now rather than at the end of installation, so that a server
+		// that can't download it finds out here, while skipping AI setup is still an option
+		$error = $this->prefetchAgentTools();
+		if($error !== '') {
+			$this->providerStep($values,
+				"Your API key works, but the AgentTools module could not be downloaded, and AI-assisted " .
+				"installation needs it. $error Try again, or choose Skip AI setup to install ProcessWire without AI."
+			);
+			return false;
+		}
+
 		$host = (string) parse_url($values['endpoint'], PHP_URL_HOST);
 		$message = "Successfully connected to model <b>" . $this->entities($values['model']) . "</b>";
 		if($host !== '') $message .= " at " . $this->entities($host);
 		if($result['model'] !== '' && $result['model'] !== $values['model']) {
 			$message .= " (reported by the provider as <b>" . $this->entities($result['model']) . "</b>)";
 		}
-		$this->connectedMessage = "$message.";
+		$this->connectedMessages = ["$message.", "Downloaded the AgentTools module."];
 
 		return true;
 	}
 
 	/**
-	 * Get the confirmation from the last successful provider test, for display on the next step
+	 * Get confirmations from the last successful provider step, for display on the next step
 	 *
-	 * @return string Markup, or blank if no test has succeeded in this request
+	 * @return array Markup for each confirmation, or empty if the provider step hasn't succeeded in this request
 	 *
 	 */
-	public function getConnectedMessage() {
-		return $this->connectedMessage;
+	public function getConnectedMessages() {
+		return $this->connectedMessages;
 	}
 
 	/**
@@ -447,12 +471,12 @@ class InstallerAi {
 	}
 
 	/**
-	 * Confirmation from the last successful provider test in this request
+	 * Confirmations from the last successful provider step in this request
 	 *
-	 * @var string
+	 * @var array
 	 *
 	 */
-	protected $connectedMessage = '';
+	protected $connectedMessages = [];
 
 	/**
 	 * Send a minimal request to the provider to verify the key, endpoint and model
@@ -571,6 +595,66 @@ class InstallerAi {
 	}
 
 	/**
+	 * Send a GET request, optionally saving the response body to a file
+	 *
+	 * Used before ProcessWire is booted, when WireHttp isn't available. Redirects are
+	 * followed, but only to HTTPS URLs when cURL is available.
+	 *
+	 * @param string $url
+	 * @param string $file Save the response body to this file rather than returning it
+	 * @return array [ status, body, error ]
+	 *
+	 */
+	protected function httpGet($url, $file = '') {
+
+		$fp = $file !== '' ? @fopen($file, 'wb') : null;
+		if($file !== '' && !$fp) return ['status' => 0, 'body' => '', 'error' => 'Unable to write the downloaded file.'];
+
+		if(function_exists('curl_init')) {
+			$ch = curl_init($url);
+			$options = [
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_MAXREDIRS => 5,
+				CURLOPT_TIMEOUT => 120,
+				CURLOPT_CONNECTTIMEOUT => 10,
+			];
+			// only follow redirects to HTTPS URLs
+			if(defined('CURLOPT_REDIR_PROTOCOLS')) $options[CURLOPT_REDIR_PROTOCOLS] = CURLPROTO_HTTPS;
+			if($fp) $options[CURLOPT_FILE] = $fp; else $options[CURLOPT_RETURNTRANSFER] = true;
+			curl_setopt_array($ch, $options);
+			$result = curl_exec($ch);
+			$status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			$error = $result === false ? curl_error($ch) : '';
+			curl_close($ch);
+			if($fp) fclose($fp);
+			return ['status' => $status, 'body' => $fp || $result === false ? '' : (string) $result, 'error' => $error];
+		}
+
+		$context = stream_context_create(['http' => [
+			'timeout' => 120,
+			'follow_location' => 1,
+			'max_redirects' => 5,
+			'ignore_errors' => true,
+		]]);
+		$result = @file_get_contents($url, false, $context);
+		$status = 0;
+		if(isset($http_response_header) && is_array($http_response_header)) {
+			foreach($http_response_header as $header) {
+				if(preg_match('!^HTTP/\S+\s+(\d{3})!', $header, $matches)) $status = (int) $matches[1];
+			}
+		}
+		if($fp) {
+			if($result !== false) fwrite($fp, $result);
+			fclose($fp);
+		}
+		return [
+			'status' => $status,
+			'body' => $fp || $result === false ? '' : (string) $result,
+			'error' => $result === false ? 'The request failed.' : '',
+		];
+	}
+
+	/**
 	 * POST JSON to a URL using cURL, or streams when cURL is unavailable
 	 *
 	 * @param string $url
@@ -671,7 +755,9 @@ class InstallerAi {
 
 		try {
 			if(!$modules->isInstalled('AgentTools')) {
-				$file = $this->downloadAgentTools($wire);
+				// normally downloaded at the provider step; download now only if that copy is missing
+				$file = $this->getPrefetchFile();
+				if(!$this->isZipFile($file)) $file = $this->downloadAgentTools($wire);
 				if($file === '') throw new \Exception("Unable to download the AgentTools module.");
 				$stage = 'extract';
 				$this->extractAgentTools($wire, $file);
@@ -692,6 +778,7 @@ class InstallerAi {
 			$this->clearCredentials();
 
 		} catch(\Exception $e) {
+			$this->discardPrefetch();
 			$this->installAgentToolsFailed($wire, $stage, $e->getMessage(), $values);
 			$installer->sectionStop();
 			$this->clearCredentials();
@@ -758,6 +845,105 @@ class InstallerAi {
 				: "Then enter your AI provider settings in its module settings."),
 			'detail'
 		);
+	}
+
+	/**
+	 * Download AgentTools ahead of time, during the provider step
+	 *
+	 * ProcessWire isn't booted yet, so this can't use WireHttp or $config. It reads the
+	 * modules directory settings from the config files and uses plain HTTP requests. The ZIP
+	 * is saved where installAgentTools() looks for it at the end of installation.
+	 *
+	 * @return string Error message, or blank on success
+	 *
+	 */
+	public function prefetchAgentTools() {
+
+		$file = $this->getPrefetchFile();
+		$dir = dirname($file);
+
+		if(!is_dir($dir)) @mkdir($dir, 0755, true);
+		if(!is_dir($dir) || !is_writable($dir)) return "The directory /site/assets/cache/ is not writable.";
+
+		list($serviceUrl, $serviceKey) = $this->getModuleService();
+		$url = rtrim($serviceUrl, '/') . '/AgentTools/?apikey=' . $serviceKey;
+		if(stripos($url, 'https://') !== 0) return "The modules directory URL must use HTTPS.";
+
+		$response = $this->httpGet($url);
+		$data = $response['status'] === 200 ? json_decode($response['body'], true) : null;
+		if(!is_array($data)) {
+			return "The ProcessWire modules directory could not be reached" .
+				($response['error'] !== '' ? " (" . htmlentities($this->truncate($response['error']), ENT_QUOTES, 'UTF-8') . ")." : ".");
+		}
+
+		$zipUrl = (string) ($data['download_url'] ?? '');
+		if(stripos($zipUrl, 'https://') !== 0) return "The modules directory has no secure download URL for AgentTools.";
+
+		$response = $this->httpGet($zipUrl, $file);
+		if($response['status'] !== 200 || !$this->isZipFile($file)) {
+			@unlink($file);
+			return "The download from " . htmlentities((string) parse_url($zipUrl, PHP_URL_HOST), ENT_QUOTES, 'UTF-8') .
+				" failed" . ($response['error'] !== '' ? " (" . htmlentities($this->truncate($response['error']), ENT_QUOTES, 'UTF-8') . ")." : ".");
+		}
+
+		return '';
+	}
+
+	/**
+	 * Remove a downloaded AgentTools ZIP that won't be used, e.g. when AI setup is skipped
+	 *
+	 */
+	public function discardPrefetch() {
+		$file = $this->getPrefetchFile();
+		if(is_file($file)) @unlink($file);
+	}
+
+	/**
+	 * Path to the AgentTools ZIP downloaded at the provider step
+	 *
+	 * This is the same file downloadAgentTools() writes at the end of installation.
+	 *
+	 * @return string
+	 *
+	 */
+	protected function getPrefetchFile() {
+		return dirname(__DIR__) . '/site/assets/cache/AgentTools-install.zip'; // this file lives in /install/
+	}
+
+	/**
+	 * Is the given file a complete, readable ZIP archive?
+	 *
+	 * @param string $file
+	 * @return bool
+	 *
+	 */
+	protected function isZipFile($file) {
+		if(!is_file($file) || filesize($file) < 1000 || !class_exists('\ZipArchive')) return false;
+		$zip = new \ZipArchive();
+		if($zip->open($file) !== true) return false;
+		$zip->close();
+		return true;
+	}
+
+	/**
+	 * Get the modules directory URL and key before ProcessWire is booted
+	 *
+	 * Reads them from /wire/config.php, and from /site/config.php when it overrides them,
+	 * falling back to the known defaults.
+	 *
+	 * @return array [ url, key ]
+	 *
+	 */
+	protected function getModuleService() {
+		$url = 'https://modules.processwire.com/export-json/';
+		$key = 'pw301';
+		$root = dirname(__DIR__) . '/';
+		foreach([$root . 'wire/config.php', $root . 'site/config.php'] as $configFile) {
+			$source = is_file($configFile) ? (string) @file_get_contents($configFile) : '';
+			if(preg_match('/^\s*\$config->moduleServiceURL\s*=\s*[\'"]([^\'"]+)[\'"]/m', $source, $m)) $url = $m[1];
+			if(preg_match('/^\s*\$config->moduleServiceKey\s*=\s*[\'"]([^\'"]+)[\'"]/m', $source, $m)) $key = $m[1];
+		}
+		return [$url, $key];
 	}
 
 	/**
@@ -1066,10 +1252,12 @@ class InstallerAi {
 	protected function sessionClose($restore) {
 		session_write_close();
 		if($restore === null) return;
+		// session settings can only be changed while no session is active, so restore
+		// use_cookies before restarting ProcessWire's session (which re-sends its cookie)
+		ini_set('session.use_cookies', (string) $restore[3]);
 		session_save_path($restore[2]);
 		session_name($restore[0]);
 		session_id($restore[1]);
 		@session_start();
-		ini_set('session.use_cookies', (string) $restore[3]);
 	}
 }

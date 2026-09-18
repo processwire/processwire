@@ -325,7 +325,7 @@ class Installer {
 					} else if($this->post('ai_api_key') === null) {
 						$this->ai->providerStep();
 					} else if($this->ai->providerSave()) {
-						$this->alertOk($this->ai->getConnectedMessage());
+						foreach($this->ai->getConnectedMessages() as $message) $this->alertOk($message);
 						$this->dbConfig();
 					}
 					break;
@@ -334,7 +334,10 @@ class Installer {
 					$this->initProfile();
 					break;
 				case 7: // InstallerAi::stepSkipAi
-					if($this->ai !== null) $this->ai->setEnabled(false);
+					if($this->ai !== null) {
+						$this->ai->setEnabled(false);
+						$this->ai->discardPrefetch();
+					}
 					$this->dbConfig();
 					break;
 				case 4: $this->dbSaveConfig();  break;
