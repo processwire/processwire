@@ -53,6 +53,13 @@ instead of the title, and does not repeat it below. Write the home `summary` as 
 saying what the site offers, not as a description of the page, and set the home title to the
 site or business name.
 
+The header and footer in `_main.php` are a starting point, not a fixed design. Adapt them to the
+site and its design direction, editing `_main.php` itself since they appear on every page: for
+example a centered name above the navigation for an editorial site, or a footer with contact
+details, opening hours and social links for a business. Keep the region ids, the skip link,
+`aria-current` on the current navigation item, and the site name linking to the homepage. Style
+the changes in `main.css` rather than `base.css`.
+
 ## Files
 
 | File | Purpose |
