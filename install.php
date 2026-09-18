@@ -245,6 +245,11 @@ class Installer {
 		$this->initAi();
 		$step = $this->post('step');
 
+		// The welcome screen's Standard Install button posts its own name too, so that
+		// choosing it after starting an AI-assisted install turns AI mode back off
+		$startStandard = $step === null && $this->post('step_standard') !== null;
+		if($startStandard) $step = '0';
+
 		// AI installer buttons post their own input names; translate them to steps here
 		// so that the install token is validated the same way as any other step
 		if($this->ai !== null && $step === null) {
@@ -261,6 +266,7 @@ class Installer {
 		// At step 5 the installer boots ProcessWire, which starts its own session and
 		// replaces the installer session for the remainder of the request.
 		if($this->ai !== null) $this->ai->loadState();
+		if($startStandard && $this->ai !== null) $this->ai->setEnabled(false);
 
 		if($step !== null && is_file($this->installLockFile())) {
 			$this->checkInstallLock();
@@ -695,7 +701,7 @@ class Installer {
 			"<a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help."
 		);
 		if($this->ai !== null) $this->ai->welcomeText();
-		$this->btn("Standard Install", array('icon' => 'sign-in'));
+		$this->btn("Standard Install", array('name' => 'step_standard', 'icon' => 'sign-in'));
 		if($this->ai !== null) $this->ai->welcomeButton();
 	}
 
@@ -848,24 +854,28 @@ class Installer {
 		} else if(is_dir("./site/")) {
 			$this->alertOk("Found /site/ — already installed? ");
 
+		} else if($this->ai !== null && $this->ai->isEnabled()) {
+			// AI-assisted installs always use the AI Starter profile, which the Site Builder is designed around
+			$profile = InstallerAi::profileName;
+			if(!is_dir(dirname(__FILE__) . "/$profile")) {
+				$this->alertErr("AI-assisted installation requires the AI Starter site profile in /$profile/, which was not found.");
+				$this->p("<a href='./install.php'>Return to the start of the installer</a>");
+				return;
+			}
+			if(!$this->renameProfile($profile)) return;
+
 		} else if($this->post('profile') && $this->post('step') !== '000') {
-			
+
 			$profiles = $this->findProfiles();
-			$profile = $this->post('profile', 'name'); 
+			$profile = $this->post('profile', 'name');
 			if(empty($profile) || !isset($profiles[$profile]) || !is_dir(dirname(__FILE__) . "/$profile")) {
 				$this->alertErr("Profile not found");
 				$this->selectProfile();
 				$this->btnContinue();
 				return;
 			}
-			
-			if(@rename("./$profile", "./site")) {
-				$this->alertOk("Renamed /$profile => /site");
-			} else {
-				$this->alertErr("File system is not writable by this installer. Before continuing, please rename '/$profile' to '/site'");
-				$this->btnContinue();
-				return;
-			}
+
+			if(!$this->renameProfile($profile)) return;
 
 		} else {
 			if($this->post('step') === '000') $this->alertOk('Refreshed profiles');
@@ -876,6 +886,23 @@ class Installer {
 		}
 		
 		$this->compatibilityCheck();
+	}
+
+	/**
+	 * Rename the given profile directory to /site/
+	 *
+	 * @param string $profile Profile directory name, e.g. "site-blank"
+	 * @return bool False if the rename failed and the user was asked to do it manually
+	 *
+	 */
+	protected function renameProfile($profile) {
+		if(@rename("./$profile", "./site")) {
+			$this->alertOk("Renamed /$profile => /site");
+			return true;
+		}
+		$this->alertErr("File system is not writable by this installer. Before continuing, please rename '/$profile' to '/site'");
+		$this->btnContinue();
+		return false;
 	}
 
 	/**

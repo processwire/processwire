@@ -40,6 +40,15 @@ class InstallerAi {
 	const sessionKey = 'ai_installer';
 
 	/**
+	 * Site profile used by every AI-assisted installation
+	 *
+	 * The Site Builder is designed around this profile's conventions (its AGENTS.md,
+	 * markup regions and image helper), so AI mode does not offer a profile choice.
+	 *
+	 */
+	const profileName = 'site-ai';
+
+	/**
 	 * Installer step number for the AI provider form
 	 *
 	 */
@@ -112,7 +121,22 @@ class InstallerAi {
 		if(!function_exists('curl_init') && !ini_get('allow_url_fopen')) return false;
 		if(!class_exists('\ZipArchive')) return false;
 		if(!function_exists('json_decode')) return false;
+		if(!$this->hasProfile()) return false;
 		return true;
+	}
+
+	/**
+	 * Is the AI Starter profile available to install, or already in place as /site/?
+	 *
+	 * An existing /site/ counts because the profile is renamed to /site/ before the
+	 * compatibility check runs, and because a profile placed there by hand is respected.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function hasProfile() {
+		$root = dirname(__DIR__) . '/'; // this file lives in /install/
+		return is_dir($root . self::profileName) || is_dir($root . 'site');
 	}
 
 	/**
@@ -130,6 +154,9 @@ class InstallerAi {
 		}
 		if(!class_exists('\ZipArchive')) {
 			return "AI-assisted installation requires PHP's ZipArchive class, so that it can install the AgentTools module.";
+		}
+		if(!$this->hasProfile()) {
+			return "AI-assisted installation requires the AI Starter site profile in /" . self::profileName . "/.";
 		}
 		return '';
 	}
@@ -854,5 +881,6 @@ class InstallerAi {
 		if(session_status() !== PHP_SESSION_ACTIVE) @session_start();
 		$_SESSION[self::sessionKey] = $data;
 		session_write_close();
+		$this->state = $data; // keep the request cache in step, so a later read sees this write
 	}
 }
