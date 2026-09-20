@@ -871,7 +871,8 @@ class PagesNames extends Wire {
 		}
 		
 		if(!$checkName && !$checkStatus) return [];
-	
+		$numIncrements = 0;
+
 		do {
 			
 			$conflict = $this->pageNameHasConflict($page);
@@ -886,8 +887,12 @@ class PagesNames extends Wire {
 					$page->name = $page->namePrevious;
 					$nameChanged = false;
 				} else {
-					// increment name
-					$page->name = $this->incrementName($page->name);
+					// Limit sequential attempts, as in uniquePageName().
+					if(++$numIncrements > 5) {
+						$page->name = $this->uniqueRandomPageName([ 'confirm' => false ]);
+					} else {
+						$page->name = $this->incrementName($page->name);
+					}
 				}
 				
 			} else if($checkStatus) {

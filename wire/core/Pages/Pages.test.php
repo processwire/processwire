@@ -43,7 +43,50 @@ class WireTest_Pages extends WireTest {
 		$this->testFindingPages();
 		$this->testCreatingInstances();
 		$this->testPageNameFormats();
+		$this->testPageNameConflicts();
 		$this->testCreatingSavingSortingAndDeletingPages();
+	}
+
+	protected function testPageNameConflicts() {
+		$pages = $this->wire()->pages;
+		$names = $pages->names();
+		$database = $this->wire()->database;
+		$parent = $this->getTestPage();
+		$name = 'pages-test-name-conflict';
+
+		for($i = 0; $i < 20; $i++) {
+			$page = $pages->add($this->childTemplateName, $parent, array(
+				'name' => $name . ($i ? "-$i" : ''),
+				'title' => 'Name conflict fixture',
+			));
+			$this->createdPageIDs[$page->id] = $page->id;
+		}
+
+		$page = $pages->newPage(array('template' => $this->childTemplateName, 'parent' => $parent, 'name' => $name));
+		$debugMode = $database->debugMode;
+		try {
+			$database->queryLog(true);
+			$page->save();
+			$this->createdPageIDs[$page->id] = $page->id;
+			$queries = array_filter($database->queryLog(), function($query) {
+				return strpos($query, 'SELECT id, status, parent_id FROM pages WHERE name=') !== false;
+			});
+		} finally {
+			$database->queryLog($debugMode ? 1 : false);
+		}
+		$this->check('Saving an explicit name avoids scanning every conflicting sibling', true, count($queries) <= 8);
+		$this->check('Saving an explicit name falls back before the next sequential suffix', false, $page->name === "$name-20");
+		$this->check('Random fallback is conflict-free', false, $names->pageNameHasConflict($page));
+		$this->check('Random fallback survives reload', $page->name, $pages->getFresh($page->id)->name);
+
+		$probe = $pages->newPage(array('template' => $this->childTemplateName, 'parent' => $parent, 'name' => "$name-19"));
+		$names->checkNameConflicts($probe);
+		$this->check('A small number of conflicts still increments an existing numeric suffix', "$name-20", $probe->name);
+
+		$previousName = $page->name;
+		$page->name = $name;
+		$names->checkNameConflicts($page);
+		$this->check('Conflicting rename restores the previous name', $previousName, $page->name);
 	}
 
 	public function finish() {
