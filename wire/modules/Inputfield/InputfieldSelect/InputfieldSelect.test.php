@@ -18,6 +18,7 @@ class WireTest_InputfieldSelect extends WireTest {
 		$this->testValueHandling();
 		$this->testProcessInput();
 		$this->testRender();
+		$this->testRequiredPlaceholder();
 		$this->testRenderValue();
 	}
 
@@ -173,6 +174,49 @@ class WireTest_InputfieldSelect extends WireTest {
 		$f->required = true;
 		$html = $f->render();
 		$this->check('required selected render does not add blank option', false, strpos($html, "value=''") !== false);
+	}
+
+	protected function testRequiredPlaceholder() {
+		$f = $this->newSelect();
+		$f->required = true;
+		$f->requiredAttr = true;
+		$f->defaultValue = 'green';
+		$f->addOptions(array('red' => 'Red', 'green' => 'Green'));
+		$html = $f->render();
+		$this->check('HTML required attribute is rendered', 'required="required"', $html, '*=');
+		$this->check('Required default selection retains first placeholder', true, strpos($html, "><option value=''>") !== false);
+		$this->check('Placeholder preserves the default selection', "selected='selected'  value='green'", $html, '*=');
+
+		$f->attr('size', 2);
+		$this->check('Required selected listbox keeps existing behavior', false, strpos($f->render(), "value=''") !== false);
+		$f->attr('size', 1);
+		$f->attr('multiple', true);
+		$this->check('Multiple select does not receive a placeholder', false, strpos($f->render(), "value=''") !== false);
+		$f->attr('multiple', false);
+
+		$f->requiredIf = 'other=1';
+		$this->check('Conditional required setting does not force a placeholder', false, strpos($f->render(), "value=''") !== false);
+		$f->requiredIf = '';
+		$f->setOptions(array('' => 'Choose one', 'green' => 'Green'));
+		$this->check('Explicit placeholder is not duplicated', 1, substr_count($f->render(), "value=''"));
+
+		$f->setOptions(array('0' => 'Zero', '1' => 'One'));
+		$f->val('0');
+		$html = $f->render();
+		$this->check('Zero-valued option is not mistaken for placeholder', true, strpos($html, "><option value=''>") !== false);
+		$this->check('Zero-valued selection is preserved', "selected='selected'  value='0'", $html, '*=');
+
+		$f->setOptions(array('Colors' => array('green' => 'Green')));
+		$f->val('green');
+		$html = $f->render();
+		$this->check('Placeholder precedes optgroup', true, strpos($html, "</option><optgroup") !== false);
+		$this->check('Optgroup does not receive another placeholder', 1, substr_count($html, "value=''"));
+
+		$f->required = false;
+		$f->attr('required', true);
+		$this->check('Explicit HTML required attribute also receives placeholder', true, strpos($f->render(), "><option value=''>") !== false);
+		$f->setOptions(array());
+		$this->check('Required select with no options still has a placeholder', true, strpos($f->render(), "><option value=''>") !== false);
 	}
 
 	protected function testRenderValue() {

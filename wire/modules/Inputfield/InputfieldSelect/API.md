@@ -336,6 +336,7 @@ values through manipulated form submissions.
 - Subclasses that support multiple selections implement the `InputfieldHasArrayValue` interface. `isOptionSelected()` and `processInput()` detect this automatically.
 - Optgroups are supported only in `InputfieldSelect` and `InputfieldSelectMultiple` — not in `InputfieldCheckboxes` or `InputfieldRadios`.
 - A blank/empty first option is added automatically for single-select unless the first defined option already has an empty key, or the field is `required` and already has a value set.
+- When the rendered select has an HTML `required` attribute and display size 1, an empty-valued first placeholder option is retained even with a selected value. This does not change the selected value or remove the blank option from optional fields.
 - **Source file:** `wire/modules/Inputfield/InputfieldSelect.module`
 
 ---

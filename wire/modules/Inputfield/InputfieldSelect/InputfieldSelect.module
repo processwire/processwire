@@ -645,9 +645,14 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 		reset($options); 
 		$key = key($options); 
 		$hasBlankOption = empty($key); 
+		$attrs = $this->getAttributes();
+		// HTML-required dropdowns need a first placeholder, even when a value is selected.
+		$requiresPlaceholder = isset($attrs['required']) && strlen((string) $attrs['required'])
+			&& (int) $this->attr('size') <= 1;
+		if($requiresPlaceholder) $hasBlankOption = $key !== null && (string) $key === '' && !is_array($options[$key]);
 		if($allowBlank && !$hasBlankOption && !$this->attr('multiple')) { 
-			if($this->getSetting('required') && $this->attr('value')) {
-				// if required and a value is already selected, do not add a blank option
+			if(!$requiresPlaceholder && $this->getSetting('required') && $this->attr('value')) {
+				// Required by ProcessWire only: omit blank when a value is already selected.
 			} else {
 				$out .= "<option value=''>&nbsp;</option>";
 			}
