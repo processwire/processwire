@@ -103,6 +103,15 @@ class InstallerAi {
 	const pendingSettingsExpire = 604800;
 
 	/**
+	 * Output token limit for the provider test request
+	 *
+	 * Small, but not 1: a reasoning model spends its budget thinking before it answers, and
+	 * some providers fail the request outright when the limit leaves no room for an answer.
+	 *
+	 */
+	const testMaxTokens = 256;
+
+	/**
 	 * Seconds to wait for the provider test request
 	 *
 	 */
@@ -332,7 +341,7 @@ class InstallerAi {
 		$installer->clear();
 
 		$installer->input('ai_endpoint', 'Endpoint URL', $values['endpoint'], ['width' => $width, 'required' => false]);
-		$savedKey = $this->getValues()['apiKey'] !== '';
+		$savedKey = $this->getEnteredKey() !== '';
 		$installer->input('ai_api_key', $savedKey ? 'API key (blank keeps the one you entered)' : 'API key', '', [
 			'type' => 'password',
 			'width' => $width,
@@ -398,9 +407,8 @@ class InstallerAi {
 		}
 
 		if($values['apiKey'] === '') {
-			// retrying after a failed download: reuse the key that was already accepted
-			$saved = $this->getValues();
-			$values['apiKey'] = (string) $saved['apiKey'];
+			// retrying: reuse the key entered on the previous attempt
+			$values['apiKey'] = $this->getEnteredKey();
 		}
 
 		if($values['apiKey'] === '') {
@@ -417,6 +425,8 @@ class InstallerAi {
 			$this->providerStep($values, 'The endpoint URL must begin with https://');
 			return false;
 		}
+
+		$this->setEnteredKey($values['apiKey']);
 
 		$result = $this->testProvider($values);
 
@@ -491,17 +501,20 @@ class InstallerAi {
 
 		$payload = [
 			'model' => $values['model'],
-			'max_tokens' => 1,
 			'messages' => [['role' => 'user', 'content' => 'Hi']],
 		];
 
 		if($anthropic) {
+			$payload['max_tokens'] = 1;
 			$headers = [
 				'x-api-key: ' . $values['apiKey'],
 				'anthropic-version: 2023-06-01',
 				'content-type: application/json',
 			];
 		} else {
+			// Newer OpenAI models reject max_tokens and require max_completion_tokens. Most
+			// OpenAI-compatible providers accept either, and those that don't are retried below.
+			$payload['max_completion_tokens'] = self::testMaxTokens;
 			$headers = [
 				'Authorization: Bearer ' . $values['apiKey'],
 				'content-type: application/json',
@@ -512,6 +525,14 @@ class InstallerAi {
 
 		$response = $this->httpPost($values['endpoint'], $headers, json_encode($payload));
 		$status = (int) $response['status'];
+
+		if($status === 400 && !$anthropic && stripos((string) $response['body'], 'max_completion_tokens') !== false) {
+			// an OpenAI-compatible provider that only knows the older parameter name
+			unset($payload['max_completion_tokens']);
+			$payload['max_tokens'] = self::testMaxTokens;
+			$response = $this->httpPost($values['endpoint'], $headers, json_encode($payload));
+			$status = (int) $response['status'];
+		}
 
 		if($status >= 200 && $status < 300) {
 			// Both API formats report the model that answered, which can differ from the one
@@ -1135,6 +1156,34 @@ class InstallerAi {
 	}
 
 	/**
+	 * Get the API key entered on a previous attempt in this installer session
+	 *
+	 * Kept so that a retry after a failed test or download doesn't need it typed again.
+	 * Not proof of a working key: only setValues() records that.
+	 *
+	 * @return string
+	 *
+	 */
+	protected function getEnteredKey() {
+		$values = $this->getValues();
+		if($values['apiKey'] !== '') return $values['apiKey'];
+		$data = $this->sessionRead();
+		return isset($data['enteredKey']) ? (string) $data['enteredKey'] : '';
+	}
+
+	/**
+	 * Remember the API key just entered, before it is known to work
+	 *
+	 * @param string $key
+	 *
+	 */
+	protected function setEnteredKey($key) {
+		$data = $this->sessionRead();
+		$data['enteredKey'] = (string) $key;
+		$this->sessionWrite($data);
+	}
+
+	/**
 	 * Store provider values in the installer session
 	 *
 	 * @param array $values
@@ -1152,7 +1201,7 @@ class InstallerAi {
 	 */
 	public function clearCredentials() {
 		$data = $this->sessionRead();
-		unset($data['values']);
+		unset($data['values'], $data['enteredKey']);
 		$this->sessionWrite($data);
 	}
 
