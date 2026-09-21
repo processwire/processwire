@@ -102,7 +102,7 @@ class SelectableOptionManager extends Wire {
 	 * @throws WireException
 	 *
 	 */
-	public function getOptions(Field $field, array $filters = array()) {
+	public function ___getOptions(Field $field, array $filters = array()) {
 	
 		$database = $this->wire()->database;
 		$hasFilters = count($filters) > 0;
