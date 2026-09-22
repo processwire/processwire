@@ -125,9 +125,11 @@ Guidelines:
 
 ### SQLite
 
-SQLite support is experimental. The installer does not offer it yet.
+SQLite support is experimental. The installer offers it as a database type when PHP's `pdo_sqlite`
+extension and SQLite 3.35+ are available (CLI installer: `'dbType' => 'sqlite'`, optionally `'dbFile'`).
 
 - **Requirements:** PHP's `pdo_sqlite` extension and SQLite 3.35.0 or newer (checked on connect).
+  On PHP 8.4+, connections use `Pdo\Sqlite`.
 - **How it works:** ProcessWire's SQL (MySQL syntax) is translated by `WireDatabaseSQLiteTranslator` and
   MySQL-compatible functions are registered with SQLite. Statements that translate to multiple SQLite
   statements (such as `CREATE TABLE` with indexes, or an `ALTER TABLE` that requires rebuilding the table)

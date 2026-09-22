@@ -48,6 +48,11 @@ class Installer {
 	const MIN_REQUIRED_PHP_VERSION = '7.2.0';
 
 	/**
+	 * Minimum required SQLite version (when installing with SQLite)
+	 */
+	const MIN_SQLITE_VERSION = '3.35.0';
+
+	/**
 	 * Test mode for installer development, non destructive
 	 *
 	 */
@@ -589,11 +594,147 @@ class Installer {
 	 *
 	 */
 	protected function isLocalDatabaseConnection(array $values) {
+		if(isset($values['dbType']) && $values['dbType'] === 'sqlite') return true;
 		if(isset($values['dbCon']) && $values['dbCon'] === 'Socket') return true;
 		$host = isset($values['dbHost']) && is_string($values['dbHost'])
 			? strtolower(trim($values['dbHost']))
 			: '';
 		return in_array($host, array('localhost', '127.0.0.1', '::1', '[::1]'), true);
+	}
+
+	/**
+	 * Get the available SQLite version, or blank string if PHP's pdo_sqlite extension is not available
+	 *
+	 * @return string
+	 *
+	 */
+	protected function sqliteVersion() {
+		static $version = null;
+		if($version !== null) return $version;
+		$version = '';
+		if(!extension_loaded('pdo_sqlite')) return $version;
+		try {
+			$pdo = new \PDO('sqlite::memory:');
+			$version = (string) $pdo->query('SELECT sqlite_version()')->fetchColumn();
+		} catch(\Exception $e) {
+			// not available
+		}
+		return $version;
+	}
+
+	/**
+	 * Can SQLite be used? (pdo_sqlite available and SQLite version new enough)
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function sqliteSupported() {
+		$version = $this->sqliteVersion();
+		return $version !== '' && version_compare($version, self::MIN_SQLITE_VERSION, '>=');
+	}
+
+	/**
+	 * Get full path to SQLite database file from given dbFile setting
+	 *
+	 * Same rules as WireDatabaseDialectSQLite::databaseFile() and protectLocation():
+	 * blank is site/assets/database/site.sqlite, a relative path is relative to
+	 * site/assets/database/ (without ".."), and an absolute path may not be inside
+	 * the web root unless it is in site/assets/database/.
+	 *
+	 * @param string $dbFile
+	 * @param string $error Populated with error message when blank string is returned
+	 * @return string
+	 *
+	 */
+	protected function sqliteFile($dbFile, &$error = '') {
+		$root = rtrim(str_replace('\\', '/', __DIR__), '/') . '/';
+		$dir = $root . 'site/assets/database/';
+		$file = str_replace('\\', '/', trim((string) $dbFile));
+		if($file === '') return $dir . 'site.sqlite';
+		if(strpos($file, '/') === 0 || preg_match('!^[A-Za-z]:/!', $file)) {
+			// absolute path: normalize "." and ".." segments
+			$prefix = strpos($file, '/') === 0 ? '/' : substr($file, 0, 3);
+			$parts = array();
+			foreach(explode('/', substr($file, strlen($prefix))) as $part) {
+				if($part === '' || $part === '.') continue;
+				if($part === '..') {
+					array_pop($parts);
+				} else {
+					$parts[] = $part;
+				}
+			}
+			$file = $prefix . implode('/', $parts);
+			if(strpos($file, $root) === 0 && strpos($file, $dir) !== 0) {
+				$error = 'A database file inside the web root must be in /site/assets/database/ (or use an absolute path outside the web root)';
+				return '';
+			}
+			return $file;
+		}
+		if(in_array('..', explode('/', $file), true)) {
+			$error = 'The database file may not contain ".." (use an absolute path for locations outside /site/assets/database/)';
+			return '';
+		}
+		if(strpos($file, './') === 0) $file = substr($file, 2);
+		return $dir . $file;
+	}
+
+	/**
+	 * Create SQLite database directory, with a deny-all .htaccess file when inside the web root
+	 *
+	 * @param string $dir
+	 * @return bool
+	 *
+	 */
+	protected function sqliteProtectDirectory($dir) {
+		$dir = rtrim($dir, '/') . '/';
+		if(!is_dir($dir) && !@mkdir($dir, 0755, true)) return false;
+		$root = rtrim(str_replace('\\', '/', __DIR__), '/') . '/';
+		if(strpos($dir, $root) !== 0) return true; // outside web root
+		$htaccess = $dir . '.htaccess';
+		if(is_file($htaccess)) return true;
+		return @file_put_contents($htaccess,
+			"# Deny all web access to database files (ProcessWire)\n" .
+			"<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n" .
+			"<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n"
+		) !== false;
+	}
+
+	/**
+	 * Connect to (or create) SQLite database for installation
+	 *
+	 * @param array $values Database configuration values (dbFile)
+	 * @return InstallerSQLitePDO|null
+	 *
+	 */
+	protected function sqliteConnect(array $values) {
+		$version = $this->sqliteVersion();
+		if(!$this->sqliteSupported()) {
+			$this->alertErr($version === ''
+				? 'SQLite requires the PHP pdo_sqlite extension'
+				: "SQLite $version is not supported (" . self::MIN_SQLITE_VERSION . ' or newer is required)'
+			);
+			return null;
+		}
+		if(!preg_match('!^[-_./: \\\\a-zA-Z0-9]*$!', $values['dbFile'])) {
+			$this->alertErr('The database file may only contain letters, digits, spaces and these characters: - _ . / : \\');
+			return null;
+		}
+		$error = '';
+		$file = $this->sqliteFile($values['dbFile'], $error);
+		if($file === '') {
+			$this->alertErr($error);
+			return null;
+		}
+		if(!$this->sqliteProtectDirectory(dirname($file))) {
+			$this->alertErr('Unable to create database directory: ' . htmlspecialchars(dirname($file)));
+			return null;
+		}
+		try {
+			return new InstallerSQLitePDO($file);
+		} catch(\Exception $e) {
+			$this->alertErr('Unable to open SQLite database: ' . htmlspecialchars($e->getMessage()));
+			return null;
+		}
 	}
 
 	/**
@@ -947,10 +1088,18 @@ class Installer {
 			$this->err("ProcessWire requires PHP version " . self::MIN_REQUIRED_PHP_VERSION . " or newer. You are running PHP " . PHP_VERSION);
 		}
 		
+		$sqliteVersion = $this->sqliteVersion();
 		if(extension_loaded('pdo_mysql')) {
 			$this->ok("PDO (mysql) database"); 
+		} else if($this->sqliteSupported()) {
+			$this->warn("PDO (pdo_mysql) is not available, so only SQLite can be used");
 		} else {
 			$this->err("PDO (pdo_mysql) is required (for MySQL database)"); 
+		}
+		if($this->sqliteSupported()) {
+			$this->ok("PDO (sqlite) database: SQLite $sqliteVersion (optional, experimental)");
+		} else if($sqliteVersion !== '') {
+			$this->warn("SQLite $sqliteVersion is available, but SQLite " . self::MIN_SQLITE_VERSION . " or newer is required to use it (optional)");
 		}
 
 		if(self::TEST_MODE) {
@@ -1088,7 +1237,26 @@ class Installer {
 			$this->sectionStop();
 		}
 
-		$this->sectionStart('fa-database MySQL Database'); 
+		if(!isset($values['dbType'])) $values['dbType'] = extension_loaded('pdo_mysql') || !$this->sqliteSupported() ? 'mysql' : 'sqlite';
+		if(!isset($values['dbFile'])) $values['dbFile'] = '';
+		if($values['dbType'] !== 'sqlite') $values['dbType'] = 'mysql';
+
+		if($this->sqliteSupported()) {
+			$this->sectionStart('fa-database Database Type');
+			$this->p(
+				"ProcessWire uses a MySQL or MariaDB database. You may also choose SQLite, which stores the database " .
+				"in a single file and needs no database server. SQLite support is new and experimental, " .
+				"and best suited to smaller sites."
+			);
+			$this->select('dbType', '', $values['dbType'], array(
+				'mysql' => 'MySQL / MariaDB',
+				'sqlite' => 'SQLite (experimental)',
+			), 300);
+			$this->clear();
+			$this->sectionStop();
+		}
+
+		$this->sectionStart('fa-database MySQL Database', array('id' => 'pwi-mysql'));
 		$this->p(
 			"Please specify a MySQL 5.x+ database and user account on your server. If the database does not exist, " . 
 			"we will attempt to create it. If the database already exists, the user account should have full read, " . 
@@ -1137,6 +1305,21 @@ class Installer {
 			array('class' => 'detail', 'style' => 'margin-top:0')
 		);
 		$this->sectionStop();
+
+		if($this->sqliteSupported()) {
+			$this->sectionStart('fa-database SQLite Database', array('id' => 'pwi-sqlite'));
+			$this->p(
+				"The database file is created if it does not exist. Leave the database file blank to use " .
+				"<code>/site/assets/database/site.sqlite</code>. A filename or relative path is relative to " .
+				"<code>/site/assets/database/</code>, which ProcessWire protects from web access. " .
+				"On servers that do not support .htaccess files (such as nginx), specify an absolute path " .
+				"outside the web root, i.e. <code>/home/user/data/site.sqlite</code>."
+			);
+			$this->input('dbFile', 'Database file (optional)', $values['dbFile'], array('required' => false, 'width' => 300));
+			$this->clear();
+			$this->p("Using SQLite " . htmlspecialchars($this->sqliteVersion()) . ".", array('class' => 'detail', 'style' => 'margin-top:0'));
+			$this->sectionStop();
+		}
 		$this->sectionStart('fa-key Installer activation token', [ 'id' => 'installer-activation' ]);
 		$this->p(
 			'A remote database host requires proof of filesystem access. ' .
@@ -1163,23 +1346,31 @@ class Installer {
 					function display(node, show) { if(node) node.style.display = show ? '' : 'none'; }
 					var ho = el('input[name=dbHost]'), po = el('input[name=dbPort]'),
 						so = el('input[name=dbSocket]'), co = el('select[name=dbCon]'),
+						no = el('input[name=dbName]'), uo = el('input[name=dbUser]'),
+						to = el('select[name=dbType]'),
 						ao = el('input[name=installerActivationToken]'),
 						activation = el('#installer-activation');
 					if(!co) return;
 					function updateConnectionFields() {
-						var useHost = co.value === 'Hostname';
-						if(ho) { ho.required = useHost; display(row(ho), useHost); }
-						if(po) { po.required = useHost; display(row(po), useHost); }
-						if(so) { so.required = !useHost; display(row(so), !useHost); }
+						var sqlite = to ? to.value === 'sqlite' : false,
+							useHost = co.value === 'Hostname';
+						display(el('#pwi-mysql'), !sqlite);
+						display(el('#pwi-sqlite'), sqlite);
+						if(no) no.required = !sqlite;
+						if(uo) uo.required = !sqlite;
+						if(ho) { ho.required = !sqlite && useHost; display(row(ho), useHost); }
+						if(po) { po.required = !sqlite && useHost; display(row(po), useHost); }
+						if(so) { so.required = !sqlite && !useHost; display(row(so), !useHost); }
 						var testActivation = $testActivation,
 							host = (ho ? ho.value : '').trim().toLowerCase(),
 							localHosts = ['localhost', '127.0.0.1', '::1', '[::1]'],
-							activationRequired = testActivation ||
-								(useHost && localHosts.indexOf(host) === -1);
+							activationRequired = !sqlite && (testActivation ||
+								(useHost && localHosts.indexOf(host) === -1));
 						if(ao) ao.required = activationRequired;
 						display(activation, activationRequired);
 					}
 					co.addEventListener('change', updateConnectionFields);
+					if(to) to.addEventListener('change', updateConnectionFields);
 					if(ho) ho.addEventListener('input', updateConnectionFields);
 					updateConnectionFields();
 				})();
@@ -1380,8 +1571,15 @@ class Installer {
 	
 		$values['dbCharset'] = ($values['dbCharset'] === 'utf8mb4' ? 'utf8mb4' : 'utf8'); 
 		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM');
+		$values['dbType'] = $this->post('dbType', 'string') === 'sqlite' ? 'sqlite' : 'mysql';
+		$dbFile = $this->post('dbFile');
+		$values['dbFile'] = is_string($dbFile) ? trim(substr($dbFile, 0, 1024)) : '';
 
-		if(empty($values['dbUser']) || empty($values['dbName'])) {
+		if($values['dbType'] === 'sqlite') {
+			// SQLite: local database file, so no credentials or activation token needed
+			$database = $this->sqliteConnect($values);
+
+		} else if(empty($values['dbUser']) || empty($values['dbName'])) {
 			$this->alertErr("Missing database user and/or name");
 			
 		} else if($values['dbCon'] === 'Socket' && empty($values['dbSocket'])) {
@@ -1445,7 +1643,11 @@ class Installer {
 		}
 
 		$this->h("fa-database Test Database and Save Configuration");
-		$this->alertOk("Database connection successful to " . htmlspecialchars($values['dbName'])); 
+		if($values['dbType'] === 'sqlite') {
+			$this->alertOk("SQLite database file: " . htmlspecialchars($this->sqliteFile($values['dbFile'])));
+		} else {
+			$this->alertOk("Database connection successful to " . htmlspecialchars($values['dbName']));
+		}
 
 		// prevent another browser session from changing configuration or completing the installation
 		$this->createInstallLock();
@@ -1455,8 +1657,13 @@ class Installer {
 			'dbEngine' => $values['dbEngine']
 		);
 
+		if($values['dbType'] === 'sqlite') {
+			// charset/engine do not apply to SQLite (utf8 avoids utf8mb4 index length adjustments in profile import)
+			$options = array('dbCharset' => 'utf8', 'dbEngine' => 'MyISAM');
+		}
+
 		// check if MySQL is new enough to support InnoDB with fulltext indexes
-		if($options['dbEngine'] == 'InnoDB') {
+		if($values['dbType'] !== 'sqlite' && $options['dbEngine'] == 'InnoDB') {
 			$query = $database->query("SELECT VERSION()");
 			list($dbVersion) = $query->fetch(\PDO::FETCH_NUM);
 			if(version_compare($dbVersion, "5.6.4", "<")) {
@@ -1583,22 +1790,28 @@ class Installer {
 			"\n * " . 
 			"\n */";
 
-		if($values['dbCon'] === 'Socket') {
-			$cfg .= "\n\$config->dbSocket = " . var_export($values['dbSocket'], true) . ";";
-		}
-		
-		$cfg .= 
-			"\n\$config->dbHost = " . var_export($values['dbHost'], true) . ";" .
-			"\n\$config->dbName = " . var_export($values['dbName'], true) . ";" .
-			"\n\$config->dbUser = " . var_export($values['dbUser'], true) . ";" .
-			"\n\$config->dbPass = " . var_export($values['dbPass'], true) . ";" .
-			"\n\$config->dbPort = " . var_export($values['dbPort'], true) . ";";
-		
-		if(!empty($values['dbCharset']) && strtolower($values['dbCharset']) != 'utf8') {
-			$cfg .= "\n\$config->dbCharset = " . var_export($values['dbCharset'], true) . ";";
-		}
-		if(!empty($values['dbEngine']) && $values['dbEngine'] == 'InnoDB') {
-			$cfg .= "\n\$config->dbEngine = 'InnoDB';";
+		if(isset($values['dbType']) && $values['dbType'] === 'sqlite') {
+			$cfg .=
+				"\n\$config->dbType = 'sqlite'; // experimental" .
+				"\n\$config->dbFile = " . var_export($values['dbFile'], true) . "; // blank for /site/assets/database/site.sqlite";
+		} else {
+			if($values['dbCon'] === 'Socket') {
+				$cfg .= "\n\$config->dbSocket = " . var_export($values['dbSocket'], true) . ";";
+			}
+
+			$cfg .=
+				"\n\$config->dbHost = " . var_export($values['dbHost'], true) . ";" .
+				"\n\$config->dbName = " . var_export($values['dbName'], true) . ";" .
+				"\n\$config->dbUser = " . var_export($values['dbUser'], true) . ";" .
+				"\n\$config->dbPass = " . var_export($values['dbPass'], true) . ";" .
+				"\n\$config->dbPort = " . var_export($values['dbPort'], true) . ";";
+
+			if(!empty($values['dbCharset']) && strtolower($values['dbCharset']) != 'utf8') {
+				$cfg .= "\n\$config->dbCharset = " . var_export($values['dbCharset'], true) . ";";
+			}
+			if(!empty($values['dbEngine']) && $values['dbEngine'] == 'InnoDB') {
+				$cfg .= "\n\$config->dbEngine = 'InnoDB';";
+			}
 		}
 		
 		if(strpos($s, '$config->userAuthSalt') === false) $cfg .= 
@@ -3000,6 +3213,8 @@ class InstallerCli extends Installer {
 
 		$defaults = array(
 			'profile'    => self::DEFAULT_PROFILE,
+			'dbType'     => 'mysql',
+			'dbFile'     => '',
 			'dbHost'     => 'localhost',
 			'dbPort'     => 3306,
 			'dbEngine'   => 'InnoDB',
@@ -3070,7 +3285,12 @@ class InstallerCli extends Installer {
 	 *
 	 */
 	protected function validateConfig() {
-		foreach(array('dbName', 'dbUser', 'userpass') as $key) {
+		$sqlite = $this->cliConfig['dbType'] === 'sqlite';
+		if(!in_array($this->cliConfig['dbType'], array('mysql', 'sqlite'), true)) {
+			$this->abort("Config value 'dbType' must be 'mysql' or 'sqlite'.");
+		}
+		$required = $sqlite ? array('userpass') : array('dbName', 'dbUser', 'userpass');
+		foreach($required as $key) {
 			if(empty($this->cliConfig[$key])) $this->abort("Missing required config value: '$key'");
 		}
 		if($this->cliConfig['dbCon'] === 'Socket' && empty($this->cliConfig['dbSocket'])) {
@@ -3109,11 +3329,16 @@ INPUT FORMATS
 
 CONFIGURATION KEYS
   Required
-    dbName              Database name
-    dbUser              Database username
+    dbName              Database name (MySQL)
+    dbUser              Database username (MySQL)
     userpass            Admin user password
 
   Database (optional)
+    dbType              'mysql' or 'sqlite' (default: 'mysql'). SQLite is experimental and
+                          needs no dbName/dbUser (requires pdo_sqlite and SQLite 3.35+)
+    dbFile              SQLite database file (default: '' for /site/assets/database/site.sqlite).
+                          Relative paths are relative to /site/assets/database/. Absolute paths
+                          must be outside the web root (unless in /site/assets/database/).
     dbPass              Database password (default: '')
     dbHost              Database hostname (default: 'localhost')
     dbPort              Database port (default: 3306)
@@ -3312,7 +3537,10 @@ return [
 	// Site profile to install (available: $profileList)
 	'profile' => '$defaultProfile',
 
-	// Database (required)
+	// Database (required for MySQL)
+	// For SQLite (experimental), set 'dbType' => 'sqlite' and optionally 'dbFile' instead:
+	// 'dbType' => 'sqlite',
+	// 'dbFile' => '', // blank for /site/assets/database/site.sqlite
 	'dbName' => '',
 	'dbUser' => '',
 	'dbPass' => '',
@@ -3921,6 +4149,89 @@ SQL;
 /****************************************************************************************************/
 
 error_reporting(E_ALL);
+/****************************************************************************************************/
+
+/*
+ * Base class for InstallerSQLitePDO: Pdo\Sqlite in PHP 8.4+ (its createFunction() replaces the
+ * deprecated PDO::sqliteCreateFunction()), otherwise PDO.
+ *
+ */
+if(class_exists('\\Pdo\\Sqlite', false)) {
+	class InstallerSQLitePDOBase extends \Pdo\Sqlite {}
+} else {
+	class InstallerSQLitePDOBase extends \PDO {}
+}
+
+/**
+ * SQLite PDO connection for the installer that translates MySQL SQL to SQLite
+ *
+ * Allows the installer's MySQL-syntax SQL (profile import, table checks) to run on SQLite.
+ *
+ */
+class InstallerSQLitePDO extends InstallerSQLitePDOBase {
+
+	/**
+	 * @var WireDatabaseSQLiteTranslator
+	 *
+	 */
+	protected $translator;
+
+	/**
+	 * @param string $file SQLite database file
+	 *
+	 */
+	public function __construct($file) {
+		require_once(__DIR__ . '/wire/core/WireDatabase/WireDatabaseSQLiteTranslator.php');
+		parent::__construct("sqlite:$file", null, null, array(\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION));
+		$version = (string) parent::query('SELECT sqlite_version()')->fetchColumn();
+		if(version_compare($version, Installer::MIN_SQLITE_VERSION, '<')) {
+			throw new \Exception("SQLite $version is not supported (" . Installer::MIN_SQLITE_VERSION . ' or newer is required)');
+		}
+		parent::exec('PRAGMA journal_mode=WAL');
+		WireDatabaseSQLiteTranslator::registerFunctions($this, $file);
+		$this->translator = new WireDatabaseSQLiteTranslator($this, pathinfo($file, PATHINFO_FILENAME));
+	}
+
+	/**
+	 * Run translated statements except the last, returning the last
+	 *
+	 * @param string $sql
+	 * @return string
+	 *
+	 */
+	protected function translateRunLeading($sql) {
+		$statements = $this->translator->translateStatements($sql);
+		$last = array_pop($statements);
+		foreach($statements as $statement) parent::exec($statement);
+		return $last;
+	}
+
+	#[\ReturnTypeWillChange]
+	public function exec($statement) {
+		$qty = 0;
+		foreach($this->translator->translateStatements($statement) as $sql) {
+			$result = parent::exec($sql);
+			if($result !== false) $qty += $result;
+		}
+		return $qty;
+	}
+
+	#[\ReturnTypeWillChange]
+	public function prepare($query, $options = array()) {
+		return parent::prepare($this->translateRunLeading($query), $options);
+	}
+
+	#[\ReturnTypeWillChange]
+	public function query($query, $fetchMode = null, ...$fetchModeArgs) {
+		return parent::query($this->translateRunLeading($query));
+	}
+
+	#[\ReturnTypeWillChange]
+	public function quote($string, $type = \PDO::PARAM_STR) {
+		return WireDatabaseSQLiteTranslator::quote($string); // MySQL-style, as the translator expects
+	}
+}
+
 if(php_sapi_name() === 'cli') {
 	$installer = new InstallerCli();
 } else {
