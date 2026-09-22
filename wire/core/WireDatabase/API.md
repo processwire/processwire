@@ -64,7 +64,7 @@ $config->dbFile = '/home/user/data/site.sqlite';  // absolute path (i.e. outside
   is thrown. That directory is blocked by the root `.htaccess` file, and ProcessWire adds a deny-all
   `.htaccess` file to it. The root `.htaccess` file also blocks `.sqlite` and `.sqlite3` files
   (and their `-wal`, `-shm` and `-journal` files) anywhere.
-- On servers that do not support `.htaccess` files (such as nginx), use an absolute path outside the web root.
+- For additional protection, the database file may be placed outside the web root by using an absolute path.
 
 ### dialect()
 

@@ -1312,8 +1312,8 @@ class Installer {
 				"The database file is created if it does not exist. Leave the database file blank to use " .
 				"<code>/site/assets/database/site.sqlite</code>. A filename or relative path is relative to " .
 				"<code>/site/assets/database/</code>, which ProcessWire protects from web access. " .
-				"On servers that do not support .htaccess files (such as nginx), specify an absolute path " .
-				"outside the web root, i.e. <code>/home/user/data/site.sqlite</code>."
+				"For additional protection, you may instead specify an absolute path outside the web root, " .
+				"i.e. <code>/home/user/data/site.sqlite</code>."
 			);
 			$this->input('dbFile', 'Database file (optional)', $values['dbFile'], array('required' => false, 'width' => 300));
 			$this->clear();

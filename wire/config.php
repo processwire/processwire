@@ -1352,8 +1352,8 @@ $config->dbType = 'mysql';
  *
  * - Blank (default) for `site/assets/database/site.sqlite`.
  * - A filename or relative path, i.e. `mysite.sqlite`, is relative to `site/assets/database/`.
- * - An absolute path (leading slash) may point to a location outside the web root (recommended
- *   for servers that do not support .htaccess files, such as nginx).
+ * - An absolute path (leading slash) may point to a location outside the web root, for additional
+ *   protection. An absolute path inside the web root must be in `site/assets/database/`.
  *
  * When the file is within the web root, ProcessWire adds a deny-all .htaccess file to its directory.
  *
