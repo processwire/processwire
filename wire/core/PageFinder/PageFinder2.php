@@ -607,6 +607,7 @@ class PageFinder2 extends Wire {
 		// move getTotal option to a class property, after initStatusChecks
 		$this->getTotal = $options['getTotal'];
 		$this->getTotalType = $options['getTotalType'] == 'count' ? 'count' : 'calc';
+		if($this->getTotalType === 'calc' && !$this->wire()->database->dialect()->supportsFoundRows()) $this->getTotalType = 'count';
 		
 		unset($options['getTotal']); // so we get a notice if we try to access it
 		

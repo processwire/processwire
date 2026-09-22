@@ -43,6 +43,96 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 	}
 
 	/**
+	 * Get PDO connection configuration from given $config
+	 *
+	 * @param Config $config
+	 * @param array $options
+	 * @return array
+	 *
+	 */
+	public static function connectionConfig(Config $config, array $options) {
+
+		$reader = $config->dbReader;
+		$initCommand = str_replace('{charset}', $config->dbCharset, $config->dbInitCommand);
+
+		if($initCommand) {
+			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
+				$attrValue = constant("\\Pdo\\Mysql::ATTR_INIT_COMMAND");
+			} else if(defined("\\PDO::MYSQL_ATTR_INIT_COMMAND")) {
+				$attrValue = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
+			} else {
+				$attrValue = 1002; // PDO::MYSQL_ATTR_INIT_COMMAND
+			}
+			if(!isset($options[$attrValue])) {
+				$options[$attrValue] = $initCommand;
+			}
+		}
+
+		$dsnArray = array(
+			'socket' => $config->dbSocket,
+			'name' => $config->dbName,
+			'host' => $config->dbHost,
+			'port' => $config->dbPort,
+		);
+
+		$data = array(
+			'dsn' => WireDatabasePDO::dsn($dsnArray),
+			'user' => $config->dbUser,
+			'pass' => $config->dbPass,
+			'options' => $options,
+		);
+
+		if(!empty($reader)) {
+			if(isset($reader['host']) || isset($reader['socket'])) {
+				// single reader
+				$reader['dsn'] = WireDatabasePDO::dsn(array_merge($dsnArray, $reader));
+				$reader = array_merge($data, $reader);
+				$data['reader'] = $reader;
+			} else {
+				// multiple readers
+				$readers = array();
+				foreach($reader as $r) {
+					if(empty($r['host']) && empty($r['socket'])) continue;
+					$r['dsn'] = WireDatabasePDO::dsn(array_merge($dsnArray, $r));
+					$readers[] = array_merge($data, $r);
+				}
+				$data['reader'] = $readers;
+			}
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Initialize a newly established PDO connection: apply $config->dbSqlModes
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	public function initConnection(\PDO $pdo) {
+
+		$sqlModes = $this->wire()->config->dbSqlModes;
+
+		if(is_array($sqlModes)) {
+			// ["5.7.0" => "remove:mode1,mode2/add:mode3"]
+			foreach($sqlModes as $minVersion => $commands) {
+				if(strpos($commands, '/') !== false) {
+					$commands = explode('/', $commands);
+				} else {
+					$commands = array($commands);
+				}
+				foreach($commands as $modes) {
+					$modes = trim($modes);
+					if(empty($modes)) continue;
+					$action = 'set';
+					if(strpos($modes, ':')) list($action, $modes) = explode(':', $modes);
+					$this->sqlMode(trim($action), trim($modes), $minVersion, $pdo);
+				}
+			}
+		}
+	}
+
+	/**
 	 * Are transactions available with current DB engine (or table)?
 	 *
 	 * @param string $table

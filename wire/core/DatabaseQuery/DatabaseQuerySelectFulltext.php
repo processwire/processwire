@@ -177,6 +177,21 @@ class DatabaseQuerySelectFulltext extends Wire {
 		parent::__construct();
 		$query->wire($this);
 		$this->query = $query;
+		if(!$this->wire()->database->dialect()->supportsFulltext()) {
+			// no MATCH/AGAINST available (i.e. SQLite), so all fulltext operators use LIKE equivalents
+			$this->forceLike = true;
+			$this->likeAlternateOperators = array_merge($this->likeAlternateOperators, array(
+				'*+=' => '%=',
+				'**=' => '~|%=',
+				'**+=' => '~|%=',
+				'~+=' => '~%=',
+				'~*=' => '~%=',
+				'~~=' => '~%=',
+				'~|*=' => '~|%=',
+				'~|+=' => '~|%=',
+				'#=' => '~%=',
+			));
+		}
 	}
 
 	/**

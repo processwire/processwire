@@ -205,4 +205,191 @@ abstract class WireDatabaseDialect extends Wire {
 	 *
 	 */
 	abstract public function getRetryableErrorType(\PDOException $e);
+
+	/*********************************************************************************
+	 * Connection
+	 *
+	 */
+
+	/**
+	 * Get PDO connection configuration from given $config
+	 *
+	 * Returns array with 'dsn', 'user', 'pass', 'options' and optionally 'reader'
+	 * (see WireDatabasePDO constructor).
+	 *
+	 * @param Config $config
+	 * @param array $options PDO driver options already determined by WireDatabasePDO
+	 * @return array
+	 * @throws WireException
+	 *
+	 */
+	public static function connectionConfig(Config $config, array $options) {
+		throw new WireException(static::class . ' does not implement connectionConfig()');
+	}
+
+	/**
+	 * Initialize a newly established PDO connection
+	 *
+	 * Called by WireDatabasePDO after the connection is established and debug mode is configured.
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	public function initConnection(\PDO $pdo) {
+	}
+
+	/*********************************************************************************
+	 * SQL translation
+	 *
+	 * Dialects for databases other than MySQL may translate the MySQL syntax used by
+	 * ProcessWire (and its modules) before it is executed. The methods in this section
+	 * are only called when translatesSql() returns true.
+	 *
+	 */
+
+	/**
+	 * Does this dialect translate SQL before executing it?
+	 *
+	 * @return bool
+	 *
+	 */
+	public function translatesSql() {
+		return false;
+	}
+
+	/**
+	 * Translate SQL (in MySQL syntax) for this database
+	 *
+	 * Returns one or more statements. Multiple statements are executed in order and atomically
+	 * (see execStatements() and prepareStatements()).
+	 *
+	 * @param string $sql
+	 * @return array
+	 *
+	 */
+	public function translateSql($sql) {
+		return [$sql];
+	}
+
+	/**
+	 * Quote a string for use in SQL (in MySQL syntax) that will be translated
+	 *
+	 * @param string $str
+	 * @return string
+	 *
+	 */
+	public function quote($str) {
+		return $this->database->pdo()->quote((string) $str);
+	}
+
+	/**
+	 * Prepare translated SQL
+	 *
+	 * @param \PDO $pdo
+	 * @param string $sql Translated SQL
+	 * @param array $options Driver options
+	 * @return \PDOStatement
+	 *
+	 */
+	public function prepareStatement(\PDO $pdo, $sql, array $options = array()) {
+		return $pdo->prepare($sql, $options);
+	}
+
+	/**
+	 * Prepare multiple translated statements, to be executed when the returned statement is executed
+	 *
+	 * @param \PDO $pdo
+	 * @param array $statements
+	 * @return \PDOStatement
+	 * @throws \PDOException
+	 *
+	 */
+	public function prepareStatements(\PDO $pdo, array $statements) {
+		throw new \PDOException(static::class . ' does not support preparing multiple statements');
+	}
+
+	/**
+	 * Execute a single translated statement
+	 *
+	 * @param \PDO $pdo
+	 * @param string $sql
+	 * @return int|false
+	 * @throws \PDOException
+	 *
+	 */
+	public function execStatement(\PDO $pdo, $sql) {
+		return $pdo->exec($sql);
+	}
+
+	/**
+	 * Execute multiple translated statements atomically
+	 *
+	 * @param \PDO $pdo
+	 * @param array $statements
+	 * @return int Number of rows affected
+	 * @throws \PDOException
+	 *
+	 */
+	public function execStatements(\PDO $pdo, array $statements) {
+		$qty = 0;
+		foreach($statements as $sql) $qty += (int) $pdo->exec($sql);
+		return $qty;
+	}
+
+	/**
+	 * Handle an exception from a translated query(), exec() or prepare()
+	 *
+	 * Returns the exception to throw, or (for prepare) a statement to return instead.
+	 *
+	 * @param \PDOException $e
+	 * @param string $method One of 'query', 'exec' or 'prepare'
+	 * @param string $sql Original SQL
+	 * @param string $translated Translated SQL (blank if translation itself failed)
+	 * @param \PDO $pdo
+	 * @return \PDOException|\PDOStatement
+	 *
+	 */
+	public function queryException(\PDOException $e, $method, $sql, $translated, \PDO $pdo) {
+		return $e;
+	}
+
+	/*********************************************************************************
+	 * Capabilities
+	 *
+	 * Check these rather than which database is in use, i.e. `$database->dialect()->supportsFulltext()`
+	 *
+	 */
+
+	/**
+	 * Supports SQL_CALC_FOUND_ROWS and FOUND_ROWS()?
+	 *
+	 * @return bool
+	 *
+	 */
+	public function supportsFoundRows() {
+		return true;
+	}
+
+	/**
+	 * Supports FULLTEXT indexes and MATCH/AGAINST?
+	 *
+	 * @return bool
+	 *
+	 */
+	public function supportsFulltext() {
+		return true;
+	}
+
+	/**
+	 * Supports ORDER BY in UPDATE statements, applied row-by-row for unique key checks?
+	 *
+	 * This is what makes `UPDATE t SET sort=sort+1 WHERE ... ORDER BY sort DESC` possible
+	 * on a unique/primary key that includes the sort column.
+	 *
+	 * @return bool
+	 *
+	 */
+	public function supportsUpdateOrderBy() {
+		return true;
+	}
 }

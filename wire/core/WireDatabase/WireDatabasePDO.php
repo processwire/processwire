@@ -218,6 +218,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	protected $dialect = null;
 
 	/**
+	 * Does the dialect translate SQL? (null when not yet determined)
+	 *
+	 * @var bool|null
+	 *
+	 */
+	protected $translates = null;
+
+	/**
 	 * Cached InnoDB stopwords (keys are the stopwords and values are irrelevant)
 	 *
 	 * @var array|null Becomes array once loaded
@@ -233,6 +241,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 * The following properties are pulled from given `$config` (see `Config` class for details): 
 	 * 
+	 * - `$config->dbType` ('mysql' or 'sqlite', 3.0.273+)
+	 * - `$config->dbFile` (SQLite only, 3.0.273+)
 	 * - `$config->dbUser`
 	 * - `$config->dbPass`
 	 * - `$config->dbName`
@@ -258,63 +268,17 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			throw new WireException('Required PDO class (database) not found - please add PDO support to your PHP.');
 		}
 
-		$username = $config->dbUser;
-		$password = $config->dbPass;
-		$charset = $config->dbCharset;
 		$options = $config->dbOptions;
-		$reader = $config->dbReader;
-		$initCommand = str_replace('{charset}', $charset, $config->dbInitCommand);
-
 		if(!is_array($options)) $options = array();
 
 		if(!isset($options[\PDO::ATTR_ERRMODE])) {
 			$options[\PDO::ATTR_ERRMODE] = \PDO::ERRMODE_EXCEPTION;
 		}
 
-		if($initCommand) {
-			if(defined("\\Pdo\\Mysql::ATTR_INIT_COMMAND")) {
-				$attrValue = constant("\\Pdo\\Mysql::ATTR_INIT_COMMAND");
-			} else if(defined("\\PDO::MYSQL_ATTR_INIT_COMMAND")) {
-				$attrValue = constant("\\PDO::MYSQL_ATTR_INIT_COMMAND");
-			} else {
-				$attrValue = 1002; // PDO::MYSQL_ATTR_INIT_COMMAND
-			}
-			if(!isset($options[$attrValue])) {
-				$options[$attrValue] = $initCommand;
-			}
-		}
-
-		$dsnArray = array(
-			'socket' => $config->dbSocket,
-			'name' => $config->dbName,
-			'host' => $config->dbHost,
-			'port' => $config->dbPort,
-		);
-
-		$data = array(
-			'dsn' => self::dsn($dsnArray),
-			'user' => $username,
-			'pass' => $password,
-			'options' => $options,
-		);
-
-		if(!empty($reader)) { 
-			if(isset($reader['host']) || isset($reader['socket'])) {
-				// single reader
-				$reader['dsn'] = self::dsn(array_merge($dsnArray, $reader));
-				$reader = array_merge($data, $reader);
-				$data['reader'] = $reader;
-			} else {
-				// multiple readers
-				$readers = array();
-				foreach($reader as $r) {
-					if(empty($r['host']) && empty($r['socket'])) continue;
-					$r['dsn'] = self::dsn(array_merge($dsnArray, $r));
-					$readers[] = array_merge($data, $r);
-				}
-				$data['reader'] = $readers;
-			}
-		}
+		/** @var WireDatabaseDialect $dialectClass */
+		$dialectClass = self::dialectClass($config->dbType);
+		$data = $dialectClass::connectionConfig($config, $options);
+		$data['dialect'] = $dialectClass;
 
 		$database = new WireDatabasePDO($data);
 		$database->setDebugMode($config->debug);
@@ -419,17 +383,63 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	/**
 	 * Get database dialect used by this instance
 	 *
-	 * #pw-internal
+	 * The dialect provides database-specific behavior. Use its capability methods to write SQL
+	 * that works with each supported database type:
+	 * ~~~~~
+	 * $dialect = $database->dialect();
+	 * echo $dialect->name(); // 'mysql' or 'sqlite'
+	 * if($dialect->supportsFulltext()) {
+	 *   // MATCH ... AGAINST is available
+	 * }
+	 * ~~~~~
+	 *
+	 * #pw-group-info
 	 *
 	 * @return WireDatabaseDialect
+	 * @since 3.0.273
 	 *
 	 */
 	public function dialect() {
 		if($this->dialect === null) {
-			$this->dialect = new WireDatabaseDialectMySQL($this);
+			if(!empty($this->pdoConfig['dialect'])) {
+				$class = $this->pdoConfig['dialect'];
+			} else {
+				$class = self::dialectClass(strpos($this->pdoConfig['dsn'], 'sqlite:') === 0 ? 'sqlite' : 'mysql');
+			}
+			$this->dialect = new $class($this);
 			if($this->isWired()) $this->wire($this->dialect);
 		}
 		return $this->dialect;
+	}
+
+	/**
+	 * Get dialect class name for given database type
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $type Database type, i.e. 'mysql' (default) or 'sqlite'
+	 * @return string Class name with namespace
+	 * @throws WireException If given type is not recognized
+	 *
+	 */
+	public static function dialectClass($type = '') {
+		$type = strtolower((string) $type);
+		if($type === '' || $type === 'mysql') return __NAMESPACE__ . "\\WireDatabaseDialectMySQL";
+		if($type === 'sqlite') return __NAMESPACE__ . "\\WireDatabaseDialectSQLite";
+		throw new WireException("Unrecognized database type: $type");
+	}
+
+	/**
+	 * Does the dialect translate SQL (from MySQL syntax) before executing it?
+	 *
+	 * #pw-internal
+	 *
+	 * @return bool
+	 *
+	 */
+	public function translates() {
+		if($this->translates === null) $this->translates = $this->dialect()->translatesSql();
+		return $this->translates;
 	}
 
 	/**
@@ -471,25 +481,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			);
 		}
 
-		$sqlModes = $config->dbSqlModes;
-
-		if(is_array($sqlModes)) {
-			// ["5.7.0" => "remove:mode1,mode2/add:mode3"]
-			foreach($sqlModes as $minVersion => $commands) {
-				if(strpos($commands, '/') !== false) {
-					$commands = explode('/', $commands);
-				} else {
-					$commands = array($commands);
-				}
-				foreach($commands as $modes) {
-					$modes = trim($modes);
-					if(empty($modes)) continue;
-					$action = 'set';
-					if(strpos($modes, ':')) list($action, $modes) = explode(':', $modes);
-					$this->sqlMode(trim($action), trim($modes), $minVersion, $pdo);
-				}
-			}
-		}
+		$this->dialect()->initConnection($pdo);
 	}
 
 	/**
@@ -795,10 +787,53 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function query($statement, $note = '') {
+		if($this->translates()) return $this->translatedQuery('query', $statement, $note);
 		if($this->debugMode) $this->queryLog($statement, $note);
 		$this->lastSql($statement);
 		$pdo = $this->pdoType($statement);
 		return $pdo->query($statement); 
+	}
+
+	/**
+	 * Translate and run a query(), exec() or prepare() for a dialect that translates SQL
+	 *
+	 * @param string $method One of 'query', 'exec' or 'prepare'
+	 * @param string $statement SQL in MySQL syntax
+	 * @param string $note Debug note
+	 * @param array $driver_options For prepare() only
+	 * @return \PDOStatement|int|bool
+	 * @throws \PDOException
+	 *
+	 */
+	protected function translatedQuery($method, $statement, $note = '', array $driver_options = []) {
+		$dialect = $this->dialect();
+		$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
+		$translated = '';
+		try {
+			$statements = $dialect->translateSql($statement);
+			$translated = implode(";\n", $statements);
+			$this->lastSql($translated);
+			if($this->debugMode && $method !== 'prepare') $this->queryLog($translated, $note);
+			if(count($statements) > 1) {
+				// multiple statements (i.e. CREATE TABLE plus indexes, or a table rebuild): run atomically
+				if($method === 'prepare') {
+					$pdoStatement = $dialect->prepareStatements($pdo, $statements);
+					if($this->debugMode && $pdoStatement instanceof WireDatabasePDOStatement) $pdoStatement->setDebugNote($note);
+					return $pdoStatement;
+				}
+				$result = $dialect->execStatements($pdo, $statements);
+				return $method === 'exec' ? $result : $pdo->query('SELECT 1 WHERE 0');
+			}
+			if($method === 'query') return $pdo->query($translated);
+			if($method === 'exec') return $dialect->execStatement($pdo, $translated);
+			$pdoStatement = $dialect->prepareStatement($pdo, $translated, $driver_options);
+			if($this->debugMode && $pdoStatement instanceof WireDatabasePDOStatement) $pdoStatement->setDebugNote($note);
+			return $pdoStatement;
+		} catch(\PDOException $e) {
+			$result = $dialect->queryException($e, $method, $statement, $translated, $pdo);
+			if($result instanceof \PDOStatement) return $result;
+			throw $result;
+		}
 	}
 
 	/**
@@ -928,6 +963,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				\PDO::ATTR_STATEMENT_CLASS => array(__NAMESPACE__ . "\\WireDatabasePDOStatement", array($this))
 			);
 		}
+		if($this->translates()) return $this->translatedQuery('prepare', $statement, $note, $driver_options);
 		$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
 		$this->lastSql($statement);
 		$pdoStatement = $pdo->prepare($statement, $driver_options);
@@ -960,6 +996,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if($statement instanceof \PDOStatement) {
 			return $this->execute($statement);
 		}
+		if($this->translates()) return $this->translatedQuery('exec', $statement, $note);
 		if($this->debugMode) $this->queryLog($statement, $note); 
 		$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
 		return $pdo->exec($statement);
@@ -1523,6 +1560,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if($this->stripMB4 && is_string($str) && !empty($str)) {
 			$str = $this->wire()->sanitizer->removeMB4($str);
 		}
+		if($this->translates()) return $this->dialect()->quote((string) $str);
 		return $this->pdoLast()->quote((string) $str);
 	}
 

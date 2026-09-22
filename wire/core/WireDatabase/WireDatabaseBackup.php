@@ -327,7 +327,8 @@ class WireDatabaseBackup {
 			if(empty($value) && !in_array($key, $optional)) $missing[] = $key;
 		}
 
-		if(count($missing)) {
+		if(count($missing) && !$this->database) {
+			// credentials are only required when we must make our own connection (or use exec)
 			throw new \Exception("Missing required config for: " . implode(', ', $missing));
 		}
 		

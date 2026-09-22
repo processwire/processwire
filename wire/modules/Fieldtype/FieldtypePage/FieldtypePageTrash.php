@@ -272,6 +272,16 @@ class FieldtypePageTrash extends Wire {
 			$shift = $database->prepare(
 				"UPDATE `$table` SET sort=sort+1 WHERE pages_id=:pages_id AND sort>=:sort ORDER BY sort DESC"
 			);
+			if(!$database->dialect()->supportsUpdateOrderBy()) {
+				// i.e. SQLite checks uniqueness per row and has no UPDATE ORDER BY, so shift in two steps:
+				// first to unique negative values, then back to positive
+				$shift = $database->prepare(
+					"UPDATE `$table` SET sort=-(sort+1) WHERE pages_id=:pages_id AND sort>=:sort"
+				);
+				$shift2 = $database->prepare("UPDATE `$table` SET sort=-sort WHERE pages_id=:pages_id AND sort<0");
+			} else {
+				$shift2 = null;
+			}
 
 			foreach($rows as $row) {
 				if((int) $field->get('derefAsPage') > 0 && $currentCount) break;
@@ -281,6 +291,10 @@ class FieldtypePageTrash extends Wire {
 				$shift->bindValue(':pages_id', $sourceId, \PDO::PARAM_INT);
 				$shift->bindValue(':sort', $sort, \PDO::PARAM_INT);
 				$shift->execute();
+				if($shift2) {
+					$shift2->bindValue(':pages_id', $sourceId, \PDO::PARAM_INT);
+					$shift2->execute();
+				}
 
 				$row['pages_id'] = $sourceId;
 				$row['sort'] = $sort;
