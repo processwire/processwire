@@ -124,10 +124,10 @@ ErrorDocument 404 /index.php
 </FilesMatch>
 
 
-# 5B. Block bak, conf, dist, ini, log, orig, sh, sql, swo, swp, ~, and more
+# 5B. Block bak, conf, dist, ini, log, orig, sh, sql, sqlite, swo, swp, ~, and more
 # -----------------------------------------------------------------------------------------------
 
-<FilesMatch "(^#.*#|\.(bak|conf|dist|in[ci]|log|orig|sh|sql|sw[op])|~)$">
+<FilesMatch "(^#.*#|\.(bak|conf|dist|in[ci]|log|orig|sh|sql|sqlite3?(-wal|-shm|-journal)?|sw[op])|~)$">
   <IfModule mod_authz_core.c>
      Require all denied
   </IfModule>
@@ -375,7 +375,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_URI} (^|/)(\.htaccess|htaccess\..*)$ [NC,OR]
   
   # Block access to various assets directories
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets/(cache|logs|backups|sessions|config|install|tmp)($|/.*$) [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets/(cache|logs|backups|sessions|config|database|install|tmp)($|/.*$) [NC,OR]
   
   # Block access to the /site/install/ directories
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/install($|/.*$) [NC,OR]
