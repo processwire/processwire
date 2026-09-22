@@ -691,8 +691,9 @@ class Installer {
 		$root = rtrim(str_replace('\\', '/', __DIR__), '/') . '/';
 		if(strpos($dir, $root) !== 0) return true; // outside web root
 		$htaccess = $dir . '.htaccess';
-		if(is_file($htaccess)) return true;
-		return @file_put_contents($htaccess,
+		$contents = is_file($htaccess) ? (string) file_get_contents($htaccess) : '';
+		if(stripos($contents, 'Require all denied') !== false && stripos($contents, 'Deny from all') !== false) return true;
+		return @file_put_contents($htaccess, ($contents === '' ? '' : rtrim($contents) . "\n\n") .
 			"# Deny all web access to database files (ProcessWire)\n" .
 			"<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n" .
 			"<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n"
@@ -702,11 +703,15 @@ class Installer {
 	/**
 	 * Connect to (or create) SQLite database for installation
 	 *
+	 * When no database file is specified, a file with a random name is created in
+	 * /site/assets/database/, so that its URL cannot be guessed on servers where the
+	 * .htaccess protection does not apply. The name is populated to $values['dbFile'].
+	 *
 	 * @param array $values Database configuration values (dbFile)
 	 * @return InstallerSQLitePDO|null
 	 *
 	 */
-	protected function sqliteConnect(array $values) {
+	protected function sqliteConnect(array &$values) {
 		$version = $this->sqliteVersion();
 		if(!$this->sqliteSupported()) {
 			$this->alertErr($version === ''
@@ -718,6 +723,10 @@ class Installer {
 		if(!preg_match('!^[-_./: \\\\a-zA-Z0-9]*$!', $values['dbFile'])) {
 			$this->alertErr('The database file may only contain letters, digits, spaces and these characters: - _ . / : \\');
 			return null;
+		}
+		if($values['dbFile'] === '') {
+			$random = function_exists('random_bytes') ? bin2hex(random_bytes(4)) : substr(md5(mt_rand() . microtime()), 0, 8);
+			$values['dbFile'] = "site-$random.sqlite";
 		}
 		$error = '';
 		$file = $this->sqliteFile($values['dbFile'], $error);
@@ -734,6 +743,60 @@ class Installer {
 		} catch(\Exception $e) {
 			$this->alertErr('Unable to open SQLite database: ' . htmlspecialchars($e->getMessage()));
 			return null;
+		}
+	}
+
+	/**
+	 * Check whether the SQLite database file can be downloaded from the web, and warn if so
+	 *
+	 * Requests the file's URL from this server. Only possible for the web installer, since the
+	 * CLI installer does not know the site's URL.
+	 *
+	 * @param string $file Full path to database file
+	 *
+	 */
+	protected function sqliteCheckWebAccess($file) {
+		$root = rtrim(str_replace('\\', '/', __DIR__), '/') . '/';
+		if(strpos($file, $root) !== 0) return; // outside web root
+		$howToFix =
+			"configure your web server to deny access to /site/assets/database/, " .
+			"or move the file outside the web root and update \$config->dbFile in /site/config.php.";
+		if($this->cli || empty($_SERVER['HTTP_HOST'])) {
+			$this->warn(
+				"The command line installer cannot check whether the SQLite database file is accessible from the web. " .
+				"If your web server does not support .htaccess files, $howToFix"
+			);
+			return;
+		}
+		$https = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') ||
+			(isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443);
+		$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/') . '/';
+		$path = implode('/', array_map('rawurlencode', explode('/', substr($file, strlen($root)))));
+		$url = ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . $base . $path;
+		$context = stream_context_create(array(
+			'http' => array('method' => 'GET', 'timeout' => 5, 'follow_location' => 0, 'ignore_errors' => true),
+			'ssl' => array('verify_peer' => false, 'verify_peer_name' => false), // checking our own server
+		));
+		$headers = array();
+		$data = false;
+		$fp = @fopen($url, 'r', false, $context);
+		if($fp) {
+			$meta = stream_get_meta_data($fp);
+			if(isset($meta['wrapper_data']) && is_array($meta['wrapper_data'])) $headers = $meta['wrapper_data'];
+			$data = fread($fp, 16);
+			fclose($fp);
+		}
+		$status = isset($headers[0]) && preg_match('!\s(\d{3})\s?!', $headers[0], $m) ? (int) $m[1] : 0;
+		if($status === 0) {
+			$this->alertWarn("Unable to verify that the SQLite database file is protected from web access. If it is not, $howToFix");
+		} else if($status === 200 && is_string($data) && strpos($data, 'SQLite format 3') === 0) {
+			$this->alertErr(
+				"WARNING: The SQLite database file can be downloaded from the web at " . htmlspecialchars($url) . ". " .
+				"Your web server does not appear to support the .htaccess files that protect it. Please $howToFix"
+			);
+			$this->numErrors--; // warn prominently, but do not stop the installation
+		} else {
+			$this->alertOk("SQLite database file is protected from web access (HTTP $status)");
 		}
 	}
 
@@ -1309,9 +1372,10 @@ class Installer {
 		if($this->sqliteSupported()) {
 			$this->sectionStart('fa-database SQLite Database', array('id' => 'pwi-sqlite'));
 			$this->p(
-				"The database file is created if it does not exist. Leave the database file blank to use " .
-				"<code>/site/assets/database/site.sqlite</code>. A filename or relative path is relative to " .
-				"<code>/site/assets/database/</code>, which ProcessWire protects from web access. " .
+				"The database file is created if it does not exist. Leave the database file blank to create one " .
+				"with a random name (i.e. <code>site-3f9a2c7e.sqlite</code>) in <code>/site/assets/database/</code>. " .
+				"A filename or relative path is relative to <code>/site/assets/database/</code>, " .
+				"which ProcessWire protects from web access. " .
 				"For additional protection, you may instead specify an absolute path outside the web root, " .
 				"i.e. <code>/home/user/data/site.sqlite</code>."
 			);
@@ -1644,7 +1708,9 @@ class Installer {
 
 		$this->h("fa-database Test Database and Save Configuration");
 		if($values['dbType'] === 'sqlite') {
-			$this->alertOk("SQLite database file: " . htmlspecialchars($this->sqliteFile($values['dbFile'])));
+			$sqliteFile = $this->sqliteFile($values['dbFile']);
+			$this->alertOk("SQLite database file: " . htmlspecialchars($sqliteFile));
+			$this->sqliteCheckWebAccess($sqliteFile);
 		} else {
 			$this->alertOk("Database connection successful to " . htmlspecialchars($values['dbName']));
 		}
@@ -1793,7 +1859,7 @@ class Installer {
 		if(isset($values['dbType']) && $values['dbType'] === 'sqlite') {
 			$cfg .=
 				"\n\$config->dbType = 'sqlite'; // experimental" .
-				"\n\$config->dbFile = " . var_export($values['dbFile'], true) . "; // blank for /site/assets/database/site.sqlite";
+				"\n\$config->dbFile = " . var_export($values['dbFile'], true) . "; // relative to /site/assets/database/ or absolute path";
 		} else {
 			if($values['dbCon'] === 'Socket') {
 				$cfg .= "\n\$config->dbSocket = " . var_export($values['dbSocket'], true) . ";";
@@ -3336,7 +3402,7 @@ CONFIGURATION KEYS
   Database (optional)
     dbType              'mysql' or 'sqlite' (default: 'mysql'). SQLite is experimental and
                           needs no dbName/dbUser (requires pdo_sqlite and SQLite 3.35+)
-    dbFile              SQLite database file (default: '' for /site/assets/database/site.sqlite).
+    dbFile              SQLite database file (default: '' for a randomly named file in /site/assets/database/).
                           Relative paths are relative to /site/assets/database/. Absolute paths
                           must be outside the web root (unless in /site/assets/database/).
     dbPass              Database password (default: '')
@@ -3540,7 +3606,7 @@ return [
 	// Database (required for MySQL)
 	// For SQLite (experimental), set 'dbType' => 'sqlite' and optionally 'dbFile' instead:
 	// 'dbType' => 'sqlite',
-	// 'dbFile' => '', // blank for /site/assets/database/site.sqlite
+	// 'dbFile' => '', // blank for a randomly named file in /site/assets/database/
 	'dbName' => '',
 	'dbUser' => '',
 	'dbPass' => '',

@@ -65,6 +65,9 @@ $config->dbFile = '/home/user/data/site.sqlite';  // absolute path (i.e. outside
   `.htaccess` file to it. The root `.htaccess` file also blocks `.sqlite` and `.sqlite3` files
   (and their `-wal`, `-shm` and `-journal` files) anywhere.
 - For additional protection, the database file may be placed outside the web root by using an absolute path.
+- The installer names the database file randomly (i.e. `site-3f9a2c7e.sqlite`) unless another file is
+  specified, so that its URL cannot be guessed on servers where `.htaccess` files do not apply. The web
+  installer also checks that the file cannot be downloaded, and warns if it can.
 
 ### dialect()
 
