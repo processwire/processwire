@@ -117,6 +117,8 @@
  * @property string $dbUser Database user #pw-group-database
  * @property string $dbPass Database password #pw-group-database
  * @property string $dbPort Database port (default=3306) #pw-group-database
+ * @property string $dbType Database type: 'mysql' (default) or 'sqlite'. #pw-group-database
+ * @property string $dbFile SQLite database file: blank for site/assets/database/site.sqlite, relative to site/assets/database/, or absolute path. #pw-group-database
  * @property string $dbCharset Default is 'utf8' but 'utf8mb4' is also supported. #pw-group-database
  * @property string $dbEngine Database engine (MyISAM or InnoDB) #pw-group-database
  * @property string $dbSocket Optional DB socket config for sites that need it.  #pw-group-database

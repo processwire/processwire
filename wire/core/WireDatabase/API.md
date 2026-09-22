@@ -7,6 +7,10 @@ inspection, identifier sanitization, query logging, and database metadata.
 Most site code should use higher-level ProcessWire APIs such as `$pages`, `$fields`,
 and `$templates` where possible. Use `$database` when you need direct SQL access.
 
+ProcessWire uses MySQL/MariaDB by default. SQLite is also supported (experimental, 3.0.273+).
+With either database, write SQL in MySQL syntax: with SQLite, ProcessWire translates it.
+See [Database types](#database-types).
+
 ## Common Rules
 
 - Prefer prepared statements for values; use `quote()` only when prepared statements are not practical.
@@ -15,6 +19,9 @@ and `$templates` where possible. Use `$database` when you need direct SQL access
 - Use `execute($query, false)` only when you intend to handle query failure yourself.
 - Close cursors or fully consume statements before running dependent queries when needed.
 - Use transactions only when `allowTransaction()` returns true.
+- Write SQL in MySQL syntax, even when the site uses SQLite (it is translated).
+- To support both MySQL and SQLite, check capabilities with `$database->dialect()` rather than
+  checking which database is in use.
 
 ```php
 $query = $database->prepare("SELECT id, name FROM pages WHERE templates_id=:template");
@@ -24,6 +31,133 @@ foreach($query as $row) {
     // ...
 }
 ```
+
+---
+
+## Database types
+
+### Configuration
+
+The database type is set in `/site/config.php`:
+
+| Setting | Description |
+|---------|-------------|
+| `$config->dbType` | `'mysql'` (default) for MySQL/MariaDB, or `'sqlite'` |
+| `$config->dbFile` | SQLite only: database file (see below) |
+
+MySQL uses the `dbName`, `dbUser`, `dbPass`, `dbHost`, `dbPort` etc. settings. SQLite uses only `dbFile`:
+
+```php
+// /site/config.php
+$config->dbType = 'sqlite';
+$config->dbFile = '';                             // site/assets/database/site.sqlite (default)
+$config->dbFile = 'mysite.sqlite';                // site/assets/database/mysite.sqlite
+$config->dbFile = '/home/user/data/site.sqlite';  // absolute path (i.e. outside the web root)
+```
+
+`$config->dbFile` rules:
+
+- Blank: `site/assets/database/site.sqlite`.
+- Filename or relative path: relative to `site/assets/database/`. It may not contain `..`.
+- Leading slash (or Windows drive letter): absolute path.
+- A database file inside the web root must be in `site/assets/database/`, otherwise a `WireException`
+  is thrown. That directory is blocked by the root `.htaccess` file, and ProcessWire adds a deny-all
+  `.htaccess` file to it. The root `.htaccess` file also blocks `.sqlite` and `.sqlite3` files
+  (and their `-wal`, `-shm` and `-journal` files) anywhere.
+- On servers that do not support `.htaccess` files (such as nginx), use an absolute path outside the web root.
+
+### dialect()
+
+- **Returns:** `WireDatabaseDialect` (`WireDatabaseDialectMySQL` or `WireDatabaseDialectSQLite`)
+- **Purpose:** Database-specific behavior, including capability checks.
+
+```php
+$dialect = $database->dialect();
+echo $dialect->name(); // 'mysql' or 'sqlite'
+```
+
+Capability methods (all return bool):
+
+| Method | MySQL | SQLite | Meaning |
+|--------|-------|--------|---------|
+| `supportsFulltext()` | true | false | FULLTEXT indexes and `MATCH ... AGAINST` |
+| `supportsFoundRows()` | true | false | `SQL_CALC_FOUND_ROWS` and `FOUND_ROWS()` |
+| `supportsUpdateOrderBy()` | true | false | `ORDER BY` in `UPDATE`, applied row by row for unique key checks |
+| `supportsTransaction()` | InnoDB only | true | Transactions (also available on `$database`) |
+
+### Writing SQL that works with both
+
+Most MySQL syntax that ProcessWire and modules commonly use works on SQLite unchanged, including
+`INSERT ... SET`, `INSERT IGNORE`, `ON DUPLICATE KEY UPDATE ... VALUES()`, backtick identifiers,
+`LIMIT offset,count`, `REGEXP`/`RLIKE`, `GROUP_CONCAT(... ORDER BY ... SEPARATOR ...)`,
+`CREATE TABLE` with `KEY`/`UNIQUE KEY`/`FULLTEXT KEY` definitions, most `ALTER TABLE` operations,
+`SHOW TABLES`/`SHOW COLUMNS`/`SHOW INDEX`/`SHOW CREATE TABLE`/`DESCRIBE`, and common functions such as
+`NOW()`, `UNIX_TIMESTAMP()`, `FROM_UNIXTIME()`, `DATE_FORMAT()`, `DATE_ADD()`/`DATE_SUB()`, `IF()`,
+`FIELD()`, `CONCAT()`, `CONCAT_WS()`, `LOCATE()`, `SUBSTRING_INDEX()`, `GREATEST()`, `LEAST()` and `RAND()`.
+
+```php
+// works on MySQL and SQLite
+$query = $database->prepare(
+    "INSERT INTO my_table SET name=:name, qty=:qty " .
+    "ON DUPLICATE KEY UPDATE qty=VALUES(qty)"
+);
+$query->bindValue(':name', $name);
+$query->bindValue(':qty', $qty, \PDO::PARAM_INT);
+$database->execute($query);
+
+// use a capability check where the databases differ
+if($database->dialect()->supportsFulltext()) {
+    $sql = "SELECT pages_id FROM field_body WHERE MATCH(data) AGAINST(:text)";
+} else {
+    $sql = "SELECT pages_id FROM field_body WHERE data LIKE :text";
+}
+```
+
+Guidelines:
+
+- Use bound values or `quote()`/`escapeStr()` for values. With SQLite these escape MySQL-style, which the
+  translator expects. Do not escape values with SQLite-style `''` quoting.
+- Get row counts with `COUNT(*)` or by counting fetched rows. With SQLite, `rowCount()` after a `SELECT`
+  runs an additional `COUNT(*)` query (PDO's SQLite driver does not provide it).
+- Close cursors (`closeCursor()`) or fetch all rows before changing the schema of a table you just read from.
+- Use `$pages->find()` and other ProcessWire APIs for selector-based queries: they handle the database
+  differences for you (for example, fulltext operators on SQLite).
+
+### SQLite
+
+SQLite support is experimental. The installer does not offer it yet.
+
+- **Requirements:** PHP's `pdo_sqlite` extension and SQLite 3.35.0 or newer (checked on connect).
+- **How it works:** ProcessWire's SQL (MySQL syntax) is translated by `WireDatabaseSQLiteTranslator` and
+  MySQL-compatible functions are registered with SQLite. Statements that translate to multiple SQLite
+  statements (such as `CREATE TABLE` with indexes, or an `ALTER TABLE` that requires rebuilding the table)
+  are executed atomically.
+- **Connection:** WAL journal mode, 5 second busy timeout. Errors for unknown tables and columns use MySQL's
+  SQLSTATE codes (`42S02`, `42S22`) and are reported at `execute()` rather than `prepare()`, as with MySQL.
+
+Behavior differences from MySQL:
+
+| Area | SQLite behavior |
+|------|-----------------|
+| Case-insensitive matching | Text columns use `COLLATE NOCASE`, which only folds ASCII letters. `title=äpfel` does not match `Äpfel`, and non-ASCII letters sort by byte value (after `z`). |
+| Fulltext search | No FULLTEXT indexes (they become regular indexes). Selector fulltext operators use `LIKE`/`REGEXP`: no relevance ordering; stopwords are not ignored (so `title~=the home` requires "the" too, whereas MySQL ignores it); word operators such as `~=` also match partial words; query expansion (`*+=`, `**+=`) and boolean commands (`#=`) are approximated. |
+| Column types | Not enforced (SQLite type affinity). `UNSIGNED`, display widths, `CHARACTER SET` and `COLLATE` are ignored, `ENUM`/`SET` become `TEXT`, and `VARCHAR` lengths are not enforced. |
+| Times | `NOW()`, `UNIX_TIMESTAMP()` and similar functions use PHP's time zone. `DEFAULT CURRENT_TIMESTAMP` uses the system's local time (MySQL uses the server's time zone). `ON UPDATE CURRENT_TIMESTAMP` is ignored. |
+| `GROUP_CONCAT()` | No length limit (MySQL's `group_concat_max_len` does not apply). |
+| `TRUNCATE` | Deletes all rows and resets the auto-increment counter. |
+| Unfinished `SELECT` | SQLite cannot drop or rebuild a table while a `SELECT` on it is unfinished. ProcessWire closes such cursors and retries, so further fetches from them return nothing. |
+| Concurrency | One writer at a time. Other writers wait (up to 5 seconds). |
+| No-op statements | `LOCK TABLES`, `UNLOCK TABLES`, `SET ...` (i.e. `SET NAMES`), `OPTIMIZE`/`ANALYZE`/`REPAIR`/`CHECK TABLE`. |
+
+Not supported (throws an exception):
+
+- `FOUND_ROWS()` (`SQL_CALC_FOUND_ROWS` is ignored): use `COUNT(*)`, or check `supportsFoundRows()`.
+- `UPDATE` with `JOIN`, and multi-table `DELETE` with more than one target table
+  (`DELETE t FROM t JOIN ...` with one target is supported).
+- `SELECT ... FOR UPDATE` / `LOCK IN SHARE MODE`, user variables (`@var`), stored procedures.
+- `ALTER TABLE ... ADD CONSTRAINT` and `RENAME INDEX`.
+- `ALTER TABLE` operations that require rebuilding a table (`MODIFY`, `CHANGE`, primary key changes) on
+  tables with triggers, CHECK/FOREIGN KEY/UNIQUE constraints, or indexes not created through ProcessWire.
 
 ---
 
@@ -88,7 +222,7 @@ The `$driver_options` argument may be:
 | Value | Behavior |
 |-------|----------|
 | array | Passed through as PDO driver options |
-| `true` | Request a `WireDatabasePDOStatement` |
+| `true` | Request a `WireDatabasePDOStatement` (with SQLite, always a `WireDatabaseSQLiteStatement`, which extends it) |
 | string | Treated as the debug `$note` argument |
 
 ### execute()
@@ -136,7 +270,8 @@ $n = $database->exec("UPDATE pages SET modified=modified WHERE id=1234");
 
 ## Transactions
 
-Transactions are available when the current database engine/table supports them.
+Transactions are available when the current database engine/table supports them
+(MySQL InnoDB tables, and always with SQLite).
 
 ```php
 if($database->allowTransaction()) {
@@ -215,7 +350,7 @@ Verbose modes:
 |-------|-------------|
 | `false` | Column names only |
 | `true` or `1` | Simplified verbose info indexed by column name |
-| `2` | Raw MySQL column information |
+| `2` | Raw column information in MySQL `SHOW COLUMNS` format (emulated with SQLite) |
 | `3` | Column types as used in a CREATE TABLE statement |
 | string | One column's verbose info |
 
@@ -349,19 +484,19 @@ $like = '%' . $database->escapeLike($term) . '%';
 ### getVersion()
 
 - **Arguments:** `getVersion($getNumberOnly = false)`
-- **Returns:** MySQL/MariaDB version string.
+- **Returns:** MySQL/MariaDB version string, or SQLite version string (i.e. `3.47.0`).
 
 ### getServerType()
 
-- **Returns:** server type string such as `MySQL`, `MariaDB`, or `Percona`.
+- **Returns:** server type string such as `MySQL`, `MariaDB`, `Percona`, or `SQLite`.
 
 ### getRegexEngine()
 
-- **Returns:** `ICU` or `HenrySpencer`.
+- **Returns:** `ICU` or `HenrySpencer`. With SQLite, `ICU` (REGEXP uses PHP's PCRE).
 
 ### getEngine()
 
-- **Returns:** current configured database engine in lowercase.
+- **Returns:** current configured database engine in lowercase (`$config->dbEngine`, not meaningful with SQLite).
 
 ### getCharset()
 
@@ -371,7 +506,8 @@ $like = '%' . $database->escapeLike($term) . '%';
 
 - **Arguments:** `getVariable($name, $cache = true, $sub = true)`
 - **Returns:** string|null
-- **Purpose:** Retrieve a MySQL/MariaDB variable.
+- **Purpose:** Retrieve a MySQL/MariaDB variable. With SQLite, only `version`, `version_comment` and the
+  fulltext word length variables return a value; others return null.
 
 ```php
 $version = $database->getVariable('version');
@@ -437,6 +573,24 @@ Core automatically populates this log when ProcessWire debug mode is active.
 
 ```php
 $backups = $database->backups();
+$file = $backups->backup(['description' => 'Before upgrade']);
+$backups->restore(basename($file));
 ```
 
 See `WireDatabaseBackup` for backup and restore operations.
+
+With SQLite, backups work the same way. Backup files are MySQL-syntax SQL, rebuilt from the SQLite schema
+(including indexes; FULLTEXT indexes are saved as regular indexes), and restore through the SQL translator.
+Backup filenames use the database file's name, i.e. `site_2026-01-01_12-00-00.sql`.
+
+---
+
+## Notes
+
+- `$database->dialect()` capability checks are preferred over checking `$config->dbType` or `name()`.
+- SQL with values embedded in it must be escaped with `quote()`/`escapeStr()`, never by hand.
+- With SQLite, avoid `rowCount()` on `SELECT` statements where performance matters (it runs a second query).
+- With SQLite, failed queries are logged to `site/assets/logs/sqlite-errors.txt` in debug mode, including
+  the original and translated SQL.
+- `WireDatabaseSQLiteTranslator` can also be used on its own (it has no ProcessWire dependencies), i.e.
+  `(new WireDatabaseSQLiteTranslator($pdo))->translate($sql)`.

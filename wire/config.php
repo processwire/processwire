@@ -1337,6 +1337,32 @@ $config->cookieOptions = array(
 /*** 7. DATABASE ********************************************************************************/
 
 /**
+ * Database type
+ *
+ * - `mysql` (default): MySQL or MariaDB, configured with the dbName, dbUser, dbHost, etc. settings below.
+ * - `sqlite`: SQLite database file, configured with the dbFile setting below.
+ *
+ * @var string
+ *
+ */
+$config->dbType = 'mysql';
+
+/**
+ * SQLite database file (applies only when dbType is 'sqlite')
+ *
+ * - Blank (default) for `site/assets/database/site.sqlite`.
+ * - A filename or relative path, i.e. `mysite.sqlite`, is relative to `site/assets/database/`.
+ * - An absolute path (leading slash) may point to a location outside the web root (recommended
+ *   for servers that do not support .htaccess files, such as nginx).
+ *
+ * When the file is within the web root, ProcessWire adds a deny-all .htaccess file to its directory.
+ *
+ * @var string
+ *
+ */
+$config->dbFile = '';
+
+/**
  * Database name
  *
  */

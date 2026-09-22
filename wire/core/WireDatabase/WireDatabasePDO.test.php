@@ -188,6 +188,18 @@ class WireTest_WireDatabasePDO extends WireTest {
 		$dialect = $database->dialect();
 		$this->check('dialect() returns WireDatabaseDialect', true, $dialect instanceof WireDatabaseDialect);
 
+		if($dialect->name() === 'sqlite') {
+			$e = $this->fakePDOException('database is locked', 'HY000', 5);
+			$this->check('getRetryableErrorType() deadlock for SQLITE_BUSY', 'deadlock', $dialect->getRetryableErrorType($e));
+			$e = $this->fakePDOException('database table is locked', 'HY000', 6);
+			$this->check('getRetryableErrorType() deadlock for SQLITE_LOCKED', 'deadlock', $dialect->getRetryableErrorType($e));
+			$e = $this->fakePDOException('UNIQUE constraint failed: t.id', '23000', 19);
+			$this->check('getRetryableErrorType() blank for constraint error', '', $dialect->getRetryableErrorType($e));
+			$e = $this->fakePDOException('no such column: foo', 'HY000', 1);
+			$this->check('getRetryableErrorType() blank for generic SQLite error', '', $dialect->getRetryableErrorType($e));
+			return; // remaining checks use MySQL error codes
+		}
+
 		$e = $this->fakePDOException('Deadlock found when trying to get lock; try restarting transaction', '40001', 1213);
 		$this->check('getRetryableErrorType() deadlock by SQLSTATE 40001', 'deadlock', $dialect->getRetryableErrorType($e));
 

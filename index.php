@@ -34,7 +34,7 @@ if(file_exists($composerAutoloader)) require_once($composerAutoloader);
 if(!class_exists("ProcessWire\\ProcessWire", false)) require_once("$rootPath/wire/core/ProcessWire.php");
 $config = ProcessWire::buildConfig($rootPath);
 
-if(!$config->dbName) {
+if(!$config->dbName && $config->dbType !== 'sqlite') {
 	// If ProcessWire is not installed, go to the installer
 	if(php_sapi_name() === 'cli') {
 		die("To install ProcessWire from the command line use: php install.php\n"); 
