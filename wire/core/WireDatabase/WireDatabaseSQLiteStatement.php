@@ -87,7 +87,7 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 	 *
 	 */
 	protected static function weakRef($statement) {
-		return class_exists('\\WeakReference') ? \WeakReference::create($statement) : $statement;
+		return class_exists('\\WeakReference', false) ? \WeakReference::create($statement) : $statement;
 	}
 
 	/**

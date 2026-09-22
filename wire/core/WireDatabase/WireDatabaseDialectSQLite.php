@@ -203,6 +203,20 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialectMySQL {
 	}
 
 	/**
+	 * Get the PDO class to use for connections
+	 *
+	 * PHP 8.4+ provides Pdo\Sqlite, whose createFunction() replaces PDO::sqliteCreateFunction()
+	 * (deprecated in PHP 8.5).
+	 *
+	 * @return string
+	 *
+	 */
+	public function pdoClass() {
+		// note: no autoload for PHP's own class (PW's autoloader may query the database while connecting)
+		return class_exists('\\Pdo\\Sqlite', false) ? '\\Pdo\\Sqlite' : '\\PDO';
+	}
+
+	/**
 	 * Initialize a new PDO connection
 	 *
 	 * @param \PDO $pdo

@@ -228,6 +228,16 @@ abstract class WireDatabaseDialect extends Wire {
 	}
 
 	/**
+	 * Get the PDO class to use for connections
+	 *
+	 * @return string
+	 *
+	 */
+	public function pdoClass() {
+		return '\\PDO';
+	}
+
+	/**
 	 * Initialize a newly established PDO connection
 	 *
 	 * Called by WireDatabasePDO after the connection is established and debug mode is configured.

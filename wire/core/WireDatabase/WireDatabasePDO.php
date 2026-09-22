@@ -555,7 +555,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	protected function pdoWriter() {
 		if(!$this->writer['pdo']) {
 			$this->writer['init'] = false;
-			$pdo = new \PDO(
+			$pdoClass = $this->dialect()->pdoClass();
+			$pdo = new $pdoClass(
 				$this->pdoConfig['dsn'],
 				$this->pdoConfig['user'],
 				$this->pdoConfig['pass'],
@@ -602,7 +603,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			// try readers till we find one that gives us a connection
 			$reader = array_shift($readers);
 			try {
-				$pdo = new \PDO($reader['dsn'], $reader['user'], $reader['pass'], $reader['options']);
+				$pdoClass = $this->dialect()->pdoClass();
+				$pdo = new $pdoClass($reader['dsn'], $reader['user'], $reader['pass'], $reader['options']);
 			} catch(\PDOException $e) {
 				$pdo = null;
 				$lastException = $e;

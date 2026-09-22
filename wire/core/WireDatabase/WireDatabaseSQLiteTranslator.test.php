@@ -13,11 +13,12 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 	protected $translator;
 
 	public function allow() {
-		return class_exists('\PDO') && in_array('sqlite', \PDO::getAvailableDrivers(), true);
+		return class_exists('\PDO', false) && in_array('sqlite', \PDO::getAvailableDrivers(), true);
 	}
 
 	public function init() {
-		$this->pdo = new \PDO('sqlite::memory:');
+		$pdoClass = class_exists('\\Pdo\\Sqlite', false) ? '\\Pdo\\Sqlite' : '\\PDO'; // PHP 8.4+: Pdo\Sqlite
+		$this->pdo = new $pdoClass('sqlite::memory:');
 		$this->pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 		$this->translator = new WireDatabaseSQLiteTranslator($this->pdo);
 		WireDatabaseSQLiteTranslator::registerFunctions($this->pdo);

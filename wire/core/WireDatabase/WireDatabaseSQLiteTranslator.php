@@ -1909,7 +1909,11 @@ class WireDatabaseSQLiteTranslator {
 	 */
 	public static function registerFunctions(\PDO $pdo, $databaseFile = '') {
 
-		$det = defined('\PDO::SQLITE_DETERMINISTIC') ? \PDO::SQLITE_DETERMINISTIC : 0;
+		if(class_exists('\Pdo\Sqlite', false) && defined('\Pdo\Sqlite::DETERMINISTIC')) {
+			$det = constant('\Pdo\Sqlite::DETERMINISTIC'); // PHP 8.4+
+		} else {
+			$det = defined('\PDO::SQLITE_DETERMINISTIC') ? constant('\PDO::SQLITE_DETERMINISTIC') : 0;
+		}
 		$create = function($name, $callback, $numArgs = -1, $flags = 0) use($pdo) {
 			if(method_exists($pdo, 'createFunction')) {
 				$pdo->createFunction($name, $callback, $numArgs, $flags); // PHP 8.4+ Pdo\Sqlite
