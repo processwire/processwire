@@ -197,6 +197,28 @@ class WireTest_WireDatabasePDO extends WireTest {
 			$this->check('getRetryableErrorType() blank for constraint error', '', $dialect->getRetryableErrorType($e));
 			$e = $this->fakePDOException('no such column: foo', 'HY000', 1);
 			$this->check('getRetryableErrorType() blank for generic SQLite error', '', $dialect->getRetryableErrorType($e));
+
+			// transactions must take the write lock up front (BEGIN IMMEDIATE), otherwise a transaction that
+			// reads before it writes fails with "database is locked" when another connection writes meanwhile
+			$file = WireDatabaseDialectSQLite::databaseFile($this->wire()->config);
+			$other = new \PDO("sqlite:$file", null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_TIMEOUT => 0]);
+			$other->exec('PRAGMA busy_timeout=0');
+			$database->beginTransaction();
+			$this->check('inTransaction() true after begin (SQLite)', true, $database->inTransaction());
+			$locked = false;
+			try {
+				$other->exec('BEGIN IMMEDIATE');
+				$other->exec('ROLLBACK');
+			} catch(\PDOException $e) {
+				$locked = true;
+			}
+			$database->rollBack();
+			$this->check('beginTransaction() takes write lock up front (BEGIN IMMEDIATE)', true, $locked);
+			$this->check('inTransaction() false after rollBack (SQLite)', false, $database->inTransaction());
+			$other->exec('BEGIN IMMEDIATE');
+			$other->exec('ROLLBACK');
+			$this->check('write lock released after rollBack', true, true);
+			$other = null;
 			return; // remaining checks use MySQL error codes
 		}
 

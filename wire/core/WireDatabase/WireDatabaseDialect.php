@@ -249,6 +249,58 @@ abstract class WireDatabaseDialect extends Wire {
 	}
 
 	/*********************************************************************************
+	 * Transactions
+	 *
+	 * WireDatabasePDO's transaction methods delegate to these, so that a dialect can change
+	 * how transactions are started (i.e. SQLite uses BEGIN IMMEDIATE).
+	 *
+	 */
+
+	/**
+	 * Begin a transaction
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function beginTransaction(\PDO $pdo) {
+		return $pdo->beginTransaction();
+	}
+
+	/**
+	 * Is a transaction active?
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function inTransaction(\PDO $pdo) {
+		return (bool) $pdo->inTransaction();
+	}
+
+	/**
+	 * Commit the active transaction
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function commit(\PDO $pdo) {
+		return $pdo->commit();
+	}
+
+	/**
+	 * Roll back the active transaction
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function rollBack(\PDO $pdo) {
+		return $pdo->rollBack();
+	}
+
+	/*********************************************************************************
 	 * SQL translation
 	 *
 	 * Dialects for databases other than MySQL may translate the MySQL syntax used by

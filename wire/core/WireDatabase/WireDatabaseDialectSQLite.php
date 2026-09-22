@@ -38,6 +38,22 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialectMySQL {
 	protected $savepointNum = 0;
 
 	/**
+	 * Does PDO start transactions with BEGIN IMMEDIATE itself? (PHP 8.5+ Pdo\Sqlite::ATTR_TRANSACTION_MODE)
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $pdoImmediate = false;
+
+	/**
+	 * Is a transaction active that this dialect started? (when PDO cannot use BEGIN IMMEDIATE itself)
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $inTransaction = false;
+
+	/**
 	 * Get dialect name
 	 *
 	 * @return string
@@ -234,6 +250,15 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialectMySQL {
 			\PDO::ATTR_STATEMENT_CLASS,
 			[__NAMESPACE__ . "\\WireDatabaseSQLiteStatement", [$this->database]]
 		);
+		// transactions start with BEGIN IMMEDIATE (see beginTransaction())
+		$this->inTransaction = false;
+		$this->pdoImmediate = false;
+		if(class_exists('\\Pdo\\Sqlite', false) && $pdo instanceof \Pdo\Sqlite && defined('\\Pdo\\Sqlite::ATTR_TRANSACTION_MODE')) {
+			$this->pdoImmediate = $pdo->setAttribute(
+				constant('\\Pdo\\Sqlite::ATTR_TRANSACTION_MODE'),
+				constant('\\Pdo\\Sqlite::TRANSACTION_MODE_IMMEDIATE')
+			);
+		}
 		$pdo->exec('PRAGMA journal_mode=WAL');
 		$pdo->exec('PRAGMA synchronous=NORMAL');
 		$pdo->exec('PRAGMA busy_timeout=5000');
@@ -269,6 +294,80 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialectMySQL {
 		$statement = $pdo->prepare('SELECT 1 WHERE 0');
 		$statement->setDeferredStatements($statements);
 		return $statement;
+	}
+
+	/**
+	 * Begin a transaction with BEGIN IMMEDIATE
+	 *
+	 * PDO's default BEGIN (deferred) starts a read transaction that is upgraded on the first write.
+	 * If another connection writes in between, the upgrade fails right away with "database is locked"
+	 * (the busy timeout cannot help), which would happen to any transaction that reads before it writes.
+	 * BEGIN IMMEDIATE takes the write lock up front, so concurrent writers wait for each other instead.
+	 *
+	 * PHP 8.5+ does this through Pdo\Sqlite::ATTR_TRANSACTION_MODE. For earlier versions this dialect
+	 * starts and ends the transaction itself, since PDO does not recognize transactions it did not start.
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function beginTransaction(\PDO $pdo) {
+		if($this->pdoImmediate) return $pdo->beginTransaction();
+		if($this->inTransaction) throw new \PDOException('There is already an active transaction');
+		$pdo->exec('BEGIN IMMEDIATE');
+		$this->inTransaction = true;
+		return true;
+	}
+
+	/**
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function inTransaction(\PDO $pdo) {
+		if($this->pdoImmediate) return (bool) $pdo->inTransaction();
+		return $this->inTransaction;
+	}
+
+	/**
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function commit(\PDO $pdo) {
+		if($this->pdoImmediate) return $pdo->commit();
+		return $this->endTransaction($pdo, 'COMMIT');
+	}
+
+	/**
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function rollBack(\PDO $pdo) {
+		if($this->pdoImmediate) return $pdo->rollBack();
+		return $this->endTransaction($pdo, 'ROLLBACK');
+	}
+
+	/**
+	 * End a transaction started by beginTransaction() (when PDO cannot use BEGIN IMMEDIATE itself)
+	 *
+	 * @param \PDO $pdo
+	 * @param string $sql COMMIT or ROLLBACK
+	 * @return bool
+	 * @throws \PDOException
+	 *
+	 */
+	protected function endTransaction(\PDO $pdo, $sql) {
+		if(!$this->inTransaction) throw new \PDOException('There is no active transaction');
+		try {
+			$pdo->exec($sql);
+		} catch(\PDOException $e) {
+			// SQLite may already have rolled back the transaction (i.e. after certain errors)
+			if(stripos($e->getMessage(), 'no transaction is active') === false) throw $e;
+		}
+		$this->inTransaction = false;
+		return true;
 	}
 
 	/**

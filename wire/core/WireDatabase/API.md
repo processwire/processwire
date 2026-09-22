@@ -151,7 +151,7 @@ Behavior differences from MySQL:
 | `GROUP_CONCAT()` | No length limit (MySQL's `group_concat_max_len` does not apply). |
 | `TRUNCATE` | Deletes all rows and resets the auto-increment counter. |
 | Unfinished `SELECT` | SQLite cannot drop or rebuild a table while a `SELECT` on it is unfinished. ProcessWire closes such cursors and retries, so further fetches from them return nothing. |
-| Concurrency | One writer at a time. Other writers wait (up to 5 seconds). |
+| Concurrency | One writer at a time. Other writers wait (up to 5 seconds). Transactions start with `BEGIN IMMEDIATE` (taking the write lock up front), so a transaction that reads before it writes waits for other writers rather than failing with "database is locked". |
 | No-op statements | `LOCK TABLES`, `UNLOCK TABLES`, `SET ...` (i.e. `SET NAMES`), `OPTIMIZE`/`ANALYZE`/`REPAIR`/`CHECK TABLE`. |
 
 Not supported (throws an exception):

@@ -849,7 +849,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 */
 	public function beginTransaction() {
 		$this->allowReader(false);
-		return $this->pdoWriter()->beginTransaction();
+		return $this->dialect()->beginTransaction($this->pdoWriter());
 	}
 
 	/**
@@ -862,7 +862,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function inTransaction() {
-		return (bool) $this->pdoWriter()->inTransaction();
+		return $this->dialect()->inTransaction($this->pdoWriter());
 	}
 
 	/**
@@ -906,7 +906,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	public function commit() {
 		if(!$this->inTransaction()) return false;
 		$this->allowReader(true);
-		return $this->pdoWriter()->commit();
+		return $this->dialect()->commit($this->pdoWriter());
 	}
 
 	/**
@@ -921,7 +921,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	public function rollBack() {
 		if(!$this->inTransaction()) return false;
 		$this->allowReader(true);
-		return $this->pdoWriter()->rollBack();
+		return $this->dialect()->rollBack($this->pdoWriter());
 	}
 
 	/**
