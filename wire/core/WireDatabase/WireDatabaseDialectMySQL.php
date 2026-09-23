@@ -145,8 +145,8 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 			$query = $this->database->prepare('SHOW TABLE STATUS WHERE name=:name');
 			$query->bindValue(':name', $table);
 			$query->execute();
-			if($query->rowCount()) {
-				$row = $query->fetch(\PDO::FETCH_ASSOC);
+			$row = $query->fetch(\PDO::FETCH_ASSOC);
+			if($row) {
 				$engine = empty($row['Engine']) ? (empty($row['engine']) ? '' : $row['engine']) : $row['Engine'];
 			}
 			$query->closeCursor();
@@ -183,9 +183,9 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 		$table = $this->database->escapeTable($table);
 		if($verbose === 3) {
 			$query = $this->database->query("SHOW CREATE TABLE $table");
-			if(!$query->rowCount()) return array();
 			$row = $query->fetch(\PDO::FETCH_NUM);
 			$query->closeCursor();
+			if(!$row) return array();
 			if(!preg_match_all('/`([_a-z0-9]+)`\s+([a-z][^\r\n]+)/i', $row[1], $matches)) return array();
 			foreach($matches[1] as $key => $name) {
 				$columns[$name] = trim(rtrim($matches[2][$key], ','));
@@ -295,8 +295,8 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 			$query = $this->database->prepare("SHOW COLUMNS FROM `$table` WHERE Field=:column");
 			$query->bindValue(':column', $column, \PDO::PARAM_STR);
 			$query->execute();
-			$numRows = (int) $query->rowCount();
-			if($numRows) $exists = $getInfo ? $query->fetch(\PDO::FETCH_ASSOC) : true;
+			$row = $query->fetch(\PDO::FETCH_ASSOC);
+			if($row) $exists = $getInfo ? $row : true;
 			$query->closeCursor();
 		} catch(\Exception $e) {
 			// most likely given table does not exist
@@ -320,15 +320,8 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 		$query->bindValue(':name', $indexName, \PDO::PARAM_STR);
 		try {
 			$query->execute();
-			$numRows = (int) $query->rowCount();
-			if($numRows && $getInfo) {
-				$exists = array();
-				while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-					$exists[] = $row;
-				}
-			} else {
-				$exists = $numRows > 0;
-			}
+			$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+			$exists = $getInfo && count($rows) ? $rows : count($rows) > 0;
 			$query->closeCursor();
 		} catch(\Exception $e) {
 			// most likely given table does not exist
@@ -391,8 +384,9 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 		$query = $this->database->prepare('SHOW VARIABLES WHERE Variable_name=:name');
 		$query->bindValue(':name', $name);
 		$query->execute();
-		if($query->rowCount()) {
-			list(,$value) = $query->fetch(\PDO::FETCH_NUM);
+		$row = $query->fetch(\PDO::FETCH_NUM);
+		if($row) {
+			list(,$value) = $row;
 			$this->variableCache[$name] = $value;
 		} else {
 			$value = null;

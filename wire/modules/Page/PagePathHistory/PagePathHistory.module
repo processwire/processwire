@@ -638,7 +638,8 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				$query->bindValue(":$bindKey", $bindValue);
 			}
 			$query->execute();
-			$rowCount = $query->rowCount();
+			$queryRows = $query->fetchAll(\PDO::FETCH_ASSOC);
+			$rowCount = count($queryRows);
 		} catch(\Exception $e) {
 			if(!$this->checkTableSchema()) throw $e;
 			$rowCount = 0;
@@ -651,7 +652,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$pathCounts = array();
 		$matchRow = null;
 		
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+		foreach($queryRows as $row) {
 			
 			$path = $row['path'];
 			
@@ -758,9 +759,9 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			
 			if($error) break;
 			
-			if($query->rowCount() > 0) {
+			$row = $query->fetch(\PDO::FETCH_NUM);
+			if($row) {
 				// found a match
-				$row = $query->fetch(\PDO::FETCH_NUM);
 				$pages_id = (int) $row[0];
 				$language_id = $languages && isset($row[1]) ? $row[1] : 0;
 				$page = $this->pages->get((int) $pages_id);

@@ -358,8 +358,9 @@ class PagesPathFinder extends Wire {
 		}
 
 		$query->execute();
-		$rowCount = (int) $query->rowCount();
-		$row = $query->fetch(\PDO::FETCH_ASSOC);
+		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+		$rowCount = count($rows);
+		$row = $rowCount ? reset($rows) : false;
 		$query->closeCursor();
 
 		// multiple matches error (not likely)

@@ -145,8 +145,8 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
 
-		$hasRow = $query->rowCount() > 0;
-		$row = $hasRow ? $query->fetch(\PDO::FETCH_ASSOC) : null;
+		$row = $query->fetch(\PDO::FETCH_ASSOC);
+		if(!$row) $row = null;
 
 		$query->closeCursor();
 
@@ -424,7 +424,7 @@ class PagesVersions extends Wire implements Module {
 		}
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
-		$n = $query->rowCount() ? (int) $query->fetchColumn() : 0; 
+		$n = (int) $query->fetchColumn();
 		$query->closeCursor();
 		return $n > 0;
 	}
@@ -964,8 +964,8 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':version', $version, \PDO::PARAM_INT);
 		$query->execute();
 
-		if($query->rowCount()) {
-			$value = $query->fetchColumn();
+		$value = $query->fetchColumn();
+		if($value !== false) {
 			$value = json_decode($value, true);
 			if(is_array($value)) {
 				if(count($value) === 1 && isset($value['data'])) {
@@ -1141,16 +1141,17 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
 
-		$numRows = $query->rowCount();
+		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+		$numRows = count($rows);
 
 		if($multi && $numRows) {
 			$value = [];
-			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			foreach($rows as $row) {
 				unset($row['pages_id']);
 				$value[] = $row;
 			}
 		} else if($numRows) {
-			$value = $query->fetch(\PDO::FETCH_ASSOC);
+			$value = reset($rows);
 			unset($value['pages_id']);
 		} else {
 			$fieldtype = $field->type;
@@ -1436,7 +1437,7 @@ class PagesVersions extends Wire implements Module {
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':name', $name);
 		$query->execute();
-		$version = $query->rowCount() ? (int) $query->fetchColumn() : 0;
+		$version = (int) $query->fetchColumn();
 		$query->closeCursor();
 		return $version;
 	}

@@ -406,7 +406,8 @@ class CommentNotifications extends Wire {
 		$query->bindValue(':subcode', $subcode); 
 		$query->execute();
 		$email = '';
-		if($query->rowCount()) list($email) = $query->fetch(\PDO::FETCH_NUM); 
+		$row = $query->fetch(\PDO::FETCH_NUM);
+		if($row) list($email) = $row;
 		if(!strlen($email)) return false;
 	
 		if($all) {
@@ -418,9 +419,10 @@ class CommentNotifications extends Wire {
 		if(!$all) $query->bindValue(':pages_id', $this->page->id);
 		$query->bindValue(':email', $email); 
 		$query->execute();
-		if(!$query->rowCount()) return false;
-		
-		while($row = $query->fetch(\PDO::FETCH_NUM)) {
+		$rows = $query->fetchAll(\PDO::FETCH_NUM);
+		if(!count($rows)) return false;
+
+		foreach($rows as $row) {
 			list($id, $flags) = $row; 
 			if($enable) {
 				// enable

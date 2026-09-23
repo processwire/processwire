@@ -1002,13 +1002,14 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 			try {
 				$query->execute();
-				$cnt = $query->rowCount();
+				$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+				$cnt = count($rows);
 				if($cnt > 0) {
 					if($field->name == $this->field->name) {
 						$message = $checkLabel . sprintf($this->_('%d orphaned table rows found'), $cnt); 
 						$numRows = $cnt; 
 						$n = 0; 
-						while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+						foreach($rows as $row) {
 							$message .= "\n" . 
 								"<small>pages_id: $row[pages_id], data: " . 
 								$this->wire()->sanitizer->entities($row['data']) . "</small>";

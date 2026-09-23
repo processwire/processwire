@@ -1529,12 +1529,8 @@ class PagesLoader extends Wire {
 		}
 		
 		$query->execute();
-		$rowCount = (int) $query->rowCount();
-		$rows = array();
-		
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			$rows[] = $row;
-		}
+		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+		$rowCount = count($rows);
 		
 		$query->closeCursor();
 		
@@ -1769,7 +1765,7 @@ class PagesLoader extends Wire {
 				$query = $database->prepare('SELECT id FROM pages WHERE parent_id=1 AND name=:name');
 				$query->bindValue(':name', $rootName);
 				$query->execute();
-				if($query->rowCount() > 0) {
+				if($query->fetchColumn() !== false) {
 					// leave subdirectory in path because page in site also matches subdirectory name
 				} else {
 					// remove root URL subdirectory from path 
@@ -1837,10 +1833,11 @@ class PagesLoader extends Wire {
 			$query = $database->prepare($sql);
 			foreach($binds as $key => $value) $query->bindValue($key, $value);
 			$database->execute($query);
-			$numRows = $query->rowCount();
+			$rows = $query->fetchAll(\PDO::FETCH_NUM);
+			$numRows = count($rows);
 			if($numRows == 1) {
 				// if only 1 page matches then we’ve found what we’re looking for
-				list($pageID, $templatesID, $parentID) = $query->fetch(\PDO::FETCH_NUM);
+				list($pageID, $templatesID, $parentID) = reset($rows);
 			} else if($numRows == 0) {
 				// no page can possibly match last segment
 			} else if($numRows > 1) {
@@ -1894,25 +1891,24 @@ class PagesLoader extends Wire {
 			$query = $database->prepare($sql);
 			foreach($binds as $key => $value) $query->bindValue($key, $value);
 			$database->execute($query);
-			$rowCount = $query->rowCount();
+			$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+			$rowCount = count($rows);
 			
 			if($rowCount === 1) {
 				// just one page matched
-				$row = $query->fetch(\PDO::FETCH_NUM); 
-				list($pageID, $templatesID, $parentID, ) = $row;
+				$row = reset($rows);
+				list($pageID, $templatesID, $parentID) = [$row['id'], $row['templates_id'], $row['parent_id']];
 				
 			} else if($rowCount > 1 && $isRootParent) {
 				// multiple pages matched off root
 				// use either 'default' language match or first matching language
-				$rows = array();
-				while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-					$rows[] = $row;
+				foreach($rows as $row) {
 					if($row['name'] !== $lastPart) continue;
 					$rows = array($row); // force use of only this row (default language)
 					break;
 				}
 				$row = reset($rows);
-				list($pageID, $templatesID, $parentID) = array($row['id'], $row['templates_id'], $row['parent_id']); 
+				list($pageID, $templatesID, $parentID) = [$row['id'], $row['templates_id'], $row['parent_id']];
 				
 			} else if($rowCount > 1) {
 				// multiple pages matched somewhere in site, we need a stronger tool (pagesPathFinder)

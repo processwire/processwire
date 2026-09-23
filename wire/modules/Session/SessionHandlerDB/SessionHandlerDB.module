@@ -99,9 +99,10 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$query = $database->prepare("SELECT data FROM `$table` WHERE id=:id");
 		$query->bindValue(':id', $id);
 		$database->execute($query);
-		
-		if($query->rowCount()) {
-			$data = $query->fetchColumn();
+		$value = $query->fetchColumn();
+
+		if($value !== false) {
+			$data = $value;
 			if(empty($data)) $data = '';
 		}
 		
@@ -285,10 +286,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$form = $this->wire(new InputfieldWrapper());
 
 		// check if their DB table is the latest version
-		$query = $this->database->query("SHOW COLUMNS FROM " . self::dbTableName . " WHERE field='ip'"); 
-		$rowCount = $query->rowCount();
-		$query->closeCursor();
-		if(!$rowCount) {
+		if(!$this->database->columnExists(self::dbTableName, 'ip')) {
 			$modules->error("DB format changed - You must uninstall this module and re-install before configuring."); 
 			return $form;
 		}
@@ -444,8 +442,8 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$query = $this->database->prepare($sql);
 		$query->bindValue(':id', $sessionID); 
 		$this->database->execute($query);
-		if($query->rowCount()) {
-			$row = $query->fetch(\PDO::FETCH_ASSOC);
+		$row = $query->fetch(\PDO::FETCH_ASSOC);
+		if($row) {
 			$sess = $_SESSION; // save
 			session_decode($row['data']);
 			$row['data'] = $_SESSION;

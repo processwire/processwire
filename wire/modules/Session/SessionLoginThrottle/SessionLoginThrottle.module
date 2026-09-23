@@ -197,7 +197,9 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$query = $database->prepare("SELECT attempts FROM session_login_throttle WHERE name=:name");
 		$query->bindValue(":name", $name);
 		$query->execute();
-		$attempts = $query->rowCount() ? (int) $query->fetchColumn() : 1;
+		$attempts = $query->fetchColumn();
+		if($attempts === false) $attempts = 1;
+		$attempts = (int) $attempts;
 		$query->closeCursor();
 
 		$requireSeconds = ($attempts-1) * $this->seconds;

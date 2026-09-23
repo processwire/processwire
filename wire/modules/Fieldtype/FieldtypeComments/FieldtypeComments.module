@@ -1139,8 +1139,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query->bindValue(':code', substr($code, 0, 128), \PDO::PARAM_STR); 
 		$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT); 
 		if(!$query->execute()) return null; 
-		if(!$query->rowCount()) return null; 
 		$data = $query->fetch(\PDO::FETCH_ASSOC); 
+		if(!$data) return null;
 		return $this->makeComment($page, $field, $data); 
 	}
 
@@ -1171,8 +1171,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query->bindValue(':id', (int) $id, \PDO::PARAM_INT); 
 		if($page) $query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
 		if(!$query->execute()) return null;
-		if(!$query->rowCount()) return null;
 		$data = $query->fetch(\PDO::FETCH_ASSOC);
+		if(!$data) return null;
 		if(!$page) {
 			$page = $pages->get((int) $data['pages_id']); 
 		}	

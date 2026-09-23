@@ -164,7 +164,8 @@ class PagesRaw extends Wire {
 		$query = $database->prepare("SELECT `$col` FROM pages WHERE id=:id");
 		$query->bindValue(':id', $pageId, (int) \PDO::PARAM_INT);
 		$query->execute();
-		$value = $query->rowCount() ? $query->fetchColumn() : null;
+		$value = $query->fetchColumn();
+		if($value === false) $value = null;
 		$query->closeCursor();
 
 		return $value;
@@ -254,7 +255,8 @@ class PagesRaw extends Wire {
 				$query = $database->prepare("SELECT $colStr FROM pages WHERE id=:id");
 				$query->bindValue(':id', $pageId, (int) \PDO::PARAM_INT);
 				$query->execute();
-				$value = $query->rowCount() ? $query->fetch(\PDO::FETCH_ASSOC) : array();
+				$value = $query->fetch(\PDO::FETCH_ASSOC);
+				if(!$value) $value = array();
 			}
 		}
 

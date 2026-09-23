@@ -899,17 +899,10 @@ class SelectableOptionManager extends Wire {
 		$table = self::optionsTable;
 		$languages = $this->wire()->languages;
 		$indexes = $database->getIndexes($table, true);
-		
-		$query = $database->prepare("SHOW COLUMNS FROM $table LIKE 'title%'");
-		$query->execute();
-		$rows = array();
+		$columns = preg_grep('/^title/', $database->getColumns($table));
 		$sqls = array();
 
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) $rows[] = $row;
-		$query->closeCursor();
-
-		foreach($rows as $row) {
-			$name = $row['Field'];
+		foreach($columns as $name) {
 			if($name === 'title') continue;
 			$id = (int) str_replace('title', '', $name);
 			if($languageDeleted) {

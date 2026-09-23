@@ -47,8 +47,8 @@ class PagesSortfields extends Wire {
 		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':id', $pageId, \PDO::PARAM_INT);
 		$query->execute();
-		if($query->rowCount()) {
-			$sortfield = $query->fetchColumn();
+		$sortfield = $query->fetchColumn();
+		if($sortfield !== false) {
 			$sortfield = $this->decode($sortfield); 
 		} else {
 			$sortfield = '';

@@ -873,8 +873,9 @@ class PagesParents extends Wire {
 			if($test['type'] === 'database.query') {
 				$query = $database->prepare($test['query']);
 				$query->execute();
-				$test['count'] = $query->rowCount();
-				while($value = $query->fetchColumn()) {
+				$values = $query->fetchAll(\PDO::FETCH_COLUMN);
+				$test['count'] = count($values);
+				foreach($values as $value) {
 					$test['pages'][] = "$value: " . $this->pages->getPath($value);
 				}
 				$query->closeCursor();

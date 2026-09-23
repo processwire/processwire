@@ -802,13 +802,14 @@ class PagesNames extends Wire {
 		$query->bindValue(':name', $name);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
-		
-		if(!$query->rowCount()) {
+		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+
+		if(!count($rows)) {
 			$query->closeCursor();
 			return false;
 		}
-		
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+
+		foreach($rows as $row) {
 			
 			$parentID = (int) $row['parent_id']; 
 			$status = (int) $row['status']; 

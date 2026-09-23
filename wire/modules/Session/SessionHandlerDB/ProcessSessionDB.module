@@ -85,7 +85,8 @@ class ProcessSessionDB extends Process {
 	
 		$query = $database->prepare($sql);	
 		$query->execute();
-		$numRows = $query->rowCount();
+		$rows = $query->fetchAll(\PDO::FETCH_NUM);
+		$numRows = count($rows);
 
 		if($numRows) {
 			if($numRows == $limit) {
@@ -105,10 +106,7 @@ class ProcessSessionDB extends Process {
 			if($useUA) $header[] = $this->_('User Agent');
 			$table->headerRow($header);
 
-			// for first iteration
-			$row = $query->fetch(\PDO::FETCH_NUM);
-			
-			while($row) {
+			foreach($rows as $row) {
 				
 				list($user_id, $pages_id, $ip, $ua, $ts) = $row; 
 				
@@ -138,9 +136,6 @@ class ProcessSessionDB extends Process {
 				if($useUA) $tr[] = strip_tags($ua); // note MarkupAdminDataTable already entity encodes all output
 				
 				$table->row($tr);
-			
-				// for next iteration
-				$row = $query->fetch(\PDO::FETCH_NUM);
 			}
 			
 			$tableOut = $table->render();

@@ -567,7 +567,7 @@ class Fields extends WireSaveableItems {
 		$database = $this->wire()->database; 
 		$table = $database->escapeTable($field->getTable());
 		if(empty($table)) return;
-		$exists = $database->query("SHOW TABLES LIKE '$table'")->rowCount() > 0;
+		$exists = $database->tableExists($table);
 		if($exists) return;
 		try {
 			if($field->type && count($field->type->getDatabaseSchema($field))) {
@@ -828,22 +828,11 @@ class Fields extends WireSaveableItems {
 		$field2->type->createField($field2); 
 		$field1->type = $field1->prevFieldtype;
 
-		$schema1 = array();
-		$schema2 = array();
-
 		$database = $this->wire()->database; 
 		$table1 = $database->escapeTable($field1->table); 
 		$table2 = $database->escapeTable($field2->table);
-
-		$query = $database->prepare("DESCRIBE `$table1`"); // QA
-		$query->execute();
-		/** @noinspection PhpAssignmentInConditionInspection */
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) $schema1[] = $row['Field'];
-
-		$query = $database->prepare("DESCRIBE `$table2`"); // QA
-		$query->execute();
-		/** @noinspection PhpAssignmentInConditionInspection */
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) $schema2[] = $row['Field'];
+		$schema1 = $database->getColumns($table1);
+		$schema2 = $database->getColumns($table2);
 			
 		foreach($schema1 as $key => $value) {
 			if(!in_array($value, $schema2)) {
@@ -1131,7 +1120,7 @@ class Fields extends WireSaveableItems {
 					$return[] = (int) $id;
 				}
 			} else if($useRowCount) {
-				$return = (int) $query->rowCount();
+				$return = count($query->fetchAll(\PDO::FETCH_NUM));
 			} else {
 				list($return) = $query->fetch(\PDO::FETCH_NUM);
 				$return = (int) $return;

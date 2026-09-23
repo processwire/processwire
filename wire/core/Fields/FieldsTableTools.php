@@ -192,17 +192,13 @@ class FieldsTableTools extends Wire {
 	public function hasUniqueIndex(Field $field, $col = 'data') {
 		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
-		$sql = "SHOW INDEX FROM $table";
-		$query = $database->prepare($sql);
-		$query->execute();
 		$has = false;
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			if($row['Column_name'] === $col && !$row['Non_unique']) {
-				$has = $row['Key_name'];
+		foreach($database->getIndexes($table, true) as $index) {
+			if(in_array($col, $index['columns']) && $index['unique']) {
+				$has = $index['name'];
 				break;
 			}
 		}
-		$query->closeCursor();
 		return $has;
 	}
 
@@ -391,7 +387,7 @@ class FieldsTableTools extends Wire {
 		$query = $database->prepare($sql);
 		$query->bindValue(':val', $value); 
 		$query->execute();
-		$pageId = $query->rowCount() ? (int) $query->fetchColumn() : 0;
+		$pageId = (int) $query->fetchColumn();
 		$query->closeCursor();
 		return $pageId;
 	}
