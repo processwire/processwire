@@ -7,9 +7,9 @@ inspection, identifier sanitization, query logging, and database metadata.
 Most site code should use higher-level ProcessWire APIs such as `$pages`, `$fields`,
 and `$templates` where possible. Use `$database` when you need direct SQL access.
 
-ProcessWire uses MySQL/MariaDB by default. SQLite is also supported (experimental, 3.0.273+).
-With either database, write SQL in MySQL syntax: with SQLite, ProcessWire translates it.
-See [Database types](#database-types).
+ProcessWire uses MySQL/MariaDB by default. SQLite (3.0.273+) and PostgreSQL are also supported
+(both experimental). Whatever the database, write SQL in MySQL syntax: with SQLite and PostgreSQL,
+ProcessWire translates it. See [Database types](#database-types).
 
 ## Common Rules
 
@@ -19,8 +19,8 @@ See [Database types](#database-types).
 - Use `execute($query, false)` only when you intend to handle query failure yourself.
 - Close cursors or fully consume statements before running dependent queries when needed.
 - Use transactions only when `allowTransaction()` returns true.
-- Write SQL in MySQL syntax, even when the site uses SQLite (it is translated).
-- To support both MySQL and SQLite, check capabilities with `$database->dialect()` rather than
+- Write SQL in MySQL syntax, even when the site uses SQLite or PostgreSQL (it is translated).
+- To support every database, check capabilities with `$database->dialect()` rather than
   checking which database is in use.
 
 ```php
@@ -42,10 +42,27 @@ The database type is set in `/site/config.php`:
 
 | Setting | Description |
 |---------|-------------|
-| `$config->dbType` | `'mysql'` (default) for MySQL/MariaDB, or `'sqlite'` |
+| `$config->dbType` | `'mysql'` (default) for MySQL/MariaDB, `'sqlite'`, or `'pgsql'` for PostgreSQL |
 | `$config->dbFile` | SQLite only: database file (see below) |
+| `$config->dbOptions` | PDO driver options, and per-type ProcessWire settings indexed by database type (see the SQLite and PostgreSQL sections) |
 
-MySQL uses the `dbName`, `dbUser`, `dbPass`, `dbHost`, `dbPort` etc. settings. SQLite uses only `dbFile`:
+MySQL uses the `dbName`, `dbUser`, `dbPass`, `dbHost`, `dbPort` etc. settings. PostgreSQL uses the same
+settings, with `dbPort` defaulting to 5432 and `dbSocket` naming the directory that holds the server's
+socket file rather than the file itself:
+
+```php
+// /site/config.php
+$config->dbType = 'pgsql';
+$config->dbHost = 'localhost';
+$config->dbPort = '5432';
+$config->dbName = 'mysite';
+$config->dbUser = 'mysite';
+$config->dbPass = 'secret';
+$config->dbSocket = '/var/run/postgresql';  // optional: connect through the socket in this directory instead of dbHost
+$config->dbOptions = ['pgsql' => ['schema' => 'processwire']];  // optional: schema other than public
+```
+
+SQLite uses only `dbFile`:
 
 ```php
 // /site/config.php
@@ -71,27 +88,28 @@ $config->dbFile = '/home/user/data/site.sqlite';  // absolute path (i.e. outside
 
 ### dialect()
 
-- **Returns:** `WireDatabaseDialect` (`WireDatabaseDialectMySQL` or `WireDatabaseDialectSQLite`)
+- **Returns:** `WireDatabaseDialect` (`WireDatabaseDialectMySQL`, `WireDatabaseDialectSQLite` or
+  `WireDatabaseDialectPgsql`)
 - **Purpose:** Database-specific behavior, including capability checks.
 
 ```php
 $dialect = $database->dialect();
-echo $dialect->name(); // 'mysql' or 'sqlite'
+echo $dialect->name(); // 'mysql', 'sqlite' or 'pgsql'
 ```
 
 Capability methods (all return bool):
 
-| Method | MySQL | SQLite | Meaning |
-|--------|-------|--------|---------|
-| `supportsFulltext()` | true | false | FULLTEXT indexes and `MATCH ... AGAINST` |
-| `supportsFoundRows()` | true | false | `SQL_CALC_FOUND_ROWS` and `FOUND_ROWS()` |
-| `supportsUpdateOrderBy()` | true | false | `ORDER BY` in `UPDATE`, applied row by row for unique key checks |
-| `supportsTransaction()` | InnoDB only | true | Transactions (also available on `$database`) |
-| `supportsJson()` | 5.7.8+ / MariaDB 10.2.7+ | 3.38+ or a build with JSON | JSON functions such as `JSON_EXTRACT()` |
+| Method | MySQL | SQLite | PostgreSQL | Meaning |
+|--------|-------|--------|------------|---------|
+| `supportsFulltext()` | true | false | false | FULLTEXT indexes and `MATCH ... AGAINST` |
+| `supportsFoundRows()` | true | false | false | `SQL_CALC_FOUND_ROWS` and `FOUND_ROWS()` |
+| `supportsUpdateOrderBy()` | true | false | false | `ORDER BY` in `UPDATE`, applied row by row for unique key checks |
+| `supportsTransaction()` | InnoDB only | true | true | Transactions (also available on `$database`) |
+| `supportsJson()` | 5.7.8+ / MariaDB 10.2.7+ | 3.38+ or a build with JSON | true | JSON functions such as `JSON_EXTRACT()` |
 
-Two more dialect methods return a collation name (or a blank string when none is needed, as on MySQL):
-`compareCollation($value)` for text comparisons and `sortCollation()` for `ORDER BY` terms. See the
-SQLite section below.
+Two more dialect methods return a collation name (or a blank string when none is needed, as on MySQL and
+PostgreSQL): `compareCollation($value)` for text comparisons and `sortCollation()` for `ORDER BY` terms.
+See the SQLite section below.
 
 ### SQL helpers
 
@@ -103,13 +121,14 @@ is executed as-is by `prepare()`, `query()` and `exec()`.
 
 - **Signature:** `upsert(string $table, array $columns, array $update, array $options = []): string`
 - **Purpose:** An INSERT that updates the existing row when it would violate a unique key. MySQL:
-  `INSERT ... ON DUPLICATE KEY UPDATE`. SQLite: `INSERT ... ON CONFLICT (...) DO UPDATE SET`.
+  `INSERT ... ON DUPLICATE KEY UPDATE`. SQLite and PostgreSQL: `INSERT ... ON CONFLICT (...) DO UPDATE SET`.
 - `$columns`: columns to insert, as a list of names (each bound as `:name`) and/or `name => expression`.
 - `$update`: columns to update when the row exists, as a list of names (set to the inserted value; the
   column must be in `$columns`) and/or `name => expression` (i.e. `'NOW()'`, `'qty+1'`, `':bindName'`).
 - `$options['conflict']`: column names of the primary or unique key the insert conflicts on. MySQL does
-  not need it and SQLite can do without it, but databases that require a conflict target (i.e. PostgreSQL)
-  cannot infer it, so pass it whenever you know it.
+  not need it and SQLite can do without it, but PostgreSQL requires a conflict target: without this option
+  it uses the table's primary key, and throws `WireDatabaseException` when the table has none. Pass it
+  whenever you know it.
 - `$options['rows']`: insert several rows at once, each a list of scalar values in `$columns` order. Numbers
   are inserted as given, strings are quoted, booleans become 1/0, null becomes NULL. Values are not SQL
   expressions: use `$columns` with bound parameters for anything else.
@@ -124,6 +143,7 @@ $sql = $dialect->upsert('caches', ['name', 'data', 'expires'], ['data', 'expires
 //         ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `expires`=VALUES(`expires`)
 // SQLite: INSERT INTO `caches` (`name`, `data`, `expires`) VALUES (:name, :data, :expires)
 //         ON CONFLICT (`name`) DO UPDATE SET `data`=excluded.`data`, `expires`=excluded.`expires`
+// PostgreSQL: the same as SQLite, with "double-quoted" identifiers
 $query = $database->prepare($sql);
 $query->bindValue(':name', $name);
 $query->bindValue(':data', $data);
@@ -139,18 +159,18 @@ $database->exec($sql);
 Helper output goes through `prepare()`, `query()` and `exec()` like any other SQL. A translating dialect's
 translator recognizes statements that are already in its own syntax and leaves them unchanged.
 
-### Writing SQL that works with both
+### Writing SQL that works with every database
 
-Most MySQL syntax that ProcessWire and modules commonly use works on SQLite unchanged, including
+Most MySQL syntax that ProcessWire and modules commonly use works on SQLite and PostgreSQL unchanged, including
 `INSERT ... SET`, `INSERT IGNORE`, `ON DUPLICATE KEY UPDATE ... VALUES()`, backtick identifiers,
 `LIMIT offset,count`, `REGEXP`/`RLIKE`, `GROUP_CONCAT(... ORDER BY ... SEPARATOR ...)`,
 `CREATE TABLE` with `KEY`/`UNIQUE KEY`/`FULLTEXT KEY` definitions, most `ALTER TABLE` operations,
-`SHOW TABLES`/`SHOW COLUMNS`/`SHOW INDEX`/`SHOW CREATE TABLE`/`DESCRIBE`, and common functions such as
-`NOW()`, `UNIX_TIMESTAMP()`, `FROM_UNIXTIME()`, `DATE_FORMAT()`, `DATE_ADD()`/`DATE_SUB()`, `IF()`,
+`SHOW TABLES`/`SHOW COLUMNS`/`SHOW INDEX`/`DESCRIBE` (and `SHOW CREATE TABLE` on SQLite), and common functions
+such as `NOW()`, `UNIX_TIMESTAMP()`, `FROM_UNIXTIME()`, `DATE_FORMAT()`, `DATE_ADD()`/`DATE_SUB()`, `IF()`,
 `FIELD()`, `CONCAT()`, `CONCAT_WS()`, `LOCATE()`, `SUBSTRING_INDEX()`, `GREATEST()`, `LEAST()` and `RAND()`.
 
 ```php
-// works on MySQL and SQLite
+// works on MySQL, SQLite and PostgreSQL
 $query = $database->prepare(
     "INSERT INTO my_table SET name=:name, qty=:qty " .
     "ON DUPLICATE KEY UPDATE qty=VALUES(qty)"
@@ -169,13 +189,16 @@ if($database->dialect()->supportsFulltext()) {
 
 Guidelines:
 
-- Use bound values or `quote()`/`escapeStr()` for values. With SQLite these escape MySQL-style, which the
-  translator expects. Do not escape values with SQLite-style `''` quoting.
+- Use bound values or `quote()`/`escapeStr()` for values. With SQLite and PostgreSQL these escape MySQL-style,
+  which the translator expects. Do not escape values with `''` quoting.
 - Get row counts with `COUNT(*)` or by counting fetched rows. With SQLite, `rowCount()` after a `SELECT`
   runs an additional `COUNT(*)` query (PDO's SQLite driver does not provide it).
 - Close cursors (`closeCursor()`) or fetch all rows before changing the schema of a table you just read from.
 - Use `$pages->find()` and other ProcessWire APIs for selector-based queries: they handle the database
-  differences for you (for example, fulltext operators on SQLite).
+  differences for you (for example, fulltext operators on SQLite and PostgreSQL).
+- Compare numbers with numbers. MySQL silently converts `qty = ''` or `qty = 'abc'` to `qty = 0`; the PostgreSQL
+  translator does the same for columns it knows the type of, but a bound value compared to a column of a derived
+  table or a subquery is passed through, and PostgreSQL then reports the type mismatch.
 
 ### SQLite
 
@@ -225,6 +248,82 @@ Not supported (throws an exception):
 - `ALTER TABLE ... ADD CONSTRAINT` and `RENAME INDEX`.
 - `ALTER TABLE` operations that require rebuilding a table (`MODIFY`, `CHANGE`, primary key changes) on
   tables with triggers, CHECK/FOREIGN KEY/UNIQUE constraints, or indexes not created through ProcessWire.
+
+### PostgreSQL
+
+PostgreSQL support is experimental. The installer offers it as a database type when PHP's `pdo_pgsql`
+extension is available (CLI installer: `'dbType' => 'pgsql'` with `dbName`, `dbUser`, `dbPass`, `dbHost`,
+`dbPort` or `dbSocket`). The installer creates the database when it does not exist and the user may do so.
+
+- **Requirements:** PHP's `pdo_pgsql` extension and PostgreSQL 16.0 or newer (checked on connect). The
+  `pg_trgm` extension is recommended: the installer creates it when it can, and `FULLTEXT` indexes then
+  become trigram indexes that speed up `LIKE`/`REGEXP` searches. Without it, `FULLTEXT` indexes are skipped.
+  On PHP 8.4+, connections use `Pdo\Pgsql`.
+- **How it works:** ProcessWire's SQL (MySQL syntax) is translated by `WireDatabasePgsqlTranslator`. The
+  translator reads column types from the catalog (cached per connection) so that it can reproduce MySQL's
+  loose comparisons, and every table's indexes are named `table__index` because PostgreSQL index names are
+  unique per schema rather than per table. Schema introspection (`getTables()`, `getColumns()`, `getIndexes()`,
+  `tableExists()`, `columnExists()`, `indexExists()`) queries `information_schema` and `pg_catalog` directly
+  and returns the same values the MySQL dialect returns (MySQL type names, `auto_increment` for identity
+  columns, `PRIMARY` for the primary key), while `SHOW` and `DESCRIBE` queries issued by module code are
+  emulated by the translator. Statements that translate to several PostgreSQL statements (`CREATE TABLE`
+  with indexes, `RENAME TABLE`, some `ALTER TABLE` forms) are executed together when prepared.
+- **Settings:** `$config->dbOptions['pgsql']` may contain `schema` (a schema other than `public`, added to
+  `search_path`), `trigram` (set to false when `pg_trgm` cannot be installed, so `FULLTEXT` indexes are
+  skipped rather than failing) and `savepoints` (see the table below). Assign the whole array, as in
+  `$config->dbOptions = ['pgsql' => ['schema' => 'processwire']];`
+- **Connection:** the session time zone is set to PHP's, so `NOW()` matches PHP's time as it does with MySQL.
+  Errors for unknown tables and columns and for duplicate keys use MySQL's SQLSTATE codes (`42S02`, `42S22`,
+  `23000`) and are reported at `execute()` rather than `prepare()`, as with MySQL; `errorInfo()` carries
+  MySQL's error numbers (1146, 1054, 1062) and the original PostgreSQL message. In debug mode, failed
+  queries are logged with their translation to `site/assets/logs/pgsql-errors.txt`.
+- **Values:** `pdo_pgsql` returns integer columns as PHP ints and everything else as strings, which is what
+  `pdo_mysql` does on PHP 8.1+. Booleans come back as PHP `true`/`false` only from expressions that are
+  boolean in PostgreSQL (i.e. `SELECT 1=1`); `TINYINT(1)` columns are `smallint` and return ints.
+
+Behavior differences from MySQL:
+
+| Area | PostgreSQL behavior |
+|------|---------------------|
+| Case- and accent-insensitive matching | `LIKE` is translated to `ILIKE` and `REGEXP` to `~*`, so both stay case-insensitive, but neither folds accents: `title%=apfel` does not match "Äpfel" (MySQL does). `=` comparisons on text are case-sensitive and accent-sensitive (`name='HOME'` does not match "home"). Selector operators that compare text with `=` (`title=apfel`) are therefore exact matches. |
+| Sorting text | Sorts follow the database's collation, set when the database was created. A locale collation such as `en_US.UTF-8` orders accented letters with their base letter, much as MySQL does; the `C`/`POSIX` collation orders by byte value, with all uppercase letters before lowercase. |
+| Fulltext search | No `FULLTEXT` indexes: with `pg_trgm` they become trigram indexes, otherwise they are skipped. Selector fulltext operators use `LIKE`/`REGEXP` as they do on SQLite: no relevance ordering, stopwords are not ignored, word operators such as `~=` also match partial words, and query expansion and boolean commands are approximated. |
+| Transactions | A failed statement inside a PostgreSQL transaction normally aborts the whole transaction. ProcessWire wraps each statement in a savepoint while a transaction is open so that a caught error does not abort it, as with MySQL. Set `$config->dbOptions['pgsql']['savepoints']` to false to skip this (one round trip less per statement, at the cost of MySQL's behavior). |
+| Column types | `TINYINT`/`SMALLINT` become `smallint`, `INT` becomes `integer`, `BIGINT` becomes `bigint`, `FLOAT` is `real`, `DOUBLE` is `double precision`, `DECIMAL` is `numeric`, `CHAR(n)` is `varchar(n)` (PostgreSQL pads `char(n)`), all `TEXT` types are `text`, `DATETIME`/`TIMESTAMP` are `timestamp`, `BLOB` types are `bytea`, `JSON` is `jsonb`, `ENUM`/`SET` are `text` (values are not restricted). `UNSIGNED` is ignored, so `INT UNSIGNED` is the signed 32-bit `integer` (maximum 2,147,483,647 rather than 4,294,967,295); display widths, `CHARACTER SET` and `COLLATE` are ignored too. `AUTO_INCREMENT` columns are identity columns; inserting an explicit id moves the sequence past it. |
+| Times | `NOW()`, `UNIX_TIMESTAMP()` and similar functions use PHP's time zone (set on the connection). `DEFAULT CURRENT_TIMESTAMP` works; `ON UPDATE CURRENT_TIMESTAMP` is ignored. Zero dates (`'0000-00-00 00:00:00'`) are invalid: compare with `IS NULL` instead. |
+| Comparisons | MySQL compares a number column to a string by converting the string (`''` and `'abc'` are 0). The translator does the same for columns whose type it knows (`table.column`, or a bare column in a single-table statement); comparisons against columns of derived tables are passed through and PostgreSQL reports a type mismatch. `LIKE`/`REGEXP` on number and date columns compare the value as text, as MySQL does. |
+| `GROUP BY` | PostgreSQL requires every selected column to be grouped or aggregated (like MySQL's `ONLY_FULL_GROUP_BY`). The translator wraps ungrouped `table.column` terms in `SELECT` and `ORDER BY` with `any_value()` and lets `HAVING` reference select-list aliases; other ungrouped expressions are reported by PostgreSQL. |
+| Locks | `GET_LOCK()`, `RELEASE_LOCK()` and `IS_FREE_LOCK()` use advisory locks; `GET_LOCK()` does not wait for its timeout (it returns 0 at once when the lock is taken). `LOCK TABLES`/`UNLOCK TABLES` are no-ops. |
+| `GROUP_CONCAT()` | Becomes `string_agg()`, with no length limit. |
+| JSON functions | Columns are `jsonb`, but MySQL's `JSON_*()` functions are not translated: use PostgreSQL's operators and functions (`->`, `->>`, `jsonb_extract_path_text()`) after checking `$database->dialect()->name()`. |
+| `TRUNCATE` | Deletes all rows and restarts the identity sequence. |
+| Identifiers | Unquoted names are folded to lowercase by PostgreSQL. ProcessWire's names are lowercase already; the translator quotes aliases that contain uppercase letters (i.e. `AS numChildren`) and every reference to them so that result keys keep their case. |
+| Indexes | Named `table__index` in PostgreSQL; `getIndexes()` and `SHOW INDEX` strip the table prefix. A prefix length on a text column (`KEY name (data(191))`) becomes an expression index on `left(data, 191)`. |
+| Multi-statement DDL | A `CREATE TABLE` or `ALTER TABLE` that becomes several statements cannot take bound parameters: `execute()` with parameters throws. |
+| No-op statements | `SET ...` (i.e. `SET NAMES`), `LOCK TABLES`, `UNLOCK TABLES`, `OPTIMIZE`/`ANALYZE`/`REPAIR`/`CHECK TABLE`, and `ALTER TABLE ... ENGINE/AUTO_INCREMENT/COMMENT/CHARSET`. |
+
+Not supported (throws an exception):
+
+- `MATCH ... AGAINST` (an exception says so): check `supportsFulltext()` and use `LIKE` or `REGEXP` instead,
+  or let `DatabaseQuerySelectFulltext` handle it.
+- `FOUND_ROWS()` (`SQL_CALC_FOUND_ROWS` is ignored): use `COUNT(*)`, or check `supportsFoundRows()`.
+- `SHOW CREATE TABLE`: use `getColumns($table, 3)` and `getIndexes($table, true)` instead.
+- `UPDATE` with `JOIN`, and multi-table `DELETE` with more than one target table
+  (`DELETE t FROM t JOIN ...` with one target is supported). `UPDATE ... ORDER BY ... LIMIT` and
+  `DELETE ... LIMIT` are supported.
+- `LOCK IN SHARE MODE`, user variables (`@var`, `@@var`), stored procedures, `SOUNDS LIKE`, `<=>`, and
+  MySQL collation names in `COLLATE` clauses. `SELECT ... FOR UPDATE` is passed through and works.
+- `ALTER TABLE ... ADD CONSTRAINT`. (`ADD/DROP/MODIFY/CHANGE COLUMN`, `ADD/DROP INDEX`, `ADD/DROP PRIMARY KEY`,
+  `RENAME COLUMN` and `RENAME INDEX` are supported.)
+- MySQL functions without a translation are passed through and fail unless PostgreSQL has a function of the
+  same name: translated are `NOW()`, `UNIX_TIMESTAMP()`, `FROM_UNIXTIME()`, `DATE_FORMAT()` (literal format),
+  `DATE_ADD()`/`DATE_SUB()` with `INTERVAL`, `IF()`, `IFNULL()`, `FIELD()`, `LOCATE()`, `SUBSTRING_INDEX()`
+  (literal count), `GROUP_CONCAT()`, `RAND()`, `DATABASE()`, `LAST_INSERT_ID()`, `CAST()` type names and
+  the lock functions; `CONCAT()`, `CONCAT_WS()`, `COALESCE()`, `GREATEST()`, `LEAST()`, `LOWER()`, `UPPER()`,
+  `TRIM()`, `LENGTH()`, `REPLACE()`, `LEFT()`, `RIGHT()`, `SUBSTRING()`, `MD5()`, `ABS()`, `ROUND()`,
+  `FLOOR()`, `CEIL()`, `MOD()` and `POW()` exist in PostgreSQL. Missing, for example: `CURDATE()`, `YEAR()`,
+  `MONTH()`, `DATEDIFF()`, `TIMESTAMPDIFF()`, `FIND_IN_SET()`, `INSTR()`, `SHA1()`, `CHAR_LENGTH()`,
+  `CONVERT(x, type)`, `CONVERT(x USING charset)`, `ROW_COUNT()`.
 
 ---
 
@@ -289,7 +388,7 @@ The `$driver_options` argument may be:
 | Value | Behavior |
 |-------|----------|
 | array | Passed through as PDO driver options |
-| `true` | Request a `WireDatabasePDOStatement` (with SQLite, always a `WireDatabaseSQLiteStatement`, which extends it) |
+| `true` | Request a `WireDatabasePDOStatement` (with SQLite and PostgreSQL, always a `WireDatabaseSQLiteStatement` or `WireDatabasePgsqlStatement`, which extend it) |
 | string | Treated as the debug `$note` argument |
 
 ### execute()
@@ -338,7 +437,7 @@ $n = $database->exec("UPDATE pages SET modified=modified WHERE id=1234");
 ## Transactions
 
 Transactions are available when the current database engine/table supports them
-(MySQL InnoDB tables, and always with SQLite).
+(MySQL InnoDB tables, and always with SQLite and PostgreSQL).
 
 ```php
 if($database->allowTransaction()) {
@@ -417,7 +516,7 @@ Verbose modes:
 |-------|-------------|
 | `false` | Column names only |
 | `true` or `1` | Simplified verbose info indexed by column name |
-| `2` | Raw column information in MySQL `SHOW COLUMNS` format (emulated with SQLite) |
+| `2` | Raw column information in MySQL `SHOW COLUMNS` format (emulated with SQLite and PostgreSQL) |
 | `3` | Column types as used in a CREATE TABLE statement |
 | string | One column's verbose info |
 
