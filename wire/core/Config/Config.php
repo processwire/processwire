@@ -117,7 +117,7 @@
  * @property string $dbUser Database user #pw-group-database
  * @property string $dbPass Database password #pw-group-database
  * @property string $dbPort Database port (default=3306) #pw-group-database
- * @property string $dbType Database type: 'mysql' (default) or 'sqlite'. #pw-group-database
+ * @property string $dbType Database type: 'mysql' (default), 'sqlite' or 'pgsql' (experimental). #pw-group-database
  * @property string $dbFile SQLite database file: blank for site/assets/database/site.sqlite, relative to site/assets/database/, or absolute path. #pw-group-database
  * @property string $dbCharset Default is 'utf8' but 'utf8mb4' is also supported. #pw-group-database
  * @property string $dbEngine Database engine (MyISAM or InnoDB) #pw-group-database
@@ -125,7 +125,7 @@
  * @property bool $dbCache Whether to allow MySQL query caching. #pw-group-database
  * @property bool $dbLowercaseTables Force any created field_* tables to be lowercase. #pw-group-database
  * @property string $dbPath MySQL database exec path (Path to mysqldump) #pw-group-database
- * @property array $dbOptions Any additional driver options to pass as $options argument to "new PDO(...)", plus a 'sqlite' array of SQLite-specific settings. #pw-group-database
+ * @property array $dbOptions Any additional driver options to pass as $options argument to "new PDO(...)", plus 'sqlite' and 'pgsql' arrays of database-specific settings. #pw-group-database
  * @property array $dbSqlModes Set or adjust SQL mode per MySQL version, where array keys are MySQL version and values are SQL mode command(s). #pw-group-database
  * @property int $dbQueryLogMax Maximum number of queries WireDatabasePDO will log in memory, when debug mode is enabled (default=1000). #pw-group-database
  * @property string $dbInitCommand Database init command, for PDO::MYSQL_ATTR_INIT_COMMAND. Note placeholder {charset} gets replaced with $config->dbCharset. #pw-group-database

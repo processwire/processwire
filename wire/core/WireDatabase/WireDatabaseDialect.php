@@ -568,7 +568,7 @@ abstract class WireDatabaseDialect extends Wire {
 		return
 			'INSERT INTO ' . $this->quoteIdentifier($table) . ' (' . implode(', ', $names) . ') ' .
 			'VALUES ' . implode(', ', $rows) . ' ' .
-			$this->upsertUpdateClause($updates, $options['conflict']);
+			$this->upsertUpdateClause($updates, $options['conflict'], $table);
 	}
 
 	/**
@@ -593,10 +593,11 @@ abstract class WireDatabaseDialect extends Wire {
 	 * @param array $updates Columns to update, as `column => expression`, where a null expression
 	 *   means the value that would have been inserted.
 	 * @param array $conflict Column names of the key that the insert conflicts on, if known
+	 * @param string $table Table name (for dialects that must look up the key themselves)
 	 * @return string
 	 *
 	 */
-	protected function upsertUpdateClause(array $updates, array $conflict) {
+	protected function upsertUpdateClause(array $updates, array $conflict, $table) {
 		$sets = array();
 		foreach($updates as $name => $expr) {
 			$col = $this->quoteIdentifier($name);

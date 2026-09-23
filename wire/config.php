@@ -1341,6 +1341,8 @@ $config->cookieOptions = array(
  *
  * - `mysql` (default): MySQL or MariaDB, configured with the dbName, dbUser, dbHost, etc. settings below.
  * - `sqlite`: SQLite database file, configured with the dbFile setting below.
+ * - `pgsql`: PostgreSQL 16 or newer (experimental), configured with the dbName, dbUser, dbPass, dbHost and
+ *    dbPort (default 5432) settings below, or dbSocket as the directory containing the server's socket.
  *
  * @var string
  *
@@ -1485,19 +1487,26 @@ $config->dbSqlModes = array(
  * 
  * Options that apply to all database types are given at the top level, using PDO::ATTR_*
  * constants as keys. Options for one database type only are given in an array indexed by
- * the $config->dbType they apply to ('mysql' or 'sqlite'), which may also contain any of
+ * the $config->dbType they apply to ('mysql', 'sqlite' or 'pgsql'), which may also contain any of
  * these ProcessWire settings:
- * 
+ *
  * - `unicodeSort` (bool): SQLite only. Sort text with a Unicode-aware collation, so that
  *    accented letters sort with their base letter (i.e. "Äpfel" with "A") as they would on
  *    MySQL? SQLite has to call back into PHP for every comparison it makes while sorting,
  *    and cannot use an index to avoid the sort, so this is off by default. (default=false)
- * 
+ * - `schema` (string): PostgreSQL only. Schema to use (added to search_path). (default='' for public)
+ * - `trigram` (bool): PostgreSQL only. Is the pg_trgm extension available? FULLTEXT indexes become
+ *    trigram indexes when it is, and are skipped when it is not. (default=true)
+ *
+ * With PostgreSQL, PDO::ATTR_STRINGIFY_FETCHES defaults to true so that values come back as strings,
+ * as they do from MySQL; set it to false at the top level to get native types instead.
+ *
  * ~~~~~
  * $config->dbOptions = array(
  *   \PDO::ATTR_TIMEOUT => 10, // any database type
  *   'mysql' => array(\PDO::MYSQL_ATTR_SSL_CA => '/path/to/ca.pem'), // MySQL only
  *   'sqlite' => array('unicodeSort' => true), // SQLite only
+ *   'pgsql' => array('schema' => 'processwire'), // PostgreSQL only
  * );
  * ~~~~~
  * 
