@@ -170,6 +170,8 @@ Behavior differences from MySQL:
 
 Not supported (throws an exception):
 
+- `MATCH ... AGAINST` (an exception says so): check `supportsFulltext()` and use `LIKE` or `REGEXP` instead,
+  or let `DatabaseQuerySelectFulltext` handle it. SQLite's own `x MATCH y` operator is passed through.
 - `FOUND_ROWS()` (`SQL_CALC_FOUND_ROWS` is ignored): use `COUNT(*)`, or check `supportsFoundRows()`.
 - `UPDATE` with `JOIN`, and multi-table `DELETE` with more than one target table
   (`DELETE t FROM t JOIN ...` with one target is supported).

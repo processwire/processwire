@@ -572,6 +572,22 @@ class WireDatabaseSQLiteTranslator {
 				if($j > $i + 1) $i = $j - 1; // skip following whitespace
 				continue;
 
+			} else if($w === 'MATCH') {
+				// MATCH(col, ...) AGAINST(...) has no SQLite equivalent. Rather than let SQLite
+				// report a syntax error on AGAINST, say what is not supported and what to do.
+				$j = $this->next($tokens, $i + 1);
+				if($j > -1 && $tokens[$j][1] === '(') {
+					$end = $this->matchParen($tokens, $j);
+					$k = $end > -1 ? $this->next($tokens, $end + 1) : -1;
+					if($k > -1 && $this->isWord($tokens[$k], 'AGAINST')) {
+						throw new \PDOException(
+							'SQLite translator: MATCH ... AGAINST (fulltext search) is not supported by SQLite. ' .
+							'Use $database->dialect()->supportsFulltext() to detect this and use LIKE or REGEXP instead.'
+						);
+					}
+				}
+				$out[] = $t;
+
 			} else if($w === 'RLIKE') {
 				$out[] = ['word', 'REGEXP'];
 

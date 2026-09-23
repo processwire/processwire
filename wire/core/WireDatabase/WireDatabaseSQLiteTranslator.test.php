@@ -82,6 +82,27 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->check('JSON_CONTAINS returns NULL for missing path', null, $this->value("SELECT JSON_CONTAINS($doc, '1', '$.missing')"));
 		$this->check('JSON_CONTAINS returns NULL for NULL', null, $this->value("SELECT JSON_CONTAINS(NULL, '1')"));
 
+		// fulltext search has no SQLite equivalent and must report that clearly
+		$error = '';
+		try {
+			$this->translate("SELECT id FROM t WHERE MATCH(data) AGAINST(:text)");
+		} catch(\Exception $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('MATCH ... AGAINST throws a descriptive exception', true, stripos($error, 'not supported by SQLite') !== false);
+		$this->check('MATCH ... AGAINST exception names the capability check', true, strpos($error, 'supportsFulltext()') !== false);
+
+		$error = '';
+		try {
+			$this->translate("SELECT id FROM t WHERE MATCH(a, b) AGAINST ('x' IN BOOLEAN MODE)");
+		} catch(\Exception $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('MATCH with multiple columns and boolean mode also throws', true, $error !== '');
+
+		$this->check('SQLite MATCH operator is left alone', true,
+			strpos($this->translate("SELECT id FROM t WHERE data MATCH 'x'"), 'MATCH') !== false);
+
 		// provided by SQLite itself, under the same names and path syntax as MySQL
 		$this->check('JSON_EXTRACT reads array index', 2, (int) $this->value("SELECT JSON_EXTRACT($doc, '$.b[1]')"));
 		$this->check('JSON_SET adds member', '{"a":1,"b":2}', $this->value("SELECT JSON_SET('{\"a\":1}', '$.b', 2)"));
