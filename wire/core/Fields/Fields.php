@@ -849,8 +849,8 @@ class Fields extends WireSaveableItems {
 
 		try {
 			$result = $database->exec($sql);
-			if($result === false || $query->errorCode() > 0) {
-				$errorInfo = $query->errorInfo();
+			if($result === false) {
+				$errorInfo = $database->errorInfo();
 				$error = !empty($errorInfo[2]) ? $errorInfo[2] : 'Unknown Error'; 
 			}
 		} catch(\Exception $e) {
@@ -858,11 +858,13 @@ class Fields extends WireSaveableItems {
 			$error = $e->getMessage();
 		}
 
-		if($exception) {
+		if($error !== '') {
 			$this->error("Field type change failed. Database reports: $error"); 
 			$database->exec("DROP TABLE `$table2`"); // QA
-			$severe = $this->wire()->process != 'ProcessField';
-			$this->trackException($exception, $severe); 
+			if($exception) {
+				$severe = $this->wire()->process != 'ProcessField';
+				$this->trackException($exception, $severe);
+			}
 			return false; 
 		}
 
@@ -1039,7 +1041,6 @@ class Fields extends WireSaveableItems {
 		$options = array_merge($defaults, $options);
 		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->getTable());
-		$useRowCount = false;
 		$schema = $field->type->getDatabaseSchema($field);
 		
 		if(empty($schema)) {
@@ -1119,8 +1120,6 @@ class Fields extends WireSaveableItems {
 				while($id = $query->fetchColumn()) {
 					$return[] = (int) $id;
 				}
-			} else if($useRowCount) {
-				$return = count($query->fetchAll(\PDO::FETCH_NUM));
 			} else {
 				list($return) = $query->fetch(\PDO::FETCH_NUM);
 				$return = (int) $return;
