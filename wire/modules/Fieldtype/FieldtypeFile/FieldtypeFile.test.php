@@ -184,6 +184,20 @@ class WireTest_FieldtypeFile extends WireTest {
 				$customTemplates[] = $templates->add($templateName, array('noGlobal' => true));
 			}
 
+			$wire = $this->wire();
+			$fuel = $wire->fuel();
+			$deferred = false;
+			try {
+				$fuel->remove('fields');
+				$fuel->remove('templates');
+				$fieldtype->upgrade(107, 108);
+				$deferred = true;
+			} finally {
+				$fuel->set('fields', $fields, true);
+				$fuel->set('templates', $templates, true);
+			}
+			$this->check('upgrade defers when fields and templates API variables are unavailable', true, $deferred);
+
 			$customTemplates[0]->noGlobal = 0;
 			$customTemplates[0]->save();
 			$fieldtype->upgrade(107, 108);

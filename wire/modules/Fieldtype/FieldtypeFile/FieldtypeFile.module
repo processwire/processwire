@@ -1894,8 +1894,16 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	public function upgrade($fromVersion, $toVersion) {
 		// FieldtypeImage has its own module version; this upgrade finds inherited types below
 		if($this->className() !== 'FieldtypeFile' || $fromVersion >= 108) return;
+		$fields = $this->wire()->fields;
 		$templates = $this->wire()->templates;
-		foreach($this->wire()->fields->findByType('FieldtypeFile') as $field) {
+		if(!$fields || !$templates) {
+			$this->wire()->addHookAfter('ProcessWire::init', function(HookEvent $event) use($fromVersion, $toVersion) {
+				$event->removeHook(null);
+				$this->upgrade($fromVersion, $toVersion);
+			});
+			return;
+		}
+		foreach($fields->findByType('FieldtypeFile') as $field) {
 			foreach(array("field-$field->name", "field-x-$field->name") as $templateName) {
 				$template = $templates->get($templateName);
 				if(!$template || !$template->noGlobal || $template->noParents) continue;
