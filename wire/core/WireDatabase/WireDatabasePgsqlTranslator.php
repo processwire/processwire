@@ -178,12 +178,55 @@ class WireDatabasePgsqlTranslator {
 	 */
 	protected function translateStatement($sql) {
 
+		if($this->isNativeInsert($sql)) {
+			// already PostgreSQL syntax (i.e. from WireDatabaseDialectPgsql::upsert()): its double-quoted
+			// identifiers would read as MySQL string literals, so it must not go through the tokenizer
+			return $sql;
+		}
+
 		$tokens = $this->tokenize($sql);
 		$words = $this->leadingWords($tokens, 4);
 		$first = isset($words[0]) ? $words[0] : '';
 		$second = isset($words[1]) ? $words[1] : '';
 
 		switch($first) {
+			case 'INSERT':
+			case 'REPLACE':
+				return $this->insert($tokens);
+			case 'DELETE':
+				$tokens = $this->deleteLimit($tokens);
+				break;
+			case 'UPDATE':
+				$tokens = $this->updateOrderLimit($tokens);
+				break;
+			case 'SHOW':
+				return $this->show($tokens);
+			case 'DESCRIBE':
+			case 'DESC':
+			case 'EXPLAIN':
+				// DESCRIBE table [column] is equivalent to SHOW COLUMNS FROM table [LIKE column]
+				if($first === 'EXPLAIN' && in_array($second, ['SELECT', 'UPDATE', 'DELETE', 'INSERT', 'REPLACE', 'WITH'])) break;
+				$i = $this->next($tokens, $this->next($tokens, 0) + 1);
+				if($i < 0) break;
+				$show = $this->tokenize('SHOW COLUMNS FROM ');
+				$show[] = $tokens[$i];
+				$j = $this->next($tokens, $i + 1);
+				if($j > -1) {
+					$show[] = ['ws', ' '];
+					$show[] = ['word', 'LIKE'];
+					$show[] = ['ws', ' '];
+					$show[] = $tokens[$j][0] === 'str' ? $tokens[$j] : ['str', "'" . str_replace("'", "''", $this->name($tokens[$j])) . "'"];
+				}
+				return $this->show($show);
+			case 'SET':
+			case 'LOCK':
+			case 'UNLOCK':
+			case 'OPTIMIZE':
+			case 'ANALYZE':
+			case 'REPAIR':
+			case 'CHECK':
+				// SET NAMES/sql_mode/FOREIGN_KEY_CHECKS, LOCK TABLES and table maintenance have no equivalent here
+				return 'SELECT 1';
 			case 'CREATE':
 				if($second === 'TABLE' || ($second === 'TEMPORARY' && isset($words[2]) && $words[2] === 'TABLE')) {
 					return $this->createTable($tokens);
@@ -1118,6 +1161,70 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
+	 * Provide schema facts without a database connection (for tests and the installer)
+	 *
+	 * @param array $tables [ table => [ 'primary' => [ columns ], 'identity' => column or null ] ]
+	 *
+	 */
+	public function setSchemaCache(array $tables) {
+		foreach($tables as $table => $facts) {
+			$this->schema[$table] = [
+				'primary' => isset($facts['primary']) ? array_values($facts['primary']) : [],
+				'identity' => isset($facts['identity']) ? $facts['identity'] : null,
+			];
+		}
+	}
+
+	/**
+	 * Get the primary key columns and identity column of a table
+	 *
+	 * @param string $table
+	 * @return array [ 'primary' => [ columns ], 'identity' => column or null ], both empty when unknown
+	 *
+	 */
+	protected function tableSchema($table) {
+		if(isset($this->schema[$table])) return $this->schema[$table];
+		$facts = ['primary' => [], 'identity' => null];
+		$pdo = $this->pdo();
+		if($pdo) {
+			$query = $pdo->prepare(
+				"SELECT a.attname FROM pg_index i " .
+				"JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) " .
+				"JOIN pg_class c ON c.oid = i.indrelid JOIN pg_namespace n ON n.oid = c.relnamespace " .
+				"WHERE c.relname = ? AND n.nspname = current_schema() AND i.indisprimary " .
+				"ORDER BY array_position(i.indkey, a.attnum)"
+			);
+			$query->execute([$table]);
+			$facts['primary'] = $query->fetchAll(\PDO::FETCH_COLUMN);
+			$query = $pdo->prepare(
+				"SELECT column_name FROM information_schema.columns " .
+				"WHERE table_schema = current_schema() AND table_name = ? AND is_identity = 'YES' LIMIT 1"
+			);
+			$query->execute([$table]);
+			$identity = $query->fetchColumn();
+			$facts['identity'] = $identity === false ? null : $identity;
+			$this->schema[$table] = $facts;
+		}
+		return $facts;
+	}
+
+	/**
+	 * Is the SQL an INSERT that is already PostgreSQL syntax (has an ON CONFLICT clause)?
+	 *
+	 * Checked before tokenizing, with string literals removed so that data containing the words
+	 * does not count.
+	 *
+	 * @param string $sql
+	 * @return bool
+	 *
+	 */
+	protected function isNativeInsert($sql) {
+		if(!preg_match('/^\s*INSERT\b/i', $sql) || stripos($sql, 'CONFLICT') === false) return false;
+		$bare = preg_replace('/\'(?:[^\'\\\\]|\\\\.|\'\')*\'|"(?:[^"\\\\]|\\\\.|"")*"/s', '', $sql);
+		return (bool) preg_match('/\bON\s+CONFLICT\b/i', $bare);
+	}
+
+	/**
 	 * Get column types of a table: [ name => [ 'pgType' => ..., 'isText' => bool, 'identity' => bool ] ]
 	 *
 	 * @param string $table
@@ -1174,6 +1281,479 @@ class WireDatabasePgsqlTranslator {
 			];
 		}
 		return $indexes;
+	}
+
+	/*********************************************************************************
+	 * Statement-level translations: INSERT, DELETE, UPDATE, SHOW
+	 *
+	 */
+
+	/**
+	 * INSERT/REPLACE: INSERT IGNORE, INSERT ... SET, ON DUPLICATE KEY UPDATE, explicit identity values
+	 *
+	 * @param array $tokens
+	 * @return array One or more statements
+	 *
+	 */
+	protected function insert(array $tokens) {
+
+		$n = count($tokens);
+		$i = $this->next($tokens, 0);
+		$replace = $this->isWord($tokens[$i], 'REPLACE');
+		$ignore = false;
+		$i++;
+
+		// [LOW_PRIORITY|DELAYED|HIGH_PRIORITY] [IGNORE] [INTO]
+		while(($j = $this->next($tokens, $i)) > -1) {
+			$t = $tokens[$j];
+			if($this->isWord($t, ['LOW_PRIORITY', 'DELAYED', 'HIGH_PRIORITY'])) {
+				$i = $j + 1;
+			} else if($this->isWord($t, 'IGNORE')) {
+				$ignore = true;
+				$i = $j + 1;
+			} else if($this->isWord($t, 'INTO')) {
+				$i = $j + 1;
+			} else {
+				break;
+			}
+		}
+
+		$tablePos = $this->next($tokens, $i);
+		$table = $this->name($tokens[$tablePos]);
+		$qTable = $this->join([$tokens[$tablePos]]);
+		$i = $tablePos + 1;
+
+		// find top-level SET (INSERT ... SET form) and ON DUPLICATE
+		$setPos = -1;
+		$dupPos = -1;
+		$depth = 0;
+		for($x = $i; $x < $n; $x++) {
+			$t = $tokens[$x];
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth !== 0) continue;
+			if($setPos === -1 && $dupPos === -1 && $this->isWord($t, 'SET')) {
+				$setPos = $x;
+			} else if($this->isWord($t, 'ON')) {
+				$y = $this->next($tokens, $x + 1);
+				if($y > -1 && $this->isWord($tokens[$y], 'DUPLICATE')) {
+					$dupPos = $x;
+					break;
+				}
+			}
+		}
+		$bodyEnd = $dupPos > -1 ? $dupPos : $n;
+
+		$columns = []; // column names as written (plain), in insert order
+		$columnSql = []; // column names as SQL
+
+		if($setPos > -1) {
+			// INSERT INTO table SET a=1, b=2 => INSERT INTO table (a, b) VALUES (1, 2)
+			$vals = [];
+			foreach($this->splitCommas(array_slice($tokens, $setPos + 1, $bodyEnd - $setPos - 1)) as $assign) {
+				$assign = $this->trimTokens($assign);
+				$eq = -1;
+				foreach($assign as $k => $t) {
+					if($t[0] === 'punct' && $t[1] === '=') { $eq = $k; break; }
+				}
+				if($eq < 0) continue;
+				$colTokens = $this->trimTokens(array_slice($assign, 0, $eq));
+				$columns[] = $this->name($colTokens[0]);
+				$columnSql[] = $this->join($colTokens);
+				$vals[] = trim($this->join($this->expressions(array_slice($assign, $eq + 1))));
+			}
+			$body = ' (' . implode(', ', $columnSql) . ') VALUES (' . implode(', ', $vals) . ')';
+		} else {
+			$open = $this->next($tokens, $i);
+			if($open > -1 && $tokens[$open][0] === 'punct' && $tokens[$open][1] === '(') {
+				$close = $this->matchParen($tokens, $open);
+				foreach($this->splitCommas(array_slice($tokens, $open + 1, $close - $open - 1)) as $col) {
+					$col = $this->trimTokens($col);
+					if(!count($col)) continue;
+					$columns[] = $this->name($col[0]);
+					$columnSql[] = $this->join($col);
+				}
+			}
+			$body = $this->join($this->expressions(array_slice($tokens, $i, $bodyEnd - $i)));
+		}
+
+		$sql = ($replace ? 'INSERT' : $this->join([$tokens[$this->next($tokens, 0)]])) . ' INTO ' . $qTable . rtrim($body);
+		$schema = null;
+
+		if($dupPos > -1 || $replace) {
+			$schema = $this->tableSchema($table);
+			if(!count($schema['primary'])) {
+				throw new \PDOException("PostgreSQL translator: ON DUPLICATE KEY UPDATE / REPLACE on $table needs a conflict target (primary key) and none is known");
+			}
+			$target = implode(', ', array_map([$this, 'quoteId'], $schema['primary']));
+			$sets = [];
+			if($replace) {
+				foreach($columns as $k => $col) {
+					if(in_array($col, $schema['primary'], true)) continue;
+					$sets[] = $columnSql[$k] . '=excluded.' . $columnSql[$k];
+				}
+				if(!count($sets)) throw new \PDOException("PostgreSQL translator: REPLACE INTO $table needs a column list with non-key columns");
+			} else {
+				$x = $this->next($tokens, $dupPos + 1); // DUPLICATE
+				$x = $this->next($tokens, $x + 1); // KEY
+				$x = $this->next($tokens, $x + 1); // UPDATE
+				foreach($this->splitCommas(array_slice($tokens, $x + 1)) as $assign) {
+					$assign = $this->trimTokens($assign);
+					$eq = -1;
+					foreach($assign as $k => $t) {
+						if($t[0] === 'punct' && $t[1] === '=') { $eq = $k; break; }
+					}
+					if($eq < 0) continue;
+					$left = $this->join(array_slice($assign, 0, $eq));
+					$right = $this->upsertExpression(array_slice($assign, $eq + 1), $table, $columns);
+					$sets[] = "$left=$right";
+				}
+			}
+			$sql .= " ON CONFLICT ($target) DO UPDATE SET " . implode(', ', $sets);
+		} else if($ignore) {
+			$sql .= ' ON CONFLICT DO NOTHING';
+		}
+
+		$statements = [$sql];
+
+		// an explicit value for an identity column leaves its sequence behind, so advance it
+		if(count($columns)) {
+			if($schema === null) $schema = $this->tableSchema($table);
+			if($schema['identity'] !== null && in_array($schema['identity'], $columns, true)) {
+				$qt = $this->quoteId($table);
+				$qc = $this->quoteId($schema['identity']);
+				$statements[] = "SELECT setval(pg_get_serial_sequence('$qt', '$schema[identity]'), GREATEST((SELECT MAX($qc) FROM $qt), 1))";
+			}
+		}
+
+		return $statements;
+	}
+
+	/**
+	 * Translate the right-hand side of an ON DUPLICATE KEY UPDATE assignment
+	 *
+	 * VALUES(col) becomes excluded.col, and bare references to the table's columns are qualified
+	 * with the table name (PostgreSQL otherwise reports them as ambiguous with "excluded").
+	 *
+	 * @param array $tokens
+	 * @param string $table
+	 * @param array $columns Column names being inserted
+	 * @return string
+	 *
+	 */
+	protected function upsertExpression(array $tokens, $table, array $columns) {
+		$out = [];
+		$n = count($tokens);
+		$lower = array_map('strtolower', $columns);
+		for($y = 0; $y < $n; $y++) {
+			$t = $tokens[$y];
+			if($this->isWord($t, 'VALUES')) {
+				$z = $this->next($tokens, $y + 1);
+				if($z > -1 && $tokens[$z][1] === '(') {
+					$end = $this->matchParen($tokens, $z);
+					$inner = $this->trimTokens(array_slice($tokens, $z + 1, $end - $z - 1));
+					$out[] = ['word', 'excluded.' . $this->join([$inner[0]])];
+					$y = $end;
+					continue;
+				}
+			}
+			if(($t[0] === 'word' || $t[0] === 'id') && in_array(strtolower($t[1]), $lower, true)) {
+				$prev = $this->prev($tokens, $y - 1);
+				$next = $this->next($tokens, $y + 1);
+				$qualified = $prev > -1 && $tokens[$prev][0] === 'punct' && $tokens[$prev][1] === '.';
+				$call = $next > -1 && $tokens[$next][0] === 'punct' && $tokens[$next][1] === '(';
+				if(!$qualified && !$call) {
+					$out[] = ['word', $table . '.' . $this->join([$t])];
+					continue;
+				}
+			}
+			$out[] = $t;
+		}
+		return trim($this->join($this->expressions($out)));
+	}
+
+	/**
+	 * DELETE ... [ORDER BY ...] LIMIT n, and multi-table DELETE
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function deleteLimit(array $tokens) {
+		$i = $this->next($tokens, 0); // DELETE
+		$j = $this->next($tokens, $i + 1);
+		if($j > -1 && !$this->isWord($tokens[$j], ['FROM', 'LOW_PRIORITY', 'QUICK', 'IGNORE'])) {
+			return $this->deleteMulti($tokens, $j);
+		}
+		if(!$this->hasTopLevelWord($tokens, 'LIMIT')) return $tokens;
+		// DELETE FROM t WHERE x ORDER BY y LIMIT n => DELETE FROM t WHERE ctid IN (SELECT ctid FROM t WHERE x ORDER BY y LIMIT n)
+		$j = $this->next($tokens, $i + 1); // FROM
+		if(!$this->isWord($tokens[$j], 'FROM')) return $tokens;
+		$k = $this->next($tokens, $j + 1); // table
+		$table = $this->join([$tokens[$k]]);
+		$rest = $this->join($this->expressions(array_slice($tokens, $k + 1)));
+		return [['word', "DELETE FROM $table WHERE ctid IN (SELECT ctid FROM $table" . rtrim($rest) . ')']];
+	}
+
+	/**
+	 * Multi-table DELETE: DELETE t FROM t [AS a] JOIN u ON cond [JOIN ...] [WHERE ...]
+	 *
+	 * Translated to DELETE FROM t USING u [, ...] WHERE cond [AND ...]. Only a single target table
+	 * is supported, and it must be the first table in FROM.
+	 *
+	 * @param array $tokens
+	 * @param int $j Index of first target token
+	 * @return array
+	 *
+	 */
+	protected function deleteMulti(array $tokens, $j) {
+		$fromPos = -1;
+		foreach($tokens as $x => $t) {
+			if($x > $j && $this->isWord($t, 'FROM')) { $fromPos = $x; break; }
+		}
+		$targets = $fromPos > -1 ? $this->splitCommas(array_slice($tokens, $j, $fromPos - $j)) : [];
+		if(count($targets) !== 1) throw new \PDOException('PostgreSQL translator: unsupported multi-table DELETE (one target table is supported)');
+		$target = $this->trimTokens($targets[0]);
+		$target = $this->name($target[count($target) - 1]); // i.e. "t" or "t.*"
+		if($target === '*' && count($targets[0]) > 2) $target = $this->name($this->trimTokens($targets[0])[0]);
+
+		$k = $this->next($tokens, $fromPos + 1);
+		$table = $this->name($tokens[$k]);
+		$alias = '';
+		$a = $this->next($tokens, $k + 1);
+		if($a > -1 && $this->isWord($tokens[$a], 'AS')) $a = $this->next($tokens, $a + 1);
+		$joinWords = ['JOIN', 'INNER', 'LEFT', 'RIGHT', 'CROSS', 'WHERE', 'NATURAL', 'STRAIGHT_JOIN', 'ORDER', 'LIMIT'];
+		if($a > -1 && in_array($tokens[$a][0], ['word', 'id']) && !$this->isWord($tokens[$a], $joinWords)) {
+			$alias = $this->name($tokens[$a]);
+			$k = $a;
+		}
+		if($target !== $table && $target !== $alias) {
+			throw new \PDOException('PostgreSQL translator: unsupported multi-table DELETE (target must be the first table in FROM)');
+		}
+
+		// collect joined tables and their ON conditions
+		$using = [];
+		$conds = [];
+		$n = count($tokens);
+		$x = $k + 1;
+		$where = '';
+		while(($x = $this->next($tokens, $x)) > -1) {
+			$t = $tokens[$x];
+			if($this->isWord($t, ['INNER', 'LEFT', 'RIGHT', 'CROSS', 'NATURAL', 'OUTER'])) {
+				$x++;
+				continue;
+			}
+			if($this->isWord($t, ['JOIN', 'STRAIGHT_JOIN'])) {
+				$onPos = -1;
+				for($y = $x + 1; $y < $n; $y++) {
+					if($this->isWord($tokens[$y], 'ON')) { $onPos = $y; break; }
+				}
+				if($onPos < 0) throw new \PDOException('PostgreSQL translator: unsupported multi-table DELETE (JOIN without ON)');
+				$using[] = trim($this->join($this->expressions(array_slice($tokens, $x + 1, $onPos - $x - 1))));
+				$condEnd = $n;
+				$depth = 0;
+				for($y = $onPos + 1; $y < $n; $y++) {
+					$ty = $tokens[$y];
+					if($ty[0] === 'punct') {
+						if($ty[1] === '(') $depth++;
+						if($ty[1] === ')') $depth--;
+						continue;
+					}
+					if($depth === 0 && $this->isWord($ty, ['JOIN', 'INNER', 'LEFT', 'RIGHT', 'CROSS', 'NATURAL', 'STRAIGHT_JOIN', 'WHERE', 'ORDER', 'LIMIT'])) { $condEnd = $y; break; }
+				}
+				$conds[] = trim($this->join($this->booleanContext($this->expressions(array_slice($tokens, $onPos + 1, $condEnd - $onPos - 1)))));
+				$x = $condEnd;
+				continue;
+			}
+			if($this->isWord($t, 'WHERE')) {
+				$where = trim($this->join($this->booleanContext($this->expressions(array_slice($tokens, $x + 1)))));
+				break;
+			}
+			throw new \PDOException('PostgreSQL translator: unsupported multi-table DELETE syntax near ' . $this->join([$t]));
+		}
+		if($where !== '') $conds[] = $where;
+
+		$sql = 'DELETE FROM ' . $this->quoteId($table) . ($alias !== '' ? ' AS ' . $this->quoteId($alias) : '');
+		if(count($using)) $sql .= ' USING ' . implode(', ', $using);
+		if(count($conds)) $sql .= ' WHERE ' . implode(' AND ', $conds);
+		return [['word', $sql]];
+	}
+
+	/**
+	 * UPDATE ... ORDER BY ... [LIMIT n]
+	 *
+	 * ORDER BY is removed. When LIMIT is present, rows are selected by a ctid subquery.
+	 * MySQL code using ORDER BY to avoid unique key collisions during an update needs a different
+	 * approach here (see WireDatabaseDialect::supportsUpdateOrderBy()).
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function updateOrderLimit(array $tokens) {
+		$orderPos = -1;
+		$limitPos = -1;
+		$wherePos = -1;
+		$depth = 0;
+		foreach($tokens as $x => $t) {
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth !== 0) continue;
+			if($this->isWord($t, 'WHERE') && $wherePos < 0) $wherePos = $x;
+			if($this->isWord($t, 'ORDER') && $orderPos < 0) $orderPos = $x;
+			if($this->isWord($t, 'LIMIT')) $limitPos = $x;
+		}
+		if($orderPos < 0 && $limitPos < 0) return $tokens;
+		$end = $orderPos > -1 ? $orderPos : $limitPos;
+		if($limitPos < 0) return $this->trimTokens(array_slice($tokens, 0, $orderPos));
+		// UPDATE t SET ... WHERE w ORDER BY o LIMIT n => UPDATE t SET ... WHERE ctid IN (SELECT ctid FROM t WHERE w ORDER BY o LIMIT n)
+		$i = $this->next($tokens, $this->next($tokens, 0) + 1); // table
+		$table = $this->join([$tokens[$i]]);
+		$setEnd = $wherePos > -1 ? $wherePos : $end;
+		$head = $this->trimTokens(array_slice($tokens, 0, $setEnd));
+		$sub = 'SELECT ctid FROM ' . $table . ' ' . trim($this->join($this->expressions(array_slice($tokens, $setEnd))));
+		$head[] = ['word', " WHERE ctid IN ($sub)"];
+		return $head;
+	}
+
+	/**
+	 * SHOW statements, emulated with information_schema and pg_catalog queries that return MySQL-shaped rows
+	 *
+	 * @param array $tokens
+	 * @return string
+	 *
+	 */
+	protected function show(array $tokens) {
+
+		$words = [];
+		$rest = [];
+		$table = '';
+		foreach($tokens as $x => $t) {
+			if($t[0] === 'ws') continue;
+			if($words === ['SHOW', 'CREATE', 'TABLE']) {
+				$table = $this->name($t);
+				$rest = array_slice($tokens, $x + 1);
+				break;
+			}
+			if($t[0] === 'word' && count($rest) === 0 && !in_array(strtoupper($t[1]), ['FROM', 'IN', 'LIKE', 'WHERE'])) {
+				$words[] = strtoupper($t[1]);
+			} else {
+				$rest = array_slice($tokens, $x);
+				break;
+			}
+		}
+
+		array_shift($words); // SHOW
+		$what = implode(' ', array_diff($words, ['FULL', 'GLOBAL', 'SESSION', 'EXTENDED']));
+
+		$like = null;
+		$whereTokens = [];
+		$n = count($rest);
+		for($x = 0; $x < $n; $x++) {
+			$t = $rest[$x];
+			if($this->isWord($t, ['FROM', 'IN']) && $table === '') {
+				$y = $this->next($rest, $x + 1);
+				$table = $this->name($rest[$y]);
+				$x = $y;
+			} else if($this->isWord($t, 'LIKE')) {
+				$y = $this->next($rest, $x + 1);
+				$like = $this->join([$rest[$y]]);
+				$x = $y;
+			} else if($this->isWord($t, 'WHERE')) {
+				$whereTokens = array_slice($rest, $x + 1);
+				break;
+			}
+		}
+
+		$qt = "'" . str_replace("'", "''", $table) . "'";
+
+		// MySQL result column names that a WHERE clause may refer to
+		$columnAliases = [
+			'field' => 'Field', 'type' => 'Type', 'null' => 'Null', 'key' => 'Key', 'default' => 'Default', 'extra' => 'Extra',
+			'key_name' => 'Key_name', 'non_unique' => 'Non_unique', 'seq_in_index' => 'Seq_in_index', 'column_name' => 'Column_name',
+			'index_type' => 'Index_type', 'table' => 'Table', 'name' => 'Name', 'engine' => 'Engine',
+			'variable_name' => 'Variable_name', 'value' => 'Value',
+		];
+		$where = '';
+		if(count($whereTokens)) {
+			foreach($whereTokens as $k => $t) {
+				if($t[0] === 'word' && isset($columnAliases[strtolower($t[1])])) $whereTokens[$k] = ['id', $columnAliases[strtolower($t[1])]];
+			}
+			$where = trim($this->join($this->expressions($whereTokens)));
+		}
+
+		switch($what) {
+			case 'TABLES':
+				$sql = 'SELECT table_name AS ' . $this->quoteId('Tables_in_db') . " FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE'";
+				if($like !== null) $sql .= " AND table_name ILIKE $like";
+				if($where !== '') $sql .= " AND ($where)";
+				return $sql . ' ORDER BY table_name';
+
+			case 'COLUMNS':
+			case 'FIELDS':
+				$pk = "SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=ANY(i.indkey) " .
+					"JOIN pg_class c ON c.oid=i.indrelid JOIN pg_namespace n ON n.oid=c.relnamespace " .
+					"WHERE c.relname=$qt AND n.nspname=current_schema() AND i.indisprimary";
+				$sql =
+					'SELECT column_name AS "Field", ' .
+					"CASE data_type WHEN 'character varying' THEN 'varchar(' || character_maximum_length || ')' " .
+					"WHEN 'character' THEN 'char(' || character_maximum_length || ')' WHEN 'integer' THEN 'int' " .
+					"WHEN 'timestamp without time zone' THEN 'datetime' WHEN 'double precision' THEN 'double' WHEN 'real' THEN 'float' " .
+					'ELSE data_type END AS "Type", ' .
+					"CASE WHEN is_nullable='YES' THEN 'YES' ELSE 'NO' END AS \"Null\", " .
+					"CASE WHEN column_name IN ($pk) THEN 'PRI' ELSE '' END AS \"Key\", " .
+					'column_default AS "Default", ' .
+					"CASE WHEN is_identity='YES' THEN 'auto_increment' ELSE '' END AS \"Extra\" " .
+					"FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$qt ORDER BY ordinal_position";
+				if($like !== null) $sql = "SELECT * FROM ($sql) s WHERE \"Field\" ILIKE $like";
+				if($where !== '') $sql = "SELECT * FROM ($sql) s WHERE $where";
+				return $sql;
+
+			case 'INDEX':
+			case 'INDEXES':
+			case 'KEYS':
+				$prefix = $table . self::indexSeparator;
+				$sql =
+					"SELECT $qt AS \"Table\", " .
+					"CASE WHEN ix.indisprimary THEN 'PRIMARY' WHEN left(i.relname, " . strlen($prefix) . ")='" . str_replace("'", "''", $prefix) . "' THEN substr(i.relname, " . (strlen($prefix) + 1) . ") ELSE i.relname END AS \"Key_name\", " .
+					'CASE WHEN ix.indisunique THEN 0 ELSE 1 END AS "Non_unique", ' .
+					'k.ord AS "Seq_in_index", a.attname AS "Column_name", \'BTREE\' AS "Index_type" ' .
+					'FROM pg_index ix JOIN pg_class t ON t.oid=ix.indrelid JOIN pg_class i ON i.oid=ix.indexrelid ' .
+					'JOIN pg_namespace n ON n.oid=t.relnamespace ' .
+					'CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ' .
+					'JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum ' .
+					"WHERE t.relname=$qt AND n.nspname=current_schema()";
+				$sql = "SELECT * FROM ($sql) s" . ($where !== '' ? " WHERE $where" : '') . ' ORDER BY "Key_name", "Seq_in_index"';
+				return $sql;
+
+			case 'CREATE TABLE':
+				throw new \PDOException('PostgreSQL translator: SHOW CREATE TABLE is not supported yet');
+
+			case 'TABLE STATUS':
+				$sql =
+					'SELECT table_name AS "Name", \'PostgreSQL\' AS "Engine", NULL AS "Rows", NULL AS "Data_length", ' .
+					'NULL AS "Index_length", NULL AS "Auto_increment", NULL AS "Collation" ' .
+					"FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE'";
+				if($like !== null) $sql .= " AND table_name ILIKE $like";
+				if($where !== '') $sql = "SELECT * FROM ($sql) s WHERE $where";
+				return $sql;
+
+			case 'VARIABLES':
+			case 'STATUS':
+			case 'WARNINGS':
+			case 'ENGINES':
+			case 'CHARACTER SET':
+			case 'COLLATION':
+				return 'SELECT NULL AS "Variable_name", NULL AS "Value" WHERE false';
+		}
+
+		return 'SELECT NULL WHERE false';
 	}
 
 	/*********************************************************************************
