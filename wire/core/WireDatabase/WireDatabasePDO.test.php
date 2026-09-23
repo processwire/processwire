@@ -22,7 +22,8 @@ class WireTest_WireDatabasePDO extends WireTest {
 			"`qty` INT NOT NULL DEFAULT 0, " .
 			"`note` TEXT NULL, " .
 			"PRIMARY KEY (`id`), " .
-			"KEY `name_idx` (`name`)" .
+			"KEY `name_idx` (`name`), " .
+			"KEY `qty_name_idx` (`qty`, `name`)" .
 			") ENGINE=InnoDB DEFAULT CHARSET=$charset"
 		);
 	}
@@ -147,6 +148,36 @@ class WireTest_WireDatabasePDO extends WireTest {
 		$this->check('indexExists() true for name_idx', true, $database->indexExists($table, 'name_idx'));
 		$this->check('indexExists(..., getInfo=true) returns array', true, is_array($database->indexExists($table, 'name_idx', true)));
 		$this->check('indexExists() false for missing index', false, $database->indexExists($table, 'missing_idx'));
+
+		// introspection returns the same shapes on either database type (SQLite builds these from PRAGMA)
+		$this->check('getTables() includes test table', true, in_array($this->table, $database->getTables(), true));
+		$this->check('getColumns(verbose) null is boolean', true, $verboseColumns['id']['null'] === false);
+		$this->check('getColumns(verbose) note column is nullable', true, $verboseColumns['note']['null'] === true);
+		$this->check('getColumns(verbose) id has auto_increment extra', true,
+			stripos($verboseColumns['id']['extra'], 'auto_increment') !== false);
+
+		$rawColumns = $database->getColumns($table, 2);
+		$this->check('getColumns(2) returns SHOW COLUMNS keys', ['Field', 'Type', 'Null', 'Key', 'Default', 'Extra'],
+			array_keys(array_intersect_key($rawColumns['id'], array_flip(['Field', 'Type', 'Null', 'Key', 'Default', 'Extra']))));
+		$this->check('getColumns(2) Null is YES or NO', true, in_array($rawColumns['name']['Null'], ['YES', 'NO'], true));
+		$this->check('getColumns(2) primary key column has PRI key', 'PRI', $rawColumns['id']['Key']);
+
+		$rawIndexes = $database->getIndexes($table, 2);
+		$this->check('getIndexes(2) returns SHOW INDEX rows', true,
+			isset($rawIndexes[0]['Key_name']) && isset($rawIndexes[0]['Seq_in_index']) && isset($rawIndexes[0]['Column_name']));
+
+		$this->check('getIndexes(verbose) keeps multi-column order', ['qty', 'name'],
+			$database->getIndexes($table, true)['qty_name_idx']['columns']);
+		$this->check('getIndexes(verbose) marks non-unique index', false,
+			$database->getIndexes($table, true)['name_idx']['unique']);
+		$this->check('getIndexes(verbose) marks PRIMARY as unique', true,
+			$database->getIndexes($table, true)['PRIMARY']['unique']);
+		$this->check('getIndexes(table, name) returns that index', 'name_idx',
+			$database->getIndexes($table, 'name_idx')['name']);
+		$this->check('getIndexes(table.name, verbose) returns that index', 'name_idx',
+			$database->getIndexes("$table.name_idx", true)['name']);
+		$this->check('getIndexes(table, name) empty for missing index', [],
+			$database->getIndexes($table, 'missing_idx'));
 
 		$this->check('renameColumn() renames note to body', true, $database->renameColumn($table, 'note', 'body'));
 		$this->check('columnExists() true for renamed column', true, $database->columnExists($table, 'body'));

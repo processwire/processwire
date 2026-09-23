@@ -134,7 +134,10 @@ extension and SQLite 3.35+ are available (CLI installer: `'dbType' => 'sqlite'`,
 - **Requirements:** PHP's `pdo_sqlite` extension and SQLite 3.35.0 or newer (checked on connect).
   On PHP 8.4+, connections use `Pdo\Sqlite`.
 - **How it works:** ProcessWire's SQL (MySQL syntax) is translated by `WireDatabaseSQLiteTranslator` and
-  MySQL-compatible functions are registered with SQLite. Statements that translate to multiple SQLite
+  MySQL-compatible functions are registered with SQLite. Schema introspection (`getTables()`, `getColumns()`,
+  `getIndexes()`, `tableExists()`, `columnExists()`, `indexExists()`) queries SQLite's PRAGMA functions
+  directly and returns the same values the MySQL dialect returns, while `SHOW` and `DESCRIBE` queries
+  issued by module code continue to be emulated by the translator. Statements that translate to multiple SQLite
   statements (such as `CREATE TABLE` with indexes, or an `ALTER TABLE` that requires rebuilding the table)
   are executed atomically.
 - **Settings:** `$config->dbOptions` may contain an array indexed by database type, holding PDO driver

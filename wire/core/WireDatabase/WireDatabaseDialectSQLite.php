@@ -6,16 +6,16 @@
  * ProcessWire issues MySQL-syntax SQL, which this dialect translates to SQLite (see
  * WireDatabaseSQLiteTranslator). SQLite support is currently experimental.
  *
- * This extends the MySQL dialect so that its introspection methods (getColumns, getIndexes,
- * columnExists, etc.) can be reused through the translator's SHOW emulation.
- * @todo extend WireDatabaseDialect directly with PRAGMA-based introspection
+ * Introspection (getTables, getColumns, getIndexes, etc.) queries SQLite's PRAGMA functions
+ * directly rather than going through the translator's SHOW emulation, which remains available
+ * for third party code that issues SHOW or DESCRIBE queries of its own.
  *
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
 
-class WireDatabaseDialectSQLite extends WireDatabaseDialectMySQL {
+class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 
 	/**
 	 * @var WireDatabaseSQLiteTranslator|null
@@ -702,5 +702,297 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialectMySQL {
 		$errno = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
 		if($errno === 5 || $errno === 6) return 'deadlock'; // SQLITE_BUSY, SQLITE_LOCKED
 		return '';
+	}
+
+	/*********************************************************************************
+	 * INTROSPECTION
+	 *
+	 * These use SQLite's PRAGMA functions directly (no translation), but return the same
+	 * MySQL-shaped values that the MySQL dialect returns from SHOW and DESCRIBE.
+	 *
+	 */
+
+	/**
+	 * Execute a query on the SQLite connection, bypassing translation
+	 *
+	 * @param string $sql
+	 * @param array $params
+	 * @return array Rows indexed by column name
+	 *
+	 */
+	protected function pragma($sql, array $params = array()) {
+		$query = $this->database->pdo()->prepare($sql);
+		$query->execute($params);
+		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+		$query->closeCursor();
+		return $rows;
+	}
+
+	/**
+	 * Get columns of given table as SHOW COLUMNS rows
+	 *
+	 * @param string $table
+	 * @return array
+	 *
+	 */
+	protected function tableInfo($table) {
+
+		$rows = array();
+		$createSql = null;
+
+		foreach($this->pragma('SELECT * FROM pragma_table_info(?)', array($table)) as $row) {
+
+			$pk = (int) $row['pk'];
+			$type = (string) $row['type'];
+			$extra = '';
+
+			if($pk > 0 && strtolower($type) === 'integer') {
+				// AUTOINCREMENT is only visible in the table's own CREATE TABLE statement
+				if($createSql === null) {
+					$createSql = (string) $this->database->pdo()->query(
+						"SELECT sql FROM sqlite_master WHERE type='table' AND name=" .
+						$this->database->pdo()->quote($table)
+					)->fetchColumn();
+				}
+				if(stripos($createSql, 'AUTOINCREMENT') !== false) $extra = 'auto_increment';
+			}
+
+			$rows[] = array(
+				'Field' => $row['name'],
+				'Type' => $type,
+				'Null' => ((int) $row['notnull']) ? 'NO' : 'YES',
+				'Key' => $pk > 0 ? 'PRI' : '',
+				'Default' => $row['dflt_value'],
+				'Extra' => $extra,
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Get indexes of given table as SHOW INDEX rows (one row per indexed column)
+	 *
+	 * @param string $table
+	 * @return array
+	 *
+	 */
+	protected function indexInfo($table) {
+
+		$rows = array();
+		$prefix = $table . WireDatabaseSQLiteTranslator::indexSeparator;
+		$hasPrimary = false;
+
+		foreach($this->pragma('SELECT * FROM pragma_index_list(?)', array($table)) as $index) {
+
+			$name = (string) $index['name'];
+			$origin = (string) $index['origin'];
+
+			if($origin === 'pk') {
+				$keyName = 'PRIMARY';
+				$hasPrimary = true;
+			} else if(strpos($name, $prefix) === 0) {
+				// indexes created through ProcessWire are prefixed with the table name
+				$keyName = substr($name, strlen($prefix));
+			} else {
+				$keyName = $name;
+			}
+
+			$seq = 0;
+
+			foreach($this->pragma('SELECT * FROM pragma_index_info(?)', array($name)) as $col) {
+				if($col['name'] === null) continue; // indexed expression rather than a column
+				$rows[] = array(
+					'Table' => $table,
+					'Key_name' => $keyName,
+					'Non_unique' => ((int) $index['unique']) ? 0 : 1,
+					'Seq_in_index' => ++$seq,
+					'Column_name' => $col['name'],
+					'Index_type' => 'BTREE',
+				);
+			}
+		}
+
+		if(!$hasPrimary) {
+			// an INTEGER PRIMARY KEY is the table's rowid, so it has no index to list
+			$seq = 0;
+			foreach($this->tableInfo($table) as $col) {
+				if($col['Key'] !== 'PRI') continue;
+				$rows[] = array(
+					'Table' => $table,
+					'Key_name' => 'PRIMARY',
+					'Non_unique' => 0,
+					'Seq_in_index' => ++$seq,
+					'Column_name' => $col['Field'],
+					'Index_type' => 'BTREE',
+				);
+			}
+		}
+
+		usort($rows, function($a, $b) {
+			$result = strcmp($a['Key_name'], $b['Key_name']);
+			return $result === 0 ? $a['Seq_in_index'] - $b['Seq_in_index'] : $result;
+		});
+
+		return $rows;
+	}
+
+	/**
+	 * Get all table names
+	 *
+	 * @return array
+	 *
+	 */
+	public function getTables() {
+		$sql =
+			"SELECT name FROM sqlite_master " .
+			"WHERE type='table' AND name NOT LIKE 'sqlite\_%' ESCAPE '\' " .
+			"ORDER BY name";
+		$query = $this->database->pdo()->query($sql);
+		$tables = $query->fetchAll(\PDO::FETCH_COLUMN);
+		$query->closeCursor();
+		return $tables;
+	}
+
+	/**
+	 * Get all columns from given table
+	 *
+	 * @param string $table
+	 * @param bool|int|string $verbose
+	 * @return array
+	 *
+	 */
+	public function getColumns($table, $verbose = false) {
+
+		$columns = array();
+
+		if($verbose === 3) {
+			// MySQL-syntax column definitions, as SHOW CREATE TABLE would give
+			$sql = WireDatabaseSQLiteTranslator::mysqlCreateTable($this->database->pdo(), $table);
+			if(!$sql) return array();
+			if(!preg_match_all('/`([_a-z0-9]+)`\s+([a-z][^\r\n]+)/i', $sql, $matches)) return array();
+			foreach($matches[1] as $key => $name) {
+				$columns[$name] = trim(rtrim($matches[2][$key], ','));
+			}
+			return $columns;
+		}
+
+		$getColumn = $verbose && is_string($verbose) ? $verbose : '';
+		if(strpos($table, '.')) list($table, $getColumn) = explode('.', $table, 2);
+
+		foreach($this->tableInfo($table) as $col) {
+			$name = $col['Field'];
+			if($getColumn !== '' && $name !== $getColumn) continue;
+			if($verbose === 2) {
+				$columns[$name] = $col;
+			} else if($verbose) {
+				$columns[$name] = array(
+					'name' => $name,
+					'type' => $col['Type'],
+					'null' => $col['Null'] === 'YES',
+					'default' => $col['Default'],
+					'extra' => $col['Extra'],
+				);
+			} else {
+				$columns[] = $name;
+			}
+		}
+
+		if($getColumn !== '') return isset($columns[$getColumn]) ? $columns[$getColumn] : array();
+
+		return $columns;
+	}
+
+	/**
+	 * Get all indexes from given table
+	 *
+	 * @param string $table
+	 * @param bool|int|string $verbose
+	 * @return array
+	 *
+	 */
+	public function getIndexes($table, $verbose = false) {
+
+		$indexes = array();
+		$getIndex = $verbose && is_string($verbose) ? $verbose : '';
+		if(strpos($table, '.')) list($table, $getIndex) = explode('.', $table, 2);
+
+		foreach($this->indexInfo($table) as $row) {
+			$name = $row['Key_name'];
+			if($getIndex !== '' && strcasecmp($name, $getIndex) !== 0) continue;
+			if($verbose === 2) {
+				$indexes[] = $row;
+			} else if($verbose) {
+				if(!isset($indexes[$name])) $indexes[$name] = array(
+					'name' => $name,
+					'type' => $row['Index_type'],
+					'unique' => (((int) $row['Non_unique']) ? false : true),
+					'columns' => array(),
+				);
+				$indexes[$name]['columns'][((int) $row['Seq_in_index']) - 1] = $row['Column_name'];
+			} else {
+				$indexes[] = $name;
+			}
+		}
+
+		if($getIndex !== '') return isset($indexes[$getIndex]) ? $indexes[$getIndex] : array();
+
+		return $indexes;
+	}
+
+	/**
+	 * Does the given table exist?
+	 *
+	 * @param string $table
+	 * @return bool
+	 *
+	 */
+	public function tableExists($table) {
+		$rows = $this->pragma("SELECT name FROM sqlite_master WHERE type='table' AND name=?", array($table));
+		return count($rows) > 0;
+	}
+
+	/**
+	 * Does the given column exist in given table?
+	 *
+	 * @param string $table
+	 * @param string $column
+	 * @param bool $getInfo
+	 * @return bool|array
+	 * @throws WireDatabaseException
+	 *
+	 */
+	public function columnExists($table, $column = '', $getInfo = false) {
+
+		if(strpos($table, '.')) {
+			list($table, $col) = explode('.', $table, 2);
+			if(empty($column) || !is_string($column)) $column = $col;
+		}
+
+		if(empty($column)) throw new WireDatabaseException('No column specified');
+
+		foreach($this->tableInfo($table) as $row) {
+			if($row['Field'] !== $column) continue;
+			return $getInfo ? $row : true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Does table have an index with given name?
+	 *
+	 * @param string $table
+	 * @param string $indexName
+	 * @param bool $getInfo
+	 * @return bool|array
+	 *
+	 */
+	public function indexExists($table, $indexName, $getInfo = false) {
+		$rows = array();
+		foreach($this->indexInfo($table) as $row) {
+			if(strcasecmp($row['Key_name'], $indexName) === 0) $rows[] = $row;
+		}
+		return $getInfo && count($rows) ? $rows : count($rows) > 0;
 	}
 }
