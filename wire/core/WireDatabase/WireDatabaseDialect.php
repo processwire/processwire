@@ -433,6 +433,179 @@ abstract class WireDatabaseDialect extends Wire {
 	}
 
 	/*********************************************************************************
+	 * SQL helpers
+	 *
+	 * Core uses these to obtain SQL in the dialect's own syntax for constructs that differ
+	 * between databases, rather than issuing MySQL syntax for the translator to rewrite.
+	 * The base implementations produce MySQL syntax. A translating dialect overrides the
+	 * parts that differ, and its translator leaves SQL that is already in its own syntax
+	 * unchanged.
+	 *
+	 */
+
+	/**
+	 * Quote a table or column name for use in SQL
+	 *
+	 * @param string $name
+	 * @return string
+	 * @since 3.0.273
+	 *
+	 */
+	public function quoteIdentifier($name) {
+		return '`' . $this->database->escapeTable($name) . '`';
+	}
+
+	/**
+	 * Get an INSERT statement that updates the existing row when it would violate a unique key
+	 *
+	 * On MySQL this is `INSERT ... ON DUPLICATE KEY UPDATE`; other databases have their own syntax,
+	 * which may need to know the key that the insert conflicts on (the `conflict` option). Values
+	 * are given as SQL expressions, most often bound parameter names, so bind them to the prepared
+	 * statement as you would for any other query.
+	 *
+	 * ~~~~~
+	 * $sql = $database->dialect()->upsert('caches',
+	 *   ['name', 'data', 'expires'], // insert these columns, bound as :name, :data, :expires
+	 *   ['data', 'expires'], // when the row exists, update these columns to the inserted values
+	 *   ['conflict' => ['name']] // caches.name is the primary key that the insert conflicts on
+	 * );
+	 * $query = $database->prepare($sql);
+	 * $query->bindValue(':name', $name);
+	 * $query->bindValue(':data', $data);
+	 * $query->bindValue(':expires', $expires);
+	 * $query->execute();
+	 *
+	 * // custom expressions for inserted values and updates
+	 * $sql = $dialect->upsert('sessions',
+	 *   ['id' => ':id', 'data' => ':data', 'ts' => 'NOW()'],
+	 *   ['data', 'ts' => 'NOW()'],
+	 *   ['conflict' => ['id']]
+	 * );
+	 *
+	 * // multiple rows of values: numbers are inserted as given, strings are quoted, null is NULL
+	 * $sql = $dialect->upsert('pages', ['id', 'sort'], ['sort'], [
+	 *   'conflict' => ['id'],
+	 *   'rows' => [[1001, 0], [1002, 1], [1003, 2]],
+	 * ]);
+	 * $database->exec($sql);
+	 * ~~~~~
+	 *
+	 * @param string $table Table name
+	 * @param array $columns Columns to insert: a list of column names, each bound as `:column`, and/or
+	 *   `column => expression` where expression is a SQL value expression (i.e. `':bindName'`, `'NULL'`, `'NOW()'`).
+	 * @param array $update Columns to update when the row already exists: a list of column names, each set
+	 *   to the value that would have been inserted (the column must be among `$columns`), and/or
+	 *   `column => expression` for another SQL expression (i.e. `'NOW()'`, `'qty+1'`, `':bindName'`).
+	 * @param array $options
+	 *  - `conflict` (array): Column names of the primary or unique key that the insert conflicts on.
+	 *     Not needed by MySQL, optional for SQLite, required by databases that cannot infer it (i.e. PostgreSQL).
+	 *  - `rows` (array): Insert multiple rows of scalar VALUES (not expressions): each row is a list in the
+	 *     same order as `$columns` (i.e. `[[1, 5], [2, 6]]`). Integers and floats are inserted as given,
+	 *     strings are quoted, booleans become 1/0 and null becomes NULL; anything else throws. When present,
+	 *     expressions given in `$columns` are not used. Use bound parameters instead when inserting one row.
+	 * @return string
+	 * @throws WireDatabaseException
+	 * @since 3.0.273
+	 *
+	 */
+	public function upsert($table, array $columns, array $update, array $options = array()) {
+
+		$defaults = array(
+			'conflict' => array(),
+			'rows' => array(),
+		);
+
+		$options = array_merge($defaults, $options);
+		$database = $this->database;
+		$cols = array(); // [ name => expression ]
+		$updates = array(); // [ name => expression or null for inserted value ]
+		$rows = array();
+		$names = array();
+
+		foreach($columns as $key => $value) {
+			if(is_int($key)) {
+				$name = $database->escapeCol($value);
+				$expr = ":$name";
+			} else {
+				$name = $database->escapeCol($key);
+				$expr = (string) $value;
+			}
+			if($name === '') throw new WireDatabaseException('upsert() requires a column name for every column');
+			$cols[$name] = $expr;
+			$names[] = $this->quoteIdentifier($name);
+		}
+
+		if(!count($cols)) throw new WireDatabaseException('upsert() requires at least one column to insert');
+
+		foreach($update as $key => $value) {
+			if(is_int($key)) {
+				$name = $database->escapeCol($value);
+				if(!isset($cols[$name])) {
+					throw new WireDatabaseException("upsert() cannot update column '$name' from its inserted value because it is not being inserted");
+				}
+				$updates[$name] = null;
+			} else {
+				$name = $database->escapeCol($key);
+				$updates[$name] = (string) $value;
+			}
+		}
+
+		if(!count($updates)) throw new WireDatabaseException('upsert() requires at least one column to update');
+
+		if(count($options['rows'])) {
+			foreach($options['rows'] as $row) {
+				if(!is_array($row) || count($row) !== count($cols)) {
+					throw new WireDatabaseException('upsert() requires one value per column in each row');
+				}
+				$values = array();
+				foreach($row as $value) $values[] = $this->upsertRowValue($value);
+				$rows[] = '(' . implode(', ', $values) . ')';
+			}
+		} else {
+			$rows[] = '(' . implode(', ', $cols) . ')';
+		}
+
+		return
+			'INSERT INTO ' . $this->quoteIdentifier($table) . ' (' . implode(', ', $names) . ') ' .
+			'VALUES ' . implode(', ', $rows) . ' ' .
+			$this->upsertUpdateClause($updates, $options['conflict']);
+	}
+
+	/**
+	 * Get SQL for one scalar value in an upsert() `rows` option
+	 *
+	 * @param int|float|string|bool|null $value
+	 * @return string
+	 * @throws WireDatabaseException
+	 *
+	 */
+	protected function upsertRowValue($value) {
+		if(is_int($value) || is_float($value)) return (string) $value;
+		if($value === null) return 'NULL';
+		if(is_bool($value)) return $value ? '1' : '0';
+		if(is_string($value)) return $this->database->quote($value);
+		throw new WireDatabaseException('upsert() rows may contain only scalar values (int, float, string, bool or null)');
+	}
+
+	/**
+	 * Get the clause of an upsert() statement that updates the existing row (MySQL syntax)
+	 *
+	 * @param array $updates Columns to update, as `column => expression`, where a null expression
+	 *   means the value that would have been inserted.
+	 * @param array $conflict Column names of the key that the insert conflicts on, if known
+	 * @return string
+	 *
+	 */
+	protected function upsertUpdateClause(array $updates, array $conflict) {
+		$sets = array();
+		foreach($updates as $name => $expr) {
+			$col = $this->quoteIdentifier($name);
+			$sets[] = $col . '=' . ($expr === null ? "VALUES($col)" : $expr);
+		}
+		return 'ON DUPLICATE KEY UPDATE ' . implode(', ', $sets);
+	}
+
+	/*********************************************************************************
 	 * Capabilities
 	 *
 	 * Check these rather than which database is in use, i.e. `$database->dialect()->supportsFulltext()`

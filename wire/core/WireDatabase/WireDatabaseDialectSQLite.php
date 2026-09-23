@@ -552,6 +552,33 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	}
 
 	/**
+	 * Get the clause of an upsert() statement that updates the existing row
+	 *
+	 * SQLite uses `ON CONFLICT ... DO UPDATE SET`, with the inserted values available as
+	 * `excluded.column`. The conflict target is optional in SQLite 3.35+ but is included when
+	 * known, since it is what the translator cannot supply on its own.
+	 *
+	 * @param array $updates
+	 * @param array $conflict
+	 * @return string
+	 *
+	 */
+	protected function upsertUpdateClause(array $updates, array $conflict) {
+		$sets = array();
+		foreach($updates as $name => $expr) {
+			$col = $this->quoteIdentifier($name);
+			$sets[] = $col . '=' . ($expr === null ? "excluded.$col" : $expr);
+		}
+		$target = '';
+		if(count($conflict)) {
+			$names = array();
+			foreach($conflict as $name) $names[] = $this->quoteIdentifier($name);
+			$target = '(' . implode(', ', $names) . ') ';
+		}
+		return "ON CONFLICT {$target}DO UPDATE SET " . implode(', ', $sets);
+	}
+
+	/**
 	 * Log a failed query to site/assets/logs/sqlite-errors.txt (debug mode only)
 	 *
 	 * #pw-internal

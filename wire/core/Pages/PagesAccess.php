@@ -137,13 +137,14 @@ class PagesAccess extends Wire {
 
 		if(count($insertions)) {
 			// add the entries to the pages_access table
-			$sql = "INSERT INTO pages_access (pages_id, templates_id) VALUES ";
+			$rows = array();
 			foreach($insertions as $id => $templates_id) {
-				$id = (int) $id;
-				$templates_id = (int) $templates_id;
-				$sql .= "($id, $templates_id),";
+				$rows[] = array((int) $id, (int) $templates_id);
 			}
-			$sql = rtrim($sql, ",") . " " . "ON DUPLICATE KEY UPDATE templates_id=VALUES(templates_id) ";
+			$sql = $database->dialect()->upsert('pages_access', array('pages_id', 'templates_id'), array('templates_id'), array(
+				'conflict' => array('pages_id'),
+				'rows' => $rows,
+			));
 			$query = $database->prepare($sql);
 			$query->execute();
 
@@ -196,10 +197,12 @@ class PagesAccess extends Wire {
 		} else {
 			$template_id = (int) $accessParent->template->id; 
 
-			$sql = 	"INSERT INTO pages_access (pages_id, templates_id) " .
-					"VALUES(:page_id, :template_id) " .
-					"ON DUPLICATE KEY UPDATE templates_id=VALUES(templates_id) ";
-			
+			$sql = $database->dialect()->upsert('pages_access',
+				array('pages_id' => ':page_id', 'templates_id' => ':template_id'),
+				array('templates_id'),
+				array('conflict' => array('pages_id'))
+			);
+
 			$query = $database->prepare($sql);
 			$query->bindValue(":template_id", $template_id, \PDO::PARAM_INT);
 		}

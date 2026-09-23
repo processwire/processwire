@@ -461,10 +461,8 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->table);
 		
-		$sql = 
-			"INSERT INTO `$table` (pages_id, data) VALUES(:pages_id, :data) " . 
-			"ON DUPLICATE KEY UPDATE `data`=VALUES(`data`)";
-		
+		$sql = $database->dialect()->upsert($table, array('pages_id', 'data'), array('data'), array('conflict' => array('pages_id')));
+
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':data', $value->id, \PDO::PARAM_INT);

@@ -1993,7 +1993,7 @@ class PagesEditor extends Wire {
 			do {
 				$id = (int) $query->fetch(\PDO::FETCH_COLUMN);
 				if(!$id) break;
-				$sorts[] = "($id,$sort)";
+				$sorts[] = array($id, $sort);
 			} while(++$sort);
 
 			$query->closeCursor();
@@ -2005,17 +2005,17 @@ class PagesEditor extends Wire {
 			$o = array('findIDs' => 1, 'cache' => false);
 			foreach($parent->children('include=all', $o) as $id) {
 				$id = (int) $id;
-				$sorts[] = "($id,$sort)";	
+				$sorts[] = array($id, $sort);	
 				$sort++;
 			}
 		}
 
 		// update sort values
-		$query = $database->prepare(
-			'INSERT INTO pages (id,sort) VALUES ' . implode(',', $sorts) . ' ' .
-			'ON DUPLICATE KEY UPDATE sort=VALUES(sort)'
-		);
-
+		$sql = $database->dialect()->upsert('pages', array('id', 'sort'), array('sort'), array(
+			'conflict' => array('id'),
+			'rows' => $sorts,
+		));
+		$query = $database->prepare($sql);
 		$query->execute();
 		
 		return count($sorts);

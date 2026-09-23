@@ -93,6 +93,52 @@ Two more dialect methods return a collation name (or a blank string when none is
 `compareCollation($value)` for text comparisons and `sortCollation()` for `ORDER BY` terms. See the
 SQLite section below.
 
+### SQL helpers
+
+Where a construct differs between databases, the dialect can build the statement in its own syntax,
+so that nothing has to be translated (and nothing has to be guessed by the translator). Helper output
+is executed as-is by `prepare()`, `query()` and `exec()`.
+
+#### upsert()
+
+- **Signature:** `upsert(string $table, array $columns, array $update, array $options = []): string`
+- **Purpose:** An INSERT that updates the existing row when it would violate a unique key. MySQL:
+  `INSERT ... ON DUPLICATE KEY UPDATE`. SQLite: `INSERT ... ON CONFLICT (...) DO UPDATE SET`.
+- `$columns`: columns to insert, as a list of names (each bound as `:name`) and/or `name => expression`.
+- `$update`: columns to update when the row exists, as a list of names (set to the inserted value; the
+  column must be in `$columns`) and/or `name => expression` (i.e. `'NOW()'`, `'qty+1'`, `':bindName'`).
+- `$options['conflict']`: column names of the primary or unique key the insert conflicts on. MySQL does
+  not need it and SQLite can do without it, but databases that require a conflict target (i.e. PostgreSQL)
+  cannot infer it, so pass it whenever you know it.
+- `$options['rows']`: insert several rows at once, each a list of scalar values in `$columns` order. Numbers
+  are inserted as given, strings are quoted, booleans become 1/0, null becomes NULL. Values are not SQL
+  expressions: use `$columns` with bound parameters for anything else.
+- Throws `WireDatabaseException` when there is nothing to insert or update, when a listed update column is
+  not being inserted, when a row does not have one value per column, or when a row value is not a scalar.
+
+```php
+$dialect = $database->dialect();
+
+$sql = $dialect->upsert('caches', ['name', 'data', 'expires'], ['data', 'expires'], ['conflict' => ['name']]);
+// MySQL:  INSERT INTO `caches` (`name`, `data`, `expires`) VALUES (:name, :data, :expires)
+//         ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `expires`=VALUES(`expires`)
+// SQLite: INSERT INTO `caches` (`name`, `data`, `expires`) VALUES (:name, :data, :expires)
+//         ON CONFLICT (`name`) DO UPDATE SET `data`=excluded.`data`, `expires`=excluded.`expires`
+$query = $database->prepare($sql);
+$query->bindValue(':name', $name);
+$query->bindValue(':data', $data);
+$query->bindValue(':expires', $expires);
+$query->execute();
+
+// custom expressions, and several rows of literal values
+$sql = $dialect->upsert('sessions', ['id', 'data'], ['data', 'ts' => 'NOW()'], ['conflict' => ['id']]);
+$sql = $dialect->upsert('pages', ['id', 'sort'], ['sort'], ['conflict' => ['id'], 'rows' => [[1001, 0], [1002, 1]]]);
+$database->exec($sql);
+```
+
+Helper output goes through `prepare()`, `query()` and `exec()` like any other SQL. A translating dialect's
+translator recognizes statements that are already in its own syntax and leaves them unchanged.
+
 ### Writing SQL that works with both
 
 Most MySQL syntax that ProcessWire and modules commonly use works on SQLite unchanged, including

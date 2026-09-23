@@ -467,11 +467,9 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			$paths[$languageId] = trim($path, '/');
 		}
 		
-		$sql = 	
-			"INSERT INTO $table (pages_id, language_id, path) " . 
-			"VALUES(:pages_id, :language_id, :path) " .
-			"ON DUPLICATE KEY UPDATE " . 
-			"pages_id=VALUES(pages_id), language_id=VALUES(language_id), path=VALUES(path)";
+		// no conflict target: the table has both a primary key (pages_id, language_id) and a unique key (path, language_id)
+		$columns = array('pages_id', 'language_id', 'path');
+		$sql = $database->dialect()->upsert($table, $columns, $columns);
 
 		$query = $database->prepare($sql);
 		$query->bindValue(":pages_id", $pageId, \PDO::PARAM_INT);

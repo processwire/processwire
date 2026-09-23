@@ -496,7 +496,8 @@ class FieldtypeMyFiles extends FieldtypeMulti implements FieldtypeHasFiles {
 - Inputfield names starting with `_` in `getConfigInputfields()` are not persisted to DB.
 - Field settings saved by `getConfigInputfields()` / `getConfigArray()` are accessible on
   the `$field` object: `$field->get('mySettingName')`.
-- `savePageField()` on the base `Fieldtype` uses INSERT ... ON DUPLICATE KEY UPDATE,
+- `savePageField()` on the base `Fieldtype` uses a single insert-or-update query
+  (`$database->dialect()->upsert()`, which is INSERT ... ON DUPLICATE KEY UPDATE on MySQL),
   so it handles both inserts and updates in a single query.
 - `FieldtypeMulti::savePageField()` deletes all rows for the page then re-inserts them
   on every save; use `savePageFieldRows()` / `deletePageFieldRows()` for targeted

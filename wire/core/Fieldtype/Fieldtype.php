@@ -1324,52 +1324,44 @@ abstract class Fieldtype extends WireData implements Module {
 
 		$value = $this->sleepValue($page, $field, $value); 
 
-		$page_id = (int) $page->id; 
-		$table = $database->escapeTable($field->table); 
+		$page_id = (int) $page->id;
+		$table = $database->escapeTable($field->table);
 		$schema = array();
 		$bindValues = array(':page_id' => $page_id);
+		$columns = array('pages_id' => ':page_id'); // column => SQL value expression
+		$updates = array(); // columns to update to the inserted value when the row already exists
 
-		if(is_array($value)) { 
-
-			$sql1 = "INSERT INTO `$table` (pages_id";
-			$sql2 = "VALUES(:page_id";
-			$sql3 = "ON DUPLICATE KEY UPDATE ";
+		if(is_array($value)) {
 			$n = 0;
-
 			foreach($value as $k => $v) {
 				$k = $database->escapeCol($k);
-				$sql1 .= ",`$k`";
-				
 				if(is_null($v)) {
 					// check if schema explicitly allows NULL
-					if(empty($schema)) $schema = $this->getDatabaseSchema($field); 
-					$sql2 .= isset($schema[$k]) && stripos($schema[$k], ' DEFAULT NULL') ? ",NULL" : ",''";
+					if(empty($schema)) $schema = $this->getDatabaseSchema($field);
+					$columns[$k] = isset($schema[$k]) && stripos($schema[$k], ' DEFAULT NULL') ? "NULL" : "''";
 				} else {
 					$bindKey = ':v' . (++$n);
 					$bindValues[$bindKey] = $v;
-					$sql2 .= ",$bindKey";
+					$columns[$k] = $bindKey;
 				}
-				
-				$sql3 .= "`$k`=VALUES(`$k`), ";
+				$updates[] = $k;
 			}
 
-			$sql = "$sql1) $sql2) " . rtrim($sql3, ', ');
-			
 		} else {
-			
+
 			if(is_null($value)) {
 				// check if schema explicitly allows NULL
-				$schema = $this->getDatabaseSchema($field); 
-				$null = isset($schema['data']) && stripos($schema['data'], ' DEFAULT NULL') ? "NULL" : "''";
-				$sql = "INSERT INTO `$table` (pages_id, data) VALUES(:page_id, $null) ";	
+				$schema = $this->getDatabaseSchema($field);
+				$columns['data'] = isset($schema['data']) && stripos($schema['data'], ' DEFAULT NULL') ? "NULL" : "''";
 			} else {
 				$bindValues[":value"] = $value;
-				$sql = "INSERT INTO `$table` (pages_id, data) VALUES(:page_id, :value) ";	
+				$columns['data'] = ':value';
 			}
-			
-			$sql .= 'ON DUPLICATE KEY UPDATE data=VALUES(data)';
+
+			$updates[] = 'data';
 		}
-		
+
+		$sql = $database->dialect()->upsert($table, $columns, $updates, array('conflict' => array('pages_id')));
 		$query = $database->prepare($sql);
 		foreach($bindValues as $bindKey => $bindValue) {
 			if(is_int($bindValue)) {

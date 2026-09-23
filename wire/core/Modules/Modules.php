@@ -2658,7 +2658,11 @@ class Modules extends WireArray implements CliModule {
 		$cache = $this->wire()->cache;
 		if($cache) $cache->save($cacheName, $data, WireCache::expireReserved);
 		if(is_array($data)) $data = json_encode($data);
-		$sql = "INSERT INTO modules SET class=:name, data=:data, flags=:flags ON DUPLICATE KEY UPDATE data=VALUES(data)";
+		$sql = $database->dialect()->upsert('modules',
+			array('class' => ':name', 'data' => ':data', 'flags' => ':flags'),
+			array('data'),
+			array('conflict' => array('class'))
+		);
 		$query = $database->prepare($sql);
 		$query->bindValue(':name', ".$cacheName");
 		$query->bindValue(':data', $data);

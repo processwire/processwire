@@ -267,10 +267,9 @@ class WireDataDB extends WireData implements \Countable {
 		$table = $this->table();
 		$sourceID = $this->sourceID();
 		if(!$sourceID) return false;
-		$sql =
-			"INSERT INTO `$table` (source_id, name, data) VALUES(:source_id, :name, :data) " .
-			"ON DUPLICATE KEY UPDATE source_id=VALUES(source_id), name=VALUES(name), data=VALUES(data)";
-		$query = $this->wire()->database->prepare($sql);
+		$database = $this->wire()->database;
+		$sql = $database->dialect()->upsert($table, array('source_id', 'name', 'data'), array('data'), array('conflict' => array('source_id', 'name')));
+		$query = $database->prepare($sql);
 		$query->bindValue(':source_id', $this->sourceID(), \PDO::PARAM_INT);
 		$query->bindValue(':name', $name);
 		$query->bindValue(':data', $data);

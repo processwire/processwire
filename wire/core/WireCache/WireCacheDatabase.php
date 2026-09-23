@@ -117,11 +117,9 @@ class WireCacheDatabase extends Wire implements WireCacheInterface {
 	 */
 	public function save($name, $data, $expire) {
 	
-		$sql =
-			'INSERT INTO caches (`name`, `data`, `expires`) VALUES(:name, :data, :expires) ' .
-			'ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `expires`=VALUES(`expires`)';
-
-		$query = $this->wire()->database->prepare($sql, "cache.save($name)");
+		$database = $this->wire()->database;
+		$sql = $database->dialect()->upsert('caches', array('name', 'data', 'expires'), array('data', 'expires'), array('conflict' => array('name')));
+		$query = $database->prepare($sql, "cache.save($name)");
 		$query->bindValue(':name', $name);
 		$query->bindValue(':data', $data);
 		$query->bindValue(':expires', $expire);

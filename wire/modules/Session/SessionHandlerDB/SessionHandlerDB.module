@@ -143,18 +143,22 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 			':data' => $data,
 		);
 
-		$s = "user_id=:user_id, pages_id=:pages_id, data=:data";
-		
+		$columns = array('id', 'user_id', 'pages_id', 'data');
+
 		if($ip) {
-			$s .= ", ip=:ip";
+			$columns[] = 'ip';
 			$binds[':ip'] = $ip;
 		}
 		if($ua) {
-			$s .= ", ua=:ua";
+			$columns[] = 'ua';
 			$binds[':ua'] = $ua;
 		}
-		
-		$sql = "INSERT INTO $table SET id=:id, $s ON DUPLICATE KEY UPDATE $s, ts=NOW()";
+
+		// when the session row already exists, update everything but its id, and refresh its timestamp
+		$updates = array_slice($columns, 1);
+		$updates['ts'] = 'NOW()';
+
+		$sql = $database->dialect()->upsert($table, $columns, $updates, array('conflict' => array('id')));
 		
 		try {
 			$query = $database->prepare($sql);

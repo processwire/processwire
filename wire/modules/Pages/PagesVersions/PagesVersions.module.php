@@ -563,23 +563,23 @@ class PagesVersions extends Wire implements Module {
 		$name = $options['name'] !== null ? trim($this->wire()->sanitizer->pageName($options['name']), '-') : null;
 		if($name === '') $name = null;
 
-		$sql =
-			"INSERT INTO $table (version, pages_id, name, description, " .
-			"data, created, modified, created_users_id, modified_users_id) " .
-			"VALUES(:version, :pages_id, :name, :description, " .
-			":data, :created, :modified, :created_users_id, :modified_users_id) ";
-		
-		if($options['update']) $sql .= 
-			"ON DUPLICATE KEY UPDATE " . 
-			"data=VALUES(data), modified=VALUES(modified), " . 
-			"modified_users_id=VALUES(modified_users_id)";
-	
-		// update description only if it is being changed
-		if($options['update'] && $options['description'] !== null) $sql .= ', description=VALUES(description)';
+		$columns = array(
+			'version', 'pages_id', 'name', 'description',
+			'data', 'created', 'modified', 'created_users_id', 'modified_users_id'
+		);
 
-		// update name only if it is being changed
-		if($options['update'] && $options['name'] !== null) $sql .= ', name=VALUES(name)';
-		
+		if($options['update']) {
+			$updates = array('data', 'modified', 'modified_users_id');
+			// update description only if it is being changed
+			if($options['description'] !== null) $updates[] = 'description';
+			// update name only if it is being changed
+			if($options['name'] !== null) $updates[] = 'name';
+			// no conflict target: the table has both a primary key (version, pages_id) and a unique key (name, pages_id)
+			$sql = $database->dialect()->upsert($table, $columns, $updates);
+		} else {
+			$sql = "INSERT INTO $table (" . implode(', ', $columns) . ") VALUES(:" . implode(', :', $columns) . ")";
+		}
+
 		$data = $this->getNativePagesTableData($page, $options);
 		$names = array_keys($data);
 		
@@ -1081,10 +1081,11 @@ class PagesVersions extends Wire implements Module {
 			return $this->pageFieldError($page, $field, $error);
 		}
 
-		$sql =
-			"INSERT INTO $table (pages_id, field_id, version, data) " .
-			"VALUES(:pages_id, :field_id, :version, :data) " .
-			"ON DUPLICATE KEY UPDATE data=VALUES(data)";
+		$sql = $database->dialect()->upsert($table,
+			array('pages_id', 'field_id', 'version', 'data'),
+			array('data'),
+			array('conflict' => array('pages_id', 'field_id', 'version'))
+		);
 
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
