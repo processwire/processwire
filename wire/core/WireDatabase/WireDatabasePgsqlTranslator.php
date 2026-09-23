@@ -137,6 +137,9 @@ class WireDatabasePgsqlTranslator {
 			$query = $pdo->prepare($sql);
 			$query->execute($params);
 			return $query->fetchAll($mode);
+		} catch(\PDOException $e) {
+			// not a PostgreSQL connection, or no catalog access: translate without schema knowledge
+			return [];
 		} finally {
 			$this->introspecting = $was;
 		}
@@ -836,13 +839,27 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	protected function callArgs(array $tokens, $open) {
+		$args = [];
+		foreach($this->callArgTokens($tokens, $open) as $arg) {
+			$args[] = trim($this->join($this->expressions($arg)));
+		}
+		return $args;
+	}
+
+	/**
+	 * Get the arguments of a function call as untranslated token lists
+	 *
+	 * @param array $tokens
+	 * @param int $open Index of the opening paren
+	 * @return array
+	 *
+	 */
+	protected function callArgTokens(array $tokens, $open) {
 		$close = $this->matchParen($tokens, $open);
 		$inner = $this->trimTokens(array_slice($tokens, $open + 1, $close - $open - 1));
 		if(!count($inner)) return [];
 		$args = [];
-		foreach($this->splitCommas($inner) as $arg) {
-			$args[] = trim($this->join($this->expressions($this->trimTokens($arg))));
-		}
+		foreach($this->splitCommas($inner) as $arg) $args[] = $this->trimTokens($arg);
 		return $args;
 	}
 
@@ -882,7 +899,26 @@ class WireDatabasePgsqlTranslator {
 				if($qty !== 2) return null;
 				return '(' . $args[0] . ($name === 'DATE_ADD' ? ' + ' : ' - ') . $args[1] . ')';
 			case 'IF':
-				return $qty === 3 ? "(CASE WHEN $args[0] THEN $args[1] ELSE $args[2] END)" : null;
+				if($qty !== 3) return null;
+				// the condition may be an integer in MySQL (IF(status & 1, ...), IF(1, ...)); CASE needs a boolean
+				$raw = $this->callArgTokens($tokens, $open);
+				$cond = trim($this->join($this->condition($this->expressions($raw[0]))));
+				return "(CASE WHEN $cond THEN $args[1] ELSE $args[2] END)";
+			case 'LOCATE':
+				if($qty === 2) return "position($args[0] in $args[1])";
+				if($qty === 3) {
+					$rest = "substring($args[1] from $args[2])";
+					return "(CASE WHEN strpos($rest, $args[0]) = 0 THEN 0 ELSE strpos($rest, $args[0]) + $args[2] - 1 END)";
+				}
+				return null;
+			case 'SUBSTRING_INDEX':
+				// everything before the count-th delimiter (count > 0), or after the count-th from the end (count < 0)
+				if($qty !== 3 || !preg_match('/^-?[0-9]+$/', $args[2])) return null;
+				$parts = "string_to_array($args[0], $args[1])";
+				$count = (int) $args[2];
+				if($count === 0) return "''";
+				if($count > 0) return "array_to_string(($parts)[1:$count], $args[1])";
+				return "array_to_string(($parts)[cardinality($parts) - " . abs($count) . " + 1:], $args[1])";
 			case 'IFNULL':
 				return $qty === 2 ? "COALESCE($args[0], $args[1])" : null;
 			case 'FIELD':
@@ -1001,7 +1037,22 @@ class WireDatabasePgsqlTranslator {
 		if($orderPos > -1) {
 			$y = $this->next($tokens, $orderPos + 1); // BY
 			$orderEnd = $sepPos > $orderPos ? $sepPos : count($tokens);
-			$order = ' ORDER BY ' . trim($this->join($this->expressions(array_slice($tokens, $y + 1, $orderEnd - $y - 1))));
+			$terms = [];
+			foreach($this->splitCommas(array_slice($tokens, $y + 1, $orderEnd - $y - 1)) as $term) {
+				$term = trim($this->join($this->expressions($this->trimTokens($term))));
+				if($distinct && count($exprs) === 1) {
+					// with DISTINCT, PostgreSQL requires ORDER BY expressions to appear in the argument list as-is
+					$dir = '';
+					if(preg_match('/^(.*?)\s+(ASC|DESC)$/is', $term, $m)) {
+						$term = $m[1];
+						$dir = ' ' . strtoupper($m[2]);
+					}
+					if($term === $exprs[0]) $term = $expr;
+					$term .= $dir;
+				}
+				$terms[] = $term;
+			}
+			$order = ' ORDER BY ' . implode(', ', $terms);
 		}
 		return 'string_agg(' . ($distinct ? 'DISTINCT ' : '') . "$expr, $separator$order)";
 	}
@@ -1488,29 +1539,51 @@ class WireDatabasePgsqlTranslator {
 	protected function typedComparisons(array $tokens) {
 		$aliases = $this->tableAliases($tokens);
 		if(!count($aliases)) return $tokens;
+		$tables = array_values(array_unique(array_values($aliases)));
+		$single = count($tables) === 1 ? $tables[0] : null; // unqualified columns can be resolved
 		$n = count($tokens);
 		$out = [];
 		for($i = 0; $i < $n; $i++) {
 			$t = $tokens[$i];
-			// alias.column
-			if(!in_array($t[0], ['word', 'id']) || $i + 2 >= $n || $tokens[$i + 1][0] !== 'punct' || $tokens[$i + 1][1] !== '.' || !in_array($tokens[$i + 2][0], ['word', 'id'])) {
+			if(!in_array($t[0], ['word', 'id'])) {
 				$out[] = $t;
 				continue;
 			}
-			$alias = $this->name($t);
-			if(!isset($aliases[$alias])) {
+			$table = null;
+			$column = '';
+			$colTokens = [];
+			if($i + 2 < $n && $tokens[$i + 1][0] === 'punct' && $tokens[$i + 1][1] === '.' && in_array($tokens[$i + 2][0], ['word', 'id'])) {
+				// alias.column
+				$alias = $this->name($t);
+				if(isset($aliases[$alias])) {
+					$table = $aliases[$alias];
+					$column = $this->name($tokens[$i + 2]);
+					$colTokens = array_slice($tokens, $i, 3);
+				}
+			} else if($single !== null) {
+				// column, in a statement with one table
+				$p = $this->prev($tokens, $i - 1);
+				$q = $this->next($tokens, $i + 1);
+				$afterDot = $p > -1 && $tokens[$p][0] === 'punct' && $tokens[$p][1] === '.';
+				$call = $q > -1 && $tokens[$q][0] === 'punct' && ($tokens[$q][1] === '(' || $tokens[$q][1] === '.');
+				if(!$afterDot && !$call) {
+					$table = $single;
+					$column = $this->name($t);
+					$colTokens = [$t];
+				}
+			}
+			if($table === null) {
 				$out[] = $t;
 				continue;
 			}
-			$column = $this->name($tokens[$i + 2]);
-			$schema = $this->tableSchema($aliases[$alias]);
+			$schema = $this->tableSchema($table);
 			if(!isset($schema['columns'][$column])) {
 				$out[] = $t;
 				continue;
 			}
 			$class = $this->typeClass($schema['columns'][$column]);
-			$colTokens = array_slice($tokens, $i, 3);
-			$k = $this->next($tokens, $i + 3); // operator
+			$end = $i + count($colTokens); // index after the column tokens
+			$k = $this->next($tokens, $end); // operator
 			if($k < 0) {
 				$out[] = $t;
 				continue;
@@ -1525,14 +1598,14 @@ class WireDatabasePgsqlTranslator {
 			if(($isLike || $notLike) && $class !== 'text' && $class !== 'other') {
 				// LIKE/REGEXP on a number or date: compare as text, as MySQL does
 				$out[] = ['word', '(' . $this->join($colTokens) . ')::text'];
-				$i += 2;
+				$i = $end - 1;
 				continue;
 			}
 			$isCompare = $op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true);
 			$r = $isCompare ? $this->next($tokens, $k + 1) : -1;
 			if($class === 'number' && $r > -1 && in_array($tokens[$r][0], ['str', 'param'])) {
 				foreach($colTokens as $ct) $out[] = $ct;
-				for($x = $i + 3; $x < $r; $x++) $out[] = $tokens[$x];
+				for($x = $end; $x < $r; $x++) $out[] = $tokens[$x];
 				$out[] = ['word', $this->mysqlNumber($tokens[$r])];
 				$i = $r;
 				continue;
