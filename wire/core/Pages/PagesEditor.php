@@ -2010,15 +2010,25 @@ class PagesEditor extends Wire {
 			}
 		}
 
-		// update sort values
-		$sql = $database->dialect()->upsert('pages', array('id', 'sort'), array('sort'), array(
-			'conflict' => array('id'),
-			'rows' => $sorts,
-		));
-		$query = $database->prepare($sql);
-		$query->execute();
-		
-		return count($sorts);
+		// update sort values in bulk: one UPDATE per chunk of children, with a CASE mapping id to
+		// its new sort. This was previously an INSERT ... ON DUPLICATE KEY UPDATE with only (id, sort),
+		// which SQLite rejects because it checks NOT NULL constraints (pages.name) before it resolves
+		// the conflict, and which was only ever meant to update anyway.
+		$qty = 0;
+		foreach(array_chunk($sorts, 500) as $chunk) {
+			$whens = array();
+			$ids = array();
+			foreach($chunk as $row) {
+				list($id, $sort) = $row; // both already (int)
+				$whens[] = "WHEN $id THEN $sort";
+				$ids[] = $id;
+			}
+			$sql = 'UPDATE pages SET sort=CASE id ' . implode(' ', $whens) . ' END WHERE id IN(' . implode(',', $ids) . ')';
+			$database->exec($sql);
+			$qty += count($chunk);
+		}
+
+		return $qty;
 	}
 
 	/**

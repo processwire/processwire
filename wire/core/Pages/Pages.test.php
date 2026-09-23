@@ -45,6 +45,91 @@ class WireTest_Pages extends WireTest {
 		$this->testPageNameFormats();
 		$this->testPageNameConflicts();
 		$this->testCreatingSavingSortingAndDeletingPages();
+		$this->testSortRebuild();
+	}
+
+	/**
+	 * sortRebuild() must renumber children 0..n-1 in their existing order, removing gaps and duplicates
+	 *
+	 */
+	protected function testSortRebuild() {
+		$pages = $this->wire()->pages;
+		$database = $this->wire()->database;
+		$page = $this->getTestPage();
+		$children = array();
+
+		foreach(array('a', 'b', 'c') as $n) {
+			$child = $pages->add($this->childTemplateName, $page, array(
+				'name' => "pages-test-sort-$n",
+				'title' => "Pages Test Sort $n",
+				'status' => Page::statusHidden,
+			));
+			$this->createdPageIDs[$child->id] = $child->id;
+			$children[$n] = $child;
+		}
+
+		// give the children gapped and duplicated sort values, bypassing the API
+		$query = $database->prepare('UPDATE pages SET sort=:sort WHERE id=:id');
+		foreach(array('a' => 9, 'b' => 5, 'c' => 5) as $n => $sort) {
+			$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
+			$query->bindValue(':id', $children[$n]->id, \PDO::PARAM_INT);
+			$query->execute();
+		}
+		$pages->uncacheAll();
+
+		$page->of(false);
+		$originalSortfield = $page->sortfield;
+		$page->sortfield = 'sort';
+		$page->save(array('quiet' => true));
+
+		// the test page may have other children from other tests, so checks are relative to all of them
+		$numChildren = count($this->getTestChildSorts());
+		$qty = $pages->sort($page, true);
+		$this->check('sort(true) reports number of children renumbered', $numChildren, $qty);
+
+		$sorts = $this->getTestChildSorts();
+		$this->check('sortRebuild() renumbers children from zero without gaps', range(0, $numChildren - 1), array_values($sorts));
+		$this->check('sortRebuild() keeps b (sort 5) before a (sort 9)', true, $sorts[$children['b']->id] < $sorts[$children['a']->id]);
+		$this->check('sortRebuild() keeps c (sort 5) before a (sort 9)', true, $sorts[$children['c']->id] < $sorts[$children['a']->id]);
+		$this->check('sortRebuild() leaves child names intact', 'pages-test-sort-a', $pages->getFresh($children['a']->id)->name);
+
+		// parent sorted by something other than “sort”: sort values follow that order instead
+		$page->sortfield = '-name';
+		$page->save(array('quiet' => true));
+		$qty = $pages->sort($page, true);
+		$this->check('sort(true) with non-sort parent sortfield reports number of children', $numChildren, $qty);
+		$sorts = $this->getTestChildSorts();
+		$this->check('sortRebuild() with parent sortfield -name puts c before b', true, $sorts[$children['c']->id] < $sorts[$children['b']->id]);
+		$this->check('sortRebuild() with parent sortfield -name puts b before a', true, $sorts[$children['b']->id] < $sorts[$children['a']->id]);
+		$this->check('sortRebuild() with non-sort parent sortfield renumbers from zero', range(0, $numChildren - 1), array_values($sorts));
+
+		$page->sortfield = $originalSortfield;
+		$page->save(array('quiet' => true));
+
+		foreach($children as $child) {
+			$id = $child->id;
+			$pages->delete($child);
+			unset($this->createdPageIDs[$id]);
+		}
+	}
+
+	/**
+	 * Get [ id => sort ] for all children of the test page, ordered by sort
+	 *
+	 * @return array
+	 *
+	 */
+	protected function getTestChildSorts() {
+		$database = $this->wire()->database;
+		$page = $this->getTestPage();
+		$query = $database->prepare('SELECT id, sort FROM pages WHERE parent_id=:parent_id ORDER BY sort, id');
+		$query->bindValue(':parent_id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		$sorts = array();
+		foreach($query->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+			$sorts[(int) $row['id']] = (int) $row['sort'];
+		}
+		return $sorts;
 	}
 
 	protected function testPageNameConflicts() {
