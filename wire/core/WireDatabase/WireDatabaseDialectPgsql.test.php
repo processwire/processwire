@@ -28,7 +28,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('DSN uses host and port', 'pgsql:host=localhost;port=5432;dbname=pwtest', $data['dsn']);
 		$this->check('user passed', 'u', $data['user']);
 		$this->check('password passed', 'p', $data['pass']);
-		$this->check('fetches are stringified by default (MySQL returns strings)', true, $data['options'][\PDO::ATTR_STRINGIFY_FETCHES]);
+		$this->check('fetches are not stringified (pdo_mysql on PHP 8.1+ returns native ints too)', false, isset($data['options'][\PDO::ATTR_STRINGIFY_FETCHES]));
 		$this->check('given options preserved', \PDO::ERRMODE_EXCEPTION, $data['options'][\PDO::ATTR_ERRMODE]);
 		$config->dbSocket = '/tmp';
 		$data = WireDatabaseDialectPgsql::connectionConfig($config, []);
@@ -36,8 +36,8 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$config->dbPort = '';
 		$data = WireDatabaseDialectPgsql::connectionConfig($config, []);
 		$this->check('socket directory without port', 'pgsql:host=/tmp;dbname=pwtest', $data['dsn']);
-		$data = WireDatabaseDialectPgsql::connectionConfig($config, [\PDO::ATTR_STRINGIFY_FETCHES => false, 'pgsql' => ['schema' => 'pw']]);
-		$this->check('stringify can be turned off', false, $data['options'][\PDO::ATTR_STRINGIFY_FETCHES]);
+		$data = WireDatabaseDialectPgsql::connectionConfig($config, [\PDO::ATTR_STRINGIFY_FETCHES => true, 'pgsql' => ['schema' => 'pw']]);
+		$this->check('stringify can be turned on explicitly', true, $data['options'][\PDO::ATTR_STRINGIFY_FETCHES]);
 		$this->check('pgsql settings array is not passed to PDO', false, isset($data['options']['pgsql']));
 		$this->check('dialectClass resolves pgsql', 'ProcessWire\\WireDatabaseDialectPgsql', WireDatabasePDO::dialectClass('pgsql'));
 		$this->check('dialectClass resolves postgresql alias', 'ProcessWire\\WireDatabaseDialectPgsql', WireDatabasePDO::dialectClass('postgresql'));
@@ -76,7 +76,13 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('sqlMode get is blank', '', $dialect->sqlMode('get'));
 		$this->check('sqlMode set is accepted', true, $dialect->sqlMode('set', 'STRICT_ALL_TABLES'));
 		$this->check('getServerType', 'PostgreSQL', $dialect->getServerType());
-		$this->check('getRegexEngine', 'POSIX', $dialect->getRegexEngine());
+		$this->check('getRegexEngine names the engine whose word boundaries PostgreSQL accepts', 'HenrySpencer', $dialect->getRegexEngine());
+		$this->check('upsert() qualifies bare columns in update expressions',
+			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"="t"."qty"+1, "ts"=now()',
+			$dialect->upsert('t', ['id', 'qty'], ['qty' => 'qty+1', 'ts' => 'now()'], ['conflict' => ['id']]));
+		$this->check('upsert() leaves bound values and qualified names alone in expressions',
+			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"=:qty2, "n"=excluded."qty"',
+			$dialect->upsert('t', ['id', 'qty'], ['qty' => ':qty2', 'n' => 'excluded."qty"'], ['conflict' => ['id']]));
 		$this->check('getMaxIndexLength', 250, $dialect->getMaxIndexLength());
 		$this->check('getVariable ft_min_word_len', '1', $dialect->getVariable('ft_min_word_len'));
 		$this->check('getVariable unknown is null', null, $dialect->getVariable('no_such_variable'));
@@ -112,6 +118,10 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('admin shutdown is retryable as gone-away', 'gone-away', $dialect->getRetryableErrorType($make('57P01', 'terminating connection')));
 		$this->check('connection exception is retryable as comm-failure', 'comm-failure', $dialect->getRetryableErrorType($make('08006', 'connection failure')));
 		$this->check('other errors not retryable', '', $dialect->getRetryableErrorType($make('23505', 'dup')));
+		$mysqlDeadlock = new \PDOException('SQLSTATE[HY000]: General error: 1213 Deadlock found when trying to get lock');
+		$mysqlDeadlock->errorInfo = ['HY000', 1213, 'Deadlock found when trying to get lock'];
+		$this->check('MySQL-shaped deadlock (errno 1213) is still classified, for code and tests that pass MySQL errors', 'deadlock', $dialect->getRetryableErrorType($mysqlDeadlock));
+		$this->check('MySQL-shaped gone-away message is still classified', 'gone-away', $dialect->getRetryableErrorType(new \PDOException('SQLSTATE[HY000]: General error: 2006 MySQL server has gone away')));
 	}
 
 	protected function testLive() {
@@ -149,7 +159,8 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$id = (int) $database->lastInsertId();
 		$this->check('lastInsertId works without a sequence name', true, $id > 0);
 		$row = $database->query("SELECT id, qty FROM `$table` WHERE id=$id")->fetch(\PDO::FETCH_ASSOC);
-		$this->check('fetched values are strings (STRINGIFY_FETCHES)', 'string', gettype($row['qty']));
+		$this->check('fetched integers are ints, as with pdo_mysql on PHP 8.1+', 'integer', gettype($row['qty']));
+		$this->check('fetched COUNT(*) is an int', 'integer', gettype($database->query("SELECT COUNT(*) FROM `$table`")->fetchColumn()));
 		$this->check('rowCount after SELECT', 1, $database->query("SELECT id FROM `$table`")->rowCount());
 		$this->check('getTime returns datetime string', true, (bool) preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/', $database->getTime()));
 		$this->check('getTime timestamp is near now', true, abs(time() - $database->getTime(true)) < 5);
@@ -191,10 +202,19 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$q->execute();
 		$this->check('execute runs all statements', true, $database->indexExists("{$table}_2", 'v'));
 		$q = $database->prepare("CREATE TABLE `{$table}_3` (`id` INT NOT NULL, PRIMARY KEY (`id`), KEY `id2` (`id`))");
-		$q->bindValue(':x', 1);
 		$threw = false;
-		try { $q->execute(); } catch(\PDOException $e) { $threw = strpos($e->getMessage(), 'multiple') !== false; }
-		$this->check('bound params with multi-statement SQL throws clearly', true, $threw);
+		try { $q->execute([':x' => 1]); } catch(\PDOException $e) { $threw = strpos($e->getMessage(), 'multiple') !== false; }
+		$this->check('parameters with multi-statement SQL throw clearly', true, $threw);
+		$this->check('parameters with multi-statement SQL executed nothing', false, $database->tableExists("{$table}_3"));
+
+		// expression update through upsert() on a live table
+		$sql = $database->dialect()->upsert($table, ['id', 'name', 'qty'], ['qty' => 'qty+10'], ['conflict' => ['id']]);
+		$q = $database->prepare($sql);
+		$q->bindValue(':id', $id, \PDO::PARAM_INT);
+		$q->bindValue(':name', 'a');
+		$q->bindValue(':qty', 0, \PDO::PARAM_INT);
+		$q->execute();
+		$this->check('upsert() expression update adds to the existing value', 16, (int) $database->query("SELECT qty FROM `$table` WHERE id=$id")->fetchColumn());
 
 		// transactions
 		$database->beginTransaction();
@@ -202,16 +222,88 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$database->rollBack();
 		$this->check('rollback undoes insert', 0, (int) $database->query("SELECT COUNT(*) FROM `$table` WHERE name='rollback'")->fetchColumn());
 
-		// failed statement inside a transaction aborts it (known difference)
+		// a failed statement inside a transaction must not abort it (savepoint per statement, as MySQL behaves)
 		$database->beginTransaction();
 		try { $database->exec("SELECT nope FROM `$table`"); } catch(\PDOException $e) { /* expected */ }
-		$state = '';
-		try { $database->exec("SELECT 1"); } catch(\PDOException $e) { $state = $e->errorInfo[0]; }
-		$database->rollBack();
-		$this->check('statement after failure in transaction reports 25P02', '25P02', $state);
+		$q = $database->prepare("INSERT INTO `$table` (name, qty) VALUES (:n, :q)");
+		$q->bindValue(':n', 'dup'); $q->bindValue(':q', 1, \PDO::PARAM_INT); $q->execute();
+		try { $q->execute(); } catch(\PDOException $e) { /* duplicate (name, qty), expected */ }
+		$ok = true;
+		$after = 0;
+		try { $after = (int) $database->query("SELECT COUNT(*) FROM `$table` WHERE name='dup'")->fetchColumn(); } catch(\PDOException $e) { $ok = false; }
+		$this->check('transaction still usable after a failed exec() and a failed execute()', true, $ok);
+		$this->check('work before the failures is still in the transaction', 1, $after);
+		$database->commit();
+		$this->check('commit after failures kept the successful insert', 1, (int) $database->query("SELECT COUNT(*) FROM `$table` WHERE name='dup'")->fetchColumn());
+
+		// the translator's own catalog lookups must pass through a translating PDO wrapper (the installer's)
+		// untouched, rather than being translated again (which looks up their catalog tables, and so on)
+		$conn = WireDatabaseDialectPgsql::connectionConfig($this->wire()->config, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+		$wrapper = new WireTestPgsqlTranslatingPDO($conn['dsn'], $conn['user'], $conn['pass'], $conn['options']);
+		$mysql = "SELECT t.id FROM `$table` t WHERE t.qty = '' AND t.name = 'x'";
+		$expected = $database->dialect()->translator()->translateStatements($mysql);
+		try {
+			$actual = $wrapper->translator->translateStatements($mysql);
+		} catch(\Exception $e) {
+			$actual = $e->getMessage();
+		}
+		$this->check('translator catalog lookups through a translating PDO wrapper do not recurse', $expected, $actual);
+		$this->check('typed comparison still applied through the wrapper', true, is_array($actual) && strpos($actual[0], '= 0') !== false);
+		$this->check('wrapper translated only the caller statement plus its catalog lookups', true, $wrapper->maxDepth <= 2);
+		try {
+			$actual = $wrapper->translator->translateStatements("SELECT c.column_name FROM information_schema.columns c WHERE c.table_name = '' LIMIT 1");
+		} catch(\Exception $e) {
+			$actual = $e->getMessage();
+		}
+		$this->check('schema-qualified table names are left alone', ["SELECT c.column_name FROM information_schema.columns c WHERE c.table_name = '' LIMIT 1"], $actual);
 
 		$database->exec("DROP TABLE IF EXISTS `{$table}_2`");
 		$database->exec("DROP TABLE IF EXISTS `{$table}_3`");
 		$database->exec("DROP TABLE IF EXISTS `$table`");
+	}
+}
+
+/**
+ * PDO that translates every statement it prepares, the way the installer's PDO wrapper does
+ *
+ */
+class WireTestPgsqlTranslatingPDO extends \PDO {
+
+	/**
+	 * @var WireDatabasePgsqlTranslator
+	 *
+	 */
+	public $translator;
+
+	/**
+	 * @var int
+	 *
+	 */
+	public $depth = 0;
+
+	/**
+	 * @var int
+	 *
+	 */
+	public $maxDepth = 0;
+
+	public function __construct($dsn, $user, $pass, $options) {
+		parent::__construct($dsn, $user, $pass, $options);
+		$this->translator = new WireDatabasePgsqlTranslator($this);
+	}
+
+	#[\ReturnTypeWillChange]
+	public function prepare($query, $options = array()) {
+		if(++$this->depth > 8) {
+			$this->depth = 0;
+			throw new \RuntimeException('recursion: a translator catalog lookup re-entered the translator');
+		}
+		if($this->depth > $this->maxDepth) $this->maxDepth = $this->depth;
+		try {
+			$statements = $this->translator->translateStatements($query);
+			return parent::prepare(array_pop($statements), $options);
+		} finally {
+			$this->depth--;
+		}
 	}
 }

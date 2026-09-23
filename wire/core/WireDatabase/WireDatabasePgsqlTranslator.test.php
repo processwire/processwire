@@ -134,7 +134,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('type map',
 			"CREATE TABLE \"t\" (\n" .
 			"  \"a\" smallint NOT NULL DEFAULT 0,\n  \"b\" integer,\n  \"c\" bigint,\n  \"d\" real,\n  \"e\" double precision,\n  \"f\" numeric(10,2),\n" .
-			"  \"g\" text,\n  \"h\" text,\n  \"i\" char(32),\n  \"j\" date,\n  \"k\" time,\n  \"l\" bytea,\n  \"m\" text DEFAULT 'x',\n  \"n\" jsonb,\n  \"o\" smallint,\n" .
+			"  \"g\" text,\n  \"h\" text,\n  \"i\" varchar(32),\n  \"j\" date,\n  \"k\" time,\n  \"l\" bytea,\n  \"m\" text DEFAULT 'x',\n  \"n\" jsonb,\n  \"o\" smallint,\n" .
 			"  \"p\" varchar(250) DEFAULT '',\n  \"q\" integer NOT NULL DEFAULT -1,\n  \"r\" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP\n)",
 			$statements[0]);
 		$this->check('CREATE TABLE IF NOT EXISTS preserved', 'CREATE TABLE IF NOT EXISTS "t" (', $t('CREATE TABLE IF NOT EXISTS `t` (`a` int)')[0], '^=');
@@ -237,6 +237,71 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('ORDER BY without GROUP BY is left alone',
 			'SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id ORDER BY t.data',
 			$t('SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id ORDER BY t.data'));
+		$this->check('SELECT joined columns under GROUP BY are wrapped in any_value() and keep their result names',
+			'SELECT false AS "isLoaded", pages.templates_id AS templates_id, pages.*, any_value(pages_sortfields.sortfield) AS "sortfield", (SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS "numChildren", any_value(field_title.data) AS "title__data" FROM pages LEFT JOIN pages_sortfields ON pages_sortfields.pages_id=pages.id LEFT JOIN field_title ON field_title.pages_id=pages.id WHERE pages.id=:id GROUP BY pages.id',
+			$t('SELECT false AS isLoaded, pages.templates_id AS templates_id, pages.*, pages_sortfields.sortfield, (SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren, field_title.data AS "title__data" FROM pages LEFT JOIN pages_sortfields ON pages_sortfields.pages_id=pages.id LEFT JOIN field_title ON field_title.pages_id=pages.id WHERE pages.id=:id GROUP BY pages.id'));
+		$this->check('SELECT joined column without GROUP BY is left alone',
+			'SELECT pages.id, t.data FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id',
+			$t('SELECT pages.id, t.data FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id'));
+		$this->check('HAVING on a select alias uses the aliased expression',
+			'SELECT p1.parent_id, COUNT(p1.id) AS num_children1 FROM pages AS p1 GROUP BY p1.parent_id HAVING (COUNT(p1.id))>0',
+			$t('SELECT p1.parent_id, COUNT(p1.id) AS num_children1 FROM pages AS p1 GROUP BY p1.parent_id HAVING num_children1>0'));
+		$this->check('HAVING alias inside a derived table subquery is resolved too',
+			'SELECT pages.id FROM pages LEFT JOIN (SELECT p1.parent_id, COUNT(p1.id) AS num_children1 FROM pages AS p1 GROUP BY p1.parent_id HAVING (COUNT(p1.id))>0 ) pages_num_children1 ON pages_num_children1.parent_id=pages.id WHERE pages_num_children1.num_children1>0 GROUP BY pages.id',
+			$t('SELECT pages.id FROM pages LEFT JOIN (SELECT p1.parent_id, COUNT(p1.id) AS num_children1 FROM pages AS p1 GROUP BY p1.parent_id HAVING num_children1>0 ) pages_num_children1 ON pages_num_children1.parent_id=pages.id WHERE pages_num_children1.num_children1>0 GROUP BY pages.id'));
+		$this->check('ORDER BY joined column inside a subquery under GROUP BY is wrapped too',
+			'SELECT id FROM (SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id GROUP BY pages.id ORDER BY any_value(t.data)) sub',
+			$t('SELECT id FROM (SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id GROUP BY pages.id ORDER BY t.data) sub'));
+		$this->check('HAVING on a non-alias is left alone',
+			'SELECT p.parent_id, COUNT(p.id) AS n FROM pages AS p GROUP BY p.parent_id HAVING COUNT(p.id)>0 AND p.parent_id>1',
+			$t('SELECT p.parent_id, COUNT(p.id) AS n FROM pages AS p GROUP BY p.parent_id HAVING COUNT(p.id)>0 AND p.parent_id>1'));
+		// MySQL coerces strings compared to numeric columns; PostgreSQL rejects them
+		$this->translator->setSchemaCache([
+			'field_int' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'integer']],
+			'field_dec' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'numeric']],
+			'field_date' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'timestamp without time zone']],
+			'field_text' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'text']],
+			'unique_num' => ['primary' => ['id'], 'identity' => 'id', 'columns' => ['id' => 'bigint']],
+		]);
+		$num = function($p) { return "(CASE WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::numeric ELSE 0 END)"; };
+		$this->check('numeric column compared to empty string compares to 0',
+			"SELECT pages.id FROM pages LEFT JOIN field_dec AS f ON f.pages_id=pages.id WHERE (f.data IS NOT NULL AND (f.data!=0 AND f.data!='0')) GROUP BY pages.id",
+			$t("SELECT pages.id FROM pages LEFT JOIN field_dec AS f ON f.pages_id=pages.id WHERE (f.data IS NOT NULL AND (f.data!='' AND f.data!='0')) GROUP BY pages.id"));
+		$this->check('numeric column compared to a non-numeric string compares to 0',
+			"SELECT pages.id FROM pages LEFT JOIN field_int AS o ON o.pages_id=pages.id AND o.data=0 WHERE o.data IS NULL",
+			$t("SELECT pages.id FROM pages LEFT JOIN field_int AS o ON o.pages_id=pages.id AND o.data='Red' WHERE o.data IS NULL"));
+		$this->check('numeric column compared to a bound value coerces it MySQL-style',
+			'SELECT pages.id FROM pages LEFT JOIN field_int AS f ON f.pages_id=pages.id WHERE (f.data IS NULL OR (f.data=' . $num(':s0X') . '))',
+			$t('SELECT pages.id FROM pages LEFT JOIN field_int AS f ON f.pages_id=pages.id WHERE (f.data IS NULL OR (f.data=:s0X))'));
+		$this->check('numeric column compared to a number is left alone',
+			'SELECT pages.id FROM pages JOIN field_int AS f ON f.pages_id=pages.id AND f.data>42',
+			$t('SELECT pages.id FROM pages JOIN field_int AS f ON f.pages_id=pages.id AND f.data>42'));
+		$this->check('text column comparisons are left alone',
+			"SELECT pages.id FROM pages JOIN field_text AS t ON t.pages_id=pages.id AND t.data!='' AND t.data=:v",
+			$t("SELECT pages.id FROM pages JOIN field_text AS t ON t.pages_id=pages.id AND t.data!='' AND t.data=:v"));
+		$this->check('timestamp column with LIKE is cast to text',
+			'SELECT pages.id FROM pages JOIN field_date AS d ON d.pages_id=pages.id AND (((d.data)::text ILIKE :p ))',
+			$t('SELECT pages.id FROM pages JOIN field_date AS d ON d.pages_id=pages.id AND ((d.data LIKE :p ))'));
+		$this->check('numeric column with RLIKE is cast to text',
+			'SELECT pages.id FROM pages JOIN field_int AS f ON f.pages_id=pages.id WHERE (f.data)::text ~* :p',
+			$t('SELECT pages.id FROM pages JOIN field_int AS f ON f.pages_id=pages.id WHERE f.data RLIKE :p'));
+		$this->check('table without alias resolves its own name',
+			'SELECT id FROM field_int WHERE field_int.data!=0',
+			$t("SELECT id FROM field_int WHERE field_int.data!=''"));
+		$this->check('INSERT SET id=null into an identity column becomes DEFAULT without setval',
+			'INSERT INTO unique_num (id) VALUES (DEFAULT)',
+			$t('INSERT INTO unique_num SET id=null'));
+		$this->check('INSERT VALUES with NULL for the identity column becomes DEFAULT',
+			'INSERT INTO unique_num (id) VALUES (DEFAULT)',
+			$t('INSERT INTO unique_num (id) VALUES (NULL)'));
+		$this->check('MySQL double-quoted alias becomes an identifier', 'SELECT t.data AS "title__data" FROM t', $t('SELECT t.data AS "title__data" FROM t'));
+		$this->check('mixed-case alias is quoted so its case survives (Postgres folds unquoted names)', 'SELECT (SELECT COUNT(*) FROM pages) AS "numChildren", false AS "isLoaded" FROM pages', $t('SELECT (SELECT COUNT(*) FROM pages) AS numChildren, false AS isLoaded FROM pages'));
+		$this->check('lowercase alias is left unquoted', 'SELECT pages.templates_id AS templates_id FROM pages', $t('SELECT pages.templates_id AS templates_id FROM pages'));
+		$this->check('references to a quoted alias are quoted too, for table and column aliases (PageFinder count subqueries)',
+			'SELECT p.id, sub."numX" FROM pages p LEFT JOIN (SELECT "F_3".pages_id, COUNT("F_3".pages_id) AS "numX" FROM field_f AS "F_3" GROUP BY "F_3".pages_id) sub ON sub.pages_id=p.id ORDER BY "numX"',
+			$t('SELECT p.id, sub.numX FROM pages p LEFT JOIN (SELECT F_3.pages_id, COUNT(F_3.pages_id) AS numX FROM field_f AS F_3 GROUP BY F_3.pages_id) sub ON sub.pages_id=p.id ORDER BY numX'));
+		$this->check('a function with the same name as a quoted alias is not quoted', 'SELECT COUNT(*) AS "Count" FROM t ORDER BY "Count"', $t('SELECT COUNT(*) AS Count FROM t ORDER BY Count'));
+		$this->check('MySQL double-quoted string value stays a string', "SELECT 'x' AS a FROM t WHERE b='y'", $t('SELECT "x" AS a FROM t WHERE b="y"'));
 	}
 
 	/**

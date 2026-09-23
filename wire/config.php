@@ -1498,8 +1498,8 @@ $config->dbSqlModes = array(
  * - `trigram` (bool): PostgreSQL only. Is the pg_trgm extension available? FULLTEXT indexes become
  *    trigram indexes when it is, and are skipped when it is not. (default=true)
  *
- * With PostgreSQL, PDO::ATTR_STRINGIFY_FETCHES defaults to true so that values come back as strings,
- * as they do from MySQL; set it to false at the top level to get native types instead.
+ * With PostgreSQL, values come back as pdo_pgsql returns them (integers as ints, everything else as
+ * strings), which matches what pdo_mysql returns on PHP 8.1 and newer.
  *
  * ~~~~~
  * $config->dbOptions = array(
