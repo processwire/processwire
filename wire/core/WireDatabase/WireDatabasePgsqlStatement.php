@@ -1,0 +1,87 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire PostgreSQL PDO statement
+ *
+ * Adds two things the translating dialect needs: deferred execution of SQL that translated to
+ * several statements (i.e. CREATE TABLE plus its indexes, prepared before execution), and
+ * MySQL-equivalent SQLSTATE codes on failure (see WireDatabaseDialectPgsql::mysqlException()).
+ *
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
+ * https://processwire.com
+ *
+ * #pw-internal
+ *
+ */
+
+class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
+
+	/**
+	 * Multiple translated statements to execute (atomically) when execute() is called
+	 *
+	 * @var array
+	 *
+	 */
+	protected $deferredStatements = [];
+
+	/**
+	 * Exception to throw at execute() (MySQL reports unknown tables/columns at execute rather than prepare)
+	 *
+	 * @var \PDOException|null
+	 *
+	 */
+	protected $deferredException = null;
+
+	/**
+	 * Were any values bound? (not supported with deferred statements)
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $hasBoundValues = false;
+
+	/**
+	 * @param array $statements
+	 *
+	 */
+	public function setDeferredStatements(array $statements) {
+		$this->deferredStatements = $statements;
+	}
+
+	/**
+	 * @param \PDOException $e
+	 *
+	 */
+	public function setDeferredException(\PDOException $e) {
+		$this->deferredException = $e;
+	}
+
+	public function bindValue($parameter, $value, $data_type = \PDO::PARAM_STR): bool {
+		$this->hasBoundValues = true;
+		return parent::bindValue($parameter, $value, $data_type);
+	}
+
+	public function bindParam($parameter, &$variable, $data_type = \PDO::PARAM_STR, $length = null, $driver_options = null): bool {
+		$this->hasBoundValues = true;
+		return parent::bindParam($parameter, $variable, $data_type, $length, $driver_options);
+	}
+
+	public function execute($input_parameters = null): bool {
+		if($this->deferredException) throw $this->deferredException;
+		if(count($this->deferredStatements)) {
+			if($this->hasBoundValues || is_array($input_parameters)) {
+				throw new \PDOException('Bound parameters are not supported for SQL that translates to multiple PostgreSQL statements');
+			}
+			/** @var WireDatabaseDialectPgsql $dialect */
+			$dialect = $this->database->dialect();
+			$dialect->execStatements($this->database->pdo(), $this->deferredStatements);
+			return true;
+		}
+		try {
+			return parent::execute($input_parameters);
+		} catch(\PDOException $e) {
+			if($this->database) $this->database->dialect()->logQueryError($this->queryString, '', $e);
+			throw WireDatabaseDialectPgsql::mysqlException($e);
+		}
+	}
+}

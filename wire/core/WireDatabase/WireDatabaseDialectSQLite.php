@@ -560,10 +560,11 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	 *
 	 * @param array $updates
 	 * @param array $conflict
+	 * @param string $table
 	 * @return string
 	 *
 	 */
-	protected function upsertUpdateClause(array $updates, array $conflict) {
+	protected function upsertUpdateClause(array $updates, array $conflict, $table) {
 		$sets = array();
 		foreach($updates as $name => $expr) {
 			$col = $this->quoteIdentifier($name);

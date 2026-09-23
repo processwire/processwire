@@ -418,7 +418,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			if(!empty($this->pdoConfig['dialect'])) {
 				$class = $this->pdoConfig['dialect'];
 			} else {
-				$class = self::dialectClass(strpos($this->pdoConfig['dsn'], 'sqlite:') === 0 ? 'sqlite' : 'mysql');
+				$dsn = (string) $this->pdoConfig['dsn'];
+				if(strpos($dsn, 'sqlite:') === 0) {
+					$class = self::dialectClass('sqlite');
+				} else if(strpos($dsn, 'pgsql:') === 0) {
+					$class = self::dialectClass('pgsql');
+				} else {
+					$class = self::dialectClass('mysql');
+				}
 			}
 			$this->dialect = new $class($this);
 			if($this->isWired()) $this->wire($this->dialect);
@@ -440,6 +447,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$type = strtolower((string) $type);
 		if($type === '' || $type === 'mysql') return __NAMESPACE__ . "\\WireDatabaseDialectMySQL";
 		if($type === 'sqlite') return __NAMESPACE__ . "\\WireDatabaseDialectSQLite";
+		if($type === 'pgsql' || $type === 'postgres' || $type === 'postgresql') return __NAMESPACE__ . "\\WireDatabaseDialectPgsql";
 		throw new WireException("Unrecognized database type: $type");
 	}
 
@@ -838,7 +846,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 					return $pdoStatement;
 				}
 				$result = $dialect->execStatements($pdo, $statements);
-				return $method === 'exec' ? $result : $pdo->query('SELECT 1 WHERE 0');
+				return $method === 'exec' ? $result : $pdo->query('SELECT 1 WHERE 1=0');
 			}
 			if($method === 'query') return $dialect->queryStatement($pdo, $translated);
 			if($method === 'exec') return $dialect->execStatement($pdo, $translated);
