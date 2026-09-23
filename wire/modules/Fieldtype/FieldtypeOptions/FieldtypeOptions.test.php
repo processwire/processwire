@@ -184,6 +184,70 @@ class WireTest_FieldtypeOptions extends WireTest {
 			if($p->id !== $page->id) $this->fail("Selector failed: $selector");
 			$this->li("Selector passed: $selector");
 		}
+
+		$this->testFulltextSelectors($page, $field);
+	}
+
+	/**
+	 * Test fulltext operator selectors, with and without a fulltext index present
+	 *
+	 * When the options table reaches the max indexes allowed by the DB engine
+	 * (i.e. 64 for MySQL on systems with many languages), fulltext indexes may
+	 * not exist for all title/value columns. Fulltext matches must then fall
+	 * back to LIKE matches rather than failing with an SQL error.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 *
+	 */
+	protected function testFulltextSelectors(Page $page, Field $field) {
+
+		$pages = $this->wire()->pages;
+		$database = $this->wire()->database;
+		$name = $this->fieldName;
+		$template = WireTests::templateName;
+		$table = SelectableOptionManager::optionsTable;
+
+		$page->set($name, 'Green');
+		$page->save($name);
+
+		$selectors = array(
+			"template=$template, $name.title*=Green",
+			"template=$template, $name.title^=Gre",
+			"template=$template, $name.title~=Green",
+			"template=$template, $name.title%=reen",
+		);
+
+		foreach($selectors as $selector) {
+			$p = $pages->get($selector);
+			if($p->id !== $page->id) $this->fail("Fulltext selector failed: $selector");
+			$this->li("Fulltext selector passed: $selector");
+		}
+
+		if(!$database->indexExists($table, 'title_ft')) {
+			$this->fail("Expected fulltext index title_ft on $table");
+		}
+
+		// simulate a table that reached the max indexes limit: without the title
+		// fulltext index, the same selectors must still match via LIKE fallback
+		$database->exec("DROP INDEX title_ft ON $table");
+
+		try {
+			foreach($selectors as $selector) {
+				// 'id>0' prefix keeps the selector string distinct from the earlier
+				// round so the result cannot come from the pages selector cache
+				$p = $pages->get("id>0, $selector");
+				if($p->id !== $page->id) $this->fail("Fallback selector failed (no fulltext index): $selector");
+				$this->li("Fallback selector passed (no fulltext index): $selector");
+			}
+		} finally {
+			$database->exec("CREATE FULLTEXT INDEX title_ft ON $table(title)");
+		}
+
+		if(!$database->indexExists($table, 'title_ft')) {
+			$this->fail("Failed to restore fulltext index title_ft on $table");
+		}
+		$this->li("Restored fulltext index title_ft on $table");
 	}
 
 	protected function ensureFields() {

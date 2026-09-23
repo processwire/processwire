@@ -6,7 +6,7 @@
  * Handles management of the fieldtype_options table and related field_[name] table
  * to assist FieldtypeOptions module. 
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -226,6 +226,7 @@ class SelectableOptionManager extends Wire {
 	
 		/** @var DatabaseQuerySelectFulltext $ft */
 		$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
+		if(!$this->hasFulltextIndex($property)) $ft->forceLike(true);
 		$ft->match(self::optionsTable, $property, $operator, $value);
 	
 		$result = $query->execute();
@@ -239,13 +240,31 @@ class SelectableOptionManager extends Wire {
 		}
 		
 		$options->resetTrackChanges();
-		
-		return $options; 
+
+		return $options;
 	}
 
 	/**
-	 * Given an array of option data, populate an Option object and return it 
-	 * 
+	 * Does the options table have a fulltext index for the given column?
+	 *
+	 * When the options table has reached the max indexes per table allowed by the
+	 * database engine (i.e. 64 for MySQL), fulltext indexes may not exist for
+	 * columns added after that point, i.e. language columns like `title1234` on
+	 * systems with many languages. In that case, fulltext match queries must
+	 * fall back to LIKE matches or they will fail.
+	 *
+	 * @param string $col Column name, i.e. 'title', 'value' or with language ID like 'title1234'
+	 * @return bool
+	 *
+	 */
+	protected function hasFulltextIndex($col) {
+		$database = $this->wire()->database;
+		return (bool) $database->indexExists(self::optionsTable, $col . '_ft');
+	}
+
+	/**
+	 * Given an array of option data, populate an Option object and return it
+	 *
 	 * Public since 3.0.258 (previously was protected)
 	 * 
 	 * @param array $a
@@ -841,14 +860,45 @@ class SelectableOptionManager extends Wire {
 		}
 
 		$database = $this->wire()->database;
-		
+		$indexLimitHit = false;
+
 		foreach($sqls as $sql) {
 			try {
 				$database->exec($sql);
 			} catch(\Exception $e) {
-				$this->error("$sql -- " . $e->getMessage());
+				if($this->isIndexLimitException($e)) {
+					// table reached max indexes allowed by DB engine: column remains
+					// usable without index (fulltext matches fall back to LIKE)
+					if(!$indexLimitHit) {
+						$indexLimitHit = true;
+						$this->warning(sprintf(
+							$this->_('FieldtypeOptions: The %s table has reached the maximum number of indexes allowed by the database, so some indexes were skipped. Affected options remain fully functional and text matching for them falls back to LIKE automatically.'),
+							self::optionsTable
+						));
+					}
+					$this->warning("$sql -- " . $e->getMessage(), Notice::debug);
+				} else {
+					$this->error("$sql -- " . $e->getMessage());
+				}
 			}
 		}
+	}
+
+	/**
+	 * Does given exception indicate the table reached max indexes allowed by DB engine?
+	 *
+	 * MySQL error 1069 "Too many keys specified; max 64 keys allowed" occurs on the
+	 * options table when there are many languages, since each language adds 4 indexes.
+	 * Language columns remain usable without their indexes, so this condition is
+	 * reported as a warning rather than an error.
+	 *
+	 * @param \Exception $e
+	 * @return bool
+	 *
+	 */
+	protected function isIndexLimitException(\Exception $e) {
+		if($e instanceof \PDOException && isset($e->errorInfo[1]) && (int) $e->errorInfo[1] === 1069) return true;
+		return strpos($e->getMessage(), 'Too many keys') !== false;
 	}
 
 	/**
@@ -876,11 +926,13 @@ class SelectableOptionManager extends Wire {
 			if($database->columnExists($table, $valueCol)) continue;
 			$this->message("FieldtypeOptions: Add language $language->name (id=$language)", Notice::debug);
 			$sqls[] = "ALTER TABLE $table ADD $titleCol TEXT";
-			$sqls[] = "ALTER TABLE $table ADD UNIQUE $titleCol ($titleCol($maxLen), fields_id)";
 			$sqls[] = "ALTER TABLE $table ADD $valueCol VARCHAR($maxLen)";
-			$sqls[] = "ALTER TABLE $table ADD INDEX $valueCol ($valueCol($maxLen), fields_id)";
+			// fulltext indexes first: if the table is nearing the max indexes allowed
+			// by the DB engine, the optional b-tree indexes are the ones to go without
 			$sqls[] = "CREATE FULLTEXT INDEX {$titleCol}_ft ON $table($titleCol)";
 			$sqls[] = "CREATE FULLTEXT INDEX {$valueCol}_ft ON $table($valueCol)";
+			$sqls[] = "ALTER TABLE $table ADD UNIQUE $titleCol ($titleCol($maxLen), fields_id)";
+			$sqls[] = "ALTER TABLE $table ADD INDEX $valueCol ($valueCol($maxLen), fields_id)";
 		}
 		
 		return $sqls;
