@@ -87,6 +87,14 @@ class WireDatabasePgsqlTranslator {
 	protected $schema = [];
 
 	/**
+	 * True while one of our own catalog lookups runs (see catalogRows())
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $introspecting = false;
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -109,6 +117,32 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
+	 * Run one of our own catalog queries and return its rows
+	 *
+	 * The PDO we are given may translate everything it prepares (the installer's does), so the
+	 * lookup is flagged: translateStatements() returns the SQL untouched while it runs.
+	 *
+	 * @param string $sql PostgreSQL SQL
+	 * @param array $params
+	 * @param int $mode PDO fetch mode
+	 * @return array Empty when no PDO connection is available
+	 *
+	 */
+	protected function catalogRows($sql, array $params, $mode = \PDO::FETCH_ASSOC) {
+		$pdo = $this->pdo();
+		if(!$pdo) return [];
+		$was = $this->introspecting;
+		$this->introspecting = true;
+		try {
+			$query = $pdo->prepare($sql);
+			$query->execute($params);
+			return $query->fetchAll($mode);
+		} finally {
+			$this->introspecting = $was;
+		}
+	}
+
+	/**
 	 * Translate MySQL SQL to PostgreSQL SQL, returning a list of one or more statements
 	 *
 	 * Some MySQL statements require multiple PostgreSQL statements (i.e. CREATE TABLE with indexes,
@@ -124,6 +158,7 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	public function translateStatements($sql) {
+		if($this->introspecting) return [$sql]; // our own catalog lookup, already PostgreSQL SQL (see catalogRows())
 		if(isset($this->cache[$sql])) return $this->cache[$sql];
 		$result = $this->translateStatement($sql);
 		$result = is_array($result) ? array_values($result) : [$result];
@@ -170,6 +205,38 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
+	 * Quote aliases that contain uppercase letters, and every reference to them
+	 *
+	 * MySQL keeps the case of an alias (numChildren, FieldtypeFile_3) and matches it case-insensitively;
+	 * PostgreSQL folds unquoted names to lowercase, so a result column would come back as numchildren.
+	 * Quoting the definition alone would break its references, so both are quoted. Applies to the
+	 * whole statement, subqueries included.
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function quoteCaseAliases(array $tokens) {
+		$names = [];
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			if(!$this->isWord($tokens[$i], 'AS')) continue;
+			$j = $this->next($tokens, $i + 1);
+			if($j < 0 || $tokens[$j][0] !== 'word' || !preg_match('/[A-Z]/', $tokens[$j][1])) continue;
+			$names[$tokens[$j][1]] = true;
+		}
+		if(!count($names)) return $tokens;
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] !== 'word' || !isset($names[$t[1]])) continue;
+			$j = $this->next($tokens, $i + 1);
+			if($j > -1 && $tokens[$j][0] === 'punct' && $tokens[$j][1] === '(') continue; // function call
+			$tokens[$i] = ['id', $t[1]];
+		}
+		return $tokens;
+	}
+
+	/**
 	 * Translate a single statement
 	 *
 	 * @param string $sql
@@ -184,7 +251,7 @@ class WireDatabasePgsqlTranslator {
 			return $sql;
 		}
 
-		$tokens = $this->tokenize($sql);
+		$tokens = $this->quoteCaseAliases($this->tokenize($sql));
 		$words = $this->leadingWords($tokens, 4);
 		$first = isset($words[0]) ? $words[0] : '';
 		$second = isset($words[1]) ? $words[1] : '';
@@ -256,7 +323,9 @@ class WireDatabasePgsqlTranslator {
 
 		$tokens = $this->expressions($tokens);
 		$tokens = $this->booleanContext($tokens);
-		if($first === 'SELECT') $tokens = $this->anyValueOrderBy($tokens);
+		$tokens = $this->subqueries($tokens);
+		$tokens = $this->typedComparisons($tokens);
+		if($first === 'SELECT') $tokens = $this->selectPasses($tokens);
 
 		return $this->join($tokens);
 	}
@@ -645,6 +714,13 @@ class WireDatabasePgsqlTranslator {
 					);
 				}
 				$out[] = $t;
+
+			} else if($w === 'AS' && $j > -1 && $tokens[$j][0] === 'str') {
+				// MySQL allows a quoted string as an alias; PostgreSQL needs an identifier
+				$out[] = $t;
+				for($x = $i + 1; $x < $j; $x++) $out[] = $tokens[$x];
+				$out[] = ['id', str_replace("''", "'", substr($tokens[$j][1], 1, -1))];
+				$i = $j;
 
 			} else if($w === 'NOT' && $j > -1 && $this->isWord($tokens[$j], ['RLIKE', 'REGEXP'])) {
 				$out[] = ['punct', '!~*'];
@@ -1042,20 +1118,56 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
-	 * Wrap ORDER BY terms from tables other than the grouped one in any_value()
-	 *
-	 * MySQL without ONLY_FULL_GROUP_BY (as ProcessWire configures it) allows `GROUP BY pages.id`
-	 * with `ORDER BY joined_table.column`. PostgreSQL accepts columns of the grouped table (they
-	 * depend on its primary key) but not columns of joined tables; any_value() gives the same
-	 * result MySQL returns, one arbitrary value from the group.
+	 * Passes that apply to a SELECT (statement or subquery) as a whole
 	 *
 	 * @param array $tokens
 	 * @return array
 	 *
 	 */
-	protected function anyValueOrderBy(array $tokens) {
-		$groupPos = -1;
-		$orderPos = -1;
+	protected function selectPasses(array $tokens) {
+		$tokens = $this->typedComparisons($tokens);
+		$tokens = $this->havingAliases($tokens);
+		return $this->anyValueGroupBy($tokens);
+	}
+
+	/**
+	 * Apply the SELECT passes to every parenthesized subquery, innermost first
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function subqueries(array $tokens) {
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] !== 'punct' || $t[1] !== '(') continue;
+			$j = $this->next($tokens, $i + 1);
+			if($j < 0 || !$this->isWord($tokens[$j], 'SELECT')) continue;
+			$end = $this->matchParen($tokens, $i);
+			if($end < 0) continue;
+			$inner = $this->selectPasses($this->subqueries(array_slice($tokens, $i + 1, $end - $i - 1)));
+			$tokens = array_merge(array_slice($tokens, 0, $i + 1), $inner, array_slice($tokens, $end));
+			$n = count($tokens);
+			$i = $i + count($inner) + 1;
+		}
+		return $tokens;
+	}
+
+	/**
+	 * Replace select-list aliases used in HAVING with the expressions they name
+	 *
+	 * MySQL allows `SELECT COUNT(x) AS n ... HAVING n > 0`; PostgreSQL does not know output
+	 * column names in HAVING.
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function havingAliases(array $tokens) {
+		$havingPos = -1;
+		$selectPos = -1;
+		$fromPos = -1;
 		$depth = 0;
 		$n = count($tokens);
 		for($i = 0; $i < $n; $i++) {
@@ -1067,14 +1179,79 @@ class WireDatabasePgsqlTranslator {
 			}
 			if($depth !== 0 || $t[0] !== 'word') continue;
 			$w = strtoupper($t[1]);
-			if(($w === 'GROUP' || $w === 'ORDER')) {
+			if($w === 'SELECT' && $selectPos < 0) $selectPos = $i + 1;
+			else if($w === 'FROM' && $fromPos < 0 && $selectPos > -1) $fromPos = $i;
+			else if($w === 'HAVING' && $havingPos < 0) $havingPos = $i + 1;
+		}
+		if($havingPos < 0 || $selectPos < 0 || $fromPos < $selectPos) return $tokens;
+
+		$aliases = []; // lowercase alias => expression SQL
+		foreach($this->splitCommas(array_slice($tokens, $selectPos, $fromPos - $selectPos)) as $part) {
+			$part = $this->trimTokens($part);
+			if(count($part) < 3) continue;
+			$as = $this->prev($part, count($part) - 2);
+			if($as <= 0 || !$this->isWord($part[$as], 'AS')) continue;
+			$alias = $this->name($part[count($part) - 1]);
+			$aliases[strtolower($alias)] = trim($this->join(array_slice($part, 0, $as)));
+		}
+		if(!count($aliases)) return $tokens;
+
+		$havingEnd = $this->clauseEnd($tokens, $havingPos);
+		for($i = $havingPos; $i < $havingEnd; $i++) {
+			$t = $tokens[$i];
+			if($t[0] !== 'word' && $t[0] !== 'id') continue;
+			$key = strtolower($t[1]);
+			if(!isset($aliases[$key])) continue;
+			$prev = $this->prev($tokens, $i - 1);
+			$next = $this->next($tokens, $i + 1);
+			if($prev > -1 && $tokens[$prev][0] === 'punct' && $tokens[$prev][1] === '.') continue; // qualified column
+			if($next > -1 && $tokens[$next][0] === 'punct' && $tokens[$next][1] === '(') continue; // function call
+			$tokens[$i] = ['word', '(' . $aliases[$key] . ')'];
+		}
+		return $tokens;
+	}
+
+	/**
+	 * Wrap columns of tables other than the grouped one in any_value(), in SELECT and ORDER BY
+	 *
+	 * MySQL without ONLY_FULL_GROUP_BY (as ProcessWire configures it) allows `GROUP BY pages.id`
+	 * with `joined_table.column` in the select list or ORDER BY. PostgreSQL accepts columns of the
+	 * grouped table (they depend on its primary key) but not columns of joined tables; any_value()
+	 * gives the same result MySQL returns, one arbitrary value from the group. Select terms keep
+	 * their result column name through an alias.
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function anyValueGroupBy(array $tokens) {
+		$groupPos = -1;
+		$orderPos = -1;
+		$selectPos = -1;
+		$fromPos = -1;
+		$depth = 0;
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth !== 0 || $t[0] !== 'word') continue;
+			$w = strtoupper($t[1]);
+			if($w === 'SELECT' && $selectPos < 0) {
+				$selectPos = $i + 1;
+			} else if($w === 'FROM' && $fromPos < 0 && $selectPos > -1) {
+				$fromPos = $i;
+			} else if($w === 'GROUP' || $w === 'ORDER') {
 				$j = $this->next($tokens, $i + 1);
 				if($j === -1 || !$this->isWord($tokens[$j], 'BY')) continue;
 				if($w === 'GROUP' && $groupPos < 0) $groupPos = $j + 1;
 				if($w === 'ORDER') $orderPos = $j + 1;
 			}
 		}
-		if($groupPos < 0 || $orderPos < 0 || $orderPos < $groupPos) return $tokens;
+		if($groupPos < 0) return $tokens;
 
 		$qualifiers = [];
 		$groupEnd = $this->clauseEnd($tokens, $groupPos);
@@ -1084,30 +1261,67 @@ class WireDatabasePgsqlTranslator {
 		}
 		if(!count($qualifiers)) return $tokens;
 
-		$orderEnd = $this->clauseEnd($tokens, $orderPos);
+		// ORDER BY first, since it comes after the select list and its replacement does not move the select list
+		if($orderPos > $groupPos) {
+			$orderEnd = $this->clauseEnd($tokens, $orderPos);
+			$tokens = array_merge(
+				array_slice($tokens, 0, $orderPos),
+				$this->anyValueTerms(array_slice($tokens, $orderPos, $orderEnd - $orderPos), $qualifiers, false),
+				array_slice($tokens, $orderEnd)
+			);
+		}
+		if($selectPos > -1 && $fromPos > $selectPos) {
+			$tokens = array_merge(
+				array_slice($tokens, 0, $selectPos),
+				$this->anyValueTerms(array_slice($tokens, $selectPos, $fromPos - $selectPos), $qualifiers, true),
+				array_slice($tokens, $fromPos)
+			);
+		}
+		return $tokens;
+	}
+
+	/**
+	 * Wrap qualified column terms whose table is not grouped in any_value()
+	 *
+	 * @param array $tokens Comma-separated terms
+	 * @param array $qualifiers Grouped table names/aliases, as keys
+	 * @param bool $select Select list (keep result names via alias) rather than ORDER BY (keep ASC/DESC)
+	 * @return array
+	 *
+	 */
+	protected function anyValueTerms(array $tokens, array $qualifiers, $select) {
 		$terms = [];
-		foreach($this->splitCommas(array_slice($tokens, $orderPos, $orderEnd - $orderPos)) as $part) {
+		foreach($this->splitCommas($tokens) as $part) {
 			$lead = [];
 			$trail = [];
 			while(count($part) && $part[0][0] === 'ws') $lead[] = array_shift($part);
 			while(count($part) && $part[count($part) - 1][0] === 'ws') array_unshift($trail, array_pop($part));
-			$direction = [];
+			$suffix = []; // ASC/DESC, or AS alias
 			$last = count($part) ? $part[count($part) - 1] : null;
-			if($this->isWord($last, ['ASC', 'DESC'])) {
-				$direction = [['ws', ' '], array_pop($part)];
+			if(!$select && $this->isWord($last, ['ASC', 'DESC'])) {
+				$suffix = [['ws', ' '], array_pop($part)];
 				$part = $this->trimTokens($part);
+			} else if($select && count($part) >= 3) {
+				$as = $this->prev($part, count($part) - 2);
+				if($as > 0 && $this->isWord($part[$as], 'AS')) {
+					$suffix = array_slice($part, $as - 1); // " AS alias"
+					$part = $this->trimTokens(array_slice($part, 0, $as - 1));
+				}
 			}
-			if(count($part) === 3 && $part[1][0] === 'punct' && $part[1][1] === '.' && in_array($part[0][0], ['word', 'id']) && !isset($qualifiers[$this->name($part[0])])) {
+			if(count($part) === 3 && $part[1][0] === 'punct' && $part[1][1] === '.'
+				&& in_array($part[0][0], ['word', 'id']) && in_array($part[2][0], ['word', 'id'])
+				&& !isset($qualifiers[$this->name($part[0])])) {
+				if($select && !count($suffix)) $suffix = [['ws', ' '], ['word', 'AS'], ['ws', ' '], ['id', $this->name($part[2])]];
 				$part = [['word', 'any_value(' . $this->join($part) . ')']];
 			}
-			$terms[] = array_merge($lead, $part, $direction, $trail);
+			$terms[] = array_merge($lead, $part, $suffix, $trail);
 		}
 		$rebuilt = [];
 		foreach($terms as $k => $term) {
 			if($k) $rebuilt[] = ['punct', ','];
 			foreach($term as $t) $rebuilt[] = $t;
 		}
-		return array_merge(array_slice($tokens, 0, $orderPos), $rebuilt, array_slice($tokens, $orderEnd));
+		return $rebuilt;
 	}
 
 	/**
@@ -1171,41 +1385,178 @@ class WireDatabasePgsqlTranslator {
 			$this->schema[$table] = [
 				'primary' => isset($facts['primary']) ? array_values($facts['primary']) : [],
 				'identity' => isset($facts['identity']) ? $facts['identity'] : null,
+				'columns' => isset($facts['columns']) ? $facts['columns'] : [],
 			];
 		}
 	}
 
 	/**
-	 * Get the primary key columns and identity column of a table
+	 * Get the primary key columns, identity column and column types of a table
 	 *
 	 * @param string $table
-	 * @return array [ 'primary' => [ columns ], 'identity' => column or null ], both empty when unknown
+	 * @return array [ 'primary' => [ columns ], 'identity' => column or null, 'columns' => [ column => pg type ] ], all empty when unknown
 	 *
 	 */
 	protected function tableSchema($table) {
 		if(isset($this->schema[$table])) return $this->schema[$table];
-		$facts = ['primary' => [], 'identity' => null];
-		$pdo = $this->pdo();
-		if($pdo) {
-			$query = $pdo->prepare(
+		$facts = ['primary' => [], 'identity' => null, 'columns' => []];
+		if($this->pdo()) {
+			foreach($this->getColumnTypes($table) as $name => $info) {
+				$facts['columns'][$name] = $info['pgType'];
+				if($info['identity'] && $facts['identity'] === null) $facts['identity'] = $name;
+			}
+			$facts['primary'] = $this->catalogRows(
 				"SELECT a.attname FROM pg_index i " .
 				"JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) " .
 				"JOIN pg_class c ON c.oid = i.indrelid JOIN pg_namespace n ON n.oid = c.relnamespace " .
 				"WHERE c.relname = ? AND n.nspname = current_schema() AND i.indisprimary " .
-				"ORDER BY array_position(i.indkey, a.attnum)"
+				"ORDER BY array_position(i.indkey, a.attnum)",
+				[$table], \PDO::FETCH_COLUMN
 			);
-			$query->execute([$table]);
-			$facts['primary'] = $query->fetchAll(\PDO::FETCH_COLUMN);
-			$query = $pdo->prepare(
-				"SELECT column_name FROM information_schema.columns " .
-				"WHERE table_schema = current_schema() AND table_name = ? AND is_identity = 'YES' LIMIT 1"
-			);
-			$query->execute([$table]);
-			$identity = $query->fetchColumn();
-			$facts['identity'] = $identity === false ? null : $identity;
 			$this->schema[$table] = $facts;
 		}
 		return $facts;
+	}
+
+	/**
+	 * Classify a PostgreSQL column type: 'number', 'datetime', 'text', 'bool' or 'other'
+	 *
+	 * @param string $pgType
+	 * @return string
+	 *
+	 */
+	protected function typeClass($pgType) {
+		$pgType = strtolower((string) $pgType);
+		if(preg_match('/^(integer|smallint|bigint|numeric|real|double|int)/', $pgType)) return 'number';
+		if(preg_match('/^(timestamp|date|time)/', $pgType)) return 'datetime';
+		if(preg_match('/^(text|character|varchar|char)/', $pgType)) return 'text';
+		if($pgType === 'boolean') return 'bool';
+		return 'other';
+	}
+
+	/**
+	 * Map table aliases used in a statement to their table names (top level only)
+	 *
+	 * @param array $tokens
+	 * @return array [ alias => table ]
+	 *
+	 */
+	protected function tableAliases(array $tokens) {
+		$aliases = [];
+		$n = count($tokens);
+		$depth = 0;
+		$skip = ['AS', 'ON', 'WHERE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'CROSS', 'NATURAL', 'OUTER', 'STRAIGHT_JOIN', 'GROUP', 'ORDER', 'LIMIT', 'HAVING', 'SET', 'USING', 'UNION', 'FOR', 'WINDOW', 'OFFSET', 'RETURNING'];
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth !== 0 || !$this->isWord($t, ['FROM', 'JOIN', 'UPDATE', 'INTO'])) continue;
+			$j = $this->next($tokens, $i + 1);
+			if($j < 0 || !in_array($tokens[$j][0], ['word', 'id']) || $this->isWord($tokens[$j], $skip)) continue;
+			$k = $this->next($tokens, $j + 1);
+			if($k > -1 && $tokens[$k][0] === 'punct' && $tokens[$k][1] === '.') {
+				// schema-qualified name (information_schema.columns, pg_catalog.pg_class): not one of ours
+				$i = $k;
+				continue;
+			}
+			$table = $this->name($tokens[$j]);
+			$aliases[$table] = $table;
+			if($k > -1 && $this->isWord($tokens[$k], 'AS')) $k = $this->next($tokens, $k + 1);
+			if($k > -1 && in_array($tokens[$k][0], ['word', 'id']) && !$this->isWord($tokens[$k], $skip)) {
+				$aliases[$this->name($tokens[$k])] = $table;
+			}
+			$i = $j;
+		}
+		return $aliases;
+	}
+
+	/**
+	 * Coerce comparisons between typed columns and strings the way MySQL does
+	 *
+	 * MySQL compares a numeric column to a string by converting the string to a number ('' and
+	 * 'abc' become 0), and applies LIKE and REGEXP to numbers and dates as text. PostgreSQL rejects
+	 * both, so numeric comparisons get a converted right-hand side and LIKE/REGEXP get a text cast
+	 * on the column. Needs the table's column types (see tableSchema()).
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function typedComparisons(array $tokens) {
+		$aliases = $this->tableAliases($tokens);
+		if(!count($aliases)) return $tokens;
+		$n = count($tokens);
+		$out = [];
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			// alias.column
+			if(!in_array($t[0], ['word', 'id']) || $i + 2 >= $n || $tokens[$i + 1][0] !== 'punct' || $tokens[$i + 1][1] !== '.' || !in_array($tokens[$i + 2][0], ['word', 'id'])) {
+				$out[] = $t;
+				continue;
+			}
+			$alias = $this->name($t);
+			if(!isset($aliases[$alias])) {
+				$out[] = $t;
+				continue;
+			}
+			$column = $this->name($tokens[$i + 2]);
+			$schema = $this->tableSchema($aliases[$alias]);
+			if(!isset($schema['columns'][$column])) {
+				$out[] = $t;
+				continue;
+			}
+			$class = $this->typeClass($schema['columns'][$column]);
+			$colTokens = array_slice($tokens, $i, 3);
+			$k = $this->next($tokens, $i + 3); // operator
+			if($k < 0) {
+				$out[] = $t;
+				continue;
+			}
+			$op = $tokens[$k];
+			$isLike = ($op[0] === 'word' && $this->isWord($op, ['ILIKE', 'LIKE'])) || ($op[0] === 'punct' && ($op[1] === '~*' || $op[1] === '!~*'));
+			$notLike = false;
+			if($op[0] === 'word' && $this->isWord($op, 'NOT')) {
+				$k2 = $this->next($tokens, $k + 1);
+				if($k2 > -1 && $this->isWord($tokens[$k2], ['ILIKE', 'LIKE'])) $notLike = true;
+			}
+			if(($isLike || $notLike) && $class !== 'text' && $class !== 'other') {
+				// LIKE/REGEXP on a number or date: compare as text, as MySQL does
+				$out[] = ['word', '(' . $this->join($colTokens) . ')::text'];
+				$i += 2;
+				continue;
+			}
+			$isCompare = $op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true);
+			$r = $isCompare ? $this->next($tokens, $k + 1) : -1;
+			if($class === 'number' && $r > -1 && in_array($tokens[$r][0], ['str', 'param'])) {
+				foreach($colTokens as $ct) $out[] = $ct;
+				for($x = $i + 3; $x < $r; $x++) $out[] = $tokens[$x];
+				$out[] = ['word', $this->mysqlNumber($tokens[$r])];
+				$i = $r;
+				continue;
+			}
+			$out[] = $t;
+		}
+		return $out;
+	}
+
+	/**
+	 * Get an expression that converts a string to a number the way MySQL does ('' and 'abc' are 0, '12abc' is 12)
+	 *
+	 * @param array $t String literal or parameter token
+	 * @return string
+	 *
+	 */
+	protected function mysqlNumber(array $t) {
+		if($t[0] === 'str') {
+			$value = str_replace("''", "'", substr($t[1], 1, -1));
+			if(preg_match('/^\s*(-?[0-9]+(?:\.[0-9]+)?)/', $value, $m)) return $m[1] === $value ? $t[1] : $m[1];
+			return '0';
+		}
+		$p = $t[1];
+		return "(CASE WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::numeric ELSE 0 END)";
 	}
 
 	/**
@@ -1232,15 +1583,13 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	protected function getColumnTypes($table) {
-		$pdo = $this->pdo();
-		if(!$pdo) return [];
-		$query = $pdo->prepare(
+		$rows = $this->catalogRows(
 			"SELECT column_name, data_type, is_identity FROM information_schema.columns " .
-			"WHERE table_schema = current_schema() AND table_name = ? ORDER BY ordinal_position"
+			"WHERE table_schema = current_schema() AND table_name = ? ORDER BY ordinal_position",
+			[$table]
 		);
-		$query->execute([$table]);
 		$types = [];
-		foreach($query->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+		foreach($rows as $row) {
 			$types[$row['column_name']] = [
 				'pgType' => $row['data_type'],
 				'isText' => in_array($row['data_type'], ['text', 'character varying', 'character'], true),
@@ -1258,19 +1607,17 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	protected function getIndexes($table) {
-		$pdo = $this->pdo();
-		if(!$pdo) return [];
-		$query = $pdo->prepare(
+		$rows = $this->catalogRows(
 			"SELECT i.relname AS name, ix.indisunique AS is_unique, ix.indisprimary AS is_primary, " .
 			"ARRAY(SELECT pg_get_indexdef(ix.indexrelid, k + 1, true) FROM generate_subscripts(ix.indkey, 1) AS k ORDER BY k) AS cols " .
 			"FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid " .
 			"JOIN pg_namespace n ON n.oid = t.relnamespace " .
-			"WHERE t.relname = ? AND n.nspname = current_schema() ORDER BY i.relname"
+			"WHERE t.relname = ? AND n.nspname = current_schema() ORDER BY i.relname",
+			[$table]
 		);
-		$query->execute([$table]);
 		$indexes = [];
 		$prefix = $table . self::indexSeparator;
-		foreach($query->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+		foreach($rows as $row) {
 			$cols = trim((string) $row['cols'], '{}');
 			$indexes[] = [
 				'pgName' => $row['name'],
@@ -1349,6 +1696,9 @@ class WireDatabasePgsqlTranslator {
 
 		$columns = []; // column names as written (plain), in insert order
 		$columnSql = []; // column names as SQL
+		$explicitIdentity = false; // is a real value (not NULL) given for the identity column?
+		$schema = $this->tableSchema($table);
+		$identity = $schema['identity'];
 
 		if($setPos > -1) {
 			// INSERT INTO table SET a=1, b=2 => INSERT INTO table (a, b) VALUES (1, 2)
@@ -1361,30 +1711,68 @@ class WireDatabasePgsqlTranslator {
 				}
 				if($eq < 0) continue;
 				$colTokens = $this->trimTokens(array_slice($assign, 0, $eq));
-				$columns[] = $this->name($colTokens[0]);
+				$column = $this->name($colTokens[0]);
+				$columns[] = $column;
 				$columnSql[] = $this->join($colTokens);
-				$vals[] = trim($this->join($this->expressions(array_slice($assign, $eq + 1))));
+				$value = trim($this->join($this->expressions(array_slice($assign, $eq + 1))));
+				if($identity !== null && $column === $identity) {
+					// MySQL treats NULL for an AUTO_INCREMENT column as "generate one"
+					if(strtoupper($value) === 'NULL') $value = 'DEFAULT';
+					else $explicitIdentity = true;
+				}
+				$vals[] = $value;
 			}
 			$body = ' (' . implode(', ', $columnSql) . ') VALUES (' . implode(', ', $vals) . ')';
 		} else {
 			$open = $this->next($tokens, $i);
+			$identityPos = -1;
 			if($open > -1 && $tokens[$open][0] === 'punct' && $tokens[$open][1] === '(') {
 				$close = $this->matchParen($tokens, $open);
 				foreach($this->splitCommas(array_slice($tokens, $open + 1, $close - $open - 1)) as $col) {
 					$col = $this->trimTokens($col);
 					if(!count($col)) continue;
-					$columns[] = $this->name($col[0]);
+					$column = $this->name($col[0]);
+					if($identity !== null && $column === $identity) $identityPos = count($columns);
+					$columns[] = $column;
 					$columnSql[] = $this->join($col);
 				}
 			}
-			$body = $this->join($this->expressions(array_slice($tokens, $i, $bodyEnd - $i)));
+			$bodyTokens = $this->expressions(array_slice($tokens, $i, $bodyEnd - $i));
+			if($identityPos > -1) {
+				// replace NULL with DEFAULT in the identity column's position of each VALUES row
+				$explicitIdentity = true;
+				$m = count($bodyTokens);
+				$valuesPos = -1;
+				for($x = 0; $x < $m; $x++) {
+					if($this->isWord($bodyTokens[$x], 'VALUES')) { $valuesPos = $x; break; }
+				}
+				for($x = $valuesPos > -1 ? $valuesPos + 1 : $m; $x < $m; $x++) {
+					if($bodyTokens[$x][0] !== 'punct' || $bodyTokens[$x][1] !== '(') continue;
+					$end = $this->matchParen($bodyTokens, $x);
+					$parts = $this->splitCommas(array_slice($bodyTokens, $x + 1, $end - $x - 1));
+					if(isset($parts[$identityPos])) {
+						$value = $this->trimTokens($parts[$identityPos]);
+						if(count($value) === 1 && $this->isWord($value[0], 'NULL')) {
+							$parts[$identityPos] = [['word', 'DEFAULT']];
+							$explicitIdentity = false;
+						}
+					}
+					$rebuilt = [];
+					foreach($parts as $pn => $part) {
+						if($pn) $rebuilt[] = ['punct', ','];
+						foreach($part as $pt) $rebuilt[] = $pt;
+					}
+					$bodyTokens = array_merge(array_slice($bodyTokens, 0, $x + 1), $rebuilt, array_slice($bodyTokens, $end));
+					$m = count($bodyTokens);
+					$x = $x + count($rebuilt) + 1;
+				}
+			}
+			$body = $this->join($bodyTokens);
 		}
 
 		$sql = ($replace ? 'INSERT' : $this->join([$tokens[$this->next($tokens, 0)]])) . ' INTO ' . $qTable . rtrim($body);
-		$schema = null;
 
 		if($dupPos > -1 || $replace) {
-			$schema = $this->tableSchema($table);
 			if(!count($schema['primary'])) {
 				throw new \PDOException("PostgreSQL translator: ON DUPLICATE KEY UPDATE / REPLACE on $table needs a conflict target (primary key) and none is known");
 			}
@@ -1420,13 +1808,10 @@ class WireDatabasePgsqlTranslator {
 		$statements = [$sql];
 
 		// an explicit value for an identity column leaves its sequence behind, so advance it
-		if(count($columns)) {
-			if($schema === null) $schema = $this->tableSchema($table);
-			if($schema['identity'] !== null && in_array($schema['identity'], $columns, true)) {
-				$qt = $this->quoteId($table);
-				$qc = $this->quoteId($schema['identity']);
-				$statements[] = "SELECT setval(pg_get_serial_sequence('$qt', '$schema[identity]'), GREATEST((SELECT MAX($qc) FROM $qt), 1))";
-			}
+		if($explicitIdentity && $identity !== null) {
+			$qt = $this->quoteId($table);
+			$qc = $this->quoteId($identity);
+			$statements[] = "SELECT setval(pg_get_serial_sequence('$qt', '$identity'), GREATEST((SELECT MAX($qc) FROM $qt), 1))";
 		}
 
 		return $statements;
@@ -1786,7 +2171,9 @@ class WireDatabasePgsqlTranslator {
 			case 'DECIMAL':
 			case 'NUMERIC': return 'numeric' . $typeArgs;
 			case 'VARCHAR': return 'varchar' . $typeArgs;
-			case 'CHAR': return 'char' . $typeArgs;
+			// MySQL strips trailing spaces from CHAR on read; PostgreSQL's char(n) pads them, which would
+			// corrupt fixed-width values such as password salts, so CHAR becomes varchar
+			case 'CHAR': return 'varchar' . $typeArgs;
 			case 'TINYTEXT':
 			case 'TEXT':
 			case 'MEDIUMTEXT':

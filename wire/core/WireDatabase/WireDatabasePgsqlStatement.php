@@ -77,10 +77,19 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 			$dialect->execStatements($this->database->pdo(), $this->deferredStatements);
 			return true;
 		}
+		/** @var WireDatabaseDialectPgsql $dialect */
+		$dialect = $this->database->dialect();
+		$pdo = $this->database->pdo();
+		// a failed statement aborts a PostgreSQL transaction; a savepoint keeps the transaction
+		// usable afterwards, as it is on MySQL, for code that catches the exception and carries on
+		$savepoint = $dialect->savepointBegin($pdo);
 		try {
-			return parent::execute($input_parameters);
+			$result = parent::execute($input_parameters);
+			$dialect->savepointRelease($pdo, $savepoint);
+			return $result;
 		} catch(\PDOException $e) {
-			if($this->database) $this->database->dialect()->logQueryError($this->queryString, '', $e);
+			$dialect->savepointRollback($pdo, $savepoint);
+			$dialect->logQueryError($this->queryString, '', $e);
 			throw WireDatabaseDialectPgsql::mysqlException($e);
 		}
 	}

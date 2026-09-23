@@ -118,7 +118,8 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 *
 	 * Uses dbName, dbUser, dbPass, dbHost and dbPort. When dbSocket is set it is the directory
 	 * containing the server's Unix socket (pdo_pgsql accepts a directory as host); dbPort still
-	 * applies then, since socket files are named by port.
+	 * applies then, since socket files are named by port. Value types come back as pdo_pgsql
+	 * returns them (integers as ints, the rest as strings), matching pdo_mysql on PHP 8.1+.
 	 *
 	 * @param Config $config
 	 * @param array $options
@@ -127,10 +128,9 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 */
 	public static function connectionConfig(Config $config, array $options) {
 		unset($options['pgsql']); // ProcessWire settings rather than PDO driver options
-		if(!array_key_exists(\PDO::ATTR_STRINGIFY_FETCHES, $options)) {
-			// MySQL (with PDO's default emulated prepares) returns every value as a string; match that
-			$options[\PDO::ATTR_STRINGIFY_FETCHES] = true;
-		}
+		// note: no ATTR_STRINGIFY_FETCHES here. pdo_pgsql returns integers as PHP ints and everything else
+		// as strings, which is what pdo_mysql does on PHP 8.1+ (the versions ProcessWire runs on), so
+		// core sees the same value types it sees with MySQL.
 		$parts = array();
 		$parts[] = 'host=' . ($config->dbSocket ? $config->dbSocket : ($config->dbHost ? $config->dbHost : 'localhost'));
 		if($config->dbPort) $parts[] = 'port=' . (int) $config->dbPort;
@@ -225,6 +225,101 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		$statement = $pdo->prepare('SELECT 1 WHERE 1=0');
 		$statement->setDeferredStatements($statements);
 		return $statement;
+	}
+
+	/**
+	 * Begin a savepoint around one statement, when inside a transaction
+	 *
+	 * On PostgreSQL any failed statement aborts the whole transaction until it is rolled back;
+	 * MySQL keeps the transaction usable. ProcessWire code (i.e. PagesParents) catches expected
+	 * failures such as duplicate keys and carries on inside page-save transactions, so each
+	 * statement executed inside a transaction gets its own savepoint. Can be turned off with
+	 * `$config->dbOptions['pgsql']['savepoints'] = false`.
+	 *
+	 * @param \PDO $pdo
+	 * @return string Savepoint name, or blank string when none was made
+	 *
+	 */
+	public function savepointBegin(\PDO $pdo) {
+		if(!$pdo->inTransaction() || !$this->setting('savepoints', true)) return '';
+		$name = 'pw_stmt_' . (++$this->savepointNum);
+		$pdo->exec("SAVEPOINT $name");
+		return $name;
+	}
+
+	/**
+	 * Release a statement savepoint
+	 *
+	 * @param \PDO $pdo
+	 * @param string $name
+	 *
+	 */
+	public function savepointRelease(\PDO $pdo, $name) {
+		if($name === '') return;
+		try {
+			$pdo->exec("RELEASE SAVEPOINT $name");
+		} catch(\PDOException $e) {
+			// transaction already ended by the statement itself (i.e. COMMIT/ROLLBACK issued as SQL)
+		}
+	}
+
+	/**
+	 * Roll back to a statement savepoint after a failure, leaving the transaction usable
+	 *
+	 * @param \PDO $pdo
+	 * @param string $name
+	 *
+	 */
+	public function savepointRollback(\PDO $pdo, $name) {
+		if($name === '') return;
+		try {
+			$pdo->exec("ROLLBACK TO SAVEPOINT $name");
+			$pdo->exec("RELEASE SAVEPOINT $name");
+		} catch(\PDOException $e) {
+			// connection-level failure: the original exception is more useful
+		}
+	}
+
+	/**
+	 * Execute a single translated statement, within a savepoint when in a transaction
+	 *
+	 * @param \PDO $pdo
+	 * @param string $sql
+	 * @return int|false
+	 * @throws \PDOException
+	 *
+	 */
+	public function execStatement(\PDO $pdo, $sql) {
+		$savepoint = $this->savepointBegin($pdo);
+		try {
+			$result = $pdo->exec($sql);
+			$this->savepointRelease($pdo, $savepoint);
+			return $result;
+		} catch(\PDOException $e) {
+			$this->savepointRollback($pdo, $savepoint);
+			throw $e;
+		}
+	}
+
+	/**
+	 * Run a query(), within a savepoint when in a transaction
+	 *
+	 * @param \PDO $pdo
+	 * @param string $sql
+	 * @return \PDOStatement|false
+	 * @throws \PDOException
+	 *
+	 */
+	public function queryStatement(\PDO $pdo, $sql) {
+		$savepoint = $this->savepointBegin($pdo);
+		try {
+			$result = $pdo->query($sql);
+			$this->savepointRelease($pdo, $savepoint);
+			return $result;
+		} catch(\PDOException $e) {
+			$this->savepointRollback($pdo, $savepoint);
+			throw $e;
+		}
 	}
 
 	/**
@@ -389,10 +484,21 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 				"upsert() on '$table' requires a conflict target (primary or unique key columns) on PostgreSQL and none was given or found"
 			);
 		}
+		$qTable = $this->quoteIdentifier($table);
+		$columns = array_merge(array_keys($updates), $conflict);
 		$sets = array();
 		foreach($updates as $name => $expr) {
 			$col = $this->quoteIdentifier($name);
-			$sets[] = $col . '=' . ($expr === null ? "excluded.$col" : $expr);
+			if($expr === null) {
+				$expr = "excluded.$col";
+			} else {
+				// a bare column name in an expression (i.e. "qty+1") means the existing row's value, as in MySQL;
+				// PostgreSQL needs it qualified, since it would otherwise be ambiguous with "excluded"
+				$expr = preg_replace_callback('/(?<![\w."`:])([a-zA-Z_][a-zA-Z0-9_]*)(?![\w."(])/', function($m) use($columns, $qTable) {
+					return in_array(strtolower($m[1]), array_map('strtolower', $columns), true) ? $qTable . '.' . $this->quoteIdentifier($m[1]) : $m[1];
+				}, $expr);
+			}
+			$sets[] = "$col=$expr";
 		}
 		$names = array();
 		foreach($conflict as $name) $names[] = $this->quoteIdentifier($name);
@@ -487,13 +593,16 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	}
 
 	/**
-	 * Regular expressions use POSIX syntax (the ~* operator)
+	 * Regular expression engine name, for code that builds word-boundary patterns
+	 *
+	 * PostgreSQL's ARE syntax supports the [[:<:]] and [[:>:]] word boundaries that the
+	 * HenrySpencer engine (MySQL before 8) uses; \b means backspace here, so ICU syntax would not work.
 	 *
 	 * @return string
 	 *
 	 */
 	public function getRegexEngine() {
-		return 'POSIX';
+		return 'HenrySpencer';
 	}
 
 	/**
@@ -541,7 +650,10 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		if($state === '40P01' || $state === '40001') return 'deadlock';
 		if($state === '57P01' || $state === '57P02' || $state === '57P03') return 'gone-away';
 		if(strpos($state, '08') === 0) return 'comm-failure';
-		return '';
+		// MySQL-shaped errors (codes 1213, 2006, 2013 and their messages) as classified by the MySQL dialect,
+		// for code that constructs or forwards them regardless of the database in use
+		$mysql = new WireDatabaseDialectMySQL($this->database);
+		return $mysql->getRetryableErrorType($e);
 	}
 
 	/*********************************************************************************
