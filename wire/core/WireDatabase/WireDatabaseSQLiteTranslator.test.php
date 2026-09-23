@@ -37,7 +37,73 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testIntendedBehaviorRegressions();
 		$this->testRebuilds();
 		$this->testGroupConcat();
+		$this->testCollation();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * Case- and accent-insensitive comparison, as MySQL collations provide
+	 *
+	 */
+	protected function testCollation() {
+
+		$fold = function($value) { return WireDatabaseSQLiteTranslator::fold($value); };
+
+		$this->check('fold() lowercases ASCII', 'apfel', $fold('APFEL'));
+		$this->check('fold() removes accents', 'apfel', $fold('Äpfel'));
+		$this->check('fold() handles multiple accents', 'creme brulee', $fold('Crème Brûlée'));
+		$this->check('fold() handles Latin Extended-A', 'lodz', $fold('Łódź'));
+		$this->check('fold() expands ligatures', 'aeon', $fold('ÆON'));
+		$this->check('fold() expands sharp s', 'strasse', $fold('Straße'));
+		$this->check('fold() lowercases other scripts', 'αθηνα', $fold('ΑΘΗΝΑ'));
+		$this->check('fold() leaves ASCII punctuation alone', 'a-b_c%d', $fold('A-B_C%D'));
+		$this->check('fold() accepts non-strings', '5', $fold(5));
+		$this->check('fold(false) keeps case', 'Apfel', WireDatabaseSQLiteTranslator::fold('Äpfel', false));
+
+		$this->check('LIKE matches accented value from unaccented pattern', 1,
+			(int) $this->value("SELECT 'Äpfelkuchen' LIKE '%apfel%'"));
+		$this->check('LIKE matches unaccented value from accented pattern', 1,
+			(int) $this->value("SELECT 'apfelkuchen' LIKE '%Äpfel%'"));
+		$this->check('LIKE prefix match', 1, (int) $this->value("SELECT 'Émile Zola' LIKE 'emile%'"));
+		$this->check('LIKE suffix match', 1, (int) $this->value("SELECT 'Crème brûlée' LIKE '%brulee'"));
+		$this->check('LIKE exact match', 1, (int) $this->value("SELECT 'Zürich' LIKE 'zurich'"));
+		$this->check('LIKE underscore matches single character', 1, (int) $this->value("SELECT 'Äpfel' LIKE '_pfel'"));
+		$this->check('LIKE does not match different word', 0, (int) $this->value("SELECT 'Äpfel' LIKE '%birne%'"));
+		$this->check('LIKE with wildcards in middle', 1, (int) $this->value("SELECT 'Crème brûlée' LIKE 'cr%br%'"));
+		$this->check('LIKE returns NULL for NULL value', null, $this->value("SELECT NULL LIKE '%a%'"));
+		$this->check('LIKE matches numeric value', 1, (int) $this->value("SELECT 12345 LIKE '%234%'"));
+
+		// escaped wildcards (the translator adds ESCAPE '\\' to LIKE)
+		$this->check('LIKE escapes percent', 1, (int) $this->value("SELECT '50% off' LIKE '%50\\% off%'"));
+		$this->check('LIKE escaped percent is not a wildcard', 0, (int) $this->value("SELECT '50 off' LIKE '%50\\% off%'"));
+		$this->check('LIKE escapes underscore', 0, (int) $this->value("SELECT 'a-b' LIKE 'a\\_b'"));
+
+		$this->check('REGEXP ignores accents', 1, (int) $this->value("SELECT 'Äpfel' REGEXP 'apfel'"));
+		$this->check('REGEXP ignores case', 1, (int) $this->value("SELECT 'ÄPFEL' REGEXP 'apfel'"));
+		$this->check('REGEXP word boundaries still work', 1,
+			(int) $this->value("SELECT 'Crème brûlée today' REGEXP '\\\\bbrulee\\\\b'"));
+		$this->check('REGEXP non-word-boundary is not folded to word boundary', 0,
+			(int) $this->value("SELECT 'brulee' REGEXP '\\\\Bbrulee'"));
+
+		$this->pdo->exec("CREATE TABLE collate_test (data TEXT COLLATE NOCASE)");
+		foreach(['Äpfel', 'Apfelkuchen', 'Zürich', 'Émile', 'banana'] as $value) {
+			$this->pdo->exec("INSERT INTO collate_test VALUES (" . WireDatabaseSQLiteTranslator::quote($value) . ")");
+		}
+
+		$sorted = $this->pdo->query("SELECT data FROM collate_test ORDER BY data COLLATE pw_ci")->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('pw_ci sorts accented letters with their base letter',
+			'Äpfel,Apfelkuchen,banana,Émile,Zürich', implode(',', $sorted));
+
+		$sorted = $this->pdo->query("SELECT data FROM collate_test ORDER BY data")->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('NOCASE (no collation given) sorts accented letters last',
+			'Apfelkuchen,banana,Zürich,Äpfel,Émile', implode(',', $sorted));
+
+		$this->check('pw_ci matches accented value in comparison', 1,
+			(int) $this->pdo->query("SELECT COUNT(*) FROM collate_test WHERE data='apfel' COLLATE pw_ci")->fetchColumn());
+		$this->check('NOCASE does not match accented value in comparison', 0,
+			(int) $this->pdo->query("SELECT COUNT(*) FROM collate_test WHERE data='apfel'")->fetchColumn());
+
+		$this->pdo->exec("DROP TABLE collate_test");
 	}
 
 	protected function testCreateTableAndIndexes() {

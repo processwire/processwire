@@ -2514,6 +2514,7 @@ class PageFinder extends Wire {
 			$descending = $fc == '-' || $lc == '-';
 			$value = trim($value, "-+"); 
 			$subValue = '';
+			$textSort = false; // does the sort value refer to a text column?
 			// $terValue = ''; // not currently used, here for future use
 			
 			if($this->lastOptions['reverseSort']) $descending = !$descending;
@@ -2548,15 +2549,18 @@ class PageFinder extends Wire {
 				$tableAlias = "_sort_parent_$subValue";
 				$query->join("pages AS $tableAlias ON $tableAlias.id=pages.parent_id");
 				$value = "$tableAlias.$subValue";
+				$textSort = strpos($subValue, 'name') === 0;
 
 			} else if($value == 'template') { 
 				// sort by template
 				$tableAlias = $database->escapeTable("_sort_templates" . ($subValue ? "_$subValue" : '')); 
 				$query->join("templates AS $tableAlias ON $tableAlias.id=pages.templates_id"); 
 				$value = "$tableAlias." . ($subValue ? $database->escapeCol($subValue) : "name"); 
+				$textSort = empty($subValue) || $subValue === 'name';
 
 			} else if($fields->isNative($value) && !$subValue && $pages->loader()->isNativeColumn($value)) {
 				// sort by a native field (with no subfield)
+				$textSort = strpos($value, 'name') === 0;
 				if($value == 'name' && $language && !$language->isDefault()  && $this->supportsLanguagePageNames()) {
 					// substitute language-specific name field when LanguageSupportPageNames is active and language is not default
 					$value = "if(pages.name$language!='', pages.name$language, pages.name)";
@@ -2580,6 +2584,7 @@ class PageFinder extends Wire {
 				} else {
 					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id");
 					$value = "$pathsTable.path";
+					$textSort = true;
 				}
 
 			} else {
@@ -2639,6 +2644,7 @@ class PageFinder extends Wire {
 					if($this->fields->isNative($subValue) && $pages->loader()->isNativeColumn($subValue)) {
 						$query->leftjoin("pages AS $tableAlias2 ON $tableAlias.data=$tableAlias2.$idColumn");
 						$value = "$tableAlias2.$subValue";
+						$textSort = strpos($subValue, 'name') === 0;
 						if($subValue == 'name' && $language && !$language->isDefault() && $this->supportsLanguagePageNames()) {
 							// append language ID to 'name' when performing sorts within another language and LanguageSupportPageNames in place
 							$value = "if($value$language!='', $value$language, $value)";
@@ -2646,6 +2652,7 @@ class PageFinder extends Wire {
 					} else if($subValue == 'parent') {
 						$query->leftjoin("pages AS $tableAlias2 ON $tableAlias.data=$tableAlias2.$idColumn");
 						$value = "$tableAlias2.name";
+						$textSort = true;
 
 					} else {
 						$subValueField = $this->fields->get($subValue);
@@ -2653,6 +2660,7 @@ class PageFinder extends Wire {
 							$subValueTable = $database->escapeTable($subValueField->getTable());
 							$query->leftjoin("$subValueTable AS $tableAlias2 ON $tableAlias.data=$tableAlias2.pages_id");
 							$value = "$tableAlias2.data";
+							$textSort = is_string($subValueField->type->getBlankValue($pages->newNullPage(), $subValueField));
 							if($language && !$language->isDefault() && $subValueField->type instanceof FieldtypeLanguageInterface) {
 								// append language id to data, i.e. "data1234"
 								$value .= $language;
@@ -2665,14 +2673,21 @@ class PageFinder extends Wire {
 				} else if(!$subValue && $language && !$language->isDefault() && $field->type instanceof FieldtypeLanguageInterface) {
 					// multi-language field, sort by the language version
 					$value = "if($tableAlias.data$language != '', $tableAlias.data$language, $tableAlias.data)";
+					$textSort = is_string($blankValue);
 					
 				} else {
 					// regular field, just sort by data column
 					$value = "$tableAlias." . ($subValue ? $subValue : "data");
+					$textSort = is_string($blankValue) || ($subValue !== '' && $subValue !== 'count');
 				}
 			}
 	
 			if(is_string($value) && strlen($value)) {
+				if($textSort) {
+					// database may need a collation to sort text as MySQL would (i.e. SQLite)
+					$collate = $database->dialect()->sortCollation();
+					if($collate !== '') $value .= " COLLATE $collate";
+				}
 				if($descending) {
 					$query->orderby("$value DESC", true);
 				} else {
@@ -3053,7 +3068,8 @@ class PageFinder extends Wire {
 					} else {
 						if(ctype_digit("$value") && $field != 'name') $value = (int) $value;
 						$bindKey = $query->bindValueGetKey($value);
-						$s = "$table.$field" . $operator . $bindKey;
+						$collate = $database->dialect()->compareCollation($value);
+						$s = "$table.$field" . $operator . $bindKey . ($collate ? " COLLATE $collate" : '');
 						if($not) $s = "NOT ($s)";
 					}
 				

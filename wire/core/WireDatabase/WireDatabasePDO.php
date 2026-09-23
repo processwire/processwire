@@ -271,6 +271,20 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$options = $config->dbOptions;
 		if(!is_array($options)) $options = array();
 
+		// $config->dbOptions may contain sub-arrays of options specific to a database type,
+		// i.e. array('mysql' => array(...), 'sqlite' => array(...)). Driver options (which use
+		// PDO constants, so have integer keys) for the current type are merged in, while those
+		// for other types, and any ProcessWire settings (string keys), are left out.
+		$dbType = strtolower((string) $config->dbType);
+		foreach($options as $key => $value) {
+			if(!is_string($key) || !is_array($value)) continue;
+			unset($options[$key]);
+			if(strtolower($key) !== $dbType) continue;
+			foreach($value as $k => $v) {
+				if(is_int($k)) $options[$k] = $v;
+			}
+		}
+
 		if(!isset($options[\PDO::ATTR_ERRMODE])) {
 			$options[\PDO::ATTR_ERRMODE] = \PDO::ERRMODE_EXCEPTION;
 		}

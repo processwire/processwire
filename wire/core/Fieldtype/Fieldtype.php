@@ -774,15 +774,19 @@ abstract class Fieldtype extends WireData implements Module {
 		$subfield = $database->escapeCol($subfield);
 		$operator = $operator === '&' ? $operator : $database->escapeOperator($operator, WireDatabasePDO::operatorTypeComparison);
 		
+		$dialect = $database->dialect();
+		
 		if(is_array($value)) {
 			$a = array();
 			foreach($value as $v) {
 				$bindKey = $query->bindValueGetKey($v);
-				$a[] = "{$table}.{$subfield}{$operator}{$bindKey}";
+				$collate = $dialect->compareCollation($v);
+				$a[] = "{$table}.{$subfield}{$operator}{$bindKey}" . ($collate ? " COLLATE $collate" : '');
 			}
 			$query->where('(' . implode(' OR ', $a) . ')'); 
 		} else {
-			$query->where("{$table}.{$subfield}{$operator}?", $value); // QA
+			$collate = $dialect->compareCollation($value);
+			$query->where("{$table}.{$subfield}{$operator}?" . ($collate ? " COLLATE $collate" : ''), $value); // QA
 		}
 		
 		return $query; 

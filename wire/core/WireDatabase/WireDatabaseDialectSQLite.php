@@ -124,12 +124,60 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialectMySQL {
 	public static function connectionConfig(Config $config, array $options) {
 		$file = self::databaseFile($config);
 		self::protectLocation($file, $config);
+		unset($options['sqlite']); // ProcessWire settings rather than PDO driver options
 		return [
 			'dsn' => "sqlite:$file",
 			'user' => null,
 			'pass' => null,
 			'options' => $options,
 		];
+	}
+
+	/**
+	 * Get a setting from $config->dbOptions['sqlite']
+	 *
+	 * @param string $name
+	 * @param mixed $default Value to return if setting not present
+	 * @return mixed
+	 *
+	 */
+	public function setting($name, $default = null) {
+		$options = $this->wire()->config->dbOptions;
+		if(!is_array($options) || !isset($options['sqlite'])) return $default;
+		$options = $options['sqlite'];
+		if(!is_array($options) || !array_key_exists($name, $options)) return $default;
+		return $options[$name];
+	}
+
+	/**
+	 * Get collation for text comparisons
+	 *
+	 * SQLite text columns use the built-in NOCASE collation, which ignores case for the letters
+	 * A-Z only. Values containing other characters get the pw_ci collation instead, so that (for
+	 * example) `title=apfel` matches "Äpfel" as it would on MySQL. ASCII-only values keep NOCASE,
+	 * since that lets SQLite use an index.
+	 *
+	 * @param string|int|float|null $value
+	 * @return string
+	 *
+	 */
+	public function compareCollation($value = null) {
+		if($value === null || is_int($value) || is_float($value)) return '';
+		return preg_match('/[\x80-\xFF]/', (string) $value) ? 'pw_ci' : '';
+	}
+
+	/**
+	 * Get collation for text ORDER BY terms
+	 *
+	 * Off unless enabled with `$config->dbOptions['sqlite']['unicodeSort'] = true;` because
+	 * SQLite has to call back into PHP for every comparison it makes while sorting, and cannot
+	 * use an index to avoid the sort.
+	 *
+	 * @return string
+	 *
+	 */
+	public function sortCollation() {
+		return $this->setting('unicodeSort', false) ? 'pw_ci' : '';
 	}
 
 	/**

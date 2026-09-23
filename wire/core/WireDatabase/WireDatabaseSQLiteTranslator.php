@@ -306,7 +306,14 @@ class WireDatabaseSQLiteTranslator {
 					} else if($d === '\\' && $j + 1 < $len) {
 						$e = $sql[$j + 1];
 						$map = ['n' => "\n", 'r' => "\r", 't' => "\t", '0' => "\0", 'Z' => "\x1a", 'b' => "\x08"];
-						$value .= isset($map[$e]) ? $map[$e] : $e;
+						if(isset($map[$e])) {
+							$value .= $map[$e];
+						} else if($e === '%' || $e === '_') {
+							// MySQL keeps the backslash on these two, so that LIKE can use it as an escape
+							$value .= '\\' . $e;
+						} else {
+							$value .= $e;
+						}
 						$j += 2;
 						continue;
 					}
@@ -1899,6 +1906,148 @@ class WireDatabaseSQLiteTranslator {
 	 */
 
 	/**
+	 * Fold a string for case- and accent-insensitive comparison
+	 *
+	 * This is what makes SQLite comparisons behave like MySQL's case-insensitive collations,
+	 * where "apfel", "Apfel" and "Äpfel" are all considered the same. MySQL applies this in the
+	 * collation itself (in C), while here it has to be done in PHP, so this method is written to
+	 * return quickly for the common case of ASCII-only text.
+	 *
+	 * Note that MySQL's own behavior varies by server: utf8mb4_general_ci (MySQL 5.7, MariaDB)
+	 * and utf8mb4_0900_ai_ci (MySQL 8) agree on accented letters like "ä" but not on expansions
+	 * like "ß". This follows the MySQL 8 behavior of expanding them ("ß" to "ss", "æ" to "ae").
+	 *
+	 * @param string $value
+	 * @param bool $lower Also convert to lowercase? (default=true)
+	 * @return string
+	 *
+	 */
+	public static function fold($value, $lower = true) {
+
+		static $from = null, $to = null;
+
+		if($value === null) return '';
+		$value = (string) $value;
+
+		// fast path: text without any high bytes needs no accent folding
+		if(!preg_match('/[\x80-\xFF]/', $value)) return $lower ? strtolower($value) : $value;
+
+		if($from === null) {
+			$map = [
+				'A' => 'ÀÁÂÃÄÅĀĂĄ', 'a' => 'àáâãäåāăą',
+				'C' => 'ÇĆĈĊČ', 'c' => 'çćĉċč',
+				'D' => 'ĎĐ', 'd' => 'ďđ',
+				'E' => 'ÈÉÊËĒĔĖĘĚ', 'e' => 'èéêëēĕėęě',
+				'G' => 'ĜĞĠĢ', 'g' => 'ĝğġģ',
+				'H' => 'ĤĦ', 'h' => 'ĥħ',
+				'I' => 'ÌÍÎÏĨĪĬĮİ', 'i' => 'ìíîïĩīĭįı',
+				'J' => 'Ĵ', 'j' => 'ĵ',
+				'K' => 'Ķ', 'k' => 'ķ',
+				'L' => 'ĹĻĽĿŁ', 'l' => 'ĺļľŀł',
+				'N' => 'ÑŃŅŇ', 'n' => 'ñńņňŉ',
+				'O' => 'ÒÓÔÕÖØŌŎŐ', 'o' => 'òóôõöøōŏő',
+				'R' => 'ŔŖŘ', 'r' => 'ŕŗř',
+				'S' => 'ŚŜŞŠ', 's' => 'śŝşš',
+				'T' => 'ŢŤŦ', 't' => 'ţťŧ',
+				'U' => 'ÙÚÛÜŨŪŬŮŰŲ', 'u' => 'ùúûüũūŭůűų',
+				'W' => 'Ŵ', 'w' => 'ŵ',
+				'Y' => 'ÝŶŸ', 'y' => 'ýÿŷ',
+				'Z' => 'ŹŻŽ', 'z' => 'źżž',
+				'AE' => 'Æ', 'ae' => 'æ',
+				'OE' => 'Œ', 'oe' => 'œ',
+				'ss' => 'ß',
+				'TH' => 'Þ', 'th' => 'þ',
+			];
+			$from = [];
+			$to = [];
+			foreach($map as $replace => $chars) {
+				$len = mb_strlen($chars);
+				for($n = 0; $n < $len; $n++) {
+					$from[] = mb_substr($chars, $n, 1);
+					$to[] = $replace;
+				}
+			}
+		}
+
+		$value = str_replace($from, $to, $value);
+
+		// mb_strtolower() also covers scripts not in the map above (Greek, Cyrillic, etc.)
+		return $lower ? mb_strtolower($value) : $value;
+	}
+
+	/**
+	 * Compare two strings the way MySQL's case-insensitive collation would (for pw_ci)
+	 *
+	 * @param string $a
+	 * @param string $b
+	 * @return int
+	 *
+	 */
+	public static function compareCI($a, $b) {
+		return strcmp(self::fold($a), self::fold($b));
+	}
+
+	/**
+	 * Compile a MySQL LIKE pattern into a form that can be matched against folded values
+	 *
+	 * Returns array of [ type, argument ] where type is one of: equals, contains, prefix,
+	 * suffix, regex. The first four avoid a regular expression for the patterns that
+	 * ProcessWire uses most (%word%, word%, %word).
+	 *
+	 * @param string $pattern
+	 * @param string $escape Escape character or blank string for none
+	 * @return array
+	 *
+	 */
+	protected static function compileLike($pattern, $escape) {
+
+		$parts = []; // alternating literals and wildcards
+		$literal = '';
+		$len = strlen($pattern);
+
+		for($n = 0; $n < $len; $n++) {
+			$c = $pattern[$n];
+			if($escape !== '' && $c === $escape && $n + 1 < $len) {
+				$literal .= $pattern[++$n];
+			} else if($c === '%' || $c === '_') {
+				if($literal !== '') $parts[] = ['literal', $literal];
+				$parts[] = [$c === '%' ? 'any' : 'one', ''];
+				$literal = '';
+			} else {
+				$literal .= $c;
+			}
+		}
+
+		if($literal !== '') $parts[] = ['literal', $literal];
+
+		$types = [];
+		foreach($parts as $part) $types[] = $part[0];
+		$literals = [];
+		foreach($parts as $part) if($part[0] === 'literal') $literals[] = self::fold($part[1]);
+
+		if($types === []) return ['equals', ''];
+		if($types === ['literal']) return ['equals', $literals[0]];
+		if($types === ['any', 'literal', 'any']) return ['contains', $literals[0]];
+		if($types === ['literal', 'any']) return ['prefix', $literals[0]];
+		if($types === ['any', 'literal']) return ['suffix', $literals[0]];
+		if($types === ['any']) return ['contains', ''];
+
+		$regex = '';
+		$literal = 0;
+		foreach($parts as $part) {
+			if($part[0] === 'any') {
+				$regex .= '.*';
+			} else if($part[0] === 'one') {
+				$regex .= '.';
+			} else {
+				$regex .= preg_quote($literals[$literal++], '~');
+			}
+		}
+
+		return ['regex', "~^$regex$~us"];
+	}
+
+	/**
 	 * Register MySQL-compatible functions on given SQLite PDO connection
 	 *
 	 * Static so that it can also be used by the installer before ProcessWire is booted.
@@ -2083,14 +2232,35 @@ class WireDatabaseSQLiteTranslator {
 		}, -1);
 
 		// regular expressions: "x REGEXP y" calls regexp(y, x)
+		// accents are folded on both sides (case is handled by the "i" modifier) so that
+		// word matches behave like MySQL, where the collation ignores accents
 		$create('regexp', function($pattern, $value) {
 			if($pattern === null || $value === null) return null;
 			// chr(1) delimiter cannot be escaped or closed by a pattern that does not contain it
-			$pattern = (string) $pattern;
+			$pattern = self::fold((string) $pattern, false);
 			if(strpos($pattern, "\x01") !== false) return 0;
-			$result = @preg_match("\x01$pattern\x01iu", (string) $value);
+			$result = @preg_match("\x01$pattern\x01iu", self::fold((string) $value, false));
 			return $result ? 1 : 0;
 		}, 2, $det);
+
+		// LIKE with MySQL collation behavior: case- and accent-insensitive for all of Unicode
+		// rather than SQLite's built-in like(), which folds case for ASCII only
+		$create('like', function($pattern, $value, $escape = '') {
+			if($pattern === null || $value === null) return null;
+			static $cache = [];
+			$key = "$escape\x00$pattern";
+			if(!isset($cache[$key])) {
+				if(count($cache) > 200) $cache = [];
+				$cache[$key] = self::compileLike((string) $pattern, (string) $escape);
+			}
+			list($type, $arg) = $cache[$key];
+			$value = self::fold((string) $value);
+			if($type === 'contains') return $arg === '' || strpos($value, $arg) !== false ? 1 : 0;
+			if($type === 'prefix') return strncmp($value, $arg, strlen($arg)) === 0 ? 1 : 0;
+			if($type === 'suffix') return $arg === '' || substr($value, -strlen($arg)) === $arg ? 1 : 0;
+			if($type === 'equals') return $value === $arg ? 1 : 0;
+			return preg_match($arg, $value) ? 1 : 0;
+		}, -1, $det);
 
 		// numbers
 		$create('rand', function() { return mt_rand() / mt_getrandmax(); }, -1);
@@ -2104,6 +2274,15 @@ class WireDatabaseSQLiteTranslator {
 		$create('pw_show_create_table', function($table) use($pdo) { return self::mysqlCreateTable($pdo, (string) $table); }, 1);
 		$create('version', function() use($pdo) { return 'SQLite ' . $pdo->query('SELECT sqlite_version()')->fetchColumn(); }, 0);
 		$create('last_insert_id', function() use($pdo) { return (int) $pdo->lastInsertId(); }, 0);
+
+		// pw_ci collation: case- and accent-insensitive ordering and comparison, like MySQL.
+		// It is used only in queries (COLLATE pw_ci) and never in the schema, so that the
+		// database file remains readable by other SQLite tools.
+		if(method_exists($pdo, 'createCollation')) {
+			$pdo->createCollation('pw_ci', [__CLASS__, 'compareCI']); // PHP 8.4+ Pdo\Sqlite
+		} else {
+			$pdo->sqliteCreateCollation('pw_ci', [__CLASS__, 'compareCI']);
+		}
 
 		// named locks: GET_LOCK(name, timeout), RELEASE_LOCK(name), IS_FREE_LOCK(name)
 		// emulated with flock(), which (like MySQL named locks) is released when the process ends

@@ -454,4 +454,42 @@ abstract class WireDatabaseDialect extends Wire {
 	public function supportsUpdateOrderBy() {
 		return true;
 	}
+
+	/**
+	 * Get collation to apply to text comparisons, or blank string if none needed
+	 *
+	 * Returns a collation name to append to a text comparison as `COLLATE name`, making it
+	 * behave like MySQL's default case- and accent-insensitive collation. MySQL needs no such
+	 * collation on individual comparisons, as its columns already have one, so it returns blank.
+	 *
+	 * The `$value` argument lets a dialect decide based on what is being compared, so that the
+	 * collation can be limited to values that actually need it.
+	 *
+	 * ~~~~~
+	 * $collate = $database->dialect()->compareCollation($value);
+	 * $query->where("$table.data=?" . ($collate ? " COLLATE $collate" : ''), $value);
+	 * ~~~~~
+	 *
+	 * @param string|int|float|null $value Value being compared, when known
+	 * @return string
+	 * @since 3.0.273
+	 *
+	 */
+	public function compareCollation($value = null) {
+		return '';
+	}
+
+	/**
+	 * Get collation to apply to text ORDER BY terms, or blank string if none needed
+	 *
+	 * Like compareCollation(), but for sorting rather than comparison, and applicable only to
+	 * terms known to contain text.
+	 *
+	 * @return string
+	 * @since 3.0.273
+	 *
+	 */
+	public function sortCollation() {
+		return '';
+	}
 }

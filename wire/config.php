@@ -1483,6 +1483,24 @@ $config->dbSqlModes = array(
 /**
  * A key=>value array of any additional driver-specific connection options.
  * 
+ * Options that apply to all database types are given at the top level, using PDO::ATTR_*
+ * constants as keys. Options for one database type only are given in an array indexed by
+ * the $config->dbType they apply to ('mysql' or 'sqlite'), which may also contain any of
+ * these ProcessWire settings:
+ * 
+ * - `unicodeSort` (bool): SQLite only. Sort text with a Unicode-aware collation, so that
+ *    accented letters sort with their base letter (i.e. "Äpfel" with "A") as they would on
+ *    MySQL? SQLite has to call back into PHP for every comparison it makes while sorting,
+ *    and cannot use an index to avoid the sort, so this is off by default. (default=false)
+ * 
+ * ~~~~~
+ * $config->dbOptions = array(
+ *   \PDO::ATTR_TIMEOUT => 10, // any database type
+ *   'mysql' => array(\PDO::MYSQL_ATTR_SSL_CA => '/path/to/ca.pem'), // MySQL only
+ *   'sqlite' => array('unicodeSort' => true), // SQLite only
+ * );
+ * ~~~~~
+ * 
  * @var array
  * 
  */

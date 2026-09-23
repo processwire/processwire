@@ -137,6 +137,10 @@ extension and SQLite 3.35+ are available (CLI installer: `'dbType' => 'sqlite'`,
   MySQL-compatible functions are registered with SQLite. Statements that translate to multiple SQLite
   statements (such as `CREATE TABLE` with indexes, or an `ALTER TABLE` that requires rebuilding the table)
   are executed atomically.
+- **Settings:** `$config->dbOptions` may contain an array indexed by database type, holding PDO driver
+  options and ProcessWire settings that apply only to that type. For SQLite the settings are currently
+  `unicodeSort` (see the table below). Assign the whole array, as in
+  `$config->dbOptions = ['sqlite' => ['unicodeSort' => true]];`
 - **Connection:** WAL journal mode, 5 second busy timeout. Errors for unknown tables and columns use MySQL's
   SQLSTATE codes (`42S02`, `42S22`) and are reported at `execute()` rather than `prepare()`, as with MySQL.
 
@@ -144,7 +148,8 @@ Behavior differences from MySQL:
 
 | Area | SQLite behavior |
 |------|-----------------|
-| Case-insensitive matching | Text columns use `COLLATE NOCASE`, which only folds ASCII letters. `title=äpfel` does not match `Äpfel`, and non-ASCII letters sort by byte value (after `z`). |
+| Case- and accent-insensitive matching | Selector searches (`%=`, `*=`, `~=`, `^=`, `$=`, etc.) and `=` comparisons fold case and accents as MySQL does, so `title%=apfel` matches "Äpfel". This is done in PHP rather than in the collation, at a cost of roughly 1.5µs per row compared. Two limits: an `=` comparison whose value is ASCII-only uses the built-in `NOCASE` collation so that it can still use an index, meaning `title=apfel` does not match "Äpfel" (`title=äpfel` does); and ligature expansions follow MySQL 8 (`ß` as `ss`, `æ` as `ae`) rather than MySQL 5.7/MariaDB. |
+| Sorting text | Sorts use `COLLATE NOCASE`, which folds ASCII letters only, so accented letters sort after `z` (`apple, zebra, Äpfel`) rather than with their base letter as MySQL does. Enable `$config->dbOptions['sqlite']['unicodeSort']` to match MySQL's ordering, at the cost of sorting in PHP — SQLite then calls back into PHP for every comparison and cannot use an index to avoid the sort. |
 | Fulltext search | No FULLTEXT indexes (they become regular indexes). Selector fulltext operators use `LIKE`/`REGEXP`: no relevance ordering; stopwords are not ignored (so `title~=the home` requires "the" too, whereas MySQL ignores it); word operators such as `~=` also match partial words; query expansion (`*+=`, `**+=`) and boolean commands (`#=`) are approximated. |
 | Column types | Not enforced (SQLite type affinity). `UNSIGNED`, display widths, `CHARACTER SET` and `COLLATE` are ignored, `ENUM`/`SET` become `TEXT`, and `VARCHAR` lengths are not enforced. |
 | Times | `NOW()`, `UNIX_TIMESTAMP()` and similar functions use PHP's time zone. `DEFAULT CURRENT_TIMESTAMP` uses the system's local time (MySQL uses the server's time zone). `ON UPDATE CURRENT_TIMESTAMP` is ignored. |

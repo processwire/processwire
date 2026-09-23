@@ -452,8 +452,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *
 	 */
 	protected function matchEquals($value) {
-		$op = $this->wire()->database->escapeOperator($this->operator, WireDatabasePDO::operatorTypeComparison); 
-		$this->query->where("$this->tableField$op?", $value);
+		$database = $this->wire()->database;
+		$op = $database->escapeOperator($this->operator, WireDatabasePDO::operatorTypeComparison); 
+		$collate = $database->dialect()->compareCollation($value);
+		$this->query->where("$this->tableField$op?" . ($collate ? " COLLATE $collate" : ''), $value);
 	}
 
 	/**
