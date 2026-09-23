@@ -870,6 +870,10 @@ class WireDatabaseSQLiteTranslator {
 					$dupPos = $x;
 					break;
 				}
+				if($y > -1 && $this->isWord($tokens[$y], 'CONFLICT')) {
+					// already SQLite syntax: its "DO UPDATE SET" is not the INSERT ... SET form
+					break;
+				}
 			}
 		}
 

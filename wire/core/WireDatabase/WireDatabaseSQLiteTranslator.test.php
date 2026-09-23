@@ -82,6 +82,15 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->check('JSON_CONTAINS returns NULL for missing path', null, $this->value("SELECT JSON_CONTAINS($doc, '1', '$.missing')"));
 		$this->check('JSON_CONTAINS returns NULL for NULL', null, $this->value("SELECT JSON_CONTAINS(NULL, '1')"));
 
+		// SQL that is already in SQLite syntax must survive translation unchanged, so that
+		// code building native SQL for this dialect (i.e. an ON CONFLICT upsert) is not mangled
+		$sql = "INSERT INTO `t` (`pages_id`, `data`) VALUES (:pages_id, :data) " .
+			"ON CONFLICT (`pages_id`) DO UPDATE SET `data`=excluded.`data`";
+		$this->check('native ON CONFLICT upsert is left unchanged', $sql, $this->translate($sql));
+
+		$sql = "INSERT INTO `t` (`a`) VALUES (1) ON CONFLICT DO UPDATE SET `a`=excluded.`a`";
+		$this->check('native ON CONFLICT without target is left unchanged', $sql, $this->translate($sql));
+
 		// fulltext search has no SQLite equivalent and must report that clearly
 		$error = '';
 		try {
