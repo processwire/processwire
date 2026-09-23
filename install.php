@@ -53,6 +53,12 @@ class Installer {
 	const MIN_SQLITE_VERSION = '3.35.0';
 
 	/**
+	 * Minimum required PostgreSQL version (when using PostgreSQL)
+	 *
+	 */
+	const MIN_PGSQL_VERSION = '16.0';
+
+	/**
 	 * Test mode for installer development, non destructive
 	 *
 	 */
@@ -634,6 +640,62 @@ class Installer {
 	}
 
 	/**
+	 * Can PostgreSQL be used? (pdo_pgsql available)
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function pgsqlSupported() {
+		return extension_loaded('pdo_pgsql');
+	}
+
+	/**
+	 * Connect to PostgreSQL for installation, creating the database if it does not exist
+	 *
+	 * @param array $values Database configuration values (dbName, dbUser, dbPass, dbHost, dbPort, dbSocket, dbCon)
+	 * @return InstallerPgsqlPDO|null
+	 *
+	 */
+	protected function pgsqlConnect(array $values) {
+		if(!$this->pgsqlSupported()) {
+			$this->alertErr('PostgreSQL requires the PHP pdo_pgsql extension');
+			return null;
+		}
+		if(!preg_match('/^[_a-zA-Z0-9][-_a-zA-Z0-9]*$/', $values['dbName'])) {
+			$this->alertErr('The PostgreSQL database name may only contain letters, digits, underscores and dashes');
+			return null;
+		}
+		$dsn = InstallerPgsqlPDO::dsn($values, $values['dbName']);
+		try {
+			$database = new InstallerPgsqlPDO($dsn, $values['dbUser'], $values['dbPass']);
+		} catch(\Exception $e) {
+			if(strpos($e->getMessage(), 'does not exist') !== false) {
+				// connect to the maintenance database and create it
+				try {
+					$admin = new \PDO(InstallerPgsqlPDO::dsn($values, 'postgres'), $values['dbUser'], $values['dbPass'], array(\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION));
+					$admin->exec('CREATE DATABASE "' . str_replace('"', '""', $values['dbName']) . "\" ENCODING 'UTF8'");
+					$this->alertOk("Created database: " . htmlspecialchars($values['dbName']));
+					$database = new InstallerPgsqlPDO($dsn, $values['dbUser'], $values['dbPass']);
+				} catch(\Exception $e2) {
+					$this->alertErr('Unable to create database: ' . htmlspecialchars($e2->getMessage()));
+					return null;
+				}
+			} else {
+				$this->alertErr("Database connection information did not work.");
+				$this->alertErr(htmlspecialchars($e->getMessage()));
+				return null;
+			}
+		}
+		$version = $database->serverVersion();
+		if(version_compare($version, self::MIN_PGSQL_VERSION, '<')) {
+			$this->alertErr("PostgreSQL $version is not supported (" . self::MIN_PGSQL_VERSION . ' or newer is required)');
+			return null;
+		}
+		foreach($database->bootstrap() as $note) $this->alertOk($note);
+		return $database;
+	}
+
+	/**
 	 * Get full path to SQLite database file from given dbFile setting
 	 *
 	 * Same rules as WireDatabaseDialectSQLite::databaseFile() and protectLocation():
@@ -1164,6 +1226,9 @@ class Installer {
 		} else if($sqliteVersion !== '') {
 			$this->warn("SQLite $sqliteVersion is available, but SQLite " . self::MIN_SQLITE_VERSION . " or newer is required to use it (optional)");
 		}
+		if($this->pgsqlSupported()) {
+			$this->ok("PDO (pgsql) database: PostgreSQL " . self::MIN_PGSQL_VERSION . "+ (optional, experimental)");
+		}
 
 		if(self::TEST_MODE) {
 			$this->err("Example error message for test mode");
@@ -1302,19 +1367,25 @@ class Installer {
 
 		if(!isset($values['dbType'])) $values['dbType'] = extension_loaded('pdo_mysql') || !$this->sqliteSupported() ? 'mysql' : 'sqlite';
 		if(!isset($values['dbFile'])) $values['dbFile'] = '';
-		if($values['dbType'] !== 'sqlite') $values['dbType'] = 'mysql';
+		if(!in_array($values['dbType'], array('mysql', 'sqlite', 'pgsql'), true)) $values['dbType'] = 'mysql';
 
-		if($this->sqliteSupported()) {
+		if($this->sqliteSupported() || $this->pgsqlSupported()) {
 			$this->sectionStart('fa-database Database Type');
-			$this->p(
-				"ProcessWire uses a MySQL or MariaDB database. You may also choose SQLite, which stores the database " .
-				"in a single file and needs no database server. SQLite support is new and experimental, " .
-				"and best suited to smaller sites."
-			);
-			$this->select('dbType', '', $values['dbType'], array(
-				'mysql' => 'MySQL / MariaDB',
-				'sqlite' => 'SQLite (experimental)',
-			), 300);
+			$types = array('mysql' => 'MySQL / MariaDB');
+			$text = "ProcessWire uses a MySQL or MariaDB database.";
+			if($this->sqliteSupported()) {
+				$types['sqlite'] = 'SQLite (experimental)';
+				$text .= " You may also choose SQLite, which stores the database in a single file and needs no " .
+					"database server. SQLite support is new and experimental, and best suited to smaller sites.";
+			}
+			if($this->pgsqlSupported()) {
+				$types['pgsql'] = 'PostgreSQL (experimental)';
+				$text .= " PostgreSQL " . self::MIN_PGSQL_VERSION . " or newer may also be used (experimental): specify its " .
+					"database, user and host in the database section below. The pg_trgm extension is enabled during " .
+					"install when the user is allowed to, and text search indexes are skipped when not.";
+			}
+			$this->p($text);
+			$this->select('dbType', '', $values['dbType'], $types, 300);
 			$this->clear();
 			$this->sectionStop();
 		}
@@ -1635,13 +1706,29 @@ class Installer {
 	
 		$values['dbCharset'] = ($values['dbCharset'] === 'utf8mb4' ? 'utf8mb4' : 'utf8'); 
 		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM');
-		$values['dbType'] = $this->post('dbType', 'string') === 'sqlite' ? 'sqlite' : 'mysql';
+		$dbType = $this->post('dbType', 'string');
+		$values['dbType'] = in_array($dbType, array('sqlite', 'pgsql'), true) ? $dbType : 'mysql';
 		$dbFile = $this->post('dbFile');
 		$values['dbFile'] = is_string($dbFile) ? trim(substr($dbFile, 0, 1024)) : '';
 
 		if($values['dbType'] === 'sqlite') {
 			// SQLite: local database file, so no credentials or activation token needed
 			$database = $this->sqliteConnect($values);
+
+		} else if($values['dbType'] === 'pgsql' && (empty($values['dbUser']) || empty($values['dbName']))) {
+			$this->alertErr("Missing database user and/or name");
+
+		} else if($values['dbType'] === 'pgsql' && $values['dbCon'] === 'Socket' && empty($values['dbSocket'])) {
+			$this->alertErr("Missing database socket directory");
+
+		} else if($values['dbType'] === 'pgsql' && !$activationTokenReady) {
+			// Manual filesystem intervention is required before any database connection.
+
+		} else if($values['dbType'] === 'pgsql' && !$this->validateInstallerActivationToken($values)) {
+			// Remote database connections require filesystem proof before PDO is constructed.
+
+		} else if($values['dbType'] === 'pgsql') {
+			$database = $this->pgsqlConnect($values);
 
 		} else if(empty($values['dbUser']) || empty($values['dbName'])) {
 			$this->alertErr("Missing database user and/or name");
@@ -1723,13 +1810,13 @@ class Installer {
 			'dbEngine' => $values['dbEngine']
 		);
 
-		if($values['dbType'] === 'sqlite') {
-			// charset/engine do not apply to SQLite (utf8 avoids utf8mb4 index length adjustments in profile import)
+		if($values['dbType'] === 'sqlite' || $values['dbType'] === 'pgsql') {
+			// charset/engine do not apply here (utf8 avoids utf8mb4 index length adjustments in profile import)
 			$options = array('dbCharset' => 'utf8', 'dbEngine' => 'MyISAM');
 		}
 
 		// check if MySQL is new enough to support InnoDB with fulltext indexes
-		if($values['dbType'] !== 'sqlite' && $options['dbEngine'] == 'InnoDB') {
+		if($values['dbType'] === 'mysql' && $options['dbEngine'] == 'InnoDB') {
 			$query = $database->query("SELECT VERSION()");
 			list($dbVersion) = $query->fetch(\PDO::FETCH_NUM);
 			if(version_compare($dbVersion, "5.6.4", "<")) {
@@ -1860,6 +1947,18 @@ class Installer {
 			$cfg .=
 				"\n\$config->dbType = 'sqlite'; // experimental" .
 				"\n\$config->dbFile = " . var_export($values['dbFile'], true) . "; // relative to /site/assets/database/ or absolute path";
+		} else if(isset($values['dbType']) && $values['dbType'] === 'pgsql') {
+			$cfg .= "\n\$config->dbType = 'pgsql'; // experimental";
+			if($values['dbCon'] === 'Socket') {
+				$cfg .= "\n\$config->dbSocket = " . var_export($values['dbSocket'], true) . "; // directory containing the PostgreSQL socket";
+			} else {
+				$cfg .= "\n\$config->dbHost = " . var_export($values['dbHost'], true) . ";";
+			}
+			$cfg .=
+				"\n\$config->dbName = " . var_export($values['dbName'], true) . ";" .
+				"\n\$config->dbUser = " . var_export($values['dbUser'], true) . ";" .
+				"\n\$config->dbPass = " . var_export($values['dbPass'], true) . ";" .
+				"\n\$config->dbPort = " . var_export($values['dbPort'], true) . ";";
 		} else {
 			if($values['dbCon'] === 'Socket') {
 				$cfg .= "\n\$config->dbSocket = " . var_export($values['dbSocket'], true) . ";";
@@ -3352,8 +3451,11 @@ class InstallerCli extends Installer {
 	 */
 	protected function validateConfig() {
 		$sqlite = $this->cliConfig['dbType'] === 'sqlite';
-		if(!in_array($this->cliConfig['dbType'], array('mysql', 'sqlite'), true)) {
-			$this->abort("Config value 'dbType' must be 'mysql' or 'sqlite'.");
+		if(!in_array($this->cliConfig['dbType'], array('mysql', 'sqlite', 'pgsql'), true)) {
+			$this->abort("Config value 'dbType' must be 'mysql', 'sqlite' or 'pgsql'.");
+		}
+		if($this->cliConfig['dbType'] === 'pgsql' && (int) $this->cliConfig['dbPort'] === 3306) {
+			$this->cliConfig['dbPort'] = 5432; // MySQL default port does not apply
 		}
 		$required = $sqlite ? array('userpass') : array('dbName', 'dbUser', 'userpass');
 		foreach($required as $key) {
@@ -3400,8 +3502,10 @@ CONFIGURATION KEYS
     userpass            Admin user password
 
   Database (optional)
-    dbType              'mysql' or 'sqlite' (default: 'mysql'). SQLite is experimental and
-                          needs no dbName/dbUser (requires pdo_sqlite and SQLite 3.35+)
+    dbType              'mysql', 'sqlite' or 'pgsql' (default: 'mysql'). SQLite is experimental and
+                          needs no dbName/dbUser (requires pdo_sqlite and SQLite 3.35+). PostgreSQL is
+                          experimental, uses dbName/dbUser/dbPass/dbHost/dbPort (default 5432) or
+                          dbSocket as the socket directory (requires pdo_pgsql and PostgreSQL 16+)
     dbFile              SQLite database file (default: '' for a randomly named file in /site/assets/database/).
                           Relative paths are relative to /site/assets/database/. Absolute paths
                           must be outside the web root (unless in /site/assets/database/).
@@ -4295,6 +4399,131 @@ class InstallerSQLitePDO extends InstallerSQLitePDOBase {
 	#[\ReturnTypeWillChange]
 	public function quote($string, $type = \PDO::PARAM_STR) {
 		return WireDatabaseSQLiteTranslator::quote($string); // MySQL-style, as the translator expects
+	}
+}
+
+/*
+ * Base class for InstallerPgsqlPDO: Pdo\Pgsql in PHP 8.4+, otherwise PDO.
+ *
+ */
+if(class_exists('\\Pdo\\Pgsql', false)) {
+	class InstallerPgsqlPDOBase extends \Pdo\Pgsql {}
+} else {
+	class InstallerPgsqlPDOBase extends \PDO {}
+}
+
+/**
+ * PostgreSQL PDO connection for the installer that translates MySQL SQL to PostgreSQL
+ *
+ * Allows the installer's MySQL-syntax SQL (profile import, table checks) to run on PostgreSQL.
+ *
+ */
+class InstallerPgsqlPDO extends InstallerPgsqlPDOBase {
+
+	/**
+	 * @var WireDatabasePgsqlTranslator
+	 *
+	 */
+	protected $translator;
+
+	/**
+	 * Build a DSN from installer values
+	 *
+	 * @param array $values dbHost, dbPort, dbSocket, dbCon
+	 * @param string $dbName
+	 * @return string
+	 *
+	 */
+	public static function dsn(array $values, $dbName) {
+		$socket = isset($values['dbCon']) && $values['dbCon'] === 'Socket' && !empty($values['dbSocket']);
+		$host = $socket ? $values['dbSocket'] : (empty($values['dbHost']) ? 'localhost' : $values['dbHost']);
+		$dsn = "pgsql:host=$host";
+		if(!empty($values['dbPort'])) $dsn .= ';port=' . (int) $values['dbPort'];
+		return "$dsn;dbname=$dbName";
+	}
+
+	/**
+	 * @param string $dsn
+	 * @param string $user
+	 * @param string $pass
+	 *
+	 */
+	public function __construct($dsn, $user, $pass) {
+		require_once(__DIR__ . '/wire/core/WireDatabase/WireDatabasePgsqlTranslator.php');
+		parent::__construct($dsn, $user, $pass, array(
+			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+			\PDO::ATTR_STRINGIFY_FETCHES => true,
+		));
+		$timezone = date_default_timezone_get();
+		if($timezone) parent::exec('SET TIME ZONE ' . parent::quote($timezone));
+		$this->translator = new WireDatabasePgsqlTranslator($this);
+	}
+
+	/**
+	 * Get the server version number
+	 *
+	 * @return string
+	 *
+	 */
+	public function serverVersion() {
+		return preg_replace('/[^0-9.].*$/', '', (string) parent::query("SELECT current_setting('server_version')")->fetchColumn());
+	}
+
+	/**
+	 * Create the extensions the dialect uses, returning notes for the installer log
+	 *
+	 * @return array
+	 *
+	 */
+	public function bootstrap() {
+		$notes = array();
+		try {
+			parent::exec('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+			$notes[] = 'PostgreSQL extension pg_trgm is available (used for text search indexes)';
+		} catch(\Exception $e) {
+			$notes[] = 'PostgreSQL extension pg_trgm could not be created, so text search (FULLTEXT) indexes are skipped: ' . $e->getMessage();
+			$this->translator->setTrigramAvailable(false);
+		}
+		return $notes;
+	}
+
+	/**
+	 * Run translated statements except the last, returning the last
+	 *
+	 * @param string $sql
+	 * @return string
+	 *
+	 */
+	protected function translateRunLeading($sql) {
+		$statements = $this->translator->translateStatements($sql);
+		$last = array_pop($statements);
+		foreach($statements as $statement) parent::exec($statement);
+		return $last;
+	}
+
+	#[\ReturnTypeWillChange]
+	public function exec($statement) {
+		$qty = 0;
+		foreach($this->translator->translateStatements($statement) as $sql) {
+			$result = parent::exec($sql);
+			if($result !== false) $qty += $result;
+		}
+		return $qty;
+	}
+
+	#[\ReturnTypeWillChange]
+	public function prepare($query, $options = array()) {
+		return parent::prepare($this->translateRunLeading($query), $options);
+	}
+
+	#[\ReturnTypeWillChange]
+	public function query($query, $fetchMode = null, ...$fetchModeArgs) {
+		return parent::query($this->translateRunLeading($query));
+	}
+
+	#[\ReturnTypeWillChange]
+	public function quote($string, $type = \PDO::PARAM_STR) {
+		return WireDatabasePgsqlTranslator::quote($string); // MySQL-style, as the translator expects
 	}
 }
 
