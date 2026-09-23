@@ -807,7 +807,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if($this->debugMode) $this->queryLog($statement, $note);
 		$this->lastSql($statement);
 		$pdo = $this->pdoType($statement);
-		return $pdo->query($statement); 
+		return $this->dialect()->queryStatement($pdo, $statement); 
 	}
 
 	/**
@@ -840,7 +840,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				$result = $dialect->execStatements($pdo, $statements);
 				return $method === 'exec' ? $result : $pdo->query('SELECT 1 WHERE 0');
 			}
-			if($method === 'query') return $pdo->query($translated);
+			if($method === 'query') return $dialect->queryStatement($pdo, $translated);
 			if($method === 'exec') return $dialect->execStatement($pdo, $translated);
 			$pdoStatement = $dialect->prepareStatement($pdo, $translated, $driver_options);
 			if($this->debugMode && $pdoStatement instanceof WireDatabasePDOStatement) $pdoStatement->setDebugNote($note);

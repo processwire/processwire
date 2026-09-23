@@ -157,6 +157,21 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 	}
 
 	/**
+	 * Supports MySQL's JSON functions?
+	 *
+	 * Requires MySQL 5.7.8+ or MariaDB 10.2.7+.
+	 *
+	 * @return bool
+	 * @since 3.0.273
+	 *
+	 */
+	public function supportsJson() {
+		$version = $this->database->getVersion(true);
+		if($this->database->getServerType() === 'MariaDB') return version_compare($version, '10.2.7', '>=');
+		return version_compare($version, '5.7.8', '>=');
+	}
+
+	/**
 	 * Get array of all tables in this database
 	 *
 	 * @return array

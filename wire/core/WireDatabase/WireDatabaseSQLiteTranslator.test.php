@@ -38,7 +38,55 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testRebuilds();
 		$this->testGroupConcat();
 		$this->testCollation();
+		$this->testJsonFunctions();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * MySQL JSON functions that SQLite does not provide
+	 *
+	 * Results here were compared against MySQL 8 and match.
+	 *
+	 */
+	protected function testJsonFunctions() {
+
+		$doc = "'" . '{"a":"x","b":[1,2,3],"c":{"d":"e"},"n":null,"t":true,"num":5}' . "'";
+
+		$this->check('JSON_UNQUOTE removes quotes', 'hello', $this->value("SELECT JSON_UNQUOTE('\"hello\"')"));
+		$this->check('JSON_UNQUOTE leaves unquoted value alone', 'hello', $this->value("SELECT JSON_UNQUOTE('hello')"));
+		$this->check('JSON_UNQUOTE of JSON_EXTRACT returns value', 'x',
+			$this->value("SELECT JSON_UNQUOTE(JSON_EXTRACT($doc, '$.a'))"));
+		$this->check('JSON_UNQUOTE returns NULL for NULL', null, $this->value("SELECT JSON_UNQUOTE(NULL)"));
+
+		$this->check('JSON_LENGTH counts object keys', 6, (int) $this->value("SELECT JSON_LENGTH($doc)"));
+		$this->check('JSON_LENGTH counts array items', 3, (int) $this->value("SELECT JSON_LENGTH($doc, '$.b')"));
+		$this->check('JSON_LENGTH of nested object', 1, (int) $this->value("SELECT JSON_LENGTH($doc, '$.c')"));
+		$this->check('JSON_LENGTH of scalar is one', 1, (int) $this->value("SELECT JSON_LENGTH($doc, '$.a')"));
+		$this->check('JSON_LENGTH of empty array is zero', 0, (int) $this->value("SELECT JSON_LENGTH('[]')"));
+		$this->check('JSON_LENGTH returns NULL for missing path', null, $this->value("SELECT JSON_LENGTH($doc, '$.missing')"));
+		$this->check('JSON_LENGTH returns NULL for invalid JSON', null, $this->value("SELECT JSON_LENGTH('not json')"));
+		$this->check('JSON_LENGTH returns NULL for NULL', null, $this->value("SELECT JSON_LENGTH(NULL)"));
+
+		$this->check('JSON_CONTAINS matches object member', 1, (int) $this->value("SELECT JSON_CONTAINS($doc, '{\"a\":\"x\"}')"));
+		$this->check('JSON_CONTAINS rejects wrong value', 0, (int) $this->value("SELECT JSON_CONTAINS($doc, '{\"a\":\"y\"}')"));
+		$this->check('JSON_CONTAINS finds scalar in array at path', 1, (int) $this->value("SELECT JSON_CONTAINS($doc, '2', '$.b')"));
+		$this->check('JSON_CONTAINS rejects absent scalar', 0, (int) $this->value("SELECT JSON_CONTAINS($doc, '9', '$.b')"));
+		$this->check('JSON_CONTAINS matches array subset', 1, (int) $this->value("SELECT JSON_CONTAINS($doc, '[1,3]', '$.b')"));
+		$this->check('JSON_CONTAINS rejects partial array', 0, (int) $this->value("SELECT JSON_CONTAINS($doc, '[1,9]', '$.b')"));
+		$this->check('JSON_CONTAINS distinguishes string from number', 0, (int) $this->value("SELECT JSON_CONTAINS($doc, '\"5\"', '$.num')"));
+		$this->check('JSON_CONTAINS matches null value', 1, (int) $this->value("SELECT JSON_CONTAINS($doc, 'null', '$.n')"));
+		$this->check('JSON_CONTAINS matches object in array', 1,
+			(int) $this->value("SELECT JSON_CONTAINS('[{\"k\":1},{\"k\":2}]', '{\"k\":2}')"));
+		$this->check('JSON_CONTAINS matches nested object subset', 1,
+			(int) $this->value("SELECT JSON_CONTAINS('{\"a\":{\"b\":1,\"c\":2}}', '{\"a\":{\"b\":1}}')"));
+		$this->check('JSON_CONTAINS returns NULL for missing path', null, $this->value("SELECT JSON_CONTAINS($doc, '1', '$.missing')"));
+		$this->check('JSON_CONTAINS returns NULL for NULL', null, $this->value("SELECT JSON_CONTAINS(NULL, '1')"));
+
+		// provided by SQLite itself, under the same names and path syntax as MySQL
+		$this->check('JSON_EXTRACT reads array index', 2, (int) $this->value("SELECT JSON_EXTRACT($doc, '$.b[1]')"));
+		$this->check('JSON_SET adds member', '{"a":1,"b":2}', $this->value("SELECT JSON_SET('{\"a\":1}', '$.b', 2)"));
+		$this->check('JSON_REMOVE removes member', '{"b":2}', $this->value("SELECT JSON_REMOVE('{\"a\":1,\"b\":2}', '$.a')"));
+		$this->check('JSON_VALID recognizes valid JSON', 1, (int) $this->value("SELECT JSON_VALID('{\"a\":1}')"));
 	}
 
 	/**

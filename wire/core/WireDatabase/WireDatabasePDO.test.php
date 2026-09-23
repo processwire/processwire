@@ -218,6 +218,25 @@ class WireTest_WireDatabasePDO extends WireTest {
 
 		$dialect = $database->dialect();
 		$this->check('dialect() returns WireDatabaseDialect', true, $dialect instanceof WireDatabaseDialect);
+		$this->check('supportsJson() returns bool', true, is_bool($dialect->supportsJson()));
+
+		// a statement left with an open cursor must not prevent changing the table it read from.
+		// SQLite refuses with "database table is locked" unless the cursor is closed first, and
+		// statements from query() need registering for that, since they bypass execute().
+		$lockTable = $table . '_lock';
+		$database->exec("DROP TABLE IF EXISTS `$lockTable`");
+		$database->exec("CREATE TABLE `$lockTable` (`id` INT NOT NULL, PRIMARY KEY (`id`))");
+		$database->exec("INSERT INTO `$lockTable` (`id`) VALUES (1), (2), (3)");
+		$unfinished = $database->query("SELECT id FROM `$lockTable`");
+		$unfinished->fetch(\PDO::FETCH_NUM); // leaves rows unread
+		$dropped = true;
+		try {
+			$database->exec("DROP TABLE `$lockTable`");
+		} catch(\Exception $e) {
+			$dropped = false;
+			$database->exec("DROP TABLE IF EXISTS `$lockTable`");
+		}
+		$this->check('DROP TABLE works while a query() cursor is open', true, $dropped);
 
 		if($dialect->name() === 'sqlite') {
 			$e = $this->fakePDOException('database is locked', 'HY000', 5);

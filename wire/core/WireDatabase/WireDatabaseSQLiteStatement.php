@@ -102,6 +102,18 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 	}
 
 	/**
+	 * Remember this statement as one that may have an open cursor
+	 *
+	 * Statements created by PDO::query() do not call this class's execute() method, so they
+	 * have to be registered separately (see WireDatabaseDialectSQLite::queryStatement).
+	 *
+	 */
+	public function setActive() {
+		if(count(self::$active) > 500) self::$active = array_slice(self::$active, -250, null, true);
+		self::$active[spl_object_id($this)] = self::weakRef($this);
+	}
+
+	/**
 	 * @return bool
 	 *
 	 */

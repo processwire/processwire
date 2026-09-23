@@ -87,6 +87,11 @@ Capability methods (all return bool):
 | `supportsFoundRows()` | true | false | `SQL_CALC_FOUND_ROWS` and `FOUND_ROWS()` |
 | `supportsUpdateOrderBy()` | true | false | `ORDER BY` in `UPDATE`, applied row by row for unique key checks |
 | `supportsTransaction()` | InnoDB only | true | Transactions (also available on `$database`) |
+| `supportsJson()` | 5.7.8+ / MariaDB 10.2.7+ | 3.38+ or a build with JSON | JSON functions such as `JSON_EXTRACT()` |
+
+Two more dialect methods return a collation name (or a blank string when none is needed, as on MySQL):
+`compareCollation($value)` for text comparisons and `sortCollation()` for `ORDER BY` terms. See the
+SQLite section below.
 
 ### Writing SQL that works with both
 
@@ -157,6 +162,7 @@ Behavior differences from MySQL:
 | Column types | Not enforced (SQLite type affinity). `UNSIGNED`, display widths, `CHARACTER SET` and `COLLATE` are ignored, `ENUM`/`SET` become `TEXT`, and `VARCHAR` lengths are not enforced. |
 | Times | `NOW()`, `UNIX_TIMESTAMP()` and similar functions use PHP's time zone. `DEFAULT CURRENT_TIMESTAMP` uses the system's local time (MySQL uses the server's time zone). `ON UPDATE CURRENT_TIMESTAMP` is ignored. |
 | `GROUP_CONCAT()` | No length limit (MySQL's `group_concat_max_len` does not apply). |
+| JSON functions | `JSON_EXTRACT()`, `JSON_SET()`, `JSON_INSERT()`, `JSON_REPLACE()`, `JSON_REMOVE()`, `JSON_ARRAY()`, `JSON_OBJECT()`, `JSON_QUOTE()` and `JSON_VALID()` are provided by SQLite under the same names and use the same `$.path` syntax. `JSON_UNQUOTE()`, `JSON_LENGTH()` and `JSON_CONTAINS()` are emulated (results verified against MySQL 8). Other MySQL JSON functions (`JSON_KEYS()`, `JSON_SEARCH()`, `JSON_CONTAINS_PATH()`, `JSON_DEPTH()`, `JSON_TYPE()` and others) are not available, and path wildcards (`$.a[*]`, `$**.b`) are not supported by the emulated functions. Check `$database->dialect()->supportsJson()` before using any of them. |
 | `TRUNCATE` | Deletes all rows and resets the auto-increment counter. |
 | Unfinished `SELECT` | SQLite cannot drop or rebuild a table while a `SELECT` on it is unfinished. ProcessWire closes such cursors and retries, so further fetches from them return nothing. |
 | Concurrency | One writer at a time. Other writers wait (up to 5 seconds). Transactions start with `BEGIN IMMEDIATE` (taking the write lock up front), so a transaction that reads before it writes waits for other writers rather than failing with "database is locked". |

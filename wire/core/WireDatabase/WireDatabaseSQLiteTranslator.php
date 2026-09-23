@@ -2231,6 +2231,139 @@ class WireDatabaseSQLiteTranslator {
 			return implode($context['separator'], $values);
 		}, -1);
 
+		// JSON functions that MySQL has and SQLite does not. SQLite provides json_extract(),
+		// json_set(), json_insert(), json_replace(), json_remove(), json_valid(), json_quote(),
+		// json_array() and json_object() under the same names, and understands the same "$.path"
+		// syntax, so those need no emulation.
+
+		$jsonDecode = function($value) {
+			// returns array(isValid, value)
+			if($value === null) return [false, null];
+			$value = trim((string) $value);
+			$data = json_decode($value, true);
+			if($data === null && strtolower($value) !== 'null') return [false, null];
+			return [true, $data];
+		};
+
+		$jsonPath = function($data, $path) {
+			// returns array(found, value) for a MySQL JSON path like "$.a.b" or "$[0]"
+			$path = trim((string) $path);
+			if($path === '' || $path[0] !== '$') return [false, null];
+			$n = 1;
+			$len = strlen($path);
+			while($n < $len) {
+				$c = $path[$n];
+				if($c === '.') {
+					$n++;
+					if($n < $len && $path[$n] === '"') {
+						$end = strpos($path, '"', $n + 1);
+						if($end === false) return [false, null];
+						$key = substr($path, $n + 1, $end - $n - 1);
+						$n = $end + 1;
+					} else {
+						$end = $n;
+						while($end < $len && $path[$end] !== '.' && $path[$end] !== '[') $end++;
+						$key = substr($path, $n, $end - $n);
+						$n = $end;
+					}
+					if($key === '' || !is_array($data) || !array_key_exists($key, $data)) return [false, null];
+					$data = $data[$key];
+				} else if($c === '[') {
+					$end = strpos($path, ']', $n);
+					if($end === false) return [false, null];
+					$index = trim(substr($path, $n + 1, $end - $n - 1));
+					$n = $end + 1;
+					if(!ctype_digit($index) || !is_array($data)) return [false, null]; // no wildcard support
+					$index = (int) $index;
+					if(!array_key_exists($index, $data)) return [false, null];
+					$data = $data[$index];
+				} else {
+					return [false, null];
+				}
+			}
+			return [true, $data];
+		};
+
+		$isList = function($value) {
+			return is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1));
+		};
+
+		$jsonEquals = function($a, $b) {
+			if(is_bool($a) || is_bool($b) || $a === null || $b === null) return $a === $b;
+			if(is_int($a) || is_float($a)) return (is_int($b) || is_float($b)) && $a == $b;
+			return $a === $b;
+		};
+
+		$jsonContains = null;
+		$jsonContains = function($target, $candidate) use(&$jsonContains, $isList, $jsonEquals) {
+			if(is_array($target) && is_array($candidate)) {
+				if($isList($target) && $isList($candidate)) {
+					// every candidate element must be contained in the target array
+					foreach($candidate as $c) {
+						$found = false;
+						foreach($target as $t) {
+							if(!$jsonContains($t, $c)) continue;
+							$found = true;
+							break;
+						}
+						if(!$found) return false;
+					}
+					return true;
+				}
+				if(!$isList($target) && !$isList($candidate)) {
+					// every candidate key must exist in the target with a contained value
+					foreach($candidate as $key => $c) {
+						if(!array_key_exists($key, $target)) return false;
+						if(!$jsonContains($target[$key], $c)) return false;
+					}
+					return true;
+				}
+				if($isList($target)) {
+					// object candidate against an array target: must match an element
+					foreach($target as $t) if($jsonContains($t, $candidate)) return true;
+				}
+				return false;
+			}
+			if($isList($target)) {
+				// scalar candidate is contained if it matches any element
+				foreach($target as $t) if($jsonContains($t, $candidate)) return true;
+				return false;
+			}
+			if(is_array($target) || is_array($candidate)) return false;
+			return $jsonEquals($target, $candidate);
+		};
+
+		$create('json_unquote', function($value) {
+			if($value === null) return null;
+			$value = (string) $value;
+			if(strlen($value) < 2 || $value[0] !== '"' || substr($value, -1) !== '"') return $value;
+			$decoded = json_decode($value);
+			return is_string($decoded) ? $decoded : $value;
+		}, 1, $det);
+
+		$create('json_length', function($doc, $path = null) use($jsonDecode, $jsonPath) {
+			if($doc === null) return null;
+			list($valid, $data) = $jsonDecode($doc);
+			if(!$valid) return null;
+			if($path !== null) {
+				list($found, $data) = $jsonPath($data, $path);
+				if(!$found) return null;
+			}
+			return is_array($data) ? count($data) : 1; // scalars have a length of 1 in MySQL
+		}, -1, $det);
+
+		$create('json_contains', function($target, $candidate, $path = null) use($jsonDecode, $jsonPath, $jsonContains) {
+			if($target === null || $candidate === null) return null;
+			list($validTarget, $t) = $jsonDecode($target);
+			list($validCandidate, $c) = $jsonDecode($candidate);
+			if(!$validTarget || !$validCandidate) return null;
+			if($path !== null) {
+				list($found, $t) = $jsonPath($t, $path);
+				if(!$found) return null; // MySQL returns NULL when the path is not found
+			}
+			return $jsonContains($t, $c) ? 1 : 0;
+		}, -1, $det);
+
 		// regular expressions: "x REGEXP y" calls regexp(y, x)
 		// accents are folded on both sides (case is handled by the "i" modifier) so that
 		// word matches behave like MySQL, where the collation ignores accents

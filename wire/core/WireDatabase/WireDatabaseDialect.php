@@ -384,6 +384,23 @@ abstract class WireDatabaseDialect extends Wire {
 	}
 
 	/**
+	 * Run a query() and return its statement
+	 *
+	 * Provided so that a dialect can do its own bookkeeping for statements that PDO creates
+	 * (and executes) itself, since those do not pass through prepare() or execute().
+	 *
+	 * @param \PDO $pdo
+	 * @param string $sql Already translated, if the dialect translates
+	 * @return \PDOStatement|false
+	 * @throws \PDOException
+	 * @since 3.0.273
+	 *
+	 */
+	public function queryStatement(\PDO $pdo, $sql) {
+		return $pdo->query($sql);
+	}
+
+	/**
 	 * Execute multiple translated statements atomically
 	 *
 	 * @param \PDO $pdo
@@ -452,6 +469,17 @@ abstract class WireDatabaseDialect extends Wire {
 	 *
 	 */
 	public function supportsUpdateOrderBy() {
+		return true;
+	}
+
+	/**
+	 * Supports MySQL's JSON functions (JSON_EXTRACT, JSON_SET, JSON_CONTAINS, etc.)?
+	 *
+	 * @return bool
+	 * @since 3.0.273
+	 *
+	 */
+	public function supportsJson() {
 		return true;
 	}
 

@@ -54,6 +54,14 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	protected $inTransaction = false;
 
 	/**
+	 * Does this SQLite build have JSON support? (null until checked)
+	 *
+	 * @var bool|null
+	 *
+	 */
+	protected $supportsJson = null;
+
+	/**
 	 * Get dialect name
 	 *
 	 * @return string
@@ -147,6 +155,27 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		$options = $options['sqlite'];
 		if(!is_array($options) || !array_key_exists($name, $options)) return $default;
 		return $options[$name];
+	}
+
+	/**
+	 * Supports MySQL's JSON functions?
+	 *
+	 * SQLite provides most of them under the same names (and the translator registers the rest),
+	 * but its JSON support was only compiled in by default as of SQLite 3.38, so this checks.
+	 *
+	 * @return bool
+	 *
+	 */
+	public function supportsJson() {
+		if($this->supportsJson === null) {
+			try {
+				$this->database->pdo()->query("SELECT json_valid('{}')")->fetchColumn();
+				$this->supportsJson = true;
+			} catch(\Exception $e) {
+				$this->supportsJson = false;
+			}
+		}
+		return $this->supportsJson;
 	}
 
 	/**
@@ -416,6 +445,27 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		}
 		$this->inTransaction = false;
 		return true;
+	}
+
+	/**
+	 * Run a query() and register the statement so its cursor can be closed if a table is locked
+	 *
+	 * @param \PDO $pdo
+	 * @param string $sql
+	 * @return \PDOStatement|false
+	 * @throws \PDOException
+	 *
+	 */
+	public function queryStatement(\PDO $pdo, $sql) {
+		try {
+			$query = $pdo->query($sql);
+		} catch(\PDOException $e) {
+			if(!WireDatabaseSQLiteStatement::isLockedException($e)) throw $e;
+			WireDatabaseSQLiteStatement::closeActive();
+			$query = $pdo->query($sql);
+		}
+		if($query instanceof WireDatabaseSQLiteStatement) $query->setActive();
+		return $query;
 	}
 
 	/**
