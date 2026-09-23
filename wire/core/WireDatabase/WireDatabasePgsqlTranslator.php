@@ -71,6 +71,22 @@ class WireDatabasePgsqlTranslator {
 	protected $pdo = null;
 
 	/**
+	 * Is the pg_trgm extension available? (FULLTEXT keys become trigram indexes when it is)
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $trigramAvailable = true;
+
+	/**
+	 * Cached schema facts per table, see tableSchema()
+	 *
+	 * @var array
+	 *
+	 */
+	protected $schema = [];
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -165,8 +181,28 @@ class WireDatabasePgsqlTranslator {
 		$tokens = $this->tokenize($sql);
 		$words = $this->leadingWords($tokens, 4);
 		$first = isset($words[0]) ? $words[0] : '';
+		$second = isset($words[1]) ? $words[1] : '';
 
 		switch($first) {
+			case 'CREATE':
+				if($second === 'TABLE' || ($second === 'TEMPORARY' && isset($words[2]) && $words[2] === 'TABLE')) {
+					return $this->createTable($tokens);
+				}
+				if(in_array($second, ['INDEX', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
+					return $this->createIndex($tokens);
+				}
+				break;
+			case 'RENAME':
+				if($second === 'TABLE') return $this->renameTable($tokens);
+				break;
+			case 'ALTER':
+				if($second === 'TABLE') return $this->alterTable($tokens);
+				break;
+			case 'TRUNCATE':
+				return $this->truncate($tokens);
+			case 'DROP':
+				if($second === 'INDEX') return $this->dropIndex($tokens);
+				break;
 			case 'DO':
 				// DO expr (MySQL: evaluate without returning a result)
 				$i = $this->next($tokens, 0);
@@ -1052,5 +1088,658 @@ class WireDatabasePgsqlTranslator {
 			if($depth === 0 && $t[0] === 'word' && in_array(strtoupper($t[1]), ['ORDER', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'FOR', 'WINDOW'], true)) return $j;
 		}
 		return $n;
+	}
+
+	/*********************************************************************************
+	 * Schema knowledge (requires a PDO connection, otherwise unknown)
+	 *
+	 */
+
+	/**
+	 * Set whether the pg_trgm extension is available
+	 *
+	 * Without it, FULLTEXT keys are skipped rather than becoming trigram indexes.
+	 *
+	 * @param bool $available
+	 *
+	 */
+	public function setTrigramAvailable($available) {
+		$this->trigramAvailable = (bool) $available;
+	}
+
+	/**
+	 * Forget cached schema facts for a table (after DDL changes it)
+	 *
+	 * @param string $table
+	 *
+	 */
+	protected function clearSchemaCache($table) {
+		unset($this->schema[$table]);
+	}
+
+	/**
+	 * Get column types of a table: [ name => [ 'pgType' => ..., 'isText' => bool, 'identity' => bool ] ]
+	 *
+	 * @param string $table
+	 * @return array Empty when no PDO connection is available
+	 *
+	 */
+	protected function getColumnTypes($table) {
+		$pdo = $this->pdo();
+		if(!$pdo) return [];
+		$query = $pdo->prepare(
+			"SELECT column_name, data_type, is_identity FROM information_schema.columns " .
+			"WHERE table_schema = current_schema() AND table_name = ? ORDER BY ordinal_position"
+		);
+		$query->execute([$table]);
+		$types = [];
+		foreach($query->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+			$types[$row['column_name']] = [
+				'pgType' => $row['data_type'],
+				'isText' => in_array($row['data_type'], ['text', 'character varying', 'character'], true),
+				'identity' => $row['is_identity'] === 'YES',
+			];
+		}
+		return $types;
+	}
+
+	/**
+	 * Get indexes of a table (requires PDO connection)
+	 *
+	 * @param string $table
+	 * @return array Each with 'pgName', 'name' (without table prefix, or null if not prefixed), 'unique', 'primary', 'columns'
+	 *
+	 */
+	protected function getIndexes($table) {
+		$pdo = $this->pdo();
+		if(!$pdo) return [];
+		$query = $pdo->prepare(
+			"SELECT i.relname AS name, ix.indisunique AS is_unique, ix.indisprimary AS is_primary, " .
+			"ARRAY(SELECT pg_get_indexdef(ix.indexrelid, k + 1, true) FROM generate_subscripts(ix.indkey, 1) AS k ORDER BY k) AS cols " .
+			"FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid " .
+			"JOIN pg_namespace n ON n.oid = t.relnamespace " .
+			"WHERE t.relname = ? AND n.nspname = current_schema() ORDER BY i.relname"
+		);
+		$query->execute([$table]);
+		$indexes = [];
+		$prefix = $table . self::indexSeparator;
+		foreach($query->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+			$cols = trim((string) $row['cols'], '{}');
+			$indexes[] = [
+				'pgName' => $row['name'],
+				'name' => strpos($row['name'], $prefix) === 0 ? substr($row['name'], strlen($prefix)) : null,
+				'unique' => in_array($row['is_unique'], [true, 't', '1', 1], true),
+				'primary' => in_array($row['is_primary'], [true, 't', '1', 1], true),
+				'columns' => $cols === '' ? [] : array_map(function($c) { return trim($c, '"'); }, str_getcsv($cols)),
+			];
+		}
+		return $indexes;
+	}
+
+	/*********************************************************************************
+	 * DDL
+	 *
+	 */
+
+	/**
+	 * Map a MySQL column type to PostgreSQL
+	 *
+	 * @param string $typeWord Uppercase MySQL type word (INT, VARCHAR, ...)
+	 * @param string $typeArgs Parenthesized args as written, i.e. "(10)" or "(10,2)", or blank
+	 * @return string
+	 *
+	 */
+	protected function mapType($typeWord, $typeArgs) {
+		switch($typeWord) {
+			case 'TINYINT':
+			case 'SMALLINT':
+			case 'BOOL':
+			case 'BOOLEAN':
+			case 'YEAR': return 'smallint';
+			case 'MEDIUMINT':
+			case 'INT':
+			case 'INTEGER': return 'integer';
+			case 'BIGINT': return 'bigint';
+			case 'FLOAT': return 'real';
+			case 'DOUBLE':
+			case 'REAL': return 'double precision';
+			case 'DECIMAL':
+			case 'NUMERIC': return 'numeric' . $typeArgs;
+			case 'VARCHAR': return 'varchar' . $typeArgs;
+			case 'CHAR': return 'char' . $typeArgs;
+			case 'TINYTEXT':
+			case 'TEXT':
+			case 'MEDIUMTEXT':
+			case 'LONGTEXT':
+			case 'ENUM':
+			case 'SET': return 'text';
+			case 'DATETIME':
+			case 'TIMESTAMP': return 'timestamp';
+			case 'DATE': return 'date';
+			case 'TIME': return 'time';
+			case 'TINYBLOB':
+			case 'BLOB':
+			case 'MEDIUMBLOB':
+			case 'LONGBLOB':
+			case 'BINARY':
+			case 'VARBINARY': return 'bytea';
+			case 'JSON': return 'jsonb';
+		}
+		return strtolower($typeWord) . $typeArgs;
+	}
+
+	/**
+	 * Parse a MySQL column definition
+	 *
+	 * @param array $def Tokens
+	 * @return array
+	 *
+	 */
+	protected function columnDef(array $def) {
+
+		$name = $this->name($def[0]);
+		$n = count($def);
+		$autoIncrement = false;
+		$primary = false;
+		$unique = false;
+		$nullSpec = ''; // 'NOT NULL', 'NULL' or blank when not specified
+		$default = null;
+
+		// type: word plus optional (n) or enum(...)
+		$i = $this->next($def, 1);
+		$typeWord = strtoupper($def[$i][1]);
+		$typeArgs = '';
+		$j = $this->next($def, $i + 1);
+		if($j > -1 && $def[$j][1] === '(') {
+			$end = $this->matchParen($def, $j);
+			$typeArgs = $this->join(array_slice($def, $j, $end - $j + 1));
+			$i = $end;
+		}
+		if(preg_match('/INT$/', $typeWord) || in_array($typeWord, ['ENUM', 'SET', 'FLOAT', 'DOUBLE', 'REAL', 'BOOL', 'BOOLEAN', 'YEAR'])) {
+			$typeArgs = ''; // display widths and enum values do not carry over
+		}
+		$pgType = $this->mapType($typeWord, $typeArgs);
+		$isText = (bool) preg_match('/CHAR|TEXT|ENUM|SET|JSON/', $typeWord);
+
+		for($x = $i + 1; $x < $n; $x++) {
+			$t = $def[$x];
+			if($t[0] === 'ws') continue;
+			$w = $t[0] === 'word' ? strtoupper($t[1]) : '';
+
+			if($w === 'UNSIGNED' || $w === 'SIGNED' || $w === 'ZEROFILL') {
+				continue;
+			} else if($w === 'AUTO_INCREMENT') {
+				$autoIncrement = true;
+			} else if($w === 'PRIMARY') {
+				$primary = true;
+				$x = $this->next($def, $x + 1); // KEY
+			} else if($w === 'UNIQUE') {
+				$unique = true;
+				$y = $this->next($def, $x + 1);
+				if($y > -1 && $this->isWord($def[$y], 'KEY')) $x = $y;
+			} else if($w === 'CHARACTER' || $w === 'CHARSET' || $w === 'COLLATE') {
+				// CHARACTER SET x, CHARSET x, COLLATE x
+				$y = $this->next($def, $x + 1);
+				if($w === 'CHARACTER') $y = $this->next($def, $y + 1);
+				$x = $y;
+			} else if($w === 'COMMENT') {
+				$x = $this->next($def, $x + 1);
+			} else if($w === 'ON') {
+				// ON UPDATE CURRENT_TIMESTAMP[()]: no PostgreSQL equivalent without a trigger, ignored
+				$y = $this->next($def, $x + 1); // UPDATE
+				$z = $y > -1 ? $this->next($def, $y + 1) : -1; // CURRENT_TIMESTAMP
+				if($z === -1) break;
+				$p = $this->next($def, $z + 1);
+				if($p > -1 && $def[$p][1] === '(') $z = $this->matchParen($def, $p);
+				$x = $z;
+			} else if($w === 'DEFAULT') {
+				$y = $this->next($def, $x + 1);
+				$v = $def[$y];
+				if($this->isWord($v, ['CURRENT_TIMESTAMP', 'NOW', 'LOCALTIME', 'LOCALTIMESTAMP'])) {
+					$z = $this->next($def, $y + 1);
+					if($z > -1 && $def[$z][1] === '(') $y = $this->matchParen($def, $z);
+					$default = 'CURRENT_TIMESTAMP';
+				} else if($v[1] === '(') {
+					$end = $this->matchParen($def, $y);
+					$default = $this->join(array_slice($def, $y, $end - $y + 1));
+					$y = $end;
+				} else if($v[0] === 'punct' && $v[1] === '-') {
+					$z = $this->next($def, $y + 1);
+					$default = '-' . $def[$z][1];
+					$y = $z;
+				} else {
+					$default = $this->join([$v]);
+				}
+				$x = $y;
+			} else if($w === 'NOT') {
+				$x = $this->next($def, $x + 1); // NULL
+				$nullSpec = 'NOT NULL';
+			} else if($w === 'NULL') {
+				$nullSpec = 'NULL';
+			} else if($w === 'AFTER' || $w === 'FIRST') {
+				if($w === 'AFTER') $x = $this->next($def, $x + 1);
+			}
+		}
+
+		$sql = $pgType;
+		if($autoIncrement) $sql .= ' GENERATED BY DEFAULT AS IDENTITY';
+		if($nullSpec === 'NOT NULL') $sql .= ' NOT NULL';
+		if($default !== null) $sql .= " DEFAULT $default";
+		if($unique) $sql .= ' UNIQUE';
+
+		return [
+			'name' => $name,
+			'sql' => $sql,
+			'pgType' => $pgType,
+			'isText' => $isText,
+			'autoIncrement' => $autoIncrement,
+			'primary' => $primary,
+			'nullSpec' => $nullSpec,
+			'default' => $default,
+		];
+	}
+
+	/**
+	 * Get column names and prefix lengths from an index definition: KEY name (a, b(10))
+	 *
+	 * @param array $def Tokens
+	 * @return array [ column names, prefix lengths indexed like the names ]
+	 *
+	 */
+	protected function indexColumns(array $def) {
+		$open = -1;
+		foreach($def as $k => $t) {
+			if($t[0] === 'punct' && $t[1] === '(') { $open = $k; break; }
+		}
+		if($open < 0) return [[], []];
+		$close = $this->matchParen($def, $open);
+		$cols = [];
+		$lens = [];
+		foreach($this->splitCommas(array_slice($def, $open + 1, $close - $open - 1)) as $part) {
+			$part = $this->trimTokens($part);
+			if(!count($part)) continue;
+			$n = count($cols);
+			$cols[] = $this->name($part[0]);
+			if(isset($part[1]) && $part[1][1] === '(' && isset($part[2]) && $part[2][0] === 'num') $lens[$n] = (int) $part[2][1];
+		}
+		return [$cols, $lens];
+	}
+
+	/**
+	 * Get index name from index definition (or null if not named)
+	 *
+	 * @param array $def
+	 * @return string|null
+	 *
+	 */
+	protected function indexDefName(array $def) {
+		foreach($def as $t) {
+			if($t[0] === 'ws') continue;
+			if($t[0] === 'punct') return null;
+			if($t[0] === 'id') return $t[1];
+			if($t[0] === 'word' && !$this->isWord($t, ['KEY', 'INDEX', 'UNIQUE', 'FULLTEXT', 'SPATIAL', 'ADD', 'CONSTRAINT'])) return $t[1];
+		}
+		return null;
+	}
+
+	/**
+	 * Get CREATE INDEX statement from a MySQL index definition, or blank string to skip it
+	 *
+	 * @param string $table
+	 * @param array $def Tokens of the definition (KEY name (cols), UNIQUE KEY ..., FULLTEXT KEY ...)
+	 * @param array $columnTypes Column info as from columnDef() or getColumnTypes(), indexed by column name
+	 * @param bool $ifNotExists
+	 * @return string
+	 *
+	 */
+	protected function indexDef($table, array $def, array $columnTypes, $ifNotExists = false) {
+		$unique = false;
+		$fulltext = false;
+		foreach($def as $t) {
+			if($this->isWord($t, 'UNIQUE')) $unique = true;
+			if($this->isWord($t, ['FULLTEXT', 'SPATIAL'])) $fulltext = true;
+			if($t[0] === 'punct') break;
+		}
+		list($cols, $lens) = $this->indexColumns($def);
+		if(!count($cols)) return '';
+		$name = $this->indexDefName($def);
+		if($name === null) $name = $cols[0];
+		return $this->createIndexSql($table, $name, $cols, $lens, $unique, $fulltext, $ifNotExists, $columnTypes);
+	}
+
+	/**
+	 * Get CREATE INDEX statement, or blank string when the index cannot be created
+	 *
+	 * @param string $table
+	 * @param string $name Index name without table prefix
+	 * @param array $cols
+	 * @param array $prefixLens MySQL prefix lengths indexed like $cols
+	 * @param bool $unique
+	 * @param bool $fulltext
+	 * @param bool $ifNotExists
+	 * @param array $columnTypes
+	 * @return string
+	 *
+	 */
+	protected function createIndexSql($table, $name, array $cols, array $prefixLens, $unique, $fulltext, $ifNotExists, array $columnTypes) {
+		if($fulltext && !$this->trigramAvailable) return '';
+		$parts = [];
+		foreach($cols as $n => $col) {
+			$q = $this->quoteId($col);
+			// a prefix on an unbounded text column becomes an expression index, since btree entries are limited in size
+			$isText = isset($columnTypes[$col]) && $columnTypes[$col]['isText'] && strpos($columnTypes[$col]['pgType'], 'text') === 0;
+			$parts[] = isset($prefixLens[$n]) && $isText ? "left($q, $prefixLens[$n])" : $q;
+		}
+		$sql = 'CREATE ' . ($unique ? 'UNIQUE ' : '') . 'INDEX ' . ($ifNotExists ? 'IF NOT EXISTS ' : '') .
+			$this->quoteId($this->indexName($table, $name)) . ' ON ' . $this->quoteId($table);
+		if($fulltext) {
+			// FULLTEXT has no equivalent here; a trigram index accelerates the ILIKE fallback (requires pg_trgm)
+			$gin = [];
+			foreach($cols as $col) $gin[] = $this->quoteId($col) . ' gin_trgm_ops';
+			return $sql . ' USING gin (' . implode(', ', $gin) . ')';
+		}
+		return $sql . ' (' . implode(', ', $parts) . ')';
+	}
+
+	/**
+	 * CREATE TABLE
+	 *
+	 * @param array $tokens
+	 * @return string|array Array when there are indexes (CREATE TABLE followed by CREATE INDEX statements)
+	 *
+	 */
+	protected function createTable(array $tokens) {
+
+		$open = -1;
+		$ifNotExists = false;
+		$temporary = false;
+		$table = '';
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct' && $t[1] === '(') { $open = $i; break; }
+			if($this->isWord($t, 'TEMPORARY')) $temporary = true;
+			if($this->isWord($t, 'EXISTS')) $ifNotExists = true;
+			if($t[0] === 'id' || ($t[0] === 'word' && !$this->isWord($t, ['CREATE', 'TABLE', 'TEMPORARY', 'IF', 'NOT', 'EXISTS']))) {
+				$table = $this->name($t);
+			}
+		}
+
+		if($open < 0) {
+			// CREATE TABLE x LIKE y, CREATE TABLE x AS SELECT ...: pass through with expression translation
+			return $this->join($this->expressions($tokens));
+		}
+
+		$close = $this->matchParen($tokens, $open);
+		$defs = $this->splitCommas(array_slice($tokens, $open + 1, $close - $open - 1));
+
+		$columns = [];
+		$constraints = [];
+		$indexDefs = [];
+		$primaryCols = [];
+
+		foreach($defs as $def) {
+			$def = $this->trimTokens($def);
+			if(!count($def)) continue;
+			$first = $def[0];
+			if($this->isWord($first, 'PRIMARY')) {
+				list($primaryCols) = $this->indexColumns($def);
+			} else if($this->isWord($first, ['KEY', 'INDEX', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
+				$indexDefs[] = $def;
+			} else if($this->isWord($first, ['CONSTRAINT', 'FOREIGN', 'CHECK'])) {
+				$constraints[] = $this->join($this->expressions($def));
+			} else {
+				$col = $this->columnDef($def);
+				if($col['primary']) $primaryCols = [$col['name']];
+				$columns[$col['name']] = $col;
+			}
+		}
+
+		$lines = [];
+		foreach($columns as $name => $col) $lines[] = $this->quoteId($name) . ' ' . $col['sql'];
+		if(count($primaryCols)) $lines[] = 'PRIMARY KEY (' . implode(', ', array_map([$this, 'quoteId'], $primaryCols)) . ')';
+		foreach($constraints as $c) $lines[] = $c;
+
+		$statements = [
+			'CREATE ' . ($temporary ? 'TEMPORARY ' : '') . 'TABLE ' . ($ifNotExists ? 'IF NOT EXISTS ' : '') .
+			$this->quoteId($table) . " (\n  " . implode(",\n  ", $lines) . "\n)"
+		];
+
+		foreach($indexDefs as $def) {
+			$sql = $this->indexDef($table, $def, $columns, $ifNotExists);
+			if($sql !== '') $statements[] = $sql;
+		}
+
+		$this->clearSchemaCache($table);
+
+		return $statements;
+	}
+
+	/**
+	 * CREATE [UNIQUE|FULLTEXT] INDEX name ON table (cols)
+	 *
+	 * @param array $tokens
+	 * @return string
+	 *
+	 */
+	protected function createIndex(array $tokens) {
+		$onPos = -1;
+		foreach($tokens as $x => $t) {
+			if($this->isWord($t, 'ON')) { $onPos = $x; break; }
+		}
+		if($onPos < 0) return $this->join($this->expressions($tokens));
+		$ifNotExists = $this->hasTopLevelWord(array_slice($tokens, 0, $onPos), 'EXISTS');
+		$def = array_values(array_filter(array_slice($tokens, 0, $onPos), function($t) {
+			return !($t[0] === 'word' && in_array(strtoupper($t[1]), ['CREATE', 'IF', 'NOT', 'EXISTS']));
+		}));
+		$i = $this->next($tokens, $onPos + 1);
+		$table = $this->name($tokens[$i]);
+		foreach(array_slice($tokens, $i + 1) as $t) $def[] = $t;
+		$sql = $this->indexDef($table, $def, $this->getColumnTypes($table), $ifNotExists);
+		return $sql === '' ? 'SELECT 1' : $sql;
+	}
+
+	/**
+	 * DROP INDEX name ON table
+	 *
+	 * @param array $tokens
+	 * @return string
+	 *
+	 */
+	protected function dropIndex(array $tokens) {
+		$i = $this->next($tokens, $this->next($tokens, $this->next($tokens, 0) + 1) + 1);
+		$index = $this->name($tokens[$i]);
+		$j = $this->next($tokens, $i + 1); // ON
+		$k = $j > -1 ? $this->next($tokens, $j + 1) : -1;
+		if($k < 0) return 'DROP INDEX IF EXISTS ' . $this->quoteId($index);
+		$table = $this->name($tokens[$k]);
+		return 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index));
+	}
+
+	/**
+	 * TRUNCATE [TABLE] t
+	 *
+	 * @param array $tokens
+	 * @return string
+	 *
+	 */
+	protected function truncate(array $tokens) {
+		$i = $this->next($tokens, $this->next($tokens, 0) + 1);
+		if($this->isWord($tokens[$i], 'TABLE')) $i = $this->next($tokens, $i + 1);
+		$table = $this->name($tokens[$i]);
+		return 'TRUNCATE TABLE ' . $this->quoteId($table) . ' RESTART IDENTITY';
+	}
+
+	/**
+	 * RENAME TABLE a TO b [, c TO d ...]
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function renameTable(array $tokens) {
+		$i = $this->next($tokens, $this->next($tokens, 0) + 1); // TABLE
+		$statements = [];
+		foreach($this->splitCommas(array_slice($tokens, $i + 1)) as $pair) {
+			$pair = array_values(array_filter($pair, function($t) { return $t[0] !== 'ws'; }));
+			if(count($pair) !== 3 || !$this->isWord($pair[1], 'TO')) {
+				throw new \PDOException('PostgreSQL translator: unsupported RENAME TABLE syntax');
+			}
+			foreach($this->renameTableStatements($this->name($pair[0]), $this->name($pair[2])) as $sql) $statements[] = $sql;
+		}
+		return $statements;
+	}
+
+	/**
+	 * Get statements to rename a table, including its table-prefixed index and primary key names
+	 *
+	 * Index and constraint names are per schema in PostgreSQL and are not renamed with the table,
+	 * so the ones this translator named after the table are renamed too (requires a PDO connection).
+	 *
+	 * @param string $from
+	 * @param string $to
+	 * @return array
+	 *
+	 */
+	protected function renameTableStatements($from, $to) {
+		$statements = ['ALTER TABLE ' . $this->quoteId($from) . ' RENAME TO ' . $this->quoteId($to)];
+		foreach($this->getIndexes($from) as $index) {
+			if($index['primary']) {
+				if($index['pgName'] === "{$from}_pkey") {
+					$statements[] = 'ALTER TABLE ' . $this->quoteId($to) . ' RENAME CONSTRAINT ' . $this->quoteId("{$from}_pkey") . ' TO ' . $this->quoteId("{$to}_pkey");
+				}
+			} else if($index['name'] !== null) {
+				$statements[] = 'ALTER INDEX ' . $this->quoteId($index['pgName']) . ' RENAME TO ' . $this->quoteId($this->indexName($to, $index['name']));
+			}
+		}
+		$this->clearSchemaCache($from);
+		$this->clearSchemaCache($to);
+		return $statements;
+	}
+
+	/**
+	 * Get column SQL suitable for ALTER TABLE ADD COLUMN
+	 *
+	 * A NOT NULL column added to a table with rows needs a default; MySQL supplies an implicit one.
+	 *
+	 * @param array $col
+	 * @return string
+	 *
+	 */
+	protected function addColumnSql(array $col) {
+		$sql = $col['sql'];
+		if($col['nullSpec'] === 'NOT NULL' && $col['default'] === null) {
+			$sql .= preg_match('/int|numeric|real|double/', $col['pgType']) ? ' DEFAULT 0' : " DEFAULT ''";
+		}
+		return $sql;
+	}
+
+	/**
+	 * ALTER TABLE
+	 *
+	 * @param array $tokens
+	 * @return string|array
+	 *
+	 */
+	protected function alterTable(array $tokens) {
+
+		$i = $this->next($tokens, $this->next($tokens, 0) + 1); // TABLE
+		$i = $this->next($tokens, $i + 1);
+		$table = $this->name($tokens[$i]);
+		$qTable = $this->quoteId($table);
+		$specs = $this->splitCommas(array_slice($tokens, $i + 1));
+		$statements = [];
+		$renameTo = '';
+		$columnTypes = null; // loaded on demand
+
+		foreach($specs as $spec) {
+			$spec = $this->trimTokens($spec);
+			if(!count($spec)) continue;
+			$w = strtoupper($spec[0][1]);
+			$rest = array_slice($spec, 1);
+			$j = $this->next($rest, 0);
+			$w2 = $j > -1 && $rest[$j][0] === 'word' ? strtoupper($rest[$j][1]) : '';
+
+			if($w === 'ADD') {
+				if(in_array($w2, ['INDEX', 'KEY', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
+					if($columnTypes === null) $columnTypes = $this->getColumnTypes($table);
+					$sql = $this->indexDef($table, $rest, $columnTypes);
+					if($sql !== '') $statements[] = $sql;
+				} else if($w2 === 'PRIMARY') {
+					list($cols) = $this->indexColumns($rest);
+					$statements[] = "ALTER TABLE $qTable ADD PRIMARY KEY (" . implode(', ', array_map([$this, 'quoteId'], $cols)) . ')';
+				} else if($w2 === 'CONSTRAINT') {
+					throw new \PDOException("PostgreSQL translator: unsupported ALTER TABLE for $table: " . $this->join($spec));
+				} else {
+					if($w2 === 'COLUMN') $rest = array_slice($rest, $j + 1);
+					$rest = $this->trimTokens($rest);
+					$colDefs = [$rest];
+					if(count($rest) && $rest[0][1] === '(') {
+						$end = $this->matchParen($rest, 0);
+						$colDefs = $this->splitCommas(array_slice($rest, 1, $end - 1));
+					}
+					foreach($colDefs as $colDef) {
+						$col = $this->columnDef($this->trimTokens($colDef));
+						$statements[] = "ALTER TABLE $qTable ADD COLUMN " . $this->quoteId($col['name']) . ' ' . $this->addColumnSql($col);
+					}
+				}
+
+			} else if($w === 'DROP') {
+				if($w2 === 'INDEX' || $w2 === 'KEY') {
+					$k = $this->next($rest, $j + 1);
+					$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $this->name($rest[$k])));
+				} else if($w2 === 'PRIMARY') {
+					$statements[] = "ALTER TABLE $qTable DROP CONSTRAINT IF EXISTS " . $this->quoteId("{$table}_pkey");
+				} else {
+					if($w2 === 'COLUMN') $j = $this->next($rest, $j + 1);
+					$statements[] = "ALTER TABLE $qTable DROP COLUMN " . $this->quoteId($this->name($rest[$j]));
+				}
+
+			} else if($w === 'RENAME') {
+				if($w2 === 'COLUMN') {
+					$parts = array_values(array_filter(array_slice($rest, $j + 1), function($t) { return $t[0] !== 'ws'; }));
+					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($this->name($parts[0])) . ' TO ' . $this->quoteId($this->name($parts[2]));
+				} else if($w2 === 'INDEX' || $w2 === 'KEY') {
+					$parts = array_values(array_filter(array_slice($rest, $j + 1), function($t) { return $t[0] !== 'ws'; }));
+					$statements[] = 'ALTER INDEX ' . $this->quoteId($this->indexName($table, $this->name($parts[0]))) . ' RENAME TO ' . $this->quoteId($this->indexName($table, $this->name($parts[2])));
+				} else {
+					if($w2 === 'TO' || $w2 === 'AS') $j = $this->next($rest, $j + 1);
+					$renameTo = $this->name($rest[$j]);
+				}
+
+			} else if($w === 'MODIFY' || $w === 'CHANGE') {
+				if($w2 === 'COLUMN') $rest = array_slice($rest, $j + 1);
+				$rest = $this->trimTokens($rest);
+				$oldName = $this->name($rest[0]);
+				if($w === 'CHANGE') $rest = $this->trimTokens(array_slice($rest, 1));
+				$col = $this->columnDef($rest);
+				if($col['name'] !== $oldName) {
+					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($oldName) . ' TO ' . $this->quoteId($col['name']);
+				}
+				$qCol = $this->quoteId($col['name']);
+				$actions = ["ALTER COLUMN $qCol TYPE $col[pgType]"];
+				if($col['nullSpec'] === 'NOT NULL') $actions[] = "ALTER COLUMN $qCol SET NOT NULL";
+				if($col['nullSpec'] === 'NULL') $actions[] = "ALTER COLUMN $qCol DROP NOT NULL";
+				if($col['default'] !== null) $actions[] = "ALTER COLUMN $qCol SET DEFAULT $col[default]";
+				$statements[] = "ALTER TABLE $qTable " . implode(', ', $actions);
+
+			} else if(in_array($w, ['ENGINE', 'DEFAULT', 'CHARACTER', 'CHARSET', 'COLLATE', 'CONVERT', 'AUTO_INCREMENT', 'COMMENT', 'ORDER', 'ALGORITHM', 'LOCK'])) {
+				// table options: no PostgreSQL equivalent
+				continue;
+
+			} else {
+				throw new \PDOException("PostgreSQL translator: unsupported ALTER TABLE for $table: " . $this->join($spec));
+			}
+		}
+
+		if($renameTo !== '') {
+			foreach($this->renameTableStatements($table, $renameTo) as $sql) $statements[] = $sql;
+		}
+
+		$this->clearSchemaCache($table);
+
+		if(!count($statements)) return 'SELECT 1';
+
+		return $statements;
 	}
 }
