@@ -200,12 +200,16 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('UNIX_TIMESTAMP() becomes extract epoch from now()', 'SELECT (extract(epoch from now()))::bigint', $t('SELECT UNIX_TIMESTAMP()'));
 		$this->check('FROM_UNIXTIME(x) becomes to_timestamp', 'SELECT to_timestamp(:ts)::timestamp', $t('SELECT FROM_UNIXTIME(:ts)'));
 		$this->check('IF(a,b,c) becomes CASE', 'SELECT (CASE WHEN a>1 THEN 1 ELSE 2 END)', $t('SELECT IF(a>1, 1, 2)'));
+		$this->check('IF() with an integer condition gets a boolean test (bit test, constant)', 'SELECT (CASE WHEN (status & 1) <> 0 THEN 1 ELSE 2 END), (CASE WHEN true THEN 1 ELSE 2 END) FROM pages', $t('SELECT IF(status & 1, 1, 2), IF(1, 1, 2) FROM pages'));
+		$this->check('LOCATE(sub, str[, pos]) becomes position()/strpos()', "SELECT position('b' in 'abc'), (CASE WHEN strpos(substring('abcb' from 3), 'b') = 0 THEN 0 ELSE strpos(substring('abcb' from 3), 'b') + 3 - 1 END)", $t("SELECT LOCATE('b', 'abc'), LOCATE('b', 'abcb', 3)"));
+		$this->check('SUBSTRING_INDEX(str, delim, count) becomes an array slice', "SELECT array_to_string((string_to_array('a.b.c', '.'))[1:2], '.'), array_to_string((string_to_array('a.b.c', '.'))[cardinality(string_to_array('a.b.c', '.')) - 1 + 1:], '.')", $t("SELECT SUBSTRING_INDEX('a.b.c', '.', 2), SUBSTRING_INDEX('a.b.c', '.', -1)"));
 		$this->check('IFNULL becomes COALESCE', 'SELECT COALESCE(a, 0)', $t('SELECT IFNULL(a, 0)'));
 		$this->check('FIELD() becomes array_position with 0 for absent', 'SELECT id FROM pages ORDER BY COALESCE(array_position(ARRAY[3,1,2], pages.id), 0)', $t('SELECT id FROM pages ORDER BY FIELD(pages.id, 3,1,2)'));
 		$this->check('RAND() becomes random()', 'SELECT id FROM pages ORDER BY random()', $t('SELECT id FROM pages ORDER BY RAND()'));
 		$this->check('GROUP_CONCAT with ORDER BY and SEPARATOR becomes string_agg', 'SELECT string_agg(t.data::text, \'|\' ORDER BY t.sort) AS "x" FROM t', $t("SELECT GROUP_CONCAT(t.data ORDER BY t.sort SEPARATOR '|') AS `x` FROM t"));
 		$this->check('GROUP_CONCAT default separator is comma', "SELECT string_agg(t.data::text, ',') FROM t", $t('SELECT GROUP_CONCAT(t.data) FROM t'));
 		$this->check('GROUP_CONCAT DISTINCT', "SELECT string_agg(DISTINCT t.data::text, ',') FROM t", $t('SELECT GROUP_CONCAT(DISTINCT t.data) FROM t'));
+		$this->check('GROUP_CONCAT DISTINCT with ORDER BY on the same expression orders by the cast expression (PostgreSQL requires it in the argument list)', "SELECT string_agg(DISTINCT t.data::text, '|' ORDER BY t.data::text DESC) FROM t", $t("SELECT GROUP_CONCAT(DISTINCT t.data ORDER BY t.data DESC SEPARATOR '|') FROM t"));
 		$this->check('CAST AS SIGNED becomes bigint', 'SELECT CAST(x AS bigint)', $t('SELECT CAST(x AS SIGNED)'));
 		$this->check('CAST AS UNSIGNED becomes bigint', 'SELECT CAST(x AS bigint)', $t('SELECT CAST(x AS UNSIGNED INTEGER)'));
 		$this->check('CAST AS CHAR becomes text', 'SELECT CAST(x AS text)', $t('SELECT CAST(x AS CHAR)'));
@@ -288,6 +292,12 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('table without alias resolves its own name',
 			'SELECT id FROM field_int WHERE field_int.data!=0',
 			$t("SELECT id FROM field_int WHERE field_int.data!=''"));
+		$this->check('unqualified columns are typed when the statement has one table (SELECT, UPDATE, DELETE)',
+			["SELECT pages_id FROM field_int WHERE data=0 OR (data)::text ILIKE :p", "UPDATE field_int SET data=0 WHERE pages_id=" . $num(':id'), "DELETE FROM field_int WHERE data=0"],
+			[$t("SELECT pages_id FROM field_int WHERE data='' OR data LIKE :p"), $t("UPDATE field_int SET data='' WHERE pages_id=:id"), $t("DELETE FROM field_int WHERE data='Red'")]);
+		$this->check('unqualified columns are left alone when the statement joins several tables',
+			"SELECT f.pages_id FROM field_int AS f JOIN field_text AS t ON t.pages_id=f.pages_id WHERE data=''",
+			$t("SELECT f.pages_id FROM field_int AS f JOIN field_text AS t ON t.pages_id=f.pages_id WHERE data=''"));
 		$this->check('INSERT SET id=null into an identity column becomes DEFAULT without setval',
 			'INSERT INTO unique_num (id) VALUES (DEFAULT)',
 			$t('INSERT INTO unique_num SET id=null'));
