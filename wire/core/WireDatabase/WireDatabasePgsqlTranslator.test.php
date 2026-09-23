@@ -20,6 +20,67 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testLiteralsAndIdentifiers();
 		$this->testExpressions();
 		$this->testDdl();
+		$this->testDml();
+		$this->testShow();
+	}
+
+	protected function testDml() {
+		$t = function($sql) { return $this->translator->translateStatements($sql); };
+		// pretend schema for the schema-aware parts (no server needed)
+		$this->translator->setSchemaCache([
+			'caches' => ['primary' => ['name'], 'identity' => null],
+			'modules' => ['primary' => ['id'], 'identity' => 'id'],
+			'pages' => ['primary' => ['id'], 'identity' => 'id'],
+			'field_title' => ['primary' => ['pages_id'], 'identity' => null],
+		]);
+
+		$this->check('INSERT SET becomes column/value lists', 'INSERT INTO modules (class, data) VALUES (:name, :data)', $t('INSERT INTO modules SET class=:name, data=:data')[0]);
+		$this->check('INSERT IGNORE becomes ON CONFLICT DO NOTHING', "INSERT INTO t (a) VALUES (1) ON CONFLICT DO NOTHING", $t('INSERT IGNORE INTO t (a) VALUES (1)')[0]);
+		$this->check('ON DUPLICATE KEY UPDATE uses the primary key as conflict target',
+			'INSERT INTO caches ("name", "data", "expires") VALUES (:name, :data, :expires) ON CONFLICT ("name") DO UPDATE SET "data"=excluded."data", "expires"=excluded."expires"',
+			$t('INSERT INTO caches (`name`, `data`, `expires`) VALUES (:name, :data, :expires) ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `expires`=VALUES(`expires`)')[0]);
+		$this->check('ON DUPLICATE KEY UPDATE with expression qualifies bare columns', 'INSERT INTO caches (name, hits) VALUES (:n, 1) ON CONFLICT ("name") DO UPDATE SET hits=caches.hits+1', $t('INSERT INTO caches (name, hits) VALUES (:n, 1) ON DUPLICATE KEY UPDATE hits=hits+1')[0]);
+		$this->check('ON DUPLICATE KEY UPDATE without known key throws', true, $this->throwsMatching(function() use($t) { $t('INSERT INTO unknown_table (a) VALUES (1) ON DUPLICATE KEY UPDATE a=VALUES(a)'); }, '/conflict target/'));
+		$this->check('REPLACE INTO becomes upsert of all non-key columns', 'INSERT INTO caches (name, data) VALUES (:n, :d) ON CONFLICT ("name") DO UPDATE SET data=excluded.data', $t('REPLACE INTO caches (name, data) VALUES (:n, :d)')[0]);
+		$statements = $t("INSERT INTO `pages` (`id`, `parent_id`, `name`) VALUES('1', '0', 'home')");
+		$this->check('explicit id into identity table adds setval statement', 2, count($statements));
+		$this->check('setval statement', "SELECT setval(pg_get_serial_sequence('\"pages\"', 'id'), GREATEST((SELECT MAX(\"id\") FROM \"pages\"), 1))", $statements[1]);
+		$this->check('insert without id has no setval', 1, count($t('INSERT INTO pages (parent_id, name) VALUES (1, :n)')));
+		$this->check('native ON CONFLICT (dialect upsert output) passes through unchanged',
+			'INSERT INTO "t" ("pages_id", "data") VALUES (:pages_id, :data) ON CONFLICT ("pages_id") DO UPDATE SET "data"=excluded."data"',
+			$t('INSERT INTO "t" ("pages_id", "data") VALUES (:pages_id, :data) ON CONFLICT ("pages_id") DO UPDATE SET "data"=excluded."data"')[0]);
+		$this->check('INSERT SELECT ON DUPLICATE', 'INSERT INTO caches (name, data) SELECT name, data FROM other ON CONFLICT ("name") DO UPDATE SET data=excluded.data', $t('INSERT INTO caches (name, data) SELECT name, data FROM other ON DUPLICATE KEY UPDATE data=VALUES(data)')[0]);
+
+		$this->check('DELETE LIMIT 1 becomes ctid subquery', 'DELETE FROM modules WHERE ctid IN (SELECT ctid FROM modules WHERE id=:id LIMIT 1)', $t('DELETE FROM modules WHERE id=:id LIMIT 1')[0]);
+		$this->check('DELETE ORDER BY LIMIT', 'DELETE FROM t WHERE ctid IN (SELECT ctid FROM t WHERE a=1 ORDER BY b LIMIT 2)', $t('DELETE FROM t WHERE a=1 ORDER BY b LIMIT 2')[0]);
+		$this->check('multi-table DELETE becomes USING', 'DELETE FROM "field_title" USING pages WHERE pages.id=field_title.pages_id AND pages.status=1', $t('DELETE field_title FROM field_title JOIN pages ON pages.id=field_title.pages_id WHERE pages.status=1')[0]);
+		$this->check('UPDATE ORDER BY LIMIT becomes ctid subquery', 'UPDATE t SET a=1 WHERE ctid IN (SELECT ctid FROM t WHERE b=2 ORDER BY c DESC LIMIT 1)', $t('UPDATE t SET a=1 WHERE b=2 ORDER BY c DESC LIMIT 1')[0]);
+		$this->check('UPDATE ORDER BY without LIMIT drops ORDER BY', 'UPDATE t SET a=a+1 WHERE b=2', $t('UPDATE t SET a=a+1 WHERE b=2 ORDER BY a DESC')[0]);
+		$this->check('UPDATE LIMIT without ORDER BY', 'UPDATE t SET a=1 WHERE ctid IN (SELECT ctid FROM t WHERE b=2 LIMIT 1)', $t('UPDATE t SET a=1 WHERE b=2 LIMIT 1')[0]);
+
+		$this->check('SET NAMES is a no-op', 'SELECT 1', $t("SET NAMES 'utf8'")[0]);
+		$this->check('SET FOREIGN_KEY_CHECKS is a no-op', 'SELECT 1', $t('SET FOREIGN_KEY_CHECKS=0')[0]);
+		$this->check('LOCK TABLES is a no-op', 'SELECT 1', $t('LOCK TABLES t WRITE')[0]);
+		$this->check('UNLOCK TABLES is a no-op', 'SELECT 1', $t('UNLOCK TABLES')[0]);
+		$this->check('OPTIMIZE is a no-op', 'SELECT 1', $t('OPTIMIZE TABLE t')[0]);
+		$this->check('DO expr becomes SELECT', 'SELECT 1', $t('DO 1')[0]);
+	}
+
+	protected function testShow() {
+		$t = function($sql) { return $this->translator->translateStatements($sql)[0]; };
+		$this->check('SHOW TABLES', "SELECT table_name AS \"Tables_in_db\" FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE' ORDER BY table_name", $t('SHOW TABLES'));
+		$this->check('SHOW TABLES LIKE', "SELECT table_name AS \"Tables_in_db\" FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE' AND table_name ILIKE 'field\\_%' ORDER BY table_name", $t("SHOW TABLES LIKE 'field\\_%'"));
+		$columns = $t('SHOW COLUMNS FROM pages');
+		$this->check('SHOW COLUMNS has MySQL column names', true, strpos($columns, 'AS "Field"') !== false && strpos($columns, 'AS "Type"') !== false && strpos($columns, 'AS "Extra"') !== false);
+		$this->check('SHOW COLUMNS WHERE Field', true, strpos($t("SHOW COLUMNS FROM pages WHERE Field='id'"), "WHERE \"Field\"='id'") !== false);
+		$this->check('SHOW COLUMNS LIKE', true, strpos($t("SHOW COLUMNS FROM `pages` LIKE 'published'"), "\"Field\" ILIKE 'published'") !== false);
+		$this->check('DESCRIBE becomes SHOW COLUMNS', $columns, $t('DESCRIBE pages'));
+		$index = $t('SHOW INDEX FROM pages');
+		$this->check('SHOW INDEX has MySQL column names', true, strpos($index, 'AS "Key_name"') !== false && strpos($index, 'AS "Seq_in_index"') !== false);
+		$this->check('SHOW INDEX WHERE Key_name', true, strpos($t("SHOW INDEX FROM pages WHERE Key_name=:name"), 'WHERE "Key_name"=:name') !== false);
+		$this->check('SHOW TABLE STATUS', true, strpos($t("SHOW TABLE STATUS WHERE name='pages'"), "'PostgreSQL' AS \"Engine\"") !== false);
+		$this->check('SHOW VARIABLES returns empty result shape', "SELECT NULL AS \"Variable_name\", NULL AS \"Value\" WHERE false", $t("SHOW VARIABLES WHERE Variable_name='version'"));
+		$this->check('SHOW CREATE TABLE throws until supported', true, $this->throwsMatching(function() use($t) { $t('SHOW CREATE TABLE pages'); }, '/SHOW CREATE TABLE/'));
 	}
 
 	protected function testDdl() {
