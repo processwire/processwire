@@ -44,13 +44,17 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('REPLACE INTO becomes upsert of all non-key columns', 'INSERT INTO caches (name, data) VALUES (:n, :d) ON CONFLICT ("name") DO UPDATE SET data=excluded.data', $t('REPLACE INTO caches (name, data) VALUES (:n, :d)')[0]);
 		$statements = $t("INSERT INTO `pages` (`id`, `parent_id`, `name`) VALUES('1', '0', 'home')");
 		$this->check('explicit id into identity table adds setval statement', 2, count($statements));
-		$this->check('setval statement', "SELECT setval(pg_get_serial_sequence('\"pages\"', 'id'), GREATEST((SELECT MAX(\"id\") FROM \"pages\"), 1))", $statements[1]);
+		$setval = function($table, $col) { return "SELECT setval(s::regclass, GREATEST((SELECT MAX(\"$col\") FROM \"$table\"), pg_sequence_last_value(s::regclass), 1)) FROM pg_get_serial_sequence('\"$table\"', '$col') AS s"; };
+		$this->check('setval statement never moves the sequence backwards (after the highest rows were deleted)', $setval('pages', 'id'), $statements[1]);
 		$this->check('insert without id has no setval', 1, count($t('INSERT INTO pages (parent_id, name) VALUES (1, :n)')));
 		$this->check('native ON CONFLICT (dialect upsert output) passes through unchanged',
 			'INSERT INTO "t" ("pages_id", "data") VALUES (:pages_id, :data) ON CONFLICT ("pages_id") DO UPDATE SET "data"=excluded."data"',
 			$t('INSERT INTO "t" ("pages_id", "data") VALUES (:pages_id, :data) ON CONFLICT ("pages_id") DO UPDATE SET "data"=excluded."data"')[0]);
 		$native = "INSERT INTO \"t\" (\"id\", \"data\") VALUES (1, 'ends with \\'), (2, 'x') ON CONFLICT (\"id\") DO UPDATE SET \"data\"='z'";
 		$this->check('native upsert whose PostgreSQL literals end in a backslash still passes through', [$native], $t($native));
+		$native = 'INSERT INTO "pages" ("id", "name") VALUES (:id, :name) ON CONFLICT ("id") DO UPDATE SET "name"=excluded."name"';
+		$this->check('native upsert with an explicit identity value gets a setval follow-up', [$native, $setval('pages', 'id')], $t($native));
+		$this->check('native upsert without the identity column has no setval', 1, count($t('INSERT INTO "pages" ("parent_id", "name") VALUES (:p, :name) ON CONFLICT ("id") DO UPDATE SET "name"=excluded."name"')));
 		$this->check('INSERT SELECT ON DUPLICATE', 'INSERT INTO caches (name, data) SELECT name, data FROM other ON CONFLICT ("name") DO UPDATE SET data=excluded.data', $t('INSERT INTO caches (name, data) SELECT name, data FROM other ON DUPLICATE KEY UPDATE data=VALUES(data)')[0]);
 
 		$this->check('DELETE LIMIT 1 becomes ctid subquery', 'DELETE FROM modules WHERE ctid IN (SELECT ctid FROM modules WHERE id=:id LIMIT 1)', $t('DELETE FROM modules WHERE id=:id LIMIT 1')[0]);
@@ -202,6 +206,12 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('UNIX_TIMESTAMP() becomes extract epoch from now()', 'SELECT (extract(epoch from now()))::bigint', $t('SELECT UNIX_TIMESTAMP()'));
 		$this->check('FROM_UNIXTIME(x) becomes to_timestamp', 'SELECT to_timestamp(:ts)::timestamp', $t('SELECT FROM_UNIXTIME(:ts)'));
 		$this->check('IF(a,b,c) becomes CASE', 'SELECT (CASE WHEN a>1 THEN 1 ELSE 2 END)', $t('SELECT IF(a>1, 1, 2)'));
+		$this->check('BETWEEN 0 AND 1 keeps its numbers', 'SELECT id FROM t WHERE sort BETWEEN 0 AND 1 AND x=1', $t('SELECT id FROM t WHERE sort BETWEEN 0 AND 1 AND x=1'));
+		$this->check('simple CASE WHEN values stay values', "SELECT CASE status WHEN 1 THEN 'on' WHEN 0 THEN 'off' END FROM t WHERE true", $t("SELECT CASE status WHEN 1 THEN 'on' WHEN 0 THEN 'off' END FROM t WHERE 1"));
+		$this->check('searched CASE WHEN conditions are still made boolean', "SELECT CASE WHEN (status & 1) <> 0 THEN 'on' ELSE 'off' END FROM t", $t("SELECT CASE WHEN status & 1 THEN 'on' ELSE 'off' END FROM t"));
+		$this->check('conditions inside IN (SELECT ...) are made boolean', 'SELECT id FROM t WHERE id IN (SELECT pages_id FROM u WHERE ((data & 1) <> 0))', $t('SELECT id FROM t WHERE id IN (SELECT pages_id FROM u WHERE (data & 1))'));
+		$this->check('conditions inside EXISTS (SELECT ...) are made boolean', 'SELECT id FROM t WHERE EXISTS (SELECT 1 FROM u WHERE (u.status & 2) <> 0)', $t('SELECT id FROM t WHERE EXISTS (SELECT 1 FROM u WHERE u.status & 2)'));
+		$this->check('NOT on a bit test', 'SELECT id FROM t WHERE NOT ((status & 1024) <> 0)', $t('SELECT id FROM t WHERE NOT (status & 1024)'));
 		$this->check('IF() with an integer condition gets a boolean test (bit test, constant)', 'SELECT (CASE WHEN (status & 1) <> 0 THEN 1 ELSE 2 END), (CASE WHEN true THEN 1 ELSE 2 END) FROM pages', $t('SELECT IF(status & 1, 1, 2), IF(1, 1, 2) FROM pages'));
 		$this->check('LOCATE(sub, str[, pos]) becomes position()/strpos()', "SELECT position('b' in 'abc'), (CASE WHEN strpos(substring('abcb' from 3), 'b') = 0 THEN 0 ELSE strpos(substring('abcb' from 3), 'b') + 3 - 1 END)", $t("SELECT LOCATE('b', 'abc'), LOCATE('b', 'abcb', 3)"));
 		$this->check('SUBSTRING_INDEX(str, delim, count) becomes an array slice', "SELECT array_to_string((string_to_array('a.b.c', '.'))[1:2], '.'), array_to_string((string_to_array('a.b.c', '.'))[cardinality(string_to_array('a.b.c', '.')) - 1 + 1:], '.')", $t("SELECT SUBSTRING_INDEX('a.b.c', '.', 2), SUBSTRING_INDEX('a.b.c', '.', -1)"));
@@ -269,7 +279,10 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			'field_text' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'text']],
 			'unique_num' => ['primary' => ['id'], 'identity' => 'id', 'columns' => ['id' => 'bigint']],
 		]);
-		$num = function($p) { return "(CASE WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::numeric ELSE 0 END)"; };
+		// bound values are coerced to the column's own type family, so that an index on the column can be used, and NULL stays NULL
+		$num = function($p) { return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]' THEN substring(($p)::text from '-?[0-9]+')::bigint ELSE 0 END)"; };
+		$setval = function($table, $col) { return "SELECT setval(s::regclass, GREATEST((SELECT MAX(\"$col\") FROM \"$table\"), pg_sequence_last_value(s::regclass), 1)) FROM pg_get_serial_sequence('\"$table\"', '$col') AS s"; };
+		$numDec = function($p, $cast = 'numeric') { return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::$cast ELSE 0 END)"; };
 		$this->check('numeric column compared to empty string compares to 0',
 			"SELECT pages.id FROM pages LEFT JOIN field_dec AS f ON f.pages_id=pages.id WHERE (f.data IS NOT NULL AND (f.data!=0 AND f.data!='0')) GROUP BY pages.id",
 			$t("SELECT pages.id FROM pages LEFT JOIN field_dec AS f ON f.pages_id=pages.id WHERE (f.data IS NOT NULL AND (f.data!='' AND f.data!='0')) GROUP BY pages.id"));
@@ -300,6 +313,36 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('unqualified columns are left alone when the statement joins several tables',
 			"SELECT f.pages_id FROM field_int AS f JOIN field_text AS t ON t.pages_id=f.pages_id WHERE data=''",
 			$t("SELECT f.pages_id FROM field_int AS f JOIN field_text AS t ON t.pages_id=f.pages_id WHERE data=''"));
+		$this->check('numeric (decimal) column compared to a bound value casts to numeric',
+			'SELECT pages_id FROM field_dec WHERE data>' . $numDec(':v'),
+			$t('SELECT pages_id FROM field_dec WHERE data>:v'));
+		$this->check('positional ? parameters are not rewritten (the placeholder would be repeated)',
+			'SELECT pages_id FROM field_int WHERE data=? AND pages_id=?',
+			$t('SELECT pages_id FROM field_int WHERE data=? AND pages_id=?'));
+		$this->check('a subquery on another table is typed by its own table, not the outer one',
+			'SELECT pages_id FROM field_int WHERE pages_id IN (SELECT pages_id FROM field_text WHERE data=:v)',
+			$t('SELECT pages_id FROM field_int WHERE pages_id IN (SELECT pages_id FROM field_text WHERE data=:v)'));
+		$this->check('the subquery is still typed by its own table',
+			'SELECT pages_id FROM field_text WHERE pages_id IN (SELECT pages_id FROM field_int WHERE data=0)',
+			$t("SELECT pages_id FROM field_text WHERE pages_id IN (SELECT pages_id FROM field_int WHERE data='')"));
+		$this->check('DELETE ... LIMIT keeps boolean and typed conversions in its WHERE',
+			'DELETE FROM field_int WHERE ctid IN (SELECT ctid FROM field_int WHERE ((data & 1024) <> 0) AND data!=0 LIMIT 1)',
+			$t("DELETE FROM field_int WHERE (data & 1024) AND data!='' LIMIT 1"));
+		$this->check('UPDATE ... ORDER BY ... LIMIT keeps boolean conversions in its WHERE',
+			'UPDATE field_int SET data=1 WHERE ctid IN (SELECT ctid FROM field_int WHERE ((data & 1024) <> 0) ORDER BY pages_id LIMIT 5)',
+			$t('UPDATE field_int SET data=1 WHERE (data & 1024) ORDER BY pages_id LIMIT 5'));
+		$this->check('multi-table DELETE gets typed comparisons',
+			'DELETE FROM "field_int" AS "f" USING pages WHERE pages.id=f.pages_id AND f.data=0',
+			$t("DELETE f FROM field_int AS f JOIN pages ON pages.id=f.pages_id WHERE f.data=''"));
+		$this->check('mixed NULL and explicit identity values still get setval',
+			"INSERT INTO unique_num (id) VALUES (DEFAULT), (9);\n" . $setval('unique_num', 'id'),
+			$t('INSERT INTO unique_num (id) VALUES (NULL), (9)'));
+		$this->check('typed translation before the schema changes', "SELECT pages_id FROM field_int WHERE data=0", $t("SELECT pages_id FROM field_int WHERE data=''"));
+		$this->translator->setSchemaCache(['field_int' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'text']]]);
+		$this->check('changing the schema cache drops translations that depended on the old schema',
+			"SELECT pages_id FROM field_int WHERE data=''",
+			$t("SELECT pages_id FROM field_int WHERE data=''"));
+		$this->translator->setSchemaCache(['field_int' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'integer']]]);
 		$this->check('INSERT SET id=null into an identity column becomes DEFAULT without setval',
 			'INSERT INTO unique_num (id) VALUES (DEFAULT)',
 			$t('INSERT INTO unique_num SET id=null'));

@@ -1497,6 +1497,9 @@ $config->dbSqlModes = array(
  * - `schema` (string): PostgreSQL only. Schema to use (added to search_path). (default='' for public)
  * - `trigram` (bool): PostgreSQL only. Is the pg_trgm extension available? FULLTEXT indexes become
  *    trigram indexes when it is, and are skipped when it is not. (default=true)
+ * - `savepoints` (bool): PostgreSQL only. Wrap each statement inside a transaction in a savepoint, so
+ *    that a failed statement does not abort the transaction (as with MySQL)? Costs two extra round trips
+ *    per statement in a transaction, and a subtransaction for each that writes. (default=true)
  *
  * With PostgreSQL, values come back as pdo_pgsql returns them (integers as ints, everything else as
  * strings), which matches what pdo_mysql returns on PHP 8.1 and newer.

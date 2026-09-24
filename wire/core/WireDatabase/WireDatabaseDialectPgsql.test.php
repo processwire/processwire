@@ -80,9 +80,20 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('upsert() qualifies bare columns in update expressions',
 			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"="t"."qty"+1, "ts"=now()',
 			$dialect->upsert('t', ['id', 'qty'], ['qty' => 'qty+1', 'ts' => 'now()'], ['conflict' => ['id']]));
-		$this->check('upsert() leaves bound values and qualified names alone in expressions',
+		$this->check('upsert() leaves bound values alone and maps VALUES(col) in expressions',
 			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"=:qty2, "n"=excluded."qty"',
-			$dialect->upsert('t', ['id', 'qty'], ['qty' => ':qty2', 'n' => 'excluded."qty"'], ['conflict' => ['id']]));
+			$dialect->upsert('t', ['id', 'qty'], ['qty' => ':qty2', 'n' => 'VALUES(qty)'], ['conflict' => ['id']]));
+		// upsert() expressions are MySQL syntax like all other SQL, and its output is not translated afterwards,
+		// so the dialect translates them itself: MySQL-escaped literals (as from $database->quote()) must not break out
+		$this->check('upsert() converts MySQL-escaped literals in column expressions',
+			"INSERT INTO \"t\" (\"id\", \"name\") VALUES (:id, 'x'' OR 1=1 --') ON CONFLICT (\"id\") DO UPDATE SET \"name\"=excluded.\"name\"",
+			$dialect->upsert('t', ['id', 'name' => "'x\\' OR 1=1 --'"], ['name'], ['conflict' => ['id']]));
+		$this->check('upsert() does not qualify column names inside string literals',
+			"INSERT INTO \"t\" (\"id\", \"data\") VALUES (:id, :data) ON CONFLICT (\"id\") DO UPDATE SET \"data\"=CONCAT(\"t\".\"data\", ' more data')",
+			$dialect->upsert('t', ['id', 'data'], ['data' => "CONCAT(data, ' more data')"], ['conflict' => ['id']]));
+		$this->check('upsert() translates MySQL functions in update expressions',
+			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"=(CASE WHEN "t"."qty" > 0 THEN "t"."qty" ELSE 0 END), "n"=COALESCE("t"."n", 1)',
+			$dialect->upsert('t', ['id', 'qty'], ['qty' => 'IF(qty > 0, qty, 0)', 'n' => 'IFNULL(n, 1)'], ['conflict' => ['id']]));
 		// upsert() output skips translation, so rows values need PostgreSQL quoting, not $database->quote()'s MySQL-style escaping
 		$this->check('upsert() rows quote strings PostgreSQL-style (quotes doubled, backslashes literal, NUL dropped)',
 			"INSERT INTO \"t\" (\"id\", \"data\") VALUES (1, 'it''s \\ tricky\\'), (2, 'ab') ON CONFLICT (\"id\") DO UPDATE SET \"data\"=excluded.\"data\"",
@@ -228,6 +239,54 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$database->exec($database->dialect()->upsert($table, ['id', 'name', 'qty'], ['name'], ['conflict' => ['id'], 'rows' => $rows]));
 		$stored = $database->query("SELECT name FROM `$table` WHERE id >= 9000 ORDER BY id")->fetchAll(\PDO::FETCH_COLUMN);
 		$this->check('upsert() rows with quotes and backslashes store the exact strings (insert, then update)', $tricky, $stored);
+
+		// a MySQL-escaped literal in an upsert() expression is stored as the string it spells
+		$database->exec($database->dialect()->upsert($table, ['id' => '9003', 'name' => $database->quote("x' OR 1=1 --"), 'qty' => '5'], ['name'], ['conflict' => ['id']]));
+		$this->check('upsert() expression with quote() output stores the exact string', "x' OR 1=1 --", $database->query("SELECT name FROM `$table` WHERE id=9003")->fetchColumn());
+
+		// a NULL bound to a numeric comparison matches nothing (as in MySQL), not the rows holding 0
+		$q = $database->prepare("SELECT COUNT(*) FROM `$table` WHERE qty=:q");
+		$q->bindValue(':q', null, \PDO::PARAM_NULL);
+		$q->execute();
+		$this->check('NULL compared to a numeric column matches no rows', 0, (int) $q->fetchColumn());
+
+		// comparing an integer column to a bound value can still use its index
+		$database->pdo()->exec('SET enable_seqscan = off');
+		$q = $database->prepare("EXPLAIN SELECT id FROM `$table` WHERE id=:id");
+		$q->bindValue(':id', '9000');
+		$q->execute();
+		$plan = implode("\n", $q->fetchAll(\PDO::FETCH_COLUMN));
+		$database->pdo()->exec('SET enable_seqscan = on');
+		$this->check('integer column compared to a bound value uses the index', true, stripos($plan, 'Index Cond') !== false);
+
+		// the statement reports MySQL's error code, which WireDatabasePDO::execute() checks to repair missing columns
+		$q = $database->prepare("SELECT `$table`.nope FROM `$table`");
+		try { $q->execute(); } catch(\PDOException $e) { /* expected */ }
+		$info = $q->errorInfo();
+		$this->check('failed statement errorCode() is MySQL\'s', '42S22', $q->errorCode());
+		$this->check('failed statement errorInfo() has MySQL\'s error number and the table.column', true, $info[1] === 1054 && strpos((string) $info[2], "$table.nope") !== false);
+
+		// explicit ids in an upsert() with bound values move the sequence (a follow-up statement, not "multiple statements")
+		$q = $database->prepare($database->dialect()->upsert($table, ['id', 'name', 'qty'], ['name'], ['conflict' => ['id']]));
+		$q->bindValue(':id', 9500, \PDO::PARAM_INT);
+		$q->bindValue(':name', 'bound id');
+		$q->bindValue(':qty', 3, \PDO::PARAM_INT);
+		$q->execute();
+		$database->exec("INSERT INTO `$table` (name, qty) VALUES ('after bound id', 1)");
+		$this->check('implicit id after a bound explicit id in upsert() is past it', true, (int) $database->lastInsertId() > 9500);
+
+		// the sequence does not move backwards when the highest rows are gone
+		$database->exec("DELETE FROM `$table` WHERE id >= 9000");
+		$database->exec("INSERT INTO `$table` (id, name, qty) VALUES (7777, 'low explicit', 1)");
+		$database->exec("INSERT INTO `$table` (name, qty) VALUES ('after low explicit', 1)");
+		$this->check('implicit id after deleting the highest rows is not reused', true, (int) $database->lastInsertId() > 9500);
+
+		// a table that did not exist when first looked up is looked up again once it does
+		$fresh = new WireDatabasePgsqlTranslator($database->pdo());
+		$this->check('insert into a missing table has no setval', 1, count($fresh->translateStatements("INSERT INTO `{$table}_4` (id) VALUES (5)")));
+		$database->exec("CREATE TABLE `{$table}_4` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, PRIMARY KEY (`id`))");
+		$this->check('the same insert after the table is created gets its setval', 2, count($fresh->translateStatements("INSERT INTO `{$table}_4` (id) VALUES (5)")));
+		$database->exec("DROP TABLE IF EXISTS `{$table}_4`");
 
 		// transactions
 		$database->beginTransaction();

@@ -223,6 +223,15 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 *
 	 */
 	public function prepareStatements(\PDO $pdo, array $statements) {
+		$followUps = array_slice($statements, 1);
+		if(count($followUps) && count(preg_grep('/^SELECT setval\(/', $followUps)) === count($followUps)) {
+			// INSERT with explicit identity values plus the sequence moves that follow it: the INSERT may
+			// have bound values, and the follow-ups (which have none) run after it executes
+			/** @var WireDatabasePgsqlStatement $statement */
+			$statement = $this->prepareStatement($pdo, $statements[0]);
+			$statement->setFollowUpStatements($followUps);
+			return $statement;
+		}
 		/** @var WireDatabasePgsqlStatement $statement */
 		$statement = $pdo->prepare('SELECT 1 WHERE 1=0');
 		$statement->setDeferredStatements($statements);
@@ -460,6 +469,48 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	}
 
 	/**
+	 * Build an INSERT that updates the existing row on a key conflict (see WireDatabaseDialect::upsert())
+	 *
+	 * The result is PostgreSQL SQL that the translator passes through untouched, so the caller's
+	 * expressions (MySQL syntax, like all SQL given to ProcessWire) are translated here first: MySQL
+	 * string escapes, functions such as IF() and IFNULL(), VALUES(col), and bare column names in
+	 * update expressions, which mean the existing row's value.
+	 *
+	 * @param string $table
+	 * @param array $columns
+	 * @param array $update
+	 * @param array $options
+	 * @return string
+	 * @throws WireDatabaseException
+	 *
+	 */
+	public function upsert($table, array $columns, array $update, array $options = array()) {
+		$translator = $this->translator();
+		$names = array();
+		foreach(array($columns, $update) as $list) {
+			foreach($list as $key => $value) $names[] = is_int($key) ? (string) $value : (string) $key;
+		}
+		if(!empty($options['conflict'])) $names = array_merge($names, $options['conflict']);
+		$translatedColumns = array();
+		foreach($columns as $key => $value) {
+			if(is_int($key)) {
+				$translatedColumns[] = $value;
+			} else {
+				$translatedColumns[$key] = $translator->upsertValueSql($value);
+			}
+		}
+		$translatedUpdate = array();
+		foreach($update as $key => $value) {
+			if(is_int($key)) {
+				$translatedUpdate[] = $value;
+			} else {
+				$translatedUpdate[$key] = $translator->upsertUpdateSql($value, $table, $names);
+			}
+		}
+		return parent::upsert($table, $translatedColumns, $translatedUpdate, $options);
+	}
+
+	/**
 	 * Get a literal for one value of the upsert() 'rows' option
 	 *
 	 * upsert() output is already PostgreSQL SQL and is not translated, so strings cannot use
@@ -504,21 +555,11 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 				"upsert() on '$table' requires a conflict target (primary or unique key columns) on PostgreSQL and none was given or found"
 			);
 		}
-		$qTable = $this->quoteIdentifier($table);
-		$columns = array_merge(array_keys($updates), $conflict);
 		$sets = array();
 		foreach($updates as $name => $expr) {
+			// expressions were translated (and bare columns qualified) by upsert()
 			$col = $this->quoteIdentifier($name);
-			if($expr === null) {
-				$expr = "excluded.$col";
-			} else {
-				// a bare column name in an expression (i.e. "qty+1") means the existing row's value, as in MySQL;
-				// PostgreSQL needs it qualified, since it would otherwise be ambiguous with "excluded"
-				$expr = preg_replace_callback('/(?<![\w."`:])([a-zA-Z_][a-zA-Z0-9_]*)(?![\w."(])/', function($m) use($columns, $qTable) {
-					return in_array(strtolower($m[1]), array_map('strtolower', $columns), true) ? $qTable . '.' . $this->quoteIdentifier($m[1]) : $m[1];
-				}, $expr);
-			}
-			$sets[] = "$col=$expr";
+			$sets[] = $col . '=' . ($expr === null ? "excluded.$col" : $expr);
 		}
 		$names = array();
 		foreach($conflict as $name) $names[] = $this->quoteIdentifier($name);
