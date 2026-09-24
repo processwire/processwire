@@ -83,6 +83,10 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('upsert() leaves bound values and qualified names alone in expressions',
 			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"=:qty2, "n"=excluded."qty"',
 			$dialect->upsert('t', ['id', 'qty'], ['qty' => ':qty2', 'n' => 'excluded."qty"'], ['conflict' => ['id']]));
+		// upsert() output skips translation, so rows values need PostgreSQL quoting, not $database->quote()'s MySQL-style escaping
+		$this->check('upsert() rows quote strings PostgreSQL-style (quotes doubled, backslashes literal, NUL dropped)',
+			"INSERT INTO \"t\" (\"id\", \"data\") VALUES (1, 'it''s \\ tricky\\'), (2, 'ab') ON CONFLICT (\"id\") DO UPDATE SET \"data\"=excluded.\"data\"",
+			$dialect->upsert('t', ['id', 'data'], ['data'], ['conflict' => ['id'], 'rows' => [[1, "it's \\ tricky\\"], [2, "a\0b"]]]));
 		$this->check('getMaxIndexLength', 250, $dialect->getMaxIndexLength());
 		$this->check('getVariable ft_min_word_len', '1', $dialect->getVariable('ft_min_word_len'));
 		$this->check('getVariable unknown is null', null, $dialect->getVariable('no_such_variable'));
@@ -215,6 +219,15 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$q->bindValue(':qty', 0, \PDO::PARAM_INT);
 		$q->execute();
 		$this->check('upsert() expression update adds to the existing value', 16, (int) $database->query("SELECT qty FROM `$table` WHERE id=$id")->fetchColumn());
+
+		// rows with quotes and backslashes (a trailing backslash too) round-trip through the untranslated upsert SQL
+		$tricky = ["it's \\ tricky", "ends with \\", "x', 'ON CONFLICT"];
+		$rows = [];
+		foreach($tricky as $n => $value) $rows[] = [9000 + $n, $value, $n];
+		$database->exec($database->dialect()->upsert($table, ['id', 'name', 'qty'], ['name'], ['conflict' => ['id'], 'rows' => $rows]));
+		$database->exec($database->dialect()->upsert($table, ['id', 'name', 'qty'], ['name'], ['conflict' => ['id'], 'rows' => $rows]));
+		$stored = $database->query("SELECT name FROM `$table` WHERE id >= 9000 ORDER BY id")->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('upsert() rows with quotes and backslashes store the exact strings (insert, then update)', $tricky, $stored);
 
 		// transactions
 		$database->beginTransaction();
