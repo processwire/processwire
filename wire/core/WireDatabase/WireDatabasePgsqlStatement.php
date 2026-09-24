@@ -41,6 +41,22 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 	protected $hasBoundValues = false;
 
 	/**
+	 * Statements to run after a successful execute()
+	 *
+	 * @var array
+	 *
+	 */
+	protected $followUpStatements = [];
+
+	/**
+	 * MySQL-style error info of the last failed execute(), when its error was mapped
+	 *
+	 * @var array|null
+	 *
+	 */
+	protected $mysqlErrorInfo = null;
+
+	/**
 	 * @param array $statements
 	 *
 	 */
@@ -80,17 +96,59 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 		/** @var WireDatabaseDialectPgsql $dialect */
 		$dialect = $this->database->dialect();
 		$pdo = $this->database->pdo();
+		$this->mysqlErrorInfo = null;
 		// a failed statement aborts a PostgreSQL transaction; a savepoint keeps the transaction
 		// usable afterwards, as it is on MySQL, for code that catches the exception and carries on
 		$savepoint = $dialect->savepointBegin($pdo);
 		try {
 			$result = parent::execute($input_parameters);
+			foreach($this->followUpStatements as $sql) $pdo->exec($sql);
 			$dialect->savepointRelease($pdo, $savepoint);
 			return $result;
 		} catch(\PDOException $e) {
 			$dialect->savepointRollback($pdo, $savepoint);
 			$dialect->logQueryError($this->queryString, '', $e);
-			throw WireDatabaseDialectPgsql::mysqlException($e);
+			$mapped = WireDatabaseDialectPgsql::mysqlException($e);
+			if($mapped !== $e) $this->mysqlErrorInfo = $mapped->errorInfo;
+			throw $mapped;
 		}
+	}
+
+	/**
+	 * Set statements without parameters to run after this one executes (i.e. sequence moves after an INSERT)
+	 *
+	 * @param array $statements
+	 *
+	 */
+	public function setFollowUpStatements(array $statements) {
+		$this->followUpStatements = $statements;
+	}
+
+	/**
+	 * MySQL's SQLSTATE after a failed execute(), as the exception reports it
+	 *
+	 * WireDatabasePDO::execute() checks it for 42S22 to repair missing columns (i.e. language columns).
+	 *
+	 * @return string|null
+	 *
+	 */
+	#[\ReturnTypeWillChange]
+	public function errorCode() {
+		if($this->deferredException) return $this->deferredException->getCode();
+		if($this->mysqlErrorInfo !== null) return $this->mysqlErrorInfo[0];
+		return parent::errorCode();
+	}
+
+	/**
+	 * MySQL-style error info after a failed execute(): [ SQLSTATE, MySQL error number, message ]
+	 *
+	 * @return array
+	 *
+	 */
+	#[\ReturnTypeWillChange]
+	public function errorInfo() {
+		if($this->deferredException) return $this->deferredException->errorInfo;
+		if($this->mysqlErrorInfo !== null) return $this->mysqlErrorInfo;
+		return parent::errorInfo();
 	}
 }

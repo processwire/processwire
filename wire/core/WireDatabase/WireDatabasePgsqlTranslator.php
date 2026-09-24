@@ -95,6 +95,14 @@ class WireDatabasePgsqlTranslator {
 	protected $introspecting = false;
 
 	/**
+	 * Is the PDO connection a PostgreSQL one? (null until checked)
+	 *
+	 * @var bool|null
+	 *
+	 */
+	protected $pdoIsPgsql = null;
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -131,15 +139,22 @@ class WireDatabasePgsqlTranslator {
 	protected function catalogRows($sql, array $params, $mode = \PDO::FETCH_ASSOC) {
 		$pdo = $this->pdo();
 		if(!$pdo) return [];
+		if($this->pdoIsPgsql === null) {
+			try {
+				$this->pdoIsPgsql = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'pgsql';
+			} catch(\PDOException $e) {
+				$this->pdoIsPgsql = false;
+			}
+		}
+		// another database (i.e. a translator constructed on a MySQL connection for tests): no schema knowledge
+		if(!$this->pdoIsPgsql) return [];
 		$was = $this->introspecting;
 		$this->introspecting = true;
 		try {
+			// errors are not swallowed: a failed lookup would otherwise silently change the translation
 			$query = $pdo->prepare($sql);
 			$query->execute($params);
 			return $query->fetchAll($mode);
-		} catch(\PDOException $e) {
-			// not a PostgreSQL connection, or no catalog access: translate without schema knowledge
-			return [];
 		} finally {
 			$this->introspecting = $was;
 		}
@@ -166,7 +181,7 @@ class WireDatabasePgsqlTranslator {
 		$result = $this->translateStatement($sql);
 		$result = is_array($result) ? array_values($result) : [$result];
 		if(strlen($sql) > $this->cacheMaxLength) return $result; // avoid caching large statements (i.e. bulk inserts)
-		if(preg_match('/^\s*(ALTER|RENAME|TRUNCATE|INSERT|REPLACE)\b/i', $sql)) return $result; // depends on current schema
+		if(preg_match('/^\s*(ALTER|RENAME|TRUNCATE|INSERT|REPLACE|CREATE|DROP)\b/i', $sql)) return $result; // depends on or changes the schema
 		if(count($this->cache) >= $this->cacheMax) $this->cache = [];
 		$this->cache[$sql] = $result;
 		return $result;
@@ -251,7 +266,7 @@ class WireDatabasePgsqlTranslator {
 		if($this->isNativeInsert($sql)) {
 			// already PostgreSQL syntax (i.e. from WireDatabaseDialectPgsql::upsert()): its double-quoted
 			// identifiers would read as MySQL string literals, so it must not go through the tokenizer
-			return $sql;
+			return $this->nativeInsert($sql);
 		}
 
 		$tokens = $this->quoteCaseAliases($this->tokenize($sql));
@@ -264,11 +279,8 @@ class WireDatabasePgsqlTranslator {
 			case 'REPLACE':
 				return $this->insert($tokens);
 			case 'DELETE':
-				$tokens = $this->deleteLimit($tokens);
-				break;
 			case 'UPDATE':
-				$tokens = $this->updateOrderLimit($tokens);
-				break;
+				break; // rewritten below, after the expression passes (which need the statement's own shape)
 			case 'SHOW':
 				return $this->show($tokens);
 			case 'DESCRIBE':
@@ -315,6 +327,11 @@ class WireDatabasePgsqlTranslator {
 				return $this->truncate($tokens);
 			case 'DROP':
 				if($second === 'INDEX') return $this->dropIndex($tokens);
+				if($second === 'TABLE') {
+					// forget what we know about the dropped tables (a table of the same name may be created next)
+					$this->schema = [];
+					$this->cache = [];
+				}
 				break;
 			case 'DO':
 				// DO expr (MySQL: evaluate without returning a result)
@@ -329,6 +346,8 @@ class WireDatabasePgsqlTranslator {
 		$tokens = $this->subqueries($tokens);
 		$tokens = $this->typedComparisons($tokens);
 		if($first === 'SELECT') $tokens = $this->selectPasses($tokens);
+		if($first === 'DELETE') $tokens = $this->deleteLimit($tokens);
+		if($first === 'UPDATE') $tokens = $this->updateOrderLimit($tokens);
 
 		return $this->join($tokens);
 	}
@@ -1076,9 +1095,27 @@ class WireDatabasePgsqlTranslator {
 	protected function booleanContext(array $tokens) {
 		$out = [];
 		$n = count($tokens);
+		$simpleWhens = $this->simpleCaseWhens($tokens);
 		$i = 0;
 		while($i < $n) {
 			$t = $tokens[$i];
+			if($t[0] === 'punct' && $t[1] === '(' && $this->startsSelect($tokens, $i)) {
+				// a subquery has conditions of its own
+				$end = $this->matchParen($tokens, $i);
+				if($end > $i) {
+					$out[] = $t;
+					foreach($this->booleanContext(array_slice($tokens, $i + 1, $end - $i - 1)) as $tc) $out[] = $tc;
+					$out[] = $tokens[$end];
+					$i = $end + 1;
+					continue;
+				}
+			}
+			if(isset($simpleWhens[$i])) {
+				// CASE x WHEN value: a value, not a condition
+				$out[] = $t;
+				$i++;
+				continue;
+			}
 			if($this->isWord($t, ['WHERE', 'HAVING', 'ON', 'WHEN', 'AND', 'OR'])) {
 				$out[] = $t;
 				$i++;
@@ -1094,6 +1131,71 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
+	 * Is the paren at $i the start of a subquery: ( SELECT ...
+	 *
+	 * @param array $tokens
+	 * @param int $i
+	 * @return bool
+	 *
+	 */
+	protected function startsSelect(array $tokens, $i) {
+		$j = $this->next($tokens, $i + 1);
+		return $j > -1 && $this->isWord($tokens[$j], 'SELECT');
+	}
+
+	/**
+	 * Indexes of the WHEN tokens that belong to a simple CASE (CASE x WHEN value ...)
+	 *
+	 * @param array $tokens
+	 * @return array [ index => true ]
+	 *
+	 */
+	protected function simpleCaseWhens(array $tokens) {
+		$whens = [];
+		$stack = []; // true for a simple CASE
+		foreach($tokens as $x => $t) {
+			if($t[0] !== 'word') continue;
+			$w = strtoupper($t[1]);
+			if($w === 'CASE') {
+				$y = $this->next($tokens, $x + 1);
+				$stack[] = !($y > -1 && $this->isWord($tokens[$y], 'WHEN'));
+			} else if($w === 'END' && count($stack)) {
+				array_pop($stack);
+			} else if($w === 'WHEN' && count($stack) && end($stack)) {
+				$whens[$x] = true;
+			}
+		}
+		return $whens;
+	}
+
+	/**
+	 * Apply booleanContext() inside each subquery of a condition: ( SELECT ... )
+	 *
+	 * @param array $seg
+	 * @return array
+	 *
+	 */
+	protected function conditionSubqueries(array $seg) {
+		$out = [];
+		$n = count($seg);
+		for($x = 0; $x < $n; $x++) {
+			$t = $seg[$x];
+			if($t[0] === 'punct' && $t[1] === '(' && $this->startsSelect($seg, $x)) {
+				$end = $this->matchParen($seg, $x);
+				if($end > $x) {
+					$out[] = $t;
+					foreach($this->booleanContext(array_slice($seg, $x + 1, $end - $x - 1)) as $tc) $out[] = $tc;
+					$out[] = $seg[$end];
+					$x = $end;
+					continue;
+				}
+			}
+			$out[] = $t;
+		}
+		return $out;
+	}
+
+	/**
 	 * Index of the token that ends the condition starting at $i (exclusive)
 	 *
 	 * @param array $tokens
@@ -1104,6 +1206,7 @@ class WireDatabasePgsqlTranslator {
 	protected function conditionEnd(array $tokens, $i) {
 		$n = count($tokens);
 		$depth = 0;
+		$between = false; // inside "x BETWEEN a AND b", before its AND
 		$stops = ['AND', 'OR', 'WHERE', 'HAVING', 'ON', 'WHEN', 'THEN', 'ELSE', 'END', 'GROUP', 'ORDER', 'LIMIT', 'OFFSET', 'UNION', 'DO', 'RETURNING', 'FOR', 'WINDOW', 'SET', 'FROM', 'VALUES', 'SELECT', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'CROSS'];
 		for($j = $i; $j < $n; $j++) {
 			$t = $tokens[$j];
@@ -1115,7 +1218,15 @@ class WireDatabasePgsqlTranslator {
 				}
 				continue;
 			}
-			if($depth === 0 && $t[0] === 'word' && in_array(strtoupper($t[1]), $stops, true)) return $j;
+			if($depth !== 0 || $t[0] !== 'word') continue;
+			$w = strtoupper($t[1]);
+			if($w === 'BETWEEN') {
+				$between = true;
+			} else if($w === 'AND' && $between) {
+				$between = false; // the AND of BETWEEN is part of the condition
+			} else if(in_array($w, $stops, true)) {
+				return $j;
+			}
 		}
 		return $n;
 	}
@@ -1138,6 +1249,14 @@ class WireDatabasePgsqlTranslator {
 		if($n === 1 && $seg[0][0] === 'num' && ($seg[0][1] === '0' || $seg[0][1] === '1')) {
 			return array_merge($lead, [['word', $seg[0][1] === '0' ? 'false' : 'true']], $trail);
 		}
+
+		if($n > 1 && $this->isWord($seg[0], 'NOT')) {
+			// NOT <condition>, i.e. NOT (status & 1024)
+			return array_merge($lead, [$seg[0]], $this->condition(array_slice($seg, 1)), $trail);
+		}
+
+		$seg = $this->conditionSubqueries($seg);
+		$n = count($seg);
 
 		if($seg[0][0] === 'punct' && $seg[0][1] === '(' && $this->matchParen($seg, 0) === $n - 1) {
 			// a parenthesized group is itself a list of conditions
@@ -1162,7 +1281,8 @@ class WireDatabasePgsqlTranslator {
 			}
 		}
 		if($hasBitwise && !$hasBoolean) {
-			return array_merge($lead, [['punct', '(']], $seg, [['word', ') <> 0']], $trail);
+			// balanced paren tokens, so that later passes still see the statement's depth correctly
+			return array_merge($lead, [['punct', '(']], $seg, [['punct', ')'], ['ws', ' '], ['punct', '<>'], ['ws', ' '], ['num', '0']], $trail);
 		}
 
 		return array_merge($lead, $seg, $trail);
@@ -1423,6 +1543,7 @@ class WireDatabasePgsqlTranslator {
 	 */
 	protected function clearSchemaCache($table) {
 		unset($this->schema[$table]);
+		$this->cache = []; // cached translations may depend on the old schema (typed comparisons)
 	}
 
 	/**
@@ -1439,6 +1560,7 @@ class WireDatabasePgsqlTranslator {
 				'columns' => isset($facts['columns']) ? $facts['columns'] : [],
 			];
 		}
+		$this->cache = []; // cached translations may depend on the old schema
 	}
 
 	/**
@@ -1464,7 +1586,8 @@ class WireDatabasePgsqlTranslator {
 				"ORDER BY array_position(i.indkey, a.attnum)",
 				[$table], \PDO::FETCH_COLUMN
 			);
-			$this->schema[$table] = $facts;
+			// a table that does not exist (yet) is not remembered, so that it is looked up again once created
+			if(count($facts['columns'])) $this->schema[$table] = $facts;
 		}
 		return $facts;
 	}
@@ -1545,6 +1668,15 @@ class WireDatabasePgsqlTranslator {
 		$out = [];
 		for($i = 0; $i < $n; $i++) {
 			$t = $tokens[$i];
+			if($t[0] === 'punct' && $t[1] === '(' && $this->startsSelect($tokens, $i)) {
+				// a subquery has tables of its own and is handled by subqueries()
+				$end = $this->matchParen($tokens, $i);
+				if($end > $i) {
+					for($x = $i; $x <= $end; $x++) $out[] = $tokens[$x];
+					$i = $end;
+					continue;
+				}
+			}
 			if(!in_array($t[0], ['word', 'id'])) {
 				$out[] = $t;
 				continue;
@@ -1603,10 +1735,12 @@ class WireDatabasePgsqlTranslator {
 			}
 			$isCompare = $op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true);
 			$r = $isCompare ? $this->next($tokens, $k + 1) : -1;
-			if($class === 'number' && $r > -1 && in_array($tokens[$r][0], ['str', 'param'])) {
+			$isValue = $r > -1 && ($tokens[$r][0] === 'str' || ($tokens[$r][0] === 'param' && $tokens[$r][1] !== '?'));
+			if($class === 'number' && $isValue) {
+				// (a positional ? is left alone: the conversion repeats its parameter, which would shift the others)
 				foreach($colTokens as $ct) $out[] = $ct;
 				for($x = $end; $x < $r; $x++) $out[] = $tokens[$x];
-				$out[] = ['word', $this->mysqlNumber($tokens[$r])];
+				$out[] = ['word', $this->mysqlNumber($tokens[$r], $schema['columns'][$column])];
 				$i = $r;
 				continue;
 			}
@@ -1618,18 +1752,29 @@ class WireDatabasePgsqlTranslator {
 	/**
 	 * Get an expression that converts a string to a number the way MySQL does ('' and 'abc' are 0, '12abc' is 12)
 	 *
+	 * For a parameter, the result has the column's own type family (bigint for integer columns), so
+	 * that PostgreSQL can still use an index on the column, and NULL stays NULL. Against an integer
+	 * column only the integer part of a bound value is used ('1.5' compares as 1, where MySQL
+	 * compares 1.5).
+	 *
 	 * @param array $t String literal or parameter token
+	 * @param string $pgType Type of the column compared to
 	 * @return string
 	 *
 	 */
-	protected function mysqlNumber(array $t) {
+	protected function mysqlNumber(array $t, $pgType = '') {
 		if($t[0] === 'str') {
 			$value = str_replace("''", "'", substr($t[1], 1, -1));
 			if(preg_match('/^\s*(-?[0-9]+(?:\.[0-9]+)?)/', $value, $m)) return $m[1] === $value ? $t[1] : $m[1];
 			return '0';
 		}
 		$p = $t[1];
-		return "(CASE WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::numeric ELSE 0 END)";
+		$pgType = strtolower((string) $pgType);
+		if(in_array($pgType, ['smallint', 'integer', 'bigint', 'int', 'int2', 'int4', 'int8'], true)) {
+			return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]' THEN substring(($p)::text from '-?[0-9]+')::bigint ELSE 0 END)";
+		}
+		$cast = in_array($pgType, ['real', 'double precision', 'float4', 'float8'], true) ? 'double precision' : 'numeric';
+		return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::$cast ELSE 0 END)";
 	}
 
 	/**
@@ -1637,6 +1782,26 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 * Checked before tokenizing, with string literals removed so that data containing the words
 	 * does not count.
+	 *
+	 * @param string $sql
+	 * @return bool
+	 *
+	 */
+	protected function nativeInsert($sql) {
+		// INSERT INTO "table" ("col", ...): an explicit identity value leaves the sequence behind, as in insert()
+		if(!preg_match('/^\s*INSERT\s+INTO\s+"((?:[^"]|"")+)"\s*\(([^)]*)\)/i', $sql, $m)) return $sql;
+		$table = str_replace('""', '"', $m[1]);
+		$schema = $this->tableSchema($table);
+		if($schema['identity'] === null) return $sql;
+		preg_match_all('/"((?:[^"]|"")+)"/', $m[2], $matches);
+		$columns = array();
+		foreach($matches[1] as $column) $columns[] = str_replace('""', '"', $column);
+		if(!in_array($schema['identity'], $columns, true)) return $sql;
+		return [$sql, $this->setvalSql($table, $schema['identity'])];
+	}
+
+	/**
+	 * Is the SQL an INSERT that is already PostgreSQL syntax (has an ON CONFLICT clause)?
 	 *
 	 * @param string $sql
 	 * @return bool
@@ -1817,21 +1982,23 @@ class WireDatabasePgsqlTranslator {
 			$bodyTokens = $this->expressions(array_slice($tokens, $i, $bodyEnd - $i));
 			if($identityPos > -1) {
 				// replace NULL with DEFAULT in the identity column's position of each VALUES row
-				$explicitIdentity = true;
 				$m = count($bodyTokens);
 				$valuesPos = -1;
 				for($x = 0; $x < $m; $x++) {
 					if($this->isWord($bodyTokens[$x], 'VALUES')) { $valuesPos = $x; break; }
 				}
+				// INSERT ... SELECT gives values we cannot see; VALUES rows are checked one by one below
+				$explicitIdentity = $valuesPos < 0;
 				for($x = $valuesPos > -1 ? $valuesPos + 1 : $m; $x < $m; $x++) {
 					if($bodyTokens[$x][0] !== 'punct' || $bodyTokens[$x][1] !== '(') continue;
 					$end = $this->matchParen($bodyTokens, $x);
 					$parts = $this->splitCommas(array_slice($bodyTokens, $x + 1, $end - $x - 1));
 					if(isset($parts[$identityPos])) {
 						$value = $this->trimTokens($parts[$identityPos]);
-						if(count($value) === 1 && $this->isWord($value[0], 'NULL')) {
+						if(count($value) === 1 && $this->isWord($value[0], ['NULL', 'DEFAULT'])) {
 							$parts[$identityPos] = [['word', 'DEFAULT']];
-							$explicitIdentity = false;
+						} else {
+							$explicitIdentity = true; // at least one row gives its own id
 						}
 					}
 					$rebuilt = [];
@@ -1885,13 +2052,29 @@ class WireDatabasePgsqlTranslator {
 		$statements = [$sql];
 
 		// an explicit value for an identity column leaves its sequence behind, so advance it
-		if($explicitIdentity && $identity !== null) {
-			$qt = $this->quoteId($table);
-			$qc = $this->quoteId($identity);
-			$statements[] = "SELECT setval(pg_get_serial_sequence('$qt', '$identity'), GREATEST((SELECT MAX($qc) FROM $qt), 1))";
-		}
+		if($explicitIdentity && $identity !== null) $statements[] = $this->setvalSql($table, $identity);
 
 		return $statements;
+	}
+
+	/**
+	 * Get a statement that moves an identity column's sequence past the highest id in the table
+	 *
+	 * The sequence never moves backwards (i.e. after the rows with the highest ids were deleted), so
+	 * ids of deleted rows are not handed out again, as with MySQL's AUTO_INCREMENT.
+	 *
+	 * @param string $table
+	 * @param string $column
+	 * @return string
+	 *
+	 */
+	protected function setvalSql($table, $column) {
+		$qt = $this->quoteId($table);
+		$qc = $this->quoteId($column);
+		$lt = str_replace("'", "''", $qt);
+		$lc = str_replace("'", "''", $column);
+		return "SELECT setval(s::regclass, GREATEST((SELECT MAX($qc) FROM $qt), pg_sequence_last_value(s::regclass), 1)) " .
+			"FROM pg_get_serial_sequence('$lt', '$lc') AS s";
 	}
 
 	/**
@@ -1906,7 +2089,7 @@ class WireDatabasePgsqlTranslator {
 	 * @return string
 	 *
 	 */
-	protected function upsertExpression(array $tokens, $table, array $columns) {
+	protected function upsertExpression(array $tokens, $table, array $columns, $quote = false) {
 		$out = [];
 		$n = count($tokens);
 		$lower = array_map('strtolower', $columns);
@@ -1917,24 +2100,54 @@ class WireDatabasePgsqlTranslator {
 				if($z > -1 && $tokens[$z][1] === '(') {
 					$end = $this->matchParen($tokens, $z);
 					$inner = $this->trimTokens(array_slice($tokens, $z + 1, $end - $z - 1));
-					$out[] = ['word', 'excluded.' . $this->join([$inner[0]])];
+					$col = $quote ? $this->quoteId($this->name($inner[0])) : $this->join([$inner[0]]);
+					$out[] = ['word', 'excluded.' . $col];
 					$y = $end;
 					continue;
 				}
 			}
-			if(($t[0] === 'word' || $t[0] === 'id') && in_array(strtolower($t[1]), $lower, true)) {
+			// (string literals are 'str' tokens, so column names inside them are never touched)
+			if(($t[0] === 'word' || $t[0] === 'id') && in_array(strtolower($this->name($t)), $lower, true)) {
 				$prev = $this->prev($tokens, $y - 1);
 				$next = $this->next($tokens, $y + 1);
 				$qualified = $prev > -1 && $tokens[$prev][0] === 'punct' && $tokens[$prev][1] === '.';
-				$call = $next > -1 && $tokens[$next][0] === 'punct' && $tokens[$next][1] === '(';
+				$call = $next > -1 && $tokens[$next][0] === 'punct' && ($tokens[$next][1] === '(' || $tokens[$next][1] === '.');
 				if(!$qualified && !$call) {
-					$out[] = ['word', $table . '.' . $this->join([$t])];
+					$out[] = ['word', $quote ? $this->quoteId($table) . '.' . $this->quoteId($this->name($t)) : $table . '.' . $this->join([$t])];
 					continue;
 				}
 			}
 			$out[] = $t;
 		}
 		return trim($this->join($this->expressions($out)));
+	}
+
+	/**
+	 * Translate a MySQL value expression for an upsert() column (i.e. `NOW()`, `:name`, a quoted literal)
+	 *
+	 * upsert() output is PostgreSQL SQL that is not translated again, so the expressions a caller
+	 * gives it (MySQL syntax, like all SQL in ProcessWire) are translated here.
+	 *
+	 * @param string $expr
+	 * @return string
+	 *
+	 */
+	public function upsertValueSql($expr) {
+		return trim($this->join($this->expressions($this->tokenize((string) $expr))));
+	}
+
+	/**
+	 * Translate a MySQL update expression for upsert(): VALUES(col) is the inserted value, and a bare
+	 * column name is the existing row's value (qualified with the table, as PostgreSQL requires)
+	 *
+	 * @param string $expr
+	 * @param string $table
+	 * @param array $columns Column names of the table that may appear bare in the expression
+	 * @return string
+	 *
+	 */
+	public function upsertUpdateSql($expr, $table, array $columns) {
+		return $this->upsertExpression($this->tokenize((string) $expr), $table, $columns, true);
 	}
 
 	/**
@@ -1956,7 +2169,7 @@ class WireDatabasePgsqlTranslator {
 		if(!$this->isWord($tokens[$j], 'FROM')) return $tokens;
 		$k = $this->next($tokens, $j + 1); // table
 		$table = $this->join([$tokens[$k]]);
-		$rest = $this->join($this->expressions(array_slice($tokens, $k + 1)));
+		$rest = $this->join(array_slice($tokens, $k + 1)); // expression passes already applied
 		return [['word', "DELETE FROM $table WHERE ctid IN (SELECT ctid FROM $table" . rtrim($rest) . ')']];
 	}
 
@@ -2014,7 +2227,7 @@ class WireDatabasePgsqlTranslator {
 					if($this->isWord($tokens[$y], 'ON')) { $onPos = $y; break; }
 				}
 				if($onPos < 0) throw new \PDOException('PostgreSQL translator: unsupported multi-table DELETE (JOIN without ON)');
-				$using[] = trim($this->join($this->expressions(array_slice($tokens, $x + 1, $onPos - $x - 1))));
+				$using[] = trim($this->join(array_slice($tokens, $x + 1, $onPos - $x - 1)));
 				$condEnd = $n;
 				$depth = 0;
 				for($y = $onPos + 1; $y < $n; $y++) {
@@ -2026,12 +2239,12 @@ class WireDatabasePgsqlTranslator {
 					}
 					if($depth === 0 && $this->isWord($ty, ['JOIN', 'INNER', 'LEFT', 'RIGHT', 'CROSS', 'NATURAL', 'STRAIGHT_JOIN', 'WHERE', 'ORDER', 'LIMIT'])) { $condEnd = $y; break; }
 				}
-				$conds[] = trim($this->join($this->booleanContext($this->expressions(array_slice($tokens, $onPos + 1, $condEnd - $onPos - 1)))));
+				$conds[] = trim($this->join(array_slice($tokens, $onPos + 1, $condEnd - $onPos - 1)));
 				$x = $condEnd;
 				continue;
 			}
 			if($this->isWord($t, 'WHERE')) {
-				$where = trim($this->join($this->booleanContext($this->expressions(array_slice($tokens, $x + 1)))));
+				$where = trim($this->join(array_slice($tokens, $x + 1)));
 				break;
 			}
 			throw new \PDOException('PostgreSQL translator: unsupported multi-table DELETE syntax near ' . $this->join([$t]));
@@ -2079,7 +2292,7 @@ class WireDatabasePgsqlTranslator {
 		$table = $this->join([$tokens[$i]]);
 		$setEnd = $wherePos > -1 ? $wherePos : $end;
 		$head = $this->trimTokens(array_slice($tokens, 0, $setEnd));
-		$sub = 'SELECT ctid FROM ' . $table . ' ' . trim($this->join($this->expressions(array_slice($tokens, $setEnd))));
+		$sub = 'SELECT ctid FROM ' . $table . ' ' . trim($this->join(array_slice($tokens, $setEnd)));
 		$head[] = ['word', " WHERE ctid IN ($sub)"];
 		return $head;
 	}
