@@ -49,6 +49,8 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('native ON CONFLICT (dialect upsert output) passes through unchanged',
 			'INSERT INTO "t" ("pages_id", "data") VALUES (:pages_id, :data) ON CONFLICT ("pages_id") DO UPDATE SET "data"=excluded."data"',
 			$t('INSERT INTO "t" ("pages_id", "data") VALUES (:pages_id, :data) ON CONFLICT ("pages_id") DO UPDATE SET "data"=excluded."data"')[0]);
+		$native = "INSERT INTO \"t\" (\"id\", \"data\") VALUES (1, 'ends with \\'), (2, 'x') ON CONFLICT (\"id\") DO UPDATE SET \"data\"='z'";
+		$this->check('native upsert whose PostgreSQL literals end in a backslash still passes through', [$native], $t($native));
 		$this->check('INSERT SELECT ON DUPLICATE', 'INSERT INTO caches (name, data) SELECT name, data FROM other ON CONFLICT ("name") DO UPDATE SET data=excluded.data', $t('INSERT INTO caches (name, data) SELECT name, data FROM other ON DUPLICATE KEY UPDATE data=VALUES(data)')[0]);
 
 		$this->check('DELETE LIMIT 1 becomes ctid subquery', 'DELETE FROM modules WHERE ctid IN (SELECT ctid FROM modules WHERE id=:id LIMIT 1)', $t('DELETE FROM modules WHERE id=:id LIMIT 1')[0]);

@@ -1644,6 +1644,10 @@ class WireDatabasePgsqlTranslator {
 	 */
 	protected function isNativeInsert($sql) {
 		if(!preg_match('/^\s*INSERT\b/i', $sql) || stripos($sql, 'CONFLICT') === false) return false;
+		// a double-quoted table name is PostgreSQL (MySQL reads it as a string, a syntax error there), as
+		// upsert() writes it; decided before stripping literals, since PostgreSQL literals have no
+		// backslash escapes and a value ending in a backslash would be misread below
+		if(preg_match('/^\s*INSERT\s+(?:INTO\s+)?"/i', $sql)) return true;
 		$bare = preg_replace('/\'(?:[^\'\\\\]|\\\\.|\'\')*\'|"(?:[^"\\\\]|\\\\.|"")*"/s', '', $sql);
 		return (bool) preg_match('/\bON\s+CONFLICT\b/i', $bare);
 	}

@@ -190,6 +190,8 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			\PDO::ATTR_STATEMENT_CLASS,
 			array(__NAMESPACE__ . "\\WireDatabasePgsqlStatement", array($this->database))
 		);
+		// the translator and upsertRowValue() write literals with only quotes doubled; make sure backslashes are literal
+		$pdo->exec('SET standard_conforming_strings = on');
 		$schema = (string) $this->setting('schema', '');
 		if($schema !== '') $pdo->exec('SET search_path TO ' . $this->quoteIdentifier($schema) . ', public');
 		// MySQL's NOW() uses the server's time zone; PHP's zone is the closest equivalent here
@@ -455,6 +457,24 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		$ex = new WireDatabasePgsqlException("SQLSTATE[$mysqlState]: $info ($message)", 0, $e);
 		$ex->setMySQLError($mysqlState, array($mysqlState, $errno, $info));
 		return $ex;
+	}
+
+	/**
+	 * Get a literal for one value of the upsert() 'rows' option
+	 *
+	 * upsert() output is already PostgreSQL SQL and is not translated, so strings cannot use
+	 * $database->quote(), which escapes MySQL-style for the translator to convert. With
+	 * standard_conforming_strings (set on connect) only single quotes need doubling. NUL bytes,
+	 * which PostgreSQL text cannot hold, are dropped as the translator drops them.
+	 *
+	 * @param mixed $value
+	 * @return string
+	 * @throws WireDatabaseException
+	 *
+	 */
+	protected function upsertRowValue($value) {
+		if(is_string($value)) return "'" . str_replace(array("\0", "'"), array('', "''"), $value) . "'";
+		return parent::upsertRowValue($value);
 	}
 
 	/**
