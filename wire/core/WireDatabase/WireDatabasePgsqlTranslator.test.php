@@ -383,7 +383,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		// with known column types: text to number converts as MySQL does ('' and 'abc' become 0); keys and identity columns keep NOT NULL and their sequence
 		$this->translator->setSchemaCache(['m' => ['primary' => ['id'], 'identity' => 'id', 'columns' => ['id' => 'integer', 'data' => 'text', 'n' => 'integer']]]);
 		$this->check('ALTER MODIFY text to integer converts values as MySQL does',
-			'ALTER TABLE "m" ALTER COLUMN "data" DROP DEFAULT, ALTER COLUMN "data" TYPE integer USING (CASE WHEN "data"::text ~ \'^\s*-?[0-9]\' THEN substring("data"::text from \'-?[0-9]+\')::numeric ELSE 0 END)::integer, ALTER COLUMN "data" SET NOT NULL',
+			'ALTER TABLE "m" ALTER COLUMN "data" DROP DEFAULT, ALTER COLUMN "data" TYPE integer USING (CASE WHEN "data"::text ~ \'^\s*[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)\' THEN substring("data"::text from \'^\s*([-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?)\')::numeric ELSE 0 END)::integer, ALTER COLUMN "data" SET NOT NULL',
 			$t('ALTER TABLE m MODIFY data INT NOT NULL')[0]);
 		$this->translator->setSchemaCache(['m' => ['primary' => ['id'], 'identity' => 'id', 'columns' => ['id' => 'integer', 'data' => 'integer', 'n' => 'integer']]]);
 		$this->check('ALTER MODIFY of the identity primary key keeps NOT NULL and its sequence',
@@ -495,9 +495,9 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			'unique_num' => ['primary' => ['id'], 'identity' => 'id', 'columns' => ['id' => 'bigint']],
 		]);
 		// bound values are coerced to the column's own type family, so that an index on the column can be used, and NULL stays NULL
-		$num = function($p) { return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]' THEN substring(($p)::text from '-?[0-9]+')::bigint ELSE 0 END)"; };
+		$num = function($p) { return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*[-+]?[0-9]' THEN substring(($p)::text from '[-+]?[0-9]+')::bigint ELSE 0 END)"; };
 		$setval = function($table, $col) { return "SELECT setval(s::regclass, GREATEST((SELECT MAX(\"$col\") FROM \"$table\"), pg_sequence_last_value(s::regclass), 1)) FROM pg_get_serial_sequence('\"$table\"', '$col') AS s"; };
-		$numDec = function($p, $cast = 'numeric') { return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::$cast ELSE 0 END)"; };
+		$numDec = function($p, $cast = 'numeric') { $x = "($p)::text"; return "(CASE WHEN $x IS NULL THEN NULL ELSE (CASE WHEN $x ~ '^\\s*[-+]?([0-9]+\\.?[0-9]*|\\.[0-9]+)' THEN substring($x from '^\\s*([-+]?([0-9]+\\.?[0-9]*|\\.[0-9]+)([eE][-+]?[0-9]+)?)')::numeric ELSE 0 END)::$cast END)"; };
 		$this->check('numeric column compared to empty string compares to 0',
 			"SELECT pages.id FROM pages LEFT JOIN field_dec AS f ON f.pages_id=pages.id WHERE (f.data IS NOT NULL AND (f.data!=0 AND f.data!='0')) GROUP BY pages.id",
 			$t("SELECT pages.id FROM pages LEFT JOIN field_dec AS f ON f.pages_id=pages.id WHERE (f.data IS NOT NULL AND (f.data!='' AND f.data!='0')) GROUP BY pages.id"));

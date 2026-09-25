@@ -2563,16 +2563,33 @@ class WireDatabasePgsqlTranslator {
 	protected function mysqlNumber(array $t, $pgType = '') {
 		if($t[0] === 'str') {
 			$value = str_replace("''", "'", substr($t[1], 1, -1));
-			if(preg_match('/^\s*(-?[0-9]+(?:\.[0-9]+)?)/', $value, $m)) return $m[1] === $value ? $t[1] : $m[1];
-			return '0';
+			if(!preg_match('/^\s*([-+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][-+]?[0-9]+)?)/', $value, $m)) return '0';
+			// an integer as written stays a string literal (any column type reads it); anything else is a number,
+			// so that an integer column compares it numerically ('1.5' matches nothing, as in MySQL) rather than failing
+			return $m[1] === $value && preg_match('/^-?[0-9]+$/', $value) ? $t[1] : '(' . $m[1] . ')';
 		}
-		$p = $t[1];
+		$p = "($t[1])::text";
 		$pgType = strtolower((string) $pgType);
 		if(in_array($pgType, ['smallint', 'integer', 'bigint', 'int', 'int2', 'int4', 'int8'], true)) {
-			return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]' THEN substring(($p)::text from '-?[0-9]+')::bigint ELSE 0 END)";
+			return "(CASE WHEN $p IS NULL THEN NULL WHEN $p ~ '^\\s*[-+]?[0-9]' THEN substring($p from '[-+]?[0-9]+')::bigint ELSE 0 END)";
 		}
 		$cast = in_array($pgType, ['real', 'double precision', 'float4', 'float8'], true) ? 'double precision' : 'numeric';
-		return "(CASE WHEN ($p)::text IS NULL THEN NULL WHEN ($p)::text ~ '^\\s*-?[0-9]+(\\.[0-9]+)?' THEN substring(($p)::text from '-?[0-9]+(?:\\.[0-9]+)?')::$cast ELSE 0 END)";
+		return "(CASE WHEN $p IS NULL THEN NULL ELSE " . self::mysqlNumberSql($p) . "::$cast END)";
+	}
+
+	/**
+	 * Get an expression for the number MySQL reads from a string: its leading number, with fraction and exponent
+	 *
+	 * `'12.5'` is 12.5, `'-3.75x'` is -3.75, `'.5'` is 0.5, `'1e3'` is 1000, and a string without a leading
+	 * number (`''`, `'abc'`) is 0. Casting the result to an integer type rounds, as MySQL does.
+	 *
+	 * @param string $text Expression of type text
+	 * @return string Expression of type numeric
+	 *
+	 */
+	protected static function mysqlNumberSql($text) {
+		return "(CASE WHEN $text ~ '^\\s*[-+]?([0-9]+\\.?[0-9]*|\\.[0-9]+)' " .
+			"THEN substring($text from '^\\s*([-+]?([0-9]+\\.?[0-9]*|\\.[0-9]+)([eE][-+]?[0-9]+)?)')::numeric ELSE 0 END)";
 	}
 
 	/**
@@ -3904,7 +3921,7 @@ class WireDatabasePgsqlTranslator {
 				$primary = $col['primary'] || in_array($oldName, $schema['primary'], true);
 				if($oldType !== null && $this->typeClass($oldType) === 'text' && $this->typeClass($col['pgType']) === 'number') {
 					// text to number: convert as MySQL does ('' and 'abc' become 0, '12abc' is 12) rather than fail
-					$using = "(CASE WHEN $qCol::text ~ '^\\s*-?[0-9]' THEN substring($qCol::text from '-?[0-9]+')::numeric ELSE 0 END)::$col[pgType]";
+					$using = self::mysqlNumberSql("$qCol::text") . "::$col[pgType]";
 				} else {
 					$using = "$qCol::$col[pgType]";
 				}
