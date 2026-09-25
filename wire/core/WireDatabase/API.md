@@ -47,8 +47,8 @@ The database type is set in `/site/config.php`:
 | `$config->dbOptions` | PDO driver options, and per-type ProcessWire settings indexed by database type (see the SQLite and PostgreSQL sections) |
 
 MySQL uses the `dbName`, `dbUser`, `dbPass`, `dbHost`, `dbPort` etc. settings. PostgreSQL uses the same
-settings, with `dbPort` defaulting to 5432 and `dbSocket` naming the directory that holds the server's
-socket file rather than the file itself:
+settings. Set `dbPort` to 5432 (the installer does), since the default is MySQL's 3306, and use
+`dbSocket` for the directory that holds the server's socket file rather than the file itself:
 
 ```php
 // /site/config.php
@@ -257,6 +257,8 @@ Not supported (throws an exception):
 PostgreSQL support is experimental. The installer offers it as a database type when PHP's `pdo_pgsql`
 extension is available (CLI installer: `'dbType' => 'pgsql'` with `dbName`, `dbUser`, `dbPass`, `dbHost`,
 `dbPort` or `dbSocket`). The installer creates the database when it does not exist and the user may do so.
+Text comparisons are not yet case- and accent-insensitive as they are on MySQL, which also makes email and
+name lookups case-sensitive (see "Case- and accent-insensitive matching" below).
 
 - **Requirements:** PHP's `pdo_pgsql` extension and PostgreSQL 16.0 or newer (checked on connect). The
   `pg_trgm` extension is recommended: the installer creates it when it can, and `FULLTEXT` indexes then
@@ -288,7 +290,7 @@ Behavior differences from MySQL:
 
 | Area | PostgreSQL behavior |
 |------|---------------------|
-| Case- and accent-insensitive matching | `LIKE` is translated to `ILIKE` and `REGEXP` to `~*`, so both stay case-insensitive, but neither folds accents: `title%=apfel` does not match "Äpfel" (MySQL does). `=` comparisons on text are case-sensitive and accent-sensitive (`name='HOME'` does not match "home"). Selector operators that compare text with `=` (`title=apfel`) are therefore exact matches. |
+| Case- and accent-insensitive matching | **Not yet at MySQL parity; this is the main known difference.** `LIKE` is translated to `ILIKE` and `REGEXP` to `~*`, so they are case-insensitive but do not fold accents: `title%=HELLO` matches "Hello World", but `title%=apfel` does not match "Äpfel", `title*=creme` does not match "Crème" and `title^=zurich` does not match "Zürich". `=` comparisons on text are case- and accent-sensitive: `title=hello world` does not match "Hello World" and `title=äpfel` does not match "Äpfel". This includes lookups by email or name, so `$users->get("email=admin@example.com")` does not find a user stored as "Admin@Example.com", and logging in with an email address is case-sensitive. MySQL-style folding (`pw_fold()` with trigram and btree indexes) is planned. |
 | Sorting text | Sorts follow the database's collation, set when the database was created. A locale collation such as `en_US.UTF-8` orders accented letters with their base letter, much as MySQL does; the `C`/`POSIX` collation orders by byte value, with all uppercase letters before lowercase. |
 | Fulltext search | No `FULLTEXT` indexes: with `pg_trgm` they become trigram indexes, otherwise they are skipped. Selector fulltext operators use `LIKE`/`REGEXP` as they do on SQLite: no relevance ordering, stopwords are not ignored, word operators such as `~=` also match partial words, and query expansion and boolean commands are approximated. |
 | Transactions | A failed statement inside a PostgreSQL transaction normally aborts the whole transaction. ProcessWire wraps each statement in a savepoint while a transaction is open so that a caught error does not abort it, as with MySQL. This costs two extra round trips per statement inside a transaction (`SAVEPOINT` and `RELEASE`), and each savepoint that writes uses a subtransaction: a transaction with more than 64 of them overflows PostgreSQL's per-session subtransaction cache, which slows snapshots for all sessions until it ends. Set `$config->dbOptions['pgsql']['savepoints']` to false to skip savepoints when your code does not rely on continuing after a failed statement inside a transaction (large imports, high-latency database hosts). |
