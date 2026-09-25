@@ -352,7 +352,7 @@ class WireDatabasePgsqlTranslator {
 		switch($first) {
 			case 'INSERT':
 			case 'REPLACE':
-				return $this->insert($tokens);
+				return $this->insert($this->zeroDates($tokens));
 			case 'DELETE':
 			case 'UPDATE':
 				break; // rewritten below, after the expression passes (which need the statement's own shape)
@@ -423,8 +423,9 @@ class WireDatabasePgsqlTranslator {
 		$tokens = $this->subqueries($tokens);
 		$tokens = $this->typedComparisons($tokens);
 		if($first === 'SELECT') $tokens = $this->selectPasses($tokens);
+		$tokens = $this->zeroDates($tokens);
 		if($first === 'DELETE') $tokens = $this->deleteLimit($tokens);
-		if($first === 'UPDATE') $tokens = $this->updateOrderLimit($tokens);
+		if($first === 'UPDATE') $tokens = $this->updateOrderLimit($this->updateJoin($tokens));
 
 		return $this->join($tokens);
 	}
@@ -2378,12 +2379,9 @@ class WireDatabasePgsqlTranslator {
 		}
 		for($i = 0; $i < $n; $i++) {
 			$t = $tokens[$i];
-			if(isset($assignments[$i]) && $this->foldAvailable) {
-				// SET col = value: an assignment, so only number coercion (below) applies, never folding
-				$foldHere = false;
-			} else {
-				$foldHere = true;
-			}
+			// SET col = value: an assignment, so only number coercion (below) applies, not folding or zero-date tests
+			$assignment = isset($assignments[$i]);
+			$foldHere = !$assignment;
 			if($t[0] === 'punct' && $t[1] === '(' && $this->startsSelect($tokens, $i)) {
 				// a subquery has tables of its own and is handled by subqueries()
 				$end = $this->matchParen($tokens, $i);
@@ -2452,6 +2450,19 @@ class WireDatabasePgsqlTranslator {
 			$isCompare = $op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true);
 			$r = $isCompare ? $this->next($tokens, $k + 1) : -1;
 			$isValue = $r > -1 && ($tokens[$r][0] === 'str' || ($tokens[$r][0] === 'param' && $tokens[$r][1] !== '?'));
+			if($class === 'datetime' && !$assignment && $r > -1 && $tokens[$r][0] === 'str' && self::isZeroDate($tokens[$r][1])) {
+				// MySQL's zero date is NULL here: = and <= match it, != and > match every other date
+				$map = ['=' => 'IS NULL', '<=' => 'IS NULL', '!=' => 'IS NOT NULL', '<>' => 'IS NOT NULL', '>' => 'IS NOT NULL'];
+				if(isset($map[$op[1]])) {
+					foreach($colTokens as $ct) $out[] = $ct;
+					$out[] = ['ws', ' '];
+					$out[] = ['word', $map[$op[1]]];
+				} else {
+					$out[] = ['word', $op[1] === '<' ? 'false' : 'true']; // nothing is before it; everything is on or after it
+				}
+				$i = $r;
+				continue;
+			}
 			if($class === 'number' && $isValue) {
 				// (a positional ? is left alone: the conversion repeats its parameter, which would shift the others)
 				foreach($colTokens as $ct) $out[] = $ct;
@@ -3073,6 +3084,163 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
+	 * Get the kind of a constraint definition: CONSTRAINT [name] (FOREIGN|UNIQUE|PRIMARY|CHECK) ...
+	 *
+	 * @param array $def
+	 * @return string Uppercase kind, or blank
+	 *
+	 */
+	protected function constraintKind(array $def) {
+		foreach($def as $t) {
+			if($this->isWord($t, ['FOREIGN', 'UNIQUE', 'PRIMARY', 'CHECK'])) return strtoupper($t[1]);
+			if($t[0] === 'punct') break;
+		}
+		return '';
+	}
+
+	/**
+	 * Get a UNIQUE KEY definition from CONSTRAINT name UNIQUE [KEY|INDEX] [index_name] (cols)
+	 *
+	 * @param array $def
+	 * @return array
+	 *
+	 */
+	protected function constraintAsIndexDef(array $def) {
+		$name = null;
+		$x = $this->next($def, 0); // CONSTRAINT
+		$y = $this->next($def, $x + 1);
+		if($y > -1 && !$this->isWord($def[$y], 'UNIQUE')) {
+			$name = $this->name($def[$y]);
+			$y = $this->next($def, $y + 1);
+		}
+		$rest = array_slice($def, $y + 1); // after UNIQUE
+		$z = $this->next($rest, 0);
+		if($z > -1 && $this->isWord($rest[$z], ['KEY', 'INDEX'])) $rest = array_slice($rest, $z + 1);
+		$z = $this->next($rest, 0);
+		if($z > -1 && $rest[$z][1] !== '(') $name = $this->name($rest[$z]); // an index name of its own
+		if($z > -1 && $rest[$z][1] !== '(') $rest = array_slice($rest, $z + 1);
+		$out = [['word', 'UNIQUE'], ['ws', ' '], ['word', 'KEY']];
+		if($name !== null) {
+			$out[] = ['ws', ' '];
+			$out[] = ['id', $name];
+		}
+		$out[] = ['ws', ' '];
+		return array_merge($out, $this->trimTokens($rest));
+	}
+
+	/**
+	 * Multi-table UPDATE: UPDATE t [AS a] [INNER] JOIN u ON cond SET a.x=u.y [WHERE ...], or UPDATE t, u SET ...
+	 *
+	 * Translated to UPDATE t [AS a] SET x=u.y FROM u WHERE cond [AND ...]. Only the first table can be
+	 * updated (PostgreSQL updates one table), and LEFT/RIGHT joins have no FROM equivalent.
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function updateJoin(array $tokens) {
+		$n = count($tokens);
+		$i = $this->next($tokens, 0); // UPDATE
+		$setPos = -1;
+		$depth = 0;
+		for($x = $i + 1; $x < $n; $x++) {
+			$t = $tokens[$x];
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth === 0 && $this->isWord($t, 'SET')) { $setPos = $x; break; }
+		}
+		if($setPos < 0) return $tokens;
+		$refs = $this->trimTokens(array_slice($tokens, $i + 1, $setPos - $i - 1));
+		$isJoin = false;
+		foreach($refs as $t) {
+			if(($t[0] === 'punct' && $t[1] === ',') || $this->isWord($t, ['JOIN', 'STRAIGHT_JOIN'])) $isJoin = true;
+			if($this->isWord($t, ['LEFT', 'RIGHT'])) {
+				throw new \PDOException('PostgreSQL translator: UPDATE with a LEFT JOIN or RIGHT JOIN is not supported (UPDATE ... FROM has no outer join)');
+			}
+		}
+		if(!$isJoin) return $tokens;
+
+		// the target table and its alias, then the other tables and their join conditions
+		$split = function(array $list) {
+			// split at top-level JOIN keywords and commas, keeping ON conditions with their table
+			$parts = [];
+			$current = [];
+			$depth = 0;
+			foreach($list as $t) {
+				if($t[0] === 'punct' && $t[1] === '(') $depth++;
+				if($t[0] === 'punct' && $t[1] === ')') $depth--;
+				$sep = $depth === 0 && (($t[0] === 'punct' && $t[1] === ',') || $this->isWord($t, ['JOIN', 'STRAIGHT_JOIN']));
+				if($sep) {
+					$parts[] = $current;
+					$current = [];
+					continue;
+				}
+				if($depth === 0 && $this->isWord($t, ['INNER', 'CROSS'])) continue;
+				$current[] = $t;
+			}
+			$parts[] = $current;
+			return $parts;
+		};
+		$parts = $split($refs);
+		$target = $this->trimTokens(array_shift($parts));
+		$targetWords = array_values(array_filter($target, function($t) { return $t[0] !== 'ws' && !$this->isWord($t, 'AS'); }));
+		$names = [strtolower($this->name($targetWords[0]))];
+		if(isset($targetWords[1])) $names[] = strtolower($this->name($targetWords[1]));
+		$from = [];
+		$conds = [];
+		foreach($parts as $part) {
+			$part = $this->trimTokens($part);
+			$on = -1;
+			foreach($part as $x => $t) if($this->isWord($t, 'ON')) { $on = $x; break; }
+			if($on < 0) {
+				$from[] = trim($this->join($part));
+			} else {
+				$from[] = trim($this->join(array_slice($part, 0, $on)));
+				$conds[] = trim($this->join(array_slice($part, $on + 1)));
+			}
+		}
+
+		// SET assignments: target columns may be qualified by the target table only
+		$end = $n;
+		$wherePos = -1;
+		$depth = 0;
+		for($x = $setPos + 1; $x < $n; $x++) {
+			$t = $tokens[$x];
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth !== 0) continue;
+			if($this->isWord($t, 'WHERE') && $wherePos < 0) $wherePos = $x;
+			if($this->isWord($t, ['ORDER', 'LIMIT'])) { $end = $x; break; }
+		}
+		$setEnd = $wherePos > -1 ? $wherePos : $end;
+		$sets = [];
+		foreach($this->splitCommas(array_slice($tokens, $setPos + 1, $setEnd - $setPos - 1)) as $assign) {
+			$assign = $this->trimTokens($assign);
+			if(count($assign) >= 3 && $assign[1][0] === 'punct' && $assign[1][1] === '.') {
+				if(!in_array(strtolower($this->name($assign[0])), $names, true)) {
+					throw new \PDOException('PostgreSQL translator: UPDATE with a join can set columns of one target table only (the first)');
+				}
+				$assign = array_slice($assign, 2); // PostgreSQL's SET names columns of the target table unqualified
+			}
+			$sets[] = trim($this->join($assign));
+		}
+		if($wherePos > -1) {
+			$where = $this->trimTokens(array_slice($tokens, $wherePos + 1, $end - $wherePos - 1));
+			$sql = trim($this->join($where));
+			$conds[] = $this->hasTopLevelWord($where, 'OR') ? "($sql)" : $sql;
+		}
+		$sql = 'UPDATE ' . trim($this->join($target)) . ' SET ' . implode(', ', $sets) . ' FROM ' . implode(', ', $from);
+		if(count($conds)) $sql .= ' WHERE ' . implode(' AND ', $conds);
+		return array_merge([['word', $sql]], array_slice($tokens, $end));
+	}
+
+	/**
 	 * UPDATE ... ORDER BY ... [LIMIT n]
 	 *
 	 * ORDER BY is removed. When LIMIT is present, rows are selected by a ctid subquery.
@@ -3316,6 +3484,7 @@ class WireDatabasePgsqlTranslator {
 		$unique = false;
 		$nullSpec = ''; // 'NOT NULL', 'NULL' or blank when not specified
 		$default = null;
+		$onUpdate = false; // ON UPDATE CURRENT_TIMESTAMP
 
 		// type: word plus optional (n) or enum(...)
 		$i = $this->next($def, 1);
@@ -3357,10 +3526,11 @@ class WireDatabasePgsqlTranslator {
 			} else if($w === 'COMMENT') {
 				$x = $this->next($def, $x + 1);
 			} else if($w === 'ON') {
-				// ON UPDATE CURRENT_TIMESTAMP[()]: no PostgreSQL equivalent without a trigger, ignored
+				// ON UPDATE CURRENT_TIMESTAMP[()]: a trigger (see onUpdateSql())
 				$y = $this->next($def, $x + 1); // UPDATE
 				$z = $y > -1 ? $this->next($def, $y + 1) : -1; // CURRENT_TIMESTAMP
 				if($z === -1) break;
+				$onUpdate = true;
 				$p = $this->next($def, $z + 1);
 				if($p > -1 && $def[$p][1] === '(') $z = $this->matchParen($def, $p);
 				$x = $z;
@@ -3393,6 +3563,12 @@ class WireDatabasePgsqlTranslator {
 			}
 		}
 
+		if($default !== null && self::isZeroDate($default)) {
+			// MySQL's zero date is NULL here, so the column must accept it (and cannot default to it)
+			$default = 'NULL';
+			$nullSpec = 'NULL';
+		}
+
 		$sql = $pgType;
 		if($autoIncrement) $sql .= ' GENERATED BY DEFAULT AS IDENTITY';
 		if($nullSpec === 'NOT NULL') $sql .= ' NOT NULL';
@@ -3408,7 +3584,63 @@ class WireDatabasePgsqlTranslator {
 			'primary' => $primary,
 			'nullSpec' => $nullSpec,
 			'default' => $default,
+			'onUpdate' => $onUpdate,
 		];
+	}
+
+	/**
+	 * Is the value (a SQL literal or a string) one of MySQL's zero dates ('0000-00-00', '0000-00-00 00:00:00')?
+	 *
+	 * @param string $value
+	 * @return bool
+	 *
+	 */
+	public static function isZeroDate($value) {
+		return (bool) preg_match("/^'?0000-00-00(?:[ T]00:00:00(?:\\.0+)?)?'?\$/", (string) $value);
+	}
+
+	/**
+	 * Replace MySQL's zero date literals with NULL, which is what they are here (see typedComparisons() for comparisons)
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function zeroDates(array $tokens) {
+		foreach($tokens as $i => $t) {
+			if($t[0] === 'str' && self::isZeroDate($t[1])) $tokens[$i] = ['word', 'NULL'];
+		}
+		return $tokens;
+	}
+
+	/**
+	 * Get statements for a column's ON UPDATE CURRENT_TIMESTAMP (a trigger), or to remove it
+	 *
+	 * MySQL sets such a column to the current time when an UPDATE changes the row and does not set the
+	 * column itself. One trigger function does that for any column named by its trigger's argument.
+	 *
+	 * @param string $table
+	 * @param string $column
+	 * @param bool $add Add (true) or remove (false)
+	 * @param bool $replace When adding, remove an existing trigger first (i.e. for MODIFY)
+	 * @return array
+	 *
+	 */
+	protected function onUpdateSql($table, $column, $add = true, $replace = false) {
+		$trigger = 'pw_on_update__' . $column;
+		if(strlen($trigger) > 63) $trigger = substr($trigger, 0, 54) . '_' . substr(md5($trigger), 0, 8);
+		$drop = 'DROP TRIGGER IF EXISTS ' . $this->quoteId($trigger) . ' ON ' . $this->quoteId($table);
+		if(!$add) return [$drop];
+		$statements = [
+			"CREATE OR REPLACE FUNCTION pw_on_update_now() RETURNS trigger LANGUAGE plpgsql AS \$pw\$ BEGIN " .
+				"IF NEW IS DISTINCT FROM OLD AND (to_jsonb(NEW) -> TG_ARGV[0]) IS NOT DISTINCT FROM (to_jsonb(OLD) -> TG_ARGV[0]) THEN " .
+				"NEW := jsonb_populate_record(NEW, jsonb_build_object(TG_ARGV[0], localtimestamp)); " .
+				"END IF; RETURN NEW; END \$pw\$",
+		];
+		if($replace) $statements[] = $drop;
+		$statements[] = 'CREATE TRIGGER ' . $this->quoteId($trigger) . ' BEFORE UPDATE ON ' . $this->quoteId($table) .
+				" FOR EACH ROW EXECUTE FUNCTION pw_on_update_now('" . str_replace("'", "''", $column) . "')";
+		return $statements;
 	}
 
 	/**
@@ -3635,6 +3867,9 @@ class WireDatabasePgsqlTranslator {
 				list($primaryCols) = $this->indexColumns($def);
 			} else if($this->isWord($first, ['KEY', 'INDEX', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
 				$indexDefs[] = $def;
+			} else if($this->isWord($first, 'CONSTRAINT') && $this->constraintKind($def) === 'UNIQUE') {
+				// CONSTRAINT name UNIQUE [KEY] (cols): a unique index, as MySQL makes it
+				$indexDefs[] = $this->constraintAsIndexDef($def);
 			} else if($this->isWord($first, ['CONSTRAINT', 'FOREIGN', 'CHECK'])) {
 				$constraints[] = $this->join($this->expressions($def));
 			} else {
@@ -3662,6 +3897,7 @@ class WireDatabasePgsqlTranslator {
 		}
 		foreach($columns as $name => $col) {
 			if($col['pgType'] === 'jsonb') foreach($this->jsonIndexSql($table, $name) as $sql) $statements[] = $sql;
+			if($col['onUpdate']) foreach($this->onUpdateSql($table, $name) as $sql) $statements[] = $sql;
 		}
 
 		$this->clearSchemaCache($table);
@@ -3841,8 +4077,21 @@ class WireDatabasePgsqlTranslator {
 					$statements[] = "ALTER TABLE $qTable ADD PRIMARY KEY (" . implode(', ', array_map([$this, 'quoteId'], $cols)) . ')';
 					if($columnTypes === null) $columnTypes = $this->indexColumnTypes($table);
 					foreach($this->primaryFoldIndexSql($table, $cols, $columnTypes) as $sql) $statements[] = $sql;
-				} else if($w2 === 'CONSTRAINT') {
-					throw new \PDOException("PostgreSQL translator: unsupported ALTER TABLE for $table: " . $this->join($spec));
+				} else if($w2 === 'CONSTRAINT' || $w2 === 'FOREIGN' || $w2 === 'CHECK') {
+					$kind = $w2 === 'CONSTRAINT' ? $this->constraintKind($rest) : $w2;
+					if($kind === 'UNIQUE') {
+						// a unique key, as MySQL makes it
+						if($columnTypes === null) $columnTypes = $this->getColumnTypes($table);
+						foreach($this->indexDef($table, $this->constraintAsIndexDef($rest), $columnTypes) as $sql) $statements[] = $sql;
+					} else if($kind === 'PRIMARY') {
+						list($cols) = $this->indexColumns($rest);
+						$statements[] = "ALTER TABLE $qTable ADD PRIMARY KEY (" . implode(', ', array_map([$this, 'quoteId'], $cols)) . ')';
+					} else if($kind === 'FOREIGN' || $kind === 'CHECK') {
+						// the same syntax in PostgreSQL, with identifiers and expressions translated
+						$statements[] = "ALTER TABLE $qTable ADD " . trim($this->join($this->expressions($this->trimTokens($rest))));
+					} else {
+						throw new \PDOException("PostgreSQL translator: unsupported ALTER TABLE for $table: " . $this->join($spec));
+					}
 				} else {
 					if($w2 === 'COLUMN') $rest = array_slice($rest, $j + 1);
 					$rest = $this->trimTokens($rest);
@@ -3855,6 +4104,7 @@ class WireDatabasePgsqlTranslator {
 						$col = $this->columnDef($this->trimTokens($colDef));
 						$statements[] = "ALTER TABLE $qTable ADD COLUMN " . $this->quoteId($col['name']) . ' ' . $this->addColumnSql($col);
 						if($col['pgType'] === 'jsonb') foreach($this->jsonIndexSql($table, $col['name']) as $sql) $statements[] = $sql;
+						if($col['onUpdate']) foreach($this->onUpdateSql($table, $col['name']) as $sql) $statements[] = $sql;
 					}
 				}
 
@@ -3862,12 +4112,21 @@ class WireDatabasePgsqlTranslator {
 				if($w2 === 'INDEX' || $w2 === 'KEY') {
 					$k = $this->next($rest, $j + 1);
 					foreach($this->dropIndexStatements($table, $this->name($rest[$k])) as $sql) $statements[] = $sql;
+				} else if($w2 === 'FOREIGN' || $w2 === 'CHECK' || $w2 === 'CONSTRAINT') {
+					// DROP FOREIGN KEY name, DROP CHECK name, DROP CONSTRAINT name
+					$k = $this->next($rest, $j + 1);
+					if($w2 === 'FOREIGN' && $k > -1 && $this->isWord($rest[$k], 'KEY')) $k = $this->next($rest, $k + 1);
+					$constraint = $this->name($rest[$k]);
+					$statements[] = "ALTER TABLE $qTable DROP CONSTRAINT IF EXISTS " . $this->quoteId($constraint);
+					// MySQL 8's DROP CONSTRAINT also drops a unique key, which is an index here
+					if($w2 === 'CONSTRAINT') foreach($this->dropIndexStatements($table, $constraint) as $sql) $statements[] = $sql;
 				} else if($w2 === 'PRIMARY') {
 					$statements[] = "ALTER TABLE $qTable DROP CONSTRAINT IF EXISTS " . $this->quoteId("{$table}_pkey");
 					if($this->foldAvailable) $statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, 'primary' . self::foldIndexSuffix));
 				} else {
 					if($w2 === 'COLUMN') $j = $this->next($rest, $j + 1);
 					$statements[] = "ALTER TABLE $qTable DROP COLUMN " . $this->quoteId($this->name($rest[$j]));
+					foreach($this->onUpdateSql($table, $this->name($rest[$j]), false) as $sql) $statements[] = $sql;
 				}
 
 			} else if($w === 'RENAME') {
@@ -3936,6 +4195,11 @@ class WireDatabasePgsqlTranslator {
 				if($col['default'] !== null) $actions[] = "ALTER COLUMN $qCol SET DEFAULT $col[default]";
 				$statements[] = "ALTER TABLE $qTable " . implode(', ', $actions);
 				if($col['pgType'] === 'jsonb') foreach($this->jsonIndexSql($table, $col['name']) as $sql) $statements[] = $sql;
+				// MODIFY redefines ON UPDATE too: keep, add or remove the trigger (under the new name after CHANGE)
+				if($col['name'] !== $oldName || !$col['onUpdate']) {
+					foreach($this->onUpdateSql($table, $oldName, false) as $sql) $statements[] = $sql;
+				}
+				if($col['onUpdate']) foreach($this->onUpdateSql($table, $col['name'], true, true) as $sql) $statements[] = $sql;
 
 			} else if(in_array($w, ['ENGINE', 'DEFAULT', 'CHARACTER', 'CHARSET', 'COLLATE', 'CONVERT', 'AUTO_INCREMENT', 'COMMENT', 'ORDER', 'ALGORITHM', 'LOCK'])) {
 				// table options: no PostgreSQL equivalent

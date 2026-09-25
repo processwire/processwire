@@ -295,7 +295,7 @@ Behavior differences from MySQL:
 | Fulltext search | No `FULLTEXT` indexes: with `pg_trgm` they become trigram indexes, otherwise they are skipped. Selector fulltext operators use `LIKE`/`REGEXP` as they do on SQLite: no relevance ordering, stopwords are not ignored, word operators such as `~=` also match partial words, and query expansion and boolean commands are approximated. |
 | Transactions | A failed statement inside a PostgreSQL transaction normally aborts the whole transaction. ProcessWire wraps each statement in a savepoint while a transaction is open so that a caught error does not abort it, as with MySQL. This costs two extra round trips per statement inside a transaction (`SAVEPOINT` and `RELEASE`), and each savepoint that writes uses a subtransaction: a transaction with more than 64 of them overflows PostgreSQL's per-session subtransaction cache, which slows snapshots for all sessions until it ends. Set `$config->dbOptions['pgsql']['savepoints']` to false to skip savepoints when your code does not rely on continuing after a failed statement inside a transaction (large imports, high-latency database hosts). |
 | Column types | `TINYINT`/`SMALLINT` become `smallint`, `INT` becomes `integer`, `BIGINT` becomes `bigint`, `FLOAT` is `real`, `DOUBLE` is `double precision`, `DECIMAL` is `numeric`, `CHAR(n)` is `varchar(n)` (PostgreSQL pads `char(n)`), all `TEXT` types are `text`, `DATETIME`/`TIMESTAMP` are `timestamp`, `BLOB` types are `bytea`, `JSON` is `jsonb`, `ENUM`/`SET` are `text` (values are not restricted). `UNSIGNED` is ignored, so `INT UNSIGNED` is the signed 32-bit `integer` (maximum 2,147,483,647 rather than 4,294,967,295); display widths, `CHARACTER SET` and `COLLATE` are ignored too. `AUTO_INCREMENT` columns are identity columns; inserting an explicit id moves the sequence past it (never backwards), and `lastInsertId()` then returns the sequence position, which is the inserted id unless that id is lower than one already in the table. `ALTER TABLE ... MODIFY` redefines the column as MySQL does: without `NOT NULL` it becomes nullable, without `DEFAULT` it has none, and text changed to a number converts as MySQL does: the leading number, with its fraction and exponent (`'12.5'`, `'-3.75x'`, `'.5'`, `'1e3'`), rounded for an integer type, and `''` and `'abc'` become 0. |
-| Times | `NOW()`, `UNIX_TIMESTAMP()` and similar functions use PHP's time zone (set on the connection). `DEFAULT CURRENT_TIMESTAMP` works; `ON UPDATE CURRENT_TIMESTAMP` is ignored. Zero dates (`'0000-00-00 00:00:00'`) are invalid: compare with `IS NULL` instead. |
+| Times | `NOW()`, `UNIX_TIMESTAMP()` and similar functions use PHP's time zone (set on the connection). `DEFAULT CURRENT_TIMESTAMP` works, and `ON UPDATE CURRENT_TIMESTAMP` is a trigger (`pw_on_update_now()`) that sets the column when an `UPDATE` changes the row without setting the column, as MySQL does. MySQL's zero dates (`'0000-00-00'`, `'0000-00-00 00:00:00'`) are NULL: as values (literal or bound) they are stored as NULL, a column defaulting to one is nullable with no default, and comparisons with a date column work (`= '0000-00-00 00:00:00'` is `IS NULL`, `!=` and `>` are `IS NOT NULL`). Rows read back have NULL where MySQL would return the zero date. |
 | Comparisons | MySQL compares a number column to a string by converting the string to its leading number (`'12.5x'` is 12.5, `'.5'` is 0.5, `'1e3'` is 1000, `''` and `'abc'` are 0). The translator does the same for columns whose type it knows (`table.column`, or a bare column in a single-table statement); comparisons against columns of derived tables are passed through and PostgreSQL reports a type mismatch. `LIKE`/`REGEXP` on number and date columns compare the value as text, as MySQL does. |
 | `GROUP BY` | PostgreSQL requires every selected column to be grouped or aggregated (like MySQL's `ONLY_FULL_GROUP_BY`). The translator wraps ungrouped `table.column` terms in `SELECT` and `ORDER BY` with `any_value()` and lets `HAVING` reference select-list aliases; other ungrouped expressions are reported by PostgreSQL. |
 | Locks | `GET_LOCK()`, `RELEASE_LOCK()` and `IS_FREE_LOCK()` use advisory locks; `GET_LOCK()` does not wait for its timeout (it returns 0 at once when the lock is taken). `LOCK TABLES`/`UNLOCK TABLES` are no-ops. |
@@ -312,14 +312,19 @@ Not supported (throws an exception):
 - `MATCH ... AGAINST` (an exception says so): check `supportsFulltext()` and use `LIKE` or `REGEXP` instead,
   or let `DatabaseQuerySelectFulltext` handle it.
 - `FOUND_ROWS()` (`SQL_CALC_FOUND_ROWS` is ignored): use `COUNT(*)`, or check `supportsFoundRows()`.
-- `SHOW CREATE TABLE`: use `getColumns($table, 3)` and `getIndexes($table, true)` instead.
-- `UPDATE` with `JOIN`, and multi-table `DELETE` with more than one target table
-  (`DELETE t FROM t JOIN ...` with one target is supported). `UPDATE ... ORDER BY ... LIMIT` and
-  `DELETE ... LIMIT` are supported.
+- `SHOW CREATE TABLE` (it belongs with database backups, which are not supported on PostgreSQL yet): use
+  `getColumns($table, 3)` and `getIndexes($table, true)` instead.
+- `UPDATE` with `LEFT`/`RIGHT JOIN`, `UPDATE` that sets columns of more than the first table, and multi-table
+  `DELETE` with more than one target table. (`UPDATE t JOIN u ON ... SET t.x=u.y` and `UPDATE t, u SET ...`
+  become `UPDATE ... FROM`; `DELETE t FROM t JOIN ...` with one target, `UPDATE ... ORDER BY ... LIMIT` and
+  `DELETE ... LIMIT` are supported.)
 - `LOCK IN SHARE MODE`, user variables (`@var`, `@@var`), stored procedures, `SOUNDS LIKE`, `<=>`, and
   MySQL collation names in `COLLATE` clauses. `SELECT ... FOR UPDATE` is passed through and works.
-- `ALTER TABLE ... ADD CONSTRAINT`. (`ADD/DROP/MODIFY/CHANGE COLUMN`, `ADD/DROP INDEX`, `ADD/DROP PRIMARY KEY`,
-  `RENAME COLUMN` and `RENAME INDEX` are supported.)
+- Nothing in `ALTER TABLE` beyond these, which are supported: `ADD/DROP/MODIFY/CHANGE COLUMN`, `ADD/DROP INDEX`,
+  `ADD/DROP PRIMARY KEY`, `RENAME COLUMN`, `RENAME INDEX`, `ADD [CONSTRAINT name] FOREIGN KEY ... REFERENCES ...`,
+  `ADD [CONSTRAINT name] CHECK (...)`, `ADD CONSTRAINT name UNIQUE` (a unique index, as MySQL makes it),
+  `DROP FOREIGN KEY`, `DROP CHECK` and `DROP CONSTRAINT`. A foreign key violation reports MySQL's SQLSTATE
+  (`23000`, error 1452). Unlike MySQL, PostgreSQL does not create an index for a foreign key's columns.
 - MySQL functions without a translation are passed through and fail unless PostgreSQL has a function of the
   same name: translated are `NOW()`, `UNIX_TIMESTAMP()`, `FROM_UNIXTIME()`, `DATE_FORMAT()` (literal format),
   `DATE_ADD()`/`DATE_SUB()` with `INTERVAL`, `IF()`, `IFNULL()`, `FIELD()`, `LOCATE()`, `SUBSTRING_INDEX()`

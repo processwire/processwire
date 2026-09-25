@@ -24,12 +24,9 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testShow();
 		$this->testFolding();
 		$this->testJson();
+		$this->testGaps();
 	}
 
-	/**
-	 * Case- and accent-insensitive text comparisons and sorting (pw_fold), as MySQL's default collations
-	 *
-	 */
 	/**
 	 * MySQL JSON functions, translated to the pw_json_*() functions over jsonb (see setupJson())
 	 *
@@ -136,6 +133,74 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('JSON functions left alone again when unavailable', $sql, $t($sql));
 	}
 
+	/**
+	 * ON UPDATE CURRENT_TIMESTAMP, zero dates, UPDATE ... JOIN, and constraints
+	 *
+	 */
+	protected function testGaps() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$t = function($sql) use($tr) { return $tr->translateStatements($sql); };
+		$tr->setSchemaCache([
+			'd' => ['primary' => ['id'], 'identity' => null, 'columns' => ['id' => 'integer', 'created' => 'timestamp without time zone', 'day' => 'date', 'name' => 'text']],
+		]);
+
+		// ON UPDATE CURRENT_TIMESTAMP becomes a trigger
+		$statements = $t('CREATE TABLE `pa` (`pages_id` int NOT NULL, `ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`pages_id`))');
+		$this->check('ON UPDATE CURRENT_TIMESTAMP: table, trigger function, trigger', 3, count($statements));
+		$this->check('ON UPDATE CURRENT_TIMESTAMP trigger function', 0, strpos($statements[1], 'CREATE OR REPLACE FUNCTION pw_on_update_now() RETURNS trigger'));
+		$this->check('ON UPDATE CURRENT_TIMESTAMP trigger', 'CREATE TRIGGER "pw_on_update__ts" BEFORE UPDATE ON "pa" FOR EACH ROW EXECUTE FUNCTION pw_on_update_now(\'ts\')', $statements[2]);
+		$statements = $t('ALTER TABLE `pa` ADD `ts2` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP');
+		$this->check('ALTER ADD column ON UPDATE adds its trigger', 'CREATE TRIGGER "pw_on_update__ts2" BEFORE UPDATE ON "pa" FOR EACH ROW EXECUTE FUNCTION pw_on_update_now(\'ts2\')', end($statements));
+		$this->check('ALTER DROP COLUMN drops its trigger', ['ALTER TABLE "pa" DROP COLUMN "ts2"', 'DROP TRIGGER IF EXISTS "pw_on_update__ts2" ON "pa"'], $t('ALTER TABLE `pa` DROP `ts2`'));
+		$statements = $t('ALTER TABLE `pa` MODIFY `ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP');
+		$this->check('ALTER MODIFY without ON UPDATE drops the trigger', 'DROP TRIGGER IF EXISTS "pw_on_update__ts" ON "pa"', end($statements));
+
+		// zero dates: MySQL's '0000-00-00' is NULL here
+		$this->check('= zero date is IS NULL', 'SELECT id FROM d WHERE created IS NULL', $t("SELECT id FROM d WHERE created='0000-00-00 00:00:00'")[0]);
+		$this->check('!= and > zero date is IS NOT NULL', 'SELECT id FROM d WHERE created IS NOT NULL AND day IS NOT NULL', $t("SELECT id FROM d WHERE created!='0000-00-00 00:00:00' AND day>'0000-00-00'")[0]);
+		$this->check('a zero date value is NULL', "INSERT INTO d (id, created) VALUES (1, NULL)", $t("INSERT INTO d (id, created) VALUES (1, '0000-00-00 00:00:00')")[0]);
+		$this->check('a zero date in UPDATE SET is NULL', 'UPDATE d SET created=NULL WHERE id=1', $t("UPDATE d SET created='0000-00-00 00:00:00' WHERE id=1")[0]);
+		$this->check('a zero date default makes the column nullable with no default',
+			"CREATE TABLE \"z\" (\n  \"d\" timestamp DEFAULT NULL\n)",
+			$t("CREATE TABLE z (d datetime NOT NULL DEFAULT '0000-00-00 00:00:00')")[0]);
+
+		// UPDATE ... JOIN becomes UPDATE ... FROM
+		$this->check('UPDATE JOIN becomes UPDATE FROM',
+			'UPDATE pages AS p SET sort=f.data FROM field_s AS f WHERE f.pages_id=p.id AND p.parent_id=1',
+			$t('UPDATE pages AS p INNER JOIN field_s AS f ON f.pages_id=p.id SET p.sort=f.data WHERE p.parent_id=1')[0]);
+		$this->check('UPDATE with a comma join',
+			'UPDATE a SET x=b.y, z=2 FROM b WHERE a.id=b.id',
+			$t('UPDATE a, b SET a.x=b.y, a.z=2 WHERE a.id=b.id')[0]);
+		$this->check('UPDATE JOIN setting another table throws', true, $this->throwsMatching(function() use($t) { $t('UPDATE a JOIN b ON a.id=b.id SET b.x=1'); }, '/one target/'));
+		$this->check('UPDATE LEFT JOIN throws', true, $this->throwsMatching(function() use($t) { $t('UPDATE a LEFT JOIN b ON a.id=b.id SET a.x=1'); }, '/LEFT JOIN/'));
+
+		// constraints
+		$this->check('ADD CONSTRAINT FOREIGN KEY',
+			['ALTER TABLE "c" ADD CONSTRAINT "fk_p" FOREIGN KEY ("pages_id") REFERENCES "pages" ("id") ON DELETE CASCADE'],
+			$t('ALTER TABLE `c` ADD CONSTRAINT `fk_p` FOREIGN KEY (`pages_id`) REFERENCES `pages` (`id`) ON DELETE CASCADE'));
+		$this->check('ADD FOREIGN KEY without a name',
+			['ALTER TABLE "c" ADD FOREIGN KEY (pages_id) REFERENCES pages (id)'],
+			$t('ALTER TABLE c ADD FOREIGN KEY (pages_id) REFERENCES pages (id)'));
+		$this->check('ADD CONSTRAINT CHECK translates its expression',
+			['ALTER TABLE "c" ADD CONSTRAINT positive CHECK (qty >= 0)'],
+			$t('ALTER TABLE c ADD CONSTRAINT positive CHECK (qty >= 0)'));
+		$this->check('ADD CONSTRAINT UNIQUE is a unique index',
+			['CREATE UNIQUE INDEX "c__u" ON "c" ("a", "b")'],
+			$t('ALTER TABLE c ADD CONSTRAINT u UNIQUE KEY (a, b)'));
+		$this->check('ADD CONSTRAINT PRIMARY KEY', ['ALTER TABLE "c" ADD PRIMARY KEY ("id")'], $t('ALTER TABLE c ADD CONSTRAINT pk PRIMARY KEY (id)'));
+		$this->check('DROP FOREIGN KEY', ['ALTER TABLE "c" DROP CONSTRAINT IF EXISTS "fk_p"'], $t('ALTER TABLE c DROP FOREIGN KEY fk_p'));
+		$this->check('DROP CHECK, and DROP CONSTRAINT (which in MySQL 8 also drops a unique key, an index here)',
+			['ALTER TABLE "c" DROP CONSTRAINT IF EXISTS "positive"', 'ALTER TABLE "c" DROP CONSTRAINT IF EXISTS "x"', 'DROP INDEX IF EXISTS "c__x"'],
+			$t('ALTER TABLE c DROP CHECK positive, DROP CONSTRAINT x'));
+		$statements = $t('CREATE TABLE `c` (`id` int NOT NULL, `a` int, PRIMARY KEY (`id`), CONSTRAINT `u` UNIQUE KEY (`a`), CONSTRAINT `fk` FOREIGN KEY (`a`) REFERENCES `pages` (`id`))');
+		$this->check('CREATE TABLE inline foreign key', true, strpos($statements[0], 'CONSTRAINT "fk" FOREIGN KEY ("a") REFERENCES "pages" ("id")') !== false);
+		$this->check('CREATE TABLE inline CONSTRAINT UNIQUE KEY is a unique index', 'CREATE UNIQUE INDEX "c__u" ON "c" ("a")', isset($statements[1]) ? $statements[1] : null);
+	}
+
+	/**
+	 * Case- and accent-insensitive text comparisons and sorting (pw_fold), as MySQL's default collations
+	 *
+	 */
 	protected function testFolding() {
 		$tr = new WireDatabasePgsqlTranslator();
 		$t = function($sql) use($tr) { return implode(";\n", $tr->translateStatements($sql)); };
@@ -372,7 +437,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('ALTER MODIFY type and null (no DEFAULT given: none, as MySQL MODIFY redefines the column)', 'ALTER TABLE "t" ALTER COLUMN "data" DROP DEFAULT, ALTER COLUMN "data" TYPE text USING "data"::text, ALTER COLUMN "data" SET NOT NULL', $t('ALTER TABLE t MODIFY `data` MEDIUMTEXT NOT NULL')[0]);
 		$this->check('ALTER MODIFY with default', 'ALTER TABLE "t" ALTER COLUMN "ip" DROP DEFAULT, ALTER COLUMN "ip" TYPE varchar(45) USING "ip"::varchar(45), ALTER COLUMN "ip" SET NOT NULL, ALTER COLUMN "ip" SET DEFAULT \'\'', $t("ALTER TABLE t MODIFY ip VARCHAR(45) NOT NULL DEFAULT ''")[0]);
 		$this->check('ALTER MODIFY nullable drops NOT NULL', 'ALTER TABLE "t" ALTER COLUMN "x" DROP DEFAULT, ALTER COLUMN "x" TYPE integer USING "x"::integer, ALTER COLUMN "x" DROP NOT NULL', $t('ALTER TABLE t MODIFY x INT NULL')[0]);
-		$this->check('ALTER CHANGE renames then modifies', ['ALTER TABLE "t" RENAME COLUMN "a" TO "b"', 'ALTER TABLE "t" ALTER COLUMN "b" DROP DEFAULT, ALTER COLUMN "b" TYPE text USING "b"::text, ALTER COLUMN "b" SET NOT NULL'], $t('ALTER TABLE t CHANGE a b TEXT NOT NULL'));
+		$this->check('ALTER CHANGE renames then modifies', ['ALTER TABLE "t" RENAME COLUMN "a" TO "b"', 'ALTER TABLE "t" ALTER COLUMN "b" DROP DEFAULT, ALTER COLUMN "b" TYPE text USING "b"::text, ALTER COLUMN "b" SET NOT NULL', 'DROP TRIGGER IF EXISTS "pw_on_update__a" ON "t"'], $t('ALTER TABLE t CHANGE a b TEXT NOT NULL'));
 		$this->check('ALTER ADD PRIMARY KEY', 'ALTER TABLE "t" ADD PRIMARY KEY ("a", "b")', $t('ALTER TABLE t ADD PRIMARY KEY (a, b)')[0]);
 		$this->check('ALTER DROP PRIMARY KEY', 'ALTER TABLE "t" DROP CONSTRAINT IF EXISTS "t_pkey"', $t('ALTER TABLE t DROP PRIMARY KEY')[0]);
 		$this->check('ALTER DROP PRIMARY KEY, ADD PRIMARY KEY in one statement', ['ALTER TABLE "t" DROP CONSTRAINT IF EXISTS "t_pkey"', 'ALTER TABLE "t" ADD PRIMARY KEY ("a", "b")'], $t('ALTER TABLE t DROP PRIMARY KEY, ADD PRIMARY KEY(a, b)'));

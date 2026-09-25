@@ -16,6 +16,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testFolding();
 		$this->testNumberConversion();
 		$this->testJson();
+		$this->testGaps();
 	}
 
 	/**
@@ -130,6 +131,62 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 			$this->check("$label: renaming a subfield keeps its value as JSON", '{"tags": ["x", "y"], "color": "green", "title": "Alice"}', (string) $v("SELECT data FROM `$table` WHERE pages_id=1"));
 			$database->exec("DROP TABLE IF EXISTS `$table`");
 		}
+	}
+
+	/**
+	 * ON UPDATE CURRENT_TIMESTAMP, zero dates, UPDATE ... JOIN and foreign keys (live, pgsql only)
+	 *
+	 */
+	protected function testGaps() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$v = function($sql) use($database) { return $database->query($sql)->fetchColumn(); };
+		$a = WireTests::fieldPrefix . 'pgsql_gaps_a';
+		$b = WireTests::fieldPrefix . 'pgsql_gaps_b';
+		$database->exec("DROP TABLE IF EXISTS `$b`");
+		$database->exec("DROP TABLE IF EXISTS `$a`");
+
+		// ON UPDATE CURRENT_TIMESTAMP
+		$database->exec("CREATE TABLE `$a` (`id` int NOT NULL, `name` varchar(20) NOT NULL DEFAULT '', `d` datetime NOT NULL DEFAULT '0000-00-00 00:00:00', `ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`id`))");
+		$database->exec("INSERT INTO `$a` (id, name) VALUES (1, 'x'), (2, 'y')");
+		$database->exec("UPDATE `$a` SET ts='2000-01-01 00:00:00'");
+		$this->check('ON UPDATE: setting the column itself keeps the value set', '2000-01-01 00:00:00', (string) $v("SELECT ts FROM `$a` WHERE id=1"));
+		$database->exec("UPDATE `$a` SET name='x' WHERE id=1");
+		$this->check('ON UPDATE: an UPDATE that changes nothing keeps it', '2000-01-01 00:00:00', (string) $v("SELECT ts FROM `$a` WHERE id=1"));
+		$database->exec("UPDATE `$a` SET name='z' WHERE id=1");
+		$this->check('ON UPDATE: changing another column sets the current time', true, strtotime((string) $v("SELECT ts FROM `$a` WHERE id=1")) > time() - 60);
+		$this->check('ON UPDATE: other rows are not touched', '2000-01-01 00:00:00', (string) $v("SELECT ts FROM `$a` WHERE id=2"));
+
+		// zero dates
+		$this->check('a zero date default is NULL', null, $v("SELECT d FROM `$a` WHERE id=1"));
+		$database->exec("INSERT INTO `$a` (id, d) VALUES (3, '0000-00-00 00:00:00'), (4, '2020-05-01 10:00:00')");
+		$q = $database->prepare("INSERT INTO `$a` (id, d) VALUES (5, :d)");
+		$q->bindValue(':d', '0000-00-00 00:00:00');
+		$q->execute();
+		$this->check('a bound zero date is NULL', null, $v("SELECT d FROM `$a` WHERE id=5"));
+		$this->check('= zero date finds the zero dates', 4, (int) $v("SELECT COUNT(*) FROM `$a` WHERE d='0000-00-00 00:00:00'"));
+		$this->check('> zero date finds the real dates', 1, (int) $v("SELECT COUNT(*) FROM `$a` WHERE d>'0000-00-00'"));
+
+		// UPDATE ... JOIN
+		$database->exec("CREATE TABLE `$b` (`id` int NOT NULL, `a_id` int NOT NULL, `label` varchar(20) NOT NULL, PRIMARY KEY (`id`))");
+		$database->exec("INSERT INTO `$b` (id, a_id, label) VALUES (10, 1, 'one'), (20, 2, 'two')");
+		$database->exec("UPDATE `$a` AS x INNER JOIN `$b` AS y ON y.a_id=x.id SET x.name=y.label WHERE y.id=20");
+		$this->check('UPDATE ... JOIN updates the joined rows', 'two', $v("SELECT name FROM `$a` WHERE id=2"));
+		$this->check('UPDATE ... JOIN leaves other rows', 'z', $v("SELECT name FROM `$a` WHERE id=1"));
+
+		// foreign keys, and their errors as MySQL reports them
+		$database->exec("ALTER TABLE `$b` ADD CONSTRAINT `fk_a` FOREIGN KEY (`a_id`) REFERENCES `$a` (`id`) ON DELETE CASCADE");
+		$state = '';
+		try { $database->exec("INSERT INTO `$b` (id, a_id, label) VALUES (30, 99, 'none')"); } catch(\PDOException $e) { $state = $e->getCode(); }
+		$this->check('a foreign key violation has MySQL\'s SQLSTATE', '23000', $state);
+		$database->exec("DELETE FROM `$a` WHERE id=1");
+		$this->check('ON DELETE CASCADE', 0, (int) $v("SELECT COUNT(*) FROM `$b` WHERE a_id=1"));
+		$database->exec("ALTER TABLE `$b` DROP FOREIGN KEY `fk_a`");
+		$database->exec("INSERT INTO `$b` (id, a_id, label) VALUES (30, 99, 'none')");
+		$this->check('DROP FOREIGN KEY', 1, (int) $v("SELECT COUNT(*) FROM `$b` WHERE id=30"));
+
+		$database->exec("DROP TABLE IF EXISTS `$b`");
+		$database->exec("DROP TABLE IF EXISTS `$a`");
 	}
 
 	/**

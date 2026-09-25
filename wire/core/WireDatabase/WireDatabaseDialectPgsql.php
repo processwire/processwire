@@ -529,6 +529,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			'42P01' => array('42S02', 1146, 'Base table or view not found', '/relation "([^"]+)" does not exist/', "Table '%s' doesn't exist"),
 			'42703' => array('42S22', 1054, 'Column not found', '/column ("?)([^" ]+)\1 (?:of relation "[^"]+" )?does not exist/', "Unknown column '%s' in 'field list'"),
 			'23505' => array('23000', 1062, 'Integrity constraint violation', '/violates unique constraint "([^"]+)"/', "Duplicate entry for key '%s'"),
+			'23503' => array('23000', 1452, 'Integrity constraint violation', '/violates foreign key constraint "([^"]+)"/', "Cannot add or update a child row: a foreign key constraint fails ('%s')"),
 			'42P07' => array('42S01', 1050, 'Base table or view already exists', '/relation "([^"]+)" already exists/', "Table '%s' already exists"),
 			'42701' => array('42S21', 1060, 'Column already exists', '/column "([^"]+)"/', "Duplicate column name '%s'"),
 		);

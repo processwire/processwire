@@ -85,6 +85,11 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 		$this->hasBoundValues = true;
 		// a deferred statement is a placeholder with no parameters: execute() reports the problem clearly
 		if($this->isDeferred()) return true;
+		if(is_string($value) && WireDatabasePgsqlTranslator::isZeroDate($value)) {
+			// MySQL's zero date is NULL here (PostgreSQL rejects it)
+			$value = null;
+			$data_type = \PDO::PARAM_NULL;
+		}
 		return parent::bindValue($parameter, $value, $data_type);
 	}
 
@@ -120,6 +125,11 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 		$dialect = $this->database->dialect();
 		$pdo = $this->database->pdo();
 		$this->mysqlErrorInfo = null;
+		if(is_array($input_parameters)) {
+			foreach($input_parameters as $key => $value) {
+				if(is_string($value) && WireDatabasePgsqlTranslator::isZeroDate($value)) $input_parameters[$key] = null;
+			}
+		}
 		// a failed statement aborts a PostgreSQL transaction; a savepoint keeps the transaction
 		// usable afterwards, as it is on MySQL, for code that catches the exception and carries on
 		$savepoint = $dialect->savepointBegin($pdo);
