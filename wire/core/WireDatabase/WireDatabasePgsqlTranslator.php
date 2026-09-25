@@ -157,6 +157,12 @@ class WireDatabasePgsqlTranslator {
 	const fulltextIndexSuffix = '__fts';
 
 	/**
+	 * Marker function that setupFulltext() creates last: bump its version when the functions change, so that sites set up again
+	 *
+	 */
+	const fulltextMarker = 'pw_fulltext_v1';
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -2279,9 +2285,10 @@ class WireDatabasePgsqlTranslator {
 	 * before it when the unaccent extension is installed, so that searches ignore case and accents as MySQL's
 	 * do. pw_tsvector(text) is the indexed document and pw_tsquery(text, boolean) reads a MySQL AGAINST
 	 * value. FULLTEXT keys made before this was set up (trigram indexes only) get their tsvector index, built
-	 * CONCURRENTLY so that writes continue; one that fails is logged and skipped. pw_tsquery() is created last
-	 * and is how a connection tells that setup completed. An advisory lock keeps two connections from setting
-	 * up at once: the one that does not get it uses LIKE and REGEXP for that request.
+	 * CONCURRENTLY so that writes continue; one that fails is logged and skipped. The marker function
+	 * (see fulltextMarker) is created last and is how a connection tells that this version's setup
+	 * completed. An advisory lock keeps two connections from setting up at once: the one that does not
+	 * get it uses LIKE and REGEXP for that request.
 	 *
 	 * If the unaccent rules change, tsvector indexes are stale as pw_fold() indexes are: rebuild them with REINDEX.
 	 *
@@ -2329,6 +2336,8 @@ class WireDatabasePgsqlTranslator {
 				}
 			}
 			$exec(self::tsqueryFunctionSql($schema));
+			$s = '"' . str_replace('"', '""', $schema) . '"';
+			$exec("CREATE OR REPLACE FUNCTION $s." . self::fulltextMarker . "() RETURNS int LANGUAGE sql IMMUTABLE AS 'SELECT 1'");
 			$result['fulltext'] = true;
 			if(count($errors)) $result['error'] = 'full text search is set up, but some FULLTEXT keys have no tsvector index: ' . implode('; ', $errors);
 		} catch(\Exception $e) {
@@ -2343,7 +2352,7 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
-	 * Get the statements that create pw_search and pw_tsvector() (not pw_tsquery(), see tsqueryFunctionSql())
+	 * Get the statements that create pw_search and pw_tsvector() (pw_tsquery() is tsqueryFunctionSql())
 	 *
 	 * pw_tsvector() replaces the characters that PostgreSQL's parser would otherwise join words with
 	 * (host names, email addresses, paths, hyphenated words) by spaces, since MySQL splits words there;

@@ -220,7 +220,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			($timezone !== '' ? "set_config('TimeZone', " . $pdo->quote($timezone) . ', false) AS tz, ' : '') .
 			"to_regprocedure('pw_fold(text)') IS NOT NULL AND to_regprocedure('pw_unaccent(text)') IS NOT NULL AS fold, " .
 			"to_regprocedure('" . WireDatabasePgsqlTranslator::jsonVersionFunction . "()') IS NOT NULL AS json, " .
-			"to_regprocedure('pw_tsquery(text,boolean)') IS NOT NULL AS fulltext"
+			"to_regprocedure('" . WireDatabasePgsqlTranslator::fulltextMarker . "()') IS NOT NULL AS fulltext"
 		)->fetch(\PDO::FETCH_ASSOC);
 		$version = (string) $row['version'];
 		if(version_compare(preg_replace('/[^0-9.].*$/', '', $version), self::minVersion, '<')) {
