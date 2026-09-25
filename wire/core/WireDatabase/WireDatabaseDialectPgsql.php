@@ -526,17 +526,18 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		$state = isset($e->errorInfo[0]) ? (string) $e->errorInfo[0] : (string) $e->getCode();
 		$message = $e->getMessage();
 		$map = array(
-			'42P01' => array('42S02', 1146, '/relation "([^"]+)" does not exist/', "Table '%s' doesn't exist"),
-			'42703' => array('42S22', 1054, '/column ("?)([^" ]+)\1 (?:of relation "[^"]+" )?does not exist/', "Unknown column '%s' in 'field list'"),
-			'23505' => array('23000', 1062, '/violates unique constraint "([^"]+)"/', "Duplicate entry for key '%s'"),
-			'42P07' => array('42S01', 1050, '/relation "([^"]+)" already exists/', "Table '%s' already exists"),
-			'42701' => array('42S21', 1060, '/column "([^"]+)"/', "Duplicate column name '%s'"),
+			'42P01' => array('42S02', 1146, 'Base table or view not found', '/relation "([^"]+)" does not exist/', "Table '%s' doesn't exist"),
+			'42703' => array('42S22', 1054, 'Column not found', '/column ("?)([^" ]+)\1 (?:of relation "[^"]+" )?does not exist/', "Unknown column '%s' in 'field list'"),
+			'23505' => array('23000', 1062, 'Integrity constraint violation', '/violates unique constraint "([^"]+)"/', "Duplicate entry for key '%s'"),
+			'42P07' => array('42S01', 1050, 'Base table or view already exists', '/relation "([^"]+)" already exists/', "Table '%s' already exists"),
+			'42701' => array('42S21', 1060, 'Column already exists', '/column "([^"]+)"/', "Duplicate column name '%s'"),
 		);
 		if(!isset($map[$state])) return $e;
-		list($mysqlState, $errno, $regex, $format) = $map[$state];
+		list($mysqlState, $errno, $class, $regex, $format) = $map[$state];
 		$name = preg_match($regex, $message, $m) ? end($m) : '';
 		$info = sprintf($format, $name);
-		$ex = new WireDatabasePgsqlException("SQLSTATE[$mysqlState]: $info ($message)", 0, $e);
+		// shaped like pdo_mysql's message, since some code matches on it (i.e. for '1054')
+		$ex = new WireDatabasePgsqlException("SQLSTATE[$mysqlState]: $class: $errno $info ($message)", 0, $e);
 		$ex->setMySQLError($mysqlState, array($mysqlState, $errno, $info));
 		return $ex;
 	}
@@ -614,7 +615,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 * @throws WireDatabaseException
 	 *
 	 */
-	protected function upsertUpdateClause(array $updates, array $conflict, $table) {
+	protected function upsertUpdateClause(array $updates, array $conflict, $table = '') {
 		if(!count($conflict)) {
 			try {
 				$primary = $this->getIndexes($table, 'PRIMARY');
@@ -784,6 +785,15 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		if($state === '40P01' || $state === '40001') return 'deadlock';
 		if($state === '57P01' || $state === '57P02' || $state === '57P03') return 'gone-away';
 		if(strpos($state, '08') === 0) return 'comm-failure';
+		// libpq reports a lost or refused connection as a general error rather than an 08 state
+		$message = $e->getMessage();
+		if(stripos($message, 'server closed the connection') !== false || stripos($message, 'no connection to the server') !== false
+			|| stripos($message, 'terminating connection') !== false || stripos($message, 'connection to server was lost') !== false) {
+			return 'gone-away';
+		}
+		if(stripos($message, 'could not connect to server') !== false || stripos($message, 'connection to server at') !== false) {
+			return 'comm-failure';
+		}
 		// MySQL-shaped errors (codes 1213, 2006, 2013 and their messages) as classified by the MySQL dialect,
 		// for code that constructs or forwards them regardless of the database in use
 		$mysql = new WireDatabaseDialectMySQL($this->database);
@@ -883,10 +893,10 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 *
 	 */
 	protected function indexInfo($table) {
-		$prefix = $table . WireDatabasePgsqlTranslator::indexSeparator;
 		$sql =
 			"SELECT i.relname AS index_name, ix.indisunique AS is_unique, ix.indisprimary AS is_primary, " .
-			"k.ord AS seq, a.attname AS column_name, pg_get_indexdef(ix.indexrelid, k.ord::int, true) AS expr " .
+			"k.ord AS seq, a.attname AS column_name, pg_get_indexdef(ix.indexrelid, k.ord::int, true) AS expr, " .
+			"obj_description(i.oid, 'pg_class') AS comment " .
 			"FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid " .
 			"JOIN pg_namespace n ON n.oid = t.relnamespace " .
 			"CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) " .
@@ -895,11 +905,6 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		$rows = array();
 		foreach($this->catalog($sql, array($table)) as $row) {
 			$name = (string) $row['index_name'];
-			// folded companion of a unique or primary key (see WireDatabasePgsqlTranslator::createIndexSql()) and
-			// the GIN index of a jsonb column (see WireDatabasePgsqlTranslator::jsonIndexSql()): internal
-			foreach(array(WireDatabasePgsqlTranslator::foldIndexSuffix, WireDatabasePgsqlTranslator::jsonIndexSuffix, WireDatabasePgsqlTranslator::jsonNestedIndexSuffix) as $suffix) {
-				if(substr($name, -strlen($suffix)) === $suffix) continue 2;
-			}
 			if($row['column_name'] === null) {
 				// indexed expression, i.e. pw_fold(data) or left(data, 250): report the column it is on, as MySQL would
 				$expr = preg_replace('/^(?:\(?"?\w+"?\()+/', '', ltrim((string) $row['expr'], '('));
@@ -910,10 +915,14 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			$unique = in_array($row['is_unique'], array(true, 't', '1', 1), true);
 			if($primary) {
 				$keyName = 'PRIMARY';
-			} else if(strpos($name, $prefix) === 0) {
-				$keyName = substr($name, strlen($prefix));
 			} else {
-				$keyName = $name;
+				$keyName = WireDatabasePgsqlTranslator::mysqlIndexName($table, $name, $row['comment']);
+				if($keyName === null) $keyName = $name;
+			}
+			// folded companion of a unique or primary key (see WireDatabasePgsqlTranslator::createIndexSql()) and the
+			// indexes of a jsonb column (see WireDatabasePgsqlTranslator::jsonIndexSql()): internal
+			foreach(array(WireDatabasePgsqlTranslator::foldIndexSuffix, WireDatabasePgsqlTranslator::jsonIndexSuffix, WireDatabasePgsqlTranslator::jsonNestedIndexSuffix) as $suffix) {
+				if(substr($keyName, -strlen($suffix)) === $suffix) continue 2;
 			}
 			$rows[] = array(
 				'Table' => $table,
