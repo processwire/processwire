@@ -433,7 +433,13 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$translator->loadPersistentCache(array());
 		$sql = "SELECT pages_id FROM `$table` WHERE data=:v0 LIMIT 3, 7";
 		$translated = $translator->translate($sql);
+		// a site's own cache file (named by its key) is not removed by this test's file
+		$siteFile = dirname($file) . '/translations-' . md5('wiretest-site') . '.php';
+		$siteExisted = is_file($siteFile);
+		if(!$siteExisted) file_put_contents($siteFile, '<?php return array();');
 		$dialect->saveTranslationCache();
+		$this->check("a test's cache file leaves the site's cache files alone", true, is_file($siteFile));
+		if(!$siteExisted && is_file($siteFile)) unlink($siteFile);
 		$entries = is_file($file) ? include($file) : null;
 		$this->check('saveTranslationCache() writes this request\'s translations', true, is_array($entries) && isset($entries["SELECT pages_id FROM `$table` WHERE data=:pwp0x LIMIT 3, 7"]));
 		$next = new WireDatabasePgsqlTranslator();

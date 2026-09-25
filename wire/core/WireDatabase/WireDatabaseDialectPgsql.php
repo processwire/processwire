@@ -413,10 +413,10 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			return;
 		}
 		if(function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
-		if($isNew) {
-			// files of earlier schema versions are not used again
+		if($isNew && preg_match('/^translations-[0-9a-f]{32}\.php$/', basename($file))) {
+			// files of earlier schema versions are not used again (only files named by a key, so not a test's own)
 			foreach(glob($dir . 'translations-*.php') ?: array() as $old) {
-				if($old !== $file) @unlink($old);
+				if($old !== $file && preg_match('/^translations-[0-9a-f]{32}\.php$/', basename($old))) @unlink($old);
 			}
 		}
 	}
