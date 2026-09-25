@@ -250,6 +250,12 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('a FULLTEXT key keeps its trigram index', true, (bool) preg_grep('/"field_body__data" ON "field_body" USING gin \("data" gin_trgm_ops\)/', $statements));
 		$this->check('a FULLTEXT key gets a stored tsvector column', true, in_array('ALTER TABLE "field_body" ADD COLUMN IF NOT EXISTS "data__tsv" tsvector GENERATED ALWAYS AS (pw_tsvector("data")) STORED', $statements, true));
 		$this->check('a FULLTEXT key also gets a tsvector index on it', 'CREATE INDEX "field_body__data__fts" ON "field_body" USING gin ("data__tsv")', end($statements));
+		$long = 'field_' . str_repeat('b', 50);
+		$statements = $tr->translateStatements("ALTER TABLE `$long` ADD FULLTEXT KEY `data` (`data`)");
+		$comments = array_values(preg_grep('/^COMMENT ON INDEX/', $statements));
+		$this->check('long names: a FULLTEXT key records the MySQL names of the indexes it made, and no others', [
+			'COMMENT ON INDEX "' . $tr->indexName($long, 'data__fts') . '" IS \'pw_index:data__fts\'',
+		], $comments);
 		$statements = $tr->translateStatements("ALTER TABLE `t` ADD FULLTEXT KEY `ab` (`a`, `b`)");
 		$this->check('a FULLTEXT key over several columns', 'CREATE INDEX "t__ab__fts" ON "t" USING gin (("a__tsv" || "b__tsv"))', end($statements));
 

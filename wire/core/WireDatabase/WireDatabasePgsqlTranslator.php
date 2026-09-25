@@ -4198,9 +4198,11 @@ SQL;
 		if($name === null) $name = $cols[0];
 		$statements = $this->createIndexSql($table, $name, $cols, $lens, $unique, $fulltext, $ifNotExists, $columnTypes);
 		if(!count($statements)) return [];
-		// long names are shortened (see indexName()), so record the MySQL names, the folded companion's included
-		$names = count($statements) > 1 ? [$name, $name . self::foldIndexSuffix] : [$name];
-		foreach($names as $indexName) {
+		// long names are shortened (see indexName()), so record the MySQL names of the indexes made (the key's own,
+		// its folded companion, its tsvector index; a FULLTEXT key without pg_trgm has no index of its own)
+		foreach([$name, $name . self::foldIndexSuffix, $name . self::fulltextIndexSuffix] as $indexName) {
+			$made = $this->quoteId($this->indexName($table, $indexName)) . ' ON ';
+			if(!count(array_filter($statements, function($sql) use($made) { return strpos($sql, $made) !== false && stripos($sql, 'CREATE ') === 0; }))) continue;
 			$comment = $this->indexCommentSql($table, $indexName);
 			if($comment !== '') $statements[] = $comment;
 		}
