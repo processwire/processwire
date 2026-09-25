@@ -56,6 +56,14 @@
  */
 
 class WireDatabaseBackup {
+
+	/**
+	 * CREATE TABLE statements executed by the last restoreMerge() [ table => sql ]
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $createdTables = array();
 	
 	const fileHeader = '--- WireDatabaseBackup';
 	const fileFooter = '--- /WireDatabaseBackup';
@@ -1185,12 +1193,17 @@ class WireDatabaseBackup {
 		$creates2 = $this->findCreateTables($filename2, $options); 
 		$creates = array_merge($creates1, $creates2); // CREATE TABLE statements in filename2 override those in filename1
 		$numErrors = 0;
+		$this->createdTables = array();
 		
 		foreach($creates as $table => $create) {
 			if($options['allowDrop']) {
 				if(!$this->executeQuery("DROP TABLE IF EXISTS `$table`", $options)) $numErrors++;
 			}
-			if(!$this->executeQuery($create, $options)) $numErrors++;
+			if($this->executeQuery($create, $options)) {
+				$this->createdTables[$table] = $create;
+			} else {
+				$numErrors++;
+			}
 		}
 		
 		$inserts = $this->findInserts($filename1); 
@@ -1226,6 +1239,22 @@ class WireDatabaseBackup {
 		}
 		
 		return $numErrors === 0;
+	}
+
+	/**
+	 * Get the CREATE TABLE statements that the last restoreMerge() executed successfully
+	 * 
+	 * As executed, i.e. after any `findReplaceCreateTable` replacements. The installer uses these to
+	 * start the schema log (see WireDatabaseSchemaLog) with the exact MySQL definition of each table.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array [ table => CREATE TABLE statement ]
+	 * @since 3.0.273
+	 * 
+	 */
+	public function getCreatedTables() {
+		return $this->createdTables;
 	}
 
 	/**

@@ -2305,8 +2305,58 @@ class Installer {
 		if($backup->restoreMerge($file1, $file2, $restoreOptions)) {
 			$this->ok("Imported database file: $file1");
 			$this->ok("Imported database file: $file2"); 
+			if(method_exists($backup, 'getCreatedTables')) {
+				$this->schemaLogSeed($database, $backup->getCreatedTables(), $options);
+			}
 		} else {
 			foreach($backup->errors() as $error) $this->alertErr($error); 
+		}
+	}
+
+	/**
+	 * Start the schema log with the MySQL definition of every table just imported
+	 * 
+	 * ProcessWire records schema changes in its schema_log table (see WireDatabaseSchemaLog), in MySQL
+	 * syntax on every database type. Its first entries describe the tables that existed when it started.
+	 * Recording them here, from the statements just imported, keeps their exact MySQL definitions, which
+	 * SQLite and PostgreSQL do not fully retain once the tables exist. This must happen before ProcessWire
+	 * boots, since booting may change the schema, which would start the log from the installed tables.
+	 * 
+	 * @param \PDO $database
+	 * @param array $creates [ table => CREATE TABLE statement ] as executed
+	 * @param array $options Including 'dbEngine' and 'dbCharset'
+	 * 
+	 */
+	protected function schemaLogSeed($database, array $creates, array $options) {
+		$table = 'schema_log'; // WireDatabaseSchemaLog::table
+		// a profile exported from a site that already had a schema log brings its history with it
+		if(isset($creates[$table]) || !count($creates)) return;
+		try {
+			// same definition as WireDatabaseSchemaLog::start()
+			$database->exec(
+				"CREATE TABLE IF NOT EXISTS `$table` (" .
+					"`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, " .
+					"`created` DATETIME NOT NULL, " .
+					"`table_name` VARCHAR(128) NOT NULL, " .
+					"`baseline` TINYINT NOT NULL DEFAULT 0, " .
+					"`ddl` MEDIUMTEXT NOT NULL, " .
+					"PRIMARY KEY (`id`), " .
+					"KEY `table_name` (`table_name`)" .
+				") ENGINE=$options[dbEngine] DEFAULT CHARSET=$options[dbCharset]"
+			);
+			$query = $database->prepare(
+				"INSERT INTO `$table` (created, table_name, baseline, ddl) VALUES(:created, :table_name, 1, :ddl)"
+			);
+			$created = date('Y-m-d H:i:s');
+			foreach($creates as $name => $sql) {
+				$query->bindValue(':created', $created);
+				$query->bindValue(':table_name', $name);
+				$query->bindValue(':ddl', rtrim(trim($sql), ';'));
+				$query->execute();
+			}
+		} catch(\Exception $e) {
+			// not fatal: ProcessWire starts the log from the installed tables instead
+			$this->warn("Unable to start the schema log: " . $e->getMessage());
 		}
 	}
 
