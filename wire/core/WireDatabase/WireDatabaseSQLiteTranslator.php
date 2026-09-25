@@ -52,6 +52,12 @@ class WireDatabaseSQLiteTranslator {
 	const fulltextKeyPrefix = 'pw_key_';
 
 	/**
+	 * Table whose presence means the database was created with FTS5 fulltext support (see setupFulltext())
+	 *
+	 */
+	const fulltextMarker = 'pw_fulltext_v1';
+
+	/**
 	 * Cache of translated SQL, indexed by original SQL
 	 *
 	 * @var array
@@ -1562,7 +1568,9 @@ class WireDatabaseSQLiteTranslator {
 
 		switch($what) {
 			case 'TABLES':
-				$sql = "SELECT name AS " . $this->quoteId('Tables_in_' . $this->databaseName) . " FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'";
+				// not FTS5 tables (and their shadow tables) or the fulltext marker, which are part of FULLTEXT keys
+				$sql = "SELECT name AS " . $this->quoteId('Tables_in_' . $this->databaseName) . " FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'" .
+					" AND instr(name, '" . self::fulltextSeparator . "') = 0 AND name <> '" . self::fulltextMarker . "'";
 				if($like !== null) $sql .= " AND name LIKE $like ESCAPE '\\'";
 				$sql .= " ORDER BY name";
 				return $sql;
@@ -1593,6 +1601,18 @@ class WireDatabaseSQLiteTranslator {
 					"UNION ALL " .
 					"SELECT $qt, 'PRIMARY', 0, 1, ti.name, 'BTREE' FROM pragma_table_info($qt) ti " .
 					"WHERE ti.pk > 0 AND NOT EXISTS (SELECT 1 FROM pragma_index_list($qt) WHERE origin='pk')";
+				// FULLTEXT keys: the text columns of the table's FTS5 tables
+				$ftsPrefix = $table . self::fulltextSeparator;
+				$qp = "'" . str_replace("'", "''", $ftsPrefix) . "'";
+				$kp = "'" . self::fulltextKeyPrefix . "'";
+				$kpLen = strlen(self::fulltextKeyPrefix);
+				$sql .= " UNION ALL " .
+					"SELECT $qt, substr(m.name, " . (strlen($ftsPrefix) + 1) . "), 1, " .
+					"ti.cid + 1 - (SELECT count(*) FROM pragma_table_info(m.name) k WHERE substr(k.name, 1, $kpLen) = $kp), " .
+					"ti.name, 'FULLTEXT' " .
+					"FROM sqlite_master m JOIN pragma_table_info(m.name) ti " .
+					"WHERE m.type='table' AND substr(m.name, 1, " . strlen($ftsPrefix) . ") = $qp " .
+					"AND m.sql LIKE 'CREATE VIRTUAL TABLE%' AND substr(ti.name, 1, $kpLen) <> $kp";
 				$sql = "SELECT * FROM ($sql) ORDER BY `Key_name`, `Seq_in_index`";
 				if($where !== '') $sql = "SELECT * FROM ($sql) WHERE $where";
 				return $sql;
@@ -2969,7 +2989,8 @@ class WireDatabaseSQLiteTranslator {
 	 *
 	 * Used to emulate SHOW CREATE TABLE, for example so that WireDatabaseBackup produces
 	 * MySQL-syntax dumps, which restore through this translator. Column types are as stored
-	 * in SQLite (i.e. without UNSIGNED), and FULLTEXT indexes are exported as regular indexes.
+	 * in SQLite (i.e. without UNSIGNED). FULLTEXT keys are exported as FULLTEXT KEY when they are FTS5
+	 * tables (and as regular keys when fulltext is off, since they are plain indexes then).
 	 *
 	 * @param \PDO $pdo
 	 * @param string $table
@@ -3007,6 +3028,9 @@ class WireDatabaseSQLiteTranslator {
 			$name = strpos($index['name'], $prefix) === 0 ? substr($index['name'], strlen($prefix)) : $index['name'];
 			$cols = $pdo->query("SELECT name FROM pragma_index_info(" . $pdo->quote($index['name']) . ") ORDER BY seqno")->fetchAll(\PDO::FETCH_COLUMN);
 			$lines[] = ($index['unique'] ? 'UNIQUE KEY ' : 'KEY ') . $q($name) . ' (' . implode(',', array_map($q, $cols)) . ')';
+		}
+		foreach(self::fulltextKeys($pdo, $table) as $name => $info) {
+			$lines[] = 'FULLTEXT KEY ' . $q($name) . ' (' . implode(',', array_map($q, $info['columns'])) . ')';
 		}
 		return 'CREATE TABLE ' . $q($table) . " (\n  " . implode(",\n  ", $lines) . "\n)";
 	}
