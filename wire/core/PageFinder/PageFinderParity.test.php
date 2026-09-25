@@ -203,14 +203,14 @@ class WireTest_PageFinderParity extends WireTest {
 				'expect' => array('Äpfel', 'Apfelkuchen'),
 			),
 			// MySQL matches ^= and $= with REGEXP, which follows the collation for case but not
-			// for accents (so ^=zurich misses "Zürich" even though %=zurich finds it). SQLite's
-			// REGEXP folds accents too, so it matches more than MySQL here.
+			// for accents (so ^=zurich misses "Zürich" even though %=zurich finds it). Databases
+			// without fulltext (SQLite, PostgreSQL) use LIKE for these operators, which folds accents.
 			array(
 				'label' => '^= case and accent',
 				'selector' => 'title^=zurich',
 				'expect' => array(),
 				'differs' => array(
-					'sqlite' => array(array('Zürich'), 'SQLite REGEXP folds accents, MySQL REGEXP does not'),
+					'sqlite' => array(array('Zürich'), 'no fulltext on SQLite, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
 					'pgsql' => array(array('Zürich'), 'no fulltext on PostgreSQL, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
 				),
 			),
@@ -219,7 +219,7 @@ class WireTest_PageFinderParity extends WireTest {
 				'selector' => 'title^=emile',
 				'expect' => array(),
 				'differs' => array(
-					'sqlite' => array(array('Émile Zola'), 'SQLite REGEXP folds accents, MySQL REGEXP does not'),
+					'sqlite' => array(array('Émile Zola'), 'no fulltext on SQLite, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
 					'pgsql' => array(array('Émile Zola'), 'no fulltext on PostgreSQL, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
 				),
 			),
@@ -228,7 +228,7 @@ class WireTest_PageFinderParity extends WireTest {
 				'selector' => 'title$=brulee',
 				'expect' => array(),
 				'differs' => array(
-					'sqlite' => array(array('Crème brûlée'), 'SQLite REGEXP folds accents, MySQL REGEXP does not'),
+					'sqlite' => array(array('Crème brûlée'), 'no fulltext on SQLite, so $= uses LIKE, which folds accents; MySQL uses REGEXP'),
 					'pgsql' => array(array('Crème brûlée'), 'no fulltext on PostgreSQL, so $= uses LIKE, which folds accents; MySQL uses REGEXP'),
 				),
 			),
