@@ -79,6 +79,14 @@ class Installer {
 	const DEFAULT_PROFILE = 'site-blank';
 
 	/**
+	 * Database connection used to import the profile (for the first display of the admin account step)
+	 * 
+	 * @var \PDO|null
+	 * 
+	 */
+	protected $profileDatabase = null;
+
+	/**
 	 * Session key containing the token that identifies the active installer
 	 *
 	 */
@@ -2217,6 +2225,7 @@ class Installer {
 		}
 		
 		$this->sectionStop();
+		$this->profileDatabase = $database;
 		$this->adminAccount();
 	}
 
@@ -2361,6 +2370,94 @@ class Installer {
 	}
 
 	/**
+	 * Does the profile's SQL include users and passwords?
+	 * 
+	 * True for a profile exported (i.e. by ProcessExportProfile) with its users and passwords. The first
+	 * line of SQL written by WireDatabaseBackup is a JSON header, and its excludeExportTables lists
+	 * field_pass unless passwords were exported.
+	 * 
+	 * @param string $file
+	 * @return bool
+	 * 
+	 */
+	protected function profileIncludesUsers($file = './site/install/install.sql') {
+		if(!is_file($file)) return false;
+		$fp = @fopen($file, 'r');
+		if(!$fp) return false;
+		$line = trim((string) fgets($fp, 65536));
+		fclose($fp);
+		// header is "# --- WireDatabaseBackup {...}", or "--- WireDatabaseBackup {...}" in older files
+		if(!preg_match('/^#?\s*---\s*WireDatabaseBackup\s*(\{.*\})$/', $line, $matches)) return false;
+		$info = json_decode($matches[1], true);
+		if(!is_array($info) || !isset($info['excludeExportTables']) || !is_array($info['excludeExportTables'])) return false;
+		return !in_array('field_pass', $info['excludeExportTables'], true);
+	}
+
+	/**
+	 * Get the names of superusers imported with the profile, when it included users and passwords
+	 * 
+	 * Only superusers that have a password are returned, so the installer only skips creating an
+	 * account when someone can log in.
+	 * 
+	 * @param \PDO|WireDatabasePDO|null $database
+	 * @return array
+	 * 
+	 */
+	protected function importedSuperusers($database) {
+		if(!$database || !$this->profileIncludesUsers()) return array();
+		$names = array();
+		try {
+			$query = $database->query(
+				"SELECT p.name FROM pages p " .
+				"JOIN field_roles r ON r.pages_id=p.id " .
+				"JOIN pages ro ON ro.id=r.data AND ro.name='superuser' " .
+				"JOIN field_pass pw ON pw.pages_id=p.id AND pw.data!='' " .
+				"ORDER BY p.id"
+			);
+			foreach($query->fetchAll(\PDO::FETCH_COLUMN) as $name) $names[] = (string) $name;
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			return array();
+		}
+		return array_values(array_unique($names));
+	}
+
+	/**
+	 * Get the name of the imported admin page (id 2), or blank if not available
+	 * 
+	 * @param \PDO|WireDatabasePDO|null $database
+	 * @return string
+	 * 
+	 */
+	protected function importedAdminName($database) {
+		if(!$database) return '';
+		try {
+			$query = $database->query("SELECT name FROM pages WHERE id=2");
+			$name = $query->fetchColumn();
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			return '';
+		}
+		return is_string($name) ? $name : '';
+	}
+
+	/**
+	 * Get text explaining how to log in with imported superusers
+	 * 
+	 * @param array $superusers
+	 * @return string
+	 * 
+	 */
+	protected function importedSuperusersText(array $superusers) {
+		$names = array();
+		foreach($superusers as $name) $names[] = '<b>' . htmlentities($name, ENT_QUOTES, 'UTF-8') . '</b>';
+		return 
+			"This profile includes its own users and passwords, so no new account is created. " .
+			"Log in with " . (count($names) > 1 ? "one of these superuser accounts: " : "the superuser account ") .
+			implode(', ', $names) . ", using its password from the site the profile was exported from.";
+	}
+
+	/**
 	 * Present form to create admin account
 	 * 
 	 * @param null|ProcessWire $wire
@@ -2368,8 +2465,12 @@ class Installer {
 	 */
 	protected function adminAccount($wire = null) {
 
+		$database = $wire ? $wire->database : $this->profileDatabase;
+		$superusers = $this->importedSuperusers($database);
+		$adminName = $this->importedAdminName($database);
+
 		$values = array(
-			'admin_name' => 'processwire',
+			'admin_name' => $adminName !== '' ? $adminName : 'processwire',
 			'username' => 'admin',
 			'userpass' => '',
 			'userpass_confirm' => '',
@@ -2395,18 +2496,23 @@ class Installer {
 		$this->sectionStop();
 		
 		$this->sectionStart("fa-user-circle Admin Account"); 
-		$this->p(
-			"You will use this account to login to your ProcessWire admin. It will have superuser access, so please make sure " . 
-			"to create a <a target='_blank' href='https://en.wikipedia.org/wiki/Password_strength'>strong password</a>."
-		);
-		$this->input("username", "User", $clean['username'], array('type' => 'name')); 
-		$this->input("userpass", "Password", $clean['userpass'], array('type' => 'password')); 
-		$this->input("userpass_confirm", "Password <small class='detail'>(again)</small>", $clean['userpass_confirm'], array('type' => 'password')); 
-		$this->input("useremail", "Email Address", $clean['useremail'], array('clear' => true, 'type' => 'email')); 
-		$this->p(
-			"fa-warning Please remember the password you enter above as you will not be able to retrieve it again.", 
-			array('class' => 'detail', 'style' => 'margin-top:0')
-		);
+		if(count($superusers)) {
+			// profile exported with its users and passwords: keep them rather than creating an account
+			$this->p($this->importedSuperusersText($superusers));
+		} else {
+			$this->p(
+				"You will use this account to login to your ProcessWire admin. It will have superuser access, so please make sure " . 
+				"to create a <a target='_blank' href='https://en.wikipedia.org/wiki/Password_strength'>strong password</a>."
+			);
+			$this->input("username", "User", $clean['username'], array('type' => 'name')); 
+			$this->input("userpass", "Password", $clean['userpass'], array('type' => 'password')); 
+			$this->input("userpass_confirm", "Password <small class='detail'>(again)</small>", $clean['userpass_confirm'], array('type' => 'password')); 
+			$this->input("useremail", "Email Address", $clean['useremail'], array('clear' => true, 'type' => 'email')); 
+			$this->p(
+				"fa-warning Please remember the password you enter above as you will not be able to retrieve it again.", 
+				array('class' => 'detail', 'style' => 'margin-top:0')
+			);
+		}
 		$this->sectionStop();
 		
 		$this->sectionStart("fa-bath Cleanup");
@@ -2527,43 +2633,54 @@ class Installer {
 			$modules->uninstall('AdminThemeDefault');
 		}
 
-		if(!$input->post('username') || !$input->post('userpass')) $this->err("Missing account information"); 
-		if($input->post('userpass') !== $input->post('userpass_confirm')) $this->err("Passwords do not match");
-		if(strlen($input->post('userpass')) < 6) $this->err("Password must be at least 6 characters long"); 
+		// profile exported with its users and passwords: keep them rather than creating an account
+		$superusers = $this->importedSuperusers($wire->database);
+		$username = '';
+		$email = '';
 
-		$username = $sanitizer->pageName($input->post('username')); 
-		if($username != $input->post('username')) $this->err("Username must be only a-z 0-9");
-		if(strlen($username) < 2) $this->err("Username must be at least 2 characters long"); 
+		if(!count($superusers)) {
+			if(!$input->post('username') || !$input->post('userpass')) $this->err("Missing account information"); 
+			if($input->post('userpass') !== $input->post('userpass_confirm')) $this->err("Passwords do not match");
+			if(strlen($input->post('userpass')) < 6) $this->err("Password must be at least 6 characters long"); 
+
+			$username = $sanitizer->pageName($input->post('username')); 
+			if($username != $input->post('username')) $this->err("Username must be only a-z 0-9");
+			if(strlen($username) < 2) $this->err("Username must be at least 2 characters long"); 
+
+			$email = strtolower($sanitizer->email($input->post('useremail'))); 
+			if($email != strtolower($input->post('useremail'))) $this->err("Email address did not validate");
+		}
 
 		$adminName = $sanitizer->pageName($input->post('admin_name'));
 		if($adminName != $input->post('admin_name')) $this->err("Admin login URL must be only a-z 0-9");
 		if($adminName == 'wire' || $adminName == 'site') $this->err("Admin name may not be 'wire' or 'site'"); 
 		if(strlen($adminName) < 2) $this->err("Admin login URL must be at least 2 characters long"); 
 
-		$email = strtolower($sanitizer->email($input->post('useremail'))); 
-		if($email != strtolower($input->post('useremail'))) $this->err("Email address did not validate");
-
 		if($this->numErrors) {
 			$this->adminAccount($wire);
 			return;
 		}
 	
-		$superuserRole = $wire->roles->get("name=superuser");
-		$user = $wire->users->get($wire->config->superUserPageID); 
-
-		if($user->id) {
-			$user->of(false);
+		if(count($superusers)) {
+			$user = $wire->users->get("name=" . $sanitizer->selectorValue(reset($superusers)) . ", include=all");
 		} else {
-			$user = new User(); 
-			$user->id = $wire->config->superUserPageID; 
+			$superuserRole = $wire->roles->get("name=superuser");
+			$user = $wire->users->get($wire->config->superUserPageID); 
+
+			if($user->id) {
+				$user->of(false);
+			} else {
+				$user = new User(); 
+				$user->id = $wire->config->superUserPageID; 
+			}
+
+			$user->name = $username;
+			$user->pass = $input->post('userpass'); 
+			$user->email = $email;
+			$user->admin_theme = $adminTheme;
+
+			if(!$user->roles->has("superuser")) $user->roles->add($superuserRole); 
 		}
-
-		$user->name = $username;
-		$user->pass = $input->post('userpass'); 
-		$user->email = $email;
-		$user->admin_theme = $adminTheme;
-
-		if(!$user->roles->has("superuser")) $user->roles->add($superuserRole); 
 
 		$admin = $wire->pages->get($wire->config->adminRootPageID); 
 		$admin->of(false);
@@ -2573,7 +2690,7 @@ class Installer {
 			if(self::TEST_MODE) {
 				$this->ok("TEST MODE: skipped user creation"); 
 			} else {
-				$wire->users->save($user); 
+				if(!count($superusers)) $wire->users->save($user); 
 				$wire->pages->save($admin);
 			}
 
@@ -2586,7 +2703,11 @@ class Installer {
 		$adminName = htmlentities($adminName, ENT_QUOTES, "UTF-8");
 
 		$this->sectionStart("fa-user-circle Admin Account Saved");
-		$this->ok("User account saved: <b>{$user->name}</b>"); 
+		if(count($superusers)) {
+			$this->ok($this->importedSuperusersText($superusers));
+		} else {
+			$this->ok("User account saved: <b>{$user->name}</b>"); 
+		}
 
 		$this->sectionStop();
 		
@@ -3401,7 +3522,7 @@ class InstallerCli extends Installer {
 		$this->writeExtraConfig();
 
 		$this->h("Complete");
-		$adminName = isset($this->cliConfig['admin_name']) ? $this->cliConfig['admin_name'] : 'processwire';
+		$adminName = $wire->pages->get($wire->config->adminRootPageID)->name;
 		$this->ok("ProcessWire has been successfully installed.");
 		$this->ok("Admin URL: /$adminName/");
 
@@ -3478,7 +3599,7 @@ class InstallerCli extends Installer {
 			'httpHosts'  => '',
 			'debugMode'  => 1,
 			'themeName'  => 'default',
-			'admin_name' => 'processwire',
+			'admin_name' => '', // blank for the imported admin page's name, i.e. 'processwire'
 			'username'   => 'admin',
 			'useremail'  => '',
 			'userpass'   => '',
@@ -3544,6 +3665,9 @@ class InstallerCli extends Installer {
 			$this->cliConfig['dbPort'] = 5432; // MySQL default port does not apply
 		}
 		$required = $sqlite ? array('userpass') : array('dbName', 'dbUser', 'userpass');
+		// a profile exported with its users and passwords keeps them, so no admin password is needed
+		$profileSql = is_file('./site/install/install.sql') ? './site/install/install.sql' : "./{$this->cliConfig['profile']}/install/install.sql";
+		if($this->profileIncludesUsers($profileSql)) $required = array_diff($required, array('userpass'));
 		foreach($required as $key) {
 			if(empty($this->cliConfig[$key])) $this->abort("Missing required config value: '$key'");
 		}
@@ -3585,7 +3709,8 @@ CONFIGURATION KEYS
   Required
     dbName              Database name (MySQL)
     dbUser              Database username (MySQL)
-    userpass            Admin user password
+    userpass            Admin user password (not needed for a profile exported with its users and passwords,
+                          whose users are kept instead)
 
   Database (optional)
     dbType              'mysql', 'sqlite' or 'pgsql' (default: 'mysql'). SQLite is experimental and
@@ -3619,7 +3744,7 @@ CONFIGURATION KEYS
     debugMode           1 = debug on, 0 = off (default: 1)
 
   Admin panel (optional)
-    admin_name          URL segment for the admin, e.g. 'processwire' (default: 'processwire')
+    admin_name          URL segment for the admin, e.g. 'processwire' (default: the profile's, i.e. 'processwire')
     username            Admin login name (default: 'admin')
     useremail           Admin email address (default: '')
     themeName           'default' (Konkat) or 'original' (classic) (default: 'default')
@@ -3899,6 +4024,11 @@ PHP;
 	protected function adminAccountSave($wire) {
 		foreach(array('admin_name', 'username', 'userpass', 'userpass_confirm', 'useremail') as $key) {
 			if(array_key_exists($key, $this->cliConfig)) $_POST[$key] = $this->cliConfig[$key];
+		}
+		if(empty($_POST['admin_name'])) {
+			// keep the imported admin page's name (i.e. from a profile exported from an existing site)
+			$adminName = $this->importedAdminName($wire->database);
+			$_POST['admin_name'] = $adminName !== '' ? $adminName : 'processwire';
 		}
 		parent::adminAccountSave($wire);
 	}
