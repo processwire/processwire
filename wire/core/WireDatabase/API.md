@@ -312,8 +312,10 @@ Not supported (throws an exception):
 - `MATCH ... AGAINST` (an exception says so): check `supportsFulltext()` and use `LIKE` or `REGEXP` instead,
   or let `DatabaseQuerySelectFulltext` handle it.
 - `FOUND_ROWS()` (`SQL_CALC_FOUND_ROWS` is ignored): use `COUNT(*)`, or check `supportsFoundRows()`.
-- `SHOW CREATE TABLE` (it belongs with database backups, which are not supported on PostgreSQL yet): use
-  `getColumns($table, 3)` and `getIndexes($table, true)` instead.
+- `SHOW CREATE TABLE`. Backups and site profile exports (`WireDatabaseBackup`) take each table's `CREATE TABLE`
+  from the schema log instead (see below), which keeps what translation loses. For a table's current structure
+  use `getColumns($table, 3)` and `getIndexes($table, true)`. A site installed on PostgreSQL before the schema log
+  existed has no log entries for its tables, so its export stops with an error naming such a table: reinstall it.
 - `UPDATE` with `LEFT`/`RIGHT JOIN`, `UPDATE` that sets columns of more than the first table, and multi-table
   `DELETE` with more than one target table. (`UPDATE t JOIN u ON ... SET t.x=u.y` and `UPDATE t, u SET ...`
   become `UPDATE ... FROM`; `DELETE t FROM t JOIN ...` with one target, `UPDATE ... ORDER BY ... LIMIT` and
