@@ -435,6 +435,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$translated = $translator->translate($sql);
 		// a site's own cache file (named by its key) is not removed by this test's file
 		$siteFile = dirname($file) . '/translations-' . md5('wiretest-site') . '.php';
+		$this->wire()->files->mkdir(dirname($file) . '/', true);
 		$siteExisted = is_file($siteFile);
 		if(!$siteExisted) file_put_contents($siteFile, '<?php return array();');
 		$dialect->saveTranslationCache();
