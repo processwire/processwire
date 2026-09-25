@@ -34,6 +34,24 @@ class WireDatabaseSQLiteTranslator {
 	const currentTimestampDefault = "(datetime('now','localtime'))";
 
 	/**
+	 * FTS5 tokenizer for FULLTEXT keys: case- and accent-insensitive, with "_" inside words (as InnoDB)
+	 *
+	 */
+	const fulltextTokenize = "unicode61 remove_diacritics 2 tokenchars '_'";
+
+	/**
+	 * Between table name and FULLTEXT key name in FTS5 table names: table__fts_key
+	 *
+	 */
+	const fulltextSeparator = '__fts_';
+
+	/**
+	 * Prefix of the FTS5 columns holding the indexed row's primary key
+	 *
+	 */
+	const fulltextKeyPrefix = 'pw_key_';
+
+	/**
 	 * Cache of translated SQL, indexed by original SQL
 	 *
 	 * @var array
@@ -2008,6 +2026,107 @@ class WireDatabaseSQLiteTranslator {
 	}
 
 	/**
+	 * Get an FTS5 MATCH expression for a MySQL fulltext query (for pw_fts5query())
+	 *
+	 * The same rules as pw_tsquery() on PostgreSQL. In boolean mode: +word is required, -word excluded, word* a
+	 * prefix, "a phrase" a phrase (its @distance is ignored) and (...) a group, read the same way. Words without
+	 * an operator are alternatives, unless there is a required word: then MySQL uses them only for relevance, so
+	 * they are left out. The weight operators > < ~ are ignored. In natural language mode, any of the words
+	 * match. A term the tokenizer splits (foo.example.com) requires all of its words. A prefix term it splits
+	 * is a phrase whose last word is a prefix. Every word is quoted, so FTS5 syntax in the query is never
+	 * interpreted. A query with no words gives '""', which matches nothing.
+	 *
+	 * @param string|null $query
+	 * @param bool|int $boolean Boolean mode?
+	 * @return string
+	 *
+	 */
+	public static function fts5Query($query, $boolean = true) {
+		$result = self::fts5QueryPart((string) $query, (bool) $boolean);
+		return $result === '' ? '""' : $result;
+	}
+
+	/**
+	 * Get the FTS5 expression for part of a MySQL fulltext query, or blank when it has no words
+	 *
+	 * @param string $query
+	 * @param bool $boolean
+	 * @return string
+	 *
+	 */
+	protected static function fts5QueryPart($query, $boolean) {
+		$words = function($text) {
+			$parts = preg_split('/[^\p{L}\p{N}\p{M}_]+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+			return is_array($parts) ? $parts : [];
+		};
+		$quote = function($text) { return '"' . str_replace('"', '""', $text) . '"'; };
+		$must = [];
+		$should = [];
+		$mustNot = [];
+		$n = strlen($query);
+		$pos = 0;
+		while($pos < $n) {
+			$c = $query[$pos];
+			if(ctype_space($c) || $c === ')') { $pos++; continue; }
+			$op = '';
+			while($pos < $n && strpos('+-~<>', $query[$pos]) !== false) {
+				if($op !== '+' && $op !== '-') $op = $query[$pos];
+				$pos++;
+			}
+			if($pos >= $n) break;
+			$c = $query[$pos];
+			$expr = '';
+			if($c === '(') {
+				// a group: find its end and read it on its own
+				$depth = 0;
+				for($e = $pos; $e < $n; $e++) {
+					if($query[$e] === '(') $depth++;
+					if($query[$e] === ')' && --$depth === 0) break;
+				}
+				$inner = self::fts5QueryPart(substr($query, $pos + 1, $e - $pos - 1), $boolean);
+				if($inner !== '') $expr = "($inner)";
+				$pos = $e + 1;
+			} else if($c === '"') {
+				$e = strpos($query, '"', $pos + 1);
+				if($e === false) $e = $n;
+				$w = $words(substr($query, $pos + 1, $e - $pos - 1));
+				if(count($w)) $expr = $quote(implode(' ', $w));
+				$pos = $e + 1;
+			} else {
+				if(!preg_match('/^[^\s()"]+/', substr($query, $pos), $m)) { $pos++; continue; }
+				$term = $m[0];
+				$pos += strlen($term);
+				if(preg_match('/^@[0-9]+$/', $term)) continue; // a phrase's @distance is not a word
+				if(substr($term, -1) === '*') {
+					$w = $words(rtrim($term, '*'));
+					if(count($w)) $expr = $quote(implode(' ', $w)) . '*';
+				} else {
+					$w = $words($term);
+					if(count($w) === 1) {
+						$expr = $quote($w[0]);
+					} else if(count($w) > 1) {
+						$expr = '(' . implode(' AND ', array_map($quote, $w)) . ')';
+					}
+				}
+			}
+			if($expr === '') continue;
+			if(!$boolean) $op = '';
+			if($op === '+') {
+				$must[] = $expr;
+			} else if($op === '-') {
+				$mustNot[] = $expr;
+			} else {
+				$should[] = $expr;
+			}
+		}
+		$result = count($must) ? implode(' AND ', $must) : implode(' OR ', $should);
+		if($result !== '' && count($mustNot)) {
+			$result = (count($must) + count($should) > 1 ? "($result)" : $result) . ' NOT (' . implode(' OR ', $mustNot) . ')';
+		}
+		return $result;
+	}
+
+	/**
 	 * Compile a MySQL LIKE pattern into a form that can be matched against folded values
 	 *
 	 * Returns array of [ type, argument ] where type is one of: equals, contains, prefix,
@@ -2414,6 +2533,11 @@ class WireDatabaseSQLiteTranslator {
 			if($type === 'equals') return $value === $arg ? 1 : 0;
 			return preg_match($arg, $value) ? 1 : 0;
 		}, -1, $det);
+
+		// pw_fts5query(query, boolean): MySQL fulltext query syntax as an FTS5 MATCH expression
+		$create('pw_fts5query', function($query, $boolean) {
+			return self::fts5Query($query, $boolean);
+		}, 2, $det);
 
 		// numbers
 		$create('rand', function() { return mt_rand() / mt_getrandmax(); }, -1);
