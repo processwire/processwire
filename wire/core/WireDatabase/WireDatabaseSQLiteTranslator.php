@@ -96,6 +96,22 @@ class WireDatabaseSQLiteTranslator {
 	protected $databaseName = 'main';
 
 	/**
+	 * Are FULLTEXT keys FTS5 tables and MATCH ... AGAINST translated? (see setupFulltext())
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $fulltext = false;
+
+	/**
+	 * Cache of fulltextKeys() per table, cleared by DDL
+	 *
+	 * @var array
+	 *
+	 */
+	protected $ftsKeysCache = [];
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -135,6 +151,10 @@ class WireDatabaseSQLiteTranslator {
 	 *
 	 */
 	public function translateStatements($sql) {
+		if(preg_match('/^\s*(CREATE|DROP|ALTER|RENAME|TRUNCATE)\b/i', $sql)) {
+			$this->ftsKeysCache = [];
+			$this->cache = []; // translations of MATCH depend on the FULLTEXT keys
+		}
 		if(isset($this->cache[$sql])) return $this->cache[$sql];
 		$result = $this->translateStatement($sql);
 		$result = is_array($result) ? array_values($result) : [$result];
@@ -259,6 +279,7 @@ class WireDatabaseSQLiteTranslator {
 				break;
 			case 'DROP':
 				if($second === 'INDEX') return $this->dropIndex($tokens);
+				if($second === 'TABLE' || $second === 'TEMPORARY') return $this->dropTable($tokens);
 				break;
 		}
 
@@ -555,6 +576,216 @@ class WireDatabaseSQLiteTranslator {
 	 */
 	public function indexName($table, $index) {
 		return $table . self::indexSeparator . $index;
+	}
+
+	/**
+	 * Make FULLTEXT keys FTS5 tables and translate MATCH ... AGAINST (true), or not (false: plain indexes, MATCH unsupported)
+	 *
+	 * @param bool $on
+	 * @return self
+	 *
+	 */
+	public function setFulltext($on) {
+		$this->fulltext = (bool) $on;
+		$this->cache = [];
+		return $this;
+	}
+
+	/**
+	 * Are FULLTEXT keys FTS5 tables and MATCH ... AGAINST translated?
+	 *
+	 * @return bool
+	 *
+	 */
+	public function fulltext() {
+		return $this->fulltext;
+	}
+
+	/**
+	 * Get the FTS5 table name for given table and FULLTEXT key name
+	 *
+	 * @param string $table
+	 * @param string $name
+	 * @return string
+	 *
+	 */
+	public function fulltextName($table, $name) {
+		return $table . self::fulltextSeparator . $name;
+	}
+
+	/**
+	 * Get the FULLTEXT keys of a table from its FTS5 tables
+	 *
+	 * @param \PDO $pdo
+	 * @param string $table
+	 * @return array [ name => [ 'table' => FTS5 table, 'keys' => [ columns of $table, or 'rowid' ], 'columns' => [ text columns ] ] ]
+	 *
+	 */
+	public static function fulltextKeys(\PDO $pdo, $table) {
+		$prefix = $table . self::fulltextSeparator;
+		$query = $pdo->prepare(
+			"SELECT name FROM sqlite_master WHERE type='table' AND substr(name, 1, ?)=? AND sql LIKE 'CREATE VIRTUAL TABLE%' ORDER BY name"
+		);
+		$query->execute([strlen($prefix), $prefix]);
+		$names = $query->fetchAll(\PDO::FETCH_COLUMN);
+		$query->closeCursor();
+		$keys = [];
+		foreach($names as $ftsTable) {
+			$info = ['table' => $ftsTable, 'keys' => [], 'columns' => []];
+			$columns = $pdo->query('SELECT name FROM pragma_table_info(' . $pdo->quote($ftsTable) . ') ORDER BY cid')->fetchAll(\PDO::FETCH_COLUMN);
+			foreach($columns as $column) {
+				if(strpos($column, self::fulltextKeyPrefix) === 0) {
+					$info['keys'][] = substr($column, strlen(self::fulltextKeyPrefix));
+				} else {
+					$info['columns'][] = $column;
+				}
+			}
+			$keys[substr($ftsTable, strlen($prefix))] = $info;
+		}
+		return $keys;
+	}
+
+	/**
+	 * Get the FULLTEXT keys of a table (cached until the next DDL), or none without a connection
+	 *
+	 * @param string $table
+	 * @return array See fulltextKeys()
+	 *
+	 */
+	protected function ftsKeys($table) {
+		if(isset($this->ftsKeysCache[$table])) return $this->ftsKeysCache[$table];
+		$pdo = $this->pdo();
+		if(!$pdo) return [];
+		return $this->ftsKeysCache[$table] = self::fulltextKeys($pdo, $table);
+	}
+
+	/**
+	 * Get the primary key columns of an existing table, or ['rowid'] when it has none
+	 *
+	 * @param string $table
+	 * @return array
+	 * @throws \PDOException Without a connection
+	 *
+	 */
+	protected function tableKeys($table) {
+		$pdo = $this->pdo();
+		if(!$pdo) throw new \PDOException("SQLite translator: a FULLTEXT key on existing table $table requires a connection");
+		$keys = [];
+		foreach($pdo->query('SELECT name, pk FROM pragma_table_info(' . $pdo->quote($table) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+			if($row['pk']) $keys[(int) $row['pk']] = $row['name'];
+		}
+		ksort($keys);
+		return count($keys) ? array_values($keys) : ['rowid'];
+	}
+
+	/**
+	 * Get statements that create the FTS5 table and triggers for a FULLTEXT key
+	 *
+	 * @param string $table
+	 * @param string $name FULLTEXT key name
+	 * @param array $keys Primary key columns of $table, or ['rowid']
+	 * @param array $columns Text columns
+	 * @param bool $backfill Also copy the existing rows?
+	 * @return array
+	 *
+	 */
+	protected function fulltextStatements($table, $name, array $keys, array $columns, $backfill) {
+		$fts = $this->fulltextName($table, $name);
+		$defs = [];
+		foreach($keys as $key) $defs[] = $this->quoteId(self::fulltextKeyPrefix . $key) . ' UNINDEXED';
+		foreach($columns as $column) $defs[] = $this->quoteId($column);
+		$statements = [
+			'CREATE VIRTUAL TABLE ' . $this->quoteId($fts) . ' USING fts5(' . implode(', ', $defs) .
+			', tokenize = "' . self::fulltextTokenize . "\", prefix = '2 3')"
+		];
+		foreach($this->fulltextTriggerStatements($table, $name, $keys, $columns) as $sql) $statements[] = $sql;
+		if($backfill) {
+			$statements[] = 'INSERT INTO ' . $this->quoteId($fts) . ' (' . $this->fulltextColumnList($keys, $columns) . ') ' .
+				'SELECT ' . $this->fulltextValueList('', $keys, $columns) . ' FROM ' . $this->quoteId($table);
+		}
+		return $statements;
+	}
+
+	/**
+	 * Get the statements that create the triggers keeping a FULLTEXT key's FTS5 table in sync
+	 *
+	 * The insert trigger first deletes by key: REPLACE deletes the conflicting row without firing delete triggers.
+	 *
+	 * @param string $table
+	 * @param string $name
+	 * @param array $keys
+	 * @param array $columns
+	 * @return array
+	 *
+	 */
+	protected function fulltextTriggerStatements($table, $name, array $keys, array $columns) {
+		$fts = $this->quoteId($this->fulltextName($table, $name));
+		$trigger = function($suffix) use($table, $name) { return $this->quoteId($this->fulltextName($table, $name) . $suffix); };
+		$delete = function($row) use($fts, $keys) {
+			$where = [];
+			foreach($keys as $key) {
+				$where[] = $this->quoteId(self::fulltextKeyPrefix . $key) . " = $row." . ($key === 'rowid' ? 'rowid' : $this->quoteId($key));
+			}
+			return "DELETE FROM $fts WHERE " . implode(' AND ', $where) . ';';
+		};
+		$insert = "INSERT INTO $fts (" . $this->fulltextColumnList($keys, $columns) . ') VALUES (' . $this->fulltextValueList('new.', $keys, $columns) . ');';
+		$of = [];
+		foreach(array_merge($keys === ['rowid'] ? [] : $keys, $columns) as $column) $of[] = $this->quoteId($column);
+		$qTable = $this->quoteId($table);
+		return [
+			'CREATE TRIGGER ' . $trigger('_ai') . " AFTER INSERT ON $qTable BEGIN " . $delete('new') . " $insert END",
+			'CREATE TRIGGER ' . $trigger('_ad') . " AFTER DELETE ON $qTable BEGIN " . $delete('old') . ' END',
+			'CREATE TRIGGER ' . $trigger('_au') . ' AFTER UPDATE OF ' . implode(', ', $of) . " ON $qTable BEGIN " . $delete('old') . " $insert END",
+		];
+	}
+
+	/**
+	 * Get the FTS5 column list for keys and text columns
+	 *
+	 * @param array $keys
+	 * @param array $columns
+	 * @return string
+	 *
+	 */
+	protected function fulltextColumnList(array $keys, array $columns) {
+		$list = [];
+		foreach($keys as $key) $list[] = $this->quoteId(self::fulltextKeyPrefix . $key);
+		foreach($columns as $column) $list[] = $this->quoteId($column);
+		return implode(', ', $list);
+	}
+
+	/**
+	 * Get the value list for keys and text columns (text NULL as blank), i.e. from "new." in a trigger
+	 *
+	 * @param string $row Row prefix, i.e. "new." or blank
+	 * @param array $keys
+	 * @param array $columns
+	 * @return string
+	 *
+	 */
+	protected function fulltextValueList($row, array $keys, array $columns) {
+		$list = [];
+		foreach($keys as $key) $list[] = $row . ($key === 'rowid' ? 'rowid' : $this->quoteId($key));
+		foreach($columns as $column) $list[] = "coalesce($row" . $this->quoteId($column) . ", '')";
+		return implode(', ', $list);
+	}
+
+	/**
+	 * Get statements that drop a FULLTEXT key's triggers and FTS5 table
+	 *
+	 * @param string $table
+	 * @param string $name
+	 * @return array
+	 *
+	 */
+	protected function dropFulltextStatements($table, $name) {
+		$fts = $this->fulltextName($table, $name);
+		return [
+			'DROP TRIGGER IF EXISTS ' . $this->quoteId($fts . '_ai'),
+			'DROP TRIGGER IF EXISTS ' . $this->quoteId($fts . '_ad'),
+			'DROP TRIGGER IF EXISTS ' . $this->quoteId($fts . '_au'),
+			'DROP TABLE IF EXISTS ' . $this->quoteId($fts),
+		];
 	}
 
 	/*********************************************************************************
@@ -1226,7 +1457,7 @@ class WireDatabaseSQLiteTranslator {
 	 * DROP INDEX name ON table
 	 *
 	 * @param array $tokens
-	 * @return string
+	 * @return string|array Array when the index is a FULLTEXT key's FTS5 table
 	 *
 	 */
 	protected function dropIndex(array $tokens) {
@@ -1235,7 +1466,38 @@ class WireDatabaseSQLiteTranslator {
 		$j = $this->next($tokens, $i + 1);
 		$k = $this->next($tokens, $j + 1);
 		$table = $this->name($tokens[$k]);
+		if(isset($this->ftsKeys($table)[$index])) return $this->dropFulltextStatements($table, $index);
 		return 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index));
+	}
+
+	/**
+	 * DROP [TEMPORARY] TABLE [IF EXISTS] a [, b ...]
+	 *
+	 * One statement per table (SQLite drops one table per statement), each followed by dropping the
+	 * table's FTS5 tables (SQLite drops triggers with their table).
+	 *
+	 * @param array $tokens
+	 * @return string|array
+	 *
+	 */
+	protected function dropTable(array $tokens) {
+		$i = $this->next($tokens, $this->next($tokens, 0) + 1); // TABLE or TEMPORARY
+		if($this->isWord($tokens[$i], 'TEMPORARY')) $i = $this->next($tokens, $i + 1);
+		$ifExists = $this->hasTopLevelWord($tokens, 'EXISTS');
+		$statements = [];
+		foreach($this->splitCommas(array_slice($tokens, $i + 1)) as $part) {
+			$part = array_values(array_filter($part, function($t) {
+				return $t[0] !== 'ws' && !$this->isWord($t, ['IF', 'EXISTS', 'RESTRICT', 'CASCADE']);
+			}));
+			if(!count($part)) continue;
+			$table = $this->name($part[0]);
+			$statements[] = 'DROP TABLE ' . ($ifExists ? 'IF EXISTS ' : '') . $this->quoteId($table);
+			foreach($this->ftsKeys($table) as $info) {
+				$statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['table']);
+			}
+		}
+		if(!count($statements)) return $this->join($tokens);
+		return count($statements) > 1 ? $statements : $statements[0];
 	}
 
 	/**
@@ -1395,6 +1657,7 @@ class WireDatabaseSQLiteTranslator {
 		$columns = [];
 		$constraints = [];
 		$indexes = [];
+		$fulltextDefs = []; // [ [ name, columns ] ] of FULLTEXT keys that become FTS5 tables
 		$autoIncrementCol = '';
 		$primaryCols = [];
 
@@ -1407,7 +1670,15 @@ class WireDatabaseSQLiteTranslator {
 				$primaryCols = $this->indexColumns($def);
 
 			} else if($this->isWord($first, ['KEY', 'INDEX', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
-				$indexes[] = $this->indexDef($table, $def, $ifNotExists);
+				if($this->fulltext && !$temporary && $this->isFulltextDef($def)) {
+					$cols = $this->indexColumns($def);
+					$name = $this->indexDefName($def);
+					$fulltextDefs[] = [$name === null ? $cols[0] : $name, $cols];
+				} else {
+					// a FULLTEXT key on a TEMPORARY table stays a regular index (its triggers and FTS5 table would have to be temporary too)
+					if($temporary && $this->isFulltextDef($def)) $def = array_values(array_filter($def, function($t) { return !$this->isWord($t, 'FULLTEXT'); }));
+					$indexes[] = $this->indexDef($table, $def, $ifNotExists);
+				}
 
 			} else if($this->isWord($first, ['CONSTRAINT', 'FOREIGN', 'CHECK'])) {
 				$constraints[] = $this->join($def);
@@ -1419,6 +1690,8 @@ class WireDatabaseSQLiteTranslator {
 				$columns[$col['name']] = $col;
 			}
 		}
+
+		$tableKeys = count($primaryCols) ? $primaryCols : ['rowid']; // for FTS5 tables (before $primaryCols is used up below)
 
 		$lines = [];
 		foreach($columns as $name => $col) {
@@ -1446,6 +1719,10 @@ class WireDatabaseSQLiteTranslator {
 		];
 
 		foreach($indexes as $index) $statements[] = $index;
+
+		foreach($fulltextDefs as $ft) {
+			foreach($this->fulltextStatements($table, $ft[0], $tableKeys, $ft[1], false) as $sql) $statements[] = $sql;
+		}
 
 		return $statements;
 	}
@@ -1618,7 +1895,7 @@ class WireDatabaseSQLiteTranslator {
 	 * @param string $table
 	 * @param array $def
 	 * @param bool $ifNotExists
-	 * @return string
+	 * @return string|array Array for a FULLTEXT key that becomes an FTS5 table
 	 *
 	 */
 	protected function indexDef($table, array $def, $ifNotExists = false) {
@@ -1630,8 +1907,26 @@ class WireDatabaseSQLiteTranslator {
 		$cols = $this->indexColumns($def);
 		$name = $this->indexDefName($def);
 		if($name === null) $name = $cols[0];
-		// note: FULLTEXT indexes become regular indexes (fulltext queries use LIKE/REGEXP)
+		// FULLTEXT indexes become FTS5 tables when fulltext is on, otherwise regular indexes (fulltext queries use LIKE/REGEXP)
+		if($this->fulltext && $this->isFulltextDef($def)) {
+			return $this->fulltextStatements($table, $name, $this->tableKeys($table), $cols, true);
+		}
 		return $this->createIndexSql($table, $name, $cols, $unique, $ifNotExists);
+	}
+
+	/**
+	 * Is the index definition a FULLTEXT key?
+	 *
+	 * @param array $def
+	 * @return bool
+	 *
+	 */
+	protected function isFulltextDef(array $def) {
+		foreach($def as $t) {
+			if($t[0] === 'punct') break;
+			if($this->isWord($t, 'FULLTEXT')) return true;
+		}
+		return false;
 	}
 
 	/**
@@ -1669,7 +1964,7 @@ class WireDatabaseSQLiteTranslator {
 
 			if($w === 'ADD') {
 				if(in_array($w2, ['INDEX', 'KEY', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
-					$otherOps[] = $this->indexDef($table, $rest);
+					foreach((array) $this->indexDef($table, $rest) as $sql) $otherOps[] = $sql;
 				} else if($w2 === 'PRIMARY') {
 					$columnOps[] = ['action' => 'primary', 'columns' => $this->indexColumns($rest)];
 					$rebuild = true;
@@ -1699,7 +1994,12 @@ class WireDatabaseSQLiteTranslator {
 			} else if($w === 'DROP') {
 				if($w2 === 'INDEX' || $w2 === 'KEY') {
 					$k = $this->next($rest, $j + 1);
-					$otherOps[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $this->name($rest[$k])));
+					$index = $this->name($rest[$k]);
+					if(isset($this->ftsKeys($table)[$index])) {
+						foreach($this->dropFulltextStatements($table, $index) as $sql) $otherOps[] = $sql;
+					} else {
+						$otherOps[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index));
+					}
 				} else if($w2 === 'PRIMARY') {
 					$columnOps[] = ['action' => 'dropPrimary'];
 					$rebuild = true;
