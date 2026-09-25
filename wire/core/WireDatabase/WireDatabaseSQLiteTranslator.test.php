@@ -43,7 +43,76 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testFulltextDdl();
 		$this->testFulltextRebuild();
 		$this->testFulltextIntrospection();
+		$this->testFulltextMatch();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * MATCH ... AGAINST as a condition and as a score
+	 *
+	 */
+	protected function testFulltextMatch() {
+		$this->translator->setFulltext(true);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_m`');
+		$this->execMysql('DROP TABLE IF EXISTS `ft_p`');
+		$this->execMysql("CREATE TABLE `ft_p` (`id` int NOT NULL, `status` int NOT NULL DEFAULT 1, PRIMARY KEY (`id`))");
+		$this->execMysql("CREATE TABLE `ft_m` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, `data1012` mediumtext, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`), FULLTEXT KEY `data1012` (`data1012`))");
+		$rows = [1 => 'Hello World', 2 => 'Crème brûlée recipe', 3 => 'Émile Zola wrote novels', 4 => 'Hello there, Zola fans', 5 => '<p>World news</p>'];
+		foreach($rows as $id => $data) {
+			$this->execMysql("INSERT INTO `ft_p` (id) VALUES ($id)");
+			$q = $this->pdo->prepare($this->translate('INSERT INTO `ft_m` (pages_id, data, data1012) VALUES (:id, :d, :l)'));
+			$q->execute([':id' => $id, ':d' => $data, ':l' => $id === 1 ? 'Hallo Welt' : null]);
+		}
+		$ids = function($sql, $value) {
+			$q = $this->pdo->prepare($this->translate($sql));
+			$q->execute([':v' => $value]);
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$where = "SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id";
+		$this->check('MATCH: required words', [1], $ids($where, '+hello +world'));
+		$this->check('MATCH: alternatives', [1, 3, 4, 5], $ids($where, 'world zola'));
+		$this->check('MATCH: prefix, accents folded', [2], $ids($where, '+creme*'));
+		$this->check('MATCH: excluded word', [4], $ids($where, '+zola -emile'));
+		$this->check('MATCH: phrase', [3], $ids($where, '+"emile zola"'));
+		$this->check('MATCH: empty query matches nothing', [], $ids($where, ''));
+		$this->check('NOT MATCH', [2, 3, 5], $ids("SELECT pages_id FROM `ft_m` WHERE NOT MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id", '+hello'));
+		$this->check('NOT MATCH of an empty query keeps every row', [1, 2, 3, 4, 5], $ids("SELECT pages_id FROM `ft_m` WHERE NOT MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id", ''));
+		$this->check('MATCH WITH QUERY EXPANSION matches any word', [1, 4, 5], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v WITH QUERY EXPANSION) ORDER BY pages_id", 'hello world'));
+		$this->check('MATCH in natural language mode', [1, 4, 5], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v) ORDER BY pages_id", 'hello world'));
+		$this->check('MATCH as a score orders by relevance', [1, 4, 5], $ids(
+			"SELECT pages_id, MATCH(data) AGAINST(:v IN BOOLEAN MODE) AS score FROM `ft_m` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY score DESC, pages_id", 'hello world'
+		));
+		$this->check('MATCH score compared with a number', [1, 4], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) > 0 ORDER BY pages_id", 'hello'));
+		$this->check('NOT MATCH as a value is 0 or 1', ['0', '1'], array_map('strval', $this->pdo->query($this->translate(
+			"SELECT NOT MATCH(data) AGAINST('hello' IN BOOLEAN MODE) FROM `ft_m` WHERE pages_id IN (1, 2) ORDER BY pages_id"
+		))->fetchAll(\PDO::FETCH_COLUMN)));
+		$this->check('MATCH with a joined, aliased table', [3, 4], $ids(
+			"SELECT p.id FROM `ft_p` AS p JOIN `ft_m` AS field_x ON field_x.pages_id=p.id WHERE p.status=1 AND MATCH(field_x.data) AGAINST(:v IN BOOLEAN MODE) ORDER BY p.id", '+zola'
+		));
+		$this->check('MATCH with the table name as qualifier', [3, 4], $ids(
+			"SELECT ft_p.id FROM ft_p JOIN ft_m ON ft_m.pages_id=ft_p.id WHERE MATCH(ft_m.data) AGAINST(:v IN BOOLEAN MODE) ORDER BY ft_p.id", '+zola'
+		));
+		$this->check('MATCH picks the key for the column (language column)', [1], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data1012) AGAINST(:v IN BOOLEAN MODE)", '+welt'));
+		$error = '';
+		try {
+			$this->translate("SELECT pages_id FROM `ft_m` WHERE MATCH(data, data1012) AGAINST('x' IN BOOLEAN MODE)");
+		} catch(\PDOException $e) {
+			$error = (string) (isset($e->errorInfo[1]) ? $e->errorInfo[1] : '') . ' ' . $e->getMessage();
+		}
+		$this->check('MATCH on columns without a FULLTEXT key: MySQL error 1191', true, strpos($error, '1191') === 0 && stripos($error, 'FULLTEXT index matching the column list') !== false);
+		$sql = $this->translate("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST('x' IN BOOLEAN MODE)");
+		$this->check('MATCH as a condition uses the FTS5 table, not a per-row score', true, strpos($sql, '`ft_m__fts_data` MATCH') !== false && strpos($sql, 'bm25') === false);
+		$this->translator->setFulltext(false);
+		$error = '';
+		try {
+			$this->translate("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST('x' IN BOOLEAN MODE)");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('fulltext off: MATCH is not supported (as before)', true, strpos($error, 'not supported by SQLite') !== false);
+		$this->translator->setFulltext(true);
+		$this->execMysql('DROP TABLE `ft_m`');
+		$this->execMysql('DROP TABLE `ft_p`');
 	}
 
 	/**

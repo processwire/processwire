@@ -118,6 +118,14 @@ class WireDatabaseSQLiteTranslator {
 	protected $ftsKeysCache = [];
 
 	/**
+	 * Table aliases of the statement being translated: [ alias => table ] (tables map to themselves)
+	 *
+	 * @var array
+	 *
+	 */
+	protected $aliases = [];
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -289,6 +297,7 @@ class WireDatabaseSQLiteTranslator {
 				break;
 		}
 
+		$this->aliases = $this->tableAliases($tokens);
 		$tokens = $this->expressions($tokens);
 
 		return $this->join($tokens);
@@ -828,17 +837,26 @@ class WireDatabaseSQLiteTranslator {
 				continue;
 
 			} else if($w === 'MATCH') {
-				// MATCH(col, ...) AGAINST(...) has no SQLite equivalent. Rather than let SQLite
-				// report a syntax error on AGAINST, say what is not supported and what to do.
+				// MATCH(col, ...) AGAINST(...): a lookup in the FULLTEXT key's FTS5 table when fulltext is on.
+				// Otherwise, rather than let SQLite report a syntax error on AGAINST, say what is not supported.
 				$j = $this->next($tokens, $i + 1);
 				if($j > -1 && $tokens[$j][1] === '(') {
 					$end = $this->matchParen($tokens, $j);
 					$k = $end > -1 ? $this->next($tokens, $end + 1) : -1;
 					if($k > -1 && $this->isWord($tokens[$k], 'AGAINST')) {
-						throw new \PDOException(
-							'SQLite translator: MATCH ... AGAINST (fulltext search) is not supported by SQLite. ' .
-							'Use $database->dialect()->supportsFulltext() to detect this and use LIKE or REGEXP instead.'
-						);
+						if(!$this->fulltext) {
+							throw new \PDOException(
+								'SQLite translator: MATCH ... AGAINST (fulltext search) is not supported by SQLite. ' .
+								'Use $database->dialect()->supportsFulltext() to detect this and use LIKE or REGEXP instead.'
+							);
+						}
+						$open2 = $this->next($tokens, $k + 1);
+						$close2 = $open2 > -1 && $tokens[$open2][1] === '(' ? $this->matchParen($tokens, $open2) : -1;
+						if($close2 > -1) {
+							$out[] = ['raw', $this->matchAgainst($tokens, $i, $j, $end, $open2, $close2)];
+							$i = $close2;
+							continue;
+						}
 					}
 				}
 				$out[] = $t;
@@ -935,6 +953,150 @@ class WireDatabaseSQLiteTranslator {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Get the tables of a statement by alias, from its FROM and JOIN clauses (a table is also its own alias)
+	 *
+	 * @param array $tokens
+	 * @return array [ alias => table ]
+	 *
+	 */
+	protected function tableAliases(array $tokens) {
+		$aliases = [];
+		$stop = ['ON', 'USING', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'CROSS', 'NATURAL', 'STRAIGHT_JOIN',
+			'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'UNION', 'SET', 'FOR', 'LOCK', 'FORCE', 'USE', 'IGNORE', 'WINDOW', 'VALUES', 'SELECT'];
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			if(!$this->isWord($tokens[$i], ['FROM', 'JOIN', 'UPDATE', 'INTO'])) continue;
+			$j = $i;
+			do {
+				$j = $this->next($tokens, $j + 1);
+				if($j < 0 || !in_array($tokens[$j][0], ['id', 'word'], true) || $this->isWord($tokens[$j], $stop)) break;
+				$table = $this->name($tokens[$j]);
+				$aliases[$table] = $table;
+				$k = $this->next($tokens, $j + 1);
+				if($k > -1 && $this->isWord($tokens[$k], 'AS')) $k = $this->next($tokens, $k + 1);
+				if($k > -1 && in_array($tokens[$k][0], ['id', 'word'], true) && !$this->isWord($tokens[$k], $stop)) {
+					$aliases[$this->name($tokens[$k])] = $table;
+					$j = $k;
+				}
+				$c = $this->next($tokens, $j + 1);
+				if($c < 0 || $tokens[$c][1] !== ',') break;
+				$j = $c;
+			} while(true);
+		}
+		return $aliases;
+	}
+
+	/**
+	 * Is the MATCH at $i (whose AGAINST(...) ends at $close) a condition, rather than a value (i.e. a score)?
+	 *
+	 * @param array $tokens
+	 * @param int $i
+	 * @param int $close
+	 * @return bool
+	 *
+	 */
+	protected function matchIsCondition(array $tokens, $i, $close) {
+		$k = $this->next($tokens, $close + 1);
+		if($k > -1) {
+			$t = $tokens[$k];
+			if($t[0] === 'punct' && in_array($t[1], ['+', '-', '*', '/', '=', '<', '>', '<=', '>=', '<>', '!='], true)) return false;
+			if($this->isWord($t, ['AS', 'ASC', 'DESC'])) return false;
+		}
+		for($p = $this->prev($tokens, $i - 1); $p > -1; $p = $this->prev($tokens, $p - 1)) {
+			$t = $tokens[$p];
+			if($t[0] === 'punct' && $t[1] === '(') continue; // look past grouping parens
+			if($this->isWord($t, 'NOT')) continue; // NOT is a condition or a value as what precedes it is
+			return $this->isWord($t, ['WHERE', 'AND', 'OR', 'ON', 'HAVING', 'WHEN']);
+		}
+		return false;
+	}
+
+	/**
+	 * Translate MATCH(cols) AGAINST(expr [mode]) to a lookup in the FULLTEXT key's FTS5 table
+	 *
+	 * As a condition: the row's key IN the keys that match. As a value: -bm25() of the row's match, or 0.
+	 *
+	 * @param array $tokens
+	 * @param int $i Index of MATCH
+	 * @param int $open Index of MATCH's opening paren
+	 * @param int $close Index of MATCH's closing paren
+	 * @param int $open2 Index of AGAINST's opening paren
+	 * @param int $close2 Index of AGAINST's closing paren
+	 * @return string
+	 * @throws \PDOException MySQL error 1191 (WireDatabaseSQLiteException) when no FULLTEXT key has exactly these columns
+	 *
+	 */
+	protected function matchAgainst(array $tokens, $i, $open, $close, $open2, $close2) {
+		// columns, and the table they belong to
+		$qualifier = '';
+		$columns = [];
+		foreach($this->splitCommas(array_slice($tokens, $open + 1, $close - $open - 1)) as $part) {
+			$part = array_values(array_filter($part, function($t) { return $t[0] !== 'ws'; }));
+			if(!count($part)) continue;
+			$columns[] = $this->name($part[count($part) - 1]);
+			if(count($part) >= 3 && $part[count($part) - 2][1] === '.') $qualifier = $this->name($part[count($part) - 3]);
+		}
+		if($qualifier === '') {
+			$tables = array_values(array_unique($this->aliases));
+			if(count($tables) !== 1) throw new \PDOException('SQLite translator: MATCH columns must be qualified when a query has several tables');
+			$qualifier = $tables[0];
+			$table = $tables[0];
+		} else {
+			$table = isset($this->aliases[$qualifier]) ? $this->aliases[$qualifier] : $qualifier;
+		}
+		$key = null;
+		$sorted = $columns;
+		sort($sorted);
+		foreach($this->ftsKeys($table) as $info) {
+			$keyColumns = $info['columns'];
+			sort($keyColumns);
+			if($keyColumns === $sorted) { $key = $info; break; }
+		}
+		if($key === null) {
+			// the translator does not depend on the rest of ProcessWire (the installer uses it on its own)
+			if(!class_exists(__NAMESPACE__ . '\\WireDatabaseSQLiteException', false)) require_once(__DIR__ . '/WireDatabaseSQLiteException.php');
+			$message = "Can't find FULLTEXT index matching the column list";
+			$e = new WireDatabaseSQLiteException("SQLSTATE[HY000]: General error: 1191 $message ($table: " . implode(', ', $columns) . ')');
+			$e->setMySQLError('HY000', ['HY000', 1191, $message]);
+			throw $e;
+		}
+
+		// the query and mode
+		$exprTokens = array_slice($tokens, $open2 + 1, $close2 - $open2 - 1);
+		$boolean = 0;
+		$depth = 0;
+		foreach($exprTokens as $x => $t) {
+			if($t[0] === 'punct' && $t[1] === '(') $depth++;
+			if($t[0] === 'punct' && $t[1] === ')') $depth--;
+			if($depth === 0 && $this->isWord($t, ['IN', 'WITH'])) {
+				foreach(array_slice($exprTokens, $x) as $u) if($this->isWord($u, 'BOOLEAN')) $boolean = 1;
+				$exprTokens = array_slice($exprTokens, 0, $x);
+				break;
+			}
+		}
+		$expr = trim($this->join($this->expressions($exprTokens)));
+		$fts = $this->quoteId($key['table']);
+		$filter = "'{" . implode(' ', $columns) . "} : (' || pw_fts5query($expr, $boolean) || ')'";
+		$q = $this->quoteId($qualifier);
+
+		if($this->matchIsCondition($tokens, $i, $close2)) {
+			$rowKeys = [];
+			$ftsKeys = [];
+			foreach($key['keys'] as $k) {
+				$rowKeys[] = $k === 'rowid' ? "$q.rowid" : "$q." . $this->quoteId($k);
+				$ftsKeys[] = $this->quoteId(self::fulltextKeyPrefix . $k);
+			}
+			$left = count($rowKeys) > 1 ? '(' . implode(', ', $rowKeys) . ')' : $rowKeys[0];
+			return "($left IN (SELECT " . implode(', ', $ftsKeys) . " FROM $fts WHERE $fts MATCH $filter))";
+		}
+		$same = [];
+		foreach($key['keys'] as $k) {
+			$same[] = $this->quoteId(self::fulltextKeyPrefix . $k) . ' = ' . ($k === 'rowid' ? "$q.rowid" : "$q." . $this->quoteId($k));
+		}
+		return "coalesce((SELECT -bm25($fts) FROM $fts WHERE $fts MATCH $filter AND " . implode(' AND ', $same) . ' LIMIT 1), 0)';
 	}
 
 	/**
