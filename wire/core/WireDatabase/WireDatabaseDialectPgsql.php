@@ -888,7 +888,9 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		$sql =
 			"SELECT column_name, data_type, character_maximum_length, numeric_precision, numeric_scale, " .
 			"is_nullable, column_default, is_identity FROM information_schema.columns " .
-			"WHERE table_schema = current_schema() AND table_name = ? ORDER BY ordinal_position";
+			// stored tsvector columns of FULLTEXT keys (see WireDatabasePgsqlTranslator::vectorColumnSql()) are internal
+			"WHERE table_schema = current_schema() AND table_name = ? AND NOT (data_type = 'tsvector' AND is_generated = 'ALWAYS') " .
+			"ORDER BY ordinal_position";
 		foreach($this->catalog($sql, array($table)) as $row) {
 			$type = $row['data_type'];
 			switch($type) {

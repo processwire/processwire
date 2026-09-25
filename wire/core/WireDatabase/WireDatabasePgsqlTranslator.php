@@ -157,6 +157,12 @@ class WireDatabasePgsqlTranslator {
 	const fulltextIndexSuffix = '__fts';
 
 	/**
+	 * Suffix of the stored tsvector column of a FULLTEXT-indexed column (`data__tsv`, generated from pw_tsvector(data))
+	 *
+	 */
+	const vectorColumnSuffix = '__tsv';
+
+	/**
 	 * Marker function that setupFulltext() creates last: bump its version when the functions change, so that sites set up again
 	 *
 	 */
@@ -382,7 +388,10 @@ class WireDatabasePgsqlTranslator {
 			case 'DESC':
 			case 'EXPLAIN':
 				// DESCRIBE table [column] is equivalent to SHOW COLUMNS FROM table [LIKE column]
-				if($first === 'EXPLAIN' && in_array($second, ['SELECT', 'UPDATE', 'DELETE', 'INSERT', 'REPLACE', 'WITH'])) break;
+				if($first === 'EXPLAIN' && in_array($second, ['SELECT', 'UPDATE', 'DELETE', 'INSERT', 'REPLACE', 'WITH'])) {
+					$first = $second; // translated as the statement it explains
+					break;
+				}
 				$i = $this->next($tokens, $this->next($tokens, 0) + 1);
 				if($i < 0) break;
 				$show = $this->tokenize('SHOW COLUMNS FROM ');
@@ -1754,6 +1763,8 @@ class WireDatabasePgsqlTranslator {
 		$tokens = $this->typedComparisons($tokens);
 		$tokens = $this->havingAliases($tokens);
 		$tokens = $this->anyValueGroupBy($tokens);
+		$tokens = $this->storedVectors($tokens);
+		$tokens = $this->selectStar($tokens);
 		return $this->foldOrderBy($tokens);
 	}
 
@@ -3717,7 +3728,8 @@ SQL;
 					"CASE WHEN column_name IN ($pk) THEN 'PRI' ELSE '' END AS \"Key\", " .
 					'column_default AS "Default", ' .
 					"CASE WHEN is_identity='YES' THEN 'auto_increment' ELSE '' END AS \"Extra\" " .
-					"FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$qt ORDER BY ordinal_position";
+					"FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$qt " .
+					"AND NOT (data_type = 'tsvector' AND is_generated = 'ALWAYS') ORDER BY ordinal_position";
 				if($like !== null) $sql = "SELECT * FROM ($sql) s WHERE \"Field\" ILIKE $like";
 				if($where !== '') $sql = "SELECT * FROM ($sql) s WHERE $where";
 				return $sql;
@@ -4234,7 +4246,13 @@ SQL;
 				$statements[] = $head($name, $unique) . ' USING gin (' . implode(', ', $gin) . ')';
 			}
 			if($this->fulltextAvailable) {
+				// a stored tsvector per column, so that ranking (ts_rank) reads it rather than parsing every matching row again
+				foreach($cols as $col) {
+					$statements[] = 'ALTER TABLE ' . $this->quoteId($table) . ' ADD COLUMN IF NOT EXISTS ' . $this->vectorColumnSql($col);
+				}
 				$statements[] = $head($name . self::fulltextIndexSuffix, false) . ' USING gin (' . $this->tsvectorSql($cols) . ')';
+				$this->clearSchemaCache($table);
+				$this->cache = [];
 			}
 			return $statements;
 		}
@@ -4272,7 +4290,7 @@ SQL;
 	}
 
 	/**
-	 * Get the indexed tsvector expression of FULLTEXT columns, as matchAgainst() writes it for MATCH(cols)
+	 * Get the indexed tsvector of FULLTEXT columns: their stored vector columns, as storedVectors() writes MATCH(cols)
 	 *
 	 * @param array $cols Column names
 	 * @return string
@@ -4280,8 +4298,185 @@ SQL;
 	 */
 	protected function tsvectorSql(array $cols) {
 		$docs = [];
-		foreach($cols as $col) $docs[] = 'pw_tsvector(' . $this->quoteId($col) . ')';
+		foreach($cols as $col) $docs[] = $this->quoteId($col . self::vectorColumnSuffix);
 		return count($docs) > 1 ? '(' . implode(' || ', $docs) . ')' : $docs[0];
+	}
+
+	/**
+	 * Get the definition of the stored tsvector column of a column (for ADD COLUMN)
+	 *
+	 * @param string $col
+	 * @return string
+	 *
+	 */
+	protected function vectorColumnSql($col) {
+		return $this->quoteId($col . self::vectorColumnSuffix) . ' tsvector GENERATED ALWAYS AS (pw_tsvector(' . $this->quoteId($col) . ')) STORED';
+	}
+
+	/**
+	 * Does a column have a stored tsvector column (see vectorColumnSql())?
+	 *
+	 * @param string $table
+	 * @param string $col
+	 * @return bool
+	 *
+	 */
+	protected function hasVectorColumn($table, $col) {
+		if(!$this->fulltextAvailable) return false;
+		$schema = $this->tableSchema($table);
+		return isset($schema['columns'][$col . self::vectorColumnSuffix]) && $schema['columns'][$col . self::vectorColumnSuffix] === 'tsvector';
+	}
+
+	/**
+	 * Get the columns of a table that queries see: all but stored tsvector columns
+	 *
+	 * @param string $table
+	 * @return array Column names in table order
+	 *
+	 */
+	protected function visibleColumns($table) {
+		$cols = [];
+		foreach($this->tableSchema($table)['columns'] as $name => $pgType) {
+			if($pgType === 'tsvector' && substr($name, -strlen(self::vectorColumnSuffix)) === self::vectorColumnSuffix) continue;
+			$cols[] = $name;
+		}
+		return $cols;
+	}
+
+	/**
+	 * Statements that keep a column's stored tsvector column in step when the column is dropped, renamed or changed
+	 *
+	 * PostgreSQL does not allow dropping or changing the type of a column that a generated column is made from,
+	 * so the vector column is dropped first (with its index) and, unless the column is dropped, made again after.
+	 *
+	 * @param string $table
+	 * @param string $col Column before the change
+	 * @param string|null $newName Column after the change, or null when it is dropped
+	 * @param bool $typeChange Does its type (or definition) change? (a rename alone keeps the vector column)
+	 * @return array [ 'before' => [...], 'after' => [...] ]
+	 *
+	 */
+	protected function vectorColumnChanges($table, $col, $newName, $typeChange) {
+		$out = ['before' => [], 'after' => []];
+		if(!$this->hasVectorColumn($table, $col)) return $out;
+		$qTable = $this->quoteId($table);
+		$vector = $col . self::vectorColumnSuffix;
+		if($newName !== null && !$typeChange) {
+			if($newName !== $col) {
+				$out['after'][] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($vector) . ' TO ' . $this->quoteId($newName . self::vectorColumnSuffix);
+			}
+			return $out;
+		}
+		$indexes = $newName === null ? [] : $this->catalogRows(
+			"SELECT indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename = ? AND indexdef ~ ?",
+			[$table, '\m' . preg_quote($vector) . '\M'], \PDO::FETCH_COLUMN
+		);
+		$out['before'][] = "ALTER TABLE $qTable DROP COLUMN IF EXISTS " . $this->quoteId($vector);
+		if($newName !== null) {
+			$out['after'][] = "ALTER TABLE $qTable ADD COLUMN IF NOT EXISTS " . $this->vectorColumnSql($newName);
+			foreach($indexes as $def) {
+				$out['after'][] = preg_replace('/\b' . preg_quote($vector, '/') . '\b/', $newName . self::vectorColumnSuffix, $def);
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Use stored tsvector columns in MATCH translations: pw_tsvector(t.data) becomes t.data__tsv when it exists
+	 *
+	 * The FULLTEXT index is on the stored column, and ts_rank() then reads it rather than parsing every
+	 * matching row's text again. Tables without one (FULLTEXT keys made before stored columns) keep the
+	 * expression, which their expression index serves.
+	 *
+	 * @param array $tokens One SELECT (see selectPasses())
+	 * @return array
+	 *
+	 */
+	protected function storedVectors(array $tokens) {
+		if(!$this->fulltextAvailable) return $tokens;
+		$aliases = null;
+		foreach($tokens as $n => $t) {
+			if($t[0] !== 'word' || strpos($t[1], 'pw_tsvector(') === false) continue;
+			if($aliases === null) $aliases = $this->tableAliases($tokens);
+			$tables = array_values(array_unique($aliases));
+			$tokens[$n][1] = preg_replace_callback('/pw_tsvector\((?:("?)([A-Za-z0-9_$]+)\1\.)?("?)([A-Za-z0-9_$]+)\3\)/', function($m) use($aliases, $tables) {
+				$qualifier = $m[2];
+				$table = $qualifier !== '' ? (isset($aliases[$qualifier]) ? $aliases[$qualifier] : null) : (count($tables) === 1 ? $tables[0] : null);
+				if($table === null || !$this->hasVectorColumn($table, $m[4])) return $m[0];
+				return ($qualifier !== '' ? $m[1] . $qualifier . $m[1] . '.' : '') . $this->quoteId($m[4] . self::vectorColumnSuffix);
+			}, $t[1]);
+		}
+		return $tokens;
+	}
+
+	/**
+	 * Expand `*` and `t.*` in a select list when a table has stored tsvector columns, leaving those out
+	 *
+	 * So that `SELECT * FROM field_body` returns the same columns as on MySQL (i.e. PagesVersions copies rows by it).
+	 *
+	 * @param array $tokens One SELECT (see selectPasses())
+	 * @return array
+	 *
+	 */
+	protected function selectStar(array $tokens) {
+		if(!$this->fulltextAvailable) return $tokens;
+		$n = count($tokens);
+		$start = -1;
+		$end = -1;
+		$depth = 0;
+		$stars = [];
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct' && $t[1] === '(') $depth++;
+			if($t[0] === 'punct' && $t[1] === ')') $depth--;
+			if($depth !== 0) continue;
+			if($start < 0) {
+				if($this->isWord($t, 'SELECT')) $start = $i;
+				continue;
+			}
+			if($this->isWord($t, 'FROM')) { $end = $i; break; }
+			if($t[0] === 'punct' && $t[1] === '*') {
+				// * alone (after SELECT, DISTINCT or a comma), or qualified: t.*
+				$p = $this->prev($tokens, $i - 1);
+				if($p > -1 && $tokens[$p][0] === 'punct' && $tokens[$p][1] === '.') {
+					$q = $this->prev($tokens, $p - 1);
+					if($q > -1 && in_array($tokens[$q][0], ['word', 'id'], true)) $stars[] = [$q, $i, $this->name($tokens[$q])];
+				} else if($p > -1 && ($this->isWord($tokens[$p], ['SELECT', 'DISTINCT']) || ($tokens[$p][0] === 'punct' && $tokens[$p][1] === ','))) {
+					$stars[] = [$i, $i, null];
+				}
+			}
+		}
+		if($end < 0 || !count($stars)) return $tokens;
+		$aliases = $this->tableAliases($tokens);
+		$hidden = function($table) {
+			return count($this->visibleColumns($table)) !== count($this->tableSchema($table)['columns']);
+		};
+		// qualifier => table, in FROM order (a table's alias when it has one)
+		$sources = [];
+		foreach($aliases as $name => $table) {
+			if($name !== $table) unset($sources[$table]);
+			$sources[$name] = $table;
+		}
+		foreach(array_reverse($stars) as $star) {
+			list($from, $to, $qualifier) = $star;
+			$list = [];
+			if($qualifier !== null) {
+				if(!isset($aliases[$qualifier]) || !$hidden($aliases[$qualifier])) continue;
+				foreach($this->visibleColumns($aliases[$qualifier]) as $col) $list[] = $this->quoteId($qualifier) . '.' . $this->quoteId($col);
+			} else {
+				$any = false;
+				foreach($sources as $table) if($hidden($table)) $any = true;
+				if(!$any || count($sources) !== count(array_unique($sources))) continue;
+				foreach($sources as $name => $table) {
+					foreach($this->visibleColumns($table) as $col) {
+						$list[] = (count($sources) > 1 ? $this->quoteId($name) . '.' : '') . $this->quoteId($col);
+					}
+				}
+			}
+			if(!count($list)) continue;
+			$tokens = array_merge(array_slice($tokens, 0, $from), [['word', implode(', ', $list)]], array_slice($tokens, $to + 1));
+		}
+		return $tokens;
 	}
 
 	/**
@@ -4456,7 +4651,28 @@ SQL;
 			$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index . self::foldIndexSuffix));
 		}
 		if($this->fulltextAvailable) {
-			$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index . self::fulltextIndexSuffix));
+			$ftsName = $this->indexName($table, $index . self::fulltextIndexSuffix);
+			$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($ftsName);
+			// and its stored vector columns, unless another index uses them
+			$defs = $this->pdo() ? $this->catalogRows(
+				"SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename = ?", [$table]
+			) : [];
+			$vectors = [];
+			foreach($defs as $row) {
+				if($row['indexname'] !== $ftsName) continue;
+				if(preg_match_all('/\b([A-Za-z0-9_$]+' . self::vectorColumnSuffix . ')\b/', $row['indexdef'], $m)) $vectors = $m[1];
+			}
+			foreach($vectors as $vector) {
+				$used = false;
+				foreach($defs as $row) {
+					if($row['indexname'] !== $ftsName && preg_match('/\b' . preg_quote($vector, '/') . '\b/', $row['indexdef'])) $used = true;
+				}
+				if(!$used) $statements[] = 'ALTER TABLE ' . $this->quoteId($table) . ' DROP COLUMN IF EXISTS ' . $this->quoteId($vector);
+			}
+			if(count($vectors)) {
+				$this->clearSchemaCache($table);
+				$this->cache = [];
+			}
 		}
 		return $statements;
 	}
@@ -4624,8 +4840,10 @@ SQL;
 					if($this->foldAvailable) $statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, 'primary' . self::foldIndexSuffix));
 				} else {
 					if($w2 === 'COLUMN') $j = $this->next($rest, $j + 1);
-					$statements[] = "ALTER TABLE $qTable DROP COLUMN " . $this->quoteId($this->name($rest[$j]));
-					foreach($this->onUpdateSql($table, $this->name($rest[$j]), false) as $sql) $statements[] = $sql;
+					$dropCol = $this->name($rest[$j]);
+					foreach($this->vectorColumnChanges($table, $dropCol, null, true)['before'] as $sql) $statements[] = $sql;
+					$statements[] = "ALTER TABLE $qTable DROP COLUMN " . $this->quoteId($dropCol);
+					foreach($this->onUpdateSql($table, $dropCol, false) as $sql) $statements[] = $sql;
 				}
 
 			} else if($w === 'RENAME') {
@@ -4633,6 +4851,7 @@ SQL;
 					$parts = array_values(array_filter(array_slice($rest, $j + 1), function($t) { return $t[0] !== 'ws'; }));
 					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($this->name($parts[0])) . ' TO ' . $this->quoteId($this->name($parts[2]));
 					$statements[] = $this->onUpdateRenameSql($table, $this->name($parts[0]), $this->name($parts[2]));
+					foreach($this->vectorColumnChanges($table, $this->name($parts[0]), $this->name($parts[2]), false)['after'] as $sql) $statements[] = $sql;
 				} else if($w2 === 'INDEX' || $w2 === 'KEY') {
 					$parts = array_values(array_filter(array_slice($rest, $j + 1), function($t) { return $t[0] !== 'ws'; }));
 					$from = $this->name($parts[0]);
@@ -4672,6 +4891,8 @@ SQL;
 					$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $oldName . self::jsonIndexSuffix));
 					$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $oldName . self::jsonNestedIndexSuffix));
 				}
+				$vectorChanges = $this->vectorColumnChanges($table, $oldName, $col['name'], true);
+				foreach($vectorChanges['before'] as $sql) $statements[] = $sql;
 				if($col['name'] !== $oldName) {
 					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($oldName) . ' TO ' . $this->quoteId($col['name']);
 				}
@@ -4704,6 +4925,7 @@ SQL;
 					foreach($this->onUpdateSql($table, $oldName, false) as $sql) $statements[] = $sql;
 				}
 				if($col['onUpdate']) foreach($this->onUpdateSql($table, $col['name'], true, true) as $sql) $statements[] = $sql;
+				foreach($vectorChanges['after'] as $sql) $statements[] = $sql;
 
 			} else if(in_array($w, ['ENGINE', 'DEFAULT', 'CHARACTER', 'CHARSET', 'COLLATE', 'CONVERT', 'AUTO_INCREMENT', 'COMMENT', 'ORDER', 'ALGORITHM', 'LOCK'])) {
 				// table options: no PostgreSQL equivalent

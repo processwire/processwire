@@ -248,9 +248,46 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			$t('SELECT id FROM t WHERE MATCH(a, b) AGAINST(:v IN BOOLEAN MODE)'));
 		$statements = $tr->translateStatements("CREATE TABLE `field_body` (`pages_id` int NOT NULL, `data` mediumtext NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
 		$this->check('a FULLTEXT key keeps its trigram index', true, (bool) preg_grep('/"field_body__data" ON "field_body" USING gin \("data" gin_trgm_ops\)/', $statements));
-		$this->check('a FULLTEXT key also gets a tsvector index', 'CREATE INDEX "field_body__data__fts" ON "field_body" USING gin (pw_tsvector("data"))', end($statements));
+		$this->check('a FULLTEXT key gets a stored tsvector column', true, in_array('ALTER TABLE "field_body" ADD COLUMN IF NOT EXISTS "data__tsv" tsvector GENERATED ALWAYS AS (pw_tsvector("data")) STORED', $statements, true));
+		$this->check('a FULLTEXT key also gets a tsvector index on it', 'CREATE INDEX "field_body__data__fts" ON "field_body" USING gin ("data__tsv")', end($statements));
 		$statements = $tr->translateStatements("ALTER TABLE `t` ADD FULLTEXT KEY `ab` (`a`, `b`)");
-		$this->check('a FULLTEXT key over several columns', 'CREATE INDEX "t__ab__fts" ON "t" USING gin ((pw_tsvector("a") || pw_tsvector("b")))', end($statements));
+		$this->check('a FULLTEXT key over several columns', 'CREATE INDEX "t__ab__fts" ON "t" USING gin (("a__tsv" || "b__tsv"))', end($statements));
+
+		// stored tsvector columns, from the schema
+		$tr->setSchemaCache([
+			'field_body' => ['primary' => ['pages_id'], 'columns' => ['pages_id' => 'integer', 'data' => 'text', 'data__tsv' => 'tsvector']],
+			'field_old' => ['primary' => ['pages_id'], 'columns' => ['pages_id' => 'integer', 'data' => 'text']],
+			'pages' => ['primary' => ['id'], 'columns' => ['id' => 'integer', 'status' => 'integer']],
+		]);
+		$this->check('MATCH reads the stored tsvector column (aliased table)',
+			'SELECT p.id, ts_rank(b."data__tsv", pw_tsquery(:v, true)) AS s FROM pages AS p JOIN field_body AS b ON b.pages_id=p.id AND (b."data__tsv" @@ pw_tsquery(:v, true))',
+			$t('SELECT p.id, MATCH(b.data) AGAINST(:v IN BOOLEAN MODE) AS s FROM pages AS p JOIN field_body AS b ON b.pages_id=p.id AND MATCH(b.data) AGAINST(:v IN BOOLEAN MODE)'));
+		$this->check('MATCH reads the stored tsvector column (single table)',
+			'SELECT pages_id FROM field_body WHERE ("data__tsv" @@ pw_tsquery(:v, true))',
+			$t('SELECT pages_id FROM field_body WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE)'));
+		$this->check('MATCH in a subquery reads its own table',
+			'SELECT id FROM pages WHERE id IN (SELECT pages_id FROM field_body AS x WHERE (x."data__tsv" @@ pw_tsquery(:v, true)))',
+			$t('SELECT id FROM pages WHERE id IN (SELECT pages_id FROM field_body AS x WHERE MATCH(x.data) AGAINST(:v IN BOOLEAN MODE))'));
+		$this->check('a table without a stored column keeps the expression',
+			'SELECT pages_id FROM field_old WHERE (pw_tsvector(data) @@ pw_tsquery(:v, true))',
+			$t('SELECT pages_id FROM field_old WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE)'));
+		$this->check('SELECT * leaves out stored tsvector columns', 'SELECT "pages_id", "data" FROM field_body WHERE pages_id=1', $t('SELECT * FROM field_body WHERE pages_id=1'));
+		$this->check('SELECT t.* leaves them out too', 'SELECT "b"."pages_id", "b"."data", p.id FROM field_body b JOIN pages p ON p.id=b.pages_id', $t('SELECT b.*, p.id FROM field_body b JOIN pages p ON p.id=b.pages_id'));
+		$this->check('SELECT * over a join', 'SELECT "pages"."id", "pages"."status", "field_body"."pages_id", "field_body"."data" FROM pages JOIN field_body ON field_body.pages_id=pages.id', $t('SELECT * FROM pages JOIN field_body ON field_body.pages_id=pages.id'));
+		$this->check('SELECT * is left alone without stored columns', 'SELECT * FROM field_old', $t('SELECT * FROM field_old'));
+		$this->check('COUNT(*) is left alone', 'SELECT COUNT(*) FROM field_body', $t('SELECT COUNT(*) FROM field_body'));
+		$this->check('DROP COLUMN drops its stored tsvector column first',
+			['ALTER TABLE "field_body" DROP COLUMN IF EXISTS "data__tsv"', 'ALTER TABLE "field_body" DROP COLUMN "data"', 'DROP TRIGGER IF EXISTS "pw_on_update__data" ON "field_body"'],
+			$tr->translateStatements('ALTER TABLE field_body DROP COLUMN data'));
+		$tr->setSchemaCache(['field_body' => ['primary' => ['pages_id'], 'columns' => ['pages_id' => 'integer', 'data' => 'text', 'data__tsv' => 'tsvector']]]);
+		$this->check('RENAME COLUMN renames it',
+			['ALTER TABLE "field_body" RENAME COLUMN "data" TO "body"', 'ALTER TABLE "field_body" RENAME COLUMN "data__tsv" TO "body__tsv"'],
+			$tr->translateStatements('ALTER TABLE field_body RENAME COLUMN data TO body'));
+		$tr->setSchemaCache(['field_body' => ['primary' => ['pages_id'], 'columns' => ['pages_id' => 'integer', 'data' => 'text', 'data__tsv' => 'tsvector']]]);
+		$modify = $tr->translateStatements('ALTER TABLE field_body MODIFY data varchar(200) NOT NULL');
+		$this->check('MODIFY drops the stored column first and makes it again after',
+			['ALTER TABLE "field_body" DROP COLUMN IF EXISTS "data__tsv"', 'ALTER TABLE "field_body" ADD COLUMN IF NOT EXISTS "data__tsv" tsvector GENERATED ALWAYS AS (pw_tsvector("data")) STORED'],
+			[reset($modify), end($modify)]);
 		$this->check('DROP INDEX drops the tsvector index too', ['DROP INDEX IF EXISTS "t__ab"', 'DROP INDEX IF EXISTS "t__ab__fts"'], $tr->translateStatements('DROP INDEX ab ON t'));
 		$backfill = WireDatabasePgsqlTranslator::fulltextIndexBackfillSql([
 			['schemaname' => 'public', 'tablename' => 'field_body', 'indexname' => 'field_body__data', 'valid' => true, 'indexdef' => 'CREATE INDEX field_body__data ON public.field_body USING gin (pw_fold(data) gin_trgm_ops)'],

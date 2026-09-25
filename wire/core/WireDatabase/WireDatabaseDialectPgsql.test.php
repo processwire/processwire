@@ -461,6 +461,13 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$plan = implode("\n", $q->fetchAll(\PDO::FETCH_COLUMN));
 		$pdo->exec('SET enable_seqscan = on');
 		$this->check('MATCH uses the tsvector index', true, strpos($plan, $table . '__data__fts') !== false);
+		$row = $database->query("SELECT * FROM `$table` WHERE pages_id=1")->fetch(\PDO::FETCH_ASSOC);
+		$this->check('SELECT * does not return the stored tsvector column', ['pages_id', 'data'], array_keys($row));
+		$this->check('getColumns() does not report it', ['pages_id', 'data'], $database->getColumns($table));
+		$this->check('the stored column is there', 'tsvector', $pdo->query("SELECT format_type(atttypid, NULL) FROM pg_attribute WHERE attrelid = '\"$table\"'::regclass AND attname = 'data__tsv'")->fetchColumn());
+		$database->exec("ALTER TABLE `$table` MODIFY `data` text NOT NULL");
+		$this->check('MODIFY keeps the stored column and its index', true, (bool) $pdo->query("SELECT to_regclass('\"{$table}__data__fts\"')")->fetchColumn());
+		$this->check('MATCH after MODIFY', [3, 4], $ids("SELECT pages_id FROM `$table` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id", '+zola'));
 		$indexes = $database->getIndexes($table, true);
 		$this->check('getIndexes() reports the FULLTEXT key once', ['data'], isset($indexes['data']) ? $indexes['data']['columns'] : null);
 		$this->check('getIndexes() does not report the tsvector index', false, isset($indexes['data__fts']));
