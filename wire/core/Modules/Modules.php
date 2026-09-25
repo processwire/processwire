@@ -2644,7 +2644,8 @@ class Modules extends WireArray implements CliModule {
 		$this->caches[$cacheName] = $data;
 		if(!$this->saveCacheReady) {
 			$this->saveCacheReady = true;
-			$col = $database->getColumns('modules', 'data');
+			// on databases that translate MySQL SQL (SQLite, PostgreSQL) text is unbounded, and PostgreSQL reports every text column as 'text'
+			$col = $database->dialect()->translatesSql() ? array('type' => '') : $database->getColumns('modules', 'data');
 			if(strtolower($col['type']) === 'text') {
 				try {
 					// increase size of data column for cache storage in 3.0.218

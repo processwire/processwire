@@ -244,12 +244,29 @@ class WireDatabasePgsqlTranslator {
 	public function translateStatements($sql) {
 		if($this->introspecting) return [$sql]; // our own catalog lookup, already PostgreSQL SQL (see catalogRows())
 		if(isset($this->cache[$sql])) return $this->cache[$sql];
-		$result = $this->translateStatement($sql);
-		$result = is_array($result) ? array_values($result) : [$result];
-		if(strlen($sql) > $this->cacheMaxLength) return $result; // avoid caching large statements (i.e. bulk inserts)
-		if(preg_match('/^\s*(ALTER|RENAME|TRUNCATE|INSERT|REPLACE|CREATE|DROP)\b/i', $sql)) return $result; // depends on or changes the schema
-		if(count($this->cache) >= $this->cacheMax) $this->cache = [];
-		$this->cache[$sql] = $result;
+		$cacheable = strlen($sql) <= $this->cacheMaxLength // avoid caching large statements (i.e. bulk inserts)
+			&& !preg_match('/^\s*(ALTER|RENAME|TRUNCATE|INSERT|REPLACE|CREATE|DROP)\b/i', $sql); // depends on or changes the schema
+		if(!$cacheable) {
+			$result = $this->translateStatement($sql);
+			return is_array($result) ? array_values($result) : [$result];
+		}
+		// cached under placeholder names in order of appearance (:pwp0x, :pwp1x...), since DatabaseQuery names
+		// them per query instance (:pf12s0), which would otherwise make every PageFinder query a new statement;
+		// translation does not depend on the names, so they are swapped back in the result
+		$names = [];
+		$key = preg_replace_callback('/(?<![:\w]):[A-Za-z_]\w*/', function($m) use(&$names) {
+			if(!isset($names[$m[0]])) $names[$m[0]] = ':pwp' . count($names) . 'x';
+			return $names[$m[0]];
+		}, $sql);
+		if(!isset($this->cache[$key])) {
+			$result = $this->translateStatement($key);
+			if(count($this->cache) >= $this->cacheMax) $this->cache = [];
+			$this->cache[$key] = is_array($result) ? array_values($result) : [$result];
+		}
+		if(!count($names)) return $this->cache[$key];
+		$restore = array_flip($names);
+		$result = [];
+		foreach($this->cache[$key] as $statement) $result[] = strtr($statement, $restore);
 		return $result;
 	}
 
@@ -450,8 +467,8 @@ class WireDatabasePgsqlTranslator {
 		if($this->jsonAvailable) $tokens = $this->jsonComparisons($tokens);
 		$tokens = $this->booleanContext($tokens);
 		$tokens = $this->subqueries($tokens);
-		$tokens = $this->typedComparisons($tokens);
-		if($first === 'SELECT') $tokens = $this->selectPasses($tokens);
+		// (selectPasses() includes typedComparisons())
+		$tokens = $first === 'SELECT' ? $this->selectPasses($tokens) : $this->typedComparisons($tokens);
 		if($first === 'DELETE') $tokens = $this->deleteLimit($tokens);
 		if($first === 'UPDATE') $tokens = $this->updateOrderLimit($this->updateJoin($tokens));
 
@@ -2613,18 +2630,14 @@ SQL;
 		if(isset($this->schema[$table])) return $this->schema[$table];
 		$facts = ['primary' => [], 'identity' => null, 'columns' => []];
 		if($this->pdo()) {
+			$primary = [];
 			foreach($this->getColumnTypes($table) as $name => $info) {
 				$facts['columns'][$name] = $info['pgType'];
 				if($info['identity'] && $facts['identity'] === null) $facts['identity'] = $name;
+				if($info['primary'] !== null) $primary[$info['primary']] = $name;
 			}
-			$facts['primary'] = $this->catalogRows(
-				"SELECT a.attname FROM pg_index i " .
-				"JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) " .
-				"JOIN pg_class c ON c.oid = i.indrelid JOIN pg_namespace n ON n.oid = c.relnamespace " .
-				"WHERE c.relname = ? AND n.nspname = current_schema() AND i.indisprimary " .
-				"ORDER BY array_position(i.indkey, a.attnum)",
-				[$table], \PDO::FETCH_COLUMN
-			);
+			ksort($primary);
+			$facts['primary'] = array_values($primary);
 			// a table that does not exist (yet) is not remembered, so that it is looked up again once created
 			if(count($facts['columns'])) $this->schema[$table] = $facts;
 		}
@@ -3004,7 +3017,11 @@ SQL;
 	}
 
 	/**
-	 * Get column types of a table: [ name => [ 'pgType' => ..., 'isText' => bool, 'identity' => bool ] ]
+	 * Get column types of a table: [ name => [ 'pgType' => ..., 'isText' => bool, 'identity' => bool, 'primary' => int|null ] ]
+	 *
+	 * One pg_catalog query (information_schema.columns is several times slower, and this runs for every table a
+	 * connection's queries use). Type names are information_schema's data_type names for the built-in types;
+	 * arrays are 'ARRAY'. 'primary' is the column's position in the primary key, or null.
 	 *
 	 * @param string $table
 	 * @return array Empty when no PDO connection is available
@@ -3012,16 +3029,22 @@ SQL;
 	 */
 	protected function getColumnTypes($table) {
 		$rows = $this->catalogRows(
-			"SELECT column_name, data_type, is_identity FROM information_schema.columns " .
-			"WHERE table_schema = current_schema() AND table_name = ? ORDER BY ordinal_position",
+			"SELECT a.attname AS column_name, format_type(a.atttypid, NULL) AS data_type, a.attidentity <> '' AS is_identity, " .
+			"array_position(i.indkey::int2[], a.attnum) AS pk FROM pg_attribute a " .
+			"JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace " .
+			"LEFT JOIN pg_index i ON i.indrelid = c.oid AND i.indisprimary " .
+			"WHERE c.relname = ? AND n.nspname = current_schema() AND c.relkind IN ('r', 'p', 'v', 'm', 'f') " .
+			"AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum",
 			[$table]
 		);
 		$types = [];
 		foreach($rows as $row) {
+			$type = substr($row['data_type'], -2) === '[]' ? 'ARRAY' : $row['data_type'];
 			$types[$row['column_name']] = [
-				'pgType' => $row['data_type'],
-				'isText' => in_array($row['data_type'], ['text', 'character varying', 'character'], true),
-				'identity' => $row['is_identity'] === 'YES',
+				'pgType' => $type,
+				'isText' => in_array($type, ['text', 'character varying', 'character'], true),
+				'identity' => in_array($row['is_identity'], [true, 't', '1', 1], true),
+				'primary' => $row['pk'] === null ? null : (int) $row['pk'],
 			];
 		}
 		return $types;

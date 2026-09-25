@@ -211,11 +211,17 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		// one round trip: version, session settings, and whether the fold and full text search functions exist
 		// - the translator and upsertRowValue() write literals with only quotes doubled, so backslashes must be literal
 		// - MySQL's NOW() uses the server's time zone; PHP's zone is the closest equivalent here
+		// - random_page_cost: PostgreSQL's default (4) assumes spinning disks, which makes the planner prefer reading
+		//   whole tables over index scans that would be several times faster on SSD or cached data (i.e. MATCH on a
+		//   common word); set only when the server has not been configured
 		$timezone = (string) date_default_timezone_get();
+		$pageCost = $this->setting('randomPageCost', 1.1);
 		$row = $pdo->query(
 			"SELECT current_setting('server_version') AS version, " .
 			"set_config('standard_conforming_strings', 'on', false) AS scs, " .
 			($timezone !== '' ? "set_config('TimeZone', " . $pdo->quote($timezone) . ', false) AS tz, ' : '') .
+			(is_numeric($pageCost) ? "(SELECT set_config('random_page_cost', " . $pdo->quote((string) (float) $pageCost) . ", false) " .
+				"FROM pg_settings WHERE name = 'random_page_cost' AND source = 'default') AS rpc, " : '') .
 			"to_regprocedure('pw_fold(text)') IS NOT NULL AND to_regprocedure('pw_unaccent(text)') IS NOT NULL AS fold, " .
 			"to_regprocedure('" . WireDatabasePgsqlTranslator::jsonVersionFunction . "()') IS NOT NULL AS json, " .
 			"to_regprocedure('" . WireDatabasePgsqlTranslator::fulltextMarker . "()') IS NOT NULL AS fulltext"
@@ -231,6 +237,9 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			\PDO::ATTR_STATEMENT_CLASS,
 			array(__NAMESPACE__ . "\\WireDatabasePgsqlStatement", array($this->database))
 		);
+		// PDO fills in bound values itself, as pdo_mysql does, rather than preparing each statement on the
+		// server: that is a round trip per statement (about twice the time of a small query)
+		if($this->setting('emulatePrepares', true)) $pdo->setAttribute(\PDO::ATTR_EMULATE_PREPARES, true);
 		$fold = false;
 		if($this->setting('fold', true)) {
 			$fold = in_array($row['fold'], array(true, 't', '1', 1), true);

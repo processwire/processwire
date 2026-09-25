@@ -1509,6 +1509,11 @@ $config->dbSqlModes = array(
  *    fulltext selector operators work as on MySQL? FULLTEXT keys then also get a tsvector index. The pw_search
  *    configuration and its functions are created on the first connection, which also indexes existing
  *    FULLTEXT keys. When false (or if that fails), fulltext operators use LIKE and REGEXP. (default=true)
+ * - `emulatePrepares` (bool): PostgreSQL only. Let PDO fill in bound values, as pdo_mysql does, rather than
+ *    preparing every statement on the server, which costs a round trip each. (default=true)
+ * - `randomPageCost` (float|false): PostgreSQL only. random_page_cost for the connection, when the server has not
+ *    set one. PostgreSQL's default (4) suits spinning disks and keeps the planner from index scans that are faster
+ *    on SSD or cached data. False to leave it to the server. (default=1.1)
  *
  * With PostgreSQL, values come back as pdo_pgsql returns them (integers as ints, everything else as
  * strings), which matches what pdo_mysql returns on PHP 8.1 and newer.

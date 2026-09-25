@@ -26,6 +26,22 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testJson();
 		$this->testGaps();
 		$this->testFulltext();
+		$this->testPlaceholderCache();
+	}
+
+	/**
+	 * Statements that differ only in placeholder names (as DatabaseQuery names them per query) share a translation
+	 *
+	 */
+	protected function testPlaceholderCache() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$a = $tr->translate('SELECT id FROM pages WHERE name LIKE :pf1s0 AND parent_id=:pf1i0 LIMIT 1, 2');
+		$count = function() use($tr) { $p = (new \ReflectionClass($tr))->getProperty('cache'); $p->setAccessible(true); return count($p->getValue($tr)); };
+		$before = $count();
+		$b = $tr->translate('SELECT id FROM pages WHERE name LIKE :pf22s0 AND parent_id=:pf22i0 LIMIT 1, 2');
+		$this->check('same statement with other placeholder names is not translated again', $before, $count());
+		$this->check('each keeps its own placeholder names', str_replace([':pf1s0', ':pf1i0'], [':pf22s0', ':pf22i0'], $a), $b);
+		$this->check('a repeated placeholder is restored everywhere', 'SELECT :x0, :x0::text, \'a:b\'', $tr->translate("SELECT :x0, :x0::text, 'a:b'"));
 	}
 
 	/**
