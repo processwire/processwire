@@ -171,6 +171,54 @@ class WireDatabaseSchemaLog extends Wire {
 	}
 
 	/**
+	 * Get the current MySQL definition of every table, by replaying the log
+	 *
+	 * See WireDatabaseSchemaReplay. Tables whose history includes a statement that can't be applied
+	 * with certainty are listed in 'failed' instead, as are tables the log does not cover.
+	 *
+	 * @return array [
+	 *   'tables' => [ table => CREATE TABLE statement ],
+	 *   'columns' => [ table => [ column names ] ],
+	 *   'failed' => [ table => reason ]
+	 * ]
+	 * @since 3.0.273
+	 *
+	 */
+	public function getCreateTables() {
+		$replay = new WireDatabaseSchemaReplay();
+		foreach($this->getEntries() as $entry) $replay->apply($entry['sql']);
+		// the log does not record its own table
+		$replay->apply($this->createTable());
+		return [
+			'tables' => $replay->getCreateTables(),
+			'columns' => $replay->getColumnNames(),
+			'failed' => $replay->getFailedTables(),
+		];
+	}
+
+	/**
+	 * Get the CREATE TABLE statement for the log's own table
+	 *
+	 * @return string
+	 *
+	 */
+	protected function createTable() {
+		$config = $this->wire()->config;
+		$engine = $this->database->escapeStr($config->dbEngine ? $config->dbEngine : 'InnoDB');
+		$charset = $this->database->escapeStr($config->dbCharset ? $config->dbCharset : 'utf8mb4');
+		return
+			"CREATE TABLE `" . self::table . "` (" .
+				"`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, " .
+				"`created` DATETIME NOT NULL, " .
+				"`table_name` VARCHAR(128) NOT NULL, " .
+				"`baseline` TINYINT NOT NULL DEFAULT 0, " .
+				"`ddl` MEDIUMTEXT NOT NULL, " .
+				"PRIMARY KEY (`id`), " .
+				"KEY `table_name` (`table_name`)" .
+			") ENGINE=$engine DEFAULT CHARSET=$charset";
+	}
+
+	/**
 	 * Create the log table and record the baseline if the log does not exist yet
 	 *
 	 * @return bool|string True if the log already existed, 'created' if it was just created
@@ -182,20 +230,7 @@ class WireDatabaseSchemaLog extends Wire {
 			$this->started = true;
 			return true;
 		}
-		$config = $this->wire()->config;
-		$engine = $this->database->escapeStr($config->dbEngine ? $config->dbEngine : 'InnoDB');
-		$charset = $this->database->escapeStr($config->dbCharset ? $config->dbCharset : 'utf8mb4');
-		$this->database->exec(
-			"CREATE TABLE IF NOT EXISTS `" . self::table . "` (" .
-				"`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, " .
-				"`created` DATETIME NOT NULL, " .
-				"`table_name` VARCHAR(128) NOT NULL, " .
-				"`baseline` TINYINT NOT NULL DEFAULT 0, " .
-				"`ddl` MEDIUMTEXT NOT NULL, " .
-				"PRIMARY KEY (`id`), " .
-				"KEY `table_name` (`table_name`)" .
-			") ENGINE=$engine DEFAULT CHARSET=$charset"
-		);
+		$this->database->exec(str_replace('CREATE TABLE ', 'CREATE TABLE IF NOT EXISTS ', $this->createTable()));
 		$this->baseline();
 		$this->started = true;
 		return 'created';

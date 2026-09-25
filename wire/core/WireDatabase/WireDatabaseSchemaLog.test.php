@@ -11,6 +11,7 @@ class WireTest_WireDatabaseSchemaLog extends WireTest {
 
 	protected $table = WireTests::fieldPrefix . 'schema_log_a';
 	protected $renamed = WireTests::fieldPrefix . 'schema_log_b';
+	protected $replayed = WireTests::fieldPrefix . 'schema_log_c';
 
 	public function init() {
 		$this->dropTables();
@@ -30,6 +31,32 @@ class WireTest_WireDatabaseSchemaLog extends WireTest {
 		$database = $this->wire()->database;
 		$database->exec("DROP TABLE IF EXISTS `$this->table`");
 		$database->exec("DROP TABLE IF EXISTS `$this->renamed`");
+		$database->exec("DROP TABLE IF EXISTS `$this->replayed`");
+	}
+
+	/**
+	 * Check that replaying the log gives the table's MySQL definition
+	 *
+	 * @param string $table
+	 *
+	 */
+	protected function testReplay($table) {
+		$database = $this->wire()->database;
+		$creates = $database->schemaLog()->getCreateTables();
+		$this->check('replay includes the schema_log table itself', true, isset($creates['tables'][WireDatabaseSchemaLog::table]));
+		$this->check('replay has the table', true, isset($creates['tables'][$table]));
+		$this->check('replay has the table columns', ['id', 'name', 'qty', 'status'], $creates['columns'][$table]);
+		if($database->dialect()->translatesSql()) return; // what follows needs MySQL's own SHOW CREATE TABLE
+		// create the replayed definition under another name, and compare what MySQL makes of both
+		$create = str_replace("CREATE TABLE `$table`", "CREATE TABLE `$this->replayed`", $creates['tables'][$table]);
+		$database->schemaLog()->suspend();
+		$database->exec($create);
+		$database->schemaLog()->resume();
+		$show = function($name) use($database) {
+			$row = $database->query("SHOW CREATE TABLE `$name`")->fetch(\PDO::FETCH_NUM);
+			return preg_replace('/ AUTO_INCREMENT=\d+/', '', str_replace("`$name`", '`t`', $row[1]));
+		};
+		$this->check('replayed CREATE TABLE is identical in MySQL', $show($table), $show($this->replayed));
 	}
 
 	protected function testIsSchemaStatement() {
@@ -117,6 +144,8 @@ class WireTest_WireDatabaseSchemaLog extends WireTest {
 		$this->check('prepared ALTER TABLE is not recorded before it executes', false, $has($entries($a), '`status`'));
 		$query->execute();
 		$this->check('prepared ALTER TABLE is recorded once executed, keeping ENUM values', true, $has($entries($a), "ENUM('on','off')"));
+
+		$this->testReplay($a);
 
 		$before = count($entries($a));
 		try {

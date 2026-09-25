@@ -347,6 +347,14 @@ reproduces the site's schema, i.e. when converting a site to MySQL.
 - Restoring a backup with `WireDatabaseBackup` is not recorded, since the dump carries its own `schema_log`.
 - Changes made outside `$database` (i.e. by a module using PDO directly, or in a database client) are not
   recorded, and neither are temporary tables.
+- `$database->schemaLog()->getCreateTables()` replays the log into one MySQL `CREATE TABLE` per table (see
+  `WireDatabaseSchemaReplay`). A table whose history has a statement the replay can't apply with certainty is
+  listed under `failed` rather than guessed.
+- On SQLite and PostgreSQL, `WireDatabaseBackup` (and so a site profile export) takes each table's `CREATE TABLE`
+  from the replay, so the dump installs on MySQL as the original schema. A table the log doesn't cover, or whose
+  columns no longer match it, falls back to `SHOW CREATE TABLE`, with index prefix lengths added for MySQL.
+- On SQLite and PostgreSQL the installer sets `$config->dbCharset = 'utf8mb4'` and `$config->dbEngine = 'InnoDB'`,
+  which are the table options new tables are created with in the log.
 
 ## Connection
 

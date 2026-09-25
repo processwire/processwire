@@ -2022,7 +2022,14 @@ class Installer {
 				$cfg .= "\n\$config->dbEngine = 'InnoDB';";
 			}
 		}
-		
+
+		if(isset($values['dbType']) && ($values['dbType'] === 'sqlite' || $values['dbType'] === 'pgsql')) {
+			// MySQL table options for the schema log, which keeps each table's MySQL definition for migrating to MySQL
+			$cfg .=
+				"\n\$config->dbCharset = 'utf8mb4'; // for the MySQL schema log" .
+				"\n\$config->dbEngine = 'InnoDB'; // for the MySQL schema log";
+		}
+
 		if(strpos($s, '$config->userAuthSalt') === false) $cfg .= 
 			"\n" . 
 			"\n/**" . 

@@ -58,6 +58,14 @@
 class WireDatabaseBackup {
 
 	/**
+	 * Table definitions from the schema log, for databases that translate from MySQL (see getCreateTable())
+	 * 
+	 * @var array|null
+	 * 
+	 */
+	protected $schemaCreates = null;
+
+	/**
 	 * CREATE TABLE statements executed by the last restoreMerge() [ table => sql ]
 	 * 
 	 * @var array
@@ -664,6 +672,7 @@ class WireDatabaseBackup {
 
 		if(!$this->path) throw new \Exception("Please call setPath('/backup/files/path/') first"); 
 		$this->errors(true); 
+		$this->schemaCreates = null;
 		$options = array_merge($this->backupOptions, $options); 
 	
 		if(empty($options['filename'])) {
@@ -835,10 +844,7 @@ class WireDatabaseBackup {
 				// skip
 			} else {
 				if($options['allowDrop']) fwrite($fp, "\nDROP TABLE IF EXISTS `$table`;");
-				$query = $database->prepare("SHOW CREATE TABLE `$table`");
-				$query->execute();
-				$row = $query->fetch(\PDO::FETCH_NUM);
-				$createTable = $row[1]; 
+				$createTable = $this->getCreateTable($database, $table); 
 				foreach($options['findReplaceCreateTable'] as $find => $replace) {
 					$createTable = str_replace($find, $replace, $createTable); 
 				}
@@ -1239,6 +1245,60 @@ class WireDatabaseBackup {
 		}
 		
 		return $numErrors === 0;
+	}
+
+	/**
+	 * Get the MySQL CREATE TABLE statement for a table
+	 * 
+	 * On a database that translates from MySQL (SQLite, PostgreSQL), this comes from the schema log
+	 * (see WireDatabaseSchemaLog), which keeps what translation loses, such as UNSIGNED and index prefix
+	 * lengths. A table the log can't describe with certainty, or whose columns no longer match the log,
+	 * falls back to SHOW CREATE TABLE, with index prefix lengths added for MySQL.
+	 * 
+	 * @param \PDO|WireDatabasePDO $database
+	 * @param string $table
+	 * @return string
+	 * 
+	 */
+	protected function getCreateTable($database, $table) {
+		$translates = $database instanceof WireDatabasePDO && $database->dialect()->translatesSql();
+		$createTable = '';
+		if($translates && $this->schemaCreates === null) {
+			$this->schemaCreates = array('tables' => array(), 'columns' => array());
+			try {
+				$this->schemaCreates = $database->schemaLog()->getCreateTables();
+			} catch(\Exception $e) {
+				$this->note('schemaLog', $e->getMessage());
+			}
+		}
+		if($translates && isset($this->schemaCreates['tables'][$table])) {
+			// use the log's definition only if it describes the columns the table actually has
+			$logged = array_map('strtolower', $this->schemaCreates['columns'][$table]);
+			$actual = array_map('strtolower', $database->getColumns($table));
+			sort($logged);
+			sort($actual);
+			if($logged === $actual) {
+				$createTable = $this->schemaCreates['tables'][$table];
+			} else {
+				$this->note("schemaLog $table", 'columns differ from the schema log, so SHOW CREATE TABLE is used');
+			}
+		}
+		if($createTable === '') try {
+			$query = $database->prepare("SHOW CREATE TABLE `$table`");
+			$query->execute();
+			$row = $query->fetch(\PDO::FETCH_NUM);
+			$query->closeCursor();
+			$createTable = $row[1];
+		} catch(\Exception $e) {
+			if(!$translates) throw $e;
+			throw new \Exception(
+				"Unable to get the MySQL definition of table '$table', which is not in the schema log " .
+				"(" . WireDatabaseSchemaLog::table . "): " . $e->getMessage()
+			);
+		}
+		// a log started on a site installed before it has a baseline from SHOW CREATE TABLE, so this applies to both
+		if($translates) $createTable = WireDatabaseSchemaReplay::addIndexPrefixLengths($createTable);
+		return $createTable;
 	}
 
 	/**
