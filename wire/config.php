@@ -1514,6 +1514,11 @@ $config->dbSqlModes = array(
  * - `randomPageCost` (float|false): PostgreSQL only. random_page_cost for the connection, when the server has not
  *    set one. PostgreSQL's default (4) suits spinning disks and keeps the planner from index scans that are faster
  *    on SSD or cached data. False to leave it to the server. (default=1.1)
+ * - `translationCache` (bool|null): PostgreSQL only. Keep translated SQL between requests, in a file in
+ *    /site/assets/cache/WireDatabasePgsql/ per schema version, which moves on with every schema change made
+ *    through ProcessWire? Null to use it when OPcache is enabled. After changing the schema outside ProcessWire,
+ *    call `$database->dialect()->clearTranslationCache()`. (default=null)
+ * - `translationCacheMax` (int): PostgreSQL only. Most translations kept. (default=2000)
  *
  * With PostgreSQL, values come back as pdo_pgsql returns them (integers as ints, everything else as
  * strings), which matches what pdo_mysql returns on PHP 8.1 and newer.

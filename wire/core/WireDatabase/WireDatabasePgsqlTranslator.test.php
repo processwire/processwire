@@ -27,6 +27,33 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testGaps();
 		$this->testFulltext();
 		$this->testPlaceholderCache();
+		$this->testPersistentCache();
+	}
+
+	/**
+	 * Translations kept between requests: used, added to, and dropped after a schema change
+	 *
+	 */
+	protected function testPersistentCache() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$tr->loadPersistentCache(['SELECT a FROM t WHERE b=:pwp0x' => ['SELECT kept FROM t WHERE b=:pwp0x']]);
+		$this->check('a kept translation is used, with its placeholder names restored', 'SELECT kept FROM t WHERE b=:pf3s0', $tr->translate('SELECT a FROM t WHERE b=:pf3s0'));
+		$this->check('a kept translation is not added again', [], $tr->persistentCacheAdditions());
+		$tr->translate('SELECT x FROM y LIMIT 1, 2');
+		$this->check('a new translation is added', ['SELECT x FROM y LIMIT 1, 2' => ['SELECT x FROM y LIMIT 2 OFFSET 1']], $tr->persistentCacheAdditions());
+		$tr->translate('INSERT INTO y (x) VALUES (1)');
+		$this->check('statements that are not cached are not added', 1, count($tr->persistentCacheAdditions()));
+		$tr->translate('CREATE TEMPORARY TABLE tmp (a int)');
+		$this->check('a temporary table does not stop additions', 1, count($tr->persistentCacheAdditions()));
+		$tr->translate('ALTER TABLE y ADD z int');
+		$this->check('a schema change drops additions', [], $tr->persistentCacheAdditions());
+		$tr->translate('SELECT a FROM t WHERE b=:v');
+		$this->check('and kept translations (made for the old schema)', 'SELECT a FROM t WHERE b=:v', $tr->translate('SELECT a FROM t WHERE b=:v'));
+		$tr->translate('SELECT q FROM y');
+		$this->check('and nothing is added after it in the same request', [], $tr->persistentCacheAdditions());
+		$fresh = new WireDatabasePgsqlTranslator();
+		$fresh->translate('SELECT q FROM y');
+		$this->check('without loadPersistentCache() nothing is recorded', [], $fresh->persistentCacheAdditions());
 	}
 
 	/**

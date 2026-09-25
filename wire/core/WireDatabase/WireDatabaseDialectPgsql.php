@@ -62,6 +62,30 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	protected $fulltextAvailable = false;
 
 	/**
+	 * File of translations kept between requests, or blank when not used (see initTranslationCache())
+	 *
+	 * @var string
+	 *
+	 */
+	protected $translationCacheFile = '';
+
+	/**
+	 * Is saveTranslationCache() registered to run at shutdown?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $translationCacheShutdown = false;
+
+	/**
+	 * Did the open transaction change the schema? (the schema version moves on at commit, see schemaChanged())
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $schemaChangePending = false;
+
+	/**
 	 * Cached values from getVariable()
 	 *
 	 * @var array
@@ -93,6 +117,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			$this->translator->setFoldAvailable($this->foldAvailable);
 			$this->translator->setJsonAvailable($this->jsonAvailable);
 			$this->translator->setFulltextAvailable($this->fulltextAvailable);
+			if($this->translationCacheFile !== '') $this->loadTranslationCache();
 		}
 		return $this->translator;
 	}
@@ -224,7 +249,8 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 				"FROM pg_settings WHERE name = 'random_page_cost' AND source = 'default') AS rpc, " : '') .
 			"to_regprocedure('pw_fold(text)') IS NOT NULL AND to_regprocedure('pw_unaccent(text)') IS NOT NULL AS fold, " .
 			"to_regprocedure('" . WireDatabasePgsqlTranslator::jsonVersionFunction . "()') IS NOT NULL AS json, " .
-			"to_regprocedure('" . WireDatabasePgsqlTranslator::fulltextMarker . "()') IS NOT NULL AS fulltext"
+			"to_regprocedure('" . WireDatabasePgsqlTranslator::fulltextMarker . "()') IS NOT NULL AS fulltext, " .
+			"(SELECT last_value FROM pg_sequences WHERE schemaname = current_schema() AND sequencename = 'pw_schema_version') AS schema_version"
 		)->fetch(\PDO::FETCH_ASSOC);
 		$version = (string) $row['version'];
 		if(version_compare(preg_replace('/[^0-9.].*$/', '', $version), self::minVersion, '<')) {
@@ -285,6 +311,185 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		}
 		$this->fulltextAvailable = $fulltext;
 		if($this->translator !== null) $this->translator->setFulltextAvailable($fulltext);
+		$this->initTranslationCache($pdo, $row['schema_version']);
+	}
+
+	/**
+	 * Keep translations between requests? (dbOptions pgsql translationCache: true, false, or null for automatic)
+	 *
+	 * Automatic: when OPcache is enabled, which keeps the compiled cache file in memory. Without it, reading the
+	 * file on each request costs about as much as translating the statements again.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function translationCacheEnabled() {
+		$setting = $this->setting('translationCache', null);
+		if(is_bool($setting)) return $setting;
+		if(!function_exists('opcache_get_status')) return false;
+		$status = @opcache_get_status(false);
+		return is_array($status) && !empty($status['opcache_enabled']);
+	}
+
+	/**
+	 * Set up the cache of translations kept between requests
+	 *
+	 * Translating ProcessWire's SQL costs about 0.1 ms per statement, and each request translates its statements
+	 * again. Translations are kept in a PHP file per schema version: the pw_schema_version sequence, which
+	 * schemaChanged() moves on after every schema change made through ProcessWire (so all requests on all servers
+	 * then use a new file), plus the translator's version and what else a translation depends on (the fold,
+	 * fulltext and JSON functions). Schema changes
+	 * made outside ProcessWire need clearTranslationCache().
+	 *
+	 * @param \PDO $pdo
+	 * @param int|string|null $version Current schema version, or null when the sequence does not exist yet
+	 *
+	 */
+	protected function initTranslationCache(\PDO $pdo, $version) {
+		$this->translationCacheFile = '';
+		if(!$this->translationCacheEnabled()) return;
+		try {
+			if($version === null) {
+				// first connection: every change from here on moves the version on
+				$pdo->exec('CREATE SEQUENCE IF NOT EXISTS pw_schema_version');
+				$version = $pdo->query("SELECT nextval('pw_schema_version')")->fetchColumn();
+			}
+		} catch(\Exception $e) {
+			$this->logSetupError('Translations are not kept between requests, since pw_schema_version could not be created: ' . $e->getMessage());
+			return;
+		}
+		$config = $this->wire()->config;
+		$key = implode('|', array(
+			$version, @filemtime(__DIR__ . '/WireDatabasePgsqlTranslator.php'), $config->dbHost, $config->dbPort, $config->dbSocket,
+			$config->dbName, $this->setting('schema', ''), (int) $this->setting('trigram', true), (int) $this->foldAvailable,
+			(int) $this->fulltextAvailable, (int) $this->jsonAvailable,
+		));
+		$this->translationCacheFile = $config->paths->cache . 'WireDatabasePgsql/translations-' . md5($key) . '.php';
+		if($this->translator !== null) $this->loadTranslationCache();
+		if(!$this->translationCacheShutdown) {
+			register_shutdown_function(array($this, 'saveTranslationCache'));
+			$this->translationCacheShutdown = true;
+		}
+	}
+
+	/**
+	 * Give the translator the translations kept for the current schema version
+	 *
+	 */
+	protected function loadTranslationCache() {
+		$entries = is_file($this->translationCacheFile) ? @include($this->translationCacheFile) : array();
+		$this->translator->loadPersistentCache(is_array($entries) ? $entries : array());
+	}
+
+	/**
+	 * Add this request's new translations to the cache file (at shutdown)
+	 *
+	 * Written to a temporary file and renamed, so that readers never see a partial file. A request that loses a
+	 * race with another loses only its additions. Stops adding at dbOptions pgsql translationCacheMax entries
+	 * (default 2000), since statements with literal values (i.e. id lists) would otherwise add without end.
+	 *
+	 * #pw-internal
+	 *
+	 */
+	public function saveTranslationCache() {
+		if($this->translationCacheFile === '' || $this->translator === null) return;
+		$additions = $this->translator->persistentCacheAdditions();
+		if(!count($additions)) return;
+		$file = $this->translationCacheFile;
+		$max = (int) $this->setting('translationCacheMax', 2000);
+		$existing = is_file($file) ? @include($file) : null;
+		$isNew = !is_array($existing);
+		if($isNew) $existing = array();
+		if(count($existing) >= $max) return;
+		$merged = $existing + array_slice($additions, 0, $max - count($existing), true);
+		$dir = dirname($file) . '/';
+		$files = $this->wire()->files;
+		if(!is_dir($dir) && !$files->mkdir($dir, true)) return;
+		$tmp = $file . '.' . getmypid() . '.tmp';
+		if(@file_put_contents($tmp, '<?php return ' . var_export($merged, true) . ";\n") === false) return;
+		$files->chmod($tmp);
+		if(!@rename($tmp, $file)) {
+			@unlink($tmp);
+			return;
+		}
+		if(function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
+		if($isNew) {
+			// files of earlier schema versions are not used again
+			foreach(glob($dir . 'translations-*.php') ?: array() as $old) {
+				if($old !== $file) @unlink($old);
+			}
+		}
+	}
+
+	/**
+	 * Note a schema change: the schema version moves on, now or when the open transaction commits
+	 *
+	 * Called after every schema change made through ProcessWire (see isSchemaStatement()). Whether or not this
+	 * connection keeps translations, others may.
+	 *
+	 * #pw-internal
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	public function schemaChanged(\PDO $pdo) {
+		if($pdo->inTransaction()) {
+			$this->schemaChangePending = true;
+		} else {
+			$this->bumpSchemaVersion($pdo);
+		}
+	}
+
+	/**
+	 * Stop using the translations kept so far, on all connections (i.e. after changing the schema outside ProcessWire)
+	 *
+	 */
+	public function clearTranslationCache() {
+		$this->bumpSchemaVersion($this->database->pdo());
+		if($this->translator !== null) $this->translator->loadPersistentCache(array());
+	}
+
+	/**
+	 * Move the schema version on (a no-op when the sequence does not exist)
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	protected function bumpSchemaVersion(\PDO $pdo) {
+		try {
+			$pdo->query("SELECT nextval(to_regclass('pw_schema_version'))");
+		} catch(\Exception $e) {
+			// i.e. no privilege on the sequence: translations of this site's other connections may be stale until it moves on
+			$this->logSetupError('Could not move pw_schema_version on after a schema change: ' . $e->getMessage());
+		}
+	}
+
+	/**
+	 * Commit, then move the schema version on if the transaction changed the schema
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function commit(\PDO $pdo) {
+		$result = parent::commit($pdo);
+		if($this->schemaChangePending) {
+			$this->schemaChangePending = false;
+			$this->bumpSchemaVersion($pdo);
+		}
+		return $result;
+	}
+
+	/**
+	 * Roll back (a schema change in the transaction is undone too)
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public function rollBack(\PDO $pdo) {
+		$this->schemaChangePending = false;
+		return parent::rollBack($pdo);
 	}
 
 	/**
@@ -414,6 +619,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		try {
 			$result = $pdo->exec($sql);
 			$this->savepointRelease($pdo, $savepoint);
+			if($result !== false && WireDatabaseSchemaLog::isSchemaStatement($sql)) $this->schemaChanged($pdo);
 			return $result;
 		} catch(\PDOException $e) {
 			$this->savepointRollback($pdo, $savepoint);
@@ -435,6 +641,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		try {
 			$result = $pdo->query($sql);
 			$this->savepointRelease($pdo, $savepoint);
+			if($result !== false && WireDatabaseSchemaLog::isSchemaStatement($sql)) $this->schemaChanged($pdo);
 			return $result;
 		} catch(\PDOException $e) {
 			$this->savepointRollback($pdo, $savepoint);
@@ -491,6 +698,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 				throw self::mysqlException($e);
 			}
 		}
+		if(count(array_filter($statements, array(__NAMESPACE__ . '\\WireDatabaseSchemaLog', 'isSchemaStatement')))) $this->schemaChanged($pdo);
 		return $qty;
 	}
 

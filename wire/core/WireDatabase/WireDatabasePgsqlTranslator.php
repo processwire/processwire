@@ -64,6 +64,30 @@ class WireDatabasePgsqlTranslator {
 	protected $cacheMaxLength = 8192;
 
 	/**
+	 * Translations kept between requests (see loadPersistentCache()), never modified here
+	 *
+	 * @var array
+	 *
+	 */
+	protected $persisted = [];
+
+	/**
+	 * Translations made in this request that the persistent cache does not have yet
+	 *
+	 * @var array
+	 *
+	 */
+	protected $cacheAdditions = [];
+
+	/**
+	 * Record additions for the persistent cache? (false after a schema change in this request)
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $recordAdditions = false;
+
+	/**
 	 * PDO connection (or callable that returns it) for schema-aware translations
 	 *
 	 * Optional. When present, ON DUPLICATE KEY UPDATE can find the table's primary key for its
@@ -247,6 +271,12 @@ class WireDatabasePgsqlTranslator {
 		$cacheable = strlen($sql) <= $this->cacheMaxLength // avoid caching large statements (i.e. bulk inserts)
 			&& !preg_match('/^\s*(ALTER|RENAME|TRUNCATE|INSERT|REPLACE|CREATE|DROP)\b/i', $sql); // depends on or changes the schema
 		if(!$cacheable) {
+			if(preg_match('/^\s*(ALTER|RENAME|DROP|CREATE(?!\s+TEMPORARY))\b/i', $sql)) {
+				// translations kept from before this change, and made in this request so far, may not hold after it
+				$this->persisted = [];
+				$this->cacheAdditions = [];
+				$this->recordAdditions = false;
+			}
 			$result = $this->translateStatement($sql);
 			return is_array($result) ? array_values($result) : [$result];
 		}
@@ -259,15 +289,47 @@ class WireDatabasePgsqlTranslator {
 			return $names[$m[0]];
 		}, $sql);
 		if(!isset($this->cache[$key])) {
-			$result = $this->translateStatement($key);
+			if(isset($this->persisted[$key])) {
+				$result = $this->persisted[$key];
+			} else {
+				$result = $this->translateStatement($key);
+				$result = is_array($result) ? array_values($result) : [$result];
+				if($this->recordAdditions) $this->cacheAdditions[$key] = $result;
+			}
 			if(count($this->cache) >= $this->cacheMax) $this->cache = [];
-			$this->cache[$key] = is_array($result) ? array_values($result) : [$result];
+			$this->cache[$key] = $result;
 		}
 		if(!count($names)) return $this->cache[$key];
 		$restore = array_flip($names);
 		$result = [];
 		foreach($this->cache[$key] as $statement) $result[] = strtr($statement, $restore);
 		return $result;
+	}
+
+	/**
+	 * Use translations kept between requests, and record new ones for persistentCacheAdditions()
+	 *
+	 * The caller keeps them per schema version and translator version (see WireDatabaseDialectPgsql), since
+	 * a translation can depend on the schema (column types, stored tsvector columns, `SELECT *`). A schema
+	 * change in this request drops them and stops recording (see translateStatements()).
+	 *
+	 * @param array $entries As from persistentCacheAdditions(), merged over requests
+	 *
+	 */
+	public function loadPersistentCache(array $entries) {
+		$this->persisted = $entries;
+		$this->cacheAdditions = [];
+		$this->recordAdditions = true;
+	}
+
+	/**
+	 * Get the translations made since loadPersistentCache() that it did not have
+	 *
+	 * @return array Empty after a schema change in this request
+	 *
+	 */
+	public function persistentCacheAdditions() {
+		return $this->recordAdditions ? $this->cacheAdditions : [];
 	}
 
 	/**

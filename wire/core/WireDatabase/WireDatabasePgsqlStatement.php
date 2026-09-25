@@ -104,6 +104,19 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 		return count($this->deferredStatements) > 0 || $this->deferredException !== null;
 	}
 
+	/**
+	 * Record a schema change, and tell the dialect (so that translations kept between requests are not used after it)
+	 *
+	 */
+	protected function recordSchema() {
+		parent::recordSchema();
+		if($this->schemaSql !== null && $this->database) {
+			/** @var WireDatabaseDialectPgsql $dialect */
+			$dialect = $this->database->dialect();
+			$dialect->schemaChanged($this->database->pdo());
+		}
+	}
+
 	public function execute($input_parameters = null): bool {
 		if($this->deferredException) throw $this->deferredException;
 		if(count($this->deferredStatements)) {

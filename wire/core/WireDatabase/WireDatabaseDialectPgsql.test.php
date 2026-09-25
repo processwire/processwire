@@ -18,6 +18,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testJson();
 		$this->testGaps();
 		$this->testFulltext();
+		$this->testTranslationCache();
 	}
 
 	/**
@@ -382,6 +383,66 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check("int = '1.5' (literal): no match, not an error", [], $ids("id = '1.5'"));
 		$this->check("int = '2.0' (literal)", [2], $ids("id = '2.0'"));
 		$this->check("int = ' 2' (literal)", [2], $ids("id = ' 2'"));
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+	}
+
+	protected function testTranslationCache() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		/** @var WireDatabaseDialectPgsql $dialect */
+		$dialect = $database->dialect();
+		$pdo = $database->pdo();
+		$pdo->exec('CREATE SEQUENCE IF NOT EXISTS pw_schema_version');
+		$pdo->query("SELECT nextval('pw_schema_version')");
+		$version = function() use($pdo) { return (int) $pdo->query('SELECT last_value FROM pw_schema_version')->fetchColumn(); };
+		$table = WireTests::fieldPrefix . 'pgsql_tcache';
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$v = $version();
+		$database->exec("CREATE TABLE `$table` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`), KEY `data` (`data`(250)))");
+		$this->check('a schema change moves the schema version on (multiple statements)', true, $version() > $v);
+		$v = $version();
+		$database->exec("ALTER TABLE `$table` ADD `extra` int NOT NULL DEFAULT 0");
+		$this->check('exec() of a schema change moves it on', true, $version() > $v);
+		$v = $version();
+		$database->prepare("ALTER TABLE `$table` DROP `extra`")->execute();
+		$this->check('a prepared schema change moves it on', true, $version() > $v);
+		$v = $version();
+		$database->query("SELECT * FROM `$table`");
+		$database->exec("INSERT INTO `$table` (pages_id, data) VALUES (1, 'x')");
+		$this->check('other statements do not', $v, $version());
+		$database->beginTransaction();
+		$database->exec("ALTER TABLE `$table` ADD `extra` int NOT NULL DEFAULT 0");
+		$this->check('a schema change in a transaction waits for the commit', $v, $version());
+		$database->commit();
+		$this->check('and moves it on after the commit', true, $version() > $v);
+		$v = $version();
+		$database->beginTransaction();
+		$database->exec("ALTER TABLE `$table` DROP `extra`");
+		$database->rollBack();
+		$this->check('a rolled back schema change does not', $v, $version());
+
+		// the cache file: this request's new translations are added, and the next request uses them
+		$file = $this->wire()->config->paths->cache . 'WireDatabasePgsql/translations-wiretest.php';
+		if(is_file($file)) unlink($file);
+		$rc = new \ReflectionClass($dialect);
+		$prop = $rc->getProperty('translationCacheFile');
+		$prop->setAccessible(true);
+		$was = $prop->getValue($dialect);
+		$prop->setValue($dialect, $file);
+		$translator = $dialect->translator();
+		$translator->loadPersistentCache(array());
+		$sql = "SELECT pages_id FROM `$table` WHERE data=:v0 LIMIT 3, 7";
+		$translated = $translator->translate($sql);
+		$dialect->saveTranslationCache();
+		$entries = is_file($file) ? include($file) : null;
+		$this->check('saveTranslationCache() writes this request\'s translations', true, is_array($entries) && isset($entries["SELECT pages_id FROM `$table` WHERE data=:pwp0x LIMIT 3, 7"]));
+		$next = new WireDatabasePgsqlTranslator();
+		$next->loadPersistentCache(is_array($entries) ? $entries : array());
+		$this->check('a later request uses them (without the database)', $translated, $next->translate($sql));
+		$this->check('as kept, not translated again', array(), $next->persistentCacheAdditions());
+		$this->check('clearTranslationCache() moves the version on', true, (function() use($dialect, $version) { $v = $version(); $dialect->clearTranslationCache(); return $version() > $v; })());
+		$prop->setValue($dialect, $was);
+		if(is_file($file)) unlink($file);
 		$database->exec("DROP TABLE IF EXISTS `$table`");
 	}
 
