@@ -57,8 +57,10 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('!= ignores case and accents', [1, 3, 4, 5], $ids('data!=:v', [':v' => 'APFEL']));
 		$this->check('LIKE contains ignores case and accents', [3], $ids('data LIKE :v', [':v' => '%creme%']));
 		$this->check('LIKE starts-with ignores accents', [4], $ids('data LIKE :v', [':v' => 'zurich%']));
-		$this->check('REGEXP ignores case and accents, keeps its escapes', [1], $ids('data REGEXP :v', [':v' => '^HELLO\\W+world$']));
-		$this->check('REGEXP word boundaries', [2, 5], $ids('data REGEXP :v', [':v' => '[[:<:]](apfel|apple)[[:>:]]']));
+		$this->check('REGEXP ignores case and keeps its escapes', [1], $ids('data REGEXP :v', [':v' => '^HELLO\\W+world$']));
+		$this->check('REGEXP does not ignore accents (MySQL REGEXP follows the collation for case only)', [5], $ids('data REGEXP :v', [':v' => '[[:<:]](apfel|apple)[[:>:]]']));
+		$this->check('REGEXP matches accented data with an accented pattern', [2], $ids('data REGEXP :v', [':v' => '^äpfel$']));
+		$this->check('NOT REGEXP', [1, 3, 4, 5], $ids('data NOT REGEXP :v', [':v' => '^äpfel$']));
 		$this->check('IN ignores case and accents', [2, 4], $ids('data IN (:a, :b)', [':a' => 'apfel', ':b' => 'ZURICH']));
 		$this->check('email lookup ignores case', [1], $ids('email=:v', [':v' => 'admin@example.com']));
 		$sorted = $database->query("SELECT data FROM `$table` ORDER BY data")->fetchAll(\PDO::FETCH_COLUMN);
@@ -75,9 +77,11 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$eqPlan = $plan("SELECT pages_id FROM `$table` WHERE data=:v", 'apfel');
 		$likePlan = $plan("SELECT pages_id FROM `$table` WHERE data LIKE :v", '%creme%');
 		$emailPlan = $plan("SELECT pages_id FROM `$table` WHERE email=:v", 'admin@example.com');
+		$regexPlan = $plan("SELECT pages_id FROM `$table` WHERE data REGEXP :v", 'zola');
 		$pdo->exec('SET enable_seqscan = on');
 		$this->check('= on text uses the folded hash index', true, strpos($eqPlan, $table . '__data_exact') !== false);
 		$this->check('LIKE uses the folded trigram index', true, strpos($likePlan, $table . '__data') !== false);
+		$this->check('REGEXP uses the folded trigram index to narrow rows', true, strpos($regexPlan, $table . '__data') !== false);
 		$this->check('= on varchar uses the folded btree index', true, strpos($emailPlan, $table . '__email') !== false || strpos($emailPlan, $table . '__uq__fold') !== false);
 		$indexes = $database->getIndexes($table, true);
 		$this->check('getIndexes() reports folded expression indexes by their column', ['data'], isset($indexes['data_exact']) ? $indexes['data_exact']['columns'] : null);
@@ -107,7 +111,9 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('title%=HELLO', 'Hello World', $find('title%=HELLO'));
 		$this->check('title%=apfel', 'Äpfel', $find('title%=apfel'));
 		$this->check('title*=creme', 'Crème', $find('title*=creme'));
+		// (MySQL's ^= uses REGEXP and misses this; without fulltext, ^= uses LIKE, which folds accents, as on SQLite)
 		$this->check('title^=zurich', 'Zürich', $find('title^=zurich'));
+		$this->check('title^=ZÜR', 'Zürich', $find('title^=ZÜR'));
 		$this->check('sort=title', 'Äpfel|Crème|Hello World|Zürich', $find('name^=pgsql-fold-, sort=title'));
 		foreach($created as $p) $pages->delete($p, true);
 
