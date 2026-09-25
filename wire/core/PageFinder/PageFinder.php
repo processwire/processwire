@@ -2195,6 +2195,8 @@ class PageFinder extends Wire {
 		$tableAlias = $table . "__blank" . (++$tableCnt);
 		$blankValue = $ft->getBlankValue(new NullPage(), $field);
 		$blankIsObject = is_object($blankValue); 
+		$collate = $database->dialect()->compareCollation($value);
+		$collate = $collate ? " COLLATE $collate" : ''; // for comparisons with $value (i.e. SQLite)
 		$whereType = 'OR';
 		$sql = '';
 		$operators = array(
@@ -2277,7 +2279,7 @@ class PageFinder extends Wire {
 			} else if($value !== "0" && $zeroIsEmpty) {
 				// match all rows except empty and those having specific non-empty value
 				$bindKey = $query->bindValueGetKey($value);
-				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!=$bindKey";
+				$sql = "$tableAlias.$col IS NULL OR $tableAlias.$col!=$bindKey$collate";
 				
 			} else if($blankIsObject) {
 				// match all present rows
@@ -2287,7 +2289,7 @@ class PageFinder extends Wire {
 				// match all present rows that are not blankValue and not given blank value...
 				$bindKeyBlank = $query->bindValueGetKey($blankValue);
 				$bindKeyValue = $query->bindValueGetKey($value);
-				$sql = "$tableAlias.$col IS NOT NULL AND $tableAlias.$col!=$bindKeyValue AND ($tableAlias.$col!=$bindKeyBlank";
+				$sql = "$tableAlias.$col IS NOT NULL AND $tableAlias.$col!=$bindKeyValue$collate AND ($tableAlias.$col!=$bindKeyBlank";
 				if($zeroIsNotEmpty && $blankValue !== "0" && $value !== "0") {
 					// ...allow for 0 to match also if 0 is not considered empty value
 					$sql .= " OR $tableAlias.$col='0'";
@@ -2298,7 +2300,7 @@ class PageFinder extends Wire {
 				// when a multi-row field is in use, exclude match when any of the rows contain $value
 				$tableMulti = $table . "__multi$tableCnt";
 				$bindKey = $query->bindValueGetKey($value);
-				$query->leftjoin("$table AS $tableMulti ON $tableMulti.pages_id=pages.id AND $tableMulti.$col=$bindKey");
+				$query->leftjoin("$table AS $tableMulti ON $tableMulti.pages_id=pages.id AND $tableMulti.$col=$bindKey$collate");
 				$query->where("$tableMulti.$col IS NULL");
 			}
 
