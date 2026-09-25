@@ -41,7 +41,68 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testJsonFunctions();
 		$this->testFts5Query();
 		$this->testFulltextDdl();
+		$this->testFulltextRebuild();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * Table renames and rebuilds keep FULLTEXT keys
+	 *
+	 */
+	protected function testFulltextRebuild() {
+		$this->translator->setFulltext(true);
+		$names = function($type, $prefix) {
+			$q = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type=? AND substr(name, 1, ?)=? ORDER BY name");
+			$q->execute([$type, strlen($prefix), $prefix]);
+			return $q->fetchAll(\PDO::FETCH_COLUMN);
+		};
+		$find = function($table, $word) {
+			$q = $this->pdo->prepare("SELECT pw_key_pages_id FROM `{$table}__fts_data` WHERE `{$table}__fts_data` MATCH pw_fts5query(?, 1) ORDER BY 1");
+			$q->execute([$word]);
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		foreach(['ft_rb', 'ft_rb2'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_rb` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, `other` int, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_rb` (pages_id, data, other) VALUES (1, 'alpha beta', 1), (2, 'gamma', 2)");
+
+		// MODIFY forces a rebuild; the table has our triggers
+		$this->execMysql("ALTER TABLE `ft_rb` MODIFY `data` mediumtext NOT NULL");
+		$this->check('MODIFY on a table with a FULLTEXT key rebuilds it and keeps triggers', ['ft_rb__fts_data_ad', 'ft_rb__fts_data_ai', 'ft_rb__fts_data_au'], $names('trigger', 'ft_rb__fts_'));
+		$this->check('search after MODIFY', [1], $find('ft_rb', 'beta'));
+		$this->execMysql("INSERT INTO `ft_rb` (pages_id, data) VALUES (3, 'beta again')");
+		$this->check('triggers work after MODIFY', [1, 3], $find('ft_rb', 'beta'));
+
+		// CHANGE renames the indexed column: key rebuilt with the new column name
+		$this->execMysql("ALTER TABLE `ft_rb` CHANGE `data` `body` mediumtext NOT NULL");
+		$keys = WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_rb');
+		$this->check('CHANGE of the indexed column renames it in the key', ['body'], isset($keys['data']) ? $keys['data']['columns'] : null);
+		$q = $this->pdo->query("SELECT pw_key_pages_id FROM `ft_rb__fts_data` WHERE `ft_rb__fts_data` MATCH '\"gamma\"'");
+		$this->check('search after CHANGE', ['2'], array_map('strval', $q->fetchAll(\PDO::FETCH_COLUMN)));
+
+		// dropping the only indexed column drops the key (as MySQL)
+		$this->execMysql("ALTER TABLE `ft_rb` DROP COLUMN `body`");
+		$this->check('DROP COLUMN of the only indexed column drops the key', [[], []], [$names('table', 'ft_rb__fts_'), $names('trigger', 'ft_rb__fts_')]);
+
+		// RENAME TABLE moves the FTS table and triggers
+		$this->execMysql("ALTER TABLE `ft_rb` ADD `data` text, ADD FULLTEXT KEY `data` (`data`)");
+		$this->execMysql("UPDATE `ft_rb` SET data='delta' WHERE pages_id=1");
+		$this->execMysql("RENAME TABLE `ft_rb` TO `ft_rb2`");
+		$this->check('RENAME TABLE renames the FTS table', true, in_array('ft_rb2__fts_data', $names('table', 'ft_rb2__fts_'), true));
+		$this->check('RENAME TABLE leaves nothing under the old name', [[], []], [$names('table', 'ft_rb__fts_'), $names('trigger', 'ft_rb__fts_')]);
+		$this->check('RENAME TABLE recreates triggers under the new name', ['ft_rb2__fts_data_ad', 'ft_rb2__fts_data_ai', 'ft_rb2__fts_data_au'], $names('trigger', 'ft_rb2__fts_'));
+		$this->execMysql("UPDATE `ft_rb2` SET data='epsilon' WHERE pages_id=2");
+		$this->check('search after RENAME', [[1], [2]], [$find('ft_rb2', 'delta'), $find('ft_rb2', 'epsilon')]);
+
+		// a trigger that is not ours still refuses the rebuild
+		$this->pdo->exec("CREATE TRIGGER `ft_rb2_custom` AFTER INSERT ON `ft_rb2` BEGIN SELECT 1; END");
+		$refused = false;
+		try {
+			$this->execMysql("ALTER TABLE `ft_rb2` MODIFY `data` mediumtext");
+		} catch(\PDOException $e) {
+			$refused = true;
+		}
+		$this->check('a foreign trigger still refuses a rebuild', true, $refused);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_rb2`');
 	}
 
 	/**
