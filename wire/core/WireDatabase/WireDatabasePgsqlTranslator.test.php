@@ -73,6 +73,30 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('JSON_VALID as a condition is made boolean',
 			'SELECT id FROM t WHERE (pw_json_valid(data)) <> 0',
 			$t('SELECT id FROM t WHERE JSON_VALID(data)'));
+		// on a jsonb column, JSON_CONTAINS() as a condition is jsonb containment, which a GIN index serves
+		$tr->setSchemaCache(['field_c' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'jsonb']]]);
+		$this->check('JSON_CONTAINS on a jsonb column as a condition uses @> (indexable)',
+			'SELECT pages_id FROM field_c WHERE (data @> pw_json(:v) OR data @> jsonb_build_array(pw_json(:v)))',
+			$t('SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, :v)'));
+		$this->check('JSON_CONTAINS with a key path on a jsonb column uses @> with the path as an object',
+			"SELECT f.pages_id FROM field_c AS f WHERE (f.data @> jsonb_build_object('tags', pw_json(:v)) OR f.data @> jsonb_build_object('tags', jsonb_build_array(pw_json(:v)))) AND f.pages_id>1",
+			$t("SELECT f.pages_id FROM field_c AS f WHERE JSON_CONTAINS(f.data, :v, '$.tags') AND f.pages_id>1"));
+		$this->check('JSON_CONTAINS with a nested quoted key path',
+			"SELECT pages_id FROM field_c WHERE NOT (data @> jsonb_build_object('a', jsonb_build_object('b c', pw_json('1'))) OR data @> jsonb_build_object('a', jsonb_build_object('b c', jsonb_build_array(pw_json('1')))))",
+			$t("SELECT pages_id FROM field_c WHERE NOT JSON_CONTAINS(data, '1', '$.a.\"b c\"')"));
+		$this->check('JSON_CONTAINS compared to a value keeps the function (its 1/0/NULL result is used)',
+			'SELECT pages_id FROM field_c WHERE pw_json_contains(pw_json(data), pw_json(:v))=1',
+			$t('SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, :v)=1'));
+		$this->check('JSON_CONTAINS with an array index path keeps the function',
+			"SELECT pages_id FROM field_c WHERE (pw_json_contains(pw_json(data), pw_json(:v), '$.a[0]')) <> 0",
+			$t("SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, :v, '$.a[0]')"));
+		$statements = $tr->translateStatements('CREATE TABLE `field_c` (`pages_id` int NOT NULL, `data` JSON, PRIMARY KEY (`pages_id`))');
+		$this->check('a JSON column gets a GIN index for containment', 'CREATE INDEX "field_c__data__json" ON "field_c" USING gin ("data" jsonb_path_ops)', isset($statements[1]) ? $statements[1] : null);
+		$this->check('ALTER ADD a JSON column adds its GIN index', ['ALTER TABLE "field_c" ADD COLUMN "extra" jsonb', 'CREATE INDEX "field_c__extra__json" ON "field_c" USING gin ("extra" jsonb_path_ops)'],
+			$tr->translateStatements('ALTER TABLE field_c ADD extra JSON'));
+		$tr->setSchemaCache(['field_c' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'jsonb']]]);
+		$statements = $tr->translateStatements('ALTER TABLE field_c MODIFY data MEDIUMTEXT');
+		$this->check('MODIFY away from JSON drops the GIN index first (it cannot index text)', 'DROP INDEX IF EXISTS "field_c__data__json"', $statements[0]);
 		$tr->setJsonAvailable(false);
 		$this->check('JSON functions left alone again when unavailable', $sql, $t($sql));
 	}

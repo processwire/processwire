@@ -83,6 +83,18 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 			$this->check("$label: JSON_CONTAINS(data, ?)", [1], $ids('JSON_CONTAINS(data, :v)', [':v' => '{"tags":["y"]}']));
 			$this->check("$label: JSON_CONTAINS(data, ?, path)", [1], $ids("JSON_CONTAINS(data, :v, '$.tags')", [':v' => '"x"']));
 			$this->check("$label: JSON_LENGTH(data, path)>0", [1, 2], $ids("JSON_LENGTH(data, '$.name')>0 OR JSON_LENGTH(data, '$.tags')>0"));
+			$this->check("$label: NOT JSON_CONTAINS(data, ?, path)", [2, 3], $ids("NOT JSON_CONTAINS(data, :v, '$.tags') OR JSON_CONTAINS(data, :v, '$.tags') IS NULL", [':v' => '"x"']));
+			if($label === 'json') {
+				// the jsonb column's GIN index serves JSON_CONTAINS() conditions, and is not one of the MySQL indexes
+				$database->pdo()->exec('SET enable_seqscan = off');
+				$q = $database->prepare("EXPLAIN SELECT pages_id FROM `$table` WHERE JSON_CONTAINS(data, :v, '$.tags')");
+				$q->bindValue(':v', '"x"');
+				$q->execute();
+				$plan = implode("\n", $q->fetchAll(\PDO::FETCH_COLUMN));
+				$database->pdo()->exec('SET enable_seqscan = on');
+				$this->check('json: JSON_CONTAINS() uses the GIN index', true, strpos($plan, $table . '__data__json') !== false);
+				$this->check('json: the GIN index is not reported by getIndexes()', ['PRIMARY'], array_keys($database->getIndexes($table, true)));
+			}
 			$q = $database->prepare("UPDATE `$table` SET data=JSON_SET(JSON_REMOVE(data, :old), :new, JSON_EXTRACT(data, :old)) WHERE pages_id=1");
 			$q->bindValue(':old', '$.name');
 			$q->bindValue(':new', '$.title');

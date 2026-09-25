@@ -125,6 +125,12 @@ class WireDatabasePgsqlTranslator {
 	const foldIndexSuffix = '__fold';
 
 	/**
+	 * Suffix of the GIN index that a jsonb column gets (see jsonIndexSql())
+	 *
+	 */
+	const jsonIndexSuffix = '__json';
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -363,6 +369,7 @@ class WireDatabasePgsqlTranslator {
 				break;
 		}
 
+		if($this->jsonAvailable) $tokens = $this->jsonContainment($tokens);
 		$tokens = $this->expressions($tokens);
 		$tokens = $this->booleanContext($tokens);
 		$tokens = $this->subqueries($tokens);
@@ -902,6 +909,93 @@ class WireDatabasePgsqlTranslator {
 		$args = [];
 		foreach($this->splitCommas($inner) as $arg) $args[] = $this->trimTokens($arg);
 		return $args;
+	}
+
+	/**
+	 * JSON_CONTAINS(col, candidate[, '$.key.path']) used as a condition on a jsonb column: jsonb containment
+	 *
+	 * pw_json_contains() gives MySQL's result, but as a function call no index can serve it. On a jsonb
+	 * column (which gets a GIN index, see jsonIndexSql()) the same test as `@>` can use the index: the
+	 * candidate is contained, or (MySQL's rule for arrays) an array holds an element containing it. A key
+	 * path becomes a nested object around the candidate. Used only where the result is a condition, since
+	 * MySQL's function returns NULL for a missing path, which a condition treats as false too.
+	 *
+	 * Runs on the MySQL tokens, before expressions(), so that the call is still recognizable.
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function jsonContainment(array $tokens) {
+		$aliases = null;
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			if(!$this->isWord($tokens[$i], 'JSON_CONTAINS')) continue;
+			$open = $this->next($tokens, $i + 1);
+			if($open < 0 || $tokens[$open][1] !== '(') continue;
+			$close = $this->matchParen($tokens, $open);
+			if($close < 0) continue;
+			// a condition: after WHERE/AND/OR/ON/HAVING/NOT/(, and not followed by an operator
+			$p = $this->prev($tokens, $i - 1);
+			$q = $this->next($tokens, $close + 1);
+			$before = $p < 0 ? false : ($this->isWord($tokens[$p], ['WHERE', 'AND', 'OR', 'ON', 'HAVING', 'NOT']) || ($tokens[$p][0] === 'punct' && $tokens[$p][1] === '('));
+			$after = $q < 0 || $this->isWord($tokens[$q], ['AND', 'OR', 'ORDER', 'GROUP', 'LIMIT', 'HAVING', 'UNION']) || ($tokens[$q][0] === 'punct' && in_array($tokens[$q][1], [')', ';'], true));
+			if(!$before || !$after) continue;
+			$args = $this->callArgTokens($tokens, $open);
+			if(count($args) < 2 || count($args) > 3) continue;
+			// the document must be a jsonb column
+			$col = $args[0];
+			$table = null;
+			$column = '';
+			if($aliases === null) {
+				$aliases = $this->tableAliases($tokens);
+				$tables = array_values(array_unique(array_values($aliases)));
+			}
+			if(count($col) === 3 && $col[1][0] === 'punct' && $col[1][1] === '.' && isset($aliases[$this->name($col[0])])) {
+				$table = $aliases[$this->name($col[0])];
+				$column = $this->name($col[2]);
+			} else if(count($col) === 1 && in_array($col[0][0], ['word', 'id']) && count($tables) === 1) {
+				$table = $tables[0];
+				$column = $this->name($col[0]);
+			}
+			if($table === null) continue;
+			$schema = $this->tableSchema($table);
+			if(!isset($schema['columns'][$column]) || $schema['columns'][$column] !== 'jsonb') continue;
+			// an optional literal path of object keys only
+			$keys = [];
+			if(count($args) === 3) {
+				if(count($args[2]) !== 1 || $args[2][0][0] !== 'str') continue;
+				$path = str_replace("''", "'", substr($args[2][0][1], 1, -1));
+				if(!preg_match('/^\$((?:\.(?:[A-Za-z_$][A-Za-z0-9_$]*|"(?:[^"\\\\]|\\\\.)*"))*)$/', $path, $m)) continue;
+				preg_match_all('/\.(?:([A-Za-z_$][A-Za-z0-9_$]*)|"((?:[^"\\\\]|\\\\.)*)")/', $m[1], $parts, PREG_SET_ORDER);
+				foreach($parts as $part) $keys[] = isset($part[2]) && $part[2] !== '' ? stripcslashes($part[2]) : $part[1];
+			}
+			$doc = trim($this->join($this->expressions($col)));
+			$candidate = 'pw_json(' . trim($this->join($this->expressions($this->trimTokens($args[1])))) . ')';
+			$wrap = function($value) use($keys) {
+				foreach(array_reverse($keys) as $key) $value = "jsonb_build_object('" . str_replace("'", "''", $key) . "', $value)";
+				return $value;
+			};
+			$sql = "($doc @> " . $wrap($candidate) . " OR $doc @> " . $wrap("jsonb_build_array($candidate)") . ')';
+			$tokens = array_merge(array_slice($tokens, 0, $i), [['word', $sql]], array_slice($tokens, $close + 1));
+			$n = count($tokens);
+		}
+		return $tokens;
+	}
+
+	/**
+	 * Get the statement for the GIN index of a jsonb column, which serves JSON_CONTAINS() (see jsonContainment())
+	 *
+	 * MySQL cannot index a JSON column, so ProcessWire and modules never ask for one; this adds it.
+	 *
+	 * @param string $table
+	 * @param string $column
+	 * @return string
+	 *
+	 */
+	protected function jsonIndexSql($table, $column) {
+		return 'CREATE INDEX ' . $this->quoteId($this->indexName($table, $column . self::jsonIndexSuffix)) .
+			' ON ' . $this->quoteId($table) . ' USING gin (' . $this->quoteId($column) . ' jsonb_path_ops)';
 	}
 
 	/**
@@ -3344,6 +3438,9 @@ class WireDatabasePgsqlTranslator {
 		foreach($indexDefs as $def) {
 			foreach($this->indexDef($table, $def, $columns, $ifNotExists) as $sql) $statements[] = $sql;
 		}
+		foreach($columns as $name => $col) {
+			if($col['pgType'] === 'jsonb') $statements[] = $this->jsonIndexSql($table, $name);
+		}
 
 		$this->clearSchemaCache($table);
 
@@ -3534,6 +3631,7 @@ class WireDatabasePgsqlTranslator {
 					foreach($colDefs as $colDef) {
 						$col = $this->columnDef($this->trimTokens($colDef));
 						$statements[] = "ALTER TABLE $qTable ADD COLUMN " . $this->quoteId($col['name']) . ' ' . $this->addColumnSql($col);
+						if($col['pgType'] === 'jsonb') $statements[] = $this->jsonIndexSql($table, $col['name']);
 					}
 				}
 
@@ -3573,15 +3671,21 @@ class WireDatabasePgsqlTranslator {
 				$oldName = $this->name($rest[0]);
 				if($w === 'CHANGE') $rest = $this->trimTokens(array_slice($rest, 1));
 				$col = $this->columnDef($rest);
+				// a jsonb column's GIN index cannot index another type, so it goes first (and comes back for jsonb)
+				$oldSchema = $this->tableSchema($table);
+				if(isset($oldSchema['columns'][$oldName]) && $oldSchema['columns'][$oldName] === 'jsonb') {
+					$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $oldName . self::jsonIndexSuffix));
+				}
 				if($col['name'] !== $oldName) {
 					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($oldName) . ' TO ' . $this->quoteId($col['name']);
 				}
 				$qCol = $this->quoteId($col['name']);
-				$actions = ["ALTER COLUMN $qCol TYPE $col[pgType]"];
+				$actions = ["ALTER COLUMN $qCol TYPE $col[pgType]" . ($col['pgType'] === 'jsonb' ? " USING $qCol::jsonb" : '')];
 				if($col['nullSpec'] === 'NOT NULL') $actions[] = "ALTER COLUMN $qCol SET NOT NULL";
 				if($col['nullSpec'] === 'NULL') $actions[] = "ALTER COLUMN $qCol DROP NOT NULL";
 				if($col['default'] !== null) $actions[] = "ALTER COLUMN $qCol SET DEFAULT $col[default]";
 				$statements[] = "ALTER TABLE $qTable " . implode(', ', $actions);
+				if($col['pgType'] === 'jsonb') $statements[] = $this->jsonIndexSql($table, $col['name']);
 
 			} else if(in_array($w, ['ENGINE', 'DEFAULT', 'CHARACTER', 'CHARSET', 'COLLATE', 'CONVERT', 'AUTO_INCREMENT', 'COMMENT', 'ORDER', 'ALGORITHM', 'LOCK'])) {
 				// table options: no PostgreSQL equivalent

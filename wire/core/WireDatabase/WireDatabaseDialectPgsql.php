@@ -894,8 +894,11 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		$rows = array();
 		foreach($this->catalog($sql, array($table)) as $row) {
 			$name = (string) $row['index_name'];
-			// folded companion of a unique or primary key (see WireDatabasePgsqlTranslator::createIndexSql()): internal
-			if(substr($name, -strlen(WireDatabasePgsqlTranslator::foldIndexSuffix)) === WireDatabasePgsqlTranslator::foldIndexSuffix) continue;
+			// folded companion of a unique or primary key (see WireDatabasePgsqlTranslator::createIndexSql()) and
+			// the GIN index of a jsonb column (see WireDatabasePgsqlTranslator::jsonIndexSql()): internal
+			foreach(array(WireDatabasePgsqlTranslator::foldIndexSuffix, WireDatabasePgsqlTranslator::jsonIndexSuffix) as $suffix) {
+				if(substr($name, -strlen($suffix)) === $suffix) continue 2;
+			}
 			if($row['column_name'] === null) {
 				// indexed expression, i.e. pw_fold(data) or left(data, 250): report the column it is on, as MySQL would
 				$expr = preg_replace('/^(?:\(?"?\w+"?\()+/', '', ltrim((string) $row['expr'], '('));
