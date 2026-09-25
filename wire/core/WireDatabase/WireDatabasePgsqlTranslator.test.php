@@ -397,13 +397,13 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 
 		// sorting
 		$this->check('ORDER BY a text column sorts by the folded value',
-			'SELECT pages_id FROM field_title ORDER BY pw_fold(data) DESC, pages_id',
+			'SELECT pages_id FROM field_title ORDER BY pw_fold(data) DESC NULLS LAST, pages_id NULLS FIRST',
 			$t('SELECT pages_id FROM field_title ORDER BY data DESC, pages_id'));
 		$this->check('ORDER BY a joined text column under GROUP BY folds its any_value()',
-			'SELECT pages.id FROM pages LEFT JOIN field_title AS f ON f.pages_id=pages.id GROUP BY pages.id ORDER BY pw_fold(any_value(f.data))',
+			'SELECT pages.id FROM pages LEFT JOIN field_title AS f ON f.pages_id=pages.id GROUP BY pages.id ORDER BY pw_fold(any_value(f.data)) NULLS FIRST',
 			$t('SELECT pages.id FROM pages LEFT JOIN field_title AS f ON f.pages_id=pages.id GROUP BY pages.id ORDER BY f.data'));
 		$this->check('SELECT DISTINCT keeps its ORDER BY (PostgreSQL requires it in the select list)',
-			'SELECT DISTINCT data FROM field_title ORDER BY data',
+			'SELECT DISTINCT data FROM field_title ORDER BY data NULLS FIRST',
 			$t('SELECT DISTINCT data FROM field_title ORDER BY data'));
 
 		// indexes on text columns are built on the folded value
@@ -439,6 +439,43 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 
 		$tr->setFoldAvailable(false);
 		$this->check('folding off again restores plain comparisons', 'SELECT pages_id FROM field_title WHERE data=:v', $t($sql));
+	}
+
+	/**
+	 * Sorting and joins as MySQL does them: NULLs first ascending, text read as a number against a number column
+	 *
+	 */
+	protected function testSortParity() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$t = function($sql) use($tr) { return implode(";\n", $tr->translateStatements($sql)); };
+		$tr->setSchemaCache([
+			'pages' => ['primary' => ['id'], 'identity' => 'id', 'columns' => ['id' => 'integer', 'sort' => 'integer', 'parent_id' => 'integer', 'name' => 'text'], 'notnull' => ['id' => true, 'sort' => true, 'parent_id' => true]],
+			'field_x' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'text', 'n' => 'integer'], 'notnull' => ['pages_id' => true, 'data' => true]],
+			'field_rep' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'text'], 'notnull' => ['pages_id' => true, 'data' => true]],
+		]);
+		$num = function($x) { return str_replace('X', "($x)::text", '(CASE WHEN X ~ \'^\\s*[-+]?([0-9]+\\.?[0-9]*|\\.[0-9]+)\' THEN substring(X from \'^\\s*([-+]?([0-9]+\\.?[0-9]*|\\.[0-9]+)([eE][-+]?[0-9]+)?)\')::numeric ELSE 0 END)'); };
+		// a repeater's item ids (text, '1234,1235') joined to an integer column: MySQL reads the leading number
+		$this->check('text column = integer column reads the text as MySQL does',
+			'SELECT pages.id FROM pages JOIN field_rep AS r ON r.pages_id=pages.id JOIN field_x AS x ON ' . $num('r.data') . '=x.pages_id',
+			$t('SELECT pages.id FROM pages JOIN field_rep AS r ON r.pages_id=pages.id JOIN field_x AS x ON r.data=x.pages_id'));
+		$this->check('integer column = text column too',
+			'SELECT pages.id FROM pages JOIN field_rep AS r ON pages.id=' . $num('r.data'),
+			$t('SELECT pages.id FROM pages JOIN field_rep AS r ON pages.id=r.data'));
+		$this->check('columns of the same kind are left alone', 'SELECT pages.id FROM pages JOIN field_x AS x ON x.pages_id=pages.id', $t('SELECT pages.id FROM pages JOIN field_x AS x ON x.pages_id=pages.id'));
+		// NULLs sort first ascending and last descending, as in MySQL
+		$this->check('a NOT NULL column of an inner table is left alone (an index can still serve the sort)',
+			'SELECT pages.id FROM pages WHERE pages.parent_id=1 ORDER BY pages.sort, pages.id DESC', $t('SELECT pages.id FROM pages WHERE pages.parent_id=1 ORDER BY pages.sort, pages.id DESC'));
+		$this->check('a column of a LEFT JOINed table sorts NULLs first',
+			'SELECT pages.id FROM pages LEFT JOIN field_x AS _sort_x ON _sort_x.pages_id=pages.id ORDER BY _sort_x.n NULLS FIRST',
+			$t('SELECT pages.id FROM pages LEFT JOIN field_x AS _sort_x ON _sort_x.pages_id=pages.id ORDER BY _sort_x.n'));
+		$this->check('... and last when descending',
+			'SELECT pages.id FROM pages LEFT JOIN field_x AS _sort_x ON _sort_x.pages_id=pages.id ORDER BY _sort_x.n DESC NULLS LAST',
+			$t('SELECT pages.id FROM pages LEFT JOIN field_x AS _sort_x ON _sort_x.pages_id=pages.id ORDER BY _sort_x.n DESC'));
+		$this->check('a nullable column of an inner table, and an expression',
+			'SELECT pages.id, x.n + 1 AS score FROM pages JOIN field_x AS x ON x.pages_id=pages.id ORDER BY x.n ASC NULLS FIRST, score DESC NULLS LAST',
+			$t('SELECT pages.id, x.n + 1 AS score FROM pages JOIN field_x AS x ON x.pages_id=pages.id ORDER BY x.n ASC, score DESC'));
+		$this->check('an explicit NULLS FIRST/LAST is kept', 'SELECT id FROM field_x ORDER BY n NULLS LAST', $t('SELECT id FROM field_x ORDER BY n NULLS LAST'));
+		$this->check('ORDER BY inside GROUP_CONCAT() is left alone', true, strpos($t('SELECT GROUP_CONCAT(n ORDER BY n) FROM field_x'), 'NULLS') === false);
 	}
 
 	protected function testDml() {
@@ -678,16 +715,16 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 
 		// GROUP BY with ORDER BY on a joined column (ONLY_FULL_GROUP_BY equivalent)
 		$this->check('ORDER BY joined column under GROUP BY is wrapped in any_value()',
-			'SELECT pages.id FROM pages LEFT JOIN field_title AS _sort_title ON _sort_title.pages_id=pages.id GROUP BY pages.id ORDER BY any_value(_sort_title.data) DESC',
+			'SELECT pages.id FROM pages LEFT JOIN field_title AS _sort_title ON _sort_title.pages_id=pages.id GROUP BY pages.id ORDER BY any_value(_sort_title.data) DESC NULLS LAST',
 			$t('SELECT pages.id FROM pages LEFT JOIN field_title AS _sort_title ON _sort_title.pages_id=pages.id GROUP BY pages.id ORDER BY _sort_title.data DESC'));
 		$this->check('ORDER BY grouped-table column is left alone',
-			'SELECT pages.id FROM pages GROUP BY pages.id ORDER BY pages.name',
+			'SELECT pages.id FROM pages GROUP BY pages.id ORDER BY pages.name NULLS FIRST',
 			$t('SELECT pages.id FROM pages GROUP BY pages.id ORDER BY pages.name'));
 		$this->check('ORDER BY aggregate is left alone',
 			'SELECT pages.id FROM pages LEFT JOIN field_images AS i ON i.pages_id=pages.id GROUP BY pages.id ORDER BY COUNT(i.data)',
 			$t('SELECT pages.id FROM pages LEFT JOIN field_images AS i ON i.pages_id=pages.id GROUP BY pages.id ORDER BY COUNT(i.data)'));
 		$this->check('ORDER BY without GROUP BY is left alone',
-			'SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id ORDER BY t.data',
+			'SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id ORDER BY t.data NULLS FIRST',
 			$t('SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id ORDER BY t.data'));
 		$this->check('SELECT joined columns under GROUP BY are wrapped in any_value() and keep their result names',
 			'SELECT false AS "isLoaded", pages.templates_id AS templates_id, pages.*, any_value(pages_sortfields.sortfield) AS "sortfield", (SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS "numChildren", any_value(field_title.data) AS "title__data" FROM pages LEFT JOIN pages_sortfields ON pages_sortfields.pages_id=pages.id LEFT JOIN field_title ON field_title.pages_id=pages.id WHERE pages.id=:id GROUP BY pages.id',
@@ -702,7 +739,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			'SELECT pages.id FROM pages LEFT JOIN (SELECT p1.parent_id, COUNT(p1.id) AS num_children1 FROM pages AS p1 GROUP BY p1.parent_id HAVING (COUNT(p1.id))>0 ) pages_num_children1 ON pages_num_children1.parent_id=pages.id WHERE pages_num_children1.num_children1>0 GROUP BY pages.id',
 			$t('SELECT pages.id FROM pages LEFT JOIN (SELECT p1.parent_id, COUNT(p1.id) AS num_children1 FROM pages AS p1 GROUP BY p1.parent_id HAVING num_children1>0 ) pages_num_children1 ON pages_num_children1.parent_id=pages.id WHERE pages_num_children1.num_children1>0 GROUP BY pages.id'));
 		$this->check('ORDER BY joined column inside a subquery under GROUP BY is wrapped too',
-			'SELECT id FROM (SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id GROUP BY pages.id ORDER BY any_value(t.data)) sub',
+			'SELECT id FROM (SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id GROUP BY pages.id ORDER BY any_value(t.data) NULLS FIRST) sub',
 			$t('SELECT id FROM (SELECT pages.id FROM pages LEFT JOIN field_title AS t ON t.pages_id=pages.id GROUP BY pages.id ORDER BY t.data) sub'));
 		$this->check('HAVING on a non-alias is left alone',
 			'SELECT p.parent_id, COUNT(p.id) AS n FROM pages AS p GROUP BY p.parent_id HAVING COUNT(p.id)>0 AND p.parent_id>1',
@@ -789,10 +826,10 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('mixed-case alias is quoted so its case survives (Postgres folds unquoted names)', 'SELECT (SELECT COUNT(*) FROM pages) AS "numChildren", false AS "isLoaded" FROM pages', $t('SELECT (SELECT COUNT(*) FROM pages) AS numChildren, false AS isLoaded FROM pages'));
 		$this->check('lowercase alias is left unquoted', 'SELECT pages.templates_id AS templates_id FROM pages', $t('SELECT pages.templates_id AS templates_id FROM pages'));
 		$this->check('references to a quoted alias are quoted too, for table and column aliases (PageFinder count subqueries)',
-			'SELECT p.id, sub."numX" FROM pages p LEFT JOIN (SELECT "F_3".pages_id, COUNT("F_3".pages_id) AS "numX" FROM field_f AS "F_3" GROUP BY "F_3".pages_id) sub ON sub.pages_id=p.id ORDER BY "numX"',
+			'SELECT p.id, sub."numX" FROM pages p LEFT JOIN (SELECT "F_3".pages_id, COUNT("F_3".pages_id) AS "numX" FROM field_f AS "F_3" GROUP BY "F_3".pages_id) sub ON sub.pages_id=p.id ORDER BY "numX" NULLS FIRST',
 			$t('SELECT p.id, sub.numX FROM pages p LEFT JOIN (SELECT F_3.pages_id, COUNT(F_3.pages_id) AS numX FROM field_f AS F_3 GROUP BY F_3.pages_id) sub ON sub.pages_id=p.id ORDER BY numX'));
 		$this->check('alias references match case-insensitively, as in MySQL',
-			'SELECT (SELECT COUNT(*) FROM pages) AS "numChildren" FROM pages ORDER BY "numChildren"',
+			'SELECT (SELECT COUNT(*) FROM pages) AS "numChildren" FROM pages ORDER BY "numChildren" NULLS FIRST',
 			$t('SELECT (SELECT COUNT(*) FROM pages) AS numChildren FROM pages ORDER BY numchildren'));
 		$this->check('a column in WHERE with the name of a select alias is the column (MySQL WHERE cannot see select aliases)',
 			'SELECT id AS "ID" FROM t WHERE ID > 5',
@@ -803,7 +840,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('table alias references in another case are quoted with the alias case',
 			'SELECT "F_3".pages_id FROM field_f AS "F_3" WHERE "F_3".data=1',
 			$t('SELECT F_3.pages_id FROM field_f AS F_3 WHERE f_3.data=1'));
-		$this->check('a function with the same name as a quoted alias is not quoted', 'SELECT COUNT(*) AS "Count" FROM t ORDER BY "Count"', $t('SELECT COUNT(*) AS Count FROM t ORDER BY Count'));
+		$this->check('a function with the same name as a quoted alias is not quoted', 'SELECT COUNT(*) AS "Count" FROM t ORDER BY "Count" NULLS FIRST', $t('SELECT COUNT(*) AS Count FROM t ORDER BY Count'));
 		$this->check('MySQL double-quoted string value stays a string', "SELECT 'x' AS a FROM t WHERE b='y'", $t('SELECT "x" AS a FROM t WHERE b="y"'));
 	}
 

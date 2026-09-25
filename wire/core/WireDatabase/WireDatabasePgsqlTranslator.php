@@ -1985,7 +1985,8 @@ class WireDatabasePgsqlTranslator {
 		$tokens = $this->anyValueGroupBy($tokens);
 		$tokens = $this->storedVectors($tokens);
 		$tokens = $this->selectStar($tokens);
-		return $this->foldOrderBy($tokens);
+		$tokens = $this->foldOrderBy($tokens);
+		return $this->orderNulls($tokens);
 	}
 
 	/**
@@ -2061,6 +2062,144 @@ class WireDatabasePgsqlTranslator {
 				}
 			}
 			$terms[] = array_merge($lead, $part, $suffix, $trail);
+		}
+		$rebuilt = [];
+		foreach($terms as $x => $term) {
+			if($x) $rebuilt[] = ['punct', ','];
+			foreach($term as $t) $rebuilt[] = $t;
+		}
+		return array_merge(array_slice($tokens, 0, $orderPos), $rebuilt, array_slice($tokens, $orderEnd));
+	}
+
+	/**
+	 * Get the table column at $i (alias.column, or a bare column of the statement's one table), or null
+	 *
+	 * @param array $tokens
+	 * @param int $i
+	 * @param array $aliases See tableAliases()
+	 * @param string|null $single The statement's one table, if it has one
+	 * @return array|null [ 'table' => ..., 'column' => ..., 'end' => index of its last token ]
+	 *
+	 */
+	protected function columnAt(array $tokens, $i, array $aliases, $single) {
+		$n = count($tokens);
+		if($i < 0 || $i >= $n || !in_array($tokens[$i][0], ['word', 'id'], true)) return null;
+		if($i + 2 < $n && $tokens[$i + 1][0] === 'punct' && $tokens[$i + 1][1] === '.' && in_array($tokens[$i + 2][0], ['word', 'id'], true)) {
+			$alias = $this->name($tokens[$i]);
+			if(!isset($aliases[$alias])) return null;
+			$table = $aliases[$alias];
+			$column = $this->name($tokens[$i + 2]);
+			$end = $i + 2;
+		} else if($single !== null) {
+			$q = $this->next($tokens, $i + 1);
+			if($q > -1 && $tokens[$q][0] === 'punct' && in_array($tokens[$q][1], ['(', '.'], true)) return null;
+			$table = $single;
+			$column = $this->name($tokens[$i]);
+			$end = $i;
+		} else {
+			return null;
+		}
+		$schema = $this->tableSchema($table);
+		if(!isset($schema['columns'][$column])) return null;
+		return ['table' => $table, 'column' => $column, 'end' => $end];
+	}
+
+	/**
+	 * Get the aliases (and table names) of tables that are outer-joined, whose columns can be NULL in the result
+	 *
+	 * @param array $tokens One SELECT
+	 * @return array|bool [ alias => true ], or true when every table can be (RIGHT and FULL joins)
+	 *
+	 */
+	protected function outerJoinedAliases(array $tokens) {
+		$outer = [];
+		$depth = 0;
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct' && $t[1] === '(') $depth++;
+			if($t[0] === 'punct' && $t[1] === ')') $depth--;
+			if($depth !== 0 || !$this->isWord($t, ['LEFT', 'RIGHT', 'FULL'])) continue;
+			if(!$this->isWord($t, 'LEFT')) return true;
+			$j = $this->next($tokens, $i + 1);
+			if($j > -1 && $this->isWord($tokens[$j], 'OUTER')) $j = $this->next($tokens, $j + 1);
+			if($j < 0 || !$this->isWord($tokens[$j], 'JOIN')) continue;
+			$j = $this->next($tokens, $j + 1);
+			if($j < 0 || !in_array($tokens[$j][0], ['word', 'id'], true)) continue;
+			$outer[$this->name($tokens[$j])] = true;
+			$k = $this->next($tokens, $j + 1);
+			if($k > -1 && $this->isWord($tokens[$k], 'AS')) $k = $this->next($tokens, $k + 1);
+			if($k > -1 && in_array($tokens[$k][0], ['word', 'id'], true) && !$this->isWord($tokens[$k], ['ON', 'USING', 'LEFT', 'RIGHT', 'JOIN', 'INNER', 'WHERE'])) {
+				$outer[$this->name($tokens[$k])] = true;
+			}
+		}
+		return $outer;
+	}
+
+	/**
+	 * Sort NULLs as MySQL does: first ascending, last descending (PostgreSQL does the opposite)
+	 *
+	 * Only terms that can be NULL get `NULLS FIRST`/`NULLS LAST`: expressions, nullable columns, and columns of
+	 * LEFT JOINed tables (i.e. a field some pages have no row for). A NOT NULL column of an inner table is left
+	 * alone, so that an index in the default order can still serve the sort.
+	 *
+	 * @param array $tokens One SELECT (see selectPasses())
+	 * @return array
+	 *
+	 */
+	protected function orderNulls(array $tokens) {
+		$orderPos = -1;
+		$depth = 0;
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth === 0 && $this->isWord($t, 'ORDER')) {
+				$j = $this->next($tokens, $i + 1);
+				if($j > -1 && $this->isWord($tokens[$j], 'BY')) $orderPos = $j + 1;
+			}
+		}
+		if($orderPos < 0) return $tokens;
+		$aliases = $this->tableAliases($tokens);
+		$tables = array_values(array_unique(array_values($aliases)));
+		$single = count($tables) === 1 ? $tables[0] : null;
+		$outer = null;
+		$orderEnd = $this->clauseEnd($tokens, $orderPos);
+		$terms = [];
+		foreach($this->splitCommas(array_slice($tokens, $orderPos, $orderEnd - $orderPos)) as $part) {
+			$lead = [];
+			$trail = [];
+			while(count($part) && $part[0][0] === 'ws') $lead[] = array_shift($part);
+			while(count($part) && $part[count($part) - 1][0] === 'ws') array_unshift($trail, array_pop($part));
+			$words = array_values(array_filter($part, function($t) { return $t[0] !== 'ws'; }));
+			$last = count($words) ? $words[count($words) - 1] : null;
+			$hasNulls = false;
+			foreach($words as $w) if($this->isWord($w, 'NULLS')) $hasNulls = true;
+			if(!count($words) || $hasNulls) {
+				$terms[] = array_merge($lead, $part, $trail);
+				continue;
+			}
+			$desc = $this->isWord($last, 'DESC');
+			$expr = $this->isWord($last, ['ASC', 'DESC']) ? $this->trimTokens(array_slice($part, 0, -1)) : $part;
+			// the column a term sorts by, through pw_fold() and any_value()
+			$sql = trim($this->join($expr));
+			while(preg_match('/^(?:pw_fold|any_value)\((.+)\)$/i', $sql, $m)) $sql = $m[1];
+			// expressions that are never NULL: counts, random(), COALESCE() ending in a literal (FIELD()), literals
+			$nullable = !preg_match("/^(?:count\\s*\\(|random\\(\\)$|coalesce\\(.*,\\s*(?:-?[0-9.]+|'[^']*')\\)$|-?[0-9.]+$|'[^']*'$)/is", $sql);
+			$ref = $nullable ? $this->tokenize($sql) : [];
+			$column = count($ref) === 1 || count($ref) === 3 ? $this->columnAt($ref, 0, $aliases, $single) : null;
+			if($column !== null && $column['end'] === count($ref) - 1) {
+				if($outer === null) $outer = $this->outerJoinedAliases($tokens);
+				$alias = count($ref) === 3 ? $this->name($ref[0]) : $column['table'];
+				$schema = $this->tableSchema($column['table']);
+				$nullable = $outer === true || isset($outer[$alias]) || empty($schema['notnull'][$column['column']]);
+			}
+			if($nullable) $part = array_merge($part, [['ws', ' '], ['word', $desc ? 'NULLS LAST' : 'NULLS FIRST']]);
+			$terms[] = array_merge($lead, $part, $trail);
 		}
 		$rebuilt = [];
 		foreach($terms as $x => $term) {
@@ -2817,6 +2956,7 @@ SQL;
 				'primary' => isset($facts['primary']) ? array_values($facts['primary']) : [],
 				'identity' => isset($facts['identity']) ? $facts['identity'] : null,
 				'columns' => isset($facts['columns']) ? $facts['columns'] : [],
+				'notnull' => isset($facts['notnull']) ? $facts['notnull'] : [],
 			];
 		}
 		$this->cache = []; // cached translations may depend on the old schema
@@ -2831,11 +2971,12 @@ SQL;
 	 */
 	protected function tableSchema($table) {
 		if(isset($this->schema[$table])) return $this->schema[$table];
-		$facts = ['primary' => [], 'identity' => null, 'columns' => []];
+		$facts = ['primary' => [], 'identity' => null, 'columns' => [], 'notnull' => []];
 		if($this->pdo()) {
 			$primary = [];
 			foreach($this->getColumnTypes($table) as $name => $info) {
 				$facts['columns'][$name] = $info['pgType'];
+				if($info['notnull']) $facts['notnull'][$name] = true;
 				if($info['identity'] && $facts['identity'] === null) $facts['identity'] = $name;
 				if($info['primary'] !== null) $primary[$info['primary']] = $name;
 			}
@@ -3018,6 +3159,21 @@ SQL;
 			$isCompare = $op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true);
 			$r = $isCompare ? $this->next($tokens, $k + 1) : -1;
 			$isValue = $r > -1 && ($tokens[$r][0] === 'str' || ($tokens[$r][0] === 'param' && $tokens[$r][1] !== '?'));
+			if($isCompare && $r > -1 && ($class === 'text' || $class === 'number') && ($other = $this->columnAt($tokens, $r, $aliases, $single)) !== null) {
+				// a text column compared with a number column (i.e. a repeater's item ids '1234,1235' joined to pages_id):
+				// MySQL compares the text's leading number, PostgreSQL has no text = integer operator
+				$otherSchema = $this->tableSchema($other['table']);
+				$otherClass = $this->typeClass($otherSchema['columns'][$other['column']]);
+				if(($class === 'text' && $otherClass === 'number') || ($class === 'number' && $otherClass === 'text')) {
+					$left = $this->join($colTokens);
+					$right = $this->join(array_slice($tokens, $r, $other['end'] - $r + 1));
+					$out[] = ['word', $class === 'text' ? self::mysqlNumberSql("($left)::text") : $left];
+					for($x = $end; $x < $r; $x++) $out[] = $tokens[$x];
+					$out[] = ['word', $class === 'text' ? $right : self::mysqlNumberSql("($right)::text")];
+					$i = $other['end'];
+					continue;
+				}
+			}
 			if($class === 'datetime' && $r > -1 && ($tokens[$r][0] === 'param' || ($assignment && $tokens[$r][0] === 'str' && self::isZeroDate($tokens[$r][1])))) {
 				// SET d = '0000-00-00' is NULL; a bound value for a date column is NULL when it is a zero date
 				foreach($colTokens as $ct) $out[] = $ct;
@@ -3232,7 +3388,7 @@ SQL;
 	 */
 	protected function getColumnTypes($table) {
 		$rows = $this->catalogRows(
-			"SELECT a.attname AS column_name, format_type(a.atttypid, NULL) AS data_type, a.attidentity <> '' AS is_identity, " .
+			"SELECT a.attname AS column_name, format_type(a.atttypid, NULL) AS data_type, a.attidentity <> '' AS is_identity, a.attnotnull AS not_null, " .
 			"array_position(i.indkey::int2[], a.attnum) AS pk FROM pg_attribute a " .
 			"JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace " .
 			"LEFT JOIN pg_index i ON i.indrelid = c.oid AND i.indisprimary " .
@@ -3248,6 +3404,7 @@ SQL;
 				'isText' => in_array($type, ['text', 'character varying', 'character'], true),
 				'identity' => in_array($row['is_identity'], [true, 't', '1', 1], true),
 				'primary' => $row['pk'] === null ? null : (int) $row['pk'],
+				'notnull' => in_array($row['not_null'], [true, 't', '1', 1], true),
 			];
 		}
 		return $types;

@@ -17,6 +17,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testNumberConversion();
 		$this->testBackups();
 		$this->testMysqlFunctions();
+		$this->testSortParity();
 		$this->testJson();
 		$this->testGaps();
 		$this->testFulltext();
@@ -735,6 +736,59 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 			if($value !== null && $actual !== null && is_numeric($value) && is_numeric($actual) && abs((float) $value - (float) $actual) < 1e-9) $actual = $value;
 			$this->check("SELECT $expr", $value, $actual === null ? null : (string) $actual);
 		}
+	}
+
+	/**
+	 * Sorting as MySQL does: NULLs first ascending, and a repeater's item id list joined as its first id (live, pgsql only)
+	 *
+	 */
+	protected function testSortParity() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$a = WireTests::fieldPrefix . 'pgsql_sort_a';
+		$b = WireTests::fieldPrefix . 'pgsql_sort_b';
+		foreach([$a, $b] as $t) $database->exec("DROP TABLE IF EXISTS `$t`");
+		$database->exec("CREATE TABLE `$a` (`pages_id` int NOT NULL, `items` text NOT NULL, PRIMARY KEY (`pages_id`))");
+		$database->exec("CREATE TABLE `$b` (`pages_id` int NOT NULL, `v` int, PRIMARY KEY (`pages_id`))");
+		$database->exec("INSERT INTO `$a` (pages_id, items) VALUES (1, '12,13'), (2, '11'), (3, ''), (4, '14')");
+		$database->exec("INSERT INTO `$b` (pages_id, v) VALUES (11, 5), (12, 3), (13, 9), (14, NULL)");
+		$col = function($sql) use($database) { return array_map(function($v) { return $v === null ? null : (int) $v; }, $database->query($sql)->fetchAll(\PDO::FETCH_COLUMN)); };
+		$this->check("a text id list joined to an integer column uses its first id, as MySQL does", [1, 2, 4],
+			$col("SELECT a.pages_id FROM `$a` AS a JOIN `$b` AS b ON a.items=b.pages_id ORDER BY a.pages_id"));
+		$this->check('sorting by the joined subfield (repeater sort), NULLs first', [4, 1, 2],
+			$col("SELECT a.pages_id FROM `$a` AS a LEFT JOIN `$b` AS b ON a.items=b.pages_id WHERE a.pages_id!=3 ORDER BY b.v, a.pages_id"));
+		$this->check('descending, NULLs last', [2, 1, 4],
+			$col("SELECT a.pages_id FROM `$a` AS a LEFT JOIN `$b` AS b ON a.items=b.pages_id WHERE a.pages_id!=3 ORDER BY b.v DESC, a.pages_id"));
+		$this->check('a nullable column of the table itself', [null, 3, 5, 9], $col("SELECT v FROM `$b` ORDER BY v"));
+		$this->check('... descending', [9, 5, 3, null], $col("SELECT v FROM `$b` ORDER BY v DESC"));
+		foreach([$a, $b] as $t) $database->exec("DROP TABLE IF EXISTS `$t`");
+		// through the API: sort by a field some pages have no value for
+		$parent = $this->getTestPage();
+		if(!$parent || !$parent->id) return;
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$field = $fields->get('pgsql_sort_num');
+		if(!$field) {
+			$field = new Field();
+			$field->type = $this->wire()->modules->get('FieldtypeInteger');
+			$field->name = 'pgsql_sort_num';
+			$fields->save($field);
+		}
+		$fieldgroup = $parent->template->fieldgroup;
+		$added = !$fieldgroup->hasField($field);
+		if($added) { $fieldgroup->add($field); $fieldgroup->save(); }
+		$created = [];
+		foreach(['b' => 2, 'none' => null, 'a' => 1] as $name => $value) {
+			$p = $pages->newPage(['template' => $parent->template, 'parent' => $parent, 'name' => "pgsql-sort-$name", 'title' => $name]);
+			if($value !== null) $p->set('pgsql_sort_num', $value);
+			$pages->save($p);
+			$created[] = $p;
+		}
+		$this->check('sort=field puts pages without a value first, as on MySQL', 'none|a|b', $pages->find("parent=$parent, name^=pgsql-sort-, sort=pgsql_sort_num, include=all")->implode('|', 'title'));
+		$this->check('sort=-field puts them last', 'b|a|none', $pages->find("parent=$parent, name^=pgsql-sort-, sort=-pgsql_sort_num, include=all")->implode('|', 'title'));
+		foreach($created as $p) $pages->delete($p, true);
+		if($added) { $fieldgroup->remove($field); $fieldgroup->save(); }
+		$fields->delete($field);
 	}
 
 	protected function testConnectionConfig() {
