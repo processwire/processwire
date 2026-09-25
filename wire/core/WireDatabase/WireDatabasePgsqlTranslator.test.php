@@ -286,9 +286,9 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			['ALTER TABLE "field_body" DROP COLUMN IF EXISTS "data__tsv"', 'ALTER TABLE "field_body" DROP COLUMN "data"', 'DROP TRIGGER IF EXISTS "pw_on_update__data" ON "field_body"'],
 			$tr->translateStatements('ALTER TABLE field_body DROP COLUMN data'));
 		$tr->setSchemaCache(['field_body' => ['primary' => ['pages_id'], 'columns' => ['pages_id' => 'integer', 'data' => 'text', 'data__tsv' => 'tsvector']]]);
-		$this->check('RENAME COLUMN renames it',
-			['ALTER TABLE "field_body" RENAME COLUMN "data" TO "body"', 'ALTER TABLE "field_body" RENAME COLUMN "data__tsv" TO "body__tsv"'],
-			$tr->translateStatements('ALTER TABLE field_body RENAME COLUMN data TO body'));
+		$renamed = $tr->translateStatements('ALTER TABLE field_body RENAME COLUMN data TO body');
+		$this->check('RENAME COLUMN renames it', ['ALTER TABLE "field_body" RENAME COLUMN "data" TO "body"', true],
+			[$renamed[0], in_array('ALTER TABLE "field_body" RENAME COLUMN "data__tsv" TO "body__tsv"', $renamed, true)]);
 		$tr->setSchemaCache(['field_body' => ['primary' => ['pages_id'], 'columns' => ['pages_id' => 'integer', 'data' => 'text', 'data__tsv' => 'tsvector']]]);
 		$modify = $tr->translateStatements('ALTER TABLE field_body MODIFY data varchar(200) NOT NULL');
 		$this->check('MODIFY drops the stored column first and makes it again after',

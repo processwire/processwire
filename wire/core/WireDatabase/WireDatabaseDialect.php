@@ -634,6 +634,16 @@ abstract class WireDatabaseDialect extends Wire {
 	}
 
 	/**
+	 * Get the words a FULLTEXT index leaves out, or null to use the database engine's list (see WireDatabasePDO::getStopwords())
+	 *
+	 * @return array|null
+	 *
+	 */
+	public function fulltextStopwords() {
+		return null;
+	}
+
+	/**
 	 * Supports ORDER BY in UPDATE statements, applied row-by-row for unique key checks?
 	 *
 	 * This is what makes `UPDATE t SET sort=sort+1 WHERE ... ORDER BY sort DESC` possible

@@ -53,8 +53,6 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 */
 	protected $jsonAvailable = false;
 
-
-	/**
 	/**
 	 * Do the full text search functions (pw_tsvector(), pw_tsquery()) exist on this connection (see initConnection())?
 	 *
@@ -677,6 +675,16 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 
 	public function supportsFoundRows() { return false; }
 	public function supportsFulltext() { return $this->fulltextAvailable; }
+
+	/**
+	 * No stopwords: the pw_search configuration indexes every word (see WireDatabasePgsqlTranslator::setupFulltext())
+	 *
+	 * @return array
+	 *
+	 */
+	public function fulltextStopwords() {
+		return array();
+	}
 	public function supportsUpdateOrderBy() { return false; }
 	public function supportsJson() { return $this->jsonAvailable; } // MySQL's JSON functions, as pw_json_*()
 

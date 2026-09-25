@@ -1503,6 +1503,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function getStopwords($engine = '', $flip = false) {
+		$stopwords = $this->dialect()->fulltextStopwords();
+		if(is_array($stopwords)) return $flip ? array_flip($stopwords) : $stopwords;
 		$engine = $engine === '' ? $this->engine : strtolower($engine);
 		if($engine === 'myisam') return DatabaseStopwords::getAll();
 		if($this->stopwordCache === null) { //  && $engine === 'innodb') {

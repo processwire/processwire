@@ -392,6 +392,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$pdo = $database->pdo();
 
 		$this->check('full text search is set up after connecting', true, $dialect->supportsFulltext());
+		$this->check('getStopwords(): none, since pw_search indexes every word', [], $database->getStopwords());
 		$tsquery = function($value, $boolean = true) use($pdo) {
 			$q = $pdo->prepare('SELECT pw_tsquery(:v, :b)::text');
 			$q->bindValue(':v', $value);
