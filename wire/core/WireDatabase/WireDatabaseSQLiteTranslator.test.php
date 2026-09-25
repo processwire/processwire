@@ -40,7 +40,88 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testCollation();
 		$this->testJsonFunctions();
 		$this->testFts5Query();
+		$this->testFulltextDdl();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * FULLTEXT keys as FTS5 tables kept in sync by triggers
+	 *
+	 */
+	protected function testFulltextDdl() {
+		$this->translator->setFulltext(true);
+		$master = function($type, $like) {
+			$q = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type=? AND name LIKE ? ESCAPE '!' ORDER BY name");
+			$q->execute([$type, $like]);
+			return $q->fetchAll(\PDO::FETCH_COLUMN);
+		};
+		$synced = function($table, $key, array $keys, array $cols) {
+			$fts = $table . '__fts_' . $key;
+			$kSel = implode(', ', $keys);
+			$ftsKeys = implode(', ', array_map(function($k) { return "pw_key_$k"; }, $keys));
+			$cSel = implode(', ', array_map(function($c) { return "coalesce($c, '')"; }, $cols));
+			$a = $this->pdo->query("SELECT $kSel, $cSel FROM `$table` ORDER BY $kSel")->fetchAll(\PDO::FETCH_NUM);
+			$b = $this->pdo->query("SELECT $ftsKeys, " . implode(', ', $cols) . " FROM `$fts` ORDER BY $ftsKeys")->fetchAll(\PDO::FETCH_NUM);
+			return $a == $b ? 'synced' : json_encode(['table' => $a, 'fts' => $b]);
+		};
+
+		$this->execMysql('DROP TABLE IF EXISTS `ft_one`');
+		$this->execMysql("CREATE TABLE `ft_one` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, PRIMARY KEY (`pages_id`), KEY `data_exact` (`data`(250)), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB");
+		// (the FTS5 table's five shadow tables share its prefix, hence in_array)
+		$this->check('CREATE TABLE: FTS5 table for the FULLTEXT key', true, in_array('ft_one__fts_data', $master('table', 'ft!_one!_!_fts!_%'), true));
+		$this->check('CREATE TABLE: three triggers', ['ft_one__fts_data_ad', 'ft_one__fts_data_ai', 'ft_one__fts_data_au'], $master('trigger', 'ft!_one!_!_fts!_%'));
+		$this->check('CREATE TABLE: no plain index for the FULLTEXT key', ['ft_one__data_exact'], $master('index', 'ft!_one!_!_%'));
+		$this->check('fulltextKeys()', ['data' => ['table' => 'ft_one__fts_data', 'keys' => ['pages_id'], 'columns' => ['data']]], WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_one'));
+
+		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (1, 'hello world'), (2, 'second row')");
+		$this->check('INSERT syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("UPDATE `ft_one` SET data='changed text' WHERE pages_id=1");
+		$this->check('UPDATE of text syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("UPDATE `ft_one` SET pages_id=3 WHERE pages_id=2");
+		$this->check('UPDATE of key syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("REPLACE INTO `ft_one` (pages_id, data) VALUES (3, 'replaced')");
+		$this->check('REPLACE syncs without duplicates', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (1, 'upserted') ON DUPLICATE KEY UPDATE data=VALUES(data)");
+		$this->check('ON DUPLICATE KEY UPDATE syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("DELETE FROM `ft_one` WHERE pages_id=3");
+		$this->check('DELETE syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("TRUNCATE TABLE `ft_one`");
+		$this->check('TRUNCATE syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+
+		// multi-value table (two key columns), two-column key, NULL text
+		$this->execMysql('DROP TABLE IF EXISTS `ft_multi`');
+		$this->execMysql("CREATE TABLE `ft_multi` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text, `description` text, PRIMARY KEY (`pages_id`, `sort`), FULLTEXT KEY `data_description` (`data`, `description`))");
+		$this->execMysql("INSERT INTO `ft_multi` VALUES (1, 0, 'a', NULL), (1, 1, 'b', 'c')");
+		$this->check('two key columns and two text columns sync, NULL as blank', 'synced', $synced('ft_multi', 'data_description', ['pages_id', 'sort'], ['data', 'description']));
+
+		// ALTER TABLE ADD column and FULLTEXT key in one statement (multi-language fields do this), with backfill
+		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (5, 'five')");
+		$this->execMysql("ALTER TABLE `ft_one` ADD `data1012` mediumtext, ADD FULLTEXT KEY `data1012` (`data1012`)");
+		$this->execMysql("UPDATE `ft_one` SET data1012='fünf' WHERE pages_id=5");
+		$this->check('ALTER TABLE ADD FULLTEXT creates and syncs a second key', 'synced', $synced('ft_one', 'data1012', ['pages_id'], ['data1012']));
+		$this->execMysql("ALTER TABLE `ft_one` DROP INDEX `data1012`");
+		$this->check('ALTER TABLE DROP INDEX drops the FTS table and triggers', [[], []], [$master('table', 'ft!_one!_!_fts!_data1012%'), $master('trigger', 'ft!_one!_!_fts!_data1012%')]);
+		$this->execMysql("CREATE FULLTEXT INDEX `data1012` ON `ft_one` (`data1012`)");
+		$this->check('CREATE FULLTEXT INDEX backfills existing rows', 'synced', $synced('ft_one', 'data1012', ['pages_id'], ['data1012']));
+		$this->execMysql("DROP INDEX `data1012` ON `ft_one`");
+		$this->check('DROP INDEX drops the FTS table', [], $master('table', 'ft!_one!_!_fts!_data1012%'));
+
+		// a table without a primary key uses rowid
+		$this->execMysql('DROP TABLE IF EXISTS `ft_nopk`');
+		$this->execMysql("CREATE TABLE `ft_nopk` (`body` text, FULLTEXT KEY `body` (`body`))");
+		$this->execMysql("INSERT INTO `ft_nopk` (body) VALUES ('x'), ('y')");
+		$this->check('no primary key: rowid key syncs', 'synced', $synced('ft_nopk', 'body', ['rowid'], ['body']));
+
+		// DROP TABLE drops the FTS tables
+		$this->execMysql('DROP TABLE `ft_multi`');
+		$this->execMysql('DROP TABLE IF EXISTS `ft_nopk`, `ft_missing`');
+		$this->check('DROP TABLE drops FTS tables (and FTS5 shadow tables)', [], array_merge($master('table', 'ft!_multi%'), $master('table', 'ft!_nopk%')));
+
+		// fulltext off: plain index, as before
+		$this->translator->setFulltext(false);
+		$sql = $this->translate("CREATE TABLE `ft_off` (`id` int NOT NULL, `body` text, PRIMARY KEY (`id`), FULLTEXT KEY `body` (`body`))");
+		$this->check('fulltext off: FULLTEXT is a plain index', true, strpos($sql, 'CREATE INDEX `ft_off__body` ON `ft_off` (`body`)') !== false && stripos($sql, 'fts5') === false);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_one`');
 	}
 
 	/**
