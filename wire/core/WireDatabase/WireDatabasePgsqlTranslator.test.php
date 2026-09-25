@@ -120,6 +120,18 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$tr->setSchemaCache(['field_c' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'jsonb']]]);
 		$statements = $tr->translateStatements('ALTER TABLE field_c MODIFY data MEDIUMTEXT');
 		$this->check('MODIFY away from JSON drops its indexes first (they cannot index text)', ['DROP INDEX IF EXISTS "field_c__data__json"', 'DROP INDEX IF EXISTS "field_c__data__jsonnest"'], array_slice($statements, 0, 2));
+		// long names are shortened with a hash (see indexName()): made and dropped under the same names, MySQL names recorded
+		$long = 'field_' . str_repeat('a', 50);
+		$created = $tr->translateStatements("ALTER TABLE `$long` ADD `data` JSON");
+		$gin = $tr->indexName($long, 'data__json');
+		$nest = $tr->indexName($long, 'data__jsonnest');
+		$this->check('long names: both JSON indexes are made under their shortened names', [true, true], [
+			(bool) preg_grep('/^CREATE INDEX "' . preg_quote($gin, '/') . '" /', $created), (bool) preg_grep('/^CREATE INDEX "' . preg_quote($nest, '/') . '" /', $created)]);
+		$this->check('long names: and their MySQL names are recorded', [
+			'COMMENT ON INDEX "' . $gin . '" IS \'pw_index:data__json\'', 'COMMENT ON INDEX "' . $nest . '" IS \'pw_index:data__jsonnest\''], array_values(preg_grep('/^COMMENT ON INDEX/', $created)));
+		$tr->setSchemaCache([$long => ['primary' => [], 'identity' => null, 'columns' => ['data' => 'jsonb']]]);
+		$dropped = $tr->translateStatements("ALTER TABLE `$long` MODIFY `data` MEDIUMTEXT");
+		$this->check('long names: MODIFY drops them under the same names', ['DROP INDEX IF EXISTS "' . $gin . '"', 'DROP INDEX IF EXISTS "' . $nest . '"'], array_slice($dropped, 0, 2));
 		$tr->setJsonAvailable(false);
 		$this->check('JSON functions left alone again when unavailable', $sql, $t($sql));
 	}
