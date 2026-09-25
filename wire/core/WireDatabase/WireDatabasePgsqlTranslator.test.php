@@ -235,6 +235,11 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('MATCH as a score inside MAX()',
 			'SELECT MAX(ts_rank(pw_tsvector(data), pw_tsquery(:v, true))) AS score FROM field_body',
 			$t('SELECT MAX(MATCH(data) AGAINST(:v IN BOOLEAN MODE)) AS score FROM field_body'));
+		$this->check('NOT MATCH as a score (a negated fulltext operator with ordering) is a number',
+			'SELECT (NOT (pw_tsvector(data) @@ pw_tsquery(:v, true)))::int AS s, MAX((NOT (pw_tsvector(data) @@ pw_tsquery(:v, true)))::int) AS m FROM t',
+			$t('SELECT NOT MATCH(data) AGAINST(:v IN BOOLEAN MODE) AS s, MAX(NOT MATCH(data) AGAINST(:v IN BOOLEAN MODE)) AS m FROM t'));
+		$this->check('RENAME INDEX renames the tsvector index too', true, in_array(
+			'ALTER INDEX IF EXISTS "t__ab__fts" RENAME TO "t__cd__fts"', $tr->translateStatements('ALTER TABLE t RENAME INDEX ab TO cd'), true));
 		$this->check('natural language mode and query expansion match any word',
 			'SELECT ts_rank(pw_tsvector(data), pw_tsquery(:v, false)) AS s FROM t WHERE ((pw_tsvector(data) @@ pw_tsquery(:w, false)))',
 			$t('SELECT MATCH(data) AGAINST(:v WITH QUERY EXPANSION) AS s FROM t WHERE (MATCH(data) AGAINST(:w))'));
@@ -248,15 +253,18 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('a FULLTEXT key over several columns', 'CREATE INDEX "t__ab__fts" ON "t" USING gin ((pw_tsvector("a") || pw_tsvector("b")))', end($statements));
 		$this->check('DROP INDEX drops the tsvector index too', ['DROP INDEX IF EXISTS "t__ab"', 'DROP INDEX IF EXISTS "t__ab__fts"'], $tr->translateStatements('DROP INDEX ab ON t'));
 		$backfill = WireDatabasePgsqlTranslator::fulltextIndexBackfillSql([
-			['schemaname' => 'public', 'tablename' => 'field_body', 'indexname' => 'field_body__data', 'indexdef' => 'CREATE INDEX field_body__data ON public.field_body USING gin (pw_fold(data) gin_trgm_ops)'],
-			['schemaname' => 'public', 'tablename' => 't', 'indexname' => 't__ab', 'indexdef' => 'CREATE INDEX t__ab ON public.t USING gin (a gin_trgm_ops, "B" gin_trgm_ops)'],
-			['schemaname' => 'public', 'tablename' => 'u', 'indexname' => 'u__c', 'indexdef' => 'CREATE INDEX u__c ON public.u USING gin (c gin_trgm_ops)'],
-			['schemaname' => 'public', 'tablename' => 'u', 'indexname' => 'u__c__fts', 'indexdef' => 'CREATE INDEX u__c__fts ON public.u USING gin (pw_tsvector(c))'],
-			['schemaname' => 'public', 'tablename' => 'pages', 'indexname' => 'pages__name', 'indexdef' => 'CREATE INDEX pages__name ON public.pages USING btree (name)'],
+			['schemaname' => 'public', 'tablename' => 'field_body', 'indexname' => 'field_body__data', 'valid' => true, 'indexdef' => 'CREATE INDEX field_body__data ON public.field_body USING gin (pw_fold(data) gin_trgm_ops)'],
+			['schemaname' => 'public', 'tablename' => 't', 'indexname' => 't__ab', 'valid' => 't', 'indexdef' => 'CREATE INDEX t__ab ON public.t USING gin (a gin_trgm_ops, "B" gin_trgm_ops)'],
+			['schemaname' => 'public', 'tablename' => 'u', 'indexname' => 'u__c', 'valid' => true, 'indexdef' => 'CREATE INDEX u__c ON public.u USING gin (c gin_trgm_ops)'],
+			['schemaname' => 'public', 'tablename' => 'u', 'indexname' => 'u__c__fts', 'valid' => true, 'indexdef' => 'CREATE INDEX u__c__fts ON public.u USING gin (pw_tsvector(c))'],
+			['schemaname' => 'public', 'tablename' => 'v', 'indexname' => 'v__d', 'valid' => true, 'indexdef' => 'CREATE INDEX v__d ON public.v USING gin (d gin_trgm_ops)'],
+			['schemaname' => 'public', 'tablename' => 'v', 'indexname' => 'v__d__fts', 'valid' => 'f', 'indexdef' => 'CREATE INDEX v__d__fts ON public.v USING gin (pw_tsvector(d))'],
+			['schemaname' => 'public', 'tablename' => 'pages', 'indexname' => 'pages__name', 'valid' => true, 'indexdef' => 'CREATE INDEX pages__name ON public.pages USING btree (name)'],
 		]);
-		$this->check('existing FULLTEXT keys get a tsvector index once', [
-			'CREATE INDEX IF NOT EXISTS "field_body__data__fts" ON "public"."field_body" USING gin (pw_tsvector("data"))',
-			'CREATE INDEX IF NOT EXISTS "t__ab__fts" ON "public"."t" USING gin ((pw_tsvector("a") || pw_tsvector("B")))',
+		$this->check('existing FULLTEXT keys get a tsvector index once, built concurrently (an interrupted build is redone)', [
+			['CREATE INDEX CONCURRENTLY IF NOT EXISTS "field_body__data__fts" ON "public"."field_body" USING gin (pw_tsvector("data"))'],
+			['CREATE INDEX CONCURRENTLY IF NOT EXISTS "t__ab__fts" ON "public"."t" USING gin ((pw_tsvector("a") || pw_tsvector("B")))'],
+			['DROP INDEX CONCURRENTLY IF EXISTS "public"."v__d__fts"', 'CREATE INDEX CONCURRENTLY IF NOT EXISTS "v__d__fts" ON "public"."v" USING gin (pw_tsvector("d"))'],
 		], $backfill);
 		$tr->setFulltextAvailable(false);
 		$statements = $tr->translateStatements("ALTER TABLE `t` ADD FULLTEXT KEY `ab` (`a`, `b`)");

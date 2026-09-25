@@ -874,7 +874,16 @@ class WireDatabasePgsqlTranslator {
 						);
 					}
 					$close = $this->matchParen($tokens, $open);
-					$out[] = ['word', $this->matchAgainst($tokens, $i, $j, $open, $close)];
+					$condition = $this->matchIsCondition($tokens, $i, $close);
+					$p = count($out) - 1;
+					while($p >= 0 && $out[$p][0] === 'ws') $p--;
+					if(!$condition && $p >= 0 && $this->isWord($out[$p], 'NOT')) {
+						// NOT MATCH as a value (a negated operator's score): MySQL's NOT of a relevance is 0 or 1
+						$out = array_slice($out, 0, $p);
+						$out[] = ['word', '(NOT ' . $this->matchAgainst($tokens, $j, $open, $close, true) . ')::int'];
+					} else {
+						$out[] = ['word', $this->matchAgainst($tokens, $j, $open, $close, $condition)];
+					}
 					$i = $close;
 					continue;
 				}
@@ -1001,14 +1010,14 @@ class WireDatabasePgsqlTranslator {
 	 * WITH QUERY EXPANSION match any of the words.
 	 *
 	 * @param array $tokens
-	 * @param int $i Index of MATCH
 	 * @param int $matchOpen Index of the paren after MATCH
 	 * @param int $open Index of the paren after AGAINST
 	 * @param int $close Index of its closing paren
+	 * @param bool $condition Used as a condition (see matchIsCondition())?
 	 * @return string
 	 *
 	 */
-	protected function matchAgainst(array $tokens, $i, $matchOpen, $open, $close) {
+	protected function matchAgainst(array $tokens, $matchOpen, $open, $close, $condition) {
 		$docs = [];
 		foreach($this->callArgTokens($tokens, $matchOpen) as $col) {
 			$docs[] = 'pw_tsvector(' . $this->join($this->expressions($this->trimTokens($col))) . ')';
@@ -1029,7 +1038,7 @@ class WireDatabasePgsqlTranslator {
 		}
 		$query = 'pw_tsquery(' . $this->join($this->expressions($this->trimTokens($against))) . ', ' . ($boolean ? 'true' : 'false') . ')';
 
-		return $this->matchIsCondition($tokens, $i, $close) ? "($doc @@ $query)" : "ts_rank($doc, $query)";
+		return $condition ? "($doc @@ $query)" : "ts_rank($doc, $query)";
 	}
 
 	/**
@@ -1053,7 +1062,8 @@ class WireDatabasePgsqlTranslator {
 		for($p = $this->prev($tokens, $i - 1); $p > -1; $p = $this->prev($tokens, $p - 1)) {
 			$t = $tokens[$p];
 			if($t[0] === 'punct' && $t[1] === '(') continue; // look past grouping parens
-			return $this->isWord($t, ['WHERE', 'AND', 'OR', 'NOT', 'ON', 'HAVING', 'WHEN']);
+			if($this->isWord($t, 'NOT')) continue; // NOT is a condition or a value as what precedes it is
+			return $this->isWord($t, ['WHERE', 'AND', 'OR', 'ON', 'HAVING', 'WHEN']);
 		}
 		return false;
 	}
@@ -2268,8 +2278,10 @@ class WireDatabasePgsqlTranslator {
 	 * pw_search is the `simple` configuration (no stemming or stopwords, as MySQL's FULLTEXT) with unaccent
 	 * before it when the unaccent extension is installed, so that searches ignore case and accents as MySQL's
 	 * do. pw_tsvector(text) is the indexed document and pw_tsquery(text, boolean) reads a MySQL AGAINST
-	 * value. FULLTEXT keys made before this was set up (trigram indexes only) get their tsvector index.
-	 * pw_tsquery() is created last and is how a connection tells that setup completed.
+	 * value. FULLTEXT keys made before this was set up (trigram indexes only) get their tsvector index, built
+	 * CONCURRENTLY so that writes continue; one that fails is logged and skipped. pw_tsquery() is created last
+	 * and is how a connection tells that setup completed. An advisory lock keeps two connections from setting
+	 * up at once: the one that does not get it uses LIKE and REGEXP for that request.
 	 *
 	 * If the unaccent rules change, tsvector indexes are stale as pw_fold() indexes are: rebuild them with REINDEX.
 	 *
@@ -2283,6 +2295,16 @@ class WireDatabasePgsqlTranslator {
 	 */
 	public static function setupFulltext(callable $exec, callable $fetchColumn, $fetchAll = null) {
 		$result = ['fulltext' => false, 'error' => ''];
+		$isTrue = function($v) { return in_array($v, [true, 't', '1', 1], true); };
+		// one connection sets up at a time; others use LIKE/REGEXP until it is done
+		$lock = "hashtext('pw_fulltext_setup')";
+		try {
+			if(!$isTrue($fetchColumn("SELECT pg_try_advisory_lock($lock)"))) return $result;
+		} catch(\Exception $e) {
+			$result['error'] = 'full text search could not be set up, so fulltext operators use LIKE and REGEXP: ' . $e->getMessage();
+			return $result;
+		}
+		$errors = [];
 		try {
 			$schema = (string) $fetchColumn('SELECT current_schema()');
 			$unaccent = (string) $fetchColumn(
@@ -2291,15 +2313,32 @@ class WireDatabasePgsqlTranslator {
 			foreach(self::fulltextSetupSql($schema, $unaccent) as $sql) $exec($sql);
 			if(is_callable($fetchAll)) {
 				$literal = str_replace("'", "''", $schema);
-				$indexes = $fetchAll("SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = '$literal'");
-				foreach(self::fulltextIndexBackfillSql($indexes) as $sql) $exec($sql);
+				$indexes = $fetchAll(
+					"SELECT n.nspname AS schemaname, t.relname AS tablename, i.relname AS indexname, " .
+					"pg_get_indexdef(i.oid) AS indexdef, ix.indisvalid AS valid FROM pg_index ix " .
+					"JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_class t ON t.oid = ix.indrelid " .
+					"JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname = '$literal'"
+				);
+				// an index that cannot be built (i.e. a table owned by another role) is logged, and MATCH on it still works, unindexed
+				foreach(self::fulltextIndexBackfillSql($indexes) as $group) {
+					try {
+						foreach($group as $sql) $exec($sql);
+					} catch(\Exception $e) {
+						$errors[] = $e->getMessage();
+					}
+				}
 			}
 			$exec(self::tsqueryFunctionSql($schema));
+			$result['fulltext'] = true;
+			if(count($errors)) $result['error'] = 'full text search is set up, but some FULLTEXT keys have no tsvector index: ' . implode('; ', $errors);
 		} catch(\Exception $e) {
 			$result['error'] = 'full text search could not be set up, so fulltext operators use LIKE and REGEXP: ' . $e->getMessage();
-			return $result;
 		}
-		$result['fulltext'] = true;
+		try {
+			$fetchColumn("SELECT pg_advisory_unlock($lock)");
+		} catch(\Exception $e) {
+			// the lock ends with the session
+		}
 		return $result;
 	}
 
@@ -2324,7 +2363,7 @@ class WireDatabasePgsqlTranslator {
 			"DO \$do\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_ts_config c JOIN pg_namespace n ON n.oid = c.cfgnamespace " .
 				"WHERE c.cfgname = 'pw_search' AND n.nspname = '$literal') THEN " .
 				"CREATE TEXT SEARCH CONFIGURATION $s.pw_search (COPY = pg_catalog.simple); END IF; END \$do\$",
-			"ALTER TEXT SEARCH CONFIGURATION $s.pw_search ALTER MAPPING FOR asciiword, asciihword, hword_asciipart, word, hword, hword_part WITH $mapping",
+			"ALTER TEXT SEARCH CONFIGURATION $s.pw_search ALTER MAPPING FOR asciiword, asciihword, hword_asciipart, word, hword, hword_part, numword, numhword, hword_numpart WITH $mapping",
 			"CREATE OR REPLACE FUNCTION $s.pw_tsvector(text) RETURNS tsvector LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS " .
 				"\$fn\$ SELECT to_tsvector('$config'::regconfig, regexp_replace(\$1, '[-.@:]+|(?<!<)/+', ' ', 'g')) \$fn\$",
 		];
@@ -2333,8 +2372,8 @@ class WireDatabasePgsqlTranslator {
 	/**
 	 * Get the statement that creates pw_tsquery(query, boolean_mode): a MySQL AGAINST value as a tsquery
 	 *
-	 * In boolean mode: +word is required, -word excluded, word* a prefix, "a phrase" a phrase and (...) a group,
-	 * read the same way. Words without an operator are alternatives, unless there is a required word: then MySQL
+	 * In boolean mode: +word is required, -word excluded, word* a prefix, "a phrase" a phrase (its @distance
+	 * is ignored) and (...) a group, read the same way. Words without an operator are alternatives, unless there is a required word: then MySQL
 	 * only uses them for relevance, so they are left out here. The weight operators > < ~ are ignored. In natural
 	 * language mode, any of the words match. Words are split and folded as pw_tsvector() does. A query with no
 	 * words is an empty tsquery, which matches nothing.
@@ -2385,9 +2424,13 @@ BEGIN
 			pos := pos + e + 1;
 		ELSE
 			term := substring(substr(query, pos) from '^[^[:space:]()"]+');
+			-- an operator without a word (i.e. "+ word" or "+)") applies to nothing
+			IF term IS NULL THEN pos := pos + 1; CONTINUE; END IF;
 			pos := pos + length(term);
+			-- a phrase's @distance is not a word
+			CONTINUE WHEN term ~ '^@[0-9]+$';
 			IF right(term, 1) = '*' THEN
-				-- prefix: every word the term splits into is a prefix, as to_tsquery's 'term':* does
+				-- prefix: a term that splits into several words is a phrase of prefixes (to_tsquery's 'term':*)
 				term := btrim(regexp_replace(term, '[-.@/:*]+', ' ', 'g'));
 				IF term <> '' THEN
 					tq := to_tsquery(cfg, '''' || replace(replace(term, '\\', '\\\\'), '''', '''''') || ''':*');
@@ -2413,28 +2456,33 @@ SQL;
 	}
 
 	/**
-	 * Get CREATE INDEX statements for FULLTEXT keys (trigram indexes) that have no tsvector index yet
+	 * Get statements for FULLTEXT keys (trigram indexes) that have no valid tsvector index yet
 	 *
-	 * @param array $indexes Rows of pg_indexes (schemaname, tablename, indexname, indexdef)
-	 * @return array
+	 * Grouped per index: an interrupted concurrent build leaves an invalid index, which is dropped and built again.
+	 *
+	 * @param array $indexes Rows with schemaname, tablename, indexname, indexdef and valid (pg_index.indisvalid)
+	 * @return array Array of arrays of statements, one per index
 	 *
 	 */
 	public static function fulltextIndexBackfillSql(array $indexes) {
-		$names = [];
-		foreach($indexes as $row) $names[$row['indexname']] = true;
+		$valid = [];
+		foreach($indexes as $row) $valid[$row['indexname']] = !isset($row['valid']) || in_array($row['valid'], [true, 't', '1', 1], true);
 		$q = function($id) { return '"' . str_replace('"', '""', $id) . '"'; };
-		$statements = [];
+		$groups = [];
 		foreach($indexes as $row) {
 			if(strpos($row['indexdef'], 'gin_trgm_ops') === false) continue;
 			$name = $row['indexname'] . self::fulltextIndexSuffix;
-			if(isset($names[$name]) || strlen($name) > 63) continue;
+			if(strlen($name) > 63 || (isset($valid[$name]) && $valid[$name])) continue;
 			if(!preg_match_all('/("(?:[^"]|"")+"|[a-z_][a-z0-9_$]*)\)? gin_trgm_ops/', $row['indexdef'], $m)) continue;
 			$docs = [];
 			foreach($m[1] as $col) $docs[] = 'pw_tsvector(' . ($col[0] === '"' ? $col : $q($col)) . ')';
 			$doc = count($docs) > 1 ? '(' . implode(' || ', $docs) . ')' : $docs[0];
-			$statements[] = 'CREATE INDEX IF NOT EXISTS ' . $q($name) . ' ON ' . $q($row['schemaname']) . '.' . $q($row['tablename']) . " USING gin ($doc)";
+			$group = [];
+			if(isset($valid[$name])) $group[] = 'DROP INDEX CONCURRENTLY IF EXISTS ' . $q($row['schemaname']) . '.' . $q($name);
+			$group[] = 'CREATE INDEX CONCURRENTLY IF NOT EXISTS ' . $q($name) . ' ON ' . $q($row['schemaname']) . '.' . $q($row['tablename']) . " USING gin ($doc)";
+			$groups[] = $group;
 		}
-		return $statements;
+		return $groups;
 	}
 
 	/**
@@ -4593,6 +4641,10 @@ SQL;
 							$statements[] = "DO \$pw\$ BEGIN IF to_regclass('$regclass') IS NOT NULL THEN EXECUTE " .
 								"'" . str_replace("'", "''", $comment) . "'; END IF; END \$pw\$";
 						}
+					}
+					if($this->fulltextAvailable) {
+						$statements[] = 'ALTER INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $from . self::fulltextIndexSuffix)) .
+							' RENAME TO ' . $this->quoteId($this->indexName($table, $to . self::fulltextIndexSuffix));
 					}
 				} else {
 					if($w2 === 'TO' || $w2 === 'AS') $j = $this->next($rest, $j + 1);

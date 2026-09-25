@@ -408,6 +408,10 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('pw_tsquery(): natural language mode ignores operators', "'zola' | 'emile'", $tsquery('+zola -emile', false));
 		$this->check('pw_tsquery(): words split where MySQL splits them', "'foo' & 'example' & 'com'", $tsquery('+foo.example.com'));
 		$this->check('pw_tsquery(): a prefix the parser splits is a phrase of prefixes', "'o':* <-> 'brien':*", $tsquery("+o'brien*"));
+		$this->check('pw_tsquery(): an operator without a word is ignored, not the rest of the query', "'bar'", $tsquery('+ foo +bar'));
+		$this->check('pw_tsquery(): an operator before a closing paren', "'foo' | 'bar'", $tsquery('(+) foo bar'));
+		$this->check('pw_tsquery(): @distance is not a word', "'a' <-> 'b'", $tsquery('"a b" @3'));
+		$this->check('pw_tsvector(): words with digits are unaccented too', true, in_array($pdo->query("SELECT pw_tsvector('Crème2') @@ pw_tsquery('creme2', false)")->fetchColumn(), [true, 't', 1, '1'], true));
 		$doc = $pdo->query("SELECT pw_tsvector('<p>Émile wrote at foo.example.com</p>')::text")->fetchColumn();
 		$this->check('pw_tsvector(): markup skipped, words split and folded', "'at':3 'com':6 'emile':1 'example':5 'foo':4 'wrote':2", $doc);
 
@@ -442,6 +446,14 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 			"SELECT pages_id, MATCH(data) AGAINST(:v IN BOOLEAN MODE) AS score FROM `$table` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY score DESC, pages_id", 'hello world'
 		));
 
+		// a negated operator with ordering selects NOT MATCH as a score
+		$query = new DatabaseQuerySelect();
+		$this->wire($query);
+		$query->select('pages_id')->from($table);
+		$ft = new DatabaseQuerySelectFulltext($query);
+		$this->wire($ft);
+		$ft->match($table, 'data', '!~=', 'zola');
+		$this->check('!~= with a NOT MATCH score', [1, 2, 5], array_map('intval', $query->execute()->fetchAll(\PDO::FETCH_COLUMN)));
 		$pdo->exec('SET enable_seqscan = off');
 		$q = $database->prepare("EXPLAIN SELECT pages_id FROM `$table` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE)");
 		$q->bindValue(':v', '+zola');
