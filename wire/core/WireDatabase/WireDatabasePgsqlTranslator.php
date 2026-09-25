@@ -131,6 +131,12 @@ class WireDatabasePgsqlTranslator {
 	const jsonIndexSuffix = '__json';
 
 	/**
+	 * Suffix of the partial index of a jsonb column's documents with nested arrays (see jsonIndexSql())
+	 *
+	 */
+	const jsonNestedIndexSuffix = '__jsonnest';
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -371,6 +377,7 @@ class WireDatabasePgsqlTranslator {
 
 		if($this->jsonAvailable) $tokens = $this->jsonContainment($tokens);
 		$tokens = $this->expressions($tokens);
+		if($this->jsonAvailable) $tokens = $this->jsonComparisons($tokens);
 		$tokens = $this->booleanContext($tokens);
 		$tokens = $this->subqueries($tokens);
 		$tokens = $this->typedComparisons($tokens);
@@ -912,13 +919,16 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
-	 * JSON_CONTAINS(col, candidate[, '$.key.path']) used as a condition on a jsonb column: jsonb containment
+	 * JSON_CONTAINS(col, candidate[, '$.key.path']) used as a condition on a jsonb column: indexed, then exact
 	 *
-	 * pw_json_contains() gives MySQL's result, but as a function call no index can serve it. On a jsonb
-	 * column (which gets a GIN index, see jsonIndexSql()) the same test as `@>` can use the index: the
-	 * candidate is contained, or (MySQL's rule for arrays) an array holds an element containing it. A key
-	 * path becomes a nested object around the candidate. Used only where the result is a condition, since
-	 * MySQL's function returns NULL for a missing path, which a condition treats as false too.
+	 * pw_json_contains() gives MySQL's result, but as a function call no index can serve it. jsonb's `@>` is
+	 * stricter than MySQL (which also finds a candidate inside the elements of an array at any level, i.e.
+	 * {"a":1} in {"a":[1,2]}, [1,2] in [[1,2],[3,4]]), so it cannot replace it. Instead the GIN index (see
+	 * jsonIndexSql()) narrows the rows with a lax jsonpath of the candidate's values (pw_json_contains_path(),
+	 * which ignores one level of arrays at each step), the partial index adds documents with nested arrays
+	 * (pw_json_nested()), and pw_json_contains() decides on those rows. A key path becomes a nested object
+	 * around the candidate for the index. Not used after NOT, since MySQL's function returns NULL for a missing
+	 * path, which NOT keeps.
 	 *
 	 * Runs on the MySQL tokens, before expressions(), so that the call is still recognizable.
 	 *
@@ -938,7 +948,11 @@ class WireDatabasePgsqlTranslator {
 			// a condition: after WHERE/AND/OR/ON/HAVING/NOT/(, and not followed by an operator
 			$p = $this->prev($tokens, $i - 1);
 			$q = $this->next($tokens, $close + 1);
-			$before = $p < 0 ? false : ($this->isWord($tokens[$p], ['WHERE', 'AND', 'OR', 'ON', 'HAVING', 'NOT']) || ($tokens[$p][0] === 'punct' && $tokens[$p][1] === '('));
+			$before = $p < 0 ? false : ($this->isWord($tokens[$p], ['WHERE', 'AND', 'OR', 'ON', 'HAVING']) || ($tokens[$p][0] === 'punct' && $tokens[$p][1] === '('));
+			for($b = $p; $before && $b > -1 && $tokens[$b][0] === 'punct' && $tokens[$b][1] === '('; $b = $this->prev($tokens, $b - 1)) {
+				$w = $this->prev($tokens, $b - 1);
+				if($w > -1 && $this->isWord($tokens[$w], 'NOT')) $before = false;
+			}
 			$after = $q < 0 || $this->isWord($tokens[$q], ['AND', 'OR', 'ORDER', 'GROUP', 'LIMIT', 'HAVING', 'UNION']) || ($tokens[$q][0] === 'punct' && in_array($tokens[$q][1], [')', ';'], true));
 			if(!$before || !$after) continue;
 			$args = $this->callArgTokens($tokens, $open);
@@ -972,11 +986,10 @@ class WireDatabasePgsqlTranslator {
 			}
 			$doc = trim($this->join($this->expressions($col)));
 			$candidate = 'pw_json(' . trim($this->join($this->expressions($this->trimTokens($args[1])))) . ')';
-			$wrap = function($value) use($keys) {
-				foreach(array_reverse($keys) as $key) $value = "jsonb_build_object('" . str_replace("'", "''", $key) . "', $value)";
-				return $value;
-			};
-			$sql = "($doc @> " . $wrap($candidate) . " OR $doc @> " . $wrap("jsonb_build_array($candidate)") . ')';
+			$wrapped = $candidate;
+			foreach(array_reverse($keys) as $key) $wrapped = "jsonb_build_object('" . str_replace("'", "''", $key) . "', $wrapped)";
+			$exact = "pw_json_contains($doc, $candidate" . (count($args) === 3 ? ', ' . $args[2][0][1] : '') . ')';
+			$sql = "(($doc @@ pw_json_contains_path($wrapped) OR pw_json_nested($doc)) AND $exact = 1)";
 			$tokens = array_merge(array_slice($tokens, 0, $i), [['word', $sql]], array_slice($tokens, $close + 1));
 			$n = count($tokens);
 		}
@@ -984,18 +997,70 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
-	 * Get the statement for the GIN index of a jsonb column, which serves JSON_CONTAINS() (see jsonContainment())
+	 * Get the statements for the indexes of a jsonb column, which serve JSON_CONTAINS() (see jsonContainment())
 	 *
-	 * MySQL cannot index a JSON column, so ProcessWire and modules never ask for one; this adds it.
+	 * A GIN index, and a partial index of the (usually few) documents with nested arrays, which the GIN index
+	 * lookup does not find. MySQL cannot index a JSON column, so ProcessWire and modules never ask for one.
 	 *
 	 * @param string $table
 	 * @param string $column
-	 * @return string
+	 * @return array
 	 *
 	 */
 	protected function jsonIndexSql($table, $column) {
-		return 'CREATE INDEX ' . $this->quoteId($this->indexName($table, $column . self::jsonIndexSuffix)) .
-			' ON ' . $this->quoteId($table) . ' USING gin (' . $this->quoteId($column) . ' jsonb_path_ops)';
+		return self::jsonIndexStatements('', $table, $this->indexName($table, $column), $column, false);
+	}
+
+	/**
+	 * Get the statements for the indexes of a jsonb column (see jsonIndexSql())
+	 *
+	 * @param string $schema Schema of the table, or blank for unqualified
+	 * @param string $table
+	 * @param string $name Index name base (`table__column`)
+	 * @param string $column
+	 * @param bool $existing For a table with rows: CONCURRENTLY and IF NOT EXISTS, and only the partial index
+	 * @return array
+	 *
+	 */
+	public static function jsonIndexStatements($schema, $table, $name, $column, $existing) {
+		$q = function($id) { return '"' . str_replace('"', '""', $id) . '"'; };
+		$on = ($schema !== '' ? $q($schema) . '.' : '') . $q($table);
+		$create = 'CREATE INDEX ' . ($existing ? 'CONCURRENTLY IF NOT EXISTS ' : '');
+		$statements = [];
+		if(!$existing) $statements[] = $create . $q($name . self::jsonIndexSuffix) . " ON $on USING gin (" . $q($column) . ' jsonb_path_ops)';
+		$statements[] = $create . $q($name . self::jsonNestedIndexSuffix) . " ON $on ((1)) WHERE pw_json_nested(" . $q($column) . ')';
+		return $statements;
+	}
+
+	/**
+	 * Compare JSON_EXTRACT() results with SQL values as MySQL does: a string (or bound value) is a JSON string
+	 *
+	 * `JSON_EXTRACT(data, '$.color') = :value` with 'green' matches {"color":"green"} in MySQL, which converts
+	 * the string. PostgreSQL would parse it as JSON (and reject it). Numbers compare as JSON numbers either way.
+	 *
+	 * @param array $tokens After expressions()
+	 * @return array
+	 *
+	 */
+	protected function jsonComparisons(array $tokens) {
+		$ops = ['=', '!=', '<>', '<', '>', '<=', '>=', '<=>'];
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] !== 'word' || strpos($t[1], 'pw_json_extract(') !== 0) continue;
+			foreach([1, -1] as $dir) {
+				$o = $dir > 0 ? $this->next($tokens, $i + 1) : $this->prev($tokens, $i - 1);
+				if($o < 0 || $tokens[$o][0] !== 'punct' || !in_array($tokens[$o][1], $ops, true)) continue;
+				$v = $dir > 0 ? $this->next($tokens, $o + 1) : $this->prev($tokens, $o - 1);
+				if($v < 0 || !in_array($tokens[$v][0], ['param', 'str'], true)) continue;
+				if($dir > 0) {
+					$c = $this->next($tokens, $v + 1);
+					if($c > -1 && $tokens[$c][0] === 'punct' && $tokens[$c][1] === '::') continue; // already typed
+				}
+				$tokens[$v] = ['word', 'pw_json_value((' . $tokens[$v][1] . ')::text)'];
+			}
+		}
+		return $tokens;
 	}
 
 	/**
@@ -1845,7 +1910,7 @@ class WireDatabasePgsqlTranslator {
 	 * Bumped when the functions change, so that existing sites get the new versions on their next connection.
 	 *
 	 */
-	const jsonVersionFunction = 'pw_json_v1';
+	const jsonVersionFunction = 'pw_json_v2';
 
 	/**
 	 * Create the pw_json_*() functions, MySQL-compatible versions of MySQL's JSON functions over jsonb
@@ -1865,14 +1930,37 @@ class WireDatabasePgsqlTranslator {
 	 * @return array [ 'json' => bool, 'error' => string ]
 	 *
 	 */
-	public static function setupJson(callable $exec, callable $fetchColumn) {
+	public static function setupJson(callable $exec, callable $fetchColumn, $fetchAll = null) {
+		$errors = [];
 		try {
 			$schema = (string) $fetchColumn('SELECT current_schema()');
-			foreach(self::jsonFunctionsSql($schema) as $sql) $exec($sql);
+			$functions = self::jsonFunctionsSql($schema);
+			$marker = array_pop($functions);
+			foreach($functions as $sql) $exec($sql);
+			if(is_callable($fetchAll)) {
+				// jsonb columns indexed before the partial index of nested documents existed get it (see jsonContainment())
+				$literal = str_replace("'", "''", $schema);
+				$rows = $fetchAll(
+					"SELECT t.relname AS tablename, i.relname AS indexname, a.attname AS columnname FROM pg_index ix " .
+					"JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_class t ON t.oid = ix.indrelid " .
+					"JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ix.indkey[0] " .
+					"WHERE n.nspname = '$literal' AND i.relname LIKE '%" . self::jsonIndexSuffix . "'"
+				);
+				foreach($rows as $row) {
+					$base = substr($row['indexname'], 0, -strlen(self::jsonIndexSuffix));
+					try {
+						foreach(self::jsonIndexStatements($schema, $row['tablename'], $base, $row['columnname'], true) as $sql) $exec($sql);
+					} catch(\Exception $e) {
+						$errors[] = $e->getMessage();
+					}
+				}
+			}
+			$exec($marker);
 		} catch(\Exception $e) {
 			return ['json' => false, 'error' => 'JSON functions could not be created, so MySQL JSON functions are unavailable: ' . $e->getMessage()];
 		}
-		return ['json' => true, 'error' => ''];
+		$error = count($errors) ? 'JSON functions are set up, but some jsonb columns have no index of nested documents: ' . implode('; ', $errors) : '';
+		return ['json' => true, 'error' => $error];
 	}
 
 	/**
@@ -1915,9 +2003,29 @@ class WireDatabasePgsqlTranslator {
 			$fn('pw_json_length(jsonb)', 'integer', "$immutable STRICT",
 				"SELECT CASE jsonb_typeof(\$1) WHEN 'array' THEN jsonb_array_length(\$1) WHEN 'object' THEN (SELECT count(*)::integer FROM jsonb_object_keys(\$1)) ELSE 1 END"),
 			$fn('pw_json_length(jsonb, text)', 'integer', "$immutable STRICT", "SELECT {$s}pw_json_length({$s}pw_json_extract(\$1, \$2))"),
-			// JSON_CONTAINS: jsonb containment, where an array also contains a single (non-array) candidate it has an element for
-			$fn('pw_json_contains(jsonb, jsonb)', 'integer', "$immutable STRICT",
-				"SELECT (CASE WHEN jsonb_typeof(\$1) = 'array' AND jsonb_typeof(\$2) <> 'array' THEN \$1 @> jsonb_build_array(\$2) ELSE \$1 @> \$2 END)::integer"),
+			// JSON_CONTAINS, with MySQL's rules: a candidate array is contained in a target array when each of its elements
+			// is contained in some element of it; any other candidate in a target array when it is contained in some element;
+			// an object when each key is there with a value containing the candidate's; a scalar when equal
+			$fn('pw_json_contains(jsonb, jsonb)', 'integer', 'LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE',
+				"BEGIN RETURN (CASE " .
+				"WHEN jsonb_typeof(\$2) = 'array' THEN jsonb_typeof(\$1) = 'array' AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(\$2) c " .
+					"WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(\$1) t WHERE {$s}pw_json_contains(t, c) = 1)) " .
+				"WHEN jsonb_typeof(\$1) = 'array' THEN EXISTS (SELECT 1 FROM jsonb_array_elements(\$1) t WHERE {$s}pw_json_contains(t, \$2) = 1) " .
+				"WHEN jsonb_typeof(\$2) = 'object' THEN jsonb_typeof(\$1) = 'object' AND NOT EXISTS (SELECT 1 FROM jsonb_each(\$2) c " .
+					"WHERE NOT (\$1 ? c.key AND {$s}pw_json_contains(\$1 -> c.key, c.value) = 1)) " .
+				"ELSE jsonb_typeof(\$1) NOT IN ('array', 'object') AND \$1 = \$2 END)::integer; END"),
+			// for the GIN index: the candidate's scalar values at their key paths, as a lax jsonpath (arrays at any step are
+			// searched), which every document containing the candidate matches, unless it has arrays within arrays
+			$fn('pw_json_contains_path(jsonb)', 'jsonpath', 'LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE',
+				"DECLARE clauses text; BEGIN " .
+				"WITH RECURSIVE leaves(path, v) AS (SELECT '\$'::text, \$1 UNION ALL " .
+					"SELECT CASE WHEN e.key IS NULL THEN l.path ELSE l.path || '.' || to_jsonb(e.key)::text END, e.value FROM leaves l " .
+					"CROSS JOIN LATERAL (SELECT key, value FROM jsonb_each(CASE WHEN jsonb_typeof(l.v) = 'object' THEN l.v END) " .
+					"UNION ALL SELECT NULL, value FROM jsonb_array_elements(CASE WHEN jsonb_typeof(l.v) = 'array' THEN l.v END)) e) " .
+				"SELECT string_agg(DISTINCT path || ' == ' || v::text, ' && ') INTO clauses FROM leaves WHERE jsonb_typeof(v) NOT IN ('object', 'array'); " .
+				"RETURN COALESCE(clauses, 'exists(\$)')::jsonpath; END"),
+			$fn('pw_json_nested(jsonb)', 'boolean', "$immutable STRICT",
+				"SELECT jsonb_path_exists(\$1, 'strict \$.** ? (@.type() == \"array\") [*] ? (@.type() == \"array\")')"),
 			$fn('pw_json_contains(jsonb, jsonb, text)', 'integer', "$immutable STRICT", "SELECT {$s}pw_json_contains({$s}pw_json_extract(\$1, \$3), \$2)"),
 			// JSON_SET/INSERT/REPLACE/REMOVE: '$' alone is the whole document
 			$fn('pw_json_set(jsonb, text, jsonb)', 'jsonb', "$immutable STRICT",
@@ -3439,7 +3547,7 @@ class WireDatabasePgsqlTranslator {
 			foreach($this->indexDef($table, $def, $columns, $ifNotExists) as $sql) $statements[] = $sql;
 		}
 		foreach($columns as $name => $col) {
-			if($col['pgType'] === 'jsonb') $statements[] = $this->jsonIndexSql($table, $name);
+			if($col['pgType'] === 'jsonb') foreach($this->jsonIndexSql($table, $name) as $sql) $statements[] = $sql;
 		}
 
 		$this->clearSchemaCache($table);
@@ -3631,7 +3739,7 @@ class WireDatabasePgsqlTranslator {
 					foreach($colDefs as $colDef) {
 						$col = $this->columnDef($this->trimTokens($colDef));
 						$statements[] = "ALTER TABLE $qTable ADD COLUMN " . $this->quoteId($col['name']) . ' ' . $this->addColumnSql($col);
-						if($col['pgType'] === 'jsonb') $statements[] = $this->jsonIndexSql($table, $col['name']);
+						if($col['pgType'] === 'jsonb') foreach($this->jsonIndexSql($table, $col['name']) as $sql) $statements[] = $sql;
 					}
 				}
 
@@ -3675,6 +3783,7 @@ class WireDatabasePgsqlTranslator {
 				$oldSchema = $this->tableSchema($table);
 				if(isset($oldSchema['columns'][$oldName]) && $oldSchema['columns'][$oldName] === 'jsonb') {
 					$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $oldName . self::jsonIndexSuffix));
+					$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $oldName . self::jsonNestedIndexSuffix));
 				}
 				if($col['name'] !== $oldName) {
 					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($oldName) . ' TO ' . $this->quoteId($col['name']);
@@ -3685,7 +3794,7 @@ class WireDatabasePgsqlTranslator {
 				if($col['nullSpec'] === 'NULL') $actions[] = "ALTER COLUMN $qCol DROP NOT NULL";
 				if($col['default'] !== null) $actions[] = "ALTER COLUMN $qCol SET DEFAULT $col[default]";
 				$statements[] = "ALTER TABLE $qTable " . implode(', ', $actions);
-				if($col['pgType'] === 'jsonb') $statements[] = $this->jsonIndexSql($table, $col['name']);
+				if($col['pgType'] === 'jsonb') foreach($this->jsonIndexSql($table, $col['name']) as $sql) $statements[] = $sql;
 
 			} else if(in_array($w, ['ENGINE', 'DEFAULT', 'CHARACTER', 'CHARSET', 'COLLATE', 'CONVERT', 'AUTO_INCREMENT', 'COMMENT', 'ORDER', 'ALGORITHM', 'LOCK'])) {
 				// table options: no PostgreSQL equivalent
