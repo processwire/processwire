@@ -64,6 +64,22 @@ class WireDatabasePDOStatement extends \PDOStatement {
 	 * 
 	 */
 	protected $debugMode = false;
+
+	/**
+	 * Schema change this statement makes, in MySQL syntax (see setSchemaSql())
+	 *
+	 * @var string|null
+	 *
+	 */
+	protected $schemaSql = null;
+
+	/**
+	 * Does a subclass call recordSchema() itself, at its own point of success?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $recordsSchemaItself = false;
 	
 	/**
 	 * Construct
@@ -145,10 +161,37 @@ class WireDatabasePDOStatement extends \PDOStatement {
 	#[\ReturnTypeWillChange] 
 	public function execute($input_parameters = NULL) {
 		if($this->debugMode) {
-			return $this->executeDebug($input_parameters);
+			$result = $this->executeDebug($input_parameters);
 		} else {
-			return parent::execute($input_parameters);
+			$result = parent::execute($input_parameters);
 		}
+		if($result && !$this->recordsSchemaItself) $this->recordSchema();
+		return $result;
+	}
+
+	/**
+	 * Set the schema change (in MySQL syntax) that this statement makes, to record when it executes
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $sql
+	 * @since 3.0.273
+	 *
+	 */
+	public function setSchemaSql($sql) {
+		$this->schemaSql = $sql;
+	}
+
+	/**
+	 * Record this statement's schema change in the schema log, if it makes one
+	 *
+	 * Called once the statement has executed successfully.
+	 *
+	 * @since 3.0.273
+	 *
+	 */
+	protected function recordSchema() {
+		if($this->schemaSql !== null && $this->database) $this->database->schemaLog()->record($this->schemaSql);
 	}
 
 	/**

@@ -218,6 +218,12 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	protected $dialect = null;
 
 	/**
+	 * @var WireDatabaseSchemaLog|null
+	 *
+	 */
+	protected $schemaLog = null;
+
+	/**
 	 * Does the dialect translate SQL? (null when not yet determined)
 	 *
 	 * @var bool|null
@@ -811,11 +817,18 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function query($statement, $note = '') {
-		if($this->translates()) return $this->translatedQuery('query', $statement, $note);
-		if($this->debugMode) $this->queryLog($statement, $note);
-		$this->lastSql($statement);
-		$pdo = $this->pdoType($statement);
-		return $this->dialect()->queryStatement($pdo, $statement); 
+		if($this->translates()) {
+			$result = $this->translatedQuery('query', $statement, $note);
+		} else {
+			if($this->debugMode) $this->queryLog($statement, $note);
+			$this->lastSql($statement);
+			$pdo = $this->pdoType($statement);
+			$result = $this->dialect()->queryStatement($pdo, $statement);
+		}
+		if($result !== false && WireDatabaseSchemaLog::isSchemaStatement($statement)) {
+			$this->schemaLog()->record($statement);
+		}
+		return $result;
 	}
 
 	/**
@@ -987,18 +1000,44 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				\PDO::ATTR_STATEMENT_CLASS => array(__NAMESPACE__ . "\\WireDatabasePDOStatement", array($this))
 			);
 		}
-		if($this->translates()) return $this->translatedQuery('prepare', $statement, $note, $driver_options);
-		$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
-		$this->lastSql($statement);
-		$pdoStatement = $pdo->prepare($statement, $driver_options);
-		if($this->debugMode) {
-			if($pdoStatement instanceof WireDatabasePDOStatement) {
-				$pdoStatement->setDebugNote($note);
-			} else {
-				$this->queryLog($statement, $note);
+		$isSchema = WireDatabaseSchemaLog::isSchemaStatement($statement);
+		if($this->translates()) {
+			$pdoStatement = $this->translatedQuery('prepare', $statement, $note, $driver_options);
+		} else {
+			if($isSchema && !isset($driver_options[\PDO::ATTR_STATEMENT_CLASS])) {
+				// a schema change is recorded once it executes, which requires this statement class
+				$driver_options[\PDO::ATTR_STATEMENT_CLASS] = array(__NAMESPACE__ . "\\WireDatabasePDOStatement", array($this));
+			}
+			$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
+			$this->lastSql($statement);
+			$pdoStatement = $pdo->prepare($statement, $driver_options);
+			if($this->debugMode) {
+				if($pdoStatement instanceof WireDatabasePDOStatement) {
+					$pdoStatement->setDebugNote($note);
+				} else {
+					$this->queryLog($statement, $note);
+				}
 			}
 		}
+		if($isSchema && $pdoStatement instanceof WireDatabasePDOStatement) $pdoStatement->setSchemaSql($statement);
 		return $pdoStatement;
+	}
+
+	/**
+	 * Get the schema log, which records every change to the database schema in MySQL syntax
+	 *
+	 * The log is kept in the `schema_log` table on every database type, and can be replayed on an
+	 * empty MySQL database to reproduce the schema, i.e. when converting a site to MySQL.
+	 *
+	 * #pw-group-info
+	 *
+	 * @return WireDatabaseSchemaLog
+	 * @since 3.0.273
+	 *
+	 */
+	public function schemaLog() {
+		if($this->schemaLog === null) $this->schemaLog = $this->wire(new WireDatabaseSchemaLog($this));
+		return $this->schemaLog;
 	}
 
 	/**
@@ -1020,10 +1059,17 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if($statement instanceof \PDOStatement) {
 			return $this->execute($statement);
 		}
-		if($this->translates()) return $this->translatedQuery('exec', $statement, $note);
-		if($this->debugMode) $this->queryLog($statement, $note); 
-		$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
-		return $pdo->exec($statement);
+		if($this->translates()) {
+			$result = $this->translatedQuery('exec', $statement, $note);
+		} else {
+			if($this->debugMode) $this->queryLog($statement, $note); 
+			$pdo = $this->reader['has'] ? $this->pdoType($statement) : $this->pdoWriter();
+			$result = $pdo->exec($statement);
+		}
+		if($result !== false && WireDatabaseSchemaLog::isSchemaStatement($statement)) {
+			$this->schemaLog()->record($statement);
+		}
+		return $result;
 	}
 	
 	/**

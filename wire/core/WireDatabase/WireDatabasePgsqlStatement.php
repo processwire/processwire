@@ -17,6 +17,15 @@
 class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 
 	/**
+	 * This class records schema changes itself, since its deferred statements bypass parent::execute()
+	 * and its follow-up statements run after it
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $recordsSchemaItself = true;
+
+	/**
 	 * Multiple translated statements to execute (atomically) when execute() is called
 	 *
 	 * @var array
@@ -91,6 +100,7 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 			/** @var WireDatabaseDialectPgsql $dialect */
 			$dialect = $this->database->dialect();
 			$dialect->execStatements($this->database->pdo(), $this->deferredStatements);
+			$this->recordSchema();
 			return true;
 		}
 		/** @var WireDatabaseDialectPgsql $dialect */
@@ -104,6 +114,7 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 			$result = parent::execute($input_parameters);
 			foreach($this->followUpStatements as $sql) $pdo->exec($sql);
 			$dialect->savepointRelease($pdo, $savepoint);
+			if($result) $this->recordSchema(); // only once the follow-up statements have also succeeded
 			return $result;
 		} catch(\PDOException $e) {
 			$dialect->savepointRollback($pdo, $savepoint);

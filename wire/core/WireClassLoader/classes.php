@@ -71,6 +71,7 @@ return [ // please keep alphabetical A-Z
 	'WireCacheDatabase' => 'WireCache/',
 	'WireCacheInterface' => 'WireCache/',
 	'WireDatabaseBackup' => 'WireDatabase/',
+	'WireDatabaseSchemaLog' => 'WireDatabase/',
 	'WireDatabaseDialect' => 'WireDatabase/',
 	'WireDatabaseDialectMySQL' => 'WireDatabase/',
 	'WireDatabaseDialectSQLite' => 'WireDatabase/',

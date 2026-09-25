@@ -990,15 +990,24 @@ class WireDatabaseBackup {
 		$this->errors(true);
 		$this->notes(true); 
 
-		if($this->supportsExec($options)) {
-			$this->note('method', 'exec_mysql');
-			$success = $this->restoreExec($filename, $options);
-			if(!$success) $this->error("Exec mysql failed, attempting PDO...");
-		}
+		// a restore replaces tables wholesale, and the dump includes the site's own schema_log if it had
+		// one, so its statements are not recorded as schema changes
+		$schemaLog = $this->database instanceof WireDatabasePDO ? $this->database->schemaLog() : null;
+		if($schemaLog) $schemaLog->suspend();
 
-		if(!$success) {
-			$this->note('method', 'pdo');
-			$success = $this->restorePDO($filename, $options);
+		try {
+			if($this->supportsExec($options)) {
+				$this->note('method', 'exec_mysql');
+				$success = $this->restoreExec($filename, $options);
+				if(!$success) $this->error("Exec mysql failed, attempting PDO...");
+			}
+
+			if(!$success) {
+				$this->note('method', 'pdo');
+				$success = $this->restorePDO($filename, $options);
+			}
+		} finally {
+			if($schemaLog) $schemaLog->resume();
 		}
 
 		return $success;

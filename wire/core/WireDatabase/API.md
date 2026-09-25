@@ -332,6 +332,22 @@ Not supported (throws an exception):
 
 ---
 
+### Schema log
+
+Every change to the schema (`CREATE`, `ALTER`, `DROP` and `RENAME` of tables and indexes) made through
+`$database` is recorded in the `schema_log` table, on every database type and always in MySQL syntax. On SQLite
+and PostgreSQL that is the SQL as ProcessWire issued it, before translation, so the log keeps what translation
+loses (column types, `ENUM` values, `UNSIGNED`, index prefix lengths). Replaying it on an empty MySQL database
+reproduces the site's schema, i.e. when converting a site to MySQL.
+
+- The first change on a site starts the log with a baseline: the `CREATE TABLE` of every existing table (from
+  `SHOW CREATE TABLE`). After that, each successful change is added. Failed statements are not recorded.
+- Dropping a table removes its entries. Renaming one moves its entries to the new name.
+- `$database->schemaLog()->getEntries()` returns the entries in replay order.
+- Restoring a backup with `WireDatabaseBackup` is not recorded, since the dump carries its own `schema_log`.
+- Changes made outside `$database` (i.e. by a module using PDO directly, or in a database client) are not
+  recorded, and neither are temporary tables.
+
 ## Connection
 
 ### pdo()

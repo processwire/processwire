@@ -18,6 +18,14 @@
 class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 
 	/**
+	 * This class records schema changes itself, since its deferred statements bypass parent::execute()
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $recordsSchemaItself = true;
+
+	/**
 	 * Bound values, indexed by parameter name or position
 	 *
 	 * @var array
@@ -230,6 +238,7 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 			}
 			$dialect = $this->database->dialect(); /** @var WireDatabaseDialectSQLite $dialect */
 			$this->deferredRowCount = $dialect->execStatements($this->database->pdo(), $this->deferredStatements);
+			$this->recordSchema();
 			return true;
 		}
 		// snapshot values (bindParam() binds by reference) so rowCount() counts what was executed
@@ -249,6 +258,7 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 				if(count(self::$active) > 500) self::$active = array_slice(self::$active, -250, null, true);
 				self::$active[spl_object_id($this)] = self::weakRef($this);
 			}
+			if($result) $this->recordSchema();
 			return $result;
 		} catch(\PDOException $e) {
 			// pdo_sqlite does not reset a statement whose first execute() failed, making later
