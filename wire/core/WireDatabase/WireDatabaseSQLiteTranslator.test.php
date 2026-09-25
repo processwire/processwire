@@ -39,7 +39,91 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testGroupConcat();
 		$this->testCollation();
 		$this->testJsonFunctions();
+		$this->testFts5Query();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * pw_fts5query(): MySQL fulltext query syntax as an FTS5 MATCH expression, checked by what it matches
+	 *
+	 */
+	protected function testFts5Query() {
+		$this->check('fts5Query() of nothing matches nothing', '""', WireDatabaseSQLiteTranslator::fts5Query(''));
+		$this->check('fts5Query(): required words', '"quick" AND "brown"', WireDatabaseSQLiteTranslator::fts5Query('+quick +brown'));
+		$this->check('fts5Query(): alternatives', '"quick" OR "brown"', WireDatabaseSQLiteTranslator::fts5Query('quick brown'));
+
+		$this->pdo->exec('DROP TABLE IF EXISTS fq');
+		$this->pdo->exec("CREATE VIRTUAL TABLE fq USING fts5(k UNINDEXED, d, tokenize = \"" . WireDatabaseSQLiteTranslator::fulltextTokenize . "\", prefix = '2 3')");
+		$corpus = [
+			1 => 'The quick brown fox',
+			2 => 'Café crème brûlée',
+			3 => 'test_fme_content example',
+			4 => 'quick silver lining',
+			5 => 'brown bread and butter',
+			6 => 'foo-bar baz',
+			7 => "O'Brien at foo.example.com",
+		];
+		foreach($corpus as $k => $d) {
+			$q = $this->pdo->prepare('INSERT INTO fq (k, d) VALUES (?, ?)');
+			$q->execute([$k, $d]);
+		}
+		$match = function($query, $boolean = 1) {
+			$q = $this->pdo->prepare('SELECT k FROM fq WHERE fq MATCH pw_fts5query(?, ?) ORDER BY k');
+			$q->execute([$query, $boolean]);
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$cases = [
+			// [query, boolean, expected keys, label]
+			['quick', 1, [1, 4], 'a word'],
+			['quick brown', 1, [1, 4, 5], 'words without operators are alternatives'],
+			['+quick +brown', 1, [1], 'required words'],
+			['+quick -fox', 1, [4], 'an excluded word'],
+			['+quick brown', 1, [1, 4], 'optional words are left out when a word is required (as MySQL)'],
+			['-fox', 1, [], 'only excluded words match nothing (as MySQL)'],
+			['', 1, [], 'an empty query matches nothing'],
+			['qui*', 1, [1, 4], 'a prefix'],
+			['"quick brown"', 1, [1], 'a phrase'],
+			['"brown quick"', 1, [], 'a phrase is in order'],
+			['"quick brown" @3', 1, [1], '@distance is not a word'],
+			['+(fox lining) +quick', 1, [1, 4], 'a required group'],
+			['cafe', 1, [2], 'accents folded'],
+			['CRÈME', 1, [2], 'case and accents folded'],
+			['test', 1, [], 'an underscore is part of a word (as MySQL)'],
+			['test_fme_content', 1, [3], 'a word with underscores'],
+			['test_fme*', 1, [3], 'a prefix with an underscore'],
+			['+foo.example.com', 1, [7], 'words split where MySQL splits them are all required'],
+			["+o'brien*", 1, [7], 'a prefix the tokenizer splits'],
+			['foo-bar', 1, [6], 'a hyphenated term'],
+			['+ quick', 1, [1, 4], 'an operator without a word is ignored'],
+			['(+) quick', 1, [1, 4], 'an operator before a closing paren'],
+			['><~quick', 1, [1, 4], 'weight operators are ignored'],
+			['+quick -fox', 0, [1, 4], 'natural language mode: operators are ignored'],
+			['quick brown', 0, [1, 4, 5], 'natural language mode: any word'],
+			['AND', 1, [5], 'an FTS5 keyword is a word'],
+			['NEAR(', 1, [], 'NEAR( is not FTS5 syntax'],
+			['"', 1, [], 'a lone quote'],
+			[':', 1, [], 'a colon'],
+			['^quick', 1, [1, 4], 'a caret'],
+			['{quick}', 1, [1, 4], 'braces'],
+			['*', 1, [], 'a lone asterisk'],
+			['+', 1, [], 'a lone plus'],
+			['"unterminated phrase', 1, [], 'an unterminated phrase'],
+			['(quick', 1, [1, 4], 'an unterminated group'],
+		];
+		$actual = [];
+		$expected = [];
+		foreach($cases as $c) {
+			list($query, $boolean, $keys, $label) = $c;
+			$expected[$label] = $keys;
+			try {
+				$actual[$label] = $match($query, $boolean);
+			} catch(\PDOException $e) {
+				$actual[$label] = 'ERROR ' . $e->getMessage();
+			}
+		}
+		$this->check('pw_fts5query() matches as MySQL boolean and natural language mode do', $expected, $actual);
+		$this->check('pw_fts5query(NULL) matches nothing', [], $match(null));
+		$this->pdo->exec('DROP TABLE fq');
 	}
 
 	/**
