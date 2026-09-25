@@ -111,6 +111,14 @@ class WireDatabasePgsqlTranslator {
 	protected $foldAvailable = false;
 
 	/**
+	 * Do the pw_json_*() functions exist, so that MySQL's JSON functions can be translated? (see setupJson())
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $jsonAvailable = false;
+
+	/**
 	 * Suffix of the folded companion index of a unique or primary key on text columns
 	 *
 	 */
@@ -897,6 +905,64 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
+	 * Translate a MySQL JSON function call to the pw_json_*() functions (see setupJson())
+	 *
+	 * Documents are passed through pw_json(), which takes jsonb or text, and values through
+	 * pw_json_value(), which makes SQL strings JSON strings and keeps JSON (i.e. from JSON_EXTRACT()) as
+	 * JSON, as MySQL does. Paths use MySQL's syntax, which pw_json_path() maps to jsonpath.
+	 *
+	 * @param string $name Uppercase function name
+	 * @param array $args Translated arguments
+	 * @return string|null Null to leave the call alone (unsupported number of arguments)
+	 *
+	 */
+	protected function jsonCall($name, array $args) {
+		$qty = count($args);
+		$doc = function($x) { return "pw_json($x)"; }; // a document as jsonb: jsonb as is, text parsed (invalid gives NULL)
+		$value = function($x) { return "pw_json_value($x)"; }; // an SQL value as JSON: strings become JSON strings
+		switch($name) {
+			case 'JSON_EXTRACT':
+				return $qty === 2 ? 'pw_json_extract(' . $doc($args[0]) . ", $args[1])" : null;
+			case 'JSON_UNQUOTE':
+				return $qty === 1 ? "pw_json_unquote($args[0])" : null;
+			case 'JSON_CONTAINS':
+				if($qty === 2) return 'pw_json_contains(' . $doc($args[0]) . ', ' . $doc($args[1]) . ')';
+				if($qty === 3) return 'pw_json_contains(' . $doc($args[0]) . ', ' . $doc($args[1]) . ", $args[2])";
+				return null;
+			case 'JSON_LENGTH':
+				if($qty === 1) return 'pw_json_length(' . $doc($args[0]) . ')';
+				if($qty === 2) return 'pw_json_length(' . $doc($args[0]) . ", $args[1])";
+				return null;
+			case 'JSON_SET':
+			case 'JSON_INSERT':
+			case 'JSON_REPLACE':
+				// (doc, path, value[, path, value ...]): applied pair by pair, as MySQL does
+				if($qty < 3 || $qty % 2 === 0) return null;
+				$fn = 'pw_json_' . strtolower(substr($name, 5));
+				$sql = $args[0];
+				for($x = 1; $x < $qty; $x += 2) $sql = "$fn(" . $doc($sql) . ", {$args[$x]}, " . $value($args[$x + 1]) . ')';
+				return $sql;
+			case 'JSON_REMOVE':
+				if($qty < 2) return null;
+				$sql = $args[0];
+				for($x = 1; $x < $qty; $x++) $sql = 'pw_json_remove(' . $doc($sql) . ", {$args[$x]})";
+				return $sql;
+			case 'JSON_ARRAY':
+				return 'jsonb_build_array(' . implode(', ', array_map($value, $args)) . ')';
+			case 'JSON_OBJECT':
+				if($qty % 2 !== 0) return null;
+				$parts = [];
+				for($x = 0; $x < $qty; $x += 2) $parts[] = "({$args[$x]})::text, " . $value($args[$x + 1]);
+				return 'jsonb_build_object(' . implode(', ', $parts) . ')';
+			case 'JSON_QUOTE':
+				return $qty === 1 ? "to_jsonb(($args[0])::text)::text" : null;
+			case 'JSON_VALID':
+				return $qty === 1 ? "pw_json_valid($args[0])" : null;
+		}
+		return null;
+	}
+
+	/**
 	 * Translate a MySQL function call to a PostgreSQL expression, or return null to leave it alone
 	 *
 	 * @param string $name Uppercase function name
@@ -954,6 +1020,24 @@ class WireDatabasePgsqlTranslator {
 				return "array_to_string(($parts)[cardinality($parts) - " . abs($count) . " + 1:], $args[1])";
 			case 'IFNULL':
 				return $qty === 2 ? "COALESCE($args[0], $args[1])" : null;
+			case 'JSON_EXTRACT':
+			case 'JSON_UNQUOTE':
+			case 'JSON_CONTAINS':
+			case 'JSON_LENGTH':
+			case 'JSON_SET':
+			case 'JSON_INSERT':
+			case 'JSON_REPLACE':
+			case 'JSON_REMOVE':
+			case 'JSON_ARRAY':
+			case 'JSON_OBJECT':
+			case 'JSON_QUOTE':
+			case 'JSON_VALID':
+				return $this->jsonAvailable ? $this->jsonCall($name, $args) : null;
+			case 'LOWER':
+			case 'UPPER':
+				// MySQL applies them to JSON as text (i.e. JSON_UNQUOTE(LOWER(JSON_EXTRACT(...)))); jsonb needs the cast
+				if($qty === 1 && preg_match('/^(pw_json_\w+|jsonb_build_\w+)\(/', $args[0])) return strtolower($name) . "(($args[0])::text)";
+				return null;
 			case 'FIELD':
 				if($qty < 2) return null;
 				$value = array_shift($args);
@@ -1262,6 +1346,11 @@ class WireDatabasePgsqlTranslator {
 
 		if($n === 1 && $seg[0][0] === 'num' && ($seg[0][1] === '0' || $seg[0][1] === '1')) {
 			return array_merge($lead, [['word', $seg[0][1] === '0' ? 'false' : 'true']], $trail);
+		}
+
+		if($n === 1 && $seg[0][0] === 'word' && preg_match('/^pw_json_(contains|valid)\(/', $seg[0][1])) {
+			// JSON_CONTAINS() and JSON_VALID() return 1/0 in MySQL, and are used as conditions
+			return array_merge($lead, [['punct', '('], $seg[0], ['punct', ')'], ['ws', ' '], ['punct', '<>'], ['ws', ' '], ['num', '0']], $trail);
 		}
 
 		if($n > 1 && $this->isWord($seg[0], 'NOT')) {
@@ -1654,6 +1743,123 @@ class WireDatabasePgsqlTranslator {
 	 */
 	public function foldAvailable() {
 		return $this->foldAvailable;
+	}
+
+	/**
+	 * Name of the function whose existence says that the current pw_json_*() functions are installed
+	 *
+	 * Bumped when the functions change, so that existing sites get the new versions on their next connection.
+	 *
+	 */
+	const jsonVersionFunction = 'pw_json_v1';
+
+	/**
+	 * Create the pw_json_*() functions, MySQL-compatible versions of MySQL's JSON functions over jsonb
+	 *
+	 * MySQL's JSON_EXTRACT(), JSON_UNQUOTE(), JSON_CONTAINS(), JSON_LENGTH(), JSON_SET(), JSON_INSERT(),
+	 * JSON_REPLACE(), JSON_REMOVE() and JSON_VALID() are translated to these (see jsonCall()), and
+	 * JSON_ARRAY(), JSON_OBJECT() and JSON_QUOTE() to PostgreSQL's own functions. Documents may be jsonb
+	 * or text (pw_json() parses text, and invalid JSON gives NULL, as the SQLite versions do), paths use
+	 * MySQL's syntax (pw_json_path() maps it to a strict jsonpath, so that arrays are not unwrapped), and
+	 * results follow MySQL's, as checked against the MySQL 8 results in WireDatabaseSQLiteTranslator.test.php.
+	 * Calls between the functions are schema-qualified, so that they do not depend on search_path.
+	 *
+	 * Used on connect and by the installer, so it takes callables rather than a connection.
+	 *
+	 * @param callable $exec function(string $sql): executes a statement (throws on error)
+	 * @param callable $fetchColumn function(string $sql): returns the first column of the first row
+	 * @return array [ 'json' => bool, 'error' => string ]
+	 *
+	 */
+	public static function setupJson(callable $exec, callable $fetchColumn) {
+		try {
+			$schema = (string) $fetchColumn('SELECT current_schema()');
+			foreach(self::jsonFunctionsSql($schema) as $sql) $exec($sql);
+		} catch(\Exception $e) {
+			return ['json' => false, 'error' => 'JSON functions could not be created, so MySQL JSON functions are unavailable: ' . $e->getMessage()];
+		}
+		return ['json' => true, 'error' => ''];
+	}
+
+	/**
+	 * Get the CREATE FUNCTION statements for the pw_json_*() functions
+	 *
+	 * @param string $schema Schema the functions are created in (for the calls between them)
+	 * @return array
+	 *
+	 */
+	public static function jsonFunctionsSql($schema) {
+		$s = '"' . str_replace('"', '""', $schema) . '".';
+		$immutable = 'LANGUAGE sql IMMUTABLE PARALLEL SAFE';
+		$stable = 'LANGUAGE sql STABLE PARALLEL SAFE'; // pg_input_is_valid() is stable
+		$fn = function($signature, $returns, $options, $body) use($s) {
+			return "CREATE OR REPLACE FUNCTION {$s}$signature RETURNS $returns $options AS \$fn\$ $body \$fn\$";
+		};
+		// path elements of a MySQL path ($.key, $."quoted key", $[0]), for jsonb_set() and #-
+		$pathElements = "'\\.(?:\"((?:[^\"\\\\]|\\\\.)*)\"|([A-Za-z_\$][A-Za-z0-9_\$]*))|\\[([0-9]+)\\]'";
+		return [
+			// documents and values
+			// (plpgsql, so that it is not inlined: the planner would fold a constant's cast before the validity check)
+			$fn('pw_json(text)', 'jsonb', 'LANGUAGE plpgsql STABLE PARALLEL SAFE',
+				"BEGIN IF pg_input_is_valid(\$1, 'jsonb') THEN RETURN \$1::jsonb; END IF; RETURN NULL; END"),
+			$fn('pw_json(jsonb)', 'jsonb', "$immutable", 'SELECT $1'),
+			$fn('pw_json_value(text)', 'jsonb', "$immutable", "SELECT COALESCE(to_jsonb(\$1), 'null'::jsonb)"),
+			$fn('pw_json_value(numeric)', 'jsonb', "$immutable", "SELECT COALESCE(to_jsonb(\$1), 'null'::jsonb)"),
+			$fn('pw_json_value(boolean)', 'jsonb', "$immutable", "SELECT COALESCE(to_jsonb(\$1), 'null'::jsonb)"),
+			$fn('pw_json_value(jsonb)', 'jsonb', "$immutable", "SELECT COALESCE(\$1, 'null'::jsonb)"),
+			// paths: MySQL's $**.x is jsonpath's $.**.x; strict, so that $.a.b does not unwrap an array a
+			$fn('pw_json_path(text)', 'jsonpath', "$immutable STRICT", "SELECT ('strict ' || regexp_replace(\$1, '^\\\$\\*\\*', '\$.**'))::jsonpath"),
+			$fn('pw_json_path_array(text)', 'text[]', "$immutable STRICT",
+				"SELECT array_agg(COALESCE(m[1], m[2], m[3]) ORDER BY o) FROM regexp_matches(\$1, $pathElements, 'g') WITH ORDINALITY AS r(m, o)"),
+			// JSON_EXTRACT: one value, or an array of all matches for a wildcard path (NULL when none)
+			$fn('pw_json_extract(jsonb, text)', 'jsonb', "$immutable STRICT",
+				"SELECT CASE WHEN position('*' in \$2) > 0 THEN NULLIF(jsonb_path_query_array(\$1, {$s}pw_json_path(\$2), '{}', true), '[]'::jsonb) " .
+				"ELSE jsonb_path_query_first(\$1, {$s}pw_json_path(\$2), '{}', true) END"),
+			$fn('pw_json_unquote(jsonb)', 'text', "$immutable STRICT", "SELECT CASE WHEN jsonb_typeof(\$1) = 'string' THEN \$1 #>> '{}' ELSE \$1::text END"),
+			$fn('pw_json_unquote(text)', 'text', 'LANGUAGE plpgsql STABLE PARALLEL SAFE STRICT',
+				"BEGIN IF \$1 ~ '^\\s*\"' AND pg_input_is_valid(\$1, 'jsonb') THEN RETURN \$1::jsonb #>> '{}'; END IF; RETURN \$1; END"),
+			$fn('pw_json_length(jsonb)', 'integer', "$immutable STRICT",
+				"SELECT CASE jsonb_typeof(\$1) WHEN 'array' THEN jsonb_array_length(\$1) WHEN 'object' THEN (SELECT count(*)::integer FROM jsonb_object_keys(\$1)) ELSE 1 END"),
+			$fn('pw_json_length(jsonb, text)', 'integer', "$immutable STRICT", "SELECT {$s}pw_json_length({$s}pw_json_extract(\$1, \$2))"),
+			// JSON_CONTAINS: jsonb containment, where an array also contains a single (non-array) candidate it has an element for
+			$fn('pw_json_contains(jsonb, jsonb)', 'integer', "$immutable STRICT",
+				"SELECT (CASE WHEN jsonb_typeof(\$1) = 'array' AND jsonb_typeof(\$2) <> 'array' THEN \$1 @> jsonb_build_array(\$2) ELSE \$1 @> \$2 END)::integer"),
+			$fn('pw_json_contains(jsonb, jsonb, text)', 'integer', "$immutable STRICT", "SELECT {$s}pw_json_contains({$s}pw_json_extract(\$1, \$3), \$2)"),
+			// JSON_SET/INSERT/REPLACE/REMOVE: '$' alone is the whole document
+			$fn('pw_json_set(jsonb, text, jsonb)', 'jsonb', "$immutable STRICT",
+				"SELECT CASE WHEN p IS NULL THEN \$3 ELSE jsonb_set(\$1, p, \$3, true) END FROM (SELECT {$s}pw_json_path_array(\$2) AS p) x"),
+			$fn('pw_json_insert(jsonb, text, jsonb)', 'jsonb', "$immutable STRICT",
+				"SELECT CASE WHEN p IS NULL OR \$1 #> p IS NOT NULL THEN \$1 ELSE jsonb_set(\$1, p, \$3, true) END FROM (SELECT {$s}pw_json_path_array(\$2) AS p) x"),
+			$fn('pw_json_replace(jsonb, text, jsonb)', 'jsonb', "$immutable STRICT",
+				"SELECT CASE WHEN p IS NULL THEN \$3 WHEN \$1 #> p IS NULL THEN \$1 ELSE jsonb_set(\$1, p, \$3, false) END FROM (SELECT {$s}pw_json_path_array(\$2) AS p) x"),
+			$fn('pw_json_remove(jsonb, text)', 'jsonb', "$immutable STRICT",
+				"SELECT CASE WHEN p IS NULL THEN NULL ELSE \$1 #- p END FROM (SELECT {$s}pw_json_path_array(\$2) AS p) x"),
+			$fn('pw_json_valid(text)', 'integer', "$stable STRICT", "SELECT pg_input_is_valid(\$1, 'jsonb')::integer"),
+			$fn('pw_json_valid(jsonb)', 'integer', "$immutable STRICT", 'SELECT 1'),
+			// last, so that it exists only when all of the above do
+			$fn(self::jsonVersionFunction . '()', 'integer', "$immutable", 'SELECT 1'),
+		];
+	}
+
+	/**
+	 * Set whether the pw_json_*() functions exist (see setupJson())
+	 *
+	 * @param bool $available
+	 *
+	 */
+	public function setJsonAvailable($available) {
+		$this->jsonAvailable = (bool) $available;
+		$this->cache = [];
+	}
+
+	/**
+	 * Are MySQL's JSON functions translated?
+	 *
+	 * @return bool
+	 *
+	 */
+	public function jsonAvailable() {
+		return $this->jsonAvailable;
 	}
 
 	/**

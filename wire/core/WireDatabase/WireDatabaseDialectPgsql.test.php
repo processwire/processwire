@@ -14,6 +14,82 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testErrorMapping();
 		$this->testLive();
 		$this->testFolding();
+		$this->testJson();
+	}
+
+	/**
+	 * MySQL's JSON functions (live, pgsql only), with the results WireDatabaseSQLiteTranslator.test.php checked against MySQL 8
+	 *
+	 */
+	protected function testJson() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$v = function($sql) use($database) { return $database->query($sql)->fetchColumn(); };
+		$doc = "'" . '{"a":"x","b":[1,2,3],"c":{"d":"e"},"n":null,"t":true,"num":5}' . "'";
+
+		$this->check('supportsJson() is true once the functions exist', true, $database->dialect()->supportsJson());
+		$this->check('JSON_UNQUOTE removes quotes', 'hello', $v("SELECT JSON_UNQUOTE('\"hello\"')"));
+		$this->check('JSON_UNQUOTE leaves unquoted value alone', 'hello', $v("SELECT JSON_UNQUOTE('hello')"));
+		$this->check('JSON_UNQUOTE of JSON_EXTRACT returns value', 'x', $v("SELECT JSON_UNQUOTE(JSON_EXTRACT($doc, '$.a'))"));
+		$this->check('JSON_UNQUOTE returns NULL for NULL', null, $v('SELECT JSON_UNQUOTE(NULL)'));
+		$this->check('JSON_LENGTH counts object keys', 6, (int) $v("SELECT JSON_LENGTH($doc)"));
+		$this->check('JSON_LENGTH counts array items', 3, (int) $v("SELECT JSON_LENGTH($doc, '$.b')"));
+		$this->check('JSON_LENGTH of nested object', 1, (int) $v("SELECT JSON_LENGTH($doc, '$.c')"));
+		$this->check('JSON_LENGTH of scalar is one', 1, (int) $v("SELECT JSON_LENGTH($doc, '$.a')"));
+		$this->check('JSON_LENGTH of empty array is zero', 0, (int) $v("SELECT JSON_LENGTH('[]')"));
+		$this->check('JSON_LENGTH returns NULL for missing path', null, $v("SELECT JSON_LENGTH($doc, '$.missing')"));
+		$this->check('JSON_LENGTH returns NULL for invalid JSON', null, $v("SELECT JSON_LENGTH('not json')"));
+		$this->check('JSON_LENGTH returns NULL for NULL', null, $v('SELECT JSON_LENGTH(NULL)'));
+		$this->check('JSON_CONTAINS matches object member', 1, (int) $v("SELECT JSON_CONTAINS($doc, '{\"a\":\"x\"}')"));
+		$this->check('JSON_CONTAINS rejects wrong value', 0, (int) $v("SELECT JSON_CONTAINS($doc, '{\"a\":\"y\"}')"));
+		$this->check('JSON_CONTAINS finds scalar in array at path', 1, (int) $v("SELECT JSON_CONTAINS($doc, '2', '$.b')"));
+		$this->check('JSON_CONTAINS rejects absent scalar', 0, (int) $v("SELECT JSON_CONTAINS($doc, '9', '$.b')"));
+		$this->check('JSON_CONTAINS matches array subset', 1, (int) $v("SELECT JSON_CONTAINS($doc, '[1,3]', '$.b')"));
+		$this->check('JSON_CONTAINS rejects partial array', 0, (int) $v("SELECT JSON_CONTAINS($doc, '[1,9]', '$.b')"));
+		$this->check('JSON_CONTAINS distinguishes string from number', 0, (int) $v("SELECT JSON_CONTAINS($doc, '\"5\"', '$.num')"));
+		$this->check('JSON_CONTAINS matches null value', 1, (int) $v("SELECT JSON_CONTAINS($doc, 'null', '$.n')"));
+		$this->check('JSON_CONTAINS matches object in array', 1, (int) $v("SELECT JSON_CONTAINS('[{\"k\":1},{\"k\":2}]', '{\"k\":2}')"));
+		$this->check('JSON_CONTAINS matches nested object subset', 1, (int) $v("SELECT JSON_CONTAINS('{\"a\":{\"b\":1,\"c\":2}}', '{\"a\":{\"b\":1}}')"));
+		$this->check('JSON_CONTAINS returns NULL for missing path', null, $v("SELECT JSON_CONTAINS($doc, '1', '$.missing')"));
+		$this->check('JSON_CONTAINS returns NULL for NULL', null, $v("SELECT JSON_CONTAINS(NULL, '1')"));
+		$this->check('JSON_EXTRACT reads array index', 2, (int) $v("SELECT JSON_EXTRACT($doc, '$.b[1]')"));
+		$this->check('JSON_EXTRACT of a missing path is NULL', null, $v("SELECT JSON_EXTRACT($doc, '$.missing')"));
+		$this->check('JSON_EXTRACT does not unwrap arrays (MySQL: NULL)', null, $v("SELECT JSON_EXTRACT($doc, '$.b.x')"));
+		// MySQL formats JSON results with a space after ':' and ',', as jsonb does
+		$this->check('JSON_SET adds member', '{"a": 1, "b": 2}', $v("SELECT JSON_SET('{\"a\":1}', '$.b', 2)"));
+		$this->check('JSON_SET with a string and NULL', '{"a": null, "s": "x"}', $v("SELECT JSON_SET('{\"a\":1}', '$.a', NULL, '$.s', 'x')"));
+		$this->check('JSON_INSERT does not overwrite', '{"a": 1}', $v("SELECT JSON_INSERT('{\"a\":1}', '$.a', 2)"));
+		$this->check('JSON_REPLACE does not add', '{"a": 1}', $v("SELECT JSON_REPLACE('{\"a\":1}', '$.b', 2)"));
+		$this->check('JSON_REMOVE removes member', '{"b": 2}', $v("SELECT JSON_REMOVE('{\"a\":1,\"b\":2}', '$.a')"));
+		$this->check('JSON_VALID recognizes valid JSON', 1, (int) $v("SELECT JSON_VALID('{\"a\":1}')"));
+		$this->check('JSON_VALID rejects invalid JSON', 0, (int) $v("SELECT JSON_VALID('{a')"));
+		$this->check('JSON_ARRAY', '[1, "a", null]', $v("SELECT JSON_ARRAY(1, 'a', NULL)"));
+		$this->check('JSON_OBJECT', '{"k": 1}', $v("SELECT JSON_OBJECT('k', 1)"));
+		$this->check('JSON_QUOTE', '"a\\"b"', $v("SELECT JSON_QUOTE('a\"b')"));
+
+		// the shapes FieldtypeCustom and FormBuilder use, on a JSON column and on a text column
+		foreach(['json' => 'JSON', 'text' => 'MEDIUMTEXT'] as $label => $type) {
+			$table = WireTests::fieldPrefix . "pgsql_json_$label";
+			$database->exec("DROP TABLE IF EXISTS `$table`");
+			$database->exec("CREATE TABLE `$table` (`pages_id` int unsigned NOT NULL, `data` $type, PRIMARY KEY (`pages_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+			$database->exec("INSERT INTO `$table` (pages_id, data) VALUES (1, '{\"name\":\"Alice\",\"tags\":[\"x\",\"y\"]}'), (2, '{\"name\":\"\",\"tags\":[]}'), (3, '{\"other\":1}')");
+			$ids = function($where, array $binds = []) use($database, $table) {
+				$q = $database->prepare("SELECT pages_id FROM `$table` WHERE $where ORDER BY pages_id");
+				foreach($binds as $k => $val) $q->bindValue($k, $val);
+				$q->execute();
+				return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+			};
+			$this->check("$label: JSON_UNQUOTE(LOWER(JSON_EXTRACT(data, \"\$.name\")))=?", [1], $ids('JSON_UNQUOTE(LOWER(JSON_EXTRACT(data, "$.name")))=:v', [':v' => 'alice']));
+			$this->check("$label: JSON_CONTAINS(data, ?)", [1], $ids('JSON_CONTAINS(data, :v)', [':v' => '{"tags":["y"]}']));
+			$this->check("$label: JSON_CONTAINS(data, ?, path)", [1], $ids("JSON_CONTAINS(data, :v, '$.tags')", [':v' => '"x"']));
+			$this->check("$label: JSON_LENGTH(data, path)>0", [1, 2], $ids("JSON_LENGTH(data, '$.name')>0 OR JSON_LENGTH(data, '$.tags')>0"));
+			$q = $database->prepare("UPDATE `$table` SET data=JSON_SET(JSON_REMOVE(data, :old), :new, JSON_EXTRACT(data, :old)) WHERE pages_id=1");
+			$q->bindValue(':old', '$.name');
+			$q->bindValue(':new', '$.title');
+			$q->execute();
+			$this->check("$label: renaming a subfield keeps its value as JSON", '{"tags": ["x", "y"], "title": "Alice"}', (string) $v("SELECT data FROM `$table` WHERE pages_id=1"));
+			$database->exec("DROP TABLE IF EXISTS `$table`");
+		}
 	}
 
 	/**
@@ -174,7 +250,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('no FOUND_ROWS', false, $dialect->supportsFoundRows());
 		$this->check('no fulltext (M1)', false, $dialect->supportsFulltext());
 		$this->check('no UPDATE ORDER BY', false, $dialect->supportsUpdateOrderBy());
-		$this->check('JSON supported', true, $dialect->supportsJson());
+		$this->check('JSON is not reported before the functions are known to exist (not connected)', false, $dialect->supportsJson());
 		$this->check('transactions supported', true, $dialect->supportsTransaction('x'));
 		$this->check('no compare collation (M1)', '', $dialect->compareCollation('Äpfel'));
 		$this->check('no sort collation (M1)', '', $dialect->sortCollation());

@@ -4711,6 +4711,13 @@ class InstallerPgsqlPDO extends InstallerPgsqlPDOBase {
 			$notes[] = 'Text comparisons ignore case and accents (pw_fold() with the unaccent extension)';
 		}
 		if($result['error'] !== '') $notes[] = $result['error'];
+		// MySQL's JSON functions, as pw_json_*() (used by FieldtypeCustom and FormBuilder, among others)
+		$result = WireDatabasePgsqlTranslator::setupJson(
+			function($sql) use($pdo) { $pdo->execNative($sql); },
+			function($sql) use($pdo) { return $pdo->queryNative($sql)->fetchColumn(); }
+		);
+		$this->translator->setJsonAvailable($result['json']);
+		if($result['error'] !== '') $notes[] = $result['error'];
 		return $notes;
 	}
 
