@@ -198,7 +198,10 @@ class WireTest_WireDatabasePDO extends WireTest {
 		$this->check('getTime(true) returns timestamp', true, is_int($database->getTime(true)) && $database->getTime(true) > 0);
 
 		$this->check('getStopwords(myisam) returns array', true, is_array($database->getStopwords('myisam')));
-		$this->check('isStopword(myisam) recognizes common stopword', true, $database->isStopword('the', 'myisam'));
+		// a dialect with its own list answers from it whatever the engine (PostgreSQL's pw_search has none)
+		$dialectStopwords = $database->dialect()->fulltextStopwords();
+		$expectStopword = is_array($dialectStopwords) ? in_array('the', $dialectStopwords, true) : true;
+		$this->check('isStopword(myisam) recognizes common stopword (or the dialect has none)', $expectStopword, $database->isStopword('the', 'myisam'));
 
 		$backups = $database->backups();
 		$this->check('backups() returns WireDatabaseBackup', true, $backups instanceof WireDatabaseBackup);
