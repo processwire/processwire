@@ -429,7 +429,7 @@ $ft->allowStopwords(false); // ignore stopwords completely
 
 ### forceLike($forceLike = null)
 
-Force LIKE-based matching for operators that have LIKE equivalents (`*=`, `^=`, `$=`, `~=`, `~|=`):
+Force LIKE-based matching for operators that have LIKE equivalents (`*=`, `~=`, `~|=`). `^=` and `$=` then use `RLIKE` alone, without the `MATCH` pre-filter, so that punctuation and markup at the edges are still skipped:
 
 ```php
 $ft->forceLike(true);

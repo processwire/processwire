@@ -17,6 +17,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testNumberConversion();
 		$this->testJson();
 		$this->testGaps();
+		$this->testFulltext();
 	}
 
 	/**
@@ -309,8 +310,8 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('title%=HELLO', 'Hello World', $find('title%=HELLO'));
 		$this->check('title%=apfel', 'Äpfel', $find('title%=apfel'));
 		$this->check('title*=creme', 'Crème', $find('title*=creme'));
-		// (MySQL's ^= uses REGEXP and misses this; without fulltext, ^= uses LIKE, which folds accents, as on SQLite)
-		$this->check('title^=zurich', 'Zürich', $find('title^=zurich'));
+		// ^= uses REGEXP, which does not fold accents on MySQL either
+		$this->check('title^=zurich', '', $find('title^=zurich'));
 		$this->check('title^=ZÜR', 'Zürich', $find('title^=ZÜR'));
 		$this->check('sort=title', 'Äpfel|Crème|Hello World|Zürich', $find('name^=pgsql-fold-, sort=title'));
 		foreach($created as $p) $pages->delete($p, true);
@@ -384,6 +385,105 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$database->exec("DROP TABLE IF EXISTS `$table`");
 	}
 
+	protected function testFulltext() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$dialect = $database->dialect();
+		$pdo = $database->pdo();
+
+		$this->check('full text search is set up after connecting', true, $dialect->supportsFulltext());
+		$tsquery = function($value, $boolean = true) use($pdo) {
+			$q = $pdo->prepare('SELECT pw_tsquery(:v, :b)::text');
+			$q->bindValue(':v', $value);
+			$q->bindValue(':b', $boolean ? 't' : 'f');
+			$q->execute();
+			return $q->fetchColumn();
+		};
+		$this->check('pw_tsquery(): required words and a prefix', "'hello' & 'world':*", $tsquery('+hello +world*'));
+		$this->check('pw_tsquery(): words without operators are alternatives', "'hello' | 'world'", $tsquery('hello world'));
+		$this->check('pw_tsquery(): a required group', "'apfel' | 'apfel':*", $tsquery('+(>apfel apfel*)'));
+		$this->check('pw_tsquery(): a phrase, accents folded', "'creme' <-> 'brulee'", $tsquery('"Crème Brûlée"'));
+		$this->check('pw_tsquery(): an excluded word', "'zola' & !'emile'", $tsquery('+zola -emile'));
+		$this->check('pw_tsquery(): only excluded words match nothing (as MySQL)', '', $tsquery('-emile'));
+		$this->check('pw_tsquery(): natural language mode ignores operators', "'zola' | 'emile'", $tsquery('+zola -emile', false));
+		$this->check('pw_tsquery(): words split where MySQL splits them', "'foo' & 'example' & 'com'", $tsquery('+foo.example.com'));
+		$this->check('pw_tsquery(): a prefix the parser splits is a phrase of prefixes', "'o':* <-> 'brien':*", $tsquery("+o'brien*"));
+		$doc = $pdo->query("SELECT pw_tsvector('<p>Émile wrote at foo.example.com</p>')::text")->fetchColumn();
+		$this->check('pw_tsvector(): markup skipped, words split and folded', "'at':3 'com':6 'emile':1 'example':5 'foo':4 'wrote':2", $doc);
+
+		// raw SQL in MySQL syntax
+		$table = WireTests::fieldPrefix . 'pgsql_fulltext';
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$database->exec("CREATE TABLE `$table` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$rows = [1 => 'Hello World', 2 => 'Crème brûlée recipe', 3 => 'Émile Zola wrote novels', 4 => 'Hello there, Zola fans', 5 => '<p>World news</p>'];
+		foreach($rows as $id => $data) {
+			$q = $database->prepare("INSERT INTO `$table` (pages_id, data) VALUES (:id, :data)");
+			$q->bindValue(':id', $id, \PDO::PARAM_INT);
+			$q->bindValue(':data', $data);
+			$q->execute();
+		}
+		$ids = function($sql, $value) use($database) {
+			$q = $database->prepare($sql);
+			$q->bindValue(':v', $value);
+			$q->execute();
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$where = "SELECT pages_id FROM `$table` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id";
+		$this->check('MATCH: required words', [1], $ids($where, '+hello +world'));
+		$this->check('MATCH: alternatives', [1, 3, 4, 5], $ids($where, 'world zola'));
+		$this->check('MATCH: prefix, accents folded', [2], $ids($where, '+creme*'));
+		$this->check('MATCH: excluded word', [4], $ids($where, '+zola -emile'));
+		$this->check('MATCH: phrase', [3], $ids($where, '+"emile zola"'));
+		$this->check('MATCH: words inside markup', [5], $ids($where, '+news'));
+		$this->check('MATCH: markup itself is not a word', [], $ids($where, '+p'));
+		$this->check('NOT MATCH', [2, 3, 5], $ids("SELECT pages_id FROM `$table` WHERE NOT MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id", '+hello'));
+		$this->check('MATCH WITH QUERY EXPANSION matches any word', [1, 4, 5], $ids("SELECT pages_id FROM `$table` WHERE MATCH(data) AGAINST(:v WITH QUERY EXPANSION) ORDER BY pages_id", 'hello world'));
+		$this->check('MATCH as a score orders by relevance', [1, 4, 5], $ids(
+			"SELECT pages_id, MATCH(data) AGAINST(:v IN BOOLEAN MODE) AS score FROM `$table` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY score DESC, pages_id", 'hello world'
+		));
+
+		$pdo->exec('SET enable_seqscan = off');
+		$q = $database->prepare("EXPLAIN SELECT pages_id FROM `$table` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE)");
+		$q->bindValue(':v', '+zola');
+		$q->execute();
+		$plan = implode("\n", $q->fetchAll(\PDO::FETCH_COLUMN));
+		$pdo->exec('SET enable_seqscan = on');
+		$this->check('MATCH uses the tsvector index', true, strpos($plan, $table . '__data__fts') !== false);
+		$indexes = $database->getIndexes($table, true);
+		$this->check('getIndexes() reports the FULLTEXT key once', ['data'], isset($indexes['data']) ? $indexes['data']['columns'] : null);
+		$this->check('getIndexes() does not report the tsvector index', false, isset($indexes['data__fts']));
+		$database->exec("ALTER TABLE `$table` DROP INDEX `data`");
+		$this->check('dropping the FULLTEXT key drops its tsvector index', false, (bool) $pdo->query("SELECT to_regclass('\"{$table}__data__fts\"')")->fetchColumn());
+		$database->exec("ALTER TABLE `$table` ADD FULLTEXT KEY `data` (`data`)");
+		$this->check('adding a FULLTEXT key adds its tsvector index', true, (bool) $pdo->query("SELECT to_regclass('\"{$table}__data__fts\"')")->fetchColumn());
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+
+		// through the ProcessWire API: fulltext operators now take their MATCH paths
+		$parent = $this->getTestPage();
+		if(!$parent || !$parent->id) return;
+		$pages = $this->wire()->pages;
+		$titles = ['Hello World', 'Crème brûlée', 'Émile Zola', 'Ends with a quote "here"'];
+		$created = [];
+		foreach($titles as $n => $title) {
+			$p = $pages->newPage(['template' => $parent->template, 'parent' => $parent, 'name' => "pgsql-fts-$n", 'title' => $title]);
+			$pages->save($p);
+			$created[] = $p;
+		}
+		$find = function($selector) use($pages, $parent) {
+			return $pages->find("parent=$parent, name^=pgsql-fts-, $selector, include=all, sort=name")->implode('|', 'title');
+		};
+		$this->check('title~=zola', 'Émile Zola', $find('title~=zola'));
+		$this->check('title~=hello world', 'Hello World', $find('title~=hello world'));
+		$this->check('title~|=hello zola', 'Hello World|Émile Zola', $find('title~|=hello zola'));
+		$this->check('title*=creme', 'Crème brûlée', $find('title*=creme'));
+		$this->check('title~*=bru', 'Crème brûlée', $find('title~*=bru'));
+		$this->check('title**=world', 'Hello World', $find('title**=world'));
+		$this->check('title#=+zola -hello', 'Émile Zola', $find('title#="+zola -hello"'));
+		$this->check('title$=here (trailing punctuation)', 'Ends with a quote "here"', $find('title$=here'));
+		$this->check('title!~=zola', 'Hello World|Crème brûlée|Ends with a quote "here"', $find('title!~=zola'));
+		foreach($created as $p) $pages->delete($p, true);
+	}
+
 	protected function testConnectionConfig() {
 		$config = $this->wire(new Config());
 		$config->dbName = 'pwtest';
@@ -417,7 +517,6 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('name', 'pgsql', $dialect->name());
 		$this->check('translates SQL', true, $dialect->translatesSql());
 		$this->check('no FOUND_ROWS', false, $dialect->supportsFoundRows());
-		$this->check('no fulltext (M1)', false, $dialect->supportsFulltext());
 		$this->check('no UPDATE ORDER BY', false, $dialect->supportsUpdateOrderBy());
 		$this->check('JSON is not reported before the functions are known to exist (not connected)', false, $dialect->supportsJson());
 		$this->check('transactions supported', true, $dialect->supportsTransaction('x'));

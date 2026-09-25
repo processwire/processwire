@@ -145,8 +145,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected $likeAlternateOperators = array(
 		'*=' => '%=',
-		'^=' => '%^=', 
-		'$=' => '%$=', 
 		'~=' => '~%=', 
 		'~|=' => '~|%=',
 	);
@@ -926,8 +924,8 @@ class DatabaseQuerySelectFulltext extends Wire {
 			}
 		}
 	
-		if(strlen($againstValue)) {
-			// use MATCH/AGAINST to pre-filter before RLIKE when possible
+		if(strlen($againstValue) && !$this->forceLike) {
+			// use MATCH/AGAINST to pre-filter before RLIKE when possible (RLIKE alone when LIKE is forced)
 			$bindKey = $this->query->bindValueGetKey($againstValue);
 			$matchType = $this->matchType();
 			$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";

@@ -1497,14 +1497,18 @@ $config->dbSqlModes = array(
  *    MySQL? SQLite has to call back into PHP for every comparison it makes while sorting,
  *    and cannot use an index to avoid the sort, so this is off by default. (default=false)
  * - `schema` (string): PostgreSQL only. Schema to use (added to search_path). (default='' for public)
- * - `trigram` (bool): PostgreSQL only. Is the pg_trgm extension available? FULLTEXT indexes become
- *    trigram indexes when it is, and are skipped when it is not. (default=true)
+ * - `trigram` (bool): PostgreSQL only. Is the pg_trgm extension available? FULLTEXT keys get trigram
+ *    indexes (for LIKE and REGEXP searches) when it is. (default=true)
  * - `savepoints` (bool): PostgreSQL only. Wrap each statement inside a transaction in a savepoint, so
  *    that a failed statement does not abort the transaction (as with MySQL)? Costs two extra round trips
  *    per statement in a transaction, and a subtransaction for each that writes. (default=true)
  * - `fold` (bool): PostgreSQL only. Compare, search, sort and index text on pw_fold(), so that comparisons
  *    ignore case and accents as MySQL's default collations do? Needs the unaccent extension for accents;
  *    pw_fold() is created on the first connection. If unaccent's rules change, REINDEX. (default=true)
+ * - `fulltext` (bool): PostgreSQL only. Translate MATCH ... AGAINST to PostgreSQL full text search, so that
+ *    fulltext selector operators work as on MySQL? FULLTEXT keys then also get a tsvector index. The pw_search
+ *    configuration and its functions are created on the first connection, which also indexes existing
+ *    FULLTEXT keys. When false (or if that fails), fulltext operators use LIKE and REGEXP. (default=true)
  *
  * With PostgreSQL, values come back as pdo_pgsql returns them (integers as ints, everything else as
  * strings), which matches what pdo_mysql returns on PHP 8.1 and newer.

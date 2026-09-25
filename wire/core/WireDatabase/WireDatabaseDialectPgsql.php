@@ -53,6 +53,16 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 */
 	protected $jsonAvailable = false;
 
+
+	/**
+	/**
+	 * Do the full text search functions (pw_tsvector(), pw_tsquery()) exist on this connection (see initConnection())?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $fulltextAvailable = false;
+
 	/**
 	 * Cached values from getVariable()
 	 *
@@ -84,6 +94,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			$this->translator->setTrigramAvailable($this->setting('trigram', true));
 			$this->translator->setFoldAvailable($this->foldAvailable);
 			$this->translator->setJsonAvailable($this->jsonAvailable);
+			$this->translator->setFulltextAvailable($this->fulltextAvailable);
 		}
 		return $this->translator;
 	}
@@ -199,7 +210,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	public function initConnection(\PDO $pdo) {
 		$schema = (string) $this->setting('schema', '');
 		if($schema !== '') $pdo->exec('SET search_path TO ' . $this->quoteIdentifier($schema) . ', public');
-		// one round trip: version, session settings, and whether the fold functions exist
+		// one round trip: version, session settings, and whether the fold and full text search functions exist
 		// - the translator and upsertRowValue() write literals with only quotes doubled, so backslashes must be literal
 		// - MySQL's NOW() uses the server's time zone; PHP's zone is the closest equivalent here
 		$timezone = (string) date_default_timezone_get();
@@ -208,7 +219,8 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			"set_config('standard_conforming_strings', 'on', false) AS scs, " .
 			($timezone !== '' ? "set_config('TimeZone', " . $pdo->quote($timezone) . ', false) AS tz, ' : '') .
 			"to_regprocedure('pw_fold(text)') IS NOT NULL AND to_regprocedure('pw_unaccent(text)') IS NOT NULL AS fold, " .
-			"to_regprocedure('" . WireDatabasePgsqlTranslator::jsonVersionFunction . "()') IS NOT NULL AS json"
+			"to_regprocedure('" . WireDatabasePgsqlTranslator::jsonVersionFunction . "()') IS NOT NULL AS json, " .
+			"to_regprocedure('pw_tsquery(text,boolean)') IS NOT NULL AS fulltext"
 		)->fetch(\PDO::FETCH_ASSOC);
 		$version = (string) $row['version'];
 		if(version_compare(preg_replace('/[^0-9.].*$/', '', $version), self::minVersion, '<')) {
@@ -249,6 +261,23 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		}
 		$this->jsonAvailable = $json;
 		if($this->translator !== null) $this->translator->setJsonAvailable($json);
+
+		$fulltext = false;
+		if($this->setting('fulltext', true)) {
+			$fulltext = in_array($row['fulltext'], array(true, 't', '1', 1), true);
+			if(!$fulltext) {
+				// first connection after install or upgrade: set up pw_search (see setupFulltext())
+				$result = WireDatabasePgsqlTranslator::setupFulltext(
+					function($sql) use($pdo) { $pdo->exec($sql); },
+					function($sql) use($pdo) { return $pdo->query($sql)->fetchColumn(); },
+					function($sql) use($pdo) { return $pdo->query($sql)->fetchAll(\PDO::FETCH_ASSOC); }
+				);
+				$fulltext = $result['fulltext'];
+				if($result['error'] !== '') $this->logSetupError($result['error']);
+			}
+		}
+		$this->fulltextAvailable = $fulltext;
+		if($this->translator !== null) $this->translator->setFulltextAvailable($fulltext);
 	}
 
 	/**
@@ -262,7 +291,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	}
 
 	/**
-	 * Log why a feature needing SQL functions (folding, JSON) is not (fully) available
+	 * Log why a feature needing SQL functions (folding, JSON, full text search) is not (fully) available
 	 *
 	 * @param string $message
 	 *
@@ -647,7 +676,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 */
 
 	public function supportsFoundRows() { return false; }
-	public function supportsFulltext() { return false; }
+	public function supportsFulltext() { return $this->fulltextAvailable; }
 	public function supportsUpdateOrderBy() { return false; }
 	public function supportsJson() { return $this->jsonAvailable; } // MySQL's JSON functions, as pw_json_*()
 
@@ -920,9 +949,9 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 				$keyName = WireDatabasePgsqlTranslator::mysqlIndexName($table, $name, $row['comment']);
 				if($keyName === null) $keyName = $name;
 			}
-			// folded companion of a unique or primary key (see WireDatabasePgsqlTranslator::createIndexSql()) and the
-			// indexes of a jsonb column (see WireDatabasePgsqlTranslator::jsonIndexSql()): internal
-			foreach(array(WireDatabasePgsqlTranslator::foldIndexSuffix, WireDatabasePgsqlTranslator::jsonIndexSuffix, WireDatabasePgsqlTranslator::jsonNestedIndexSuffix) as $suffix) {
+			// folded companion of a unique or primary key and tsvector index of a FULLTEXT key (see
+			// WireDatabasePgsqlTranslator::createIndexSql()), and the indexes of a jsonb column (see jsonIndexSql()): internal
+			foreach(array(WireDatabasePgsqlTranslator::foldIndexSuffix, WireDatabasePgsqlTranslator::jsonIndexSuffix, WireDatabasePgsqlTranslator::jsonNestedIndexSuffix, WireDatabasePgsqlTranslator::fulltextIndexSuffix) as $suffix) {
 				if(substr($keyName, -strlen($suffix)) === $suffix) continue 2;
 			}
 			$rows[] = array(

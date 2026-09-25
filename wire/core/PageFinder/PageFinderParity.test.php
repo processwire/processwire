@@ -22,6 +22,7 @@ class WireTest_PageFinderParity extends WireTest {
 		'Émile Zola',
 		'apple',
 		'banana',
+		'Ends with a quote "here"',
 	);
 
 	public function init() {
@@ -202,16 +203,15 @@ class WireTest_PageFinderParity extends WireTest {
 				'selector' => 'title%=äpfel',
 				'expect' => array('Äpfel', 'Apfelkuchen'),
 			),
-			// MySQL matches ^= and $= with REGEXP, which follows the collation for case but not
-			// for accents (so ^=zurich misses "Zürich" even though %=zurich finds it). Databases
-			// without fulltext (SQLite, PostgreSQL) use LIKE for these operators, which folds accents.
+			// ^= and $= match with REGEXP, which follows the collation for case but not for accents
+			// on MySQL and PostgreSQL (so ^=zurich misses "Zürich" even though %=zurich finds it).
+			// SQLite's REGEXP folds accents.
 			array(
 				'label' => '^= case and accent',
 				'selector' => 'title^=zurich',
 				'expect' => array(),
 				'differs' => array(
-					'sqlite' => array(array('Zürich'), 'no fulltext on SQLite, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
-					'pgsql' => array(array('Zürich'), 'no fulltext on PostgreSQL, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
+					'sqlite' => array(array('Zürich'), "SQLite's REGEXP folds accents; MySQL's does not"),
 				),
 			),
 			array(
@@ -219,8 +219,7 @@ class WireTest_PageFinderParity extends WireTest {
 				'selector' => 'title^=emile',
 				'expect' => array(),
 				'differs' => array(
-					'sqlite' => array(array('Émile Zola'), 'no fulltext on SQLite, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
-					'pgsql' => array(array('Émile Zola'), 'no fulltext on PostgreSQL, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
+					'sqlite' => array(array('Émile Zola'), "SQLite's REGEXP folds accents; MySQL's does not"),
 				),
 			),
 			array(
@@ -228,9 +227,13 @@ class WireTest_PageFinderParity extends WireTest {
 				'selector' => 'title$=brulee',
 				'expect' => array(),
 				'differs' => array(
-					'sqlite' => array(array('Crème brûlée'), 'no fulltext on SQLite, so $= uses LIKE, which folds accents; MySQL uses REGEXP'),
-					'pgsql' => array(array('Crème brûlée'), 'no fulltext on PostgreSQL, so $= uses LIKE, which folds accents; MySQL uses REGEXP'),
+					'sqlite' => array(array('Crème brûlée'), "SQLite's REGEXP folds accents; MySQL's does not"),
 				),
+			),
+			array(
+				'label' => '$= before trailing punctuation',
+				'selector' => 'title$=here',
+				'expect' => array('Ends with a quote "here"'),
 			),
 			array(
 				'label' => '*= case and accent',
@@ -272,6 +275,7 @@ class WireTest_PageFinderParity extends WireTest {
 			'banana',
 			'Crème brûlée',
 			'Émile Zola',
+			'Ends with a quote "here"',
 			'Hello World',
 			'Zürich',
 		);
@@ -281,6 +285,7 @@ class WireTest_PageFinderParity extends WireTest {
 			'apple',
 			'banana',
 			'Crème brûlée',
+			'Ends with a quote "here"',
 			'Hello World',
 			'Zürich',
 			'Äpfel',

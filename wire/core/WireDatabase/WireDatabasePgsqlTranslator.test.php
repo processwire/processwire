@@ -25,6 +25,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testFolding();
 		$this->testJson();
 		$this->testGaps();
+		$this->testFulltext();
 	}
 
 	/**
@@ -213,6 +214,55 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 	 * Case- and accent-insensitive text comparisons and sorting (pw_fold), as MySQL's default collations
 	 *
 	 */
+	/**
+	 * MATCH ... AGAINST as PostgreSQL full text search (tsvector), when the pw_search configuration exists
+	 *
+	 */
+	protected function testFulltext() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$t = function($sql) use($tr) { return implode(";\n", $tr->translateStatements($sql)); };
+		$this->check('MATCH throws until full text search is set up', true, $this->throwsMatching(function() use($t) { $t('SELECT 1 FROM t WHERE MATCH(data) AGAINST(:v)'); }, '/supportsFulltext/'));
+		$tr->setFulltextAvailable(true);
+		$this->check('MATCH ... IN BOOLEAN MODE as a condition is an indexable @@',
+			'SELECT pages_id FROM field_body WHERE (pw_tsvector(data) @@ pw_tsquery(:v, true))',
+			$t('SELECT pages_id FROM field_body WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE)'));
+		$this->check('NOT MATCH as DatabaseQuerySelectFulltext writes it',
+			"SELECT pages_id FROM field_body AS t WHERE \n  NOT (pw_tsvector(t.data) @@ pw_tsquery(:v, true)) AND t.pages_id>1",
+			$t("SELECT pages_id FROM field_body AS t WHERE \n  NOT MATCH(t.data) AGAINST(:v IN BOOLEAN MODE) AND t.pages_id>1"));
+		$this->check('MATCH as a value is its relevance (ts_rank)',
+			'SELECT ts_rank(pw_tsvector(data), pw_tsquery(:v, true)) + 111.1 AS score FROM field_body',
+			$t('SELECT MATCH(data) AGAINST(:v IN BOOLEAN MODE) + 111.1 AS score FROM field_body'));
+		$this->check('MATCH as a score inside MAX()',
+			'SELECT MAX(ts_rank(pw_tsvector(data), pw_tsquery(:v, true))) AS score FROM field_body',
+			$t('SELECT MAX(MATCH(data) AGAINST(:v IN BOOLEAN MODE)) AS score FROM field_body'));
+		$this->check('natural language mode and query expansion match any word',
+			'SELECT ts_rank(pw_tsvector(data), pw_tsquery(:v, false)) AS s FROM t WHERE ((pw_tsvector(data) @@ pw_tsquery(:w, false)))',
+			$t('SELECT MATCH(data) AGAINST(:v WITH QUERY EXPANSION) AS s FROM t WHERE (MATCH(data) AGAINST(:w))'));
+		$this->check('MATCH over several columns',
+			'SELECT id FROM t WHERE ((pw_tsvector(a) || pw_tsvector(b)) @@ pw_tsquery(:v, true))',
+			$t('SELECT id FROM t WHERE MATCH(a, b) AGAINST(:v IN BOOLEAN MODE)'));
+		$statements = $tr->translateStatements("CREATE TABLE `field_body` (`pages_id` int NOT NULL, `data` mediumtext NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->check('a FULLTEXT key keeps its trigram index', true, (bool) preg_grep('/"field_body__data" ON "field_body" USING gin \("data" gin_trgm_ops\)/', $statements));
+		$this->check('a FULLTEXT key also gets a tsvector index', 'CREATE INDEX "field_body__data__fts" ON "field_body" USING gin (pw_tsvector("data"))', end($statements));
+		$statements = $tr->translateStatements("ALTER TABLE `t` ADD FULLTEXT KEY `ab` (`a`, `b`)");
+		$this->check('a FULLTEXT key over several columns', 'CREATE INDEX "t__ab__fts" ON "t" USING gin ((pw_tsvector("a") || pw_tsvector("b")))', end($statements));
+		$this->check('DROP INDEX drops the tsvector index too', ['DROP INDEX IF EXISTS "t__ab"', 'DROP INDEX IF EXISTS "t__ab__fts"'], $tr->translateStatements('DROP INDEX ab ON t'));
+		$backfill = WireDatabasePgsqlTranslator::fulltextIndexBackfillSql([
+			['schemaname' => 'public', 'tablename' => 'field_body', 'indexname' => 'field_body__data', 'indexdef' => 'CREATE INDEX field_body__data ON public.field_body USING gin (pw_fold(data) gin_trgm_ops)'],
+			['schemaname' => 'public', 'tablename' => 't', 'indexname' => 't__ab', 'indexdef' => 'CREATE INDEX t__ab ON public.t USING gin (a gin_trgm_ops, "B" gin_trgm_ops)'],
+			['schemaname' => 'public', 'tablename' => 'u', 'indexname' => 'u__c', 'indexdef' => 'CREATE INDEX u__c ON public.u USING gin (c gin_trgm_ops)'],
+			['schemaname' => 'public', 'tablename' => 'u', 'indexname' => 'u__c__fts', 'indexdef' => 'CREATE INDEX u__c__fts ON public.u USING gin (pw_tsvector(c))'],
+			['schemaname' => 'public', 'tablename' => 'pages', 'indexname' => 'pages__name', 'indexdef' => 'CREATE INDEX pages__name ON public.pages USING btree (name)'],
+		]);
+		$this->check('existing FULLTEXT keys get a tsvector index once', [
+			'CREATE INDEX IF NOT EXISTS "field_body__data__fts" ON "public"."field_body" USING gin (pw_tsvector("data"))',
+			'CREATE INDEX IF NOT EXISTS "t__ab__fts" ON "public"."t" USING gin ((pw_tsvector("a") || pw_tsvector("B")))',
+		], $backfill);
+		$tr->setFulltextAvailable(false);
+		$statements = $tr->translateStatements("ALTER TABLE `t` ADD FULLTEXT KEY `ab` (`a`, `b`)");
+		$this->check('no tsvector index without full text search', 1, count($statements));
+	}
+
 	protected function testFolding() {
 		$tr = new WireDatabasePgsqlTranslator();
 		$t = function($sql) use($tr) { return implode(";\n", $tr->translateStatements($sql)); };

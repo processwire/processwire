@@ -4740,6 +4740,14 @@ class InstallerPgsqlPDO extends InstallerPgsqlPDOBase {
 		);
 		$this->translator->setJsonAvailable($result['json']);
 		if($result['error'] !== '') $notes[] = $result['error'];
+		// full text search too, so that FULLTEXT keys get their tsvector index
+		$result = WireDatabasePgsqlTranslator::setupFulltext(
+			function($sql) use($pdo) { $pdo->execNative($sql); },
+			function($sql) use($pdo) { return $pdo->queryNative($sql)->fetchColumn(); }
+		);
+		$this->translator->setFulltextAvailable($result['fulltext']);
+		if($result['fulltext']) $notes[] = 'Fulltext searches use PostgreSQL full text search (pw_search)';
+		if($result['error'] !== '') $notes[] = $result['error'];
 		return $notes;
 	}
 
