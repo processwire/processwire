@@ -661,6 +661,33 @@ class WireDatabaseSQLiteTranslator {
 	}
 
 	/**
+	 * Detect FTS5 and whether this database uses it for FULLTEXT keys, creating the marker in an empty database
+	 *
+	 * A database with tables but no marker was created before FTS5 support: its FULLTEXT keys are plain
+	 * indexes, so it keeps using LIKE for fulltext operators.
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 *
+	 */
+	public static function setupFulltext(\PDO $pdo) {
+		$fts5 = (int) $pdo->query("SELECT sqlite_compileoption_used('ENABLE_FTS5')")->fetchColumn() === 1;
+		if(!$fts5) {
+			try {
+				$pdo->exec('CREATE VIRTUAL TABLE temp.pw_fts5_probe USING fts5(x)');
+				$pdo->exec('DROP TABLE temp.pw_fts5_probe');
+			} catch(\PDOException $e) {
+				return false;
+			}
+		}
+		$marker = self::fulltextMarker;
+		if($pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='$marker'")->fetchColumn()) return true;
+		if((int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")->fetchColumn() > 0) return false;
+		$pdo->exec("CREATE TABLE IF NOT EXISTS `$marker` (v INTEGER)");
+		return true;
+	}
+
+	/**
 	 * Get the FULLTEXT keys of a table (cached until the next DDL), or none without a connection
 	 *
 	 * @param string $table
