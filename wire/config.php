@@ -1343,8 +1343,8 @@ $config->cookieOptions = array(
  * - `sqlite`: SQLite database file, configured with the dbFile setting below.
  * - `pgsql`: PostgreSQL 16 or newer (experimental), configured with the dbName, dbUser, dbPass, dbHost and
  *    dbPort settings below (set dbPort to 5432, PostgreSQL's usual port, since the default here is MySQL's),
- *    or dbSocket as the directory containing the server's socket. Text comparisons are not yet case and
- *    accent insensitive as on MySQL (see WireDatabase/API.md).
+ *    or dbSocket as the directory containing the server's socket. Text comparisons ignore case and
+ *    accents as on MySQL (see the 'fold' option of dbOptions below, and WireDatabase/API.md).
  *
  * @var string
  *
@@ -1502,6 +1502,9 @@ $config->dbSqlModes = array(
  * - `savepoints` (bool): PostgreSQL only. Wrap each statement inside a transaction in a savepoint, so
  *    that a failed statement does not abort the transaction (as with MySQL)? Costs two extra round trips
  *    per statement in a transaction, and a subtransaction for each that writes. (default=true)
+ * - `fold` (bool): PostgreSQL only. Compare, search, sort and index text on pw_fold(), so that comparisons
+ *    ignore case and accents as MySQL's default collations do? Needs the unaccent extension for accents;
+ *    pw_fold() is created on the first connection. If unaccent's rules change, REINDEX. (default=true)
  *
  * With PostgreSQL, values come back as pdo_pgsql returns them (integers as ints, everything else as
  * strings), which matches what pdo_mysql returns on PHP 8.1 and newer.

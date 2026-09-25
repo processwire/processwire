@@ -103,6 +103,20 @@ class WireDatabasePgsqlTranslator {
 	protected $pdoIsPgsql = null;
 
 	/**
+	 * Do the pw_fold() and pw_unaccent() functions exist, so that text can be compared as MySQL does?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $foldAvailable = false;
+
+	/**
+	 * Suffix of the folded companion index of a unique or primary key on text columns
+	 *
+	 */
+	const foldIndexSuffix = '__fold';
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -1298,7 +1312,90 @@ class WireDatabasePgsqlTranslator {
 	protected function selectPasses(array $tokens) {
 		$tokens = $this->typedComparisons($tokens);
 		$tokens = $this->havingAliases($tokens);
-		return $this->anyValueGroupBy($tokens);
+		$tokens = $this->anyValueGroupBy($tokens);
+		return $this->foldOrderBy($tokens);
+	}
+
+	/**
+	 * Sort text columns by their folded value, as MySQL's case- and accent-insensitive collations sort
+	 *
+	 * `ORDER BY t.data` becomes `ORDER BY pw_fold(t.data)`, which a btree index on the folded value can serve.
+	 * Terms that are a text column, or any_value() of one, are folded;
+	 * other expressions are left alone. SELECT DISTINCT is left alone, since PostgreSQL requires its
+	 * ORDER BY terms to appear in the select list.
+	 *
+	 * @param array $tokens
+	 * @return array
+	 *
+	 */
+	protected function foldOrderBy(array $tokens) {
+		if(!$this->foldAvailable) return $tokens;
+		$orderPos = -1;
+		$depth = 0;
+		$n = count($tokens);
+		$first = true;
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				continue;
+			}
+			if($depth !== 0 || $t[0] !== 'word') continue;
+			if($this->isWord($t, 'SELECT') && $first) {
+				$first = false;
+				$j = $this->next($tokens, $i + 1);
+				if($j > -1 && $this->isWord($tokens[$j], 'DISTINCT')) return $tokens;
+			} else if($this->isWord($t, 'ORDER')) {
+				$j = $this->next($tokens, $i + 1);
+				if($j > -1 && $this->isWord($tokens[$j], 'BY')) $orderPos = $j + 1;
+			}
+		}
+		if($orderPos < 0) return $tokens;
+		$aliases = $this->tableAliases($tokens);
+		if(!count($aliases)) return $tokens;
+		$tables = array_values(array_unique(array_values($aliases)));
+		$single = count($tables) === 1 ? $tables[0] : null;
+		$orderEnd = $this->clauseEnd($tokens, $orderPos);
+		$terms = [];
+		foreach($this->splitCommas(array_slice($tokens, $orderPos, $orderEnd - $orderPos)) as $part) {
+			$lead = [];
+			$trail = [];
+			while(count($part) && $part[0][0] === 'ws') $lead[] = array_shift($part);
+			while(count($part) && $part[count($part) - 1][0] === 'ws') array_unshift($trail, array_pop($part));
+			$suffix = [];
+			if(count($part) && $this->isWord($part[count($part) - 1], ['ASC', 'DESC'])) {
+				$suffix = [['ws', ' '], array_pop($part)];
+				$part = $this->trimTokens($part);
+			}
+			$sql = trim($this->join($part));
+			$ref = $sql;
+			if(preg_match('/^any_value\((.+)\)$/i', $sql, $m)) $ref = $m[1];
+			$table = null;
+			$column = '';
+			if(preg_match('/^("?)([A-Za-z0-9_]+)\1\.("?)([A-Za-z0-9_]+)\3$/', $ref, $m)) {
+				if(isset($aliases[$m[2]])) {
+					$table = $aliases[$m[2]];
+					$column = $m[4];
+				}
+			} else if($single !== null && preg_match('/^("?)([A-Za-z0-9_]+)\1$/', $ref, $m)) {
+				$table = $single;
+				$column = $m[2];
+			}
+			if($table !== null) {
+				$schema = $this->tableSchema($table);
+				if(isset($schema['columns'][$column]) && $this->typeClass($schema['columns'][$column]) === 'text') {
+					$part = [['word', "pw_fold($sql)"]];
+				}
+			}
+			$terms[] = array_merge($lead, $part, $suffix, $trail);
+		}
+		$rebuilt = [];
+		foreach($terms as $x => $term) {
+			if($x) $rebuilt[] = ['punct', ','];
+			foreach($term as $t) $rebuilt[] = $t;
+		}
+		return array_merge(array_slice($tokens, 0, $orderPos), $rebuilt, array_slice($tokens, $orderEnd));
 	}
 
 	/**
@@ -1536,6 +1633,99 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
+	 * Set whether the pw_fold() and pw_unaccent() functions exist (see WireDatabaseDialectPgsql::foldFunctionsSql())
+	 *
+	 * When they do, text columns are compared, searched, sorted and indexed on their folded value
+	 * (lowercase, without accents), as with MySQL's default case- and accent-insensitive collations.
+	 *
+	 * @param bool $available
+	 *
+	 */
+	public function setFoldAvailable($available) {
+		$this->foldAvailable = (bool) $available;
+		$this->cache = [];
+	}
+
+	/**
+	 * Are text comparisons folded?
+	 *
+	 * @return bool
+	 *
+	 */
+	public function foldAvailable() {
+		return $this->foldAvailable;
+	}
+
+	/**
+	 * Create the pw_fold() and pw_unaccent() functions (and the unaccent extension when possible)
+	 *
+	 * pw_fold(text) is lower(unaccent(text)): text columns are compared, searched, sorted and indexed on
+	 * it, so that comparisons ignore case and accents as MySQL's default collations do. pw_unaccent(text)
+	 * removes accents only, for REGEXP patterns. Both are IMMUTABLE so that they can be indexed, and call
+	 * unaccent() schema-qualified so that they do not depend on search_path. Without the unaccent
+	 * extension they fold case only.
+	 *
+	 * If the unaccent rules change (i.e. an upgraded unaccent.rules file), indexes on pw_fold() are
+	 * stale: rebuild them with REINDEX.
+	 *
+	 * Used on connect and by the installer, so it takes callables rather than a connection.
+	 *
+	 * @param callable $exec function(string $sql): executes a statement (throws on error)
+	 * @param callable $fetchColumn function(string $sql): returns the first column of the first row
+	 * @return array [ 'fold' => bool, 'accents' => bool, 'error' => string ]
+	 *
+	 */
+	public static function setupFold(callable $exec, callable $fetchColumn) {
+		$result = ['fold' => false, 'accents' => false, 'error' => ''];
+		$schema = '';
+		try {
+			$exec('CREATE EXTENSION IF NOT EXISTS unaccent');
+		} catch(\Exception $e) {
+			$result['error'] = 'unaccent extension unavailable, so comparisons ignore case but not accents: ' . $e->getMessage();
+		}
+		try {
+			$schema = (string) $fetchColumn(
+				"SELECT n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = 'unaccent'"
+			);
+		} catch(\Exception $e) {
+			$schema = '';
+		}
+		foreach(self::foldFunctionsSql($schema) as $sql) {
+			try {
+				$exec($sql);
+			} catch(\Exception $e) {
+				$result['error'] = 'pw_fold() could not be created, so comparisons are case- and accent-sensitive: ' . $e->getMessage();
+				return $result;
+			}
+		}
+		$result['fold'] = true;
+		$result['accents'] = $schema !== '';
+		return $result;
+	}
+
+	/**
+	 * Get the CREATE FUNCTION statements for pw_unaccent() and pw_fold()
+	 *
+	 * @param string $unaccentSchema Schema of the unaccent extension, or blank when it is not installed
+	 * @return array
+	 *
+	 */
+	public static function foldFunctionsSql($unaccentSchema) {
+		$options = 'RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE';
+		if($unaccentSchema === '') {
+			$unaccent = '$1';
+		} else {
+			$s = '"' . str_replace('"', '""', $unaccentSchema) . '"';
+			$dictionary = str_replace("'", "''", "$s.unaccent");
+			$unaccent = "$s.unaccent('$dictionary'::regdictionary, \$1)";
+		}
+		return [
+			"CREATE OR REPLACE FUNCTION pw_unaccent(text) $options AS \$fn\$ SELECT $unaccent \$fn\$",
+			"CREATE OR REPLACE FUNCTION pw_fold(text) $options AS \$fn\$ SELECT lower($unaccent) \$fn\$",
+		];
+	}
+
+	/**
 	 * Forget cached schema facts for a table (after DDL changes it)
 	 *
 	 * @param string $table
@@ -1666,8 +1856,38 @@ class WireDatabasePgsqlTranslator {
 		$single = count($tables) === 1 ? $tables[0] : null; // unqualified columns can be resolved
 		$n = count($tokens);
 		$out = [];
+		// assignment targets of an UPDATE's SET clause (col = value) are not comparisons to fold
+		$assignments = [];
+		$depth = 0;
+		$inSet = false;
+		$expectTarget = false;
+		foreach($tokens as $x => $t) {
+			if($t[0] === 'punct') {
+				if($t[1] === '(') $depth++;
+				if($t[1] === ')') $depth--;
+				if($inSet && $depth === 0 && $t[1] === ',') $expectTarget = true;
+				continue;
+			}
+			if($depth !== 0 || $t[0] === 'ws') continue;
+			if($this->isWord($t, 'SET')) {
+				$inSet = true;
+				$expectTarget = true;
+			} else if($this->isWord($t, ['WHERE', 'FROM', 'ORDER', 'LIMIT', 'RETURNING'])) {
+				$inSet = false;
+				$expectTarget = false;
+			} else if($inSet && $expectTarget) {
+				$assignments[$x] = true;
+				$expectTarget = false;
+			}
+		}
 		for($i = 0; $i < $n; $i++) {
 			$t = $tokens[$i];
+			if(isset($assignments[$i]) && $this->foldAvailable) {
+				// SET col = value: an assignment, so only number coercion (below) applies, never folding
+				$foldHere = false;
+			} else {
+				$foldHere = true;
+			}
 			if($t[0] === 'punct' && $t[1] === '(' && $this->startsSelect($tokens, $i)) {
 				// a subquery has tables of its own and is handled by subqueries()
 				$end = $this->matchParen($tokens, $i);
@@ -1744,9 +1964,83 @@ class WireDatabasePgsqlTranslator {
 				$i = $r;
 				continue;
 			}
+			if($class === 'text' && $this->foldAvailable && $foldHere) {
+				$folded = $this->foldComparison($tokens, $colTokens, $end, $k);
+				if($folded !== null) {
+					foreach($folded[0] as $ft) $out[] = $ft;
+					$i = $folded[1];
+					continue;
+				}
+			}
 			$out[] = $t;
 		}
 		return $out;
+	}
+
+	/**
+	 * Fold a comparison of a text column with a value, as MySQL's case- and accent-insensitive collations compare
+	 *
+	 * `col = v`, `col LIKE v` and `col IN (v, ...)` become `pw_fold(col) = pw_fold(v)` and so on, where v is a
+	 * string literal or a named parameter. REGEXP folds the column but only removes accents from the pattern
+	 * (it is matched case-insensitively), since lowercasing a pattern changes escapes such as `\W`. Comparisons
+	 * with other columns (joins) and with '' are left alone.
+	 *
+	 * @param array $tokens
+	 * @param array $colTokens Tokens of the column reference
+	 * @param int $end Index after the column tokens
+	 * @param int $k Index of the operator
+	 * @return array|null [ tokens to output, index of the last token consumed ], or null to leave it alone
+	 *
+	 */
+	protected function foldComparison(array $tokens, array $colTokens, $end, $k) {
+		$isValue = function($x) use($tokens) {
+			if($x < 0) return false;
+			$t = $tokens[$x];
+			if($t[0] === 'param') return $t[1] !== '?';
+			return $t[0] === 'str' && $t[1] !== "''";
+		};
+		$fold = function(array $ts, $fn = 'pw_fold') { return ['word', "$fn(" . trim($this->join($ts)) . ')']; };
+		$out = [$fold($colTokens)];
+		$op = $tokens[$k];
+		$pattern = false;
+		$opEnd = $k; // last token of the operator
+		if($op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true)) {
+			// comparison
+		} else if($op[0] === 'punct' && ($op[1] === '~*' || $op[1] === '!~*')) {
+			$pattern = true;
+		} else if($this->isWord($op, ['LIKE', 'ILIKE'])) {
+			$op = ['word', 'LIKE'];
+		} else if($this->isWord($op, 'NOT')) {
+			$k2 = $this->next($tokens, $k + 1);
+			if($k2 < 0 || !$this->isWord($tokens[$k2], ['LIKE', 'ILIKE'])) return null;
+			$op = ['word', 'NOT LIKE'];
+			$opEnd = $k2;
+		} else if($this->isWord($op, 'IN')) {
+			$open = $this->next($tokens, $k + 1);
+			if($open < 0 || $tokens[$open][1] !== '(' || $tokens[$open][0] !== 'punct') return null;
+			$close = $this->matchParen($tokens, $open);
+			if($close < 0) return null;
+			$items = [];
+			foreach($this->splitCommas(array_slice($tokens, $open + 1, $close - $open - 1)) as $item) {
+				$item = $this->trimTokens($item);
+				if(count($item) !== 1 || !in_array($item[0][0], ['str', 'param']) || $item[0][1] === '?') return null;
+				$items[] = "pw_fold({$item[0][1]})";
+			}
+			for($x = $end; $x < $k; $x++) $out[] = $tokens[$x];
+			$out[] = $op;
+			for($x = $k + 1; $x < $open; $x++) $out[] = $tokens[$x];
+			$out[] = ['word', '(' . implode(', ', $items) . ')'];
+			return [$out, $close];
+		} else {
+			return null;
+		}
+		$r = $this->next($tokens, $opEnd + 1);
+		if(!$isValue($r)) return null;
+		for($x = $end; $x < $k; $x++) $out[] = $tokens[$x];
+		$out[] = $op;
+		for($x = $opEnd + 1; $x < $r; $x++) $out[] = $tokens[$x];
+		$out[] = $fold([$tokens[$r]], $pattern ? 'pw_unaccent' : 'pw_fold');
+		return [$out, $r];
 	}
 
 	/**
@@ -2646,7 +2940,7 @@ class WireDatabasePgsqlTranslator {
 	 * @param array $def Tokens of the definition (KEY name (cols), UNIQUE KEY ..., FULLTEXT KEY ...)
 	 * @param array $columnTypes Column info as from columnDef() or getColumnTypes(), indexed by column name
 	 * @param bool $ifNotExists
-	 * @return string
+	 * @return array Statements (none when the index is skipped)
 	 *
 	 */
 	protected function indexDef($table, array $def, array $columnTypes, $ifNotExists = false) {
@@ -2658,7 +2952,7 @@ class WireDatabasePgsqlTranslator {
 			if($t[0] === 'punct') break;
 		}
 		list($cols, $lens) = $this->indexColumns($def);
-		if(!count($cols)) return '';
+		if(!count($cols)) return [];
 		$name = $this->indexDefName($def);
 		if($name === null) $name = $cols[0];
 		return $this->createIndexSql($table, $name, $cols, $lens, $unique, $fulltext, $ifNotExists, $columnTypes);
@@ -2679,23 +2973,90 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	protected function createIndexSql($table, $name, array $cols, array $prefixLens, $unique, $fulltext, $ifNotExists, array $columnTypes) {
-		if($fulltext && !$this->trigramAvailable) return '';
+		if($fulltext && !$this->trigramAvailable) return [];
+		$isText = function($col) use($columnTypes) {
+			return isset($columnTypes[$col]) && !empty($columnTypes[$col]['isText']);
+		};
+		$isUnbounded = function($col) use($columnTypes, $isText) {
+			return $isText($col) && strpos($columnTypes[$col]['pgType'], 'text') === 0;
+		};
+		$fold = $this->foldAvailable && count(array_filter($cols, $isText));
+		$head = function($indexName, $unique) use($table, $ifNotExists) {
+			return 'CREATE ' . ($unique ? 'UNIQUE ' : '') . 'INDEX ' . ($ifNotExists ? 'IF NOT EXISTS ' : '') .
+				$this->quoteId($this->indexName($table, $indexName)) . ' ON ' . $this->quoteId($table);
+		};
+		if($fulltext) {
+			// FULLTEXT has no equivalent here; a trigram index accelerates the LIKE/REGEXP fallback (requires pg_trgm)
+			$gin = [];
+			foreach($cols as $col) {
+				$q = $this->quoteId($col);
+				$gin[] = ($fold && $isText($col) ? "pw_fold($q)" : $q) . ' gin_trgm_ops';
+			}
+			return [$head($name, $unique) . ' USING gin (' . implode(', ', $gin) . ')'];
+		}
 		$parts = [];
 		foreach($cols as $n => $col) {
 			$q = $this->quoteId($col);
 			// a prefix on an unbounded text column becomes an expression index, since btree entries are limited in size
-			$isText = isset($columnTypes[$col]) && $columnTypes[$col]['isText'] && strpos($columnTypes[$col]['pgType'], 'text') === 0;
-			$parts[] = isset($prefixLens[$n]) && $isText ? "left($q, $prefixLens[$n])" : $q;
+			$parts[] = isset($prefixLens[$n]) && $isUnbounded($col) ? "left($q, $prefixLens[$n])" : $q;
 		}
-		$sql = 'CREATE ' . ($unique ? 'UNIQUE ' : '') . 'INDEX ' . ($ifNotExists ? 'IF NOT EXISTS ' : '') .
-			$this->quoteId($this->indexName($table, $name)) . ' ON ' . $this->quoteId($table);
-		if($fulltext) {
-			// FULLTEXT has no equivalent here; a trigram index accelerates the ILIKE fallback (requires pg_trgm)
-			$gin = [];
-			foreach($cols as $col) $gin[] = $this->quoteId($col) . ' gin_trgm_ops';
-			return $sql . ' USING gin (' . implode(', ', $gin) . ')';
+		$plain = ' (' . implode(', ', $parts) . ')';
+		if(!$fold) return [$head($name, $unique) . $plain];
+
+		// text is compared on its folded value (see foldComparison()), so index that
+		if(count($cols) === 1 && $isUnbounded($cols[0])) {
+			// equality only: a btree cannot hold arbitrarily long values, a hash index can (LIKE uses the trigram index)
+			$folded = ' USING hash (pw_fold(' . $this->quoteId($cols[0]) . '))';
+		} else {
+			$foldedParts = [];
+			foreach($cols as $n => $col) {
+				$q = $this->quoteId($col);
+				if(!$isText($col)) {
+					$foldedParts[] = $q;
+				} else if($isUnbounded($col)) {
+					$len = isset($prefixLens[$n]) ? $prefixLens[$n] : 250;
+					$foldedParts[] = "pw_fold(left($q, $len))";
+				} else {
+					$foldedParts[] = "pw_fold($q)";
+				}
+			}
+			$folded = ' (' . implode(', ', $foldedParts) . ')';
 		}
-		return $sql . ' (' . implode(', ', $parts) . ')';
+		// a unique key keeps its exact index, so that uniqueness is as before, and gets a folded companion
+		if($unique) return [$head($name, true) . $plain, $head($name . self::foldIndexSuffix, false) . $folded];
+		return [$head($name, false) . $folded];
+	}
+
+	/**
+	 * Get the folded companion index of a primary key on text columns, or blank string when there is none
+	 *
+	 * @param string $table
+	 * @param array $cols
+	 * @param array $columnTypes
+	 * @return string
+	 *
+	 */
+	protected function primaryFoldIndexSql($table, array $cols, array $columnTypes) {
+		if(!$this->foldAvailable) return '';
+		$statements = $this->createIndexSql($table, 'primary', $cols, [], true, false, false, $columnTypes);
+		return count($statements) > 1 ? $statements[1] : '';
+	}
+
+	/**
+	 * Get column types of a table for index definitions, from the database or the schema cache
+	 *
+	 * @param string $table
+	 * @return array [ column => [ 'pgType' => ..., 'isText' => bool ] ]
+	 *
+	 */
+	protected function indexColumnTypes($table) {
+		$types = $this->getColumnTypes($table);
+		if(count($types)) return $types;
+		$schema = $this->tableSchema($table);
+		foreach($schema['columns'] as $name => $pgType) {
+			$types[$name] = ['pgType' => $pgType, 'isText' => $this->typeClass($pgType) === 'text'];
+		}
+		return $types;
 	}
 
 	/**
@@ -2762,9 +3123,12 @@ class WireDatabasePgsqlTranslator {
 			$this->quoteId($table) . " (\n  " . implode(",\n  ", $lines) . "\n)"
 		];
 
-		foreach($indexDefs as $def) {
-			$sql = $this->indexDef($table, $def, $columns, $ifNotExists);
+		if(count($primaryCols)) {
+			$sql = $this->primaryFoldIndexSql($table, $primaryCols, $columns);
 			if($sql !== '') $statements[] = $sql;
+		}
+		foreach($indexDefs as $def) {
+			foreach($this->indexDef($table, $def, $columns, $ifNotExists) as $sql) $statements[] = $sql;
 		}
 
 		$this->clearSchemaCache($table);
@@ -2792,8 +3156,8 @@ class WireDatabasePgsqlTranslator {
 		$i = $this->next($tokens, $onPos + 1);
 		$table = $this->name($tokens[$i]);
 		foreach(array_slice($tokens, $i + 1) as $t) $def[] = $t;
-		$sql = $this->indexDef($table, $def, $this->getColumnTypes($table), $ifNotExists);
-		return $sql === '' ? 'SELECT 1' : $sql;
+		$statements = $this->indexDef($table, $def, $this->indexColumnTypes($table), $ifNotExists);
+		return count($statements) ? $statements : 'SELECT 1';
 	}
 
 	/**
@@ -2810,7 +3174,23 @@ class WireDatabasePgsqlTranslator {
 		$k = $j > -1 ? $this->next($tokens, $j + 1) : -1;
 		if($k < 0) return 'DROP INDEX IF EXISTS ' . $this->quoteId($index);
 		$table = $this->name($tokens[$k]);
-		return 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index));
+		return $this->dropIndexStatements($table, $index);
+	}
+
+	/**
+	 * Get statements that drop an index and its folded companion (see createIndexSql())
+	 *
+	 * @param string $table
+	 * @param string $index Index name without table prefix
+	 * @return array
+	 *
+	 */
+	protected function dropIndexStatements($table, $index) {
+		$statements = ['DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index))];
+		if($this->foldAvailable) {
+			$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index . self::foldIndexSuffix));
+		}
+		return $statements;
 	}
 
 	/**
@@ -2919,12 +3299,14 @@ class WireDatabasePgsqlTranslator {
 
 			if($w === 'ADD') {
 				if(in_array($w2, ['INDEX', 'KEY', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
-					if($columnTypes === null) $columnTypes = $this->getColumnTypes($table);
-					$sql = $this->indexDef($table, $rest, $columnTypes);
-					if($sql !== '') $statements[] = $sql;
+					if($columnTypes === null) $columnTypes = $this->indexColumnTypes($table);
+					foreach($this->indexDef($table, $rest, $columnTypes) as $sql) $statements[] = $sql;
 				} else if($w2 === 'PRIMARY') {
 					list($cols) = $this->indexColumns($rest);
 					$statements[] = "ALTER TABLE $qTable ADD PRIMARY KEY (" . implode(', ', array_map([$this, 'quoteId'], $cols)) . ')';
+					if($columnTypes === null) $columnTypes = $this->indexColumnTypes($table);
+					$sql = $this->primaryFoldIndexSql($table, $cols, $columnTypes);
+					if($sql !== '') $statements[] = $sql;
 				} else if($w2 === 'CONSTRAINT') {
 					throw new \PDOException("PostgreSQL translator: unsupported ALTER TABLE for $table: " . $this->join($spec));
 				} else {
@@ -2944,9 +3326,10 @@ class WireDatabasePgsqlTranslator {
 			} else if($w === 'DROP') {
 				if($w2 === 'INDEX' || $w2 === 'KEY') {
 					$k = $this->next($rest, $j + 1);
-					$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $this->name($rest[$k])));
+					foreach($this->dropIndexStatements($table, $this->name($rest[$k])) as $sql) $statements[] = $sql;
 				} else if($w2 === 'PRIMARY') {
 					$statements[] = "ALTER TABLE $qTable DROP CONSTRAINT IF EXISTS " . $this->quoteId("{$table}_pkey");
+					if($this->foldAvailable) $statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, 'primary' . self::foldIndexSuffix));
 				} else {
 					if($w2 === 'COLUMN') $j = $this->next($rest, $j + 1);
 					$statements[] = "ALTER TABLE $qTable DROP COLUMN " . $this->quoteId($this->name($rest[$j]));
@@ -2958,7 +3341,13 @@ class WireDatabasePgsqlTranslator {
 					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($this->name($parts[0])) . ' TO ' . $this->quoteId($this->name($parts[2]));
 				} else if($w2 === 'INDEX' || $w2 === 'KEY') {
 					$parts = array_values(array_filter(array_slice($rest, $j + 1), function($t) { return $t[0] !== 'ws'; }));
-					$statements[] = 'ALTER INDEX ' . $this->quoteId($this->indexName($table, $this->name($parts[0]))) . ' RENAME TO ' . $this->quoteId($this->indexName($table, $this->name($parts[2])));
+					$from = $this->name($parts[0]);
+					$to = $this->name($parts[2]);
+					$statements[] = 'ALTER INDEX ' . $this->quoteId($this->indexName($table, $from)) . ' RENAME TO ' . $this->quoteId($this->indexName($table, $to));
+					if($this->foldAvailable) {
+						$statements[] = 'ALTER INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $from . self::foldIndexSuffix)) .
+							' RENAME TO ' . $this->quoteId($this->indexName($table, $to . self::foldIndexSuffix));
+					}
 				} else {
 					if($w2 === 'TO' || $w2 === 'AS') $j = $this->next($rest, $j + 1);
 					$renameTo = $this->name($rest[$j]);
