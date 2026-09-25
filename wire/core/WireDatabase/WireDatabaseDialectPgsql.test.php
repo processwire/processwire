@@ -15,6 +15,8 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testLive();
 		$this->testFolding();
 		$this->testNumberConversion();
+		$this->testBackups();
+		$this->testMysqlFunctions();
 		$this->testJson();
 		$this->testGaps();
 		$this->testFulltext();
@@ -572,6 +574,169 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		foreach($created as $p) $pages->delete($p, true);
 	}
 
+	/**
+	 * A WireDatabaseBackup round trip (CREATE TABLEs from the schema log), and MySQL's whole-second times (live, pgsql only)
+	 *
+	 */
+	protected function testBackups() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$a = WireTests::fieldPrefix . 'pgsql_bk_text';
+		$b = WireTests::fieldPrefix . 'pgsql_bk_misc';
+		foreach([$a, $b] as $t) $database->exec("DROP TABLE IF EXISTS `$t`");
+		$database->exec("CREATE TABLE `$a` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, PRIMARY KEY (`pages_id`), KEY `data_exact` (`data`(250)), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$database->exec("CREATE TABLE `$b` (`id` int unsigned NOT NULL AUTO_INCREMENT, `name` varchar(128) NOT NULL DEFAULT '', `j` JSON, `d` datetime NOT NULL DEFAULT '0000-00-00 00:00:00', `ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, `n` decimal(10,2) DEFAULT NULL, `status` enum('on','off') NOT NULL DEFAULT 'on', PRIMARY KEY (`id`), UNIQUE KEY `name` (`name`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$texts = [1 => "O'Brien \\ back\\slash \"quoted\"", 2 => 'Émile Zola — ünïcödé ✓', 3 => "line1\nline2\ttab", 4 => '', 5 => '<p>Hello World</p>'];
+		foreach($texts as $id => $text) {
+			$q = $database->prepare("INSERT INTO `$a` (pages_id, data) VALUES (:id, :d)");
+			$q->bindValue(':id', $id, \PDO::PARAM_INT);
+			$q->bindValue(':d', $text);
+			$q->execute();
+		}
+		foreach([['a', '{"x":[1,2],"s":"it\'s"}', '2020-01-02 03:04:05', '12.50', 'on'], ['b', null, '0000-00-00 00:00:00', null, 'off'], ["c'q", '[]', '2021-06-07 00:00:00.6', '-3.75', 'on']] as $r) {
+			$q = $database->prepare("INSERT INTO `$b` (name, j, d, n, status) VALUES (:a, :j, :d, :n, :s)");
+			foreach([':a' => $r[0], ':j' => $r[1], ':d' => $r[2], ':n' => $r[3], ':s' => $r[4]] as $k => $val) $q->bindValue($k, $val);
+			$q->execute();
+		}
+		// MySQL's DATETIME and TIMESTAMP hold whole seconds, rounding a fraction
+		$this->check('DATETIME rounds a fraction to the second, as MySQL does', '2021-06-07 00:00:01', (string) $database->query("SELECT d FROM `$b` WHERE id=3")->fetchColumn());
+		$this->check('TIMESTAMP DEFAULT CURRENT_TIMESTAMP has whole seconds', 1, preg_match('/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/', (string) $database->query("SELECT ts FROM `$b` WHERE id=1")->fetchColumn()));
+		$snapshot = function() use($database, $a, $b) {
+			return [
+				$database->query("SELECT * FROM `$a` ORDER BY pages_id")->fetchAll(\PDO::FETCH_ASSOC),
+				$database->query("SELECT id, name, j, d, n, status FROM `$b` ORDER BY id")->fetchAll(\PDO::FETCH_ASSOC),
+				$database->getIndexes($a, true), $database->getColumns($b),
+			];
+		};
+		$before = $snapshot();
+		$backups = $database->backups();
+		$path = $this->wire()->config->paths->cache . 'WireTestsBackups/';
+		$this->wire()->files->mkdir($path, true);
+		$backups->setPath($path);
+		$file = $backups->backup(['tables' => [$a, $b], 'filename' => 'pgsql-backup-test.sql']);
+		$this->check('backup of PostgreSQL tables', true, is_string($file) && filesize($file) > 0);
+		if(!$file) return;
+		$dump = file_get_contents($file);
+		$this->check('the dump has MySQL CREATE TABLEs from the schema log (UNSIGNED, prefix length, ENUM)', [1, 1, 1],
+			[preg_match('/int(\(\d+\))? unsigned/i', $dump), preg_match('/`data`\(250\)/', $dump), preg_match("/enum\('on','off'\)/i", $dump)]);
+		$this->check('the dump has no stored tsvector columns', 0, preg_match('/__tsv/', $dump));
+		foreach([$a, $b] as $t) $database->exec("DROP TABLE IF EXISTS `$t`");
+		$this->check('restore', true, $backups->restore($file));
+		$after = $snapshot();
+		$this->check('restored text rows (quotes, backslashes, unicode, newlines, empty)', $before[0], $after[0]);
+		$this->check('restored rows (JSON, zero date as NULL, decimals, ENUM)', $before[1], $after[1]);
+		$this->check('restored indexes', $before[2], $after[2]);
+		$this->check('restored columns', $before[3], $after[3]);
+		$database->exec("INSERT INTO `$b` (name) VALUES ('new')");
+		$this->check('the sequence continues after the restored ids', 4, (int) $database->query("SELECT id FROM `$b` WHERE name='new'")->fetchColumn());
+		$this->check('MATCH works on the restored FULLTEXT key', [2], array_map('intval', $database->query("SELECT pages_id FROM `$a` WHERE MATCH(data) AGAINST('+zola' IN BOOLEAN MODE)")->fetchAll(\PDO::FETCH_COLUMN)));
+		$database->exec("UPDATE `$b` SET ts='2000-01-01 00:00:00' WHERE id=1");
+		$database->exec("UPDATE `$b` SET name='a2' WHERE id=1");
+		$this->check('ON UPDATE CURRENT_TIMESTAMP works after the restore', true, strtotime((string) $database->query("SELECT ts FROM `$b` WHERE id=1")->fetchColumn()) > time() - 60);
+		foreach([$a, $b] as $t) $database->exec("DROP TABLE IF EXISTS `$t`");
+		unlink($file);
+	}
+
+	/**
+	 * MySQL functions that module SQL uses, with MySQL's results (checked against MariaDB 12 and MySQL's documentation)
+	 *
+	 */
+	protected function testMysqlFunctions() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$expected = [
+			'CURDATE() = DATE(NOW())' => '1',
+			'LENGTH(NOW())' => '19',
+			'LENGTH(NOW()) = LENGTH(DATE_FORMAT(NOW(), \'%Y-%m-%d %H:%i:%s\'))' => '1',
+			'LENGTH(CURTIME())' => '8',
+			'LENGTH(UTC_TIMESTAMP())' => '19',
+			'LENGTH(CURRENT_DATE())' => '10',
+			'LENGTH(SYSDATE())' => '19',
+			'YEAR(\'2021-06-07 08:09:10\')' => '2021',
+			'MONTH(\'2021-06-07 08:09:10\')' => '6',
+			'DAY(\'2021-06-07 08:09:10\')' => '7',
+			'DAYOFMONTH(\'2021-06-07\')' => '7',
+			'HOUR(\'2021-06-07 08:09:10\')' => '8',
+			'MINUTE(\'2021-06-07 08:09:10\')' => '9',
+			'SECOND(\'2021-06-07 08:09:10\')' => '10',
+			'DAYOFWEEK(\'2021-06-07\')' => '2',
+			'DAYOFWEEK(\'2021-06-06\')' => '1',
+			'WEEKDAY(\'2021-06-07\')' => '0',
+			'WEEKDAY(\'2021-06-06\')' => '6',
+			'DAYOFYEAR(\'2021-06-07\')' => '158',
+			'QUARTER(\'2021-06-07\')' => '2',
+			'DAYNAME(\'2021-06-07\')' => 'Monday',
+			'MONTHNAME(\'2021-06-07\')' => 'June',
+			'DATE(\'2021-06-07 08:09:10\')' => '2021-06-07',
+			'LAST_DAY(\'2021-02-10\')' => '2021-02-28',
+			'LAST_DAY(\'2020-02-10\')' => '2020-02-29',
+			'DATEDIFF(\'2021-06-07\', \'2021-05-01\')' => '37',
+			'DATEDIFF(\'2021-06-07 23:00:00\', \'2021-06-08 01:00:00\')' => '-1',
+			'TIMESTAMPDIFF(MONTH, \'2021-01-31\', \'2021-02-28\')' => '0',
+			'TIMESTAMPDIFF(MONTH, \'2021-01-15\', \'2021-03-16\')' => '2',
+			'TIMESTAMPDIFF(DAY, \'2021-01-31\', \'2021-02-28\')' => '28',
+			'TIMESTAMPDIFF(YEAR, \'2000-02-29\', \'2021-02-28\')' => '20',
+			'TIMESTAMPDIFF(HOUR, \'2021-06-07 08:00:00\', \'2021-06-07 10:30:00\')' => '2',
+			'TIMESTAMPDIFF(MINUTE, \'2021-06-07 08:00:00\', \'2021-06-07 10:30:00\')' => '150',
+			'TIMESTAMPDIFF(SECOND, \'2021-06-07 08:00:00\', \'2021-06-07 08:00:59\')' => '59',
+			'TIMESTAMPDIFF(WEEK, \'2021-06-01\', \'2021-06-15\')' => '2',
+			'TIMESTAMPDIFF(DAY, \'2021-06-15\', \'2021-06-01\')' => '-14',
+			'TIMESTAMPDIFF(MONTH, \'2021-03-16\', \'2021-01-15\')' => '-2',
+			'STR_TO_DATE(\'07/06/2021\', \'%d/%m/%Y\')' => '2021-06-07',
+			'STR_TO_DATE(\'2021-06-07 08:09:10\', \'%Y-%m-%d %H:%i:%s\')' => '2021-06-07 08:09:10',
+			'FIND_IN_SET(\'b\', \'a,b,c\')' => '2',
+			'FIND_IN_SET(\'B\', \'a,b,c\')' => '2',
+			'FIND_IN_SET(\'x\', \'a,b\')' => '0',
+			'FIND_IN_SET(NULL, \'a\')' => NULL,
+			'FIND_IN_SET(\'a\', \'\')' => '0',
+			'INSTR(\'foobar\', \'bar\')' => '4',
+			'INSTR(\'FooBar\', \'bar\')' => '4',
+			'INSTR(\'abc\', \'x\')' => '0',
+			'CHAR_LENGTH(\'é\')' => '1',
+			'CHARACTER_LENGTH(\'ab\')' => '2',
+			'LENGTH(\'é\')' => '2',
+			'LENGTH(123)' => '3',
+			'LENGTH(NULL)' => NULL,
+			'CONCAT(\'a\', NULL)' => NULL,
+			'CONCAT(\'a\', 1, \'b\')' => 'a1b',
+			'CONCAT(\'x\')' => 'x',
+			'CONCAT_WS(\'-\', \'a\', NULL, \'b\')' => 'a-b',
+			'LCASE(\'AbC\')' => 'abc',
+			'UCASE(\'AbC\')' => 'ABC',
+			'MID(\'abcdef\', 2, 3)' => 'bcd',
+			'SPACE(3)' => '   ',
+			'TRUNCATE(3.789, 1)' => '3.7',
+			'TRUNCATE(-3.789, 1)' => '-3.7',
+			'TRUNCATE(1234.5, -2)' => '1200',
+			'LOG(EXP(2))' => '2',
+			'LOG(2, 8)' => '3',
+			'LOG10(1000)' => '3',
+			'LOG2(8)' => '3',
+			'LN(EXP(1))' => '1',
+			'SHA2(\'abc\', 256)' => 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+			'SHA2(\'abc\', 512)' => 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f',
+			'ISNULL(NULL)' => '1',
+			'ISNULL(1)' => '0',
+			'GREATEST(1, NULL)' => NULL,
+			'LEAST(2, 5, 1)' => '1',
+			'GREATEST(\'a\', \'b\')' => 'b',
+			'CONVERT(\'abc\' USING utf8mb4)' => 'abc',
+			'LENGTH(UUID())' => '36',
+			'IFNULL(NULL, \'x\')' => 'x',
+			'NULLIF(1, 1)' => NULL,
+		];
+		foreach($expected as $expr => $value) {
+			try {
+				$actual = $database->query("SELECT $expr")->fetchColumn();
+			} catch(\Exception $e) {
+				$actual = 'error: ' . $e->getMessage();
+			}
+			// numbers compare as numbers (PostgreSQL prints numeric results with more digits)
+			if($value !== null && $actual !== null && is_numeric($value) && is_numeric($actual) && abs((float) $value - (float) $actual) < 1e-9) $actual = $value;
+			$this->check("SELECT $expr", $value, $actual === null ? null : (string) $actual);
+		}
+	}
+
 	protected function testConnectionConfig() {
 		$config = $this->wire(new Config());
 		$config->dbName = 'pwtest';
@@ -617,7 +782,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 			'INSERT INTO "t" ("pages_id", "data") VALUES (:pages_id, :data) ON CONFLICT ("pages_id") DO UPDATE SET "data"=excluded."data"',
 			$dialect->upsert('t', ['pages_id', 'data'], ['data'], ['conflict' => ['pages_id']]));
 		$this->check('upsert() multi-column target and expression update',
-			'INSERT INTO "s" ("id", "lang") VALUES (:id, :lang) ON CONFLICT ("id", "lang") DO UPDATE SET "lang"=excluded."lang", "ts"=now()',
+			'INSERT INTO "s" ("id", "lang") VALUES (:id, :lang) ON CONFLICT ("id", "lang") DO UPDATE SET "lang"=excluded."lang", "ts"=localtimestamp(0)',
 			$dialect->upsert('s', ['id', 'lang'], ['lang', 'ts' => 'now()'], ['conflict' => ['id', 'lang']]));
 		$this->check('upsert() output passes through the translator unchanged',
 			$dialect->upsert('t', ['a', 'b'], ['b'], ['conflict' => ['a']]),
@@ -634,7 +799,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('getServerType', 'PostgreSQL', $dialect->getServerType());
 		$this->check('getRegexEngine names the engine whose word boundaries PostgreSQL accepts', 'HenrySpencer', $dialect->getRegexEngine());
 		$this->check('upsert() qualifies bare columns in update expressions',
-			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"="t"."qty"+1, "ts"=now()',
+			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"="t"."qty"+1, "ts"=localtimestamp(0)',
 			$dialect->upsert('t', ['id', 'qty'], ['qty' => 'qty+1', 'ts' => 'now()'], ['conflict' => ['id']]));
 		$this->check('upsert() leaves bound values alone and maps VALUES(col) in expressions',
 			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"=:qty2, "n"=excluded."qty"',
@@ -645,7 +810,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 			"INSERT INTO \"t\" (\"id\", \"name\") VALUES (:id, 'x'' OR 1=1 --') ON CONFLICT (\"id\") DO UPDATE SET \"name\"=excluded.\"name\"",
 			$dialect->upsert('t', ['id', 'name' => "'x\\' OR 1=1 --'"], ['name'], ['conflict' => ['id']]));
 		$this->check('upsert() does not qualify column names inside string literals',
-			"INSERT INTO \"t\" (\"id\", \"data\") VALUES (:id, :data) ON CONFLICT (\"id\") DO UPDATE SET \"data\"=CONCAT(\"t\".\"data\", ' more data')",
+			"INSERT INTO \"t\" (\"id\", \"data\") VALUES (:id, :data) ON CONFLICT (\"id\") DO UPDATE SET \"data\"=((\"t\".\"data\")::text || (' more data')::text)",
 			$dialect->upsert('t', ['id', 'data'], ['data' => "CONCAT(data, ' more data')"], ['conflict' => ['id']]));
 		$this->check('upsert() translates MySQL functions in update expressions',
 			'INSERT INTO "t" ("id", "qty") VALUES (:id, :qty) ON CONFLICT ("id") DO UPDATE SET "qty"=(CASE WHEN "t"."qty" > 0 THEN "t"."qty" ELSE 0 END), "n"=COALESCE("t"."n", 1)',

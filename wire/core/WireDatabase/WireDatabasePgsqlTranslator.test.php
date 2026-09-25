@@ -214,7 +214,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('ON DUPLICATE KEY UPDATE assignments', true, strpos(implode(';', $t("INSERT INTO d (id, day) VALUES (1, :d) ON DUPLICATE KEY UPDATE day='0000-00-00', name='0000-00-00'")), "SET day=NULL, name='0000-00-00'") !== false);
 		$this->check('a zero date in UPDATE SET is NULL', 'UPDATE d SET created=NULL WHERE id=1', $t("UPDATE d SET created='0000-00-00 00:00:00' WHERE id=1")[0]);
 		$this->check('a zero date default makes the column nullable with no default',
-			"CREATE TABLE \"z\" (\n  \"d\" timestamp DEFAULT NULL\n)",
+			"CREATE TABLE \"z\" (\n  \"d\" timestamp(0) DEFAULT NULL\n)",
 			$t("CREATE TABLE z (d datetime NOT NULL DEFAULT '0000-00-00 00:00:00')")[0]);
 
 		// UPDATE ... JOIN becomes UPDATE ... FROM
@@ -530,9 +530,9 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			"  \"parent_id\" integer NOT NULL DEFAULT '0',\n" .
 			"  \"name\" varchar(128) NOT NULL,\n" .
 			"  \"status\" integer NOT NULL DEFAULT '1',\n" .
-			"  \"modified\" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n" .
-			"  \"created\" timestamp NOT NULL DEFAULT '2015-12-18 06:09:00',\n" .
-			"  \"published\" timestamp DEFAULT NULL,\n" .
+			"  \"modified\" timestamp(0) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n" .
+			"  \"created\" timestamp(0) NOT NULL DEFAULT '2015-12-18 06:09:00',\n" .
+			"  \"published\" timestamp(0) DEFAULT NULL,\n" .
 			"  \"sort\" integer NOT NULL DEFAULT '0',\n" .
 			"  PRIMARY KEY (\"id\")\n" .
 			")",
@@ -557,8 +557,8 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('type map',
 			"CREATE TABLE \"t\" (\n" .
 			"  \"a\" smallint NOT NULL DEFAULT 0,\n  \"b\" integer,\n  \"c\" bigint,\n  \"d\" real,\n  \"e\" double precision,\n  \"f\" numeric(10,2),\n" .
-			"  \"g\" text,\n  \"h\" text,\n  \"i\" varchar(32),\n  \"j\" date,\n  \"k\" time,\n  \"l\" bytea,\n  \"m\" text DEFAULT 'x',\n  \"n\" jsonb,\n  \"o\" smallint,\n" .
-			"  \"p\" varchar(250) DEFAULT '',\n  \"q\" integer NOT NULL DEFAULT -1,\n  \"r\" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP\n)",
+			"  \"g\" text,\n  \"h\" text,\n  \"i\" varchar(32),\n  \"j\" date,\n  \"k\" time(0),\n  \"l\" bytea,\n  \"m\" text DEFAULT 'x',\n  \"n\" jsonb,\n  \"o\" smallint,\n" .
+			"  \"p\" varchar(250) DEFAULT '',\n  \"q\" integer NOT NULL DEFAULT -1,\n  \"r\" timestamp(0) NOT NULL DEFAULT CURRENT_TIMESTAMP\n)",
 			$statements[0]);
 		$this->check('CREATE TABLE IF NOT EXISTS preserved', 'CREATE TABLE IF NOT EXISTS "t" (', $t('CREATE TABLE IF NOT EXISTS `t` (`a` int)')[0], '^=');
 		$this->check('unnamed KEY uses first column as name', 'CREATE INDEX "t__a" ON "t" ("a")', $t('CREATE TABLE t (a int, KEY (a))')[1]);
@@ -661,8 +661,8 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('CAST AS SIGNED becomes bigint', 'SELECT CAST(x AS bigint)', $t('SELECT CAST(x AS SIGNED)'));
 		$this->check('CAST AS UNSIGNED becomes bigint', 'SELECT CAST(x AS bigint)', $t('SELECT CAST(x AS UNSIGNED INTEGER)'));
 		$this->check('CAST AS CHAR becomes text', 'SELECT CAST(x AS text)', $t('SELECT CAST(x AS CHAR)'));
-		$this->check('INTERVAL n UNIT becomes quoted interval', "SELECT now() - INTERVAL '5 day'", $t('SELECT NOW() - INTERVAL 5 DAY'));
-		$this->check('INTERVAL with bound amount uses multiplication', "SELECT now() - (INTERVAL '1 day' * :n)", $t('SELECT NOW() - INTERVAL :n DAY'));
+		$this->check('INTERVAL n UNIT becomes quoted interval', "SELECT localtimestamp(0) - INTERVAL '5 day'", $t('SELECT NOW() - INTERVAL 5 DAY'));
+		$this->check('INTERVAL with bound amount uses multiplication', "SELECT localtimestamp(0) - (INTERVAL '1 day' * :n)", $t('SELECT NOW() - INTERVAL :n DAY'));
 		$this->check('DATE_SUB becomes subtraction', "SELECT (ts - INTERVAL '1 hour') FROM t", $t('SELECT DATE_SUB(ts, INTERVAL 1 HOUR) FROM t'));
 		$this->check('DATE_ADD becomes addition', "SELECT (ts + INTERVAL '2 month') FROM t", $t('SELECT DATE_ADD(ts, INTERVAL 2 MONTH) FROM t'));
 		$this->check('GET_LOCK becomes advisory lock', 'SELECT (CASE WHEN pg_try_advisory_lock(hashtext(:id)) THEN 1 ELSE 0 END)', $t('SELECT GET_LOCK(:id, :seconds)'));
@@ -671,8 +671,8 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('DO expr becomes SELECT expr', 'SELECT (CASE WHEN pg_advisory_unlock(hashtext(:id)) THEN 1 ELSE 0 END)', $t('DO RELEASE_LOCK(:id)'));
 		$this->check('DATABASE() becomes current_database()', 'SELECT current_database()', $t('SELECT DATABASE()'));
 		$this->check('LAST_INSERT_ID() becomes lastval()', 'SELECT lastval()', $t('SELECT LAST_INSERT_ID()'));
-		$this->check('CONCAT passes through', "SELECT CONCAT(a, 'x')", $t("SELECT CONCAT(a, 'x')"));
-		$this->check('NOW() lowercased', 'SELECT now()', $t('SELECT NOW()'));
+		$this->check('CONCAT is NULL when an argument is NULL, as in MySQL', "SELECT ((a)::text || ('x')::text)", $t("SELECT CONCAT(a, 'x')"));
+		$this->check('NOW() is the local time in whole seconds, as MySQL gives it', 'SELECT localtimestamp(0)', $t('SELECT NOW()'));
 		$this->check('DATE_FORMAT %Y-%m-%d becomes to_char', "SELECT to_char(ts, 'YYYY-MM-DD') FROM t", $t("SELECT DATE_FORMAT(ts, '%Y-%m-%d') FROM t"));
 		$this->check('DATE_FORMAT time parts', "SELECT to_char(ts, 'HH24:MI:SS') FROM t", $t("SELECT DATE_FORMAT(ts, '%H:%i:%s') FROM t"));
 

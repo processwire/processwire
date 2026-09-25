@@ -1048,6 +1048,10 @@ class WireDatabasePgsqlTranslator {
 				$out[] = ['word', $this->groupConcat(array_slice($tokens, $j + 1, $end - $j - 1))];
 				$i = $end;
 
+			} else if($w === 'CONVERT' && $paren && ($convert = $this->convertCall($tokens, $j)) !== null) {
+				$out[] = ['word', $convert];
+				$i = $this->matchParen($tokens, $j);
+
 			} else if(($w === 'CAST' || $w === 'CONVERT') && $paren) {
 				$end = $this->matchParen($tokens, $j);
 				$out[] = ['word', 'CAST'];
@@ -1419,7 +1423,116 @@ class WireDatabasePgsqlTranslator {
 		switch($name) {
 			case 'NOW':
 			case 'CURRENT_TIMESTAMP':
-				return $qty ? null : 'now()';
+			case 'SYSDATE':
+			case 'LOCALTIME':
+			case 'LOCALTIMESTAMP':
+				// MySQL's current time has whole seconds and no time zone ('2021-06-07 08:09:10')
+				return $qty ? null : 'localtimestamp(0)';
+			case 'CURDATE':
+			case 'CURRENT_DATE':
+				return $qty ? null : 'current_date';
+			case 'CURTIME':
+			case 'CURRENT_TIME':
+				return $qty ? null : 'localtime(0)';
+			case 'UTC_TIMESTAMP':
+				return $qty ? null : "(now() AT TIME ZONE 'UTC')::timestamp(0)";
+			case 'UTC_DATE':
+				return $qty ? null : "(now() AT TIME ZONE 'UTC')::date";
+			case 'YEAR':
+			case 'MONTH':
+			case 'DAY':
+			case 'DAYOFMONTH':
+			case 'HOUR':
+			case 'MINUTE':
+			case 'QUARTER':
+			case 'DAYOFYEAR':
+				if($qty !== 1) return null;
+				$field = ['DAYOFMONTH' => 'day', 'DAYOFYEAR' => 'doy'];
+				$field = isset($field[$name]) ? $field[$name] : strtolower($name);
+				return "extract($field from ($args[0])::timestamp)::integer";
+			case 'SECOND':
+				return $qty === 1 ? "floor(extract(second from ($args[0])::timestamp))::integer" : null;
+			case 'DAYOFWEEK':
+				// MySQL: 1 is Sunday
+				return $qty === 1 ? "(extract(dow from ($args[0])::timestamp)::integer + 1)" : null;
+			case 'WEEKDAY':
+				// MySQL: 0 is Monday
+				return $qty === 1 ? "(extract(isodow from ($args[0])::timestamp)::integer - 1)" : null;
+			case 'DAYNAME':
+				return $qty === 1 ? "trim(to_char(($args[0])::timestamp, 'Day'))" : null;
+			case 'MONTHNAME':
+				return $qty === 1 ? "trim(to_char(($args[0])::timestamp, 'Month'))" : null;
+			case 'DATE':
+				return $qty === 1 ? "(($args[0])::timestamp)::date" : null;
+			case 'LAST_DAY':
+				return $qty === 1 ? "(date_trunc('month', ($args[0])::timestamp) + INTERVAL '1 month - 1 day')::date" : null;
+			case 'DATEDIFF':
+				return $qty === 2 ? "((($args[0])::timestamp)::date - (($args[1])::timestamp)::date)" : null;
+			case 'TIMESTAMPDIFF':
+				// whole units from the second time to the third, truncated as MySQL does
+				if($qty !== 3) return null;
+				$from = "($args[1])::timestamp";
+				$to = "($args[2])::timestamp";
+				$seconds = ['SECOND' => 1, 'MINUTE' => 60, 'HOUR' => 3600, 'DAY' => 86400, 'WEEK' => 604800];
+				$unit = strtoupper(trim($args[0], '"'));
+				if(isset($seconds[$unit])) return "trunc(extract(epoch from ($to - $from)) / " . $seconds[$unit] . ")::bigint";
+				$months = "(extract(year from age($to, $from)) * 12 + extract(month from age($to, $from)))";
+				if($unit === 'MONTH') return "$months::bigint";
+				if($unit === 'QUARTER') return "trunc($months / 3)::bigint";
+				if($unit === 'YEAR') return "extract(year from age($to, $from))::bigint";
+				return null;
+			case 'STR_TO_DATE':
+				if($qty !== 2 || ($format = $this->literalValue($args[1])) === null) return null;
+				// a date for a format without time parts, a datetime with them, as in MySQL
+				$time = preg_match('/%[HhIiklprSsTf]/', $format);
+				return "to_timestamp($args[0], '" . $this->dateFormatPattern($format) . "')::" . ($time ? 'timestamp(0)' : 'date');
+			case 'FIND_IN_SET':
+				// the position of a string in a comma-separated list, ignoring case as MySQL's collations do (NULL for NULL)
+				if($qty !== 2) return null;
+				$fold = $this->foldAvailable ? 'pw_fold' : 'lower';
+				return "(SELECT CASE WHEN x.s IS NULL OR x.l IS NULL THEN NULL ELSE coalesce(array_position(string_to_array($fold(x.l), ','), $fold(x.s)), 0) END " .
+					"FROM (SELECT ($args[0])::text AS s, ($args[1])::text AS l) x)";
+			case 'INSTR':
+				return $qty === 2 ? "strpos(lower(($args[0])::text), lower(($args[1])::text))" : null;
+			case 'LENGTH':
+			case 'OCTET_LENGTH':
+				// MySQL's LENGTH() counts bytes (CHAR_LENGTH() counts characters, as PostgreSQL's length() does)
+				return $qty === 1 ? "octet_length(($args[0])::text)" : null;
+			case 'CONCAT':
+				// NULL when any argument is NULL, as in MySQL (PostgreSQL's concat() skips NULLs)
+				if(!$qty) return null;
+				return '(' . implode(' || ', array_map(function($a) { return "($a)::text"; }, $args)) . ')';
+			case 'LCASE':
+				return $qty === 1 ? "lower($args[0])" : null;
+			case 'UCASE':
+				return $qty === 1 ? "upper($args[0])" : null;
+			case 'MID':
+				if($qty === 2) return "substring(($args[0])::text from $args[1])";
+				return $qty === 3 ? "substring(($args[0])::text from $args[1] for $args[2])" : null;
+			case 'SPACE':
+				return $qty === 1 ? "repeat(' ', $args[0])" : null;
+			case 'TRUNCATE':
+				return $qty === 2 ? "trunc(($args[0])::numeric, $args[1])" : null;
+			case 'LOG':
+				// LOG(x) is the natural logarithm in MySQL, base 10 in PostgreSQL
+				if($qty === 1) return "ln($args[0])";
+				return $qty === 2 ? "log(($args[0])::numeric, ($args[1])::numeric)" : null;
+			case 'LOG2':
+				return $qty === 1 ? "log(2, ($args[0])::numeric)" : null;
+			case 'SHA2':
+				if($qty !== 2 || !preg_match('/^(0|224|256|384|512)$/', trim($args[1]))) return null;
+				$bits = trim($args[1]) === '0' ? '256' : trim($args[1]);
+				return "encode(sha$bits(convert_to(($args[0])::text, 'UTF8')), 'hex')";
+			case 'ISNULL':
+				return $qty === 1 ? "(($args[0]) IS NULL)::integer" : null;
+			case 'UUID':
+				return $qty ? null : 'gen_random_uuid()::text';
+			case 'GREATEST':
+			case 'LEAST':
+				// NULL when any argument is NULL, as in MySQL (PostgreSQL's ignore NULLs)
+				if($qty < 2) return null;
+				$nulls = implode(' OR ', array_map(function($a) { return "($a) IS NULL"; }, $args));
+				return "(CASE WHEN $nulls THEN NULL ELSE " . strtolower($name) . '(' . implode(', ', $args) . ') END)';
 			case 'UNIX_TIMESTAMP':
 				return '(extract(epoch from ' . ($qty ? $args[0] : 'now()') . '))::bigint';
 			case 'FROM_UNIXTIME':
@@ -1544,6 +1657,34 @@ class WireDatabasePgsqlTranslator {
 			}
 		}
 		return str_replace("'", "''", $out);
+	}
+
+	/**
+	 * Translate CONVERT(x USING charset), which is x here (text is UTF-8), and CONVERT(x, type), which is CAST(x AS type)
+	 *
+	 * @param array $tokens
+	 * @param int $open Index of the paren after CONVERT
+	 * @return string|null Null for CONVERT(x AS type) forms, which the CAST translation handles
+	 *
+	 */
+	protected function convertCall(array $tokens, $open) {
+		$close = $this->matchParen($tokens, $open);
+		$inner = array_slice($tokens, $open + 1, $close - $open - 1);
+		$depth = 0;
+		foreach($inner as $n => $t) {
+			if($t[0] === 'punct' && $t[1] === '(') $depth++;
+			if($t[0] === 'punct' && $t[1] === ')') $depth--;
+			if($depth !== 0) continue;
+			if($this->isWord($t, 'USING')) {
+				return '(' . $this->join($this->expressions($this->trimTokens(array_slice($inner, 0, $n)))) . ')';
+			}
+			if($t[0] === 'punct' && $t[1] === ',') {
+				$cast = array_merge([['word', 'CAST'], ['punct', '(']], array_slice($inner, 0, $n), [['ws', ' '], ['word', 'AS'], ['ws', ' ']],
+					$this->trimTokens(array_slice($inner, $n + 1)), [['punct', ')']]);
+				return $this->join($this->expressions($cast));
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -3899,10 +4040,11 @@ SQL;
 			case 'LONGTEXT':
 			case 'ENUM':
 			case 'SET': return 'text';
+			// MySQL's times hold whole seconds unless a precision is given (DATETIME(6)); PostgreSQL's default is microseconds
 			case 'DATETIME':
-			case 'TIMESTAMP': return 'timestamp';
+			case 'TIMESTAMP': return 'timestamp' . ($typeArgs !== '' ? $typeArgs : '(0)');
 			case 'DATE': return 'date';
-			case 'TIME': return 'time';
+			case 'TIME': return 'time' . ($typeArgs !== '' ? $typeArgs : '(0)');
 			case 'TINYBLOB':
 			case 'BLOB':
 			case 'MEDIUMBLOB':
