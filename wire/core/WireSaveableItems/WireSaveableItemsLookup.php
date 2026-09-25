@@ -112,39 +112,44 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	protected function initItem(array &$row, ?WireArray $items = null) {
 		
 		$lookupField = $this->getLookupField();
-		$lookupValue = $row[$lookupField];
 		$item = $this->makeBlankItem(); /** @var HasLookupItems $item */
 		
 		if($items === null) $items = $this->getWireArray();
-		
-		unset($row[$lookupField]);
-		
-		$item->addLookupItem($lookupValue, $row);
 
-		foreach($row as $key => $value) {
-			$item->$key = $value;
-		}
-		
+		// The LEFT JOIN returns one row per lookup item, i.e. one row per field in a fieldgroup.
+		// When lazy loading, claim all of this item's rows from lazyItems now, before anything
+		// below can trigger a load of this same item. Adding a lookup item can do that: resolving
+		// a field may load its Fieldtype module for the first time, and a module's init() or 
+		// upgrade() may request templates or fieldgroups. Such a load must not find this item's
+		// rows half consumed, or it builds a second copy of the item with some of them missing.
+		$rows = array($row);
 		if($this->useLazy) {
-			$items->add($item);
 			foreach($this->lazyItems as $key => $a) {
 				if($a['id'] != $row['id']) continue;
-				if(!isset($a[$lookupField])) continue;
-				$lookupValue = $a[$lookupField];
-				unset($a[$lookupField]); 
-				$item->addLookupItem($lookupValue, $a);
 				unset($this->lazyItems[$key]);
+				if($a != $row) $rows[] = $a; // the given row may itself be in lazyItems
 			}
+		}
 
-		} else if($items->has($item)) {
-			// LEFT JOIN is adding more elements of the same item, i.e. from lookup table
-			// if the item is already present in $items, then use the existing one rather 
-			// and throw out the one we just created
+		foreach($row as $key => $value) {
+			if($key === $lookupField) continue;
+			$item->$key = $value;
+		}
+
+		if($items->has($item)) {
+			// item is already present, i.e. when not lazy loading, each row of the LEFT JOIN arrives
+			// separately, so add this row's lookup item to the existing item and discard the new one
 			$item = $items->get($item);
-			$item->addLookupItem($lookupValue, $row);
 		} else {
-			// add a new item
+			// add the item before adding its lookup items, so that a load of the same item triggered
+			// while adding them finds this one rather than creating another
 			$items->add($item);
+		}
+
+		foreach($rows as $a) {
+			$lookupValue = isset($a[$lookupField]) ? $a[$lookupField] : null;
+			unset($a[$lookupField]);
+			$item->addLookupItem($lookupValue, $a);
 		}
 
 		return $item;
