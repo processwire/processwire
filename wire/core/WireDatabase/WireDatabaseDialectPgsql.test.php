@@ -364,6 +364,14 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('duplicate table maps to 42S01', '42S01', $e->errorInfo[0]);
 		$e = WireDatabaseDialectPgsql::mysqlException($make('42701', 'ERROR:  column "x" of relation "t" already exists'));
 		$this->check('duplicate column maps to 42S21', '42S21', $e->errorInfo[0]);
+		// messages are shaped like pdo_mysql's, since some code matches on them (i.e. PagePathHistory checks for '1054')
+		$e = WireDatabaseDialectPgsql::mysqlException($make('42703', 'SQLSTATE[42703]: Undefined column: 7 ERROR:  column t.bar does not exist'));
+		$this->check('undefined column message reads like MySQL\'s', 0, strpos($e->getMessage(), "SQLSTATE[42S22]: Column not found: 1054 Unknown column 't.bar' in 'field list'"));
+		$e = WireDatabaseDialectPgsql::mysqlException($make('42P01', 'SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "foo" does not exist'));
+		$this->check('undefined table message reads like MySQL\'s', 0, strpos($e->getMessage(), "SQLSTATE[42S02]: Base table or view not found: 1146 Table 'foo' doesn't exist"));
+		$e = WireDatabaseDialectPgsql::mysqlException($make('23505', 'SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "pages__name_parent_id"'));
+		$this->check('duplicate key message reads like MySQL\'s', 0, strpos($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry'));
+		$this->check('mapped message keeps the PostgreSQL original', true, strpos($e->getMessage(), 'pages__name_parent_id') !== false);
 		$plain = $make('22P02', 'invalid input syntax');
 		$this->check('other errors pass through unchanged', true, $plain === WireDatabaseDialectPgsql::mysqlException($plain));
 		$dialect = new WireDatabaseDialectPgsql($this->wire()->database);
@@ -372,6 +380,11 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('admin shutdown is retryable as gone-away', 'gone-away', $dialect->getRetryableErrorType($make('57P01', 'terminating connection')));
 		$this->check('connection exception is retryable as comm-failure', 'comm-failure', $dialect->getRetryableErrorType($make('08006', 'connection failure')));
 		$this->check('other errors not retryable', '', $dialect->getRetryableErrorType($make('23505', 'dup')));
+		// libpq reports a dropped connection as a general error (HY000) rather than an 08 state
+		$this->check('server closed the connection is retryable as gone-away', 'gone-away', $dialect->getRetryableErrorType($make('HY000', 'SQLSTATE[HY000]: General error: 7 server closed the connection unexpectedly')));
+		$this->check('no connection to the server is retryable as gone-away', 'gone-away', $dialect->getRetryableErrorType($make('HY000', 'SQLSTATE[HY000]: General error: 7 no connection to the server')));
+		$this->check('could not connect is retryable as comm-failure', 'comm-failure', $dialect->getRetryableErrorType($make('HY000', 'SQLSTATE[HY000]: General error: 7 could not connect to server: Connection refused')));
+		$this->check('other general errors not retryable', '', $dialect->getRetryableErrorType($make('HY000', 'SQLSTATE[HY000]: General error: 7 something else')));
 		$mysqlDeadlock = new \PDOException('SQLSTATE[HY000]: General error: 1213 Deadlock found when trying to get lock');
 		$mysqlDeadlock->errorInfo = ['HY000', 1213, 'Deadlock found when trying to get lock'];
 		$this->check('MySQL-shaped deadlock (errno 1213) is still classified, for code and tests that pass MySQL errors', 'deadlock', $dialect->getRetryableErrorType($mysqlDeadlock));
@@ -459,6 +472,44 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$threw = false;
 		try { $q->execute([':x' => 1]); } catch(\PDOException $e) { $threw = strpos($e->getMessage(), 'multiple') !== false; }
 		$this->check('parameters with multi-statement SQL throw clearly', true, $threw);
+		// the same through bindValue(): the clear error comes from execute(), not a driver error at bind time
+		$q = $database->prepare("CREATE TABLE `{$table}_3` (`id` INT NOT NULL, PRIMARY KEY (`id`), KEY `id2` (`id`))");
+		$bindError = '';
+		try { $q->bindValue(':x', 1); } catch(\PDOException $e) { $bindError = $e->getMessage(); }
+		$this->check('bindValue() on multi-statement SQL does not fail on its own', '', $bindError);
+		$threw = false;
+		try { $q->execute(); } catch(\PDOException $e) { $threw = strpos($e->getMessage(), 'multiple') !== false; }
+		$this->check('execute() after bindValue() on multi-statement SQL throws clearly', true, $threw);
+
+		// MODIFY text to a number converts values as MySQL does, and resets NULL/DEFAULT as MySQL's MODIFY does
+		$database->exec("DROP TABLE IF EXISTS `{$table}_m`");
+		$database->exec("CREATE TABLE `{$table}_m` (`id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `v` VARCHAR(20) NOT NULL DEFAULT '', PRIMARY KEY (`id`))");
+		$database->exec("INSERT INTO `{$table}_m` (v) VALUES ('12'), ('abc'), ('')");
+		$database->exec("ALTER TABLE `{$table}_m` MODIFY `v` INT NOT NULL DEFAULT 0");
+		$this->check('MODIFY VARCHAR to INT converts like MySQL', [12, 0, 0], array_map('intval', $database->query("SELECT v FROM `{$table}_m` ORDER BY id")->fetchAll(\PDO::FETCH_COLUMN)));
+		$database->exec("ALTER TABLE `{$table}_m` MODIFY `v` INT");
+		$cols = $database->getColumns("{$table}_m", true);
+		$this->check('MODIFY without NOT NULL makes the column nullable', true, $cols['v']['null']);
+		$database->exec("ALTER TABLE `{$table}_m` MODIFY `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT");
+		$database->exec("INSERT INTO `{$table}_m` (v) VALUES (1)");
+		$this->check('MODIFY of the AUTO_INCREMENT key keeps its sequence', 4, (int) $database->lastInsertId());
+
+		// index names over PostgreSQL's 63 bytes: distinct, and reported by their MySQL names
+		$long = substr($table . '_' . str_repeat('x', 60), 0, 60);
+		$database->exec("DROP TABLE IF EXISTS `$long`");
+		$database->exec("DROP TABLE IF EXISTS `{$long}r`");
+		$database->exec("CREATE TABLE `$long` (`pages_id` int NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`), KEY `data_exact` (`data`(250)), KEY `data` (`data`(100)), UNIQUE KEY `uq` (`data`(50), `pages_id`))");
+		$indexes = $database->getIndexes($long, true);
+		$this->check('long index names are reported by their MySQL names (the folded companion of uq hidden)', ['PRIMARY', 'data', 'data_exact', 'uq'], array_keys($indexes));
+		$this->check('indexExists() finds a long index', true, $database->indexExists($long, 'data_exact'));
+		$database->exec("ALTER TABLE `$long` RENAME INDEX `data` TO `data2`");
+		$this->check('renaming a long index keeps its MySQL name', true, $database->indexExists($long, 'data2') && !$database->indexExists($long, 'data'));
+		$database->exec("RENAME TABLE `$long` TO `{$long}r`");
+		$this->check('renaming a table with long index names keeps them', ['PRIMARY', 'data2', 'data_exact', 'uq'], array_keys($database->getIndexes("{$long}r", true)));
+		$database->exec("ALTER TABLE `{$long}r` DROP INDEX `data_exact`");
+		$this->check('dropping a long index', false, $database->indexExists("{$long}r", 'data_exact'));
+		$database->exec("DROP TABLE IF EXISTS `{$long}r`");
+		$database->exec("DROP TABLE IF EXISTS `{$table}_m`");
 		$this->check('parameters with multi-statement SQL executed nothing', false, $database->tableExists("{$table}_3"));
 
 		// expression update through upsert() on a live table

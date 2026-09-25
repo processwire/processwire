@@ -83,12 +83,25 @@ class WireDatabasePgsqlStatement extends WireDatabasePDOStatement {
 
 	public function bindValue($parameter, $value, $data_type = \PDO::PARAM_STR): bool {
 		$this->hasBoundValues = true;
+		// a deferred statement is a placeholder with no parameters: execute() reports the problem clearly
+		if($this->isDeferred()) return true;
 		return parent::bindValue($parameter, $value, $data_type);
 	}
 
 	public function bindParam($parameter, &$variable, $data_type = \PDO::PARAM_STR, $length = null, $driver_options = null): bool {
 		$this->hasBoundValues = true;
+		if($this->isDeferred()) return true;
 		return parent::bindParam($parameter, $variable, $data_type, $length, $driver_options);
+	}
+
+	/**
+	 * Is this a placeholder for deferred statements or a deferred exception (see setDeferredStatements())?
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function isDeferred() {
+		return count($this->deferredStatements) > 0 || $this->deferredException !== null;
 	}
 
 	public function execute($input_parameters = null): bool {

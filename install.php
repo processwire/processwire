@@ -677,10 +677,21 @@ class Installer {
 		try {
 			$database = new InstallerPgsqlPDO($dsn, $values['dbUser'], $values['dbPass']);
 		} catch(\Exception $e) {
-			if(strpos($e->getMessage(), 'does not exist') !== false) {
-				// connect to the maintenance database and create it
+			// Is the database missing? Connection errors do not carry the server's SQLSTATE and their text follows
+			// the server's locale, so ask the maintenance database instead of reading the message.
+			$admin = null;
+			$missing = false;
+			try {
+				$admin = new \PDO(InstallerPgsqlPDO::dsn($values, 'postgres'), $values['dbUser'], $values['dbPass'], array(\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION));
+				$query = $admin->prepare('SELECT 1 FROM pg_database WHERE datname = ?');
+				$query->execute(array($values['dbName']));
+				$missing = $query->fetchColumn() === false;
+			} catch(\Exception $e2) {
+				$missing = false; // cannot tell: report the original error
+			}
+			if($missing) {
+				// create it
 				try {
-					$admin = new \PDO(InstallerPgsqlPDO::dsn($values, 'postgres'), $values['dbUser'], $values['dbPass'], array(\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION));
 					$admin->exec('CREATE DATABASE "' . str_replace('"', '""', $values['dbName']) . "\" ENCODING 'UTF8'");
 					$this->alertOk("Created database: " . htmlspecialchars($values['dbName']));
 					$database = new InstallerPgsqlPDO($dsn, $values['dbUser'], $values['dbPass']);
@@ -1744,6 +1755,8 @@ class Installer {
 		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM');
 		$dbType = $this->post('dbType', 'string');
 		$values['dbType'] = in_array($dbType, array('sqlite', 'pgsql'), true) ? $dbType : 'mysql';
+		// the form's port defaults to MySQL's; PostgreSQL's is 5432 (as the CLI installer does)
+		if($values['dbType'] === 'pgsql' && (!$values['dbPort'] || (int) $values['dbPort'] === 3306)) $values['dbPort'] = '5432';
 		$dbFile = $this->post('dbFile');
 		$values['dbFile'] = is_string($dbFile) ? trim(substr($dbFile, 0, 1024)) : '';
 
@@ -4670,6 +4683,8 @@ class InstallerPgsqlPDO extends InstallerPgsqlPDOBase {
 			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
 			\PDO::ATTR_STRINGIFY_FETCHES => true,
 		));
+		// translated literals double only their quotes, so backslashes must be literal (as WireDatabaseDialectPgsql sets too)
+		parent::exec('SET standard_conforming_strings = on');
 		$timezone = date_default_timezone_get();
 		if($timezone) parent::exec('SET TIME ZONE ' . parent::quote($timezone));
 		$this->translator = new WireDatabasePgsqlTranslator($this);

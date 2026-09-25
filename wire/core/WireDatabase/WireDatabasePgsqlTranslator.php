@@ -34,6 +34,12 @@ class WireDatabasePgsqlTranslator {
 	const indexSeparator = '__';
 
 	/**
+	 * Prefix of the comment that records the MySQL name of an index whose name was shortened (see indexName())
+	 *
+	 */
+	const indexCommentPrefix = 'pw_index:';
+
+	/**
 	 * Cache of translated SQL, indexed by original SQL
 	 *
 	 * @var array
@@ -261,31 +267,66 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 * MySQL keeps the case of an alias (numChildren, FieldtypeFile_3) and matches it case-insensitively;
 	 * PostgreSQL folds unquoted names to lowercase, so a result column would come back as numchildren.
-	 * Quoting the definition alone would break its references, so both are quoted. Applies to the
-	 * whole statement, subqueries included.
+	 * Quoting the definition alone would break its references, so both are quoted, with the case of the
+	 * definition. Applies to the whole statement, subqueries included, with one exception taken from
+	 * MySQL's scoping: WHERE and ON cannot see the select-list aliases of their own query, so a bare
+	 * name there is a column (i.e. `SELECT id AS ID ... WHERE ID > 5`) and is left alone.
 	 *
 	 * @param array $tokens
 	 * @return array
 	 *
 	 */
 	protected function quoteCaseAliases(array $tokens) {
-		$names = [];
-		$n = count($tokens);
-		for($i = 0; $i < $n; $i++) {
-			if(!$this->isWord($tokens[$i], 'AS')) continue;
+		// walk the tokens tracking the query scope (one per SELECT) and clause, calling $visit for each word
+		$walk = function(callable $visit) use($tokens) {
+			$frames = [['scope' => 0, 'clause' => '']];
+			$scopes = 0;
+			foreach($tokens as $i => $t) {
+				$f = count($frames) - 1;
+				if($t[0] === 'punct') {
+					if($t[1] === '(') $frames[] = $frames[$f];
+					if($t[1] === ')' && $f > 0) array_pop($frames);
+					continue;
+				}
+				if($t[0] !== 'word') continue;
+				$w = strtoupper($t[1]);
+				if($w === 'SELECT') {
+					$frames[$f] = ['scope' => ++$scopes, 'clause' => 'select'];
+				} else if($w === 'WHERE' || $w === 'ON') {
+					$frames[$f]['clause'] = 'cond';
+				} else if(in_array($w, ['FROM', 'JOIN', 'GROUP', 'ORDER', 'HAVING', 'SET', 'LIMIT', 'UNION'], true)) {
+					$frames[$f]['clause'] = $w === 'JOIN' ? 'from' : strtolower($w);
+				}
+				$visit($i, $t, $frames[$f]);
+			}
+		};
+		$aliases = []; // lowercase name => [ 'name' => as defined, 'selectScopes' => [ scope => true ] ]
+		$walk(function($i, $t, $frame) use($tokens, &$aliases) {
+			if(!$this->isWord($t, 'AS')) return;
 			$j = $this->next($tokens, $i + 1);
-			if($j < 0 || $tokens[$j][0] !== 'word' || !preg_match('/[A-Z]/', $tokens[$j][1])) continue;
-			$names[$tokens[$j][1]] = true;
-		}
-		if(!count($names)) return $tokens;
-		for($i = 0; $i < $n; $i++) {
-			$t = $tokens[$i];
-			if($t[0] !== 'word' || !isset($names[$t[1]])) continue;
+			if($j < 0 || $tokens[$j][0] !== 'word' || !preg_match('/[A-Z]/', $tokens[$j][1])) return;
+			$key = strtolower($tokens[$j][1]);
+			if(!isset($aliases[$key])) $aliases[$key] = ['name' => $tokens[$j][1], 'selectScopes' => []];
+			if($frame['clause'] === 'select') $aliases[$key]['selectScopes'][$frame['scope']] = true;
+		});
+		if(!count($aliases)) return $tokens;
+		$out = $tokens;
+		$walk(function($i, $t, $frame) use($tokens, $aliases, &$out) {
+			$key = strtolower($t[1]);
+			if(!isset($aliases[$key])) return;
 			$j = $this->next($tokens, $i + 1);
-			if($j > -1 && $tokens[$j][0] === 'punct' && $tokens[$j][1] === '(') continue; // function call
-			$tokens[$i] = ['id', $t[1]];
-		}
-		return $tokens;
+			$next = $j > -1 && $tokens[$j][0] === 'punct' ? $tokens[$j][1] : '';
+			if($next === '(') return; // function call
+			$p = $this->prev($tokens, $i - 1);
+			$qualified = $next === '.' || ($p > -1 && $tokens[$p][0] === 'punct' && $tokens[$p][1] === '.');
+			$definition = $p > -1 && $this->isWord($tokens[$p], 'AS');
+			if(!$qualified && !$definition && isset($aliases[$key]['selectScopes'][$frame['scope']])
+				&& !in_array($frame['clause'], ['group', 'order', 'having'], true)) {
+				return; // its own query's select list and WHERE/ON see columns, not select aliases
+			}
+			$out[$i] = ['id', $aliases[$key]['name']];
+		});
+		return $out;
 	}
 
 	/**
@@ -719,7 +760,52 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	public function indexName($table, $index) {
-		return $table . self::indexSeparator . $index;
+		return self::pgIndexName($table, $index);
+	}
+
+	/**
+	 * Get the PostgreSQL name of an index (see indexName())
+	 *
+	 * @param string $table
+	 * @param string $index Index name without table prefix
+	 * @return string
+	 *
+	 */
+	public static function pgIndexName($table, $index) {
+		$name = $table . self::indexSeparator . $index;
+		// PostgreSQL truncates names to 63 bytes, which could make two long ones the same: a hashed tail keeps
+		// them distinct, and indexCommentSql() records the MySQL name, which getIndexes() reports
+		if(strlen($name) > 63) $name = substr($name, 0, 54) . '_' . substr(md5($name), 0, 8);
+		return $name;
+	}
+
+	/**
+	 * Get the MySQL name of an index from its PostgreSQL name and comment (see indexName())
+	 *
+	 * @param string $table
+	 * @param string $pgName
+	 * @param string|null $comment
+	 * @return string|null Null when the index was not named by ProcessWire (no table prefix)
+	 *
+	 */
+	public static function mysqlIndexName($table, $pgName, $comment) {
+		if(is_string($comment) && strpos($comment, self::indexCommentPrefix) === 0) return substr($comment, strlen(self::indexCommentPrefix));
+		$prefix = $table . self::indexSeparator;
+		return strpos($pgName, $prefix) === 0 ? substr($pgName, strlen($prefix)) : null;
+	}
+
+	/**
+	 * Get a statement that records an index's MySQL name when its PostgreSQL name had to be shortened
+	 *
+	 * @param string $table
+	 * @param string $index Index name without table prefix
+	 * @return string Blank when the name was not shortened
+	 *
+	 */
+	protected function indexCommentSql($table, $index) {
+		$name = $this->indexName($table, $index);
+		if($name === $table . self::indexSeparator . $index) return '';
+		return 'COMMENT ON INDEX ' . $this->quoteId($name) . ' IS ' . "'" . self::indexCommentPrefix . str_replace("'", "''", $index) . "'";
 	}
 
 	/*********************************************************************************
@@ -1008,7 +1094,12 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	protected function jsonIndexSql($table, $column) {
-		return self::jsonIndexStatements('', $table, $this->indexName($table, $column), $column, false);
+		$statements = self::jsonIndexStatements('', $table, $column, false);
+		foreach([self::jsonIndexSuffix, self::jsonNestedIndexSuffix] as $suffix) {
+			$comment = $this->indexCommentSql($table, $column . $suffix);
+			if($comment !== '') $statements[] = $comment;
+		}
+		return $statements;
 	}
 
 	/**
@@ -1016,19 +1107,18 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 * @param string $schema Schema of the table, or blank for unqualified
 	 * @param string $table
-	 * @param string $name Index name base (`table__column`)
 	 * @param string $column
 	 * @param bool $existing For a table with rows: CONCURRENTLY and IF NOT EXISTS, and only the partial index
 	 * @return array
 	 *
 	 */
-	public static function jsonIndexStatements($schema, $table, $name, $column, $existing) {
+	public static function jsonIndexStatements($schema, $table, $column, $existing) {
 		$q = function($id) { return '"' . str_replace('"', '""', $id) . '"'; };
 		$on = ($schema !== '' ? $q($schema) . '.' : '') . $q($table);
 		$create = 'CREATE INDEX ' . ($existing ? 'CONCURRENTLY IF NOT EXISTS ' : '');
 		$statements = [];
-		if(!$existing) $statements[] = $create . $q($name . self::jsonIndexSuffix) . " ON $on USING gin (" . $q($column) . ' jsonb_path_ops)';
-		$statements[] = $create . $q($name . self::jsonNestedIndexSuffix) . " ON $on ((1)) WHERE pw_json_nested(" . $q($column) . ')';
+		if(!$existing) $statements[] = $create . $q(self::pgIndexName($table, $column . self::jsonIndexSuffix)) . " ON $on USING gin (" . $q($column) . ' jsonb_path_ops)';
+		$statements[] = $create . $q(self::pgIndexName($table, $column . self::jsonNestedIndexSuffix)) . " ON $on ((1)) WHERE pw_json_nested(" . $q($column) . ')';
 		return $statements;
 	}
 
@@ -1938,18 +2028,16 @@ class WireDatabasePgsqlTranslator {
 			$marker = array_pop($functions);
 			foreach($functions as $sql) $exec($sql);
 			if(is_callable($fetchAll)) {
-				// jsonb columns indexed before the partial index of nested documents existed get it (see jsonContainment())
+				// jsonb columns made before the partial index of nested documents existed get it (see jsonContainment())
 				$literal = str_replace("'", "''", $schema);
 				$rows = $fetchAll(
-					"SELECT t.relname AS tablename, i.relname AS indexname, a.attname AS columnname FROM pg_index ix " .
-					"JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_class t ON t.oid = ix.indrelid " .
-					"JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ix.indkey[0] " .
-					"WHERE n.nspname = '$literal' AND i.relname LIKE '%" . self::jsonIndexSuffix . "'"
+					"SELECT c.relname AS tablename, a.attname AS columnname FROM pg_attribute a " .
+					"JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace " .
+					"WHERE n.nspname = '$literal' AND c.relkind = 'r' AND a.atttypid = 'jsonb'::regtype AND a.attnum > 0 AND NOT a.attisdropped"
 				);
 				foreach($rows as $row) {
-					$base = substr($row['indexname'], 0, -strlen(self::jsonIndexSuffix));
 					try {
-						foreach(self::jsonIndexStatements($schema, $row['tablename'], $base, $row['columnname'], true) as $sql) $exec($sql);
+						foreach(self::jsonIndexStatements($schema, $row['tablename'], $row['columnname'], true) as $sql) $exec($sql);
 					} catch(\Exception $e) {
 						$errors[] = $e->getMessage();
 					}
@@ -2561,19 +2649,19 @@ class WireDatabasePgsqlTranslator {
 	protected function getIndexes($table) {
 		$rows = $this->catalogRows(
 			"SELECT i.relname AS name, ix.indisunique AS is_unique, ix.indisprimary AS is_primary, " .
-			"ARRAY(SELECT pg_get_indexdef(ix.indexrelid, k + 1, true) FROM generate_subscripts(ix.indkey, 1) AS k ORDER BY k) AS cols " .
+			"ARRAY(SELECT pg_get_indexdef(ix.indexrelid, k + 1, true) FROM generate_subscripts(ix.indkey, 1) AS k ORDER BY k) AS cols, " .
+			"obj_description(i.oid, 'pg_class') AS comment " .
 			"FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid " .
 			"JOIN pg_namespace n ON n.oid = t.relnamespace " .
 			"WHERE t.relname = ? AND n.nspname = current_schema() ORDER BY i.relname",
 			[$table]
 		);
 		$indexes = [];
-		$prefix = $table . self::indexSeparator;
 		foreach($rows as $row) {
 			$cols = trim((string) $row['cols'], '{}');
 			$indexes[] = [
 				'pgName' => $row['name'],
-				'name' => strpos($row['name'], $prefix) === 0 ? substr($row['name'], strlen($prefix)) : null,
+				'name' => self::mysqlIndexName($table, (string) $row['name'], $row['comment']),
 				'unique' => in_array($row['is_unique'], [true, 't', '1', 1], true),
 				'primary' => in_array($row['is_primary'], [true, 't', '1', 1], true),
 				'columns' => $cols === '' ? [] : array_map(function($c) { return trim($c, '"'); }, str_getcsv($cols)),
@@ -3371,7 +3459,15 @@ class WireDatabasePgsqlTranslator {
 		if(!count($cols)) return [];
 		$name = $this->indexDefName($def);
 		if($name === null) $name = $cols[0];
-		return $this->createIndexSql($table, $name, $cols, $lens, $unique, $fulltext, $ifNotExists, $columnTypes);
+		$statements = $this->createIndexSql($table, $name, $cols, $lens, $unique, $fulltext, $ifNotExists, $columnTypes);
+		if(!count($statements)) return [];
+		// long names are shortened (see indexName()), so record the MySQL names, the folded companion's included
+		$names = count($statements) > 1 ? [$name, $name . self::foldIndexSuffix] : [$name];
+		foreach($names as $indexName) {
+			$comment = $this->indexCommentSql($table, $indexName);
+			if($comment !== '') $statements[] = $comment;
+		}
+		return $statements;
 	}
 
 	/**
@@ -3444,18 +3540,20 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
-	 * Get the folded companion index of a primary key on text columns, or blank string when there is none
+	 * Get statements for the folded companion index of a primary key on text columns (none when there is none)
 	 *
 	 * @param string $table
 	 * @param array $cols
 	 * @param array $columnTypes
-	 * @return string
+	 * @return array
 	 *
 	 */
 	protected function primaryFoldIndexSql($table, array $cols, array $columnTypes) {
-		if(!$this->foldAvailable) return '';
+		if(!$this->foldAvailable) return [];
 		$statements = $this->createIndexSql($table, 'primary', $cols, [], true, false, false, $columnTypes);
-		return count($statements) > 1 ? $statements[1] : '';
+		if(count($statements) < 2) return [];
+		$comment = $this->indexCommentSql($table, 'primary' . self::foldIndexSuffix);
+		return $comment === '' ? [$statements[1]] : [$statements[1], $comment];
 	}
 
 	/**
@@ -3540,8 +3638,7 @@ class WireDatabasePgsqlTranslator {
 		];
 
 		if(count($primaryCols)) {
-			$sql = $this->primaryFoldIndexSql($table, $primaryCols, $columns);
-			if($sql !== '') $statements[] = $sql;
+			foreach($this->primaryFoldIndexSql($table, $primaryCols, $columns) as $sql) $statements[] = $sql;
 		}
 		foreach($indexDefs as $def) {
 			foreach($this->indexDef($table, $def, $columns, $ifNotExists) as $sql) $statements[] = $sql;
@@ -3666,6 +3763,8 @@ class WireDatabasePgsqlTranslator {
 				}
 			} else if($index['name'] !== null) {
 				$statements[] = 'ALTER INDEX ' . $this->quoteId($index['pgName']) . ' RENAME TO ' . $this->quoteId($this->indexName($to, $index['name']));
+				$comment = $this->indexCommentSql($to, $index['name']);
+				if($comment !== '') $statements[] = $comment;
 			}
 		}
 		$this->clearSchemaCache($from);
@@ -3724,8 +3823,7 @@ class WireDatabasePgsqlTranslator {
 					list($cols) = $this->indexColumns($rest);
 					$statements[] = "ALTER TABLE $qTable ADD PRIMARY KEY (" . implode(', ', array_map([$this, 'quoteId'], $cols)) . ')';
 					if($columnTypes === null) $columnTypes = $this->indexColumnTypes($table);
-					$sql = $this->primaryFoldIndexSql($table, $cols, $columnTypes);
-					if($sql !== '') $statements[] = $sql;
+					foreach($this->primaryFoldIndexSql($table, $cols, $columnTypes) as $sql) $statements[] = $sql;
 				} else if($w2 === 'CONSTRAINT') {
 					throw new \PDOException("PostgreSQL translator: unsupported ALTER TABLE for $table: " . $this->join($spec));
 				} else {
@@ -3764,9 +3862,18 @@ class WireDatabasePgsqlTranslator {
 					$from = $this->name($parts[0]);
 					$to = $this->name($parts[2]);
 					$statements[] = 'ALTER INDEX ' . $this->quoteId($this->indexName($table, $from)) . ' RENAME TO ' . $this->quoteId($this->indexName($table, $to));
+					$comment = $this->indexCommentSql($table, $to);
+					if($comment !== '') $statements[] = $comment;
 					if($this->foldAvailable) {
 						$statements[] = 'ALTER INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $from . self::foldIndexSuffix)) .
 							' RENAME TO ' . $this->quoteId($this->indexName($table, $to . self::foldIndexSuffix));
+						$comment = $this->indexCommentSql($table, $to . self::foldIndexSuffix);
+						if($comment !== '') {
+							// only a unique key has a companion, and COMMENT ON has no IF EXISTS
+							$regclass = str_replace("'", "''", $this->quoteId($this->indexName($table, $to . self::foldIndexSuffix)));
+							$statements[] = "DO \$pw\$ BEGIN IF to_regclass('$regclass') IS NOT NULL THEN EXECUTE " .
+								"'" . str_replace("'", "''", $comment) . "'; END IF; END \$pw\$";
+						}
 					}
 				} else {
 					if($w2 === 'TO' || $w2 === 'AS') $j = $this->next($rest, $j + 1);
@@ -3789,9 +3896,26 @@ class WireDatabasePgsqlTranslator {
 					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($oldName) . ' TO ' . $this->quoteId($col['name']);
 				}
 				$qCol = $this->quoteId($col['name']);
-				$actions = ["ALTER COLUMN $qCol TYPE $col[pgType]" . ($col['pgType'] === 'jsonb' ? " USING $qCol::jsonb" : '')];
-				if($col['nullSpec'] === 'NOT NULL') $actions[] = "ALTER COLUMN $qCol SET NOT NULL";
-				if($col['nullSpec'] === 'NULL') $actions[] = "ALTER COLUMN $qCol DROP NOT NULL";
+				// MySQL's MODIFY redefines the column: an unspecified NULL means nullable and an unspecified
+				// DEFAULT means none, except for key and AUTO_INCREMENT columns, which stay NOT NULL
+				$schema = $this->tableSchema($table);
+				$oldType = isset($schema['columns'][$oldName]) ? $schema['columns'][$oldName] : null;
+				$identity = $col['autoIncrement'] || in_array($schema['identity'], [$oldName, $col['name']], true);
+				$primary = $col['primary'] || in_array($oldName, $schema['primary'], true);
+				if($oldType !== null && $this->typeClass($oldType) === 'text' && $this->typeClass($col['pgType']) === 'number') {
+					// text to number: convert as MySQL does ('' and 'abc' become 0, '12abc' is 12) rather than fail
+					$using = "(CASE WHEN $qCol::text ~ '^\\s*-?[0-9]' THEN substring($qCol::text from '-?[0-9]+')::numeric ELSE 0 END)::$col[pgType]";
+				} else {
+					$using = "$qCol::$col[pgType]";
+				}
+				// the old default goes first, since it may not convert to the new type (i.e. '' to integer)
+				$actions = $identity ? [] : ["ALTER COLUMN $qCol DROP DEFAULT"];
+				$actions[] = "ALTER COLUMN $qCol TYPE $col[pgType] USING $using";
+				if($col['nullSpec'] === 'NOT NULL') {
+					$actions[] = "ALTER COLUMN $qCol SET NOT NULL";
+				} else if(!$primary && !$identity) {
+					$actions[] = "ALTER COLUMN $qCol DROP NOT NULL";
+				}
 				if($col['default'] !== null) $actions[] = "ALTER COLUMN $qCol SET DEFAULT $col[default]";
 				$statements[] = "ALTER TABLE $qTable " . implode(', ', $actions);
 				if($col['pgType'] === 'jsonb') foreach($this->jsonIndexSql($table, $col['name']) as $sql) $statements[] = $sql;
