@@ -671,9 +671,12 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 
 			$className = $test['name'];
 			if(!$modules->isInstalled($className)) {
-				// Also allow tests for core classes (e.g. Sanitizer) that aren't installable modules
+				// Also allow tests for core classes (e.g. Sanitizer) that aren't installable modules,
+				// and any test in /wire/core/, which may cover behavior rather than a single class.
+				// Note class_exists() is checked first because it also autoloads the class under test.
 				$coreClass = __NAMESPACE__ . "\\$className";
-				if(!class_exists($coreClass) && !class_exists($className)) {
+				$isCoreTest = strpos($test['file'], $this->wire()->config->paths->core) === 0;
+				if(!class_exists($coreClass) && !class_exists($className) && !$isCoreTest) {
 					$this->skipJsonTest($test, 'Not installed');
 					$this->line("Skipping '$className' - not installed");
 					continue;
