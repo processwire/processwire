@@ -917,6 +917,20 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 			}
 		}
 
+		// FULLTEXT keys are FTS5 tables (see WireDatabaseSQLiteTranslator::fulltextKeys())
+		foreach(WireDatabaseSQLiteTranslator::fulltextKeys($this->database->pdo(), $table) as $keyName => $info) {
+			foreach($info['columns'] as $n => $column) {
+				$rows[] = array(
+					'Table' => $table,
+					'Key_name' => $keyName,
+					'Non_unique' => 1,
+					'Seq_in_index' => $n + 1,
+					'Column_name' => $column,
+					'Index_type' => 'FULLTEXT',
+				);
+			}
+		}
+
 		usort($rows, function($a, $b) {
 			$result = strcmp($a['Key_name'], $b['Key_name']);
 			return $result === 0 ? $a['Seq_in_index'] - $b['Seq_in_index'] : $result;
@@ -935,6 +949,9 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		$sql =
 			"SELECT name FROM sqlite_master " .
 			"WHERE type='table' AND name NOT LIKE 'sqlite\_%' ESCAPE '\' " .
+			// not FTS5 tables (and their shadow tables) or the fulltext marker, which are part of FULLTEXT keys
+			"AND instr(name, '" . WireDatabaseSQLiteTranslator::fulltextSeparator . "') = 0 " .
+			"AND name <> '" . WireDatabaseSQLiteTranslator::fulltextMarker . "' " .
 			"ORDER BY name";
 		$query = $this->database->pdo()->query($sql);
 		$tables = $query->fetchAll(\PDO::FETCH_COLUMN);

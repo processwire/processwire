@@ -42,7 +42,40 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testFts5Query();
 		$this->testFulltextDdl();
 		$this->testFulltextRebuild();
+		$this->testFulltextIntrospection();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * SHOW INDEX / SHOW CREATE TABLE report FULLTEXT keys; SHOW TABLES hides FTS5 tables and the marker
+	 *
+	 */
+	protected function testFulltextIntrospection() {
+		$this->translator->setFulltext(true);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_show`');
+		$this->execMysql("CREATE TABLE `ft_show` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text, `description` text, PRIMARY KEY (`pages_id`, `sort`), KEY `data_exact` (`data`(20)), FULLTEXT KEY `data_description` (`data`, `description`))");
+		$this->pdo->exec('CREATE TABLE IF NOT EXISTS `pw_fulltext_v1` (v INTEGER)');
+		$rows = $this->pdo->query($this->translate("SHOW INDEX FROM `ft_show` WHERE Key_name='data_description'"))->fetchAll(\PDO::FETCH_ASSOC);
+		$this->check('SHOW INDEX: a FULLTEXT key, one row per column', [
+			['data_description', 1, 1, 'data', 'FULLTEXT'],
+			['data_description', 1, 2, 'description', 'FULLTEXT'],
+		], array_map(function($r) { return [$r['Key_name'], (int) $r['Non_unique'], (int) $r['Seq_in_index'], $r['Column_name'], $r['Index_type']]; }, $rows));
+		$keyNames = array_unique($this->pdo->query($this->translate('SHOW INDEX FROM `ft_show`'))->fetchAll(\PDO::FETCH_COLUMN, 1));
+		sort($keyNames);
+		$this->check('SHOW INDEX: all keys', ['PRIMARY', 'data_description', 'data_exact'], array_values($keyNames));
+		$tables = $this->pdo->query($this->translate("SHOW TABLES LIKE 'ft\\_show%'"))->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('SHOW TABLES hides FTS5 tables and their shadow tables', ['ft_show'], $tables);
+		$all = $this->pdo->query($this->translate('SHOW TABLES'))->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('SHOW TABLES hides the fulltext marker', false, in_array('pw_fulltext_v1', $all, true));
+		$create = WireDatabaseSQLiteTranslator::mysqlCreateTable($this->pdo, 'ft_show');
+		$this->check('SHOW CREATE TABLE includes the FULLTEXT key', true, strpos($create, 'FULLTEXT KEY `data_description` (`data`,`description`)') !== false);
+		$this->check('SHOW CREATE TABLE has no FTS5 objects', false, strpos($create, '__fts_') !== false);
+		// and it restores: drop and recreate from the MySQL-syntax statement
+		$this->execMysql('DROP TABLE `ft_show`');
+		$this->execMysql($create);
+		$this->check('the SHOW CREATE TABLE statement recreates the FTS5 table', ['data_description'], array_keys(WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_show')));
+		$this->execMysql('DROP TABLE `ft_show`');
+		$this->pdo->exec('DROP TABLE `pw_fulltext_v1`');
 	}
 
 	/**
