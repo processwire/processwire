@@ -1387,6 +1387,12 @@ class WireDatabaseSQLiteTranslator {
 			$statements[] = 'DROP INDEX ' . $this->quoteId($index['sqliteName']);
 			$statements[] = $this->createIndexSql($to, $index['name'], $index['columns'], $index['unique']);
 		}
+		// FTS5 tables and their triggers follow the table (SQLite updates trigger bodies, but not trigger names)
+		foreach($this->ftsKeys($from) as $name => $info) {
+			foreach(array_slice($this->dropFulltextStatements($from, $name), 0, 3) as $sql) $statements[] = $sql;
+			$statements[] = 'ALTER TABLE ' . $this->quoteId($info['table']) . ' RENAME TO ' . $this->quoteId($this->fulltextName($to, $name));
+			foreach($this->fulltextTriggerStatements($to, $name, $info['keys'], $info['columns']) as $sql) $statements[] = $sql;
+		}
 		return $statements;
 	}
 
@@ -2010,6 +2016,10 @@ class WireDatabaseSQLiteTranslator {
 					foreach($this->getIndexes($table) as $index) {
 						if(in_array($column, $index['columns'], true)) $rebuild = true;
 					}
+					// nor a column that the triggers of a FULLTEXT key use
+					foreach($this->ftsKeys($table) as $info) {
+						if(in_array($column, $info['columns'], true)) $rebuild = true;
+					}
 					$columnOps[] = [
 						'action' => 'drop',
 						'column' => $column,
@@ -2029,6 +2039,10 @@ class WireDatabaseSQLiteTranslator {
 						'to' => $new,
 						'sql' => "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($old) . ' TO ' . $this->quoteId($new),
 					];
+					// a FULLTEXT key's FTS5 table has the column under its old name, so rebuild (which renames it there too)
+					foreach($this->ftsKeys($table) as $info) {
+						if(in_array($old, $info['columns'], true)) $rebuild = true;
+					}
 				} else if($w2 === 'INDEX' || $w2 === 'KEY') {
 					throw new \PDOException("SQLite translator: unsupported ALTER TABLE for $table: " . $this->join($spec));
 				} else {
@@ -2084,7 +2098,8 @@ class WireDatabaseSQLiteTranslator {
 	 *
 	 * Creates a new table with the changed columns, copies the rows, drops the old table, renames the
 	 * new one and recreates indexes. Requires a PDO connection. Returns null (so the ALTER fails before
-	 * changing anything) when the table has anything a rebuild would not preserve: triggers, table-level
+	 * changing anything) when the table has anything a rebuild would not preserve: triggers (other than
+	 * those of FULLTEXT keys, which are recreated along with their FTS5 tables as needed), table-level
 	 * constraints (CHECK, FOREIGN KEY, UNIQUE constraints, etc.) or indexes not created by this translator.
 	 *
 	 * The returned statements must be executed atomically (see WireDatabaseDialectSQLite::execStatements()).
@@ -2102,8 +2117,15 @@ class WireDatabaseSQLiteTranslator {
 		$createSql = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name=$qt")->fetchColumn();
 		if(!$createSql) return null;
 
-		// refuse anything a rebuild would not preserve
-		if($pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND tbl_name=$qt")->fetchColumn()) return null;
+		// refuse anything a rebuild would not preserve (the triggers of FULLTEXT keys are recreated below)
+		$ftsKeys = $this->ftsKeys($table);
+		$ownTriggers = [];
+		foreach(array_keys($ftsKeys) as $name) {
+			foreach(['_ai', '_ad', '_au'] as $suffix) $ownTriggers[] = $this->fulltextName($table, $name) . $suffix;
+		}
+		foreach($pdo->query("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=$qt")->fetchAll(\PDO::FETCH_COLUMN) as $trigger) {
+			if(!in_array($trigger, $ownTriggers, true)) return null;
+		}
 		$bareSql = preg_replace('/`[^`]*`|"[^"]*"|\'(?:[^\']|\'\')*\'/', '', $createSql); // without identifiers and strings
 		if(preg_match('/\b(CHECK|CONSTRAINT|FOREIGN|REFERENCES|UNIQUE|GENERATED|WITHOUT)\b/i', $bareSql)) return null;
 		$indexes = $this->getIndexes($table);
@@ -2216,6 +2238,25 @@ class WireDatabaseSQLiteTranslator {
 			}
 			if(!count($columns)) continue;
 			$statements[] = $this->createIndexSql($table, $index['name'], $columns, $index['unique']);
+		}
+
+		// FULLTEXT keys: DROP TABLE removed their triggers; rename, rebuild or drop their FTS5 tables as MySQL does indexes
+		$newKeys = count($pk) ? $pk : ['rowid'];
+		foreach($ftsKeys as $name => $info) {
+			$columns = [];
+			foreach($info['columns'] as $column) {
+				if(in_array($column, $dropped, true)) continue;
+				$columns[] = isset($renames[$column]) ? $renames[$column] : $column;
+			}
+			if(!count($columns)) {
+				$statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['table']);
+			} else if($columns !== $info['columns'] || $newKeys !== $info['keys'] || $newKeys === ['rowid']) {
+				// the rebuild renumbers rowids, so rowid keys are always rebuilt
+				$statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['table']);
+				foreach($this->fulltextStatements($table, $name, $newKeys, $columns, true) as $sql) $statements[] = $sql;
+			} else {
+				foreach($this->fulltextTriggerStatements($table, $name, $newKeys, $columns) as $sql) $statements[] = $sql;
+			}
 		}
 
 		return $statements;
