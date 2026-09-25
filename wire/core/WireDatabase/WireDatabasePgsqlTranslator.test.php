@@ -23,12 +23,60 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testDml();
 		$this->testShow();
 		$this->testFolding();
+		$this->testJson();
 	}
 
 	/**
 	 * Case- and accent-insensitive text comparisons and sorting (pw_fold), as MySQL's default collations
 	 *
 	 */
+	/**
+	 * MySQL JSON functions, translated to the pw_json_*() functions over jsonb (see setupJson())
+	 *
+	 */
+	protected function testJson() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$t = function($sql) use($tr) { return implode(";\n", $tr->translateStatements($sql)); };
+		$sql = "SELECT JSON_EXTRACT(data, '$.a') FROM t";
+		$this->check('JSON functions are left alone until the functions exist', $sql, $t($sql));
+		$tr->setJsonAvailable(true);
+		$this->check('JSON_EXTRACT', "SELECT pw_json_extract(pw_json(data), '$.a') FROM t", $t($sql));
+		// the shapes FieldtypeCustom and FormBuilder use (processwire-requests#609)
+		$this->check('JSON_UNQUOTE(LOWER(JSON_EXTRACT())) compares text',
+			"SELECT id FROM t WHERE pw_json_unquote(lower((pw_json_extract(pw_json(data), '$.name'))::text))=:v",
+			$t('SELECT id FROM t WHERE JSON_UNQUOTE(LOWER(JSON_EXTRACT(data, "$.name")))=:v'));
+		$this->check('JSON_CONTAINS as a condition is made boolean',
+			'SELECT id FROM t WHERE (pw_json_contains(pw_json(data), pw_json(:v))) <> 0',
+			$t('SELECT id FROM t WHERE JSON_CONTAINS(data, :v)'));
+		$this->check('JSON_CONTAINS with a path',
+			"SELECT id FROM t WHERE (pw_json_contains(pw_json(data), pw_json(:v), '$.tags')) <> 0 AND id>1",
+			$t("SELECT id FROM t WHERE JSON_CONTAINS(data, :v, '$.tags') AND id>1"));
+		$this->check('JSON_LENGTH with a path',
+			"SELECT id FROM t WHERE pw_json_length(pw_json(data), '$.name')>0",
+			$t("SELECT id FROM t WHERE JSON_LENGTH(data, '$.name')>0"));
+		$this->check('renaming a subfield: JSON_SET(JSON_REMOVE(), JSON_EXTRACT()) keeps the extracted value as JSON',
+			'UPDATE t SET data=pw_json_set(pw_json(pw_json_remove(pw_json(data), :old)), :new, pw_json_value(pw_json_extract(pw_json(data), :old)))',
+			$t('UPDATE t SET data=JSON_SET(JSON_REMOVE(data, :old), :new, JSON_EXTRACT(data, :old))'));
+		$this->check('JSON_SET with several path/value pairs applies them in order',
+			"SELECT pw_json_set(pw_json(pw_json_set(pw_json(d), '$.a', pw_json_value(1))), '$.b', pw_json_value('x')) FROM t",
+			$t("SELECT JSON_SET(d, '$.a', 1, '$.b', 'x') FROM t"));
+		$this->check('JSON_INSERT and JSON_REPLACE',
+			"SELECT pw_json_insert(pw_json(d), '$.a', pw_json_value(1)), pw_json_replace(pw_json(d), '$.a', pw_json_value(2)) FROM t",
+			$t("SELECT JSON_INSERT(d, '$.a', 1), JSON_REPLACE(d, '$.a', 2) FROM t"));
+		$this->check('JSON_REMOVE with several paths',
+			"SELECT pw_json_remove(pw_json(pw_json_remove(pw_json(d), '$.a')), '$.b') FROM t",
+			$t("SELECT JSON_REMOVE(d, '$.a', '$.b') FROM t"));
+		$this->check('JSON_ARRAY and JSON_OBJECT',
+			"SELECT jsonb_build_array(pw_json_value(1), pw_json_value('a')), jsonb_build_object(('k')::text, pw_json_value(true)) FROM t",
+			$t("SELECT JSON_ARRAY(1, 'a'), JSON_OBJECT('k', true) FROM t"));
+		$this->check('JSON_QUOTE', "SELECT to_jsonb(('a\"b')::text)::text FROM t", $t("SELECT JSON_QUOTE('a\"b') FROM t"));
+		$this->check('JSON_VALID as a condition is made boolean',
+			'SELECT id FROM t WHERE (pw_json_valid(data)) <> 0',
+			$t('SELECT id FROM t WHERE JSON_VALID(data)'));
+		$tr->setJsonAvailable(false);
+		$this->check('JSON functions left alone again when unavailable', $sql, $t($sql));
+	}
+
 	protected function testFolding() {
 		$tr = new WireDatabasePgsqlTranslator();
 		$t = function($sql) use($tr) { return implode(";\n", $tr->translateStatements($sql)); };

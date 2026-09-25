@@ -46,6 +46,14 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	protected $foldAvailable = false;
 
 	/**
+	 * Do the pw_json_*() functions exist on this connection (see initConnection())?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $jsonAvailable = false;
+
+	/**
 	 * Cached values from getVariable()
 	 *
 	 * @var array
@@ -75,6 +83,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			$this->translator = new WireDatabasePgsqlTranslator(function() use($database) { return $database->pdo(); });
 			$this->translator->setTrigramAvailable($this->setting('trigram', true));
 			$this->translator->setFoldAvailable($this->foldAvailable);
+			$this->translator->setJsonAvailable($this->jsonAvailable);
 		}
 		return $this->translator;
 	}
@@ -198,7 +207,8 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			"SELECT current_setting('server_version') AS version, " .
 			"set_config('standard_conforming_strings', 'on', false) AS scs, " .
 			($timezone !== '' ? "set_config('TimeZone', " . $pdo->quote($timezone) . ', false) AS tz, ' : '') .
-			"to_regprocedure('pw_fold(text)') IS NOT NULL AND to_regprocedure('pw_unaccent(text)') IS NOT NULL AS fold"
+			"to_regprocedure('pw_fold(text)') IS NOT NULL AND to_regprocedure('pw_unaccent(text)') IS NOT NULL AS fold, " .
+			"to_regprocedure('" . WireDatabasePgsqlTranslator::jsonVersionFunction . "()') IS NOT NULL AS json"
 		)->fetch(\PDO::FETCH_ASSOC);
 		$version = (string) $row['version'];
 		if(version_compare(preg_replace('/[^0-9.].*$/', '', $version), self::minVersion, '<')) {
@@ -221,11 +231,23 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 					function($sql) use($pdo) { return $pdo->query($sql)->fetchColumn(); }
 				);
 				$fold = $result['fold'];
-				if($result['error'] !== '') $this->logFoldError($result['error']);
+				if($result['error'] !== '') $this->logSetupError($result['error']);
 			}
 		}
 		$this->foldAvailable = $fold;
 		if($this->translator !== null) $this->translator->setFoldAvailable($fold);
+		// MySQL's JSON functions, as pw_json_*() (created on the first connection after install or upgrade)
+		$json = in_array($row['json'], array(true, 't', '1', 1), true);
+		if(!$json) {
+			$result = WireDatabasePgsqlTranslator::setupJson(
+				function($sql) use($pdo) { $pdo->exec($sql); },
+				function($sql) use($pdo) { return $pdo->query($sql)->fetchColumn(); }
+			);
+			$json = $result['json'];
+			if($result['error'] !== '') $this->logSetupError($result['error']);
+		}
+		$this->jsonAvailable = $json;
+		if($this->translator !== null) $this->translator->setJsonAvailable($json);
 	}
 
 	/**
@@ -239,12 +261,12 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	}
 
 	/**
-	 * Log why folding is not (fully) available
+	 * Log why a feature needing SQL functions (folding, JSON) is not (fully) available
 	 *
 	 * @param string $message
 	 *
 	 */
-	protected function logFoldError($message) {
+	protected function logSetupError($message) {
 		$log = $this->wire()->log;
 		if($log) $log->save('pgsql-errors', $message);
 	}
@@ -624,7 +646,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	public function supportsFoundRows() { return false; }
 	public function supportsFulltext() { return false; }
 	public function supportsUpdateOrderBy() { return false; }
-	public function supportsJson() { return true; }
+	public function supportsJson() { return $this->jsonAvailable; } // MySQL's JSON functions, as pw_json_*()
 
 	/**
 	 * Transactions are always available
