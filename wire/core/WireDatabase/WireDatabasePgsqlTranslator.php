@@ -1981,8 +1981,8 @@ class WireDatabasePgsqlTranslator {
 	 * Fold a comparison of a text column with a value, as MySQL's case- and accent-insensitive collations compare
 	 *
 	 * `col = v`, `col LIKE v` and `col IN (v, ...)` become `pw_fold(col) = pw_fold(v)` and so on, where v is a
-	 * string literal or a named parameter. REGEXP folds the column but only removes accents from the pattern
-	 * (it is matched case-insensitively), since lowercasing a pattern changes escapes such as `\W`. Comparisons
+	 * string literal or a named parameter. REGEXP keeps MySQL's behaviour (case-insensitive, accent-sensitive) and
+	 * gets a looser folded match in front of it for the trigram index. Comparisons
 	 * with other columns (joins) and with '' are left alone.
 	 *
 	 * @param array $tokens
@@ -2002,12 +2002,20 @@ class WireDatabasePgsqlTranslator {
 		$fold = function(array $ts, $fn = 'pw_fold') { return ['word', "$fn(" . trim($this->join($ts)) . ')']; };
 		$out = [$fold($colTokens)];
 		$op = $tokens[$k];
-		$pattern = false;
 		$opEnd = $k; // last token of the operator
 		if($op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true)) {
 			// comparison
-		} else if($op[0] === 'punct' && ($op[1] === '~*' || $op[1] === '!~*')) {
-			$pattern = true;
+		} else if($op[0] === 'punct' && $op[1] === '~*') {
+			// MySQL's REGEXP follows the collation for case but not for accents, which ~* (case-insensitive)
+			// already matches. The folded match first is a looser test that the trigram index on pw_fold()
+			// can answer, so that only its rows get the exact test.
+			$r = $this->next($tokens, $k + 1);
+			if(!$isValue($r)) return null;
+			$col = trim($this->join($colTokens));
+			$p = $tokens[$r][1];
+			return [[['word', "(pw_fold($col) ~* pw_unaccent($p) AND $col ~* $p)"]], $r];
+		} else if($op[0] === 'punct' && $op[1] === '!~*') {
+			return null; // NOT REGEXP: exact, as MySQL (a looser match cannot narrow a negation)
 		} else if($this->isWord($op, ['LIKE', 'ILIKE'])) {
 			$op = ['word', 'LIKE'];
 		} else if($this->isWord($op, 'NOT')) {
@@ -2039,7 +2047,7 @@ class WireDatabasePgsqlTranslator {
 		for($x = $end; $x < $k; $x++) $out[] = $tokens[$x];
 		$out[] = $op;
 		for($x = $opEnd + 1; $x < $r; $x++) $out[] = $tokens[$x];
-		$out[] = $fold([$tokens[$r]], $pattern ? 'pw_unaccent' : 'pw_fold');
+		$out[] = $fold([$tokens[$r]]);
 		return [$out, $r];
 	}
 

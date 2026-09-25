@@ -53,8 +53,8 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('LIKE folds both sides (and needs no ILIKE)',
 			'SELECT f.pages_id FROM field_title AS f WHERE pw_fold(f.data) LIKE pw_fold(:p) AND pw_fold(f.data) NOT LIKE pw_fold(:q)',
 			$t('SELECT f.pages_id FROM field_title AS f WHERE f.data LIKE :p AND f.data NOT LIKE :q'));
-		$this->check('REGEXP folds the column and only unaccents the pattern (lowercasing would change escapes such as \W)',
-			'SELECT f.pages_id FROM field_title AS f WHERE pw_fold(f.data) ~* pw_unaccent(:p) AND pw_fold(f.data) !~* pw_unaccent(:q)',
+		$this->check('REGEXP ignores case but not accents, as on MySQL; a folded match first lets the trigram index narrow the rows',
+			'SELECT f.pages_id FROM field_title AS f WHERE (pw_fold(f.data) ~* pw_unaccent(:p) AND f.data ~* :p) AND f.data !~* :q',
 			$t('SELECT f.pages_id FROM field_title AS f WHERE f.data REGEXP :p AND f.data NOT REGEXP :q'));
 		$this->check('IN list folds every value',
 			"SELECT id FROM pages WHERE pw_fold(name) IN (pw_fold('home'), pw_fold(:n))",

@@ -150,17 +150,11 @@ class WireTest_PageFinderParity extends WireTest {
 				'label' => '= different ASCII case',
 				'selector' => 'title=hello world',
 				'expect' => array('Hello World'),
-				'differs' => array(
-					'pgsql' => array(array(), 'PostgreSQL = is case-sensitive'),
-				),
 			),
 			array(
 				'label' => '= accented value in different case',
 				'selector' => 'title=äpfel',
 				'expect' => array('Äpfel'),
-				'differs' => array(
-					'pgsql' => array(array(), 'PostgreSQL = is case-sensitive'),
-				),
 			),
 			array(
 				'label' => '= unaccented value against accented data',
@@ -168,7 +162,6 @@ class WireTest_PageFinderParity extends WireTest {
 				'expect' => array('Äpfel'),
 				'differs' => array(
 					'sqlite' => array(array(), 'SQLite keeps indexed ASCII = comparisons on NOCASE'),
-					'pgsql' => array(array(), 'PostgreSQL = is accent-sensitive'),
 				),
 			),
 			array(
@@ -180,17 +173,11 @@ class WireTest_PageFinderParity extends WireTest {
 				'label' => '!= different ASCII case',
 				'selector' => 'title!=hello world',
 				'expect' => $notHello,
-				'differs' => array(
-					'pgsql' => array($all, 'PostgreSQL != is case-sensitive'),
-				),
 			),
 			array(
 				'label' => '!= accented value in different case',
 				'selector' => 'title!=äpfel',
 				'expect' => $notApfel,
-				'differs' => array(
-					'pgsql' => array($all, 'PostgreSQL != is case-sensitive'),
-				),
 			),
 			array(
 				'label' => '!= unaccented value against accented data',
@@ -198,7 +185,6 @@ class WireTest_PageFinderParity extends WireTest {
 				'expect' => $notApfel,
 				'differs' => array(
 					'sqlite' => array($all, 'SQLite keeps indexed ASCII != comparisons on NOCASE'),
-					'pgsql' => array($all, 'PostgreSQL != is accent-sensitive'),
 				),
 			),
 			array(
@@ -210,17 +196,11 @@ class WireTest_PageFinderParity extends WireTest {
 				'label' => '%= unaccented value',
 				'selector' => 'title%=apfel',
 				'expect' => array('Äpfel', 'Apfelkuchen'),
-				'differs' => array(
-					'pgsql' => array(array('Apfelkuchen'), 'PostgreSQL ILIKE is accent-sensitive'),
-				),
 			),
 			array(
 				'label' => '%= accented value',
 				'selector' => 'title%=äpfel',
 				'expect' => array('Äpfel', 'Apfelkuchen'),
-				'differs' => array(
-					'pgsql' => array(array('Äpfel'), 'PostgreSQL ILIKE is accent-sensitive'),
-				),
 			),
 			// MySQL matches ^= and $= with REGEXP, which follows the collation for case but not
 			// for accents (so ^=zurich misses "Zürich" even though %=zurich finds it). SQLite's
@@ -231,6 +211,7 @@ class WireTest_PageFinderParity extends WireTest {
 				'expect' => array(),
 				'differs' => array(
 					'sqlite' => array(array('Zürich'), 'SQLite REGEXP folds accents, MySQL REGEXP does not'),
+					'pgsql' => array(array('Zürich'), 'no fulltext on PostgreSQL, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
 				),
 			),
 			array(
@@ -239,6 +220,7 @@ class WireTest_PageFinderParity extends WireTest {
 				'expect' => array(),
 				'differs' => array(
 					'sqlite' => array(array('Émile Zola'), 'SQLite REGEXP folds accents, MySQL REGEXP does not'),
+					'pgsql' => array(array('Émile Zola'), 'no fulltext on PostgreSQL, so ^= uses LIKE, which folds accents; MySQL uses REGEXP'),
 				),
 			),
 			array(
@@ -247,15 +229,13 @@ class WireTest_PageFinderParity extends WireTest {
 				'expect' => array(),
 				'differs' => array(
 					'sqlite' => array(array('Crème brûlée'), 'SQLite REGEXP folds accents, MySQL REGEXP does not'),
+					'pgsql' => array(array('Crème brûlée'), 'no fulltext on PostgreSQL, so $= uses LIKE, which folds accents; MySQL uses REGEXP'),
 				),
 			),
 			array(
 				'label' => '*= case and accent',
 				'selector' => 'title*=creme',
 				'expect' => array('Crème brûlée'),
-				'differs' => array(
-					'pgsql' => array(array(), 'PostgreSQL ILIKE is accent-sensitive'),
-				),
 			),
 			array(
 				'label' => '~= lowercase word',
@@ -310,20 +290,8 @@ class WireTest_PageFinderParity extends WireTest {
 		$ascending = $this->findTitles('', 'title');
 		$descending = $this->findTitles('', '-title');
 
-		if($dialect === 'pgsql') {
-			// PostgreSQL uses the database collation fixed at creation, so assert membership and
-			// the portable property required here rather than one locale's complete ordering.
-			$expectMembers = $this->titles;
-			$actualMembers = $ascending;
-			sort($expectMembers);
-			sort($actualMembers);
-			$this->check('sort=title returns every title with PostgreSQL locale ordering', $expectMembers, $actualMembers);
-			$this->check('sort=title puts Äpfel before banana with the test PostgreSQL collation', true,
-				array_search('Äpfel', $ascending, true) < array_search('banana', $ascending, true));
-			$this->check('sort=-title reverses PostgreSQL title order', array_reverse($ascending), $descending);
-			return;
-		}
-
+		// PostgreSQL sorts text by its folded value (pw_fold), so these titles order as on MySQL
+		// whatever the database collation: their folded forms are plain lowercase ASCII.
 		$expectAscending = $mysqlAscending;
 		if($dialect === 'sqlite' && !$this->sqliteUnicodeSort()) $expectAscending = $sqliteAscending;
 		$this->check('sort=title follows declared database ordering', $expectAscending, $ascending);
@@ -344,9 +312,6 @@ class WireTest_PageFinderParity extends WireTest {
 				'label' => 'user email lowercase',
 				'selector' => "parent=$parentID, email=parity.user@example.com",
 				'expect' => $this->userID,
-				'differs' => array(
-					'pgsql' => array(0, 'PostgreSQL = is case-sensitive'),
-				),
 			),
 		);
 
