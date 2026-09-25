@@ -73,17 +73,33 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('JSON_VALID as a condition is made boolean',
 			'SELECT id FROM t WHERE (pw_json_valid(data)) <> 0',
 			$t('SELECT id FROM t WHERE JSON_VALID(data)'));
-		// on a jsonb column, JSON_CONTAINS() as a condition is jsonb containment, which a GIN index serves
+		// on a jsonb column, JSON_CONTAINS() as a condition is narrowed by the GIN and nested-document indexes, then exact
 		$tr->setSchemaCache(['field_c' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'jsonb']]]);
-		$this->check('JSON_CONTAINS on a jsonb column as a condition uses @> (indexable)',
-			'SELECT pages_id FROM field_c WHERE (data @> pw_json(:v) OR data @> jsonb_build_array(pw_json(:v)))',
+		$this->check('JSON_CONTAINS on a jsonb column as a condition: indexed jsonpath or nested document, then exact',
+			'SELECT pages_id FROM field_c WHERE ((data @@ pw_json_contains_path(pw_json(:v)) OR pw_json_nested(data)) AND pw_json_contains(data, pw_json(:v)) = 1)',
 			$t('SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, :v)'));
-		$this->check('JSON_CONTAINS with a key path on a jsonb column uses @> with the path as an object',
-			"SELECT f.pages_id FROM field_c AS f WHERE (f.data @> jsonb_build_object('tags', pw_json(:v)) OR f.data @> jsonb_build_object('tags', jsonb_build_array(pw_json(:v)))) AND f.pages_id>1",
+		$this->check('JSON_CONTAINS with a key path: the path as an object for the index, the path itself for the exact test',
+			"SELECT f.pages_id FROM field_c AS f WHERE ((f.data @@ pw_json_contains_path(jsonb_build_object('tags', pw_json(:v))) OR pw_json_nested(f.data)) AND pw_json_contains(f.data, pw_json(:v), '$.tags') = 1) AND f.pages_id>1",
 			$t("SELECT f.pages_id FROM field_c AS f WHERE JSON_CONTAINS(f.data, :v, '$.tags') AND f.pages_id>1"));
 		$this->check('JSON_CONTAINS with a nested quoted key path',
-			"SELECT pages_id FROM field_c WHERE NOT (data @> jsonb_build_object('a', jsonb_build_object('b c', pw_json('1'))) OR data @> jsonb_build_object('a', jsonb_build_object('b c', jsonb_build_array(pw_json('1')))))",
-			$t("SELECT pages_id FROM field_c WHERE NOT JSON_CONTAINS(data, '1', '$.a.\"b c\"')"));
+			"SELECT pages_id FROM field_c WHERE ((data @@ pw_json_contains_path(jsonb_build_object('a', jsonb_build_object('b c', pw_json('1')))) OR pw_json_nested(data)) AND pw_json_contains(data, pw_json('1'), '$.a.\"b c\"') = 1)",
+			$t("SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, '1', '$.a.\"b c\"')"));
+		$this->check('NOT JSON_CONTAINS keeps the function (NULL for a missing path stays NULL)',
+			"SELECT pages_id FROM field_c WHERE NOT (pw_json_contains(pw_json(data), pw_json('1'), '$.a')) <> 0",
+			$t("SELECT pages_id FROM field_c WHERE NOT JSON_CONTAINS(data, '1', '$.a')"));
+		$this->check('NOT (JSON_CONTAINS(...)) too',
+			"SELECT pages_id FROM field_c WHERE NOT ((pw_json_contains(pw_json(data), pw_json(:v))) <> 0)",
+			$t('SELECT pages_id FROM field_c WHERE NOT (JSON_CONTAINS(data, :v))'));
+		// JSON_EXTRACT() compared with an SQL string: the string is a JSON string, as MySQL converts it
+		$this->check('JSON_EXTRACT = bound value compares it as a JSON string',
+			"SELECT pages_id FROM field_c WHERE pw_json_contains(pw_json(data), pw_json(:json))=1 OR pw_json_extract(pw_json(data), '$.color')=pw_json_value((:value)::text)",
+			$t("SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, :json)=1 OR JSON_EXTRACT(data, '$.color')=:value"));
+		$this->check('a string literal on either side',
+			"SELECT id FROM t WHERE pw_json_value(('green')::text) <> pw_json_extract(pw_json(d), '$.c')",
+			$t("SELECT id FROM t WHERE 'green' <> JSON_EXTRACT(d, '$.c')"));
+		$this->check('a number compares as a JSON number (unchanged)',
+			"SELECT id FROM t WHERE pw_json_extract(pw_json(d), '$.n')>5",
+			$t("SELECT id FROM t WHERE JSON_EXTRACT(d, '$.n')>5"));
 		$this->check('JSON_CONTAINS compared to a value keeps the function (its 1/0/NULL result is used)',
 			'SELECT pages_id FROM field_c WHERE pw_json_contains(pw_json(data), pw_json(:v))=1',
 			$t('SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, :v)=1'));
@@ -92,11 +108,18 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			$t("SELECT pages_id FROM field_c WHERE JSON_CONTAINS(data, :v, '$.a[0]')"));
 		$statements = $tr->translateStatements('CREATE TABLE `field_c` (`pages_id` int NOT NULL, `data` JSON, PRIMARY KEY (`pages_id`))');
 		$this->check('a JSON column gets a GIN index for containment', 'CREATE INDEX "field_c__data__json" ON "field_c" USING gin ("data" jsonb_path_ops)', isset($statements[1]) ? $statements[1] : null);
-		$this->check('ALTER ADD a JSON column adds its GIN index', ['ALTER TABLE "field_c" ADD COLUMN "extra" jsonb', 'CREATE INDEX "field_c__extra__json" ON "field_c" USING gin ("extra" jsonb_path_ops)'],
-			$tr->translateStatements('ALTER TABLE field_c ADD extra JSON'));
+		$this->check('a JSON column also gets a partial index of documents with nested arrays', 'CREATE INDEX "field_c__data__jsonnest" ON "field_c" ((1)) WHERE pw_json_nested("data")', isset($statements[2]) ? $statements[2] : null);
+		$this->check('ALTER ADD a JSON column adds its indexes', [
+			'ALTER TABLE "field_c" ADD COLUMN "extra" jsonb',
+			'CREATE INDEX "field_c__extra__json" ON "field_c" USING gin ("extra" jsonb_path_ops)',
+			'CREATE INDEX "field_c__extra__jsonnest" ON "field_c" ((1)) WHERE pw_json_nested("extra")',
+		], $tr->translateStatements('ALTER TABLE field_c ADD extra JSON'));
+		$this->check('existing jsonb columns get the partial index concurrently',
+			['CREATE INDEX CONCURRENTLY IF NOT EXISTS "field_c__data__jsonnest" ON "public"."field_c" ((1)) WHERE pw_json_nested("data")'],
+			WireDatabasePgsqlTranslator::jsonIndexStatements('public', 'field_c', 'field_c__data', 'data', true));
 		$tr->setSchemaCache(['field_c' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'jsonb']]]);
 		$statements = $tr->translateStatements('ALTER TABLE field_c MODIFY data MEDIUMTEXT');
-		$this->check('MODIFY away from JSON drops the GIN index first (it cannot index text)', 'DROP INDEX IF EXISTS "field_c__data__json"', $statements[0]);
+		$this->check('MODIFY away from JSON drops its indexes first (they cannot index text)', ['DROP INDEX IF EXISTS "field_c__data__json"', 'DROP INDEX IF EXISTS "field_c__data__jsonnest"'], array_slice($statements, 0, 2));
 		$tr->setJsonAvailable(false);
 		$this->check('JSON functions left alone again when unavailable', $sql, $t($sql));
 	}

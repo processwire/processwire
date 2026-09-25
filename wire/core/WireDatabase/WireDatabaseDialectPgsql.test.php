@@ -66,13 +66,33 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('JSON_ARRAY', '[1, "a", null]', $v("SELECT JSON_ARRAY(1, 'a', NULL)"));
 		$this->check('JSON_OBJECT', '{"k": 1}', $v("SELECT JSON_OBJECT('k', 1)"));
 		$this->check('JSON_QUOTE', '"a\\"b"', $v("SELECT JSON_QUOTE('a\"b')"));
+		// MySQL's containment rules, which descend into arrays at any level (results as MySQL and MariaDB give them)
+		foreach([
+			['{"a":[1,2]}', '{"a":1}', 1, 'a scalar in an array under a key'],
+			['[[1,2],[3,4]]', '[1,2]', 1, 'nested arrays'],
+			['[[1,2],[3,4]]', '[1,3]', 1, 'elements from different nested arrays'],
+			['[[1]]', '1', 1, 'a scalar two arrays down'],
+			['[{"a":[1,2]}]', '{"a":2}', 1, 'an object in an array'],
+			['1', '[1]', 0, 'an array in a scalar'],
+			['[1,2]', '[]', 1, 'an empty array'],
+			['{"a":1}', '{}', 1, 'an empty object'],
+			['{"a":{"b":1}}', '{"a":1}', 0, 'a scalar against an object'],
+			['[1,2]', '[1,5]', 0, 'a missing element'],
+		] as $case) {
+			list($target, $candidate, $expect, $label) = $case;
+			$q = $database->prepare('SELECT JSON_CONTAINS(:t, :c)');
+			$q->bindValue(':t', $target);
+			$q->bindValue(':c', $candidate);
+			$q->execute();
+			$this->check("JSON_CONTAINS: $label", $expect, (int) $q->fetchColumn());
+		}
 
 		// the shapes FieldtypeCustom and FormBuilder use, on a JSON column and on a text column
 		foreach(['json' => 'JSON', 'text' => 'MEDIUMTEXT'] as $label => $type) {
 			$table = WireTests::fieldPrefix . "pgsql_json_$label";
 			$database->exec("DROP TABLE IF EXISTS `$table`");
 			$database->exec("CREATE TABLE `$table` (`pages_id` int unsigned NOT NULL, `data` $type, PRIMARY KEY (`pages_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-			$database->exec("INSERT INTO `$table` (pages_id, data) VALUES (1, '{\"name\":\"Alice\",\"tags\":[\"x\",\"y\"]}'), (2, '{\"name\":\"\",\"tags\":[]}'), (3, '{\"other\":1}')");
+			$database->exec("INSERT INTO `$table` (pages_id, data) VALUES (1, '{\"name\":\"Alice\",\"tags\":[\"x\",\"y\"],\"color\":\"green\"}'), (2, '{\"name\":\"\",\"tags\":[]}'), (3, '{\"other\":1}'), (4, '{\"grid\":[[1,2],[3,4]]}')");
 			$ids = function($where, array $binds = []) use($database, $table) {
 				$q = $database->prepare("SELECT pages_id FROM `$table` WHERE $where ORDER BY pages_id");
 				foreach($binds as $k => $val) $q->bindValue($k, $val);
@@ -82,8 +102,14 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 			$this->check("$label: JSON_UNQUOTE(LOWER(JSON_EXTRACT(data, \"\$.name\")))=?", [1], $ids('JSON_UNQUOTE(LOWER(JSON_EXTRACT(data, "$.name")))=:v', [':v' => 'alice']));
 			$this->check("$label: JSON_CONTAINS(data, ?)", [1], $ids('JSON_CONTAINS(data, :v)', [':v' => '{"tags":["y"]}']));
 			$this->check("$label: JSON_CONTAINS(data, ?, path)", [1], $ids("JSON_CONTAINS(data, :v, '$.tags')", [':v' => '"x"']));
+			$this->check("$label: JSON_CONTAINS(data, ?) with a scalar for an array", [1], $ids('JSON_CONTAINS(data, :v)', [':v' => '{"tags":"x"}']));
+			$this->check("$label: JSON_CONTAINS(data, ?) in nested arrays", [4], $ids('JSON_CONTAINS(data, :v)', [':v' => '{"grid":[1,2]}']));
+			$this->check("$label: JSON_CONTAINS(data, ?, path) in nested arrays", [4], $ids("JSON_CONTAINS(data, :v, '$.grid')", [':v' => '[1,3]']));
+			// FieldtypeCustom's = for page reference and select subfields
+			$this->check("$label: JSON_CONTAINS(...)=1 OR JSON_EXTRACT(...)=string", [1], $ids("JSON_CONTAINS(data, :json)=1 OR JSON_EXTRACT(data, '$.color')=:value", [':json' => '{"color":["green"]}', ':value' => 'green']));
+			$this->check("$label: JSON_EXTRACT(...)!=string", [], $ids("JSON_EXTRACT(data, '$.color')!=:value", [':value' => 'green']));
 			$this->check("$label: JSON_LENGTH(data, path)>0", [1, 2], $ids("JSON_LENGTH(data, '$.name')>0 OR JSON_LENGTH(data, '$.tags')>0"));
-			$this->check("$label: NOT JSON_CONTAINS(data, ?, path)", [2, 3], $ids("NOT JSON_CONTAINS(data, :v, '$.tags') OR JSON_CONTAINS(data, :v, '$.tags') IS NULL", [':v' => '"x"']));
+			$this->check("$label: NOT JSON_CONTAINS(data, ?, path)", [2, 3, 4], $ids("NOT JSON_CONTAINS(data, :v, '$.tags') OR JSON_CONTAINS(data, :v, '$.tags') IS NULL", [':v' => '"x"']));
 			if($label === 'json') {
 				// the jsonb column's GIN index serves JSON_CONTAINS() conditions, and is not one of the MySQL indexes
 				$database->pdo()->exec('SET enable_seqscan = off');
@@ -92,14 +118,15 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 				$q->execute();
 				$plan = implode("\n", $q->fetchAll(\PDO::FETCH_COLUMN));
 				$database->pdo()->exec('SET enable_seqscan = on');
-				$this->check('json: JSON_CONTAINS() uses the GIN index', true, strpos($plan, $table . '__data__json') !== false);
+				$this->check('json: JSON_CONTAINS() uses the GIN index', 1, preg_match('/ on ' . $table . '__data__json\b/', $plan));
+				$this->check('json: and the partial index of nested documents', true, strpos($plan, $table . '__data__jsonnest') !== false);
 				$this->check('json: the GIN index is not reported by getIndexes()', ['PRIMARY'], array_keys($database->getIndexes($table, true)));
 			}
 			$q = $database->prepare("UPDATE `$table` SET data=JSON_SET(JSON_REMOVE(data, :old), :new, JSON_EXTRACT(data, :old)) WHERE pages_id=1");
 			$q->bindValue(':old', '$.name');
 			$q->bindValue(':new', '$.title');
 			$q->execute();
-			$this->check("$label: renaming a subfield keeps its value as JSON", '{"tags": ["x", "y"], "title": "Alice"}', (string) $v("SELECT data FROM `$table` WHERE pages_id=1"));
+			$this->check("$label: renaming a subfield keeps its value as JSON", '{"tags": ["x", "y"], "color": "green", "title": "Alice"}', (string) $v("SELECT data FROM `$table` WHERE pages_id=1"));
 			$database->exec("DROP TABLE IF EXISTS `$table`");
 		}
 	}

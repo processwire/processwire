@@ -241,7 +241,8 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		if(!$json) {
 			$result = WireDatabasePgsqlTranslator::setupJson(
 				function($sql) use($pdo) { $pdo->exec($sql); },
-				function($sql) use($pdo) { return $pdo->query($sql)->fetchColumn(); }
+				function($sql) use($pdo) { return $pdo->query($sql)->fetchColumn(); },
+				function($sql) use($pdo) { return $pdo->query($sql)->fetchAll(\PDO::FETCH_ASSOC); }
 			);
 			$json = $result['json'];
 			if($result['error'] !== '') $this->logSetupError($result['error']);
@@ -896,7 +897,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			$name = (string) $row['index_name'];
 			// folded companion of a unique or primary key (see WireDatabasePgsqlTranslator::createIndexSql()) and
 			// the GIN index of a jsonb column (see WireDatabasePgsqlTranslator::jsonIndexSql()): internal
-			foreach(array(WireDatabasePgsqlTranslator::foldIndexSuffix, WireDatabasePgsqlTranslator::jsonIndexSuffix) as $suffix) {
+			foreach(array(WireDatabasePgsqlTranslator::foldIndexSuffix, WireDatabasePgsqlTranslator::jsonIndexSuffix, WireDatabasePgsqlTranslator::jsonNestedIndexSuffix) as $suffix) {
 				if(substr($name, -strlen($suffix)) === $suffix) continue 2;
 			}
 			if($row['column_name'] === null) {
