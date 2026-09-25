@@ -1380,9 +1380,8 @@ class Installer {
 			}
 			if($this->pgsqlSupported()) {
 				$types['pgsql'] = 'PostgreSQL (experimental)';
-				$text .= " PostgreSQL " . self::MIN_PGSQL_VERSION . " or newer may also be used (experimental): specify its " .
-					"database, user and host in the database section below. The pg_trgm extension is enabled during " .
-					"install when the user is allowed to, and text search indexes are skipped when not.";
+				$text .= " PostgreSQL " . ((int) self::MIN_PGSQL_VERSION) . " or newer may also be used " .
+					"(PostgreSQL support is new and experimental).";
 			}
 			$this->p($text);
 			$this->select('dbType', '', $values['dbType'], $types, 300);
@@ -1390,13 +1389,22 @@ class Installer {
 			$this->sectionStop();
 		}
 
-		$this->sectionStart('fa-database MySQL Database', array('id' => 'pwi-mysql'));
+		$this->sectionStart("fa-database <span id='pwi-db-name'>MySQL</span> Database", array('id' => 'pwi-mysql'));
 		$this->p(
 			"Please specify a MySQL 5.x+ database and user account on your server. If the database does not exist, " . 
 			"we will attempt to create it. If the database already exists, the user account should have full read, " . 
 			"write and delete permissions on the database (recommended permissions are select, insert, update, delete, " . 
-			"create, alter, index, drop, create temporary tables, and lock tables)." 
+			"create, alter, index, drop, create temporary tables, and lock tables).",
+			array('id' => 'pwi-mysql-intro')
 		); 
+		$this->p(
+			"Please specify a PostgreSQL " . ((int) self::MIN_PGSQL_VERSION) . "+ database and user account on your server. " .
+			"If the database does not exist, we will attempt to create it. The installer also creates the " .
+			"<code>unaccent</code> and <code>pg_trgm</code> extensions and a few SQL functions in the database, " .
+			"which make text searches case- and accent-insensitive and fast, so the user account should own the " .
+			"database (or be able to create extensions and functions in it).",
+			array('id' => 'pwi-pgsql-intro', 'style' => 'display:none')
+		);
 
 		if(!isset($values['dbName'])) $values['dbName'] = '';
 		// @todo: are there PDO equivalents for the ini_get()s below?
@@ -1436,7 +1444,7 @@ class Installer {
 		$this->clear();
 		$this->p(
 			"The DB Engine option “InnoDB” requires MySQL 5.6.4 or newer.",
-			array('class' => 'detail', 'style' => 'margin-top:0')
+			array('class' => 'detail', 'style' => 'margin-top:0', 'id' => 'pwi-engine-note')
 		);
 		$this->sectionStop();
 
@@ -1486,11 +1494,31 @@ class Installer {
 						ao = el('input[name=installerActivationToken]'),
 						activation = el('#installer-activation');
 					if(!co) return;
+					var defaultPorts = { mysql: '3306', pgsql: '5432' };
+					function updatePort() {
+						// switch the port to the new database type's default, unless it was customized
+						var type = to ? to.value : 'mysql';
+						if(!po || !defaultPorts[type]) return;
+						var port = po.value.trim(), isDefault = port === '';
+						for(var key in defaultPorts) if(defaultPorts[key] === port) isDefault = true;
+						if(isDefault) po.value = defaultPorts[type];
+					}
 					function updateConnectionFields() {
 						var sqlite = to ? to.value === 'sqlite' : false,
+							pgsql = to ? to.value === 'pgsql' : false,
 							useHost = co.value === 'Hostname';
 						display(el('#pwi-mysql'), !sqlite);
 						display(el('#pwi-sqlite'), sqlite);
+						var dbName = el('#pwi-db-name');
+						if(dbName) dbName.textContent = pgsql ? 'PostgreSQL' : 'MySQL';
+						display(el('#pwi-mysql-intro'), !pgsql);
+						display(el('#pwi-pgsql-intro'), pgsql);
+						// charset and engine are MySQL settings (PostgreSQL databases are UTF-8 and have no engines)
+						display(row(el('select[name=dbCharset]')), !pgsql);
+						display(row(el('select[name=dbEngine]')), !pgsql);
+						display(el('#pwi-engine-note'), !pgsql);
+						// PostgreSQL wants the directory that holds its socket rather than the socket file
+						if(so) so.placeholder = pgsql ? 'Socket directory, i.e. /tmp' : '';
 						if(no) no.required = !sqlite;
 						if(uo) uo.required = !sqlite;
 						if(ho) { ho.required = !sqlite && useHost; display(row(ho), useHost); }
@@ -1505,7 +1533,7 @@ class Installer {
 						display(activation, activationRequired);
 					}
 					co.addEventListener('change', updateConnectionFields);
-					if(to) to.addEventListener('change', updateConnectionFields);
+					if(to) to.addEventListener('change', function() { updatePort(); updateConnectionFields(); });
 					if(ho) ho.addEventListener('input', updateConnectionFields);
 					updateConnectionFields();
 				})();
@@ -1711,6 +1739,10 @@ class Installer {
 		$dbFile = $this->post('dbFile');
 		$values['dbFile'] = is_string($dbFile) ? trim(substr($dbFile, 0, 1024)) : '';
 
+		// hold messages from connecting (i.e. "Created database") so that on success they appear
+		// under the section heading below, which is only output once the connection works
+		ob_start();
+
 		if($values['dbType'] === 'sqlite') {
 			// SQLite: local database file, so no credentials or activation token needed
 			$database = $this->sqliteConnect($values);
@@ -1788,12 +1820,16 @@ class Installer {
 		if($themeName !== 'default' && $themeName !== 'original') $themeName = 'default';
 		$values['themeName'] = $themeName;
 
+		$connectOutput = ob_get_clean();
+
 		if($this->numErrors || !$database) {
+			echo $connectOutput;
 			$this->dbConfig($values);
 			return;
 		}
 
 		$this->h("fa-database Test Database and Save Configuration");
+		echo $connectOutput;
 		if($values['dbType'] === 'sqlite') {
 			$sqliteFile = $this->sqliteFile($values['dbFile']);
 			$this->alertOk("SQLite database file: " . htmlspecialchars($sqliteFile));
