@@ -1487,8 +1487,13 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 */
 	public function isStopword($word, $engine = '') {
 		$engine = $engine === '' ? $this->engine : strtolower($engine);
-		if($engine === 'myisam') return DatabaseStopwords::has($word);
-		if($this->stopwordCache === null) $this->getStopwords($engine, true);
+		if($this->stopwordCache === null && is_array($this->dialect()->fulltextStopwords())) {
+			$this->getStopwords($engine, true); // the dialect's own list, whatever the engine
+		}
+		if($this->stopwordCache === null) {
+			if($engine === 'myisam') return DatabaseStopwords::has($word);
+			$this->getStopwords($engine, true);
+		}
 		return isset($this->stopwordCache[strtolower($word)]);
 	}
 
@@ -1504,7 +1509,10 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 */
 	public function getStopwords($engine = '', $flip = false) {
 		$stopwords = $this->dialect()->fulltextStopwords();
-		if(is_array($stopwords)) return $flip ? array_flip($stopwords) : $stopwords;
+		if(is_array($stopwords)) {
+			$this->stopwordCache = array_flip($stopwords); // for isStopword()
+			return $flip ? $this->stopwordCache : $stopwords;
+		}
 		$engine = $engine === '' ? $this->engine : strtolower($engine);
 		if($engine === 'myisam') return DatabaseStopwords::getAll();
 		if($this->stopwordCache === null) { //  && $engine === 'innodb') {

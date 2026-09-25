@@ -625,6 +625,16 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	}
 
 	/**
+	 * Stopwords for the LIKE-based fulltext operators: MySQL's built-in list (as for MyISAM), whatever dbEngine is set
+	 *
+	 * @return array
+	 *
+	 */
+	public function fulltextStopwords() {
+		return DatabaseStopwords::getAll();
+	}
+
+	/**
 	 * @return bool
 	 *
 	 */
