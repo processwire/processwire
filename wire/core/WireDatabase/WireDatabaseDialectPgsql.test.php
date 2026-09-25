@@ -13,6 +13,124 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testCapabilitiesAndUpsert();
 		$this->testErrorMapping();
 		$this->testLive();
+		$this->testFolding();
+	}
+
+	/**
+	 * Case- and accent-insensitive text comparisons, as with MySQL's default collations (live, pgsql only)
+	 *
+	 */
+	protected function testFolding() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$dialect = $database->dialect();
+		$pdo = $database->pdo();
+
+		$this->check('fold functions are available after connecting', true, $dialect->foldAvailable());
+		$this->check('pw_fold() lowercases and removes accents', 'apfel creme brulee zurich strasse', $pdo->query("SELECT pw_fold('Äpfel Crème Brûlée ZÜRICH Straße')")->fetchColumn());
+		$this->check('pw_unaccent() removes accents only', 'Apfel Zurich', $pdo->query("SELECT pw_unaccent('Äpfel Zürich')")->fetchColumn());
+		$def = (string) $pdo->query("SELECT pg_get_functiondef('pw_fold(text)'::regprocedure)")->fetchColumn();
+		$this->check('pw_fold() calls unaccent() schema-qualified (independent of search_path)', 1, preg_match('/"?\w+"?\.unaccent\(\'"?\w+"?\.unaccent\'::regdictionary/', $def));
+		$this->check('pw_fold() is IMMUTABLE (usable in indexes)', true, stripos($def, 'IMMUTABLE') !== false);
+
+		// raw SQL in MySQL syntax, on a table with the index types ProcessWire's text fields use
+		$table = WireTests::fieldPrefix . 'pgsql_fold';
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$database->exec("CREATE TABLE `$table` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, `email` varchar(250) NOT NULL DEFAULT '', PRIMARY KEY (`pages_id`), KEY `data_exact` (`data`(250)), KEY `email` (`email`), UNIQUE KEY `uq` (`email`, `pages_id`), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$rows = [[1, 'Hello World', 'Admin@Example.com'], [2, 'Äpfel', ''], [3, 'Crème brûlée', ''], [4, 'Zürich', ''], [5, 'apple', '']];
+		foreach($rows as $row) {
+			$q = $database->prepare("INSERT INTO `$table` (pages_id, data, email) VALUES (:id, :data, :email)");
+			$q->bindValue(':id', $row[0], \PDO::PARAM_INT);
+			$q->bindValue(':data', $row[1]);
+			$q->bindValue(':email', $row[2]);
+			$q->execute();
+		}
+		$ids = function($where, array $binds = []) use($database, $table) {
+			$q = $database->prepare("SELECT pages_id FROM `$table` WHERE $where ORDER BY pages_id");
+			foreach($binds as $k => $v) $q->bindValue($k, $v);
+			$q->execute();
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$this->check('= ignores case', [1], $ids('data=:v', [':v' => 'hello world']));
+		$this->check('= ignores accents', [2], $ids('data=:v', [':v' => 'apfel']));
+		$this->check('= with a literal', [2], $ids("data='ÄPFEL'"));
+		$this->check('!= ignores case and accents', [1, 3, 4, 5], $ids('data!=:v', [':v' => 'APFEL']));
+		$this->check('LIKE contains ignores case and accents', [3], $ids('data LIKE :v', [':v' => '%creme%']));
+		$this->check('LIKE starts-with ignores accents', [4], $ids('data LIKE :v', [':v' => 'zurich%']));
+		$this->check('REGEXP ignores case and accents, keeps its escapes', [1], $ids('data REGEXP :v', [':v' => '^HELLO\\W+world$']));
+		$this->check('REGEXP word boundaries', [2, 5], $ids('data REGEXP :v', [':v' => '[[:<:]](apfel|apple)[[:>:]]']));
+		$this->check('IN ignores case and accents', [2, 4], $ids('data IN (:a, :b)', [':a' => 'apfel', ':b' => 'ZURICH']));
+		$this->check('email lookup ignores case', [1], $ids('email=:v', [':v' => 'admin@example.com']));
+		$sorted = $database->query("SELECT data FROM `$table` ORDER BY data")->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('ORDER BY sorts by the folded value (accented letters with their base letter)', ['Äpfel', 'apple', 'Crème brûlée', 'Hello World', 'Zürich'], $sorted);
+
+		// indexes on the folded values are used, and look like the MySQL ones to ProcessWire
+		$pdo->exec('SET enable_seqscan = off');
+		$plan = function($sql, $value) use($database) {
+			$q = $database->prepare("EXPLAIN $sql");
+			$q->bindValue(':v', $value);
+			$q->execute();
+			return implode("\n", $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$eqPlan = $plan("SELECT pages_id FROM `$table` WHERE data=:v", 'apfel');
+		$likePlan = $plan("SELECT pages_id FROM `$table` WHERE data LIKE :v", '%creme%');
+		$emailPlan = $plan("SELECT pages_id FROM `$table` WHERE email=:v", 'admin@example.com');
+		$pdo->exec('SET enable_seqscan = on');
+		$this->check('= on text uses the folded hash index', true, strpos($eqPlan, $table . '__data_exact') !== false);
+		$this->check('LIKE uses the folded trigram index', true, strpos($likePlan, $table . '__data') !== false);
+		$this->check('= on varchar uses the folded btree index', true, strpos($emailPlan, $table . '__email') !== false || strpos($emailPlan, $table . '__uq__fold') !== false);
+		$indexes = $database->getIndexes($table, true);
+		$this->check('getIndexes() reports folded expression indexes by their column', ['data'], isset($indexes['data_exact']) ? $indexes['data_exact']['columns'] : null);
+		$this->check('getIndexes() does not report folded companion indexes', false, isset($indexes['uq__fold']) || isset($indexes['primary__fold']));
+		$this->check('getIndexes() still reports the unique key', ['email', 'pages_id'], isset($indexes['uq']) ? $indexes['uq']['columns'] : null);
+		$this->check('indexExists() finds a folded index', true, $database->indexExists($table, 'data_exact'));
+		$database->exec("ALTER TABLE `$table` DROP INDEX `uq`");
+		$this->check('dropping a unique key drops its folded companion', false, (bool) $pdo->query("SELECT to_regclass('\"{$table}__uq__fold\"')")->fetchColumn());
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+
+		// through the ProcessWire API, with the examples from processwire-requests#609
+		$parent = $this->getTestPage();
+		if(!$parent || !$parent->id) return;
+		$pages = $this->wire()->pages;
+		$titles = ['Hello World', 'Äpfel', 'Crème', 'Zürich'];
+		$created = [];
+		foreach($titles as $n => $title) {
+			$p = $pages->newPage(['template' => $parent->template, 'parent' => $parent, 'name' => "pgsql-fold-$n", 'title' => $title]);
+			$pages->save($p);
+			$created[] = $p;
+		}
+		$find = function($selector) use($pages, $parent) {
+			return $pages->find("parent=$parent, $selector, include=all")->implode('|', 'title');
+		};
+		$this->check('title=hello world', 'Hello World', $find('title=hello world'));
+		$this->check('title=äpfel', 'Äpfel', $find('title=äpfel'));
+		$this->check('title%=HELLO', 'Hello World', $find('title%=HELLO'));
+		$this->check('title%=apfel', 'Äpfel', $find('title%=apfel'));
+		$this->check('title*=creme', 'Crème', $find('title*=creme'));
+		$this->check('title^=zurich', 'Zürich', $find('title^=zurich'));
+		$this->check('sort=title', 'Äpfel|Crème|Hello World|Zürich', $find('name^=pgsql-fold-, sort=title'));
+		foreach($created as $p) $pages->delete($p, true);
+
+		$users = $this->wire()->users;
+		$old = $users->get('name=pgsql-fold-user');
+		if($old->id) $users->delete($old);
+		$user = $users->add('pgsql-fold-user');
+		$user->of(false);
+		$user->email = 'fold.test@example.com';
+		$users->save($user);
+		// stored in mixed case (i.e. imported, or saved before a sanitizer lowercased it), as in processwire-requests#609
+		$q = $database->prepare('UPDATE field_email SET data=:email WHERE pages_id=:id');
+		$q->bindValue(':email', 'Fold.Test@Example.COM');
+		$q->bindValue(':id', $user->id, \PDO::PARAM_INT);
+		$q->execute();
+		$stored = $database->prepare('SELECT data FROM field_email WHERE pages_id=:id');
+		$stored->bindValue(':id', $user->id, \PDO::PARAM_INT);
+		$stored->execute();
+		$this->check('email is stored in mixed case', 'Fold.Test@Example.COM', $stored->fetchColumn());
+		$this->wire()->pages->uncacheAll();
+		$found = $users->get('email=fold.test@example.com');
+		$this->check('$users->get(email=...) ignores case', $user->id, $found->id);
+		$users->delete($user);
 	}
 
 	protected function testConnectionConfig() {
@@ -312,6 +430,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		// untouched, rather than being translated again (which looks up their catalog tables, and so on)
 		$conn = WireDatabaseDialectPgsql::connectionConfig($this->wire()->config, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
 		$wrapper = new WireTestPgsqlTranslatingPDO($conn['dsn'], $conn['user'], $conn['pass'], $conn['options']);
+		$wrapper->translator->setFoldAvailable($database->dialect()->foldAvailable()); // same translation settings as the site
 		$mysql = "SELECT t.id FROM `$table` t WHERE t.qty = '' AND t.name = 'x'";
 		$expected = $database->dialect()->translator()->translateStatements($mysql);
 		try {

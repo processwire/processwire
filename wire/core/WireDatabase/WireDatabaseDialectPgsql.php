@@ -38,6 +38,14 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	protected $savepointNum = 0;
 
 	/**
+	 * Do the pw_fold() functions exist on this connection (see initConnection())?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $foldAvailable = false;
+
+	/**
 	 * Cached values from getVariable()
 	 *
 	 * @var array
@@ -66,6 +74,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			$database = $this->database;
 			$this->translator = new WireDatabasePgsqlTranslator(function() use($database) { return $database->pdo(); });
 			$this->translator->setTrigramAvailable($this->setting('trigram', true));
+			$this->translator->setFoldAvailable($this->foldAvailable);
 		}
 		return $this->translator;
 	}
@@ -179,7 +188,19 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	 *
 	 */
 	public function initConnection(\PDO $pdo) {
-		$version = (string) $pdo->query("SELECT current_setting('server_version')")->fetchColumn();
+		$schema = (string) $this->setting('schema', '');
+		if($schema !== '') $pdo->exec('SET search_path TO ' . $this->quoteIdentifier($schema) . ', public');
+		// one round trip: version, session settings, and whether the fold functions exist
+		// - the translator and upsertRowValue() write literals with only quotes doubled, so backslashes must be literal
+		// - MySQL's NOW() uses the server's time zone; PHP's zone is the closest equivalent here
+		$timezone = (string) date_default_timezone_get();
+		$row = $pdo->query(
+			"SELECT current_setting('server_version') AS version, " .
+			"set_config('standard_conforming_strings', 'on', false) AS scs, " .
+			($timezone !== '' ? "set_config('TimeZone', " . $pdo->quote($timezone) . ', false) AS tz, ' : '') .
+			"to_regprocedure('pw_fold(text)') IS NOT NULL AND to_regprocedure('pw_unaccent(text)') IS NOT NULL AS fold"
+		)->fetch(\PDO::FETCH_ASSOC);
+		$version = (string) $row['version'];
 		if(version_compare(preg_replace('/[^0-9.].*$/', '', $version), self::minVersion, '<')) {
 			throw new WireDatabaseException(
 				"PostgreSQL $version is not supported, ProcessWire requires PostgreSQL " . self::minVersion . ' or newer'
@@ -190,13 +211,42 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			\PDO::ATTR_STATEMENT_CLASS,
 			array(__NAMESPACE__ . "\\WireDatabasePgsqlStatement", array($this->database))
 		);
-		// the translator and upsertRowValue() write literals with only quotes doubled; make sure backslashes are literal
-		$pdo->exec('SET standard_conforming_strings = on');
-		$schema = (string) $this->setting('schema', '');
-		if($schema !== '') $pdo->exec('SET search_path TO ' . $this->quoteIdentifier($schema) . ', public');
-		// MySQL's NOW() uses the server's time zone; PHP's zone is the closest equivalent here
-		$timezone = date_default_timezone_get();
-		if($timezone) $pdo->exec('SET TIME ZONE ' . $pdo->quote($timezone));
+		$fold = false;
+		if($this->setting('fold', true)) {
+			$fold = in_array($row['fold'], array(true, 't', '1', 1), true);
+			if(!$fold) {
+				// first connection after install or upgrade: create them (see setupFold())
+				$result = WireDatabasePgsqlTranslator::setupFold(
+					function($sql) use($pdo) { $pdo->exec($sql); },
+					function($sql) use($pdo) { return $pdo->query($sql)->fetchColumn(); }
+				);
+				$fold = $result['fold'];
+				if($result['error'] !== '') $this->logFoldError($result['error']);
+			}
+		}
+		$this->foldAvailable = $fold;
+		if($this->translator !== null) $this->translator->setFoldAvailable($fold);
+	}
+
+	/**
+	 * Are text comparisons case- and accent-insensitive (the pw_fold() functions exist)?
+	 *
+	 * @return bool
+	 *
+	 */
+	public function foldAvailable() {
+		return $this->foldAvailable;
+	}
+
+	/**
+	 * Log why folding is not (fully) available
+	 *
+	 * @param string $message
+	 *
+	 */
+	protected function logFoldError($message) {
+		$log = $this->wire()->log;
+		if($log) $log->save('pgsql-errors', $message);
 	}
 
 	/**
@@ -813,7 +863,7 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 		$prefix = $table . WireDatabasePgsqlTranslator::indexSeparator;
 		$sql =
 			"SELECT i.relname AS index_name, ix.indisunique AS is_unique, ix.indisprimary AS is_primary, " .
-			"k.ord AS seq, a.attname AS column_name " .
+			"k.ord AS seq, a.attname AS column_name, pg_get_indexdef(ix.indexrelid, k.ord::int, true) AS expr " .
 			"FROM pg_index ix JOIN pg_class t ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid " .
 			"JOIN pg_namespace n ON n.oid = t.relnamespace " .
 			"CROSS JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) " .
@@ -821,8 +871,15 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			"WHERE t.relname = ? AND n.nspname = current_schema() ORDER BY i.relname, k.ord";
 		$rows = array();
 		foreach($this->catalog($sql, array($table)) as $row) {
-			if($row['column_name'] === null) continue; // indexed expression rather than a column
 			$name = (string) $row['index_name'];
+			// folded companion of a unique or primary key (see WireDatabasePgsqlTranslator::createIndexSql()): internal
+			if(substr($name, -strlen(WireDatabasePgsqlTranslator::foldIndexSuffix)) === WireDatabasePgsqlTranslator::foldIndexSuffix) continue;
+			if($row['column_name'] === null) {
+				// indexed expression, i.e. pw_fold(data) or left(data, 250): report the column it is on, as MySQL would
+				$expr = preg_replace('/^(?:\(?"?\w+"?\()+/', '', ltrim((string) $row['expr'], '('));
+				if(!preg_match('/^"?([A-Za-z0-9_]+)"?/', $expr, $m)) continue;
+				$row['column_name'] = $m[1];
+			}
 			$primary = in_array($row['is_primary'], array(true, 't', '1', 1), true);
 			$unique = in_array($row['is_unique'], array(true, 't', '1', 1), true);
 			if($primary) {

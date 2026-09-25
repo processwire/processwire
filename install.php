@@ -4484,7 +4484,40 @@ class InstallerPgsqlPDO extends InstallerPgsqlPDOBase {
 			$notes[] = 'PostgreSQL extension pg_trgm could not be created, so text search (FULLTEXT) indexes are skipped: ' . $e->getMessage();
 			$this->translator->setTrigramAvailable(false);
 		}
+		// pw_fold() before the profile import, so that text indexes are created on folded values
+		$pdo = $this;
+		$result = WireDatabasePgsqlTranslator::setupFold(
+			function($sql) use($pdo) { $pdo->execNative($sql); },
+			function($sql) use($pdo) { return $pdo->queryNative($sql)->fetchColumn(); }
+		);
+		$this->translator->setFoldAvailable($result['fold']);
+		if($result['fold'] && $result['accents']) {
+			$notes[] = 'Text comparisons ignore case and accents (pw_fold() with the unaccent extension)';
+		}
+		if($result['error'] !== '') $notes[] = $result['error'];
 		return $notes;
+	}
+
+	/**
+	 * Execute PostgreSQL SQL without translation
+	 *
+	 * @param string $sql
+	 * @return int|false
+	 *
+	 */
+	public function execNative($sql) {
+		return parent::exec($sql);
+	}
+
+	/**
+	 * Query PostgreSQL SQL without translation
+	 *
+	 * @param string $sql
+	 * @return \PDOStatement|false
+	 *
+	 */
+	public function queryNative($sql) {
+		return parent::query($sql);
 	}
 
 	/**

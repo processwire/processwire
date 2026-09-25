@@ -22,6 +22,95 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testDdl();
 		$this->testDml();
 		$this->testShow();
+		$this->testFolding();
+	}
+
+	/**
+	 * Case- and accent-insensitive text comparisons and sorting (pw_fold), as MySQL's default collations
+	 *
+	 */
+	protected function testFolding() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$t = function($sql) use($tr) { return implode(";\n", $tr->translateStatements($sql)); };
+		$tr->setSchemaCache([
+			'field_title' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'text']],
+			'field_email' => ['primary' => ['pages_id'], 'identity' => null, 'columns' => ['pages_id' => 'integer', 'data' => 'character varying']],
+			'pages' => ['primary' => ['id'], 'identity' => 'id', 'columns' => ['id' => 'integer', 'name' => 'character varying', 'templates_id' => 'integer']],
+			'caches' => ['primary' => ['name'], 'identity' => null, 'columns' => ['name' => 'character varying', 'data' => 'text']],
+		]);
+		$sql = "SELECT pages_id FROM field_title WHERE data=:v";
+		$this->check('folding is off until enabled (the functions must exist)', 'SELECT pages_id FROM field_title WHERE data=:v', $t($sql));
+		$tr->setFoldAvailable(true);
+
+		// comparisons
+		$this->check('= on a text column folds both sides', 'SELECT pages_id FROM field_title WHERE pw_fold(data)=pw_fold(:v)', $t($sql));
+		$this->check('!= with a literal on a qualified varchar column',
+			"SELECT f.pages_id FROM field_email AS f WHERE pw_fold(f.data)!=pw_fold('Admin@Example.com')",
+			$t("SELECT f.pages_id FROM field_email AS f WHERE f.data!='Admin@Example.com'"));
+		$this->check('empty-string checks stay plain (nothing to fold, and cheaper)',
+			"SELECT pages_id FROM field_title WHERE data!='' AND data IS NOT NULL",
+			$t("SELECT pages_id FROM field_title WHERE data!='' AND data IS NOT NULL"));
+		$this->check('LIKE folds both sides (and needs no ILIKE)',
+			'SELECT f.pages_id FROM field_title AS f WHERE pw_fold(f.data) LIKE pw_fold(:p) AND pw_fold(f.data) NOT LIKE pw_fold(:q)',
+			$t('SELECT f.pages_id FROM field_title AS f WHERE f.data LIKE :p AND f.data NOT LIKE :q'));
+		$this->check('REGEXP folds the column and only unaccents the pattern (lowercasing would change escapes such as \W)',
+			'SELECT f.pages_id FROM field_title AS f WHERE pw_fold(f.data) ~* pw_unaccent(:p) AND pw_fold(f.data) !~* pw_unaccent(:q)',
+			$t('SELECT f.pages_id FROM field_title AS f WHERE f.data REGEXP :p AND f.data NOT REGEXP :q'));
+		$this->check('IN list folds every value',
+			"SELECT id FROM pages WHERE pw_fold(name) IN (pw_fold('home'), pw_fold(:n))",
+			$t("SELECT id FROM pages WHERE name IN ('home', :n)"));
+		$this->check('numeric columns are not folded', 'SELECT id FROM pages WHERE templates_id=2 AND id IN (1, 2)', $t('SELECT id FROM pages WHERE templates_id=2 AND id IN (1, 2)'));
+		$this->check('column-to-column comparisons (joins) are not folded, so they keep their indexes',
+			'SELECT p.id FROM pages AS p JOIN field_email AS e ON e.data=p.name',
+			$t('SELECT p.id FROM pages AS p JOIN field_email AS e ON e.data=p.name'));
+		$this->check('UPDATE and DELETE conditions fold too',
+			"UPDATE caches SET data=:d WHERE pw_fold(name)=pw_fold(:n);\nDELETE FROM caches WHERE pw_fold(name) LIKE pw_fold('Mod%')",
+			$t('UPDATE caches SET data=:d WHERE name=:n') . ";\n" . $t("DELETE FROM caches WHERE name LIKE 'Mod%'"));
+
+		// sorting
+		$this->check('ORDER BY a text column sorts by the folded value',
+			'SELECT pages_id FROM field_title ORDER BY pw_fold(data) DESC, pages_id',
+			$t('SELECT pages_id FROM field_title ORDER BY data DESC, pages_id'));
+		$this->check('ORDER BY a joined text column under GROUP BY folds its any_value()',
+			'SELECT pages.id FROM pages LEFT JOIN field_title AS f ON f.pages_id=pages.id GROUP BY pages.id ORDER BY pw_fold(any_value(f.data))',
+			$t('SELECT pages.id FROM pages LEFT JOIN field_title AS f ON f.pages_id=pages.id GROUP BY pages.id ORDER BY f.data'));
+		$this->check('SELECT DISTINCT keeps its ORDER BY (PostgreSQL requires it in the select list)',
+			'SELECT DISTINCT data FROM field_title ORDER BY data',
+			$t('SELECT DISTINCT data FROM field_title ORDER BY data'));
+
+		// indexes on text columns are built on the folded value
+		$statements = $tr->translateStatements("CREATE TABLE `field_title` (`pages_id` int(10) unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`), KEY `data_exact` (`data`(255)), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$this->check('prefix index on an unbounded text column becomes a hash index on the folded value (equality)',
+			'CREATE INDEX "field_title__data_exact" ON "field_title" USING hash (pw_fold("data"))', $statements[1]);
+		$this->check('FULLTEXT KEY becomes a trigram index on the folded value',
+			'CREATE INDEX "field_title__data" ON "field_title" USING gin (pw_fold("data") gin_trgm_ops)', $statements[2]);
+		$this->check('index on a varchar column is a btree on the folded value (equality and sort)',
+			'CREATE INDEX "f__name" ON "f" (pw_fold("name"))',
+			$tr->translateStatements('CREATE TABLE `f` (`name` varchar(250) NOT NULL, KEY `name` (`name`(191)))')[1]);
+		$statements = $tr->translateStatements('CREATE TABLE `pages` (`id` int unsigned NOT NULL AUTO_INCREMENT, `parent_id` int NOT NULL, `name` varchar(128) NOT NULL, PRIMARY KEY (`id`), UNIQUE KEY `name_parent_id` (`name`,`parent_id`))');
+		$this->check('a unique key keeps its exact index (uniqueness as before) plus a folded companion for lookups',
+			['CREATE UNIQUE INDEX "pages__name_parent_id" ON "pages" ("name", "parent_id")', 'CREATE INDEX "pages__name_parent_id__fold" ON "pages" (pw_fold("name"), "parent_id")'],
+			array_slice($statements, 1));
+		$statements = $tr->translateStatements('CREATE TABLE `caches` (`name` varchar(250) NOT NULL, `data` mediumtext NOT NULL, PRIMARY KEY (`name`))');
+		$this->check('a text primary key gets a folded companion index',
+			'CREATE INDEX "caches__primary__fold" ON "caches" (pw_fold("name"))', isset($statements[1]) ? $statements[1] : null);
+		$this->check('a multi-column key with an unbounded text column folds its prefix',
+			'CREATE INDEX "t__k" ON "t" ("pages_id", pw_fold(left("data", 100)))',
+			$tr->translateStatements('CREATE TABLE `t` (`pages_id` int NOT NULL, `data` text NOT NULL, KEY `k` (`pages_id`, `data`(100)))')[1]);
+		$this->check('DROP INDEX drops the folded companion too',
+			['DROP INDEX IF EXISTS "t__u"', 'DROP INDEX IF EXISTS "t__u__fold"'], $tr->translateStatements('DROP INDEX u ON t'));
+		$this->check('ALTER TABLE DROP INDEX drops the folded companion too',
+			['DROP INDEX IF EXISTS "t__u"', 'DROP INDEX IF EXISTS "t__u__fold"'], $tr->translateStatements('ALTER TABLE t DROP INDEX u'));
+		$this->check('ALTER TABLE RENAME INDEX renames the folded companion too',
+			['ALTER INDEX "t__a" RENAME TO "t__b"', 'ALTER INDEX IF EXISTS "t__a__fold" RENAME TO "t__b__fold"'], $tr->translateStatements('ALTER TABLE t RENAME INDEX a TO b'));
+		$this->check('DROP PRIMARY KEY drops its folded companion too',
+			['ALTER TABLE "t" DROP CONSTRAINT IF EXISTS "t_pkey"', 'DROP INDEX IF EXISTS "t__primary__fold"'], $tr->translateStatements('ALTER TABLE t DROP PRIMARY KEY'));
+		$tr->setSchemaCache(['caches' => ['primary' => ['name'], 'identity' => null, 'columns' => ['name' => 'character varying', 'data' => 'text']]]);
+		$this->check('ALTER TABLE ADD INDEX on a known text column is folded',
+			'CREATE INDEX "caches__n" ON "caches" (pw_fold("name"))', $tr->translateStatements('ALTER TABLE caches ADD INDEX n (name)')[0]);
+
+		$tr->setFoldAvailable(false);
+		$this->check('folding off again restores plain comparisons', 'SELECT pages_id FROM field_title WHERE data=:v', $t($sql));
 	}
 
 	protected function testDml() {
