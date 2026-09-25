@@ -1342,7 +1342,9 @@ $config->cookieOptions = array(
  * - `mysql` (default): MySQL or MariaDB, configured with the dbName, dbUser, dbHost, etc. settings below.
  * - `sqlite`: SQLite database file, configured with the dbFile setting below.
  * - `pgsql`: PostgreSQL 16 or newer (experimental), configured with the dbName, dbUser, dbPass, dbHost and
- *    dbPort (default 5432) settings below, or dbSocket as the directory containing the server's socket.
+ *    dbPort settings below (set dbPort to 5432, PostgreSQL's usual port, since the default here is MySQL's),
+ *    or dbSocket as the directory containing the server's socket. Text comparisons are not yet case and
+ *    accent insensitive as on MySQL (see WireDatabase/API.md).
  *
  * @var string
  *
