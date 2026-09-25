@@ -156,6 +156,12 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$database->exec("UPDATE `$a` SET name='z' WHERE id=1");
 		$this->check('ON UPDATE: changing another column sets the current time', true, strtotime((string) $v("SELECT ts FROM `$a` WHERE id=1")) > time() - 60);
 		$this->check('ON UPDATE: other rows are not touched', '2000-01-01 00:00:00', (string) $v("SELECT ts FROM `$a` WHERE id=2"));
+		$database->exec("ALTER TABLE `$a` RENAME COLUMN `ts` TO `changed`");
+		$database->exec("UPDATE `$a` SET changed='2000-01-01 00:00:00' WHERE id=2");
+		$database->exec("UPDATE `$a` SET name='w' WHERE id=2");
+		$this->check('ON UPDATE: a renamed column keeps updating', true, strtotime((string) $v("SELECT changed FROM `$a` WHERE id=2")) > time() - 60);
+		$database->exec("ALTER TABLE `$a` RENAME COLUMN `changed` TO `ts`");
+		$database->exec("UPDATE `$a` SET ts='2000-01-01 00:00:00', name='y' WHERE id=2");
 
 		// zero dates
 		$this->check('a zero date default is NULL', null, $v("SELECT d FROM `$a` WHERE id=1"));
@@ -166,6 +172,25 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('a bound zero date is NULL', null, $v("SELECT d FROM `$a` WHERE id=5"));
 		$this->check('= zero date finds the zero dates', 4, (int) $v("SELECT COUNT(*) FROM `$a` WHERE d='0000-00-00 00:00:00'"));
 		$this->check('> zero date finds the real dates', 1, (int) $v("SELECT COUNT(*) FROM `$a` WHERE d>'0000-00-00'"));
+		// text that happens to be a zero date is text (i.e. a page title '0000-00-00')
+		$database->exec("INSERT INTO `$a` (id, name) VALUES (8, 'x8'), (9, 'x9')");
+		foreach(['0000-00-00', '0000-00-00 00:00:00'] as $n => $text) {
+			$q = $database->prepare("UPDATE `$a` SET name=:name WHERE id=:id");
+			$q->bindValue(':name', $text);
+			$q->bindValue(':id', 8 + $n, \PDO::PARAM_INT);
+			$q->execute();
+			$q = $database->prepare("SELECT id FROM `$a` WHERE name=:name");
+			$q->bindValue(':name', $text);
+			$q->execute();
+			$this->check("a text column keeps '$text' (bound) and finds it", [8 + $n], array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN)));
+		}
+		$database->exec("INSERT INTO `$a` (id, name, d) VALUES (7, '0000-00-00', '0000-00-00')");
+		$this->check('a text column keeps a zero date literal while a date column makes it NULL', ['0000-00-00', null], array_values($database->query("SELECT name, d FROM `$a` WHERE id=7")->fetch(\PDO::FETCH_ASSOC)));
+		$q = $database->prepare("SELECT COUNT(*) FROM `$a` WHERE d>:v");
+		$q->bindValue(':v', '2000-01-01');
+		$q->execute();
+		$this->check('a bound date compared with a date column', 1, (int) $q->fetchColumn());
+		$database->exec("DELETE FROM `$a` WHERE id IN (7, 8, 9)");
 
 		// UPDATE ... JOIN
 		$database->exec("CREATE TABLE `$b` (`id` int NOT NULL, `a_id` int NOT NULL, `label` varchar(20) NOT NULL, PRIMARY KEY (`id`))");

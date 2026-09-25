@@ -423,7 +423,6 @@ class WireDatabasePgsqlTranslator {
 		$tokens = $this->subqueries($tokens);
 		$tokens = $this->typedComparisons($tokens);
 		if($first === 'SELECT') $tokens = $this->selectPasses($tokens);
-		$tokens = $this->zeroDates($tokens);
 		if($first === 'DELETE') $tokens = $this->deleteLimit($tokens);
 		if($first === 'UPDATE') $tokens = $this->updateOrderLimit($this->updateJoin($tokens));
 
@@ -2450,6 +2449,14 @@ class WireDatabasePgsqlTranslator {
 			$isCompare = $op[0] === 'punct' && in_array($op[1], ['=', '!=', '<>', '<', '>', '<=', '>='], true);
 			$r = $isCompare ? $this->next($tokens, $k + 1) : -1;
 			$isValue = $r > -1 && ($tokens[$r][0] === 'str' || ($tokens[$r][0] === 'param' && $tokens[$r][1] !== '?'));
+			if($class === 'datetime' && $r > -1 && ($tokens[$r][0] === 'param' || ($assignment && $tokens[$r][0] === 'str' && self::isZeroDate($tokens[$r][1])))) {
+				// SET d = '0000-00-00' is NULL; a bound value for a date column is NULL when it is a zero date
+				foreach($colTokens as $ct) $out[] = $ct;
+				for($x = $end; $x < $r; $x++) $out[] = $tokens[$x];
+				$out[] = ['word', $tokens[$r][0] === 'param' ? self::zeroDateParam($tokens[$r][1], $schema['columns'][$column]) : 'NULL'];
+				$i = $r;
+				continue;
+			}
 			if($class === 'datetime' && !$assignment && $r > -1 && $tokens[$r][0] === 'str' && self::isZeroDate($tokens[$r][1])) {
 				// MySQL's zero date is NULL here: = and <= match it, != and > match every other date
 				$map = ['=' => 'IS NULL', '<=' => 'IS NULL', '!=' => 'IS NOT NULL', '<>' => 'IS NOT NULL', '>' => 'IS NOT NULL'];
@@ -3600,15 +3607,108 @@ class WireDatabasePgsqlTranslator {
 	}
 
 	/**
-	 * Replace MySQL's zero date literals with NULL, which is what they are here (see typedComparisons() for comparisons)
+	 * Get an expression for a bound value meant for a date column: NULL when it is a zero date, else the value as the column's type
+	 *
+	 * MySQL's zero dates are NULL here (PostgreSQL rejects them). The parameter is used once, so that a positional `?`
+	 * keeps its place, and the expression is constant for a given value, so that an index on the column still serves it.
+	 *
+	 * @param string $param Placeholder (`:name` or `?`)
+	 * @param string $pgType The column's type
+	 * @return string
+	 *
+	 */
+	public static function zeroDateParam($param, $pgType) {
+		return "NULLIF(regexp_replace(($param)::text, '^\\s*0000-00-00([ T]00:00:00(\\.0+)?)?\\s*$', ''), '')::$pgType";
+	}
+
+	/**
+	 * Replace MySQL's zero dates with NULL where an INSERT or REPLACE gives them to a date column
+	 *
+	 * Values in VALUES rows (by the column list, or the table's column order), and assignments in `SET` and
+	 * `ON DUPLICATE KEY UPDATE`. Literal zero dates become NULL, and bound values get zeroDateParam(). Other
+	 * columns keep the value: text that happens to be a zero date is text. Statements other than INSERT are
+	 * handled by typedComparisons().
 	 *
 	 * @param array $tokens
 	 * @return array
 	 *
 	 */
 	protected function zeroDates(array $tokens) {
-		foreach($tokens as $i => $t) {
-			if($t[0] === 'str' && self::isZeroDate($t[1])) $tokens[$i] = ['word', 'NULL'];
+		$n = count($tokens);
+		$into = -1;
+		for($i = 0; $i < $n; $i++) {
+			if($this->isWord($tokens[$i], 'INTO')) { $into = $i; break; }
+		}
+		$ti = $into > -1 ? $this->next($tokens, $into + 1) : -1;
+		if($ti < 0 || !in_array($tokens[$ti][0], ['word', 'id'], true)) return $tokens;
+		$schema = $this->tableSchema($this->name($tokens[$ti]));
+		if(!count($schema['columns'])) return $tokens;
+		$fix = function($k, $col) use(&$tokens, $schema) {
+			if($k < 0 || $col === null || !isset($schema['columns'][$col]) || $this->typeClass($schema['columns'][$col]) !== 'datetime') return;
+			$t = $tokens[$k];
+			if($t[0] === 'str' && self::isZeroDate($t[1])) {
+				$tokens[$k] = ['word', 'NULL'];
+			} else if($t[0] === 'param') {
+				$tokens[$k] = ['word', self::zeroDateParam($t[1], $schema['columns'][$col])];
+			}
+		};
+		// the one token of a value, or -1 when it is an expression
+		$single = function($from, $to) use(&$tokens) {
+			$found = -1;
+			for($x = $from; $x <= $to; $x++) {
+				if($tokens[$x][0] === 'ws') continue;
+				if($found > -1) return -1;
+				$found = $x;
+			}
+			return $found;
+		};
+		$j = $this->next($tokens, $ti + 1);
+		$cols = null;
+		if($j > -1 && $tokens[$j][0] === 'punct' && $tokens[$j][1] === '(' && !$this->startsSelect($tokens, $j)) {
+			$close = $this->matchParen($tokens, $j);
+			$cols = [];
+			foreach($this->splitCommas(array_slice($tokens, $j + 1, $close - $j - 1)) as $c) {
+				$c = $this->trimTokens($c);
+				$cols[] = count($c) === 1 ? $this->name($c[0]) : null;
+			}
+			$j = $this->next($tokens, $close + 1);
+		}
+		if($j > -1 && $this->isWord($tokens[$j], ['VALUES', 'VALUE'])) {
+			if($cols === null) $cols = array_keys($schema['columns']);
+			$k = $this->next($tokens, $j + 1);
+			while($k > -1 && $tokens[$k][0] === 'punct' && $tokens[$k][1] === '(') {
+				$close = $this->matchParen($tokens, $k);
+				if($close < 0) break;
+				$depth = 0;
+				$start = $k + 1;
+				$arg = 0;
+				for($x = $k + 1; $x <= $close; $x++) {
+					$t = $tokens[$x];
+					if($t[0] === 'punct' && $t[1] === '(') $depth++;
+					if($t[0] === 'punct' && $t[1] === ')' && $x < $close) $depth--;
+					if($x === $close || ($depth === 0 && $t[0] === 'punct' && $t[1] === ',')) {
+						$fix($single($start, $x - 1), isset($cols[$arg]) ? $cols[$arg] : null);
+						$arg++;
+						$start = $x + 1;
+					}
+				}
+				$k = $this->next($tokens, $close + 1);
+				if($k > -1 && $tokens[$k][0] === 'punct' && $tokens[$k][1] === ',') {
+					$k = $this->next($tokens, $k + 1);
+				} else {
+					break;
+				}
+			}
+			$j = $k;
+		}
+		// assignments: INSERT ... SET a = v, and ON DUPLICATE KEY UPDATE a = v
+		for($x = max($j, 0); $x > -1 && $x < $n; $x++) {
+			if(!in_array($tokens[$x][0], ['word', 'id'], true) || $this->isWord($tokens[$x], ['SET', 'ON', 'DUPLICATE', 'KEY', 'UPDATE'])) continue;
+			$e = $this->next($tokens, $x + 1);
+			if($e < 0 || $tokens[$e][0] !== 'punct' || $tokens[$e][1] !== '=') continue;
+			$v = $this->next($tokens, $e + 1);
+			$after = $v > -1 ? $this->next($tokens, $v + 1) : -1;
+			if($v > -1 && ($after < 0 || ($tokens[$after][0] === 'punct' && $tokens[$after][1] === ','))) $fix($v, $this->name($tokens[$x]));
 		}
 		return $tokens;
 	}
@@ -3627,8 +3727,7 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 */
 	protected function onUpdateSql($table, $column, $add = true, $replace = false) {
-		$trigger = 'pw_on_update__' . $column;
-		if(strlen($trigger) > 63) $trigger = substr($trigger, 0, 54) . '_' . substr(md5($trigger), 0, 8);
+		$trigger = self::onUpdateTriggerName($column);
 		$drop = 'DROP TRIGGER IF EXISTS ' . $this->quoteId($trigger) . ' ON ' . $this->quoteId($table);
 		if(!$add) return [$drop];
 		$statements = [
@@ -3641,6 +3740,41 @@ class WireDatabasePgsqlTranslator {
 		$statements[] = 'CREATE TRIGGER ' . $this->quoteId($trigger) . ' BEFORE UPDATE ON ' . $this->quoteId($table) .
 				" FOR EACH ROW EXECUTE FUNCTION pw_on_update_now('" . str_replace("'", "''", $column) . "')";
 		return $statements;
+	}
+
+	/**
+	 * Get the name of a column's ON UPDATE CURRENT_TIMESTAMP trigger (see onUpdateSql())
+	 *
+	 * @param string $column
+	 * @return string
+	 *
+	 */
+	protected static function onUpdateTriggerName($column) {
+		$trigger = 'pw_on_update__' . $column;
+		if(strlen($trigger) > 63) $trigger = substr($trigger, 0, 54) . '_' . substr(md5($trigger), 0, 8);
+		return $trigger;
+	}
+
+	/**
+	 * Get a statement that moves a column's ON UPDATE CURRENT_TIMESTAMP trigger to its new name, if it has one
+	 *
+	 * The trigger names its column in its argument, so a renamed column needs a new trigger to keep updating.
+	 * Checked when it runs, since the statement alone does not say whether the column has one.
+	 *
+	 * @param string $table
+	 * @param string $from
+	 * @param string $to
+	 * @return string
+	 *
+	 */
+	protected function onUpdateRenameSql($table, $from, $to) {
+		$q = function($sql) { return "'" . str_replace("'", "''", $sql) . "'"; };
+		$old = self::onUpdateTriggerName($from);
+		$drop = 'DROP TRIGGER IF EXISTS ' . $this->quoteId($old) . ' ON ' . $this->quoteId($table);
+		$statements = $this->onUpdateSql($table, $to);
+		$create = end($statements);
+		return "DO \$pw\$ BEGIN IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = " . $q($old) . " AND tgrelid = to_regclass(" . $q($this->quoteId($table)) . ")) " .
+			"THEN EXECUTE " . $q($drop) . "; EXECUTE " . $q($create) . "; END IF; END \$pw\$";
 	}
 
 	/**
@@ -4133,6 +4267,7 @@ class WireDatabasePgsqlTranslator {
 				if($w2 === 'COLUMN') {
 					$parts = array_values(array_filter(array_slice($rest, $j + 1), function($t) { return $t[0] !== 'ws'; }));
 					$statements[] = "ALTER TABLE $qTable RENAME COLUMN " . $this->quoteId($this->name($parts[0])) . ' TO ' . $this->quoteId($this->name($parts[2]));
+					$statements[] = $this->onUpdateRenameSql($table, $this->name($parts[0]), $this->name($parts[2]));
 				} else if($w2 === 'INDEX' || $w2 === 'KEY') {
 					$parts = array_values(array_filter(array_slice($rest, $j + 1), function($t) { return $t[0] !== 'ws'; }));
 					$from = $this->name($parts[0]);

@@ -159,6 +159,15 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('= zero date is IS NULL', 'SELECT id FROM d WHERE created IS NULL', $t("SELECT id FROM d WHERE created='0000-00-00 00:00:00'")[0]);
 		$this->check('!= and > zero date is IS NOT NULL', 'SELECT id FROM d WHERE created IS NOT NULL AND day IS NOT NULL', $t("SELECT id FROM d WHERE created!='0000-00-00 00:00:00' AND day>'0000-00-00'")[0]);
 		$this->check('a zero date value is NULL', "INSERT INTO d (id, created) VALUES (1, NULL)", $t("INSERT INTO d (id, created) VALUES (1, '0000-00-00 00:00:00')")[0]);
+		// only for date columns: text that happens to be a zero date stays text
+		$zero = function($p, $type) { return "NULLIF(regexp_replace(($p)::text, '^\\s*0000-00-00([ T]00:00:00(\\.0+)?)?\\s*$', ''), '')::$type"; };
+		$this->check('a zero date in a text column stays text (INSERT)', "INSERT INTO d (id, name, day) VALUES (1, '0000-00-00', NULL)", $t("INSERT INTO d (id, name, day) VALUES (1, '0000-00-00', '0000-00-00')")[0]);
+		$this->check('a zero date in a text column stays text (UPDATE and WHERE)', "UPDATE d SET name='0000-00-00', day=NULL WHERE name='0000-00-00'", $t("UPDATE d SET name='0000-00-00', day='0000-00-00' WHERE name='0000-00-00'")[0]);
+		$this->check('bound values: only a date column\'s is checked for a zero date (INSERT)', 'INSERT INTO d (id, name, created) VALUES (:id, :name, ' . $zero(':c', 'timestamp without time zone') . ')', $t('INSERT INTO d (id, name, created) VALUES (:id, :name, :c)')[0]);
+		$this->check('bound values: several rows', 'INSERT INTO d (name, day) VALUES (:a, ' . $zero(':b', 'date') . '), (:c, ' . $zero(':d', 'date') . ')', $t('INSERT INTO d (name, day) VALUES (:a, :b), (:c, :d)')[0]);
+		$this->check('bound values: UPDATE SET', 'UPDATE d SET name=:n, day=' . $zero(':d', 'date') . ' WHERE id=1', $t('UPDATE d SET name=:n, day=:d WHERE id=1')[0]);
+		$this->check('bound values: compared with a date column', 'SELECT id FROM d WHERE created>' . $zero(':v', 'timestamp without time zone') . ' AND name=:n', $t('SELECT id FROM d WHERE created>:v AND name=:n')[0]);
+		$this->check('ON DUPLICATE KEY UPDATE assignments', true, strpos(implode(';', $t("INSERT INTO d (id, day) VALUES (1, :d) ON DUPLICATE KEY UPDATE day='0000-00-00', name='0000-00-00'")), "SET day=NULL, name='0000-00-00'") !== false);
 		$this->check('a zero date in UPDATE SET is NULL', 'UPDATE d SET created=NULL WHERE id=1', $t("UPDATE d SET created='0000-00-00 00:00:00' WHERE id=1")[0]);
 		$this->check('a zero date default makes the column nullable with no default',
 			"CREATE TABLE \"z\" (\n  \"d\" timestamp DEFAULT NULL\n)",
@@ -194,6 +203,9 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			$t('ALTER TABLE c DROP CHECK positive, DROP CONSTRAINT x'));
 		$statements = $t('CREATE TABLE `c` (`id` int NOT NULL, `a` int, PRIMARY KEY (`id`), CONSTRAINT `u` UNIQUE KEY (`a`), CONSTRAINT `fk` FOREIGN KEY (`a`) REFERENCES `pages` (`id`))');
 		$this->check('CREATE TABLE inline foreign key', true, strpos($statements[0], 'CONSTRAINT "fk" FOREIGN KEY ("a") REFERENCES "pages" ("id")') !== false);
+		$renamed = $t('ALTER TABLE pa RENAME COLUMN ts TO changed');
+		$this->check('RENAME COLUMN moves an ON UPDATE trigger to the new name', true, count($renamed) === 2 && strpos($renamed[1], 'DO ') === 0
+			&& strpos($renamed[1], "pw_on_update_now(''changed'')") !== false && strpos($renamed[1], 'pw_on_update__ts') !== false);
 		$this->check('CREATE TABLE inline CONSTRAINT UNIQUE KEY is a unique index', 'CREATE UNIQUE INDEX "c__u" ON "c" ("a")', isset($statements[1]) ? $statements[1] : null);
 	}
 
