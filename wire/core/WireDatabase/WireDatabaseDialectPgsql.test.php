@@ -14,6 +14,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testErrorMapping();
 		$this->testLive();
 		$this->testFolding();
+		$this->testNumberConversion();
 		$this->testJson();
 	}
 
@@ -252,6 +253,53 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$found = $users->get('email=fold.test@example.com');
 		$this->check('$users->get(email=...) ignores case', $user->id, $found->id);
 		$users->delete($user);
+	}
+
+	/**
+	 * Strings to numbers as MySQL converts them: the leading number, with its fraction and exponent (live, pgsql only)
+	 *
+	 */
+	protected function testNumberConversion() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$table = WireTests::fieldPrefix . 'pgsql_numconv';
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$database->exec("CREATE TABLE `$table` (`id` int NOT NULL, `v` varchar(20), `i` varchar(20), PRIMARY KEY (`id`))");
+		// MySQL's results for MODIFY to DECIMAL(10,2) and to INT
+		$values = [1 => ['12.5', '12.50', 13], 2 => ['-3.75x', '-3.75', -4], 3 => ['.5', '0.50', 1], 4 => ['1e3', '1000.00', 1000], 5 => ['abc', '0.00', 0], 6 => ['', '0.00', 0], 7 => ['  +7', '7.00', 7], 8 => ['12abc', '12.00', 12]];
+		foreach($values as $id => $row) {
+			$q = $database->prepare("INSERT INTO `$table` (id, v, i) VALUES (:id, :v, :i)");
+			$q->bindValue(':id', $id, \PDO::PARAM_INT);
+			$q->bindValue(':v', $row[0]);
+			$q->bindValue(':i', $row[0]);
+			$q->execute();
+		}
+		$database->exec("ALTER TABLE `$table` MODIFY `v` DECIMAL(10,2) NOT NULL DEFAULT 0");
+		$database->exec("ALTER TABLE `$table` MODIFY `i` INT NOT NULL DEFAULT 0");
+		$rows = $database->query("SELECT id, v, i FROM `$table` ORDER BY id")->fetchAll(\PDO::FETCH_ASSOC);
+		foreach($rows as $row) {
+			$id = (int) $row['id'];
+			$this->check("MODIFY text to DECIMAL(10,2): '{$values[$id][0]}'", $values[$id][1], (string) $row['v']);
+			$this->check("MODIFY text to INT: '{$values[$id][0]}'", $values[$id][2], (int) $row['i']);
+		}
+		// comparisons of a decimal column with strings (literal and bound)
+		$ids = function($where, array $binds = []) use($database, $table) {
+			$q = $database->prepare("SELECT id FROM `$table` WHERE $where ORDER BY id");
+			foreach($binds as $k => $val) $q->bindValue($k, $val);
+			$q->execute();
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$this->check("decimal = '.5' (literal)", [3], $ids("v = '.5'"));
+		$this->check('decimal = bound \'.5\'', [3], $ids('v = :v', [':v' => '.5']));
+		$this->check('decimal = bound \'1e3\'', [4], $ids('v = :v', [':v' => '1e3']));
+		$this->check('decimal = bound \'+7\'', [7], $ids('v = :v', [':v' => '+7']));
+		$this->check('decimal = bound \'-3.75 dollars\'', [2], $ids('v = :v', [':v' => '-3.75 dollars']));
+		// an integer column compared with number strings, as MySQL compares them
+		$this->check("int = '2' (literal)", [2], $ids("id = '2'"));
+		$this->check("int = '1.5' (literal): no match, not an error", [], $ids("id = '1.5'"));
+		$this->check("int = '2.0' (literal)", [2], $ids("id = '2.0'"));
+		$this->check("int = ' 2' (literal)", [2], $ids("id = ' 2'"));
+		$database->exec("DROP TABLE IF EXISTS `$table`");
 	}
 
 	protected function testConnectionConfig() {
