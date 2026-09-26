@@ -1575,7 +1575,7 @@ $config->dbStripMB4 = false;
  * has committed. Set to false to restore the previous per-query autocommit behavior.
  *
  * @var bool
- * @since 3.0.272
+ * @since 3.0.274
  *
  */
 $config->pageSaveTransactions = true;

@@ -46,8 +46,107 @@ class WireTest_Pages extends WireTest {
 		$this->testPageNameConflicts();
 		$this->testCreatingSavingSortingAndDeletingPages();
 		$this->testSortRebuild();
+		$this->testSaveTransactions();
 	}
 
+	/**
+	 * Each page save runs in one transaction, committed before the saved() hooks ($config->pageSaveTransactions)
+	 *
+	 */
+	protected function testSaveTransactions() {
+		$pages = $this->wire()->pages;
+		$database = $this->wire()->database;
+		$config = $this->wire()->config;
+		if(!$database->allowTransaction()) return; // i.e. MyISAM
+		$parent = $this->getTestPage();
+		$page = $pages->add($this->childTemplateName, $parent, array('name' => 'pages-test-txn', 'title' => 'Transaction fixture'));
+		$other = $pages->add($this->childTemplateName, $parent, array('name' => 'pages-test-txn-other', 'title' => 'Transaction other'));
+		$this->createdPageIDs[$page->id] = $page->id;
+		$this->createdPageIDs[$other->id] = $other->id;
+		$seen = array();
+		$hooks = array();
+		$hooks[] = $pages->addHookAfter('saveReady', function(HookEvent $e) use(&$seen, $database, $page, $other) {
+			$p = $e->arguments(0);
+			if($p === $page) {
+				$seen['ready'] = $database->inTransaction();
+				if(!empty($seen['nest'])) {
+					// a save within the save
+					$other->of(false);
+					$other->title = 'Transaction other ' . mt_rand();
+					$other->save();
+					$seen['after nested'] = $database->inTransaction();
+				}
+			}
+		});
+		$hooks[] = $pages->addHookAfter('saved', function(HookEvent $e) use(&$seen, $database, $page, $other) {
+			$p = $e->arguments(0);
+			if($p === $page) $seen['saved'] = $database->inTransaction();
+			if($p === $other) $seen['nested saved'] = $database->inTransaction();
+		});
+		$original = $config->pageSaveTransactions;
+		try {
+			$page->of(false);
+			$page->title = 'Transaction fixture 2';
+			$page->save();
+			$this->check('save(): its queries run in a transaction', true, $seen['ready']);
+			$this->check('save(): the transaction is committed before saved() hooks', false, $seen['saved']);
+
+			$seen = array('nest' => true);
+			$page->title = 'Transaction fixture 3';
+			$page->save();
+			$this->check('a save within a save does not commit the outer one', array(true, true), array($seen['nested saved'], $seen['after nested']));
+			$this->check('the outer save commits', false, $database->inTransaction());
+
+			// a save that fails after its pages row is written leaves nothing of itself
+			$hooks[] = $this->wire()->addHookAfter('Fieldtype::savePageField', function(HookEvent $e) use($page) {
+				if($e->arguments(0) === $page && $page->get('_failThisSave')) throw new WireException('Failing the save for the test');
+			});
+			$page->setQuietly('_failThisSave', true);
+			$page->name = 'pages-test-txn-renamed';
+			$page->title = 'Transaction fixture failed';
+			try {
+				$page->save();
+				$failed = false;
+			} catch(\Exception $e) {
+				$failed = true;
+			}
+			$page->setQuietly('_failThisSave', false);
+			$this->check('a failed save throws', true, $failed);
+			$this->check('a failed save leaves no transaction open', false, $database->inTransaction());
+			$fresh = $pages->getFresh($page->id);
+			if($this->pagesTableIsTransactional()) {
+				$this->check('a failed save changes nothing', array('pages-test-txn', 'Transaction fixture 3'), array($fresh->name, (string) $fresh->title));
+			} else {
+				$this->li('Skipped the rollback check: the pages table does not support transactions (i.e. MyISAM)');
+			}
+
+			$config->pageSaveTransactions = false;
+			$seen = array();
+			$other->title = 'Transaction other off';
+			$page->of(false);
+			$page->title = 'Transaction fixture off';
+			$page->save();
+			$this->check('$config->pageSaveTransactions = false: no transaction', false, $seen['ready']);
+		} finally {
+			$config->pageSaveTransactions = $original;
+			foreach($hooks as $id) $this->wire()->removeHook($id);
+		}
+	}
+
+	/**
+	 * Is the pages table transactional? (Sites from before InnoDB was the default may still have it as MyISAM)
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function pagesTableIsTransactional() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'mysql') return true;
+		$query = $database->prepare('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=:t');
+		$query->bindValue(':t', 'pages');
+		$query->execute();
+		return strtolower((string) $query->fetchColumn()) === 'innodb';
+	}
 	/**
 	 * sortRebuild() must renumber children 0..n-1 in their existing order, removing gaps and duplicates
 	 *

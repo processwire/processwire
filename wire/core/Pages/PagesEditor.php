@@ -636,7 +636,7 @@ class PagesEditor extends Wire {
 	 * transactions. Disable entirely with `$config->pageSaveTransactions = false;`
 	 *
 	 * @param Page $page
-	 * @since 3.0.272
+	 * @since 3.0.274
 	 *
 	 */
 	protected function beginSaveTransaction(Page $page) {
@@ -652,7 +652,7 @@ class PagesEditor extends Wire {
 	 * Commit the save transaction opened for the given page, if it opened one
 	 *
 	 * @param Page $page
-	 * @since 3.0.272
+	 * @since 3.0.274
 	 *
 	 */
 	protected function commitSaveTransaction(Page $page) {
@@ -668,7 +668,7 @@ class PagesEditor extends Wire {
 	 * No-op after a successful save, since commitSaveTransaction() has already run.
 	 *
 	 * @param Page $page
-	 * @since 3.0.272
+	 * @since 3.0.274
 	 *
 	 */
 	protected function rollbackSaveTransaction(Page $page) {
