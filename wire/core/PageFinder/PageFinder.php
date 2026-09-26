@@ -2698,13 +2698,17 @@ class PageFinder extends Wire {
 			}
 	
 			if(is_string($value) && strlen($value)) {
+				$collate = '';
 				if($textSort) {
 					// database may need a collation to sort text as MySQL would (i.e. SQLite)
 					$collate = $database->dialect()->sortCollation();
 					if($collate !== '') $value .= " COLLATE $collate";
 				}
-				// aggregated for ONLY_FULL_GROUP_BY, with the collation inside, so MIN()/MAX() pick by it too
-				$value = $this->aggregateSortExpression($query, $value, $descending);
+				// aggregated for ONLY_FULL_GROUP_BY, with the collation inside, so that MIN()/MAX() pick by it too,
+				// and after it, since an aggregate's value has no collation of its own (i.e. on SQLite)
+				$aggregated = $this->aggregateSortExpression($query, $value, $descending);
+				if($collate !== '' && $aggregated !== $value) $aggregated .= " COLLATE $collate";
+				$value = $aggregated;
 				if($descending) {
 					$query->orderby("$value DESC", true);
 				} else {
