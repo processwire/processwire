@@ -44,7 +44,84 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testFulltextRebuild();
 		$this->testFulltextIntrospection();
 		$this->testFulltextMatch();
+		$this->testFulltextReviewFixes();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * Fulltext edge cases found in review: statement-local aliases, positional parameters, IF NOT EXISTS,
+	 * key cache after DDL, DROP TEMPORARY TABLE, integer key detection
+	 *
+	 */
+	protected function testFulltextReviewFixes() {
+		$this->translator->setFulltext(true);
+		foreach(['ft_r', 'ft_r_other', 'ft_r_dst', 'ft_r_text'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_r` (`pages_id` int unsigned NOT NULL, `status` int NOT NULL DEFAULT 1, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_r` (pages_id, status, data) VALUES (1, 1, 'apple pie'), (2, 1, 'banana'), (3, 2, 'apple tart')");
+		$this->execMysql("CREATE TABLE `ft_r_other` (`id` int NOT NULL, PRIMARY KEY (`id`))");
+		$this->execMysql("CREATE TABLE `ft_r_dst` (`id` int NOT NULL, PRIMARY KEY (`id`))");
+
+		// MATCH in INSERT ... SELECT and DELETE ... LIMIT uses the statement's own tables, not the previous statement's
+		$this->translate('SELECT id FROM `ft_r_other`');
+		$error = '';
+		try {
+			$this->execMysql("INSERT INTO `ft_r_dst` (id) SELECT a.pages_id FROM `ft_r` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE)");
+			$this->translate('SELECT id FROM `ft_r_other`');
+			$this->execMysql("DELETE FROM `ft_r_dst` WHERE id IN (SELECT pages_id FROM `ft_r` WHERE MATCH(data) AGAINST('tart' IN BOOLEAN MODE)) LIMIT 1");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('MATCH in INSERT ... SELECT and DELETE ... LIMIT after another statement', ['', [1]], [$error, array_map('intval', $this->pdo->query('SELECT id FROM `ft_r_dst` ORDER BY id')->fetchAll(\PDO::FETCH_COLUMN))]);
+
+		// positional parameters keep their order (a score with ? is not moved into a CTE)
+		$q = $this->pdo->prepare($this->translate("SELECT pages_id FROM `ft_r` WHERE status = ? ORDER BY MATCH(data) AGAINST(?) DESC, pages_id"));
+		$q->execute([1, 'apple']);
+		$this->check('score with a positional parameter', [1, 2], array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN)));
+		$q = $this->pdo->prepare($this->translate("SELECT pages_id, MATCH(data) AGAINST(?) AS a, MATCH(data) AGAINST(?) AS b FROM `ft_r` WHERE pages_id = ?"));
+		$q->execute(['apple', 'tart', 3]);
+		$row = $q->fetch(\PDO::FETCH_NUM);
+		$q->closeCursor(); // (a raw PDO statement with an open cursor would lock the table for the ALTERs below)
+		$q = null;
+		$this->check('two scores with positional parameters', [3, true, true], [(int) $row[0], $row[1] > 0, $row[2] > 0]);
+
+		// CREATE TABLE IF NOT EXISTS with a FULLTEXT key, run twice
+		$error = '';
+		try {
+			$this->execMysql("CREATE TABLE IF NOT EXISTS `ft_r` (`pages_id` int unsigned NOT NULL, `status` int NOT NULL DEFAULT 1, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('CREATE TABLE IF NOT EXISTS on an existing table with a FULLTEXT key', '', $error);
+
+		// the FULLTEXT key cache follows DDL: a primary key change moves the key to a key map
+		$this->translate("SELECT MATCH(data) AGAINST('x') AS s FROM `ft_r`"); // caches the key (key mode)
+		$this->execMysql("ALTER TABLE `ft_r` DROP PRIMARY KEY, ADD PRIMARY KEY (`pages_id`, `status`)");
+		$sql = $this->translate("SELECT MATCH(data) AGAINST('y') AS s FROM `ft_r`");
+		$this->check('after a primary key change, scores use the key map', true, strpos($sql, 'ft_r__fts_data__keys') !== false);
+		$this->execMysql("ALTER TABLE `ft_r` DROP INDEX `data`");
+		$error = '';
+		try {
+			$this->translate("SELECT pages_id FROM `ft_r` WHERE MATCH(data) AGAINST('z')");
+		} catch(\PDOException $e) {
+			$error = (string) (isset($e->errorInfo[1]) ? $e->errorInfo[1] : $e->getMessage());
+		}
+		$this->check('after DROP INDEX, MATCH on its columns is MySQL error 1191', '1191', $error);
+
+		// DROP TEMPORARY TABLE drops only a temporary table
+		$this->execMysql('DROP TEMPORARY TABLE IF EXISTS `ft_r_other`');
+		$this->check('DROP TEMPORARY TABLE leaves a regular table of the same name', 1, (int) $this->pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE name='ft_r_other'")->fetchColumn());
+
+		// a text primary key whose definition mentions "int" elsewhere is not an integer key
+		$this->execMysql("CREATE TABLE `ft_r_text` (`name` varchar(20) NOT NULL DEFAULT 'print', `body` text, PRIMARY KEY (`name`), FULLTEXT KEY `body` (`body`))");
+		$error = '';
+		try {
+			$this->execMysql("INSERT INTO `ft_r_text` (name, body) VALUES ('a', 'hello')");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$keys = WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_r_text');
+		$this->check('text primary key: key map mode, and inserts work', ['map', ''], [isset($keys['body']) ? $keys['body']['mode'] : null, $error]);
+		foreach(['ft_r', 'ft_r_other', 'ft_r_dst', 'ft_r_text'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
 	}
 
 	/**
