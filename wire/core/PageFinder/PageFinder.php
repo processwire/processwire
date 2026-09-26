@@ -335,6 +335,14 @@ class PageFinder extends Wire {
 	protected $extraOrSelectors = array(); // one from each field must match
 
 	/**
+	 * LEFT JOINs that allow for no value (see whereEmptyValuePossible()), for the current getQuery(): [ alias => table ]
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $blankJoins = array();
+
+	/**
 	 * Array of sortfields that should be applied to resulting PageArray after loaded
 	 * 
 	 * Also see `useSortsAfter` option
@@ -1718,6 +1726,7 @@ class PageFinder extends Wire {
 		$joins = array();
 		$database = $this->database;
 		$autojoinTables = array();
+		$this->blankJoins = array();
 		$this->preProcessSelectors($selectors, $options);
 		$this->numAltOperators = 0;
 		
@@ -2038,10 +2047,13 @@ class PageFinder extends Wire {
 		$this->getQueryAllowedTemplates($query, $options); 
 
 		// complete the joins, matching up any conditions for the same table
+		if(count($joins) > 1) $joins = $this->mergeSingleRowJoins($query, $joins);
 		foreach($joins as $j) {
 			$joinType = $j['joinType']; 
 			$query->$joinType("$j[table] AS $j[tableAlias] ON $j[tableAlias].pages_id=pages.id AND ($j[join])"); 
 		}
+		
+		if(count($this->blankJoins)) $this->mergeBlankJoins($query, $joins);
 		
 		foreach($autojoinTables as $table) {
 			if(isset($fieldCnt[$table])) continue; // already joined
@@ -2163,6 +2175,103 @@ class PageFinder extends Wire {
 			}
 		}
 		*/
+	}
+
+	/**
+	 * Merge the inner joins of a table that has one row per page into one join
+	 *
+	 * Each condition on a field gets its own join, i.e. “date>=a, date<b” joins the field’s table twice. When
+	 * the table has one row per page, both joins reach the same row, so one join with both conditions gives the
+	 * same results, and lets the database use one index range for both rather than reading every page.
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param array $joins Joins compiled by getQuery(): [ alias => [ joinType, table, tableAlias, join ] ]
+	 * @return array Joins, with the merged ones removed
+	 * @since 3.0.274
+	 *
+	 */
+	protected function mergeSingleRowJoins(DatabaseQuerySelect $query, array $joins) {
+		$firstAliases = array(); // [ table => alias of its first inner join ]
+		$renames = array(); // [ merged alias => alias it was merged into ]
+		foreach($joins as $key => $j) {
+			if($j['joinType'] !== 'join') continue;
+			$table = $j['table'];
+			if(!isset($firstAliases[$table])) {
+				$firstAliases[$table] = $key;
+				continue;
+			}
+			if(!$this->isSingleRowTable($table)) continue;
+			$into = $firstAliases[$table];
+			$renames[$j['tableAlias']] = $joins[$into]['tableAlias'];
+			$joins[$into]['join'] .= " AND ($j[join]) ";
+			unset($joins[$key]);
+		}
+		if(!count($renames)) return $joins;
+		$rename = function($sql) use($renames) {
+			foreach($renames as $from => $to) {
+				if(strpos($sql, "$from.") !== false) $sql = preg_replace('/\b' . preg_quote($from, '/') . '\./', "$to.", $sql);
+			}
+			return $sql;
+		};
+		foreach($joins as $key => $j) $joins[$key]['join'] = $rename($j['join']);
+		foreach(array('select', 'join', 'leftjoin', 'where', 'orderby', 'groupby') as $part) {
+			$query->set($part, array_map($rename, $query->$part));
+		}
+		return $joins;
+	}
+
+	/**
+	 * Use an inner join, where there is one, in place of a LEFT JOIN that allows for no value in the same table
+	 *
+	 * whereEmptyValuePossible() matches pages without a value with a LEFT JOIN, i.e. for “num<5”, where no value
+	 * counts as 0. When another condition inner joins the same table, and that table has one row per page, both
+	 * joins reach the same row, and the page has one. The LEFT JOIN’s conditions then use the inner join, which
+	 * gives the same results with one join fewer, and lets the database use one index for both: “num>=a, num<b”
+	 * reads just the pages in that range, rather than every page.
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param array $joins Inner and left joins compiled by getQuery()
+	 * @since 3.0.274
+	 *
+	 */
+	protected function mergeBlankJoins(DatabaseQuerySelect $query, array $joins) {
+		$innerAliases = array(); // [ table => alias of its first inner join ]
+		foreach($joins as $j) {
+			if($j['joinType'] !== 'join' || isset($innerAliases[$j['table']])) continue;
+			$innerAliases[$j['table']] = $j['tableAlias'];
+		}
+		foreach($this->blankJoins as $blankAlias => $table) {
+			if(!isset($innerAliases[$table]) || !$this->isSingleRowTable($table)) continue;
+			$leftjoins = $query->leftjoin;
+			$key = array_search("$table AS $blankAlias ON $blankAlias.pages_id=pages.id", $leftjoins, true);
+			if($key === false) continue;
+			unset($leftjoins[$key]);
+			$query->set('leftjoin', array_values($leftjoins));
+			$alias = $innerAliases[$table];
+			$query->set('where', preg_replace('/\b' . preg_quote($blankAlias, '/') . '\./', "$alias.", $query->where));
+		}
+	}
+
+	/**
+	 * Does the given field table have at most one row per page (a primary key of just pages_id)?
+	 *
+	 * @param string $table
+	 * @return bool
+	 * @since 3.0.274
+	 *
+	 */
+	protected function isSingleRowTable($table) {
+		static $cache = array(); // PageFinder instances are one per find, so the cache is the request's
+		if(isset($cache[$table])) return $cache[$table];
+		$single = false;
+		if(strpos($table, Field::tablePrefix) === 0) {
+			$field = $this->fields->get(substr($table, strlen(Field::tablePrefix)));
+			if($field instanceof Field && $field->type && $field->getTable() === $table) {
+				$single = $field->type->getDatabaseSchemaVerbose($field, 'primaryKeys') === array('pages_id');
+			}
+		}
+		$cache[$table] = $single;
+		return $single;
 	}
 
 	/**
@@ -2326,6 +2435,7 @@ class PageFinder extends Wire {
 		}
 
 		$query->leftjoin("$table AS $tableAlias ON $tableAlias.pages_id=pages.id");
+		$this->blankJoins[$tableAlias] = $table;
 		$where .= strlen($where) ?  " $whereType ($sql)" : "($sql)";
 		
 		return true; 
