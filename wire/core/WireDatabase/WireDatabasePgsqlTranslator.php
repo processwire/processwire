@@ -190,7 +190,22 @@ class WireDatabasePgsqlTranslator {
 	 * Marker function that setupFulltext() creates last: bump its version when the functions change, so that sites set up again
 	 *
 	 */
-	const fulltextMarker = 'pw_fulltext_v1';
+	const fulltextMarker = 'pw_fulltext_v2';
+
+	/**
+	 * Earlier versions' marker functions, removed by setupFulltext()
+	 *
+	 */
+	const fulltextOldMarkers = ['pw_fulltext_v1'];
+
+	/**
+	 * What pw_tsvector() and pw_tsquery() replace "_" with before parsing, so that it stays inside words as in MySQL
+	 *
+	 * PostgreSQL's parser always splits words at "_". Letters stay inside a word, and a tsvector is only matched,
+	 * never shown, so a run of letters no text would have does it.
+	 *
+	 */
+	const fulltextUnderscore = 'pwuzqx';
 
 	/**
 	 * Construct
@@ -2707,7 +2722,26 @@ class WireDatabasePgsqlTranslator {
 			}
 			$exec(self::tsqueryFunctionSql($schema));
 			$s = '"' . str_replace('"', '""', $schema) . '"';
+			if(is_callable($fetchAll)) {
+				// what an earlier version indexed differently: rows whose text has "_" (see fulltextRebuildSql())
+				$exec(self::onUpdateFunctionSql($schema)); // (so that rebuilding them does not change their ON UPDATE timestamps)
+				$literal = str_replace("'", "''", $schema);
+				$columns = $fetchAll(
+					"SELECT c.relname AS tablename, a.attname AS columnname FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid " .
+					"JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = '$literal' AND a.attgenerated = 's' AND NOT a.attisdropped " .
+					"AND a.attname LIKE '%\\_\\_tsv'"
+				);
+				$indexes = $fetchAll("SELECT tablename, indexdef FROM pg_indexes WHERE schemaname = '$literal' AND indexdef LIKE '%pw_tsvector(%'");
+				foreach(self::fulltextRebuildSql($schema, $columns, $indexes) as $sql) {
+					try {
+						$exec($sql);
+					} catch(\Exception $e) {
+						$errors[] = $e->getMessage();
+					}
+				}
+			}
 			$exec("CREATE OR REPLACE FUNCTION $s." . self::fulltextMarker . "() RETURNS int LANGUAGE sql IMMUTABLE AS 'SELECT 1'");
+			foreach(self::fulltextOldMarkers as $old) $exec("DROP FUNCTION IF EXISTS $s.$old()");
 			$result['fulltext'] = true;
 			if(count($errors)) $result['error'] = 'full text search is set up, but some FULLTEXT keys have no tsvector index: ' . implode('; ', $errors);
 		} catch(\Exception $e) {
@@ -2726,7 +2760,8 @@ class WireDatabasePgsqlTranslator {
 	 *
 	 * pw_tsvector() replaces the characters that PostgreSQL's parser would otherwise join words with
 	 * (host names, email addresses, paths, hyphenated words) by spaces, since MySQL splits words there;
-	 * the / of a closing tag stays, so that the parser still skips markup.
+	 * the / of a closing tag stays, so that the parser still skips markup. "_" is replaced by letters
+	 * (see fulltextUnderscore), since MySQL keeps it inside words and PostgreSQL's parser splits there.
 	 *
 	 * @param string $schema Schema to create them in
 	 * @param string $unaccentSchema Schema of the unaccent extension, or blank when it is not installed
@@ -2744,7 +2779,8 @@ class WireDatabasePgsqlTranslator {
 				"CREATE TEXT SEARCH CONFIGURATION $s.pw_search (COPY = pg_catalog.simple); END IF; END \$do\$",
 			"ALTER TEXT SEARCH CONFIGURATION $s.pw_search ALTER MAPPING FOR asciiword, asciihword, hword_asciipart, word, hword, hword_part, numword, numhword, hword_numpart WITH $mapping",
 			"CREATE OR REPLACE FUNCTION $s.pw_tsvector(text) RETURNS tsvector LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS " .
-				"\$fn\$ SELECT to_tsvector('$config'::regconfig, regexp_replace(\$1, '[-.@:]+|(?<!<)/+', ' ', 'g')) \$fn\$",
+				"\$fn\$ SELECT to_tsvector('$config'::regconfig, replace(regexp_replace(\$1, '[-.@:]+|(?<!<)/+', ' ', 'g'), '_', '" .
+				self::fulltextUnderscore . "')) \$fn\$",
 		];
 	}
 
@@ -2764,6 +2800,7 @@ class WireDatabasePgsqlTranslator {
 	public static function tsqueryFunctionSql($schema) {
 		$s = '"' . str_replace('"', '""', $schema) . '"';
 		$config = str_replace("'", "''", "$s.pw_search");
+		$u = self::fulltextUnderscore;
 		return <<<SQL
 CREATE OR REPLACE FUNCTION $s.pw_tsquery(query text, boolean_mode boolean) RETURNS tsquery
 LANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE AS \$fn\$
@@ -2799,7 +2836,7 @@ BEGIN
 		ELSIF c = '"' THEN
 			e := strpos(substr(query, pos + 1), '"');
 			IF e = 0 THEN e := n - pos + 1; END IF;
-			tq := phraseto_tsquery(cfg, regexp_replace(substr(query, pos + 1, e - 1), '[-.@/:]+', ' ', 'g'));
+			tq := phraseto_tsquery(cfg, replace(regexp_replace(substr(query, pos + 1, e - 1), '[-.@/:]+', ' ', 'g'), '_', '$u'));
 			pos := pos + e + 1;
 		ELSE
 			term := substring(substr(query, pos) from '^[^[:space:]()"]+');
@@ -2810,12 +2847,12 @@ BEGIN
 			CONTINUE WHEN term ~ '^@[0-9]+$';
 			IF right(term, 1) = '*' THEN
 				-- prefix: a term that splits into several words is a phrase of prefixes (to_tsquery's 'term':*)
-				term := btrim(regexp_replace(term, '[-.@/:*]+', ' ', 'g'));
+				term := replace(btrim(regexp_replace(term, '[-.@/:*]+', ' ', 'g')), '_', '$u');
 				IF term <> '' THEN
 					tq := to_tsquery(cfg, '''' || replace(replace(term, '\\', '\\\\'), '''', '''''') || ''':*');
 				END IF;
 			ELSE
-				tq := plainto_tsquery(cfg, regexp_replace(term, '[-.@/:]+', ' ', 'g'));
+				tq := plainto_tsquery(cfg, replace(regexp_replace(term, '[-.@/:]+', ' ', 'g'), '_', '$u'));
 			END IF;
 		END IF;
 		CONTINUE WHEN tq IS NULL OR numnode(tq) = 0;
@@ -2832,6 +2869,43 @@ BEGIN
 END
 \$fn\$
 SQL;
+	}
+
+	/**
+	 * Get statements that update what pw_tsvector() of an earlier version indexed differently
+	 *
+	 * Versions before pw_fulltext_v2 split words at "_". Only text with "_" gives a different tsvector, so only those
+	 * rows are updated (to themselves), which computes their stored tsvector columns and tsvector index entries again.
+	 *
+	 * @param string $schema
+	 * @param array $columns Rows with tablename and columnname of stored tsvector columns (column__tsv)
+	 * @param array $indexes Rows with tablename and indexdef of indexes on pw_tsvector(column)
+	 * @return array
+	 *
+	 */
+	public static function fulltextRebuildSql($schema, array $columns, array $indexes) {
+		$q = function($id) { return '"' . str_replace('"', '""', $id) . '"'; };
+		$targets = []; // [ table => [ column => true ] ]
+		foreach($columns as $row) {
+			$targets[$row['tablename']][substr($row['columnname'], 0, -strlen(self::vectorColumnSuffix))] = true;
+		}
+		foreach($indexes as $row) {
+			if(!preg_match_all('/pw_tsvector\(("(?:[^"]|"")+"|[a-z_][a-z0-9_$]*)/', $row['indexdef'], $m)) continue;
+			foreach($m[1] as $col) {
+				$targets[$row['tablename']][$col[0] === '"' ? str_replace('""', '"', substr($col, 1, -1)) : $col] = true;
+			}
+		}
+		$statements = [];
+		foreach($targets as $table => $cols) {
+			$set = [];
+			$where = [];
+			foreach(array_keys($cols) as $col) {
+				$set[] = $q($col) . ' = ' . $q($col);
+				$where[] = 'strpos(' . $q($col) . "::text, '_') > 0";
+			}
+			$statements[] = 'UPDATE ' . $q($schema) . '.' . $q($table) . ' SET ' . implode(', ', $set) . ' WHERE ' . implode(' OR ', $where);
+		}
+		return $statements;
 	}
 
 	/**
@@ -4468,16 +4542,32 @@ SQL;
 		$trigger = self::onUpdateTriggerName($column);
 		$drop = 'DROP TRIGGER IF EXISTS ' . $this->quoteId($trigger) . ' ON ' . $this->quoteId($table);
 		if(!$add) return [$drop];
-		$statements = [
-			"CREATE OR REPLACE FUNCTION pw_on_update_now() RETURNS trigger LANGUAGE plpgsql AS \$pw\$ BEGIN " .
-				"IF NEW IS DISTINCT FROM OLD AND (to_jsonb(NEW) -> TG_ARGV[0]) IS NOT DISTINCT FROM (to_jsonb(OLD) -> TG_ARGV[0]) THEN " .
-				"NEW := jsonb_populate_record(NEW, jsonb_build_object(TG_ARGV[0], localtimestamp)); " .
-				"END IF; RETURN NEW; END \$pw\$",
-		];
+		$statements = [self::onUpdateFunctionSql()];
 		if($replace) $statements[] = $drop;
 		$statements[] = 'CREATE TRIGGER ' . $this->quoteId($trigger) . ' BEFORE UPDATE ON ' . $this->quoteId($table) .
 				" FOR EACH ROW EXECUTE FUNCTION pw_on_update_now('" . str_replace("'", "''", $column) . "')";
 		return $statements;
+	}
+
+	/**
+	 * Get the statement that creates pw_on_update_now(), the trigger function of ON UPDATE CURRENT_TIMESTAMP columns
+	 *
+	 * The row counts as changed when a column other than stored generated ones (i.e. a FULLTEXT key's tsvector column)
+	 * differs: those are not computed yet when a BEFORE trigger runs, so they would make every UPDATE look like a change.
+	 *
+	 * @param string $schema Schema to create it in, or blank for the current one
+	 * @return string
+	 *
+	 */
+	public static function onUpdateFunctionSql($schema = '') {
+		$s = $schema === '' ? '' : '"' . str_replace('"', '""', $schema) . '".';
+		return "CREATE OR REPLACE FUNCTION {$s}pw_on_update_now() RETURNS trigger LANGUAGE plpgsql AS \$pw\$ " .
+			"DECLARE n jsonb := to_jsonb(NEW); o jsonb := to_jsonb(OLD); g text[]; BEGIN " .
+			"SELECT array_agg(attname::text) INTO g FROM pg_attribute WHERE attrelid = TG_RELID AND attgenerated = 's' AND NOT attisdropped; " .
+			"IF g IS NOT NULL THEN n := n - g; o := o - g; END IF; " .
+			"IF n IS DISTINCT FROM o AND (n -> TG_ARGV[0]) IS NOT DISTINCT FROM (o -> TG_ARGV[0]) THEN " .
+			"NEW := jsonb_populate_record(NEW, jsonb_build_object(TG_ARGV[0], localtimestamp)); " .
+			"END IF; RETURN NEW; END \$pw\$";
 	}
 
 	/**
