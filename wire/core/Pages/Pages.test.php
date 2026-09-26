@@ -46,8 +46,19 @@ class WireTest_Pages extends WireTest {
 		$this->testPageNameConflicts();
 		$this->testCreatingSavingSortingAndDeletingPages();
 		$this->testSortRebuild();
+		$this->testAutojoinMultiValueField();
 	}
 
+	/**
+	 * A page loads with a multi-value field autojoined, i.e. a Page reference field (joinFields option)
+	 *
+	 */
+	protected function testAutojoinMultiValueField() {
+		$pages = $this->wire()->pages;
+		$user = $this->wire()->users->get($this->wire()->config->superUserPageID);
+		$loaded = $pages->getById(array($user->id), array('getOne' => true, 'getFromCache' => false, 'cache' => false, 'joinFields' => array('roles')));
+		$this->check('Loading with a Page reference field autojoined gets its values, in order', $user->roles->explode('id'), $loaded->roles->explode('id'));
+	}
 	/**
 	 * sortRebuild() must renumber children 0..n-1 in their existing order, removing gaps and duplicates
 	 *
