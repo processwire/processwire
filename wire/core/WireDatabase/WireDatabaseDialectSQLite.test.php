@@ -7,8 +7,34 @@
 class WireTest_WireDatabaseDialectSQLite extends WireTest {
 
 	public function execute() {
+		$this->testUnusedParameters();
 		$this->testFulltext();
 		$this->testOldSiteWithoutMarker();
+	}
+
+	/**
+	 * A value bound to a named parameter the SQL does not use is ignored, as with MySQL (live, sqlite only)
+	 *
+	 * DatabaseQuery binds all of its values, and a query built from another (i.e. PageFinder's count of a query
+	 * with fulltext scores) can leave some of them out.
+	 *
+	 */
+	protected function testUnusedParameters() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'sqlite') return;
+		$error = '';
+		$value = null;
+		try {
+			$query = $database->prepare('SELECT :a');
+			$query->bindValue(':a', 'x');
+			$query->bindValue(':ab', 'y'); // a name that starts with a used name
+			$query->bindValue(':b', 'z');
+			$query->execute();
+			$value = $query->fetchColumn();
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('binding an unused named parameter is ignored', ['', 'x'], [$error, $value]);
 	}
 
 	/**
@@ -35,6 +61,7 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 		$parent = $this->getTestPage();
 		if(!$parent || !$parent->id) return;
 		$pages = $this->wire()->pages;
+		foreach($pages->find("parent=$parent, name^=sqlite-fts-, include=all") as $p) $pages->delete($p, true); // left by an interrupted run
 		$titles = ['Hello World', 'Crème brûlée', 'Émile Zola', 'Ends with a quote "here"', 'wire_test_repeater item'];
 		$created = [];
 		foreach($titles as $n => $title) {
@@ -51,6 +78,7 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 		$this->check('title~=hello world', 'Hello World', $find('title~=hello world'));
 		$this->check('title~|=hello zola', 'Hello World|Émile Zola', $find('title~|=hello zola'));
 		$this->check('title~+=hello', 'Hello World', $find('title~+=hello'));
+		$this->check('title~+=hello with a limit (a count query too)', 1, $pages->find("parent=$parent, name^=sqlite-fts-, title~+=hello, include=all, limit=1")->getTotal());
 		$this->check('title~*=bru', 'Crème brûlée', $find('title~*=bru'));
 		$this->check('title~~=zola', 'Émile Zola', $find('title~~=zola'));
 		$this->check('title~|*=zol', 'Émile Zola', $find('title~|*=zol'));
