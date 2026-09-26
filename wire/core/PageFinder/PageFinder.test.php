@@ -47,6 +47,7 @@ class WireTest_PageFinder extends WireTest {
 	protected function testStrictSqlModes() {
 
 		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'mysql') return; // SQL modes are MySQL's (other databases are strict already)
 		$pages = $this->wire()->pages;
 		$parent = $this->getTestPage();
 		$originalMode = $database->sqlMode();
@@ -71,12 +72,12 @@ class WireTest_PageFinder extends WireTest {
 			$this->check('sort by custom field returns all test pages', 3, count($ids));
 
 			$titles = array();
-			foreach($pages->find("$sel, sort=title") as $p) $titles[] = $p->title;
+			foreach($pages->find("$sel, sort=title") as $p) $titles[] = (string) $p->title; // (a language value object on multi-language sites)
 			$this->check('sort by custom field is ascending',
 				array('PageFinder Test Alpha', 'PageFinder Test Bravo', 'PageFinder Test Charlie'), $titles);
 
 			$titles = array();
-			foreach($pages->find("$sel, sort=-title") as $p) $titles[] = $p->title;
+			foreach($pages->find("$sel, sort=-title") as $p) $titles[] = (string) $p->title;
 			$this->check('sort by custom field is descending',
 				array('PageFinder Test Charlie', 'PageFinder Test Bravo', 'PageFinder Test Alpha'), $titles);
 
@@ -88,7 +89,7 @@ class WireTest_PageFinder extends WireTest {
 
 			// pages load through a grouped autojoin query
 			$page = $pages->get(reset($ids));
-			$this->check('page loaded under strict modes has its title', true, strlen($page->title) > 0);
+			$this->check('page loaded under strict modes has its title', true, strlen((string) $page->title) > 0);
 			$this->check('page loaded under strict modes has its parent', $parent->id, $page->parent_id);
 
 			// returnAllCols expands pages.* into aggregated columns
