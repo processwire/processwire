@@ -35,6 +35,19 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 			$error = $e->getMessage();
 		}
 		$this->check('binding an unused named parameter is ignored', ['', 'x'], [$error, $value]);
+		// SQL that translates to several statements does not support bound parameters: say so rather than binding NULL
+		$table = WireTests::fieldPrefix . 'sqlite_params';
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$error = '';
+		try {
+			$query = $database->prepare("CREATE TABLE `$table` (`id` int NOT NULL, `v` varchar(20), PRIMARY KEY (`id`), KEY `v` (`v`))");
+			$query->bindValue(':x', 'y');
+			$query->execute();
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('bound parameters on SQL that translates to several statements fail', true, strpos($error, 'Bound parameters are not supported') !== false);
+		$database->exec("DROP TABLE IF EXISTS `$table`");
 	}
 
 	/**
