@@ -180,14 +180,19 @@ class WireDatabaseSQLiteTranslator {
 	 */
 	public function translateStatements($sql) {
 		if(preg_match('/^\s*(CREATE|DROP|ALTER|RENAME|TRUNCATE)\b/i', $sql)) {
+			// DDL: translations of MATCH depend on the FULLTEXT keys, which the DDL is about to change, and its own
+			// translation depends on the current schema; so forget cached keys and translations before and after
 			$this->ftsKeysCache = [];
-			$this->cache = []; // translations of MATCH depend on the FULLTEXT keys
+			$this->cache = [];
+			$result = $this->translateStatement($sql);
+			$this->ftsKeysCache = [];
+			$this->cache = [];
+			return is_array($result) ? array_values($result) : [$result];
 		}
 		if(isset($this->cache[$sql])) return $this->cache[$sql];
 		$result = $this->translateStatement($sql);
 		$result = is_array($result) ? array_values($result) : [$result];
 		if(strlen($sql) > $this->cacheMaxLength) return $result; // avoid caching large statements (i.e. bulk inserts)
-		if(preg_match('/^\s*(ALTER|RENAME|TRUNCATE)\b/i', $sql)) return $result; // depends on current schema
 		if(count($this->cache) >= $this->cacheMax) $this->cache = [];
 		$this->cache[$sql] = $result;
 		return $result;
@@ -241,6 +246,10 @@ class WireDatabaseSQLiteTranslator {
 		$words = $this->leadingWords($tokens, 4);
 		$first = isset($words[0]) ? $words[0] : '';
 		$second = isset($words[1]) ? $words[1] : '';
+
+		// this statement's tables (for MATCH), before any of the translations below use expressions()
+		$this->aliases = $this->tableAliases($tokens);
+		$this->ftsCtes = null;
 
 		switch($first) {
 			case 'CREATE':
@@ -311,7 +320,6 @@ class WireDatabaseSQLiteTranslator {
 				break;
 		}
 
-		$this->aliases = $this->tableAliases($tokens);
 		// fulltext scores in a SELECT go in materialized CTEs, computed once rather than for every row (see matchAgainst())
 		$this->ftsCtes = $first === 'SELECT' ? [] : null;
 		$tokens = $this->expressions($tokens);
@@ -696,6 +704,17 @@ class WireDatabaseSQLiteTranslator {
 	}
 
 	/**
+	 * Is given column type (or column definition, of which only the type word is used) an integer type, as SQLite's affinity rules have it?
+	 *
+	 * @param string $type
+	 * @return bool
+	 *
+	 */
+	protected static function isIntegerType($type) {
+		return preg_match('/^\s*([a-z_]+)/i', (string) $type, $m) === 1 && stripos($m[1], 'INT') !== false;
+	}
+
+	/**
 	 * Get how FTS5 rowids are found for a FULLTEXT key with given keys (see fulltextKeys())
 	 *
 	 * @param array $keys Primary key columns, or ['rowid']
@@ -769,7 +788,7 @@ class WireDatabaseSQLiteTranslator {
 			$types[] = $row['type'];
 		}
 		ksort($keys);
-		$integer = count($types) === 1 && stripos($types[0], 'INT') !== false;
+		$integer = count($types) === 1 && self::isIntegerType($types[0]);
 		return count($keys) ? array_values($keys) : ['rowid'];
 	}
 
@@ -782,22 +801,24 @@ class WireDatabaseSQLiteTranslator {
 	 * @param array $columns Text columns
 	 * @param bool $backfill Also copy the existing rows?
 	 * @param string $mode How FTS5 rowids are found: 'key', 'rowid' or 'map' (see fulltextKeys())
+	 * @param bool $ifNotExists Only create what does not exist yet? (for CREATE TABLE IF NOT EXISTS)
 	 * @return array
 	 *
 	 */
-	protected function fulltextStatements($table, $name, array $keys, array $columns, $backfill, $mode) {
+	protected function fulltextStatements($table, $name, array $keys, array $columns, $backfill, $mode, $ifNotExists = false) {
 		$fts = $this->quoteId($this->fulltextName($table, $name));
 		$map = $this->quoteId($this->fulltextName($table, $name) . self::fulltextMapSuffix);
+		$ine = $ifNotExists ? 'IF NOT EXISTS ' : '';
 		$qKeys = implode(', ', array_map([$this, 'quoteId'], $keys));
 		$defs = [];
 		foreach($keys as $key) $defs[] = $this->quoteId(self::fulltextKeyPrefix . $key) . ' UNINDEXED';
 		foreach($columns as $column) $defs[] = $this->quoteId($column);
 		$statements = [
-			"CREATE VIRTUAL TABLE $fts USING fts5(" . implode(', ', $defs) .
+			"CREATE VIRTUAL TABLE $ine$fts USING fts5(" . implode(', ', $defs) .
 			', tokenize = "' . self::fulltextTokenize . "\", prefix = '2 3')"
 		];
-		if($mode === 'map') $statements[] = "CREATE TABLE $map (id INTEGER PRIMARY KEY, $qKeys, UNIQUE ($qKeys))";
-		foreach($this->fulltextTriggerStatements($table, $name, $keys, $columns, $mode) as $sql) $statements[] = $sql;
+		if($mode === 'map') $statements[] = "CREATE TABLE $ine$map (id INTEGER PRIMARY KEY, $qKeys, UNIQUE ($qKeys))";
+		foreach($this->fulltextTriggerStatements($table, $name, $keys, $columns, $mode, $ifNotExists) as $sql) $statements[] = $sql;
 		if($backfill) {
 			$qTable = $this->quoteId($table);
 			$list = $this->fulltextColumnList($keys, $columns);
@@ -826,10 +847,11 @@ class WireDatabaseSQLiteTranslator {
 	 * @param array $keys
 	 * @param array $columns
 	 * @param string $mode 'key', 'rowid' or 'map'
+	 * @param bool $ifNotExists
 	 * @return array
 	 *
 	 */
-	protected function fulltextTriggerStatements($table, $name, array $keys, array $columns, $mode) {
+	protected function fulltextTriggerStatements($table, $name, array $keys, array $columns, $mode, $ifNotExists = false) {
 		$ftsName = $this->fulltextName($table, $name);
 		$fts = $this->quoteId($ftsName);
 		$map = $this->quoteId($ftsName . self::fulltextMapSuffix);
@@ -857,10 +879,11 @@ class WireDatabaseSQLiteTranslator {
 		$of = [];
 		foreach(array_merge($mode === 'rowid' ? [] : $keys, $columns) as $column) $of[] = $this->quoteId($column);
 		$qTable = $this->quoteId($table);
+		$ine = $ifNotExists ? 'IF NOT EXISTS ' : '';
 		return [
-			'CREATE TRIGGER ' . $trigger('_ai') . " AFTER INSERT ON $qTable BEGIN $insert END",
-			'CREATE TRIGGER ' . $trigger('_ad') . " AFTER DELETE ON $qTable BEGIN $delete END",
-			'CREATE TRIGGER ' . $trigger('_au') . ' AFTER UPDATE OF ' . implode(', ', $of) . " ON $qTable BEGIN $delete $insert END",
+			"CREATE TRIGGER $ine" . $trigger('_ai') . " AFTER INSERT ON $qTable BEGIN $insert END",
+			"CREATE TRIGGER $ine" . $trigger('_ad') . " AFTER DELETE ON $qTable BEGIN $delete END",
+			"CREATE TRIGGER $ine" . $trigger('_au') . ' AFTER UPDATE OF ' . implode(', ', $of) . " ON $qTable BEGIN $delete $insert END",
 		];
 	}
 
@@ -1219,7 +1242,10 @@ class WireDatabaseSQLiteTranslator {
 			foreach($key['keys'] as $k) $same[] = $this->quoteId($k) . " = $q." . $this->quoteId($k);
 			$rowid = '(SELECT id FROM ' . $this->quoteId($key['map']) . ' WHERE ' . implode(' AND ', $same) . ')';
 		}
-		if($this->ftsCtes !== null) {
+		$positional = false;
+		foreach($exprTokens as $t) if($t[0] === 'param' && $t[1] === '?') $positional = true;
+		if($this->ftsCtes !== null && !$positional) {
+			// (not with a positional parameter: moving it to the front of the statement would change the order values bind in)
 			// a SELECT: the scores of each distinct match are computed once, in a materialized CTE (see translateStatement())
 			$cte = "SELECT rowid AS r, -bm25($fts) AS s FROM $fts WHERE $fts MATCH $filter";
 			$name = array_search($cte, $this->ftsCtes, true);
@@ -1792,7 +1818,8 @@ class WireDatabaseSQLiteTranslator {
 	 */
 	protected function dropTable(array $tokens) {
 		$i = $this->next($tokens, $this->next($tokens, 0) + 1); // TABLE or TEMPORARY
-		if($this->isWord($tokens[$i], 'TEMPORARY')) $i = $this->next($tokens, $i + 1);
+		$temporary = $this->isWord($tokens[$i], 'TEMPORARY');
+		if($temporary) $i = $this->next($tokens, $i + 1);
 		$ifExists = $this->hasTopLevelWord($tokens, 'EXISTS');
 		$statements = [];
 		foreach($this->splitCommas(array_slice($tokens, $i + 1)) as $part) {
@@ -1801,7 +1828,9 @@ class WireDatabaseSQLiteTranslator {
 			}));
 			if(!count($part)) continue;
 			$table = $this->name($part[0]);
-			$statements[] = 'DROP TABLE ' . ($ifExists ? 'IF EXISTS ' : '') . $this->quoteId($table);
+			// DROP TEMPORARY TABLE drops only a temporary table (temporary tables have no FTS5 tables, see createTable())
+			$statements[] = 'DROP TABLE ' . ($ifExists ? 'IF EXISTS ' : '') . ($temporary ? 'temp.' : '') . $this->quoteId($table);
+			if($temporary) continue;
 			foreach($this->ftsKeys($table) as $info) {
 				$statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['table']);
 				if($info['map'] !== null) $statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['map']);
@@ -2045,10 +2074,10 @@ class WireDatabaseSQLiteTranslator {
 
 		foreach($indexes as $index) $statements[] = $index;
 
-		$integerKey = count($tableKeys) === 1 && isset($columns[$tableKeys[0]]) && stripos($columns[$tableKeys[0]]['sql'], 'INT') !== false;
+		$integerKey = count($tableKeys) === 1 && isset($columns[$tableKeys[0]]) && self::isIntegerType($columns[$tableKeys[0]]['sql']);
 		foreach($fulltextDefs as $ft) {
 			$mode = $this->fulltextMode($tableKeys, $integerKey || $tableKeys[0] === $autoIncrementCol);
-			foreach($this->fulltextStatements($table, $ft[0], $tableKeys, $ft[1], false, $mode) as $sql) $statements[] = $sql;
+			foreach($this->fulltextStatements($table, $ft[0], $tableKeys, $ft[1], false, $mode, $ifNotExists) as $sql) $statements[] = $sql;
 		}
 
 		return $statements;
@@ -2564,7 +2593,7 @@ class WireDatabaseSQLiteTranslator {
 
 		// FULLTEXT keys: DROP TABLE removed their triggers; rename, rebuild or drop their FTS5 tables as MySQL does indexes
 		$newKeys = count($pk) ? $pk : ['rowid'];
-		$integerKey = count($pk) === 1 && isset($cols[$pk[0]]) && ($autoIncrement || stripos($cols[$pk[0]]['sql'], 'INT') !== false);
+		$integerKey = count($pk) === 1 && isset($cols[$pk[0]]) && ($autoIncrement || self::isIntegerType($cols[$pk[0]]['sql']));
 		$newMode = $this->fulltextMode($newKeys, $integerKey);
 		foreach($ftsKeys as $name => $info) {
 			$columns = [];

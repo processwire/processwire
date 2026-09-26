@@ -217,6 +217,7 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 	 */
 	protected function usesParameter($parameter) {
 		if(!is_string($parameter)) return true; // positional
+		if(count($this->deferredStatements)) return true; // not prepared yet: execute() says bound parameters are not supported
 		$name = $parameter[0] === ':' ? $parameter : ":$parameter";
 		return preg_match('/' . preg_quote($name, '/') . '(?![A-Za-z0-9_])/', $this->queryString) === 1;
 	}
