@@ -49,7 +49,7 @@
  * ~~~~~
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -637,6 +637,126 @@ class WireDatabaseBackup {
 		} else {
 			return $this->tables;
 		}
+	}
+
+	/**
+	 * Find data in this (MySQL) database that another database type would reject or change, before copying it there
+	 *
+	 * Moving a site to another database (by a profile export, or a backup restored there) copies its rows as they
+	 * are. PostgreSQL rejects some values MySQL holds, and a restore stops at the first. This reports them first,
+	 * so that they can be fixed on the MySQL site:
+	 *
+	 * - `range` (error): values out of range of the column's PostgreSQL type, which keeps no UNSIGNED, i.e.
+	 *   `INT UNSIGNED` over 2147483647 (PostgreSQL integer), `SMALLINT UNSIGNED` over 32767, `BIGINT UNSIGNED` over
+	 *   9223372036854775807.
+	 * - `nul` (error): NUL bytes in text columns, which PostgreSQL text cannot hold (BLOB columns are bytea, and may).
+	 * - `charset` (warning): non-ASCII text in columns whose character set is not UTF-8 (i.e. latin1). They are
+	 *   converted to UTF-8 when copied, which is right unless they hold UTF-8 already, as on many older sites: those
+	 *   rows come out double-encoded ("Ã©" for "é").
+	 *
+	 * Invalid UTF-8 is not checked: MySQL does not store it in UTF-8 columns (strict mode rejects it and other modes
+	 * replace it), and other character sets are converted to valid UTF-8 when read. SQLite stores all of the above.
+	 *
+	 * ~~~~~
+	 * foreach($database->backups()->preflight('pgsql') as $finding) {
+	 *   echo "$finding[level]: $finding[message]\n";
+	 * }
+	 * ~~~~~
+	 *
+	 * #pw-group-reporting
+	 *
+	 * @param string $dbType Database type the data will be copied to: 'pgsql' or 'sqlite' (or 'mysql')
+	 * @param array $options
+	 *  - `tables` (array): check only these tables (default: all tables)
+	 * @return array Findings, each [ 'table', 'column', 'check' => 'range', 'nul' or 'charset', 'level' => 'error' or 'warning',
+	 *   'rows' => number of rows, 'example' => [ primary key column => value ] of one of them (or null), 'message' ]
+	 * @throws \Exception If this database is not MySQL
+	 * @since 3.0.274
+	 *
+	 */
+	public function preflight($dbType = 'pgsql', array $options = array()) {
+
+		$database = $this->getDatabase();
+		$source = $database instanceof WireDatabasePDO ? $database->dialect()->name() : $database->getAttribute(\PDO::ATTR_DRIVER_NAME);
+		if($source !== 'mysql') throw new \Exception("preflight() checks a MySQL database (this is $source)");
+		if($dbType !== 'pgsql') return array();
+
+		$tables = isset($options['tables']) ? array_values($options['tables']) : array_values($this->getAllTables());
+		if(!count($tables)) return array();
+		$limits = array('smallint' => '32767', 'int' => '2147483647', 'bigint' => '9223372036854775807');
+		$pgTypes = array('smallint' => 'smallint', 'int' => 'integer', 'bigint' => 'bigint');
+		$textTypes = array('char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext', 'enum', 'set');
+		$utf8 = array('utf8mb4', 'utf8mb3', 'utf8', 'ascii');
+
+		$in = implode(',', array_fill(0, count($tables), '?'));
+		$query = $database->prepare(
+			"SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, CHARACTER_SET_NAME FROM information_schema.COLUMNS " .
+			"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ($in) ORDER BY TABLE_NAME, ORDINAL_POSITION"
+		);
+		$query->execute($tables);
+		$columns = $query->fetchAll(\PDO::FETCH_NUM);
+		$query->closeCursor();
+		$query = $database->prepare(
+			"SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE " .
+			"WHERE TABLE_SCHEMA = DATABASE() AND CONSTRAINT_NAME = 'PRIMARY' AND TABLE_NAME IN ($in) ORDER BY TABLE_NAME, ORDINAL_POSITION"
+		);
+		$query->execute($tables);
+		$primary = array();
+		foreach($query->fetchAll(\PDO::FETCH_NUM) as $row) $primary[$row[0]][] = $row[1];
+		$query->closeCursor();
+
+		$q = function($name) { return '`' . str_replace('`', '``', $name) . '`'; };
+		$findings = array();
+		$find = function($table, $column, $check, $level, $where, $message) use($database, $primary, $q, &$findings) {
+			$query = $database->prepare("SELECT COUNT(*) FROM " . $q($table) . " WHERE $where");
+			$query->execute();
+			$rows = (int) $query->fetchColumn();
+			$query->closeCursor();
+			if(!$rows) return;
+			$example = null;
+			if(!empty($primary[$table])) {
+				$query = $database->prepare('SELECT ' . implode(', ', array_map($q, $primary[$table])) . ' FROM ' . $q($table) . " WHERE $where LIMIT 1");
+				$query->execute();
+				$example = $query->fetch(\PDO::FETCH_ASSOC);
+				$query->closeCursor();
+				if($example) foreach($example as $key => $value) if(ctype_digit((string) $value)) $example[$key] = (int) $value;
+			}
+			$findings[] = array(
+				'table' => $table,
+				'column' => $column,
+				'check' => $check,
+				'level' => $level,
+				'rows' => $rows,
+				'example' => $example ? $example : null,
+				'message' => sprintf($message, "$table.$column", $rows),
+			);
+		};
+
+		foreach($columns as $row) {
+			list($table, $column, $dataType, $columnType, $charset) = $row;
+			$dataType = strtolower($dataType);
+			$col = $q($column);
+			if(isset($limits[$dataType]) && stripos($columnType, 'unsigned') !== false) {
+				$find($table, $column, 'range', 'error', "$col > {$limits[$dataType]}",
+					"%s (" . strtolower($columnType) . ") has %d value(s) over {$limits[$dataType]}, the most PostgreSQL's " .
+					"{$pgTypes[$dataType]} holds (UNSIGNED is not kept): the copy would fail. Change the column to a larger type first" .
+					($dataType === 'bigint' ? ', i.e. DECIMAL(20,0).' : ', i.e. BIGINT.')
+				);
+			}
+			if(in_array($dataType, $textTypes, true)) {
+				$find($table, $column, 'nul', 'error', "INSTR(CAST($col AS BINARY), CHAR(0)) > 0",
+					"%s has %d value(s) with NUL bytes, which PostgreSQL text cannot hold: the copy would fail. Remove them first, " .
+					"i.e. UPDATE ... SET $col = REPLACE($col, CHAR(0), '').");
+				if($charset !== null && !in_array(strtolower($charset), $utf8, true)) {
+					$find($table, $column, 'charset', 'warning', "LENGTH(CONVERT($col USING utf8mb4)) <> LENGTH($col)",
+						"%s uses the " . strtolower($charset) . " character set: its %d value(s) with non-ASCII characters are converted " .
+						"to UTF-8 when copied. If they hold UTF-8 already (as on many older sites), they come out double-encoded " .
+						"(\"Ã©\" for \"é\"): check them, and convert the column (i.e. to utf8mb4 by way of BLOB) first if so.");
+				}
+			}
+		}
+
+		return $findings;
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////

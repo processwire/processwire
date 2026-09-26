@@ -376,6 +376,51 @@ reproduces the site's schema, i.e. when converting a site to MySQL.
 - On SQLite and PostgreSQL the installer sets `$config->dbCharset = 'utf8mb4'` and `$config->dbEngine = 'InnoDB'`,
   which are the table options new tables are created with in the log.
 
+### Moving a site to another database
+
+A site moves between MySQL, SQLite and PostgreSQL in either direction, since backups carry each table's MySQL
+`CREATE TABLE` (see Schema log). There are two ways:
+
+1. **Export a site profile and install it** (the usual way): export the site with ProcessExportProfile 5.0.2 or newer,
+   including users to keep them, and install that profile on the other database. The new site gets its own
+   `config.php` and salts, and the installer keeps the profile's users, so existing accounts log in as before.
+2. **Convert the site in place**, keeping its `config.php` settings and salts:
+   1. Check the data (from MySQL to PostgreSQL, see `preflight()` below) and fix what it reports.
+   2. Back up the database: `$file = $database->backups()->backup();`
+   3. Install ProcessWire (any profile) into the new, empty database, which creates what that database type needs
+      (i.e. the PostgreSQL functions).
+   4. From that installation, restore the backup over it: `$database->backups()->restore($file, ['dropAll' => true]);`
+   5. Change the site's `config.php` to the new database (`$config->dbType` and its connection settings), keeping
+      `$config->userAuthSalt` and `$config->tableSalt` as they are, so that passwords still verify.
+   6. Compare `$database->backups()->getAllTables(true)` (row counts per table) on both databases.
+
+Restoring inserts rows one at a time, at roughly 1 MB of dump per second, so a large site takes a while either way.
+
+#### preflight()
+
+`$database->backups()->preflight($dbType = 'pgsql', array $options = [])` checks a MySQL database for data that
+the other database type would reject or change, before anything is copied, and returns what it finds. Each finding is
+an array with `table`, `column`, `check`, `level` (`error` or `warning`), `rows` (how many), `example` (the primary key
+of one of them, or null) and `message` (what is wrong and how to fix it).
+
+| Check | Level | Finds |
+|-------|-------|-------|
+| `range` | error | Values out of range of the column's PostgreSQL type, which has no `UNSIGNED`: `INT UNSIGNED` over 2147483647, `SMALLINT UNSIGNED` over 32767, `BIGINT UNSIGNED` over 9223372036854775807 |
+| `nul` | error | NUL bytes in text columns (PostgreSQL text cannot hold them; BLOB columns are `bytea` and may) |
+| `charset` | warning | Non-ASCII text in columns whose character set is not UTF-8 (i.e. `latin1`): converted to UTF-8 when copied, which double-encodes it if it is UTF-8 already |
+
+- For `'sqlite'` (or `'mysql'`) it returns no findings: SQLite stores all of these.
+- Invalid UTF-8 is not checked: MySQL does not store it in UTF-8 columns (strict mode rejects it and other modes
+  replace it), and other character sets are converted to valid UTF-8 when read.
+- `$options['tables']` limits it to some tables (default: all). It reads every row of the columns it checks, once.
+- Throws an exception on a database that is not MySQL.
+
+~~~~~
+foreach($database->backups()->preflight('pgsql') as $finding) {
+  echo "$finding[level]: $finding[message]\n";
+}
+~~~~~
+
 ## Connection
 
 ### pdo()
