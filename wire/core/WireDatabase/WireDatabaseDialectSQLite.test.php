@@ -13,28 +13,25 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 	}
 
 	/**
-	 * A value bound to a named parameter the SQL does not use is ignored, as with MySQL (live, sqlite only)
+	 * A value bound to a named parameter the SQL does not use fails, as on MySQL (live, sqlite only)
 	 *
-	 * DatabaseQuery binds all of its values, and a query built from another (i.e. PageFinder's count of a query
-	 * with fulltext scores) can leave some of them out.
+	 * So that SQL written against SQLite does not fail later on MySQL. (DatabaseQuery binds only the values its
+	 * SQL uses, i.e. for PageFinder's count of a query with fulltext scores.)
 	 *
 	 */
 	protected function testUnusedParameters() {
 		$database = $this->wire()->database;
 		if($database->dialect()->name() !== 'sqlite') return;
-		$error = '';
-		$value = null;
+		$failed = false;
 		try {
 			$query = $database->prepare('SELECT :a');
 			$query->bindValue(':a', 'x');
-			$query->bindValue(':ab', 'y'); // a name that starts with a used name
 			$query->bindValue(':b', 'z');
 			$query->execute();
-			$value = $query->fetchColumn();
 		} catch(\PDOException $e) {
-			$error = $e->getMessage();
+			$failed = true;
 		}
-		$this->check('binding an unused named parameter is ignored', ['', 'x'], [$error, $value]);
+		$this->check('binding an unused named parameter fails, as on MySQL', true, $failed);
 		// SQL that translates to several statements does not support bound parameters: say so rather than binding NULL
 		$table = WireTests::fieldPrefix . 'sqlite_params';
 		$database->exec("DROP TABLE IF EXISTS `$table`");

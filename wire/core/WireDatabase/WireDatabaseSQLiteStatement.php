@@ -198,28 +198,9 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 	 *
 	 */
 	public function bindValue($parameter, $value, $data_type = \PDO::PARAM_STR): bool {
-		if(!$this->usesParameter($parameter)) return true;
 		$this->boundValues[$parameter] = [$value, $data_type];
 		if($this->deferredException) return true;
 		return parent::bindValue($parameter, $value, $data_type);
-	}
-
-	/**
-	 * Does the SQL use given parameter?
-	 *
-	 * A value bound to a named parameter the SQL does not use is ignored, as MySQL does, rather than failing the
-	 * execute. DatabaseQuery binds all of its values, and a query built from another (i.e. a count of a query
-	 * with fulltext scores) can leave some of them out.
-	 *
-	 * @param string|int $parameter
-	 * @return bool
-	 *
-	 */
-	protected function usesParameter($parameter) {
-		if(!is_string($parameter)) return true; // positional
-		if(count($this->deferredStatements)) return true; // not prepared yet: execute() says bound parameters are not supported
-		$name = $parameter[0] === ':' ? $parameter : ":$parameter";
-		return preg_match('/' . preg_quote($name, '/') . '(?![A-Za-z0-9_])/', $this->queryString) === 1;
 	}
 
 	/**
@@ -232,7 +213,6 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 	 *
 	 */
 	public function bindParam($parameter, &$variable, $data_type = \PDO::PARAM_STR, $length = null, $driver_options = null): bool {
-		if(!$this->usesParameter($parameter)) return true;
 		$this->boundValues[$parameter] = [&$variable, $data_type];
 		if($this->deferredException) return true;
 		return parent::bindParam($parameter, $variable, $data_type, (int) $length, $driver_options);
@@ -247,10 +227,6 @@ class WireDatabaseSQLiteStatement extends WireDatabasePDOStatement {
 		$this->selectRowCount = null;
 		if(is_array($input_parameters)) {
 			foreach($input_parameters as $key => $value) {
-				if(!$this->usesParameter($key)) {
-					unset($input_parameters[$key]); // see usesParameter()
-					continue;
-				}
 				if(is_int($key)) $key++; // positional parameters are 1-based in bindValue
 				$this->boundValues[$key] = [$value, \PDO::PARAM_STR];
 			}
