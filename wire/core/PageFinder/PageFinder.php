@@ -143,6 +143,17 @@ class PageFinder extends Wire {
 		'getTotalType' => 'calc',
 
 		/**
+		 * Leave out the GROUP BY pages.id when every join gives at most one row per page?
+		 * 
+		 * The grouping (and the aggregates it requires under ONLY_FULL_GROUP_BY) is then not needed,
+		 * and without it the database can often read pages in sort order rather than sorting them all. 
+		 * 
+		 * @since 3.0.274
+		 * 
+		 */
+		'ungroup' => true,
+
+		/**
 		 * Only start loading pages after this ID
 		 * 
 		 */
@@ -859,7 +870,10 @@ class PageFinder extends Wire {
 		$database = $this->database;
 		$matches = array();
 		$query = $this->getQuery($selectors, $options); /** @var DatabaseQuerySelect $query */
-		
+
+		// after getQuery() hooks, which may add joins of their own
+		if($options['ungroup']) $this->ungroupQuery($query);
+
 		if($options['returnQuery']) {
 			if($timer) self::$totalTime += Debug::stopTimer($timer);
 			return $query;
@@ -941,14 +955,26 @@ class PageFinder extends Wire {
 			
 		if($this->getTotal) {
 			if($this->getTotalType === 'count') {
-				$query->set('select', array('COUNT(*)'));
-				$query->set('orderby', array()); 
-				$query->set('groupby', array()); 
+				// a join may give several rows per page, which the GROUP BY (if any) makes one again
+				$groups = $query->groupby;
+				$countRows = count($groups) > 1; // i.e. with HAVING, count the grouped rows themselves
+				$query->set('orderby', array());
 				$query->set('limit', array());
+				if($countRows) {
+					$query->set('select', array('pages.id'));
+				} else {
+					$query->set('select', array(count($groups) ? 'COUNT(DISTINCT ' . reset($groups) . ')' : 'COUNT(*)'));
+					$query->set('groupby', array());
+				}
 				$stmt = $query->execute();
 				$errorInfo = $stmt->errorInfo();
 				if($stmt->errorCode() > 0) throw new PageFinderException($errorInfo[2]);
-				list($this->total) = $stmt->fetch(\PDO::FETCH_NUM); 
+				if($countRows) {
+					$this->total = 0;
+					while($stmt->fetch(\PDO::FETCH_NUM)) $this->total++;
+				} else {
+					list($this->total) = $stmt->fetch(\PDO::FETCH_NUM);
+				}
 				$stmt->closeCursor();
 			} else {
 				$this->total = (int) $database->query("SELECT FOUND_ROWS()")->fetchColumn();
@@ -1730,14 +1756,22 @@ class PageFinder extends Wire {
 		if($options['returnAllCols']) {
 			$opts = $this->defaultOptions['returnAllColsOptions'];
 			if(!empty($options['returnAllColsOptions'])) $opts = array_merge($opts, $options['returnAllColsOptions']);
-			$columns = array('pages.*'); 
+			// this query has a GROUP BY (see below), so "pages.*" is expanded to its individual
+			// columns and each is aggregated, keeping the query valid under ONLY_FULL_GROUP_BY.
+			// Every column is functionally dependent on the grouped column, so MIN() does not
+			// change any value, it only satisfies the SQL mode. See aggregateExpression().
+			$columns = array();
+			foreach($this->pages->loader()->getNativeColumns() as $col) {
+				$col = $database->escapeCol($col);
+				$columns[] = $col === 'id' ? 'pages.id' : "MIN(pages.$col) AS $col";
+			}
 			if($opts['unixTimestamps']) {
-				$columns[] = 'UNIX_TIMESTAMP(pages.created) AS created';
-				$columns[] = 'UNIX_TIMESTAMP(pages.modified) AS modified';
-				$columns[] = 'UNIX_TIMESTAMP(pages.published) AS published';
+				$columns[] = 'MIN(UNIX_TIMESTAMP(pages.created)) AS created';
+				$columns[] = 'MIN(UNIX_TIMESTAMP(pages.modified)) AS modified';
+				$columns[] = 'MIN(UNIX_TIMESTAMP(pages.published)) AS published';
 			}
 			if($opts['joinSortfield']) {
-				$columns[] = 'pages_sortfields.sortfield AS sortfield';
+				$columns[] = 'MIN(pages_sortfields.sortfield) AS sortfield';
 				$query->leftjoin('pages_sortfields ON pages_sortfields.pages_id=pages.id');
 			}
 			if($opts['getNumChildren']) {
@@ -1747,7 +1781,7 @@ class PageFinder extends Wire {
 				if(!$this->wire()->modules->isInstalled('PagePaths')) {
 					throw new PageFinderException('Requested option for URL or path (joinPath) requires the PagePaths module be installed'); 
 				}
-				$columns[] = 'pages_paths.path AS path';
+				$columns[] = 'MIN(pages_paths.path) AS path';
 				$query->leftjoin('pages_paths ON pages_paths.pages_id=pages.id'); 
 			}
 			if(!empty($opts['joinFields'])) {
@@ -1767,13 +1801,21 @@ class PageFinder extends Wire {
 				}
 			}
 		} else if($options['returnVerbose']) {
-			$columns = array('pages.id', 'pages.parent_id', 'pages.templates_id');
+			$columns = array('pages.id', 'MIN(pages.parent_id) AS parent_id', 'MIN(pages.templates_id) AS templates_id');
 		} else if($options['returnParentIDs']) {
+			// grouped by pages.parent_id below, so this column needs no aggregation
 			$columns = array('pages.parent_id AS id');
 		} else if($options['returnTemplateIDs']) {
-			$columns = array('pages.id', 'pages.templates_id');
+			$columns = array('pages.id', 'MIN(pages.templates_id) AS templates_id');
 		} else {
 			$columns = array('pages.id');
+		}
+
+		foreach($columns as $column) {
+			// record the aggregates above as added only for the GROUP BY, see ungroupQuery()
+			if(preg_match('/^MIN\((.+)\)( AS [a-z_]+)$/i', $column, $matches)) {
+				$query->addGroupAggregate($column, $matches[1] . $matches[2]);
+			}
 		}
 
 		$query->select($columns);
@@ -2581,7 +2623,8 @@ class PageFinder extends Wire {
 					$pathsLangTable = $pathsTable . "_$lid";
 					$s = "pages_paths AS $pathsLangTable ON $pathsLangTable.pages_id=pages.id AND $pathsLangTable.language_id=$lid";
 					$query->leftjoin($s);
-					$query->orderby("if($pathsLangTable.pages_id IS NULL, $pathsTable.path, $pathsLangTable.path) $asc");
+					$s = "if($pathsLangTable.pages_id IS NULL, $pathsTable.path, $pathsLangTable.path)";
+					$query->orderby($this->aggregateSortExpression($query, $s, $descending) . " $asc");
 					$value = false;
 				} else {
 					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id");
@@ -2625,7 +2668,10 @@ class PageFinder extends Wire {
 				
 				if(!empty($customValue)) {
 					// Fieldtype handled it: boolean true (handled by Fieldtype) or string to add to orderby
-					if(is_string($customValue)) $query->orderby($customValue, true);
+					if(is_string($customValue)) {
+						$customValue = $this->aggregateSortExpression($query, $customValue, $descending);
+						$query->orderby($customValue, true);
+					}
 					$value = false;
 
 				} else if($subValue === 'count') {
@@ -2685,11 +2731,20 @@ class PageFinder extends Wire {
 			}
 	
 			if(is_string($value) && strlen($value)) {
+				$collate = '';
 				if($textSort) {
 					// database may need a collation to sort text as MySQL would (i.e. SQLite)
 					$collate = $database->dialect()->sortCollation();
 					if($collate !== '') $value .= " COLLATE $collate";
 				}
+				// aggregated for ONLY_FULL_GROUP_BY, with the collation inside, so that MIN()/MAX() pick by it too,
+				// and after it, since an aggregate's value has no collation of its own (i.e. on SQLite)
+				$aggregated = $this->aggregateSortExpression($query, $value, $descending);
+				if($collate !== '' && $aggregated !== $value) {
+					$aggregated .= " COLLATE $collate";
+					$query->addGroupAggregate($aggregated, $value);
+				}
+				$value = $aggregated;
 				if($descending) {
 					$query->orderby("$value DESC", true);
 				} else {
@@ -2697,6 +2752,157 @@ class PageFinder extends Wire {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Remove the query’s GROUP BY pages.id when every join gives at most one row per page
+	 *
+	 * A join gives at most one row per page when its table’s whole primary key is equated, at the top
+	 * level of the ON clause, with columns of the pages table, of a join already known to give at most
+	 * one row per page, or with constants. Derived tables and tables of unknown primary key keep the
+	 * grouping. The aggregates added only for the grouping are then put back, see DatabaseQuerySelect::ungroup().
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @return bool True if the GROUP BY was removed
+	 * @since 3.0.274
+	 *
+	 */
+	protected function ungroupQuery(DatabaseQuerySelect $query) {
+
+		if($query->groupby !== array('pages.id') || $query->from !== array('pages')) return false;
+
+		$single = array('pages' => true); // aliases known to give at most one row per page
+
+		foreach(array_merge($query->join, $query->leftjoin) as $join) {
+			if(!preg_match('/^\s*`?([a-z0-9_]+)`?(?:\s+(?:AS\s+)?`?([a-z0-9_]+)`?)?\s+ON\s+(.+)$/is', $join, $matches)) return false;
+			list(, $table, $alias, $on) = $matches;
+			if($alias === '') $alias = $table;
+			$primaryKeys = $this->getTablePrimaryKeys($table);
+			if(empty($primaryKeys)) return false;
+			// only conditions at the top level of the ON clause, joined by AND, are certain to apply
+			$on = trim($on);
+			while(substr($on, 0, 1) === '(' && $this->removeParenthesized($on) === '()') $on = trim(substr($on, 1, -1));
+			$on = $this->removeParenthesized($on);
+			if(preg_match('/\bOR\b/i', $on)) return false;
+			$equated = array();
+			foreach(preg_split('/\bAND\b/i', $on) as $condition) {
+				$sides = explode('=', $condition);
+				if(count($sides) !== 2) continue;
+				$sides = array_map(function($side) { return str_replace('`', '', trim($side)); }, $sides);
+				foreach(array(array($sides[0], $sides[1]), array($sides[1], $sides[0])) as $pair) {
+					list($column, $value) = $pair;
+					if(!preg_match('/^([a-z0-9_]+)\.([a-z0-9_]+)$/i', $column, $c) || $c[1] !== $alias) continue;
+					if(preg_match('/^([a-z0-9_]+)\.[a-z0-9_]+$/i', $value, $v)) {
+						if(empty($single[$v[1]])) continue;
+					} else if(!preg_match('/^(:[a-z0-9_]+|-?\d+|\'[^\']*\')$/i', $value)) {
+						continue;
+					}
+					$equated[$c[2]] = true;
+				}
+			}
+			foreach($primaryKeys as $col) {
+				if(empty($equated[$col])) return false;
+			}
+			$single[$alias] = true;
+		}
+
+		return $query->ungroup();
+	}
+
+	/**
+	 * Get the primary key columns of a table joined by a find, or an empty array if not known
+	 *
+	 * Taken from the Fieldtype’s schema for field tables and known for core tables, so that no query is needed.
+	 *
+	 * @param string $table
+	 * @return array
+	 * @since 3.0.274
+	 *
+	 */
+	protected function getTablePrimaryKeys($table) {
+		$tables = array(
+			'pages' => array('id'),
+			'templates' => array('id'),
+			'pages_access' => array('pages_id'),
+			'pages_sortfields' => array('pages_id'),
+			'pages_paths' => array('pages_id', 'language_id'),
+			'pages_parents' => array('pages_id', 'parents_id'),
+		);
+		if(isset($tables[$table])) return $tables[$table];
+		if(strpos($table, Field::tablePrefix) !== 0) return array();
+		$field = $this->fields->get(substr($table, strlen(Field::tablePrefix)));
+		if(!$field instanceof Field || !$field->type || $field->getTable() !== $table) return array();
+		static $cache = array(); // PageFinder instances are one per find, so the cache is the request's
+		$key = "$table:" . $field->type->className();
+		if(!isset($cache[$key])) {
+			$primaryKeys = $field->type->getDatabaseSchemaVerbose($field, 'primaryKeys');
+			$cache[$key] = is_array($primaryKeys) ? $primaryKeys : array();
+		}
+		return $cache[$key];
+	}
+
+	/**
+	 * Replace each parenthesized part of the given SQL with “()”, leaving only its top level
+	 *
+	 * @param string $sql
+	 * @return string
+	 * @since 3.0.274
+	 *
+	 */
+	protected function removeParenthesized($sql) {
+		$sql = preg_replace('/\'(?:[^\'\\\\]|\\\\.)*\'/s', "''", $sql); // quoted strings may contain parentheses
+		do {
+			$sql = preg_replace('/\([^()]*\)/', '[]', $sql, -1, $count);
+		} while($count);
+		return str_replace('[]', '()', $sql);
+	}
+
+	/**
+	 * Aggregate a sort expression when required by the ONLY_FULL_GROUP_BY SQL mode
+	 * 
+	 * Find queries group by pages.id, so sort expressions must be aggregated or functionally
+	 * dependent on that column. Columns of the pages table qualify, and are returned unchanged 
+	 * so that sorts on native columns can still be satisfied by an index. Columns from joined 
+	 * tables do not qualify, since a joined field table can hold many rows for one page, and 
+	 * which of those rows the sort sees would otherwise be arbitrary. Those are aggregated with 
+	 * MIN() for an ascending sort and MAX() for a descending one, so that a page sorts by its 
+	 * best matching value rather than by whichever row the query plan happened to reach first. 
+	 * 
+	 * Expressions that are already aggregated, that reference a select alias, or that reference 
+	 * no column at all (i.e. RAND()) are returned unchanged. 
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $value Sort expression, which may carry a trailing ASC/DESC
+	 * @param bool $descending Is this a descending sort? Ignored if $value states its own direction.
+	 * @return string
+	 * @since 3.0.271
+	 * 
+	 */
+	protected function aggregateSortExpression(DatabaseQuerySelect $query, $value, $descending = false) {
+		
+		if(!is_string($value) || !strlen($value)) return $value;
+		
+		// keep any trailing sort direction outside of the aggregate function
+		$direction = '';
+		if(preg_match('/^(.+?)\s+(ASC|DESC)$/is', trim($value), $matches)) {
+			$value = trim($matches[1]);
+			$direction = ' ' . strtoupper($matches[2]);
+			$descending = $direction === ' DESC';
+		}
+		
+		if($query->isAggregateExpression($value)) return $value . $direction;
+		
+		// find the table qualifiers referenced by the expression
+		if(!preg_match_all('/\b([a-z_][a-z0-9_]*)\s*\./i', $value, $matches)) return $value . $direction;
+		
+		foreach($matches[1] as $table) {
+			if(strtolower($table) !== 'pages') {
+				$function = $descending ? 'MAX' : 'MIN';
+				return $query->aggregateExpression($value, false, $function) . $direction;
+			}
+		}
+		
+		return $value . $direction;
 	}
 
 	protected function getQueryStartLimit(DatabaseQuerySelect $query) {
@@ -2963,7 +3169,9 @@ class PageFinder extends Wire {
 				$IDs = $sanitizer->intArray($IDs, array('strict' => true));
 				$strIDs = count($IDs) ? implode(',', $IDs) : '-1';
 				$sql .= "$in($strIDs)";
-				if($subfield === 'sort') $query->orderby("FIELD($table.id, $strIDs)");
+				if($subfield === 'sort') {
+					$query->orderby($this->aggregateSortExpression($query, "FIELD($table.id, $strIDs)"));
+				}
 				unset($strIDs);
 
 			} else foreach($values as $value) { 
@@ -3265,7 +3473,9 @@ class PageFinder extends Wire {
 		} else {
 
 			// non zero values
-			$query->select("$a.$b AS $b"); 
+			// aggregated for ONLY_FULL_GROUP_BY; the subquery yields one row per page so MIN() is a no-op
+			$query->select("MIN($a.$b) AS $b"); 
+			$query->addGroupAggregate("MIN($a.$b) AS $b", "$a.$b AS $b");
 			$query->leftjoin(
 				"(" . 
 				"SELECT p$n.parent_id, COUNT(p$n.id) AS $b " . 
