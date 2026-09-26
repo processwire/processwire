@@ -21,6 +21,8 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testJson();
 		$this->testGaps();
 		$this->testFulltext();
+		$this->testFulltextUnderscores();
+		$this->testOnUpdateNoChange();
 		$this->testTranslationCache();
 	}
 
@@ -573,6 +575,95 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->check('title$=here (trailing punctuation)', 'Ends with a quote "here"', $find('title$=here'));
 		$this->check('title!~=zola', 'Hello World|Crème brûlée|Ends with a quote "here"', $find('title!~=zola'));
 		foreach($created as $p) $pages->delete($p, true);
+	}
+
+	/**
+	 * "_" is part of a word, as in MySQL's fulltext, and a site set up by pw_fulltext_v1 is brought up to date (live, pgsql only)
+	 *
+	 */
+	protected function testFulltextUnderscores() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql' || !$database->dialect()->supportsFulltext()) return;
+		$pdo = $database->pdo();
+		$matches = function($doc, $query, $boolean = true) use($pdo) {
+			$q = $pdo->prepare('SELECT (pw_tsvector(:d) @@ pw_tsquery(:q, :b))::int');
+			$q->bindValue(':d', $doc);
+			$q->bindValue(':q', $query);
+			$q->bindValue(':b', $boolean ? 't' : 'f');
+			$q->execute();
+			return (int) $q->fetchColumn();
+		};
+		$this->check('a word before an underscore does not match the whole word (as MySQL)', 0, $matches('test_fme_content example', 'test'));
+		$this->check('a word after an underscore does not match either', 0, $matches('test_fme_content example', '+fme'));
+		$this->check('a word with underscores matches', 1, $matches('test_fme_content example', '+test_fme_content'));
+		$this->check('a prefix with an underscore', 1, $matches('test_fme_content example', '+test_fme*'));
+		$this->check('a phrase with an underscore word', 1, $matches('test_fme_content example', '"test_fme_content example"'));
+		$this->check('leading and trailing underscores are part of the word', 1, $matches('def __init__(self)', '+__init__'));
+		$this->check('in natural language mode too', [0, 1], [$matches('wire_test_repeater', 'wire', false), $matches('wire_test_repeater', 'wire_test_repeater', false)]);
+		$this->check('other separators still split words', 1, $matches('foo-bar.example', '+bar +example'));
+
+		// a site whose stored tsvector columns were made by pw_fulltext_v1's pw_tsvector() (split at "_")
+		$table = WireTests::fieldPrefix . 'pgsql_underscore';
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$database->exec("CREATE TABLE `$table` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, " .
+			"`modified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$database->exec("INSERT INTO `$table` (pages_id, data) VALUES (1, 'test_fme_content example'), (2, 'plain words')");
+		$schema = (string) $pdo->query('SELECT current_schema()')->fetchColumn();
+		$s = '"' . str_replace('"', '""', $schema) . '"';
+		$current = $pdo->query("SELECT pg_get_functiondef('$s.pw_tsvector(text)'::regprocedure)")->fetchColumn();
+		$config = str_replace("'", "''", "$s.pw_search");
+		$pdo->exec("CREATE OR REPLACE FUNCTION $s.pw_tsvector(text) RETURNS tsvector LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS " .
+			"\$fn\$ SELECT to_tsvector('$config'::regconfig, regexp_replace(\$1, '[-.@:]+|(?<!<)/+', ' ', 'g')) \$fn\$"); // v1
+		$pdo->exec("UPDATE \"$table\" SET data = data || ''"); // stored with v1's words
+		$pdo->exec("UPDATE \"$table\" SET modified = '2020-01-02 03:04:05'");
+		$vector = function($id) use($pdo, $table) { return (string) $pdo->query("SELECT data__tsv::text FROM \"$table\" WHERE pages_id = $id")->fetchColumn(); };
+		$this->check('a v1 site has "test" and "fme" as words', true, strpos($vector(1), "'test':1") !== false && strpos($vector(1), "'fme':2") !== false);
+		$pdo->exec("DROP FUNCTION IF EXISTS $s." . WireDatabasePgsqlTranslator::fulltextMarker . '()');
+		$pdo->exec("CREATE OR REPLACE FUNCTION $s.pw_fulltext_v1() RETURNS int LANGUAGE sql IMMUTABLE AS 'SELECT 1'");
+		$result = WireDatabasePgsqlTranslator::setupFulltext(
+			function($sql) use($pdo) { $pdo->exec($sql); },
+			function($sql) use($pdo) { return $pdo->query($sql)->fetchColumn(); },
+			function($sql) use($pdo) { return $pdo->query($sql)->fetchAll(\PDO::FETCH_ASSOC); }
+		);
+		$this->check('setup of this version on a v1 site succeeds', ['fulltext' => true, 'error' => ''], $result);
+		$this->check('the stored tsvector of a row with "_" is rebuilt', false, strpos($vector(1), "'test':1") !== false);
+		$this->check('a row without "_" is left as it was', "'plain':1 'words':2", $vector(2));
+		$this->check('rebuilding does not touch ON UPDATE CURRENT_TIMESTAMP columns', ['2020-01-02 03:04:05'], array_values(array_unique($pdo->query("SELECT modified::text FROM \"$table\"")->fetchAll(\PDO::FETCH_COLUMN))));
+		$ids = function($value) use($database, $table) {
+			$q = $database->prepare("SELECT pages_id FROM `$table` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id");
+			$q->bindValue(':v', $value);
+			$q->execute();
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$this->check('MATCH after the upgrade: a word with underscores', [[1], []], [$ids('+test_fme_content'), $ids('+test')]);
+		$this->check('the v1 marker is gone', false, (bool) $pdo->query("SELECT to_regprocedure('$s.pw_fulltext_v1()') IS NOT NULL")->fetchColumn());
+		$this->check('the current marker is there', true, (bool) $pdo->query("SELECT to_regprocedure('$s." . WireDatabasePgsqlTranslator::fulltextMarker . "()') IS NOT NULL")->fetchColumn());
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		if(strpos((string) $current, "'_'") === false) $pdo->exec($current); // (a failed run left v1's function: put back what was there)
+	}
+
+	/**
+	 * ON UPDATE CURRENT_TIMESTAMP changes the column only when an UPDATE changes the row, also with a FULLTEXT key (live, pgsql only)
+	 *
+	 * A stored tsvector column is not computed yet when the trigger runs, so it must not count as a change.
+	 *
+	 */
+	protected function testOnUpdateNoChange() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$pdo = $database->pdo();
+		$table = WireTests::fieldPrefix . 'pgsql_onupdate_ft';
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$database->exec("CREATE TABLE `$table` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, " .
+			"`modified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$database->exec("INSERT INTO `$table` (pages_id, data) VALUES (1, 'hello')");
+		$database->exec("UPDATE `$table` SET modified = '2020-01-02 03:04:05'");
+		$modified = function() use($pdo, $table) { return (string) $pdo->query("SELECT modified::text FROM \"$table\"")->fetchColumn(); };
+		$database->exec("UPDATE `$table` SET data = 'hello'");
+		$this->check('an UPDATE that changes nothing leaves the timestamp', '2020-01-02 03:04:05', $modified());
+		$database->exec("UPDATE `$table` SET data = 'hello there'");
+		$this->check('an UPDATE that changes the row sets it', true, $modified() !== '2020-01-02 03:04:05');
+		$database->exec("DROP TABLE IF EXISTS `$table`");
 	}
 
 	/**
