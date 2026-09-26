@@ -205,6 +205,20 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		}
 		$this->check('a foreign trigger still refuses a rebuild', true, $refused);
 		$this->execMysql('DROP TABLE IF EXISTS `ft_rb2`');
+
+		// two key columns (key map table): rebuild and rename
+		foreach(['ft_rbm', 'ft_rbm2'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_rbm` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`, `sort`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_rbm` VALUES (1, 0, 'alpha'), (1, 1, 'beta'), (2, 0, 'beta gamma')");
+		$this->execMysql("ALTER TABLE `ft_rbm` MODIFY `data` mediumtext NOT NULL");
+		$this->execMysql("UPDATE `ft_rbm` SET data='delta' WHERE pages_id=1 AND sort=0");
+		$this->check('two key columns: search after MODIFY and UPDATE', [[1], [1, 2]], [$find('ft_rbm', 'delta'), $find('ft_rbm', 'beta')]);
+		$this->execMysql("RENAME TABLE `ft_rbm` TO `ft_rbm2`");
+		$this->execMysql("DELETE FROM `ft_rbm2` WHERE pages_id=2");
+		$this->check('two key columns: search after RENAME and DELETE', [1], $find('ft_rbm2', 'beta'));
+		$this->check('two key columns: the key map follows the table', [[], ['ft_rbm2__fts_data__keys']], [$names('table', 'ft_rbm__fts_'), array_values(array_filter($names('table', 'ft_rbm2__fts_'), function($n) { return substr($n, -6) === '__keys'; }))]);
+		$this->execMysql('DROP TABLE `ft_rbm2`');
+		$this->check('two key columns: DROP TABLE drops the key map', [], $names('table', 'ft_rbm2'));
 	}
 
 	/**
@@ -234,7 +248,7 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->check('CREATE TABLE: FTS5 table for the FULLTEXT key', true, in_array('ft_one__fts_data', $master('table', 'ft!_one!_!_fts!_%'), true));
 		$this->check('CREATE TABLE: three triggers', ['ft_one__fts_data_ad', 'ft_one__fts_data_ai', 'ft_one__fts_data_au'], $master('trigger', 'ft!_one!_!_fts!_%'));
 		$this->check('CREATE TABLE: no plain index for the FULLTEXT key', ['ft_one__data_exact'], $master('index', 'ft!_one!_!_%'));
-		$this->check('fulltextKeys()', ['data' => ['table' => 'ft_one__fts_data', 'keys' => ['pages_id'], 'columns' => ['data']]], WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_one'));
+		$this->check('fulltextKeys()', ['data' => ['table' => 'ft_one__fts_data', 'keys' => ['pages_id'], 'columns' => ['data'], 'mode' => 'key', 'map' => null]], WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_one'));
 
 		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (1, 'hello world'), (2, 'second row')");
 		$this->check('INSERT syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
@@ -256,6 +270,17 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->execMysql("CREATE TABLE `ft_multi` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text, `description` text, PRIMARY KEY (`pages_id`, `sort`), FULLTEXT KEY `data_description` (`data`, `description`))");
 		$this->execMysql("INSERT INTO `ft_multi` VALUES (1, 0, 'a', NULL), (1, 1, 'b', 'c')");
 		$this->check('two key columns and two text columns sync, NULL as blank', 'synced', $synced('ft_multi', 'data_description', ['pages_id', 'sort'], ['data', 'description']));
+		$this->execMysql("UPDATE `ft_multi` SET description='d' WHERE pages_id=1 AND sort=0");
+		$this->execMysql("DELETE FROM `ft_multi` WHERE pages_id=1 AND sort=1");
+		$this->execMysql("REPLACE INTO `ft_multi` VALUES (1, 0, 'e', 'f')");
+		$this->check('two key columns: UPDATE, DELETE and REPLACE sync', 'synced', $synced('ft_multi', 'data_description', ['pages_id', 'sort'], ['data', 'description']));
+
+		// the triggers find FTS5 rows by rowid (FTS5 cannot index the key columns, so a lookup by them scans every row)
+		$triggerSql = function($name) { return (string) $this->pdo->query("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='$name'")->fetchColumn(); };
+		$this->check('single integer key: the delete trigger uses the key as rowid', true, strpos($triggerSql('ft_one__fts_data_ad'), 'WHERE rowid = old.`pages_id`') !== false);
+		$this->check('two key columns: a key map table', ['ft_multi__fts_data_description__keys'], $master('table', 'ft!_multi!_!_fts!_data!_description!_!_keys'));
+		$this->check('two key columns: the delete trigger uses the key map id as rowid', true, strpos($triggerSql('ft_multi__fts_data_description_ad'), 'WHERE rowid = (SELECT id FROM `ft_multi__fts_data_description__keys`') !== false);
+		$this->check('two key columns: the key map has one row per row', 1, (int) $this->pdo->query('SELECT COUNT(*) FROM `ft_multi__fts_data_description__keys`')->fetchColumn());
 
 		// ALTER TABLE ADD column and FULLTEXT key in one statement (multi-language fields do this), with backfill
 		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (5, 'five')");

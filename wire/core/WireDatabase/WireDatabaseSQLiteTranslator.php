@@ -58,6 +58,12 @@ class WireDatabaseSQLiteTranslator {
 	const fulltextMarker = 'pw_fulltext_v1';
 
 	/**
+	 * Suffix of a FULLTEXT key's key map table (see fulltextKeys()): table__fts_key__keys
+	 *
+	 */
+	const fulltextMapSuffix = '__keys';
+
+	/**
 	 * Cache of translated SQL, indexed by original SQL
 	 *
 	 * @var array
@@ -631,22 +637,29 @@ class WireDatabaseSQLiteTranslator {
 	/**
 	 * Get the FULLTEXT keys of a table from its FTS5 tables
 	 *
+	 * Each FTS5 row's rowid is found from the indexed row's key, since FTS5 cannot index its key columns:
+	 * 'key' mode, the key itself (a single integer key); 'rowid' mode, the table's rowid (a table without a
+	 * primary key); 'map' mode, the id of the key in a key map table (any other key).
+	 *
 	 * @param \PDO $pdo
 	 * @param string $table
-	 * @return array [ name => [ 'table' => FTS5 table, 'keys' => [ columns of $table, or 'rowid' ], 'columns' => [ text columns ] ] ]
+	 * @return array [ name => [ 'table' => FTS5 table, 'keys' => [ columns of $table, or 'rowid' ], 'columns' => [ text columns ],
+	 *   'mode' => 'key', 'rowid' or 'map', 'map' => key map table or null ] ]
 	 *
 	 */
 	public static function fulltextKeys(\PDO $pdo, $table) {
 		$prefix = $table . self::fulltextSeparator;
 		$query = $pdo->prepare(
-			"SELECT name FROM sqlite_master WHERE type='table' AND substr(name, 1, ?)=? AND sql LIKE 'CREATE VIRTUAL TABLE%' ORDER BY name"
+			"SELECT name, sql FROM sqlite_master WHERE type='table' AND substr(name, 1, ?)=? ORDER BY name"
 		);
 		$query->execute([strlen($prefix), $prefix]);
-		$names = $query->fetchAll(\PDO::FETCH_COLUMN);
+		$tables = $query->fetchAll(\PDO::FETCH_KEY_PAIR);
 		$query->closeCursor();
 		$keys = [];
-		foreach($names as $ftsTable) {
-			$info = ['table' => $ftsTable, 'keys' => [], 'columns' => []];
+		foreach($tables as $ftsTable => $sql) {
+			if(stripos((string) $sql, 'CREATE VIRTUAL TABLE') !== 0) continue; // FTS5 shadow tables and key maps
+			$map = $ftsTable . self::fulltextMapSuffix;
+			$info = ['table' => $ftsTable, 'keys' => [], 'columns' => [], 'mode' => 'key', 'map' => isset($tables[$map]) ? $map : null];
 			$columns = $pdo->query('SELECT name FROM pragma_table_info(' . $pdo->quote($ftsTable) . ') ORDER BY cid')->fetchAll(\PDO::FETCH_COLUMN);
 			foreach($columns as $column) {
 				if(strpos($column, self::fulltextKeyPrefix) === 0) {
@@ -655,9 +668,27 @@ class WireDatabaseSQLiteTranslator {
 					$info['columns'][] = $column;
 				}
 			}
+			if($info['map'] !== null) {
+				$info['mode'] = 'map';
+			} else if($info['keys'] === ['rowid']) {
+				$info['mode'] = 'rowid';
+			}
 			$keys[substr($ftsTable, strlen($prefix))] = $info;
 		}
 		return $keys;
+	}
+
+	/**
+	 * Get how FTS5 rowids are found for a FULLTEXT key with given keys (see fulltextKeys())
+	 *
+	 * @param array $keys Primary key columns, or ['rowid']
+	 * @param bool $integer Is a single key column an integer column?
+	 * @return string 'key', 'rowid' or 'map'
+	 *
+	 */
+	protected function fulltextMode(array $keys, $integer) {
+		if($keys === ['rowid']) return 'rowid';
+		return count($keys) === 1 && $integer ? 'key' : 'map';
 	}
 
 	/**
@@ -705,45 +736,64 @@ class WireDatabaseSQLiteTranslator {
 	 * Get the primary key columns of an existing table, or ['rowid'] when it has none
 	 *
 	 * @param string $table
+	 * @param bool $integer Set to whether a single key column is an integer column
 	 * @return array
 	 * @throws \PDOException Without a connection
 	 *
 	 */
-	protected function tableKeys($table) {
+	protected function tableKeys($table, &$integer = false) {
 		$pdo = $this->pdo();
 		if(!$pdo) throw new \PDOException("SQLite translator: a FULLTEXT key on existing table $table requires a connection");
 		$keys = [];
-		foreach($pdo->query('SELECT name, pk FROM pragma_table_info(' . $pdo->quote($table) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-			if($row['pk']) $keys[(int) $row['pk']] = $row['name'];
+		$types = [];
+		foreach($pdo->query('SELECT name, type, pk FROM pragma_table_info(' . $pdo->quote($table) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+			if(!$row['pk']) continue;
+			$keys[(int) $row['pk']] = $row['name'];
+			$types[] = $row['type'];
 		}
 		ksort($keys);
+		$integer = count($types) === 1 && stripos($types[0], 'INT') !== false;
 		return count($keys) ? array_values($keys) : ['rowid'];
 	}
 
 	/**
-	 * Get statements that create the FTS5 table and triggers for a FULLTEXT key
+	 * Get statements that create the FTS5 table and triggers for a FULLTEXT key (and its key map in 'map' mode)
 	 *
 	 * @param string $table
 	 * @param string $name FULLTEXT key name
 	 * @param array $keys Primary key columns of $table, or ['rowid']
 	 * @param array $columns Text columns
 	 * @param bool $backfill Also copy the existing rows?
+	 * @param string $mode How FTS5 rowids are found: 'key', 'rowid' or 'map' (see fulltextKeys())
 	 * @return array
 	 *
 	 */
-	protected function fulltextStatements($table, $name, array $keys, array $columns, $backfill) {
-		$fts = $this->fulltextName($table, $name);
+	protected function fulltextStatements($table, $name, array $keys, array $columns, $backfill, $mode) {
+		$fts = $this->quoteId($this->fulltextName($table, $name));
+		$map = $this->quoteId($this->fulltextName($table, $name) . self::fulltextMapSuffix);
+		$qKeys = implode(', ', array_map([$this, 'quoteId'], $keys));
 		$defs = [];
 		foreach($keys as $key) $defs[] = $this->quoteId(self::fulltextKeyPrefix . $key) . ' UNINDEXED';
 		foreach($columns as $column) $defs[] = $this->quoteId($column);
 		$statements = [
-			'CREATE VIRTUAL TABLE ' . $this->quoteId($fts) . ' USING fts5(' . implode(', ', $defs) .
+			"CREATE VIRTUAL TABLE $fts USING fts5(" . implode(', ', $defs) .
 			', tokenize = "' . self::fulltextTokenize . "\", prefix = '2 3')"
 		];
-		foreach($this->fulltextTriggerStatements($table, $name, $keys, $columns) as $sql) $statements[] = $sql;
+		if($mode === 'map') $statements[] = "CREATE TABLE $map (id INTEGER PRIMARY KEY, $qKeys, UNIQUE ($qKeys))";
+		foreach($this->fulltextTriggerStatements($table, $name, $keys, $columns, $mode) as $sql) $statements[] = $sql;
 		if($backfill) {
-			$statements[] = 'INSERT INTO ' . $this->quoteId($fts) . ' (' . $this->fulltextColumnList($keys, $columns) . ') ' .
-				'SELECT ' . $this->fulltextValueList('', $keys, $columns) . ' FROM ' . $this->quoteId($table);
+			$qTable = $this->quoteId($table);
+			$list = $this->fulltextColumnList($keys, $columns);
+			if($mode === 'map') {
+				$on = [];
+				foreach($keys as $key) $on[] = 'm.' . $this->quoteId($key) . ' = t.' . $this->quoteId($key);
+				$statements[] = "INSERT INTO $map ($qKeys) SELECT $qKeys FROM $qTable";
+				$statements[] = "INSERT INTO $fts (rowid, $list) SELECT m.id, " . $this->fulltextValueList('t.', $keys, $columns) .
+					" FROM $qTable t JOIN $map m ON " . implode(' AND ', $on);
+			} else {
+				$rowid = $mode === 'rowid' ? 'rowid' : $this->quoteId($keys[0]);
+				$statements[] = "INSERT INTO $fts (rowid, $list) SELECT $rowid, " . $this->fulltextValueList('', $keys, $columns) . " FROM $qTable";
+			}
 		}
 		return $statements;
 	}
@@ -751,33 +801,49 @@ class WireDatabaseSQLiteTranslator {
 	/**
 	 * Get the statements that create the triggers keeping a FULLTEXT key's FTS5 table in sync
 	 *
-	 * The insert trigger first deletes by key: REPLACE deletes the conflicting row without firing delete triggers.
+	 * FTS5 rows are found by rowid (see fulltextKeys()). The insert trigger first deletes by key, since
+	 * REPLACE deletes the conflicting row without firing delete triggers.
 	 *
 	 * @param string $table
 	 * @param string $name
 	 * @param array $keys
 	 * @param array $columns
+	 * @param string $mode 'key', 'rowid' or 'map'
 	 * @return array
 	 *
 	 */
-	protected function fulltextTriggerStatements($table, $name, array $keys, array $columns) {
-		$fts = $this->quoteId($this->fulltextName($table, $name));
-		$trigger = function($suffix) use($table, $name) { return $this->quoteId($this->fulltextName($table, $name) . $suffix); };
-		$delete = function($row) use($fts, $keys) {
+	protected function fulltextTriggerStatements($table, $name, array $keys, array $columns, $mode) {
+		$ftsName = $this->fulltextName($table, $name);
+		$fts = $this->quoteId($ftsName);
+		$map = $this->quoteId($ftsName . self::fulltextMapSuffix);
+		$trigger = function($suffix) use($ftsName) { return $this->quoteId($ftsName . $suffix); };
+		$keysOf = function($row) use($keys) {
 			$where = [];
-			foreach($keys as $key) {
-				$where[] = $this->quoteId(self::fulltextKeyPrefix . $key) . " = $row." . ($key === 'rowid' ? 'rowid' : $this->quoteId($key));
-			}
-			return "DELETE FROM $fts WHERE " . implode(' AND ', $where) . ';';
+			foreach($keys as $key) $where[] = $this->quoteId($key) . " = $row." . $this->quoteId($key);
+			return implode(' AND ', $where);
 		};
-		$insert = "INSERT INTO $fts (" . $this->fulltextColumnList($keys, $columns) . ') VALUES (' . $this->fulltextValueList('new.', $keys, $columns) . ');';
+		$rowid = function($row) use($mode, $keys, $map, $keysOf) {
+			if($mode === 'rowid') return "$row.rowid";
+			if($mode === 'key') return "$row." . $this->quoteId($keys[0]);
+			return "(SELECT id FROM $map WHERE " . $keysOf($row) . ')';
+		};
+		$qKeys = implode(', ', array_map([$this, 'quoteId'], $keys));
+		$newKeys = implode(', ', array_map(function($key) { return 'new.' . $this->quoteId($key); }, $keys));
+		$delete = "DELETE FROM $fts WHERE rowid = " . $rowid('old') . ';';
+		if($mode === 'map') $delete .= " DELETE FROM $map WHERE " . $keysOf('old') . ';';
+		// (statements in a trigger take the conflict policy of the statement firing it, i.e. REPLACE, so the key map
+		// row is deleted and inserted again, rather than inserted with OR IGNORE)
+		$insert = "DELETE FROM $fts WHERE rowid = " . $rowid('new') . '; ' .
+			($mode === 'map' ? "DELETE FROM $map WHERE " . $keysOf('new') . "; INSERT INTO $map ($qKeys) VALUES ($newKeys); " : '') .
+			"INSERT INTO $fts (rowid, " . $this->fulltextColumnList($keys, $columns) . ') VALUES (' .
+			$rowid('new') . ', ' . $this->fulltextValueList('new.', $keys, $columns) . ');';
 		$of = [];
-		foreach(array_merge($keys === ['rowid'] ? [] : $keys, $columns) as $column) $of[] = $this->quoteId($column);
+		foreach(array_merge($mode === 'rowid' ? [] : $keys, $columns) as $column) $of[] = $this->quoteId($column);
 		$qTable = $this->quoteId($table);
 		return [
-			'CREATE TRIGGER ' . $trigger('_ai') . " AFTER INSERT ON $qTable BEGIN " . $delete('new') . " $insert END",
-			'CREATE TRIGGER ' . $trigger('_ad') . " AFTER DELETE ON $qTable BEGIN " . $delete('old') . ' END',
-			'CREATE TRIGGER ' . $trigger('_au') . ' AFTER UPDATE OF ' . implode(', ', $of) . " ON $qTable BEGIN " . $delete('old') . " $insert END",
+			'CREATE TRIGGER ' . $trigger('_ai') . " AFTER INSERT ON $qTable BEGIN $insert END",
+			'CREATE TRIGGER ' . $trigger('_ad') . " AFTER DELETE ON $qTable BEGIN $delete END",
+			'CREATE TRIGGER ' . $trigger('_au') . ' AFTER UPDATE OF ' . implode(', ', $of) . " ON $qTable BEGIN $delete $insert END",
 		];
 	}
 
@@ -813,7 +879,7 @@ class WireDatabaseSQLiteTranslator {
 	}
 
 	/**
-	 * Get statements that drop a FULLTEXT key's triggers and FTS5 table
+	 * Get statements that drop a FULLTEXT key's triggers, FTS5 table and key map
 	 *
 	 * @param string $table
 	 * @param string $name
@@ -827,6 +893,7 @@ class WireDatabaseSQLiteTranslator {
 			'DROP TRIGGER IF EXISTS ' . $this->quoteId($fts . '_ad'),
 			'DROP TRIGGER IF EXISTS ' . $this->quoteId($fts . '_au'),
 			'DROP TABLE IF EXISTS ' . $this->quoteId($fts),
+			'DROP TABLE IF EXISTS ' . $this->quoteId($fts . self::fulltextMapSuffix),
 		];
 	}
 
@@ -1586,7 +1653,10 @@ class WireDatabaseSQLiteTranslator {
 		foreach($this->ftsKeys($from) as $name => $info) {
 			foreach(array_slice($this->dropFulltextStatements($from, $name), 0, 3) as $sql) $statements[] = $sql;
 			$statements[] = 'ALTER TABLE ' . $this->quoteId($info['table']) . ' RENAME TO ' . $this->quoteId($this->fulltextName($to, $name));
-			foreach($this->fulltextTriggerStatements($to, $name, $info['keys'], $info['columns']) as $sql) $statements[] = $sql;
+			if($info['map'] !== null) {
+				$statements[] = 'ALTER TABLE ' . $this->quoteId($info['map']) . ' RENAME TO ' . $this->quoteId($this->fulltextName($to, $name) . self::fulltextMapSuffix);
+			}
+			foreach($this->fulltextTriggerStatements($to, $name, $info['keys'], $info['columns'], $info['mode']) as $sql) $statements[] = $sql;
 		}
 		return $statements;
 	}
@@ -1695,6 +1765,7 @@ class WireDatabaseSQLiteTranslator {
 			$statements[] = 'DROP TABLE ' . ($ifExists ? 'IF EXISTS ' : '') . $this->quoteId($table);
 			foreach($this->ftsKeys($table) as $info) {
 				$statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['table']);
+				if($info['map'] !== null) $statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['map']);
 			}
 		}
 		if(!count($statements)) return $this->join($tokens);
@@ -1935,8 +2006,10 @@ class WireDatabaseSQLiteTranslator {
 
 		foreach($indexes as $index) $statements[] = $index;
 
+		$integerKey = count($tableKeys) === 1 && isset($columns[$tableKeys[0]]) && stripos($columns[$tableKeys[0]]['sql'], 'INT') !== false;
 		foreach($fulltextDefs as $ft) {
-			foreach($this->fulltextStatements($table, $ft[0], $tableKeys, $ft[1], false) as $sql) $statements[] = $sql;
+			$mode = $this->fulltextMode($tableKeys, $integerKey || $tableKeys[0] === $autoIncrementCol);
+			foreach($this->fulltextStatements($table, $ft[0], $tableKeys, $ft[1], false, $mode) as $sql) $statements[] = $sql;
 		}
 
 		return $statements;
@@ -2124,7 +2197,8 @@ class WireDatabaseSQLiteTranslator {
 		if($name === null) $name = $cols[0];
 		// FULLTEXT indexes become FTS5 tables when fulltext is on, otherwise regular indexes (fulltext queries use LIKE/REGEXP)
 		if($this->fulltext && $this->isFulltextDef($def)) {
-			return $this->fulltextStatements($table, $name, $this->tableKeys($table), $cols, true);
+			$keys = $this->tableKeys($table, $integer);
+			return $this->fulltextStatements($table, $name, $keys, $cols, true, $this->fulltextMode($keys, $integer));
 		}
 		return $this->createIndexSql($table, $name, $cols, $unique, $ifNotExists);
 	}
@@ -2451,20 +2525,24 @@ class WireDatabaseSQLiteTranslator {
 
 		// FULLTEXT keys: DROP TABLE removed their triggers; rename, rebuild or drop their FTS5 tables as MySQL does indexes
 		$newKeys = count($pk) ? $pk : ['rowid'];
+		$integerKey = count($pk) === 1 && isset($cols[$pk[0]]) && ($autoIncrement || stripos($cols[$pk[0]]['sql'], 'INT') !== false);
+		$newMode = $this->fulltextMode($newKeys, $integerKey);
 		foreach($ftsKeys as $name => $info) {
 			$columns = [];
 			foreach($info['columns'] as $column) {
 				if(in_array($column, $dropped, true)) continue;
 				$columns[] = isset($renames[$column]) ? $renames[$column] : $column;
 			}
+			$drop = ['DROP TABLE IF EXISTS ' . $this->quoteId($info['table'])];
+			if($info['map'] !== null) $drop[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['map']);
 			if(!count($columns)) {
-				$statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['table']);
-			} else if($columns !== $info['columns'] || $newKeys !== $info['keys'] || $newKeys === ['rowid']) {
+				foreach($drop as $sql) $statements[] = $sql;
+			} else if($columns !== $info['columns'] || $newKeys !== $info['keys'] || $newMode !== $info['mode'] || $newMode === 'rowid') {
 				// the rebuild renumbers rowids, so rowid keys are always rebuilt
-				$statements[] = 'DROP TABLE IF EXISTS ' . $this->quoteId($info['table']);
-				foreach($this->fulltextStatements($table, $name, $newKeys, $columns, true) as $sql) $statements[] = $sql;
+				foreach($drop as $sql) $statements[] = $sql;
+				foreach($this->fulltextStatements($table, $name, $newKeys, $columns, true, $newMode) as $sql) $statements[] = $sql;
 			} else {
-				foreach($this->fulltextTriggerStatements($table, $name, $newKeys, $columns) as $sql) $statements[] = $sql;
+				foreach($this->fulltextTriggerStatements($table, $name, $newKeys, $columns, $newMode) as $sql) $statements[] = $sql;
 			}
 		}
 
