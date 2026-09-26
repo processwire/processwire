@@ -10,6 +10,50 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 		$this->testUnusedParameters();
 		$this->testFulltext();
 		$this->testOldSiteWithoutMarker();
+		$this->testFoldIndex();
+	}
+
+	/**
+	 * $config->dbOptions['sqlite']['foldIndex']: accented exact matches use an index on pw_fold() (live, sqlite only)
+	 *
+	 */
+	protected function testFoldIndex() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'sqlite') return;
+		$config = $this->wire()->config;
+		$pdo = $database->pdo();
+		$dialect = $database->dialect();
+		$options = $config->dbOptions;
+		$foldIndexes = function() use($pdo) {
+			return $pdo->query("SELECT name FROM sqlite_master WHERE type='index' AND substr(name, -6) = '__fold' ORDER BY name")->fetchAll(\PDO::FETCH_COLUMN);
+		};
+		$this->check('off by default: no fold indexes', [], $foldIndexes());
+
+		$config->dbOptions = array_merge(is_array($options) ? $options : [], ['sqlite' => array_merge(isset($options['sqlite']) ? $options['sqlite'] : [], ['foldIndex' => true])]);
+		$dialect->initConnection($pdo);
+		$this->check('turned on: the translator uses them', true, $dialect->translator()->foldIndex());
+		$this->check('turned on: field_title gets one', true, in_array('field_title__data_exact__fold', $foldIndexes(), true));
+		$parent = $this->getTestPage();
+		if($parent && $parent->id) {
+			$pages = $this->wire()->pages;
+			foreach($pages->find("parent=$parent, name^=sqlite-fold-, include=all") as $p) $pages->delete($p, true);
+			$a = $pages->newPage(['template' => $parent->template, 'parent' => $parent, 'name' => 'sqlite-fold-a', 'title' => 'Crème brûlée']);
+			$pages->save($a);
+			$b = $pages->newPage(['template' => $parent->template, 'parent' => $parent, 'name' => 'sqlite-fold-b', 'title' => 'Creme Brulee']);
+			$pages->save($b);
+			$selector = "parent=$parent, title=crème brûlée, include=all, sort=name";
+			$sql = $pages->getPageFinder()->find(new Selectors($selector), ['returnQuery' => true])->getQuery();
+			$translated = implode(";\n", $dialect->translateSql($sql));
+			$this->check('an accented title= compares pw_fold() values', true, strpos($translated, 'pw_fold(') !== false && stripos($translated, 'COLLATE pw_ci') === false);
+			$this->check('title= finds both spellings, as MySQL', 'sqlite-fold-a|sqlite-fold-b', $pages->find($selector)->implode('|', 'name'));
+			$pages->delete($a, true);
+			$pages->delete($b, true);
+		}
+
+		$config->dbOptions = $options;
+		$dialect->initConnection($pdo);
+		$this->check('turned off again: fold indexes and marker are gone', [[], false], [$foldIndexes(), (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE name='" . WireDatabaseSQLiteTranslator::foldIndexMarker . "'")->fetchColumn()]);
+		$this->check('turned off again: the translator does not use them', false, $dialect->translator()->foldIndex());
 	}
 
 	/**
