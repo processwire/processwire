@@ -198,15 +198,17 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	/**
 	 * Get collation for text ORDER BY terms
 	 *
-	 * Off unless enabled with `$config->dbOptions['sqlite']['unicodeSort'] = true;` because
-	 * SQLite has to call back into PHP for every comparison it makes while sorting, and cannot
-	 * use an index to avoid the sort.
+	 * NOCASE, the collation text columns have, named so that it also applies to a sort by an aggregate of
+	 * one (i.e. MIN(col)), which SQLite would otherwise compare as BINARY (uppercase first). Or pw_ci, which
+	 * sorts all of Unicode as MySQL does, when enabled with `$config->dbOptions['sqlite']['unicodeSort'] = true;`.
+	 * That is off by default because SQLite has to call back into PHP for every comparison it makes while
+	 * sorting, and cannot use an index to avoid the sort.
 	 *
 	 * @return string
 	 *
 	 */
 	public function sortCollation() {
-		return $this->setting('unicodeSort', false) ? 'pw_ci' : '';
+		return $this->setting('unicodeSort', false) ? 'pw_ci' : 'NOCASE';
 	}
 
 	/**
