@@ -2038,8 +2038,12 @@ class PageFinder extends Wire {
 		$this->getQueryAllowedTemplates($query, $options); 
 
 		// complete the joins, matching up any conditions for the same table
-		foreach($joins as $j) {
+		foreach($joins as $key => $j) {
 			$joinType = $j['joinType']; 
+			if($joinType === 'leftjoin' && !$this->isJoinReferenced($query, $joins, $key)) {
+				// i.e. field.count, which counts in its own subquery: the join would only repeat the page per row
+				continue;
+			}
 			$query->$joinType("$j[table] AS $j[tableAlias] ON $j[tableAlias].pages_id=pages.id AND ($j[join])"); 
 		}
 		
@@ -2163,6 +2167,29 @@ class PageFinder extends Wire {
 			}
 		}
 		*/
+	}
+
+	/**
+	 * Does the query use the alias of the given join, other than to join it?
+	 *
+	 * A LEFT JOIN that nothing refers to changes no result, since the GROUP BY pages.id removes the rows it
+	 * repeats, so it can be left out.
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param array $joins Joins compiled by getQuery()
+	 * @param string $key Key of the join to check in $joins
+	 * @return bool
+	 * @since 3.0.274
+	 *
+	 */
+	protected function isJoinReferenced(DatabaseQuerySelect $query, array $joins, $key) {
+		$alias = $joins[$key]['tableAlias'];
+		$sqls = array($joins[$key]['join']);
+		foreach($joins as $k => $j) if($k !== $key) $sqls[] = "$j[table] AS $j[tableAlias] ON $j[join]";
+		foreach(array('select', 'join', 'leftjoin', 'where', 'orderby', 'groupby') as $part) {
+			foreach($query->$part as $sql) $sqls[] = $sql;
+		}
+		return (bool) preg_match('/\b' . preg_quote($alias, '/') . '\./', implode("\n", $sqls));
 	}
 
 	/**

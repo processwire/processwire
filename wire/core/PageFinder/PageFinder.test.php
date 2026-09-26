@@ -27,6 +27,7 @@ class WireTest_PageFinder extends WireTest {
 		$this->testIncludeAndAccessModes();
 		$this->testCursorAndReverseOptions();
 		$this->testExceptionsAndTiming();
+		$this->testCountSubfieldJoins();
 	}
 
 	public function finish() {
@@ -112,6 +113,28 @@ class WireTest_PageFinder extends WireTest {
 
 		if($this->createdTemplate) {
 			$templates->delete($template);
+		}
+	}
+
+	/**
+	 * A field.count condition counts in its own subquery, so it does not also join the field’s rows
+	 *
+	 * The join would repeat each page once per value (removed again by the GROUP BY), for nothing.
+	 *
+	 */
+	protected function testCountSubfieldJoins() {
+		$users = array();
+		foreach($this->wire()->pages->find('template=user, include=all') as $user) $users[$user->id] = $user->roles->count();
+		foreach(array('>=2' => function($n) { return $n >= 2; }, '<2' => function($n) { return $n < 2; }, '=0' => function($n) { return $n === 0; }) as $op => $test) {
+			$selector = "template=user, roles.count$op, include=all";
+			$expected = array_keys(array_filter($users, $test));
+			$ids = $this->wire()->pages->findIDs("$selector, sort=id");
+			sort($expected);
+			sort($ids);
+			$this->check("roles.count$op finds the users with that many roles", $expected, $ids);
+			$this->check("roles.count$op totals them", count($expected), $this->wire()->pages->count($selector));
+			$sql = $this->finder()->find(new Selectors($selector), array('returnQuery' => true))->getQuery();
+			$this->check("roles.count$op does not join the roles rows", false, (bool) preg_match('/JOIN field_roles AS field_roles\b/', $sql));
 		}
 	}
 
