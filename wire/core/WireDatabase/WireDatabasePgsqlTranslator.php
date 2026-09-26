@@ -1736,8 +1736,13 @@ class WireDatabasePgsqlTranslator {
 			$y = $this->next($tokens, $orderPos + 1); // BY
 			$orderEnd = $sepPos > $orderPos ? $sepPos : count($tokens);
 			$terms = [];
+			$plainTerms = []; // as given, without the DISTINCT adjustment below
+			$otherOrder = false; // does DISTINCT come with an ORDER BY of other than the aggregated expression?
 			foreach($this->splitCommas(array_slice($tokens, $y + 1, $orderEnd - $y - 1)) as $term) {
 				$term = trim($this->join($this->expressions($this->trimTokens($term))));
+				$plainTerms[] = $term;
+				$bare = preg_replace('/\s+(ASC|DESC)$/i', '', $term);
+				if($distinct && !(count($exprs) === 1 && ($bare === $exprs[0] || $bare === $expr))) $otherOrder = true;
 				if($distinct && count($exprs) === 1) {
 					// with DISTINCT, PostgreSQL requires ORDER BY expressions to appear in the argument list as-is
 					$dir = '';
@@ -1751,6 +1756,13 @@ class WireDatabasePgsqlTranslator {
 				$terms[] = $term;
 			}
 			$order = ' ORDER BY ' . implode(', ', $terms);
+			if($otherOrder) {
+				// PostgreSQL can’t order DISTINCT values by another column (i.e. a FieldtypeMulti autojoin, whose
+				// values are distinct and in “sort” order), so aggregate all of them in order, then keep the first of each
+				$ordered = "array_agg($expr ORDER BY " . implode(', ', $plainTerms) . ')';
+				return "(SELECT string_agg(pw_v, $separator ORDER BY pw_i) FROM (SELECT pw_v, min(pw_i) AS pw_i " .
+					"FROM unnest($ordered) WITH ORDINALITY AS pw_u(pw_v, pw_i) GROUP BY pw_v) AS pw_d)";
+			}
 		}
 		return 'string_agg(' . ($distinct ? 'DISTINCT ' : '') . "$expr, $separator$order)";
 	}

@@ -695,6 +695,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('GROUP_CONCAT default separator is comma', "SELECT string_agg(t.data::text, ',') FROM t", $t('SELECT GROUP_CONCAT(t.data) FROM t'));
 		$this->check('GROUP_CONCAT DISTINCT', "SELECT string_agg(DISTINCT t.data::text, ',') FROM t", $t('SELECT GROUP_CONCAT(DISTINCT t.data) FROM t'));
 		$this->check('GROUP_CONCAT DISTINCT with ORDER BY on the same expression orders by the cast expression (PostgreSQL requires it in the argument list)', "SELECT string_agg(DISTINCT t.data::text, '|' ORDER BY t.data::text DESC) FROM t", $t("SELECT GROUP_CONCAT(DISTINCT t.data ORDER BY t.data DESC SEPARATOR '|') FROM t"));
+		$this->check('GROUP_CONCAT DISTINCT ordered by another column (a FieldtypeMulti autojoin) dedupes an ordered array', "SELECT (SELECT string_agg(pw_v, ',' ORDER BY pw_i) FROM (SELECT pw_v, min(pw_i) AS pw_i FROM unnest(array_agg(t.data::text ORDER BY t.sort)) WITH ORDINALITY AS pw_u(pw_v, pw_i) GROUP BY pw_v) AS pw_d) AS \"x\" FROM t", $t("SELECT GROUP_CONCAT(DISTINCT t.data ORDER BY t.sort SEPARATOR ',') AS `x` FROM t"));
 		$this->check('CAST AS SIGNED becomes bigint', 'SELECT CAST(x AS bigint)', $t('SELECT CAST(x AS SIGNED)'));
 		$this->check('CAST AS UNSIGNED becomes bigint', 'SELECT CAST(x AS bigint)', $t('SELECT CAST(x AS UNSIGNED INTEGER)'));
 		$this->check('CAST AS CHAR becomes text', 'SELECT CAST(x AS text)', $t('SELECT CAST(x AS CHAR)'));
