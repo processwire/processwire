@@ -101,7 +101,7 @@ Capability methods (all return bool):
 
 | Method | MySQL | SQLite | PostgreSQL | Meaning |
 |--------|-------|--------|------------|---------|
-| `supportsFulltext()` | true | false | true* | FULLTEXT indexes and `MATCH ... AGAINST` (*when full text search is set up, see below) |
+| `supportsFulltext()` | true | true* | true* | FULLTEXT indexes and `MATCH ... AGAINST` (*SQLite: with FTS5, in databases created with it; PostgreSQL: when full text search is set up; see below) |
 | `supportsFoundRows()` | true | false | false | `SQL_CALC_FOUND_ROWS` and `FOUND_ROWS()` |
 | `supportsUpdateOrderBy()` | true | false | false | `ORDER BY` in `UPDATE`, applied row by row for unique key checks |
 | `supportsTransaction()` | InnoDB only | true | true | Transactions (also available on `$database`) |
@@ -219,7 +219,7 @@ extension and SQLite 3.35+ are available (CLI installer: `'dbType' => 'sqlite'`,
   are executed atomically.
 - **Settings:** `$config->dbOptions` may contain an array indexed by database type, holding PDO driver
   options and ProcessWire settings that apply only to that type. For SQLite the settings are currently
-  `unicodeSort` (see the table below). Assign the whole array, as in
+  `unicodeSort` (see the table below) and `fulltext` (see Fulltext search below). Assign the whole array, as in
   `$config->dbOptions = ['sqlite' => ['unicodeSort' => true]];`
 - **Connection:** WAL journal mode, 5 second busy timeout. Errors for unknown tables and columns use MySQL's
   SQLSTATE codes (`42S02`, `42S22`) and are reported at `execute()` rather than `prepare()`, as with MySQL.
@@ -230,7 +230,7 @@ Behavior differences from MySQL:
 |------|-----------------|
 | Case- and accent-insensitive matching | Selector searches (`%=`, `*=`, `~=`, `^=`, `$=`, etc.) and `=` comparisons fold case and accents as MySQL does, so `title%=apfel` matches "Äpfel". This is done in PHP rather than in the collation, at a cost of roughly 1.5µs per row compared. Two limits: an `=` comparison whose value is ASCII-only uses the built-in `NOCASE` collation so that it can still use an index, meaning `title=apfel` does not match "Äpfel" (`title=äpfel` does); and ligature expansions follow MySQL 8 (`ß` as `ss`, `æ` as `ae`) rather than MySQL 5.7/MariaDB. |
 | Sorting text | Sorts use `COLLATE NOCASE`, which folds ASCII letters only, so accented letters sort after `z` (`apple, zebra, Äpfel`) rather than with their base letter as MySQL does. Enable `$config->dbOptions['sqlite']['unicodeSort']` to match MySQL's ordering, at the cost of sorting in PHP — SQLite then calls back into PHP for every comparison and cannot use an index to avoid the sort. |
-| Fulltext search | No FULLTEXT indexes (they become regular indexes). Selector fulltext operators use `LIKE`/`REGEXP`: no relevance ordering; stopwords are not ignored (so `title~=the home` requires "the" too, whereas MySQL ignores it); word operators such as `~=` also match partial words; query expansion (`*+=`, `**+=`) and boolean commands (`#=`) are approximated. |
+| Fulltext search | With FTS5 (see Fulltext search below), as MySQL, except: every word is indexed (no stopwords, no minimum word length, so `~=ab` can match where MySQL matches nothing); relevance values differ in scale (only their order matters); query expansion (`~+=`, `*+=`, `**+=`) matches as natural language; and a few folding differences (`strasse` does not match "Straße"). Without FTS5 (a database created before it, or `fulltext` turned off), FULLTEXT keys are regular indexes and the fulltext operators use `LIKE`/`REGEXP`: no relevance ordering; stopwords are not ignored; word operators such as `~=` also match partial words; query expansion and boolean commands (`#=`) are approximated. |
 | Column types | Not enforced (SQLite type affinity). `UNSIGNED`, display widths, `CHARACTER SET` and `COLLATE` are ignored, `ENUM`/`SET` become `TEXT`, and `VARCHAR` lengths are not enforced. |
 | Times | `NOW()`, `UNIX_TIMESTAMP()` and similar functions use PHP's time zone. `DEFAULT CURRENT_TIMESTAMP` uses the system's local time (MySQL uses the server's time zone). `ON UPDATE CURRENT_TIMESTAMP` is ignored. |
 | `GROUP_CONCAT()` | No length limit (MySQL's `group_concat_max_len` does not apply). |
@@ -242,15 +242,34 @@ Behavior differences from MySQL:
 
 Not supported (throws an exception):
 
-- `MATCH ... AGAINST` (an exception says so): check `supportsFulltext()` and use `LIKE` or `REGEXP` instead,
-  or let `DatabaseQuerySelectFulltext` handle it. SQLite's own `x MATCH y` operator is passed through.
+- `MATCH ... AGAINST` without FTS5 (an exception says so): check `supportsFulltext()` and use `LIKE` or `REGEXP`
+  instead, or let `DatabaseQuerySelectFulltext` handle it. With FTS5, `MATCH` on columns that no FULLTEXT key
+  has exactly raises MySQL's error 1191, as MySQL does. SQLite's own `x MATCH y` operator is passed through.
 - `FOUND_ROWS()` (`SQL_CALC_FOUND_ROWS` is ignored): use `COUNT(*)`, or check `supportsFoundRows()`.
 - `UPDATE` with `JOIN`, and multi-table `DELETE` with more than one target table
   (`DELETE t FROM t JOIN ...` with one target is supported).
 - `SELECT ... FOR UPDATE` / `LOCK IN SHARE MODE`, user variables (`@var`), stored procedures.
 - `ALTER TABLE ... ADD CONSTRAINT` and `RENAME INDEX`.
 - `ALTER TABLE` operations that require rebuilding a table (`MODIFY`, `CHANGE`, primary key changes) on
-  tables with triggers, CHECK/FOREIGN KEY/UNIQUE constraints, or indexes not created through ProcessWire.
+  tables with triggers (other than those of FULLTEXT keys), CHECK/FOREIGN KEY/UNIQUE constraints, or indexes
+  not created through ProcessWire.
+
+#### Fulltext search
+
+When SQLite has FTS5 (standard in PHP's builds), each MySQL `FULLTEXT KEY name (columns)` on table `t`
+becomes an FTS5 table `t__fts_name`, holding the text and the row's primary key, kept in sync by the
+triggers `t__fts_name_ai`, `_ad` and `_au`. `MATCH ... AGAINST` is translated to a lookup in it (boolean
+and natural language mode, with MySQL's boolean syntax), so the selector fulltext operators work as on
+MySQL, with relevance ordering.
+
+- Words are matched case- and accent-insensitively, and `_` is part of a word (as InnoDB).
+- `getIndexes()` and `SHOW INDEX` report the key as `FULLTEXT`, `SHOW CREATE TABLE` (and so backups)
+  include it, and `getTables()`/`SHOW TABLES` do not list the FTS5 tables.
+- Only databases created with FTS5 support use it: a new database gets a marker table, `pw_fulltext_v1`.
+  Databases created before it keep using `LIKE`/`REGEXP` for the fulltext operators until reinstalled.
+- To turn it off, set `$config->dbOptions = ['sqlite' => ['fulltext' => false]];` before the database is
+  created.
+- Differences from MySQL are listed in the table above.
 
 ### PostgreSQL
 

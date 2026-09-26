@@ -39,7 +39,491 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testGroupConcat();
 		$this->testCollation();
 		$this->testJsonFunctions();
+		$this->testFts5Query();
+		$this->testFulltextDdl();
+		$this->testFulltextRebuild();
+		$this->testFulltextIntrospection();
+		$this->testFulltextMatch();
+		$this->testFulltextReviewFixes();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * Fulltext edge cases found in review: statement-local aliases, positional parameters, IF NOT EXISTS,
+	 * key cache after DDL, DROP TEMPORARY TABLE, integer key detection
+	 *
+	 */
+	protected function testFulltextReviewFixes() {
+		$this->translator->setFulltext(true);
+		foreach(['ft_r', 'ft_r_other', 'ft_r_dst', 'ft_r_text'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_r` (`pages_id` int unsigned NOT NULL, `status` int NOT NULL DEFAULT 1, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_r` (pages_id, status, data) VALUES (1, 1, 'apple pie'), (2, 1, 'banana'), (3, 2, 'apple tart')");
+		$this->execMysql("CREATE TABLE `ft_r_other` (`id` int NOT NULL, PRIMARY KEY (`id`))");
+		$this->execMysql("CREATE TABLE `ft_r_dst` (`id` int NOT NULL, PRIMARY KEY (`id`))");
+
+		// MATCH in INSERT ... SELECT and DELETE ... LIMIT uses the statement's own tables, not the previous statement's
+		$this->translate('SELECT id FROM `ft_r_other`');
+		$error = '';
+		try {
+			$this->execMysql("INSERT INTO `ft_r_dst` (id) SELECT a.pages_id FROM `ft_r` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE)");
+			$this->translate('SELECT id FROM `ft_r_other`');
+			$this->execMysql("DELETE FROM `ft_r_dst` WHERE id IN (SELECT pages_id FROM `ft_r` WHERE MATCH(data) AGAINST('tart' IN BOOLEAN MODE)) LIMIT 1");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('MATCH in INSERT ... SELECT and DELETE ... LIMIT after another statement', ['', [1]], [$error, array_map('intval', $this->pdo->query('SELECT id FROM `ft_r_dst` ORDER BY id')->fetchAll(\PDO::FETCH_COLUMN))]);
+
+		// positional parameters keep their order (a score with ? is not moved into a CTE)
+		$q = $this->pdo->prepare($this->translate("SELECT pages_id FROM `ft_r` WHERE status = ? ORDER BY MATCH(data) AGAINST(?) DESC, pages_id"));
+		$q->execute([1, 'apple']);
+		$this->check('score with a positional parameter', [1, 2], array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN)));
+		$q = $this->pdo->prepare($this->translate("SELECT pages_id, MATCH(data) AGAINST(?) AS a, MATCH(data) AGAINST(?) AS b FROM `ft_r` WHERE pages_id = ?"));
+		$q->execute(['apple', 'tart', 3]);
+		$row = $q->fetch(\PDO::FETCH_NUM);
+		$q->closeCursor(); // (a raw PDO statement with an open cursor would lock the table for the ALTERs below)
+		$q = null;
+		$this->check('two scores with positional parameters', [3, true, true], [(int) $row[0], $row[1] > 0, $row[2] > 0]);
+
+		// CREATE TABLE IF NOT EXISTS with a FULLTEXT key, run twice
+		$error = '';
+		try {
+			$this->execMysql("CREATE TABLE IF NOT EXISTS `ft_r` (`pages_id` int unsigned NOT NULL, `status` int NOT NULL DEFAULT 1, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('CREATE TABLE IF NOT EXISTS on an existing table with a FULLTEXT key', '', $error);
+
+		// the FULLTEXT key cache follows DDL: a primary key change moves the key to a key map
+		$this->translate("SELECT MATCH(data) AGAINST('x') AS s FROM `ft_r`"); // caches the key (key mode)
+		$this->execMysql("ALTER TABLE `ft_r` DROP PRIMARY KEY, ADD PRIMARY KEY (`pages_id`, `status`)");
+		$sql = $this->translate("SELECT MATCH(data) AGAINST('y') AS s FROM `ft_r`");
+		$this->check('after a primary key change, scores use the key map', true, strpos($sql, 'ft_r__fts_data__keys') !== false);
+		$this->execMysql("ALTER TABLE `ft_r` DROP INDEX `data`");
+		$error = '';
+		try {
+			$this->translate("SELECT pages_id FROM `ft_r` WHERE MATCH(data) AGAINST('z')");
+		} catch(\PDOException $e) {
+			$error = (string) (isset($e->errorInfo[1]) ? $e->errorInfo[1] : $e->getMessage());
+		}
+		$this->check('after DROP INDEX, MATCH on its columns is MySQL error 1191', '1191', $error);
+
+		// DROP TEMPORARY TABLE drops only a temporary table
+		$this->execMysql('DROP TEMPORARY TABLE IF EXISTS `ft_r_other`');
+		$this->check('DROP TEMPORARY TABLE leaves a regular table of the same name', 1, (int) $this->pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE name='ft_r_other'")->fetchColumn());
+
+		// a text primary key whose definition mentions "int" elsewhere is not an integer key
+		$this->execMysql("CREATE TABLE `ft_r_text` (`name` varchar(20) NOT NULL DEFAULT 'print', `body` text, PRIMARY KEY (`name`), FULLTEXT KEY `body` (`body`))");
+		$error = '';
+		try {
+			$this->execMysql("INSERT INTO `ft_r_text` (name, body) VALUES ('a', 'hello')");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$keys = WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_r_text');
+		$this->check('text primary key: key map mode, and inserts work', ['map', ''], [isset($keys['body']) ? $keys['body']['mode'] : null, $error]);
+		foreach(['ft_r', 'ft_r_other', 'ft_r_dst', 'ft_r_text'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+
+		// a table without a primary key (rowid mode): REPLACE on a UNIQUE key removes the old row's FTS5 row too
+		$this->execMysql('DROP TABLE IF EXISTS `ft_r_uniq`');
+		$this->execMysql("CREATE TABLE `ft_r_uniq` (`name` varchar(20) NOT NULL, `body` text, UNIQUE KEY `name` (`name`), FULLTEXT KEY `body` (`body`))");
+		$this->execMysql("INSERT INTO `ft_r_uniq` (name, body) VALUES ('a', 'first'), ('b', 'second')");
+		$this->execMysql("REPLACE INTO `ft_r_uniq` (name, body) VALUES ('a', 'replaced')");
+		$counts = [(int) $this->pdo->query('SELECT COUNT(*) FROM `ft_r_uniq`')->fetchColumn(), (int) $this->pdo->query('SELECT COUNT(*) FROM `ft_r_uniq__fts_body`')->fetchColumn()];
+		$first = (int) $this->pdo->query("SELECT COUNT(*) FROM `ft_r_uniq__fts_body` WHERE `ft_r_uniq__fts_body` MATCH '\"first\"'")->fetchColumn();
+		$this->check('rowid mode: REPLACE on a UNIQUE key leaves no FTS5 row behind', [[2, 2], 0], [$counts, $first]);
+		$this->execMysql('DROP TABLE `ft_r_uniq`');
+
+		// an alias means the table of its own query: subqueries and UNION parts can use the same alias for other tables
+		foreach(['ft_s1', 'ft_s2', 'ft_s3'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_s1` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("CREATE TABLE `ft_s2` (`id` int unsigned NOT NULL, PRIMARY KEY (`id`))");
+		$this->execMysql("CREATE TABLE `ft_s3` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_s1` VALUES (1, 'one apple'), (2, 'two')");
+		$this->execMysql("INSERT INTO `ft_s2` VALUES (1), (2)");
+		$this->execMysql("INSERT INTO `ft_s3` VALUES (1, 'three'), (2, 'three apple')");
+		$rows = function($sql) {
+			try {
+				return array_map('intval', $this->pdo->query($this->translate($sql))->fetchAll(\PDO::FETCH_COLUMN));
+			} catch(\PDOException $e) {
+				return 'ERROR ' . $e->getMessage();
+			}
+		};
+		$this->check('an alias in a derived table, used again by the outer query for another table', [1], $rows(
+			"SELECT x.pages_id FROM (SELECT a.pages_id FROM `ft_s1` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE)) x " .
+			"JOIN `ft_s2` a ON a.id = x.pages_id ORDER BY x.pages_id"
+		));
+		$this->check('the same alias for different tables in the parts of a UNION', [1, 102], $rows(
+			"SELECT a.pages_id FROM `ft_s1` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE) " .
+			"UNION SELECT a.pages_id + 100 FROM `ft_s3` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE) ORDER BY 1"
+		));
+		$this->check('an outer alias used inside a subquery (correlated)', [1], $rows(
+			"SELECT b.id FROM `ft_s2` b WHERE EXISTS (SELECT 1 FROM `ft_s1` c WHERE c.pages_id = b.id AND MATCH(c.data) AGAINST('apple' IN BOOLEAN MODE)) ORDER BY b.id"
+		));
+		foreach(['ft_s1', 'ft_s2', 'ft_s3'] as $t) $this->execMysql("DROP TABLE `$t`");
+	}
+
+	/**
+	 * MATCH ... AGAINST as a condition and as a score
+	 *
+	 */
+	protected function testFulltextMatch() {
+		$this->translator->setFulltext(true);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_m`');
+		$this->execMysql('DROP TABLE IF EXISTS `ft_p`');
+		$this->execMysql("CREATE TABLE `ft_p` (`id` int NOT NULL, `status` int NOT NULL DEFAULT 1, PRIMARY KEY (`id`))");
+		$this->execMysql("CREATE TABLE `ft_m` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, `data1012` mediumtext, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`), FULLTEXT KEY `data1012` (`data1012`))");
+		$rows = [1 => 'Hello World', 2 => 'Crème brûlée recipe', 3 => 'Émile Zola wrote novels', 4 => 'Hello there, Zola fans', 5 => '<p>World news</p>'];
+		foreach($rows as $id => $data) {
+			$this->execMysql("INSERT INTO `ft_p` (id) VALUES ($id)");
+			$q = $this->pdo->prepare($this->translate('INSERT INTO `ft_m` (pages_id, data, data1012) VALUES (:id, :d, :l)'));
+			$q->execute([':id' => $id, ':d' => $data, ':l' => $id === 1 ? 'Hallo Welt' : null]);
+		}
+		$ids = function($sql, $value) {
+			$q = $this->pdo->prepare($this->translate($sql));
+			$q->execute([':v' => $value]);
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$where = "SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id";
+		$this->check('MATCH: required words', [1], $ids($where, '+hello +world'));
+		$this->check('MATCH: alternatives', [1, 3, 4, 5], $ids($where, 'world zola'));
+		$this->check('MATCH: prefix, accents folded', [2], $ids($where, '+creme*'));
+		$this->check('MATCH: excluded word', [4], $ids($where, '+zola -emile'));
+		$this->check('MATCH: phrase', [3], $ids($where, '+"emile zola"'));
+		$this->check('MATCH: empty query matches nothing', [], $ids($where, ''));
+		$this->check('NOT MATCH', [2, 3, 5], $ids("SELECT pages_id FROM `ft_m` WHERE NOT MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id", '+hello'));
+		$this->check('NOT MATCH of an empty query keeps every row', [1, 2, 3, 4, 5], $ids("SELECT pages_id FROM `ft_m` WHERE NOT MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY pages_id", ''));
+		$this->check('MATCH WITH QUERY EXPANSION matches any word', [1, 4, 5], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v WITH QUERY EXPANSION) ORDER BY pages_id", 'hello world'));
+		$this->check('MATCH in natural language mode', [1, 4, 5], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v) ORDER BY pages_id", 'hello world'));
+		$this->check('MATCH as a score orders by relevance', [1, 4, 5], $ids(
+			"SELECT pages_id, MATCH(data) AGAINST(:v IN BOOLEAN MODE) AS score FROM `ft_m` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) ORDER BY score DESC, pages_id", 'hello world'
+		));
+		$this->check('MATCH score compared with a number', [1, 4], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST(:v IN BOOLEAN MODE) > 0 ORDER BY pages_id", 'hello'));
+		$this->check('NOT MATCH as a value is 0 or 1', ['0', '1'], array_map('strval', $this->pdo->query($this->translate(
+			"SELECT NOT MATCH(data) AGAINST('hello' IN BOOLEAN MODE) FROM `ft_m` WHERE pages_id IN (1, 2) ORDER BY pages_id"
+		))->fetchAll(\PDO::FETCH_COLUMN)));
+		$this->check('MATCH with a joined, aliased table', [3, 4], $ids(
+			"SELECT p.id FROM `ft_p` AS p JOIN `ft_m` AS field_x ON field_x.pages_id=p.id WHERE p.status=1 AND MATCH(field_x.data) AGAINST(:v IN BOOLEAN MODE) ORDER BY p.id", '+zola'
+		));
+		$this->check('MATCH with the table name as qualifier', [3, 4], $ids(
+			"SELECT ft_p.id FROM ft_p JOIN ft_m ON ft_m.pages_id=ft_p.id WHERE MATCH(ft_m.data) AGAINST(:v IN BOOLEAN MODE) ORDER BY ft_p.id", '+zola'
+		));
+		$this->check('MATCH picks the key for the column (language column)', [1], $ids("SELECT pages_id FROM `ft_m` WHERE MATCH(data1012) AGAINST(:v IN BOOLEAN MODE)", '+welt'));
+		$error = '';
+		try {
+			$this->translate("SELECT pages_id FROM `ft_m` WHERE MATCH(data, data1012) AGAINST('x' IN BOOLEAN MODE)");
+		} catch(\PDOException $e) {
+			$error = (string) (isset($e->errorInfo[1]) ? $e->errorInfo[1] : '') . ' ' . $e->getMessage();
+		}
+		$this->check('MATCH on columns without a FULLTEXT key: MySQL error 1191', true, strpos($error, '1191') === 0 && stripos($error, 'FULLTEXT index matching the column list') !== false);
+		$sql = $this->translate("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST('x' IN BOOLEAN MODE)");
+		$this->check('MATCH as a condition uses the FTS5 table, not a per-row score', true, strpos($sql, '`ft_m__fts_data` MATCH') !== false && strpos($sql, 'bm25') === false);
+		// scores are computed once per statement (a materialized CTE), and found by the row's FTS5 rowid
+		$sql = $this->translate("SELECT MATCH(data) AGAINST('x' IN BOOLEAN MODE) AS s, MATCH(data) AGAINST('x' IN BOOLEAN MODE) + 1 AS s2 FROM `ft_m`");
+		$this->check('MATCH as a score: one materialized CTE per distinct match', [0, 1, true],
+			[strpos($sql, 'WITH `pw_fts0` AS MATERIALIZED (SELECT rowid AS r, -bm25('), substr_count($sql, 'AS MATERIALIZED'), strpos($sql, 'WHERE r = `ft_m`.`pages_id`') !== false]);
+		$sql = $this->translate("INSERT INTO `ft_p` (id) SELECT MATCH(data) AGAINST('x' IN BOOLEAN MODE) FROM `ft_m`");
+		$this->check('MATCH as a score in a statement that is not a SELECT: a subquery by rowid', [false, true], [strpos($sql, 'MATERIALIZED') !== false, strpos($sql, 'AND rowid = `ft_m`.`pages_id`') !== false]);
+		$this->check('a score in a statement that is not a SELECT works', 5, $this->execMysql("INSERT INTO `ft_p` (id) SELECT pages_id + 100 FROM `ft_m` WHERE MATCH(data) AGAINST('hello' IN BOOLEAN MODE) + 1 > 0"));
+		$this->execMysql('DROP TABLE IF EXISTS `ft_mm`');
+		$this->execMysql("CREATE TABLE `ft_mm` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text, PRIMARY KEY (`pages_id`, `sort`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_mm` VALUES (1, 0, 'hello world'), (1, 1, 'goodbye'), (2, 0, 'hello')");
+		$this->check('two key columns: MATCH as a condition and a score', [[1, 0, 1], [2, 0, 1]], array_map(function($r) { return [(int) $r[0], (int) $r[1], (int) ($r[2] > 0)]; }, $this->pdo->query($this->translate(
+			"SELECT pages_id, sort, MATCH(data) AGAINST('hello' IN BOOLEAN MODE) AS s FROM `ft_mm` WHERE MATCH(data) AGAINST('hello' IN BOOLEAN MODE) ORDER BY pages_id"
+		))->fetchAll(\PDO::FETCH_NUM)));
+		$sql = $this->translate("SELECT MATCH(data) AGAINST('x' IN BOOLEAN MODE) AS s FROM `ft_mm`");
+		$this->check('two key columns: a score finds the FTS5 row through the key map', true, strpos($sql, 'WHERE r = (SELECT id FROM `ft_mm__fts_data__keys`') !== false);
+		$this->execMysql('DROP TABLE `ft_mm`');
+		$this->translator->setFulltext(false);
+		$error = '';
+		try {
+			$this->translate("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST('x' IN BOOLEAN MODE)");
+		} catch(\PDOException $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('fulltext off: MATCH is not supported (as before)', true, strpos($error, 'not supported by SQLite') !== false);
+		$this->translator->setFulltext(true);
+		$this->execMysql('DROP TABLE `ft_m`');
+		$this->execMysql('DROP TABLE `ft_p`');
+	}
+
+	/**
+	 * SHOW INDEX / SHOW CREATE TABLE report FULLTEXT keys; SHOW TABLES hides FTS5 tables and the marker
+	 *
+	 */
+	protected function testFulltextIntrospection() {
+		$this->translator->setFulltext(true);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_show`');
+		$this->execMysql("CREATE TABLE `ft_show` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text, `description` text, PRIMARY KEY (`pages_id`, `sort`), KEY `data_exact` (`data`(20)), FULLTEXT KEY `data_description` (`data`, `description`))");
+		$this->pdo->exec('CREATE TABLE IF NOT EXISTS `pw_fulltext_v1` (v INTEGER)');
+		$rows = $this->pdo->query($this->translate("SHOW INDEX FROM `ft_show` WHERE Key_name='data_description'"))->fetchAll(\PDO::FETCH_ASSOC);
+		$this->check('SHOW INDEX: a FULLTEXT key, one row per column', [
+			['data_description', 1, 1, 'data', 'FULLTEXT'],
+			['data_description', 1, 2, 'description', 'FULLTEXT'],
+		], array_map(function($r) { return [$r['Key_name'], (int) $r['Non_unique'], (int) $r['Seq_in_index'], $r['Column_name'], $r['Index_type']]; }, $rows));
+		$keyNames = array_unique($this->pdo->query($this->translate('SHOW INDEX FROM `ft_show`'))->fetchAll(\PDO::FETCH_COLUMN, 1));
+		sort($keyNames);
+		$this->check('SHOW INDEX: all keys', ['PRIMARY', 'data_description', 'data_exact'], array_values($keyNames));
+		$tables = $this->pdo->query($this->translate("SHOW TABLES LIKE 'ft\\_show%'"))->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('SHOW TABLES hides FTS5 tables and their shadow tables', ['ft_show'], $tables);
+		$all = $this->pdo->query($this->translate('SHOW TABLES'))->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('SHOW TABLES hides the fulltext marker', false, in_array('pw_fulltext_v1', $all, true));
+		$create = WireDatabaseSQLiteTranslator::mysqlCreateTable($this->pdo, 'ft_show');
+		$this->check('SHOW CREATE TABLE includes the FULLTEXT key', true, strpos($create, 'FULLTEXT KEY `data_description` (`data`,`description`)') !== false);
+		$this->check('SHOW CREATE TABLE has no FTS5 objects', false, strpos($create, '__fts_') !== false);
+		// and it restores: drop and recreate from the MySQL-syntax statement
+		$this->execMysql('DROP TABLE `ft_show`');
+		$this->execMysql($create);
+		$this->check('the SHOW CREATE TABLE statement recreates the FTS5 table', ['data_description'], array_keys(WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_show')));
+		$this->execMysql('DROP TABLE `ft_show`');
+		$this->pdo->exec('DROP TABLE `pw_fulltext_v1`');
+	}
+
+	/**
+	 * Table renames and rebuilds keep FULLTEXT keys
+	 *
+	 */
+	protected function testFulltextRebuild() {
+		$this->translator->setFulltext(true);
+		$names = function($type, $prefix) {
+			$q = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type=? AND substr(name, 1, ?)=? ORDER BY name");
+			$q->execute([$type, strlen($prefix), $prefix]);
+			return $q->fetchAll(\PDO::FETCH_COLUMN);
+		};
+		$find = function($table, $word) {
+			$q = $this->pdo->prepare("SELECT pw_key_pages_id FROM `{$table}__fts_data` WHERE `{$table}__fts_data` MATCH pw_fts5query(?, 1) ORDER BY 1");
+			$q->execute([$word]);
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		foreach(['ft_rb', 'ft_rb2'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_rb` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, `other` int, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_rb` (pages_id, data, other) VALUES (1, 'alpha beta', 1), (2, 'gamma', 2)");
+
+		// MODIFY forces a rebuild; the table has our triggers
+		$this->execMysql("ALTER TABLE `ft_rb` MODIFY `data` mediumtext NOT NULL");
+		$this->check('MODIFY on a table with a FULLTEXT key rebuilds it and keeps triggers', ['ft_rb__fts_data_ad', 'ft_rb__fts_data_ai', 'ft_rb__fts_data_au'], $names('trigger', 'ft_rb__fts_'));
+		$this->check('search after MODIFY', [1], $find('ft_rb', 'beta'));
+		$this->execMysql("INSERT INTO `ft_rb` (pages_id, data) VALUES (3, 'beta again')");
+		$this->check('triggers work after MODIFY', [1, 3], $find('ft_rb', 'beta'));
+
+		// CHANGE renames the indexed column: key rebuilt with the new column name
+		$this->execMysql("ALTER TABLE `ft_rb` CHANGE `data` `body` mediumtext NOT NULL");
+		$keys = WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_rb');
+		$this->check('CHANGE of the indexed column renames it in the key', ['body'], isset($keys['data']) ? $keys['data']['columns'] : null);
+		$q = $this->pdo->query("SELECT pw_key_pages_id FROM `ft_rb__fts_data` WHERE `ft_rb__fts_data` MATCH '\"gamma\"'");
+		$this->check('search after CHANGE', ['2'], array_map('strval', $q->fetchAll(\PDO::FETCH_COLUMN)));
+
+		// dropping the only indexed column drops the key (as MySQL)
+		$this->execMysql("ALTER TABLE `ft_rb` DROP COLUMN `body`");
+		$this->check('DROP COLUMN of the only indexed column drops the key', [[], []], [$names('table', 'ft_rb__fts_'), $names('trigger', 'ft_rb__fts_')]);
+
+		// RENAME TABLE moves the FTS table and triggers
+		$this->execMysql("ALTER TABLE `ft_rb` ADD `data` text, ADD FULLTEXT KEY `data` (`data`)");
+		$this->execMysql("UPDATE `ft_rb` SET data='delta' WHERE pages_id=1");
+		$this->execMysql("RENAME TABLE `ft_rb` TO `ft_rb2`");
+		$this->check('RENAME TABLE renames the FTS table', true, in_array('ft_rb2__fts_data', $names('table', 'ft_rb2__fts_'), true));
+		$this->check('RENAME TABLE leaves nothing under the old name', [[], []], [$names('table', 'ft_rb__fts_'), $names('trigger', 'ft_rb__fts_')]);
+		$this->check('RENAME TABLE recreates triggers under the new name', ['ft_rb2__fts_data_ad', 'ft_rb2__fts_data_ai', 'ft_rb2__fts_data_au'], $names('trigger', 'ft_rb2__fts_'));
+		$this->execMysql("UPDATE `ft_rb2` SET data='epsilon' WHERE pages_id=2");
+		$this->check('search after RENAME', [[1], [2]], [$find('ft_rb2', 'delta'), $find('ft_rb2', 'epsilon')]);
+
+		// a trigger that is not ours still refuses the rebuild
+		$this->pdo->exec("CREATE TRIGGER `ft_rb2_custom` AFTER INSERT ON `ft_rb2` BEGIN SELECT 1; END");
+		$refused = false;
+		try {
+			$this->execMysql("ALTER TABLE `ft_rb2` MODIFY `data` mediumtext");
+		} catch(\PDOException $e) {
+			$refused = true;
+		}
+		$this->check('a foreign trigger still refuses a rebuild', true, $refused);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_rb2`');
+
+		// two key columns (key map table): rebuild and rename
+		foreach(['ft_rbm', 'ft_rbm2'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_rbm` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`, `sort`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_rbm` VALUES (1, 0, 'alpha'), (1, 1, 'beta'), (2, 0, 'beta gamma')");
+		$this->execMysql("ALTER TABLE `ft_rbm` MODIFY `data` mediumtext NOT NULL");
+		$this->execMysql("UPDATE `ft_rbm` SET data='delta' WHERE pages_id=1 AND sort=0");
+		$this->check('two key columns: search after MODIFY and UPDATE', [[1], [1, 2]], [$find('ft_rbm', 'delta'), $find('ft_rbm', 'beta')]);
+		$this->execMysql("RENAME TABLE `ft_rbm` TO `ft_rbm2`");
+		$this->execMysql("DELETE FROM `ft_rbm2` WHERE pages_id=2");
+		$this->check('two key columns: search after RENAME and DELETE', [1], $find('ft_rbm2', 'beta'));
+		$this->check('two key columns: the key map follows the table', [[], ['ft_rbm2__fts_data__keys']], [$names('table', 'ft_rbm__fts_'), array_values(array_filter($names('table', 'ft_rbm2__fts_'), function($n) { return substr($n, -6) === '__keys'; }))]);
+		$this->execMysql('DROP TABLE `ft_rbm2`');
+		$this->check('two key columns: DROP TABLE drops the key map', [], $names('table', 'ft_rbm2'));
+	}
+
+	/**
+	 * FULLTEXT keys as FTS5 tables kept in sync by triggers
+	 *
+	 */
+	protected function testFulltextDdl() {
+		$this->translator->setFulltext(true);
+		$master = function($type, $like) {
+			$q = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type=? AND name LIKE ? ESCAPE '!' ORDER BY name");
+			$q->execute([$type, $like]);
+			return $q->fetchAll(\PDO::FETCH_COLUMN);
+		};
+		$synced = function($table, $key, array $keys, array $cols) {
+			$fts = $table . '__fts_' . $key;
+			$kSel = implode(', ', $keys);
+			$ftsKeys = implode(', ', array_map(function($k) { return "pw_key_$k"; }, $keys));
+			$cSel = implode(', ', array_map(function($c) { return "coalesce($c, '')"; }, $cols));
+			$a = $this->pdo->query("SELECT $kSel, $cSel FROM `$table` ORDER BY $kSel")->fetchAll(\PDO::FETCH_NUM);
+			$b = $this->pdo->query("SELECT $ftsKeys, " . implode(', ', $cols) . " FROM `$fts` ORDER BY $ftsKeys")->fetchAll(\PDO::FETCH_NUM);
+			return $a == $b ? 'synced' : json_encode(['table' => $a, 'fts' => $b]);
+		};
+
+		$this->execMysql('DROP TABLE IF EXISTS `ft_one`');
+		$this->execMysql("CREATE TABLE `ft_one` (`pages_id` int unsigned NOT NULL, `data` mediumtext NOT NULL, PRIMARY KEY (`pages_id`), KEY `data_exact` (`data`(250)), FULLTEXT KEY `data` (`data`)) ENGINE=InnoDB");
+		// (the FTS5 table's five shadow tables share its prefix, hence in_array)
+		$this->check('CREATE TABLE: FTS5 table for the FULLTEXT key', true, in_array('ft_one__fts_data', $master('table', 'ft!_one!_!_fts!_%'), true));
+		$this->check('CREATE TABLE: three triggers', ['ft_one__fts_data_ad', 'ft_one__fts_data_ai', 'ft_one__fts_data_au'], $master('trigger', 'ft!_one!_!_fts!_%'));
+		$this->check('CREATE TABLE: no plain index for the FULLTEXT key', ['ft_one__data_exact'], $master('index', 'ft!_one!_!_%'));
+		$this->check('fulltextKeys()', ['data' => ['table' => 'ft_one__fts_data', 'keys' => ['pages_id'], 'columns' => ['data'], 'mode' => 'key', 'map' => null]], WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_one'));
+
+		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (1, 'hello world'), (2, 'second row')");
+		$this->check('INSERT syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("UPDATE `ft_one` SET data='changed text' WHERE pages_id=1");
+		$this->check('UPDATE of text syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("UPDATE `ft_one` SET pages_id=3 WHERE pages_id=2");
+		$this->check('UPDATE of key syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("REPLACE INTO `ft_one` (pages_id, data) VALUES (3, 'replaced')");
+		$this->check('REPLACE syncs without duplicates', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (1, 'upserted') ON DUPLICATE KEY UPDATE data=VALUES(data)");
+		$this->check('ON DUPLICATE KEY UPDATE syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("DELETE FROM `ft_one` WHERE pages_id=3");
+		$this->check('DELETE syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+		$this->execMysql("TRUNCATE TABLE `ft_one`");
+		$this->check('TRUNCATE syncs', 'synced', $synced('ft_one', 'data', ['pages_id'], ['data']));
+
+		// multi-value table (two key columns), two-column key, NULL text
+		$this->execMysql('DROP TABLE IF EXISTS `ft_multi`');
+		$this->execMysql("CREATE TABLE `ft_multi` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text, `description` text, PRIMARY KEY (`pages_id`, `sort`), FULLTEXT KEY `data_description` (`data`, `description`))");
+		$this->execMysql("INSERT INTO `ft_multi` VALUES (1, 0, 'a', NULL), (1, 1, 'b', 'c')");
+		$this->check('two key columns and two text columns sync, NULL as blank', 'synced', $synced('ft_multi', 'data_description', ['pages_id', 'sort'], ['data', 'description']));
+		$this->execMysql("UPDATE `ft_multi` SET description='d' WHERE pages_id=1 AND sort=0");
+		$this->execMysql("DELETE FROM `ft_multi` WHERE pages_id=1 AND sort=1");
+		$this->execMysql("REPLACE INTO `ft_multi` VALUES (1, 0, 'e', 'f')");
+		$this->check('two key columns: UPDATE, DELETE and REPLACE sync', 'synced', $synced('ft_multi', 'data_description', ['pages_id', 'sort'], ['data', 'description']));
+
+		// the triggers find FTS5 rows by rowid (FTS5 cannot index the key columns, so a lookup by them scans every row)
+		$triggerSql = function($name) { return (string) $this->pdo->query("SELECT sql FROM sqlite_master WHERE type='trigger' AND name='$name'")->fetchColumn(); };
+		$this->check('single integer key: the delete trigger uses the key as rowid', true, strpos($triggerSql('ft_one__fts_data_ad'), 'WHERE rowid = old.`pages_id`') !== false);
+		$this->check('two key columns: a key map table', ['ft_multi__fts_data_description__keys'], $master('table', 'ft!_multi!_!_fts!_data!_description!_!_keys'));
+		$this->check('two key columns: the delete trigger uses the key map id as rowid', true, strpos($triggerSql('ft_multi__fts_data_description_ad'), 'WHERE rowid = (SELECT id FROM `ft_multi__fts_data_description__keys`') !== false);
+		$this->check('two key columns: the key map has one row per row', 1, (int) $this->pdo->query('SELECT COUNT(*) FROM `ft_multi__fts_data_description__keys`')->fetchColumn());
+
+		// ALTER TABLE ADD column and FULLTEXT key in one statement (multi-language fields do this), with backfill
+		$this->execMysql("INSERT INTO `ft_one` (pages_id, data) VALUES (5, 'five')");
+		$this->execMysql("ALTER TABLE `ft_one` ADD `data1012` mediumtext, ADD FULLTEXT KEY `data1012` (`data1012`)");
+		$this->execMysql("UPDATE `ft_one` SET data1012='fünf' WHERE pages_id=5");
+		$this->check('ALTER TABLE ADD FULLTEXT creates and syncs a second key', 'synced', $synced('ft_one', 'data1012', ['pages_id'], ['data1012']));
+		$this->execMysql("ALTER TABLE `ft_one` DROP INDEX `data1012`");
+		$this->check('ALTER TABLE DROP INDEX drops the FTS table and triggers', [[], []], [$master('table', 'ft!_one!_!_fts!_data1012%'), $master('trigger', 'ft!_one!_!_fts!_data1012%')]);
+		$this->execMysql("CREATE FULLTEXT INDEX `data1012` ON `ft_one` (`data1012`)");
+		$this->check('CREATE FULLTEXT INDEX backfills existing rows', 'synced', $synced('ft_one', 'data1012', ['pages_id'], ['data1012']));
+		$this->execMysql("DROP INDEX `data1012` ON `ft_one`");
+		$this->check('DROP INDEX drops the FTS table', [], $master('table', 'ft!_one!_!_fts!_data1012%'));
+
+		// a table without a primary key uses rowid
+		$this->execMysql('DROP TABLE IF EXISTS `ft_nopk`');
+		$this->execMysql("CREATE TABLE `ft_nopk` (`body` text, FULLTEXT KEY `body` (`body`))");
+		$this->execMysql("INSERT INTO `ft_nopk` (body) VALUES ('x'), ('y')");
+		$this->check('no primary key: rowid key syncs', 'synced', $synced('ft_nopk', 'body', ['rowid'], ['body']));
+
+		// DROP TABLE drops the FTS tables
+		$this->execMysql('DROP TABLE `ft_multi`');
+		$this->execMysql('DROP TABLE IF EXISTS `ft_nopk`, `ft_missing`');
+		$this->check('DROP TABLE drops FTS tables (and FTS5 shadow tables)', [], array_merge($master('table', 'ft!_multi%'), $master('table', 'ft!_nopk%')));
+
+		// fulltext off: plain index, as before
+		$this->translator->setFulltext(false);
+		$sql = $this->translate("CREATE TABLE `ft_off` (`id` int NOT NULL, `body` text, PRIMARY KEY (`id`), FULLTEXT KEY `body` (`body`))");
+		$this->check('fulltext off: FULLTEXT is a plain index', true, strpos($sql, 'CREATE INDEX `ft_off__body` ON `ft_off` (`body`)') !== false && stripos($sql, 'fts5') === false);
+		$this->execMysql('DROP TABLE IF EXISTS `ft_one`');
+	}
+
+	/**
+	 * pw_fts5query(): MySQL fulltext query syntax as an FTS5 MATCH expression, checked by what it matches
+	 *
+	 */
+	protected function testFts5Query() {
+		$this->check('fts5Query() of nothing matches nothing', '""', WireDatabaseSQLiteTranslator::fts5Query(''));
+		$this->check('fts5Query(): required words', '"quick" AND "brown"', WireDatabaseSQLiteTranslator::fts5Query('+quick +brown'));
+		$this->check('fts5Query(): alternatives', '"quick" OR "brown"', WireDatabaseSQLiteTranslator::fts5Query('quick brown'));
+
+		$this->pdo->exec('DROP TABLE IF EXISTS fq');
+		$this->pdo->exec("CREATE VIRTUAL TABLE fq USING fts5(k UNINDEXED, d, tokenize = \"" . WireDatabaseSQLiteTranslator::fulltextTokenize . "\", prefix = '2 3')");
+		$corpus = [
+			1 => 'The quick brown fox',
+			2 => 'Café crème brûlée',
+			3 => 'test_fme_content example',
+			4 => 'quick silver lining',
+			5 => 'brown bread and butter',
+			6 => 'foo-bar baz',
+			7 => "O'Brien at foo.example.com",
+		];
+		foreach($corpus as $k => $d) {
+			$q = $this->pdo->prepare('INSERT INTO fq (k, d) VALUES (?, ?)');
+			$q->execute([$k, $d]);
+		}
+		$match = function($query, $boolean = 1) {
+			$q = $this->pdo->prepare('SELECT k FROM fq WHERE fq MATCH pw_fts5query(?, ?) ORDER BY k');
+			$q->execute([$query, $boolean]);
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$cases = [
+			// [query, boolean, expected keys, label]
+			['quick', 1, [1, 4], 'a word'],
+			['quick brown', 1, [1, 4, 5], 'words without operators are alternatives'],
+			['+quick +brown', 1, [1], 'required words'],
+			['+quick -fox', 1, [4], 'an excluded word'],
+			['+quick brown', 1, [1, 4], 'optional words are left out when a word is required (as MySQL)'],
+			['-fox', 1, [], 'only excluded words match nothing (as MySQL)'],
+			['', 1, [], 'an empty query matches nothing'],
+			['qui*', 1, [1, 4], 'a prefix'],
+			['"quick brown"', 1, [1], 'a phrase'],
+			['"brown quick"', 1, [], 'a phrase is in order'],
+			['"quick brown" @3', 1, [1], '@distance is not a word'],
+			['+(fox lining) +quick', 1, [1, 4], 'a required group'],
+			['cafe', 1, [2], 'accents folded'],
+			['CRÈME', 1, [2], 'case and accents folded'],
+			['test', 1, [], 'an underscore is part of a word (as MySQL)'],
+			['test_fme_content', 1, [3], 'a word with underscores'],
+			['test_fme*', 1, [3], 'a prefix with an underscore'],
+			['+foo.example.com', 1, [7], 'words split where MySQL splits them are all required'],
+			["+o'brien*", 1, [7], 'a prefix the tokenizer splits'],
+			['foo-bar', 1, [6], 'a hyphenated term'],
+			['+ quick', 1, [1, 4], 'an operator without a word is ignored'],
+			['(+) quick', 1, [1, 4], 'an operator before a closing paren'],
+			['><~quick', 1, [1, 4], 'weight operators are ignored'],
+			['+quick -fox', 0, [1, 4], 'natural language mode: operators are ignored'],
+			['quick brown', 0, [1, 4, 5], 'natural language mode: any word'],
+			['AND', 1, [5], 'an FTS5 keyword is a word'],
+			['NEAR(', 1, [], 'NEAR( is not FTS5 syntax'],
+			['"', 1, [], 'a lone quote'],
+			[':', 1, [], 'a colon'],
+			['^quick', 1, [1, 4], 'a caret'],
+			['{quick}', 1, [1, 4], 'braces'],
+			['*', 1, [], 'a lone asterisk'],
+			['+', 1, [], 'a lone plus'],
+			['"unterminated phrase', 1, [], 'an unterminated phrase'],
+			['(quick', 1, [1, 4], 'an unterminated group'],
+		];
+		$actual = [];
+		$expected = [];
+		foreach($cases as $c) {
+			list($query, $boolean, $keys, $label) = $c;
+			$expected[$label] = $keys;
+			try {
+				$actual[$label] = $match($query, $boolean);
+			} catch(\PDOException $e) {
+				$actual[$label] = 'ERROR ' . $e->getMessage();
+			}
+		}
+		$this->check('pw_fts5query() matches as MySQL boolean and natural language mode do', $expected, $actual);
+		$this->check('pw_fts5query(NULL) matches nothing', [], $match(null));
+		$this->pdo->exec('DROP TABLE fq');
 	}
 
 	/**
