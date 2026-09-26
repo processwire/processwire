@@ -668,13 +668,18 @@ abstract class DatabaseQuery extends WireData {
 
 	/**
 	 * Prepare and return a PDOStatement
-	 * 
+	 *
+	 * Binds only the values that the SQL uses, since a query changed after its values were bound (i.e. a
+	 * COUNT(*) made from a select with fulltext scores) may no longer use all of them, and PDO rejects
+	 * a bound value that the statement does not use.
+	 *
 	 * @return \PDOStatement
-	 * 
+	 *
 	 */
 	public function prepare() {
-		$query = $this->wire()->database->prepare($this->getQuery()); 
-		foreach($this->bindValues as $key => $value) {
+		$sql = $this->getQuery();
+		$query = $this->wire()->database->prepare($sql);
+		foreach($this->getBindValues(array('inSQL' => $sql)) as $key => $value) {
 			$type = isset($this->bindTypes[$key]) ? $this->bindTypes[$key] : $this->pdoParamType($value);
 			$query->bindValue($key, $value, $type); 
 		}

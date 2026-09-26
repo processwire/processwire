@@ -509,6 +509,14 @@ class WireTest_DatabaseQuery extends WireTest {
 		$q->select("*")->from($table)->where("missing_column_xyz=?", "x");
 		$result = $q->execute(['throw' => false, 'returnQuery' => false]);
 		$this->check('execute(throw=false) returns false on error', false, $result);
+
+		// a value bound for a part of the query that is later removed (as PageFinder's COUNT(*) removes scores)
+		$q = new DatabaseQuerySelect();
+		$key = $q->bindValueGetKey(15);
+		$q->select("id, qty>$key AS over")->from($table)->where("name!=?", "gamma");
+		$q->set('select', array('COUNT(*)'));
+		$stmt = $q->execute();
+		$this->check('execute() binds only the values its SQL uses', 2, (int) $stmt->fetchColumn());
 	}
 
 	protected function testProperties() {
