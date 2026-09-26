@@ -132,6 +132,14 @@ class WireDatabaseSQLiteTranslator {
 	protected $aliases = [];
 
 	/**
+	 * Materialized CTEs for the fulltext scores of the SELECT being translated: [ name => SELECT ], or null when not a SELECT
+	 *
+	 * @var array|null
+	 *
+	 */
+	protected $ftsCtes = null;
+
+	/**
 	 * Construct
 	 *
 	 * @param \PDO|callable|null $pdo PDO connection or callable that returns it (for schema-aware translations)
@@ -304,9 +312,18 @@ class WireDatabaseSQLiteTranslator {
 		}
 
 		$this->aliases = $this->tableAliases($tokens);
+		// fulltext scores in a SELECT go in materialized CTEs, computed once rather than for every row (see matchAgainst())
+		$this->ftsCtes = $first === 'SELECT' ? [] : null;
 		$tokens = $this->expressions($tokens);
+		$sql = $this->join($tokens);
+		if(!empty($this->ftsCtes)) {
+			$ctes = [];
+			foreach($this->ftsCtes as $name => $cte) $ctes[] = $this->quoteId($name) . " AS MATERIALIZED ($cte)";
+			$sql = 'WITH ' . implode(', ', $ctes) . ' ' . ltrim($sql);
+		}
+		$this->ftsCtes = null;
 
-		return $this->join($tokens);
+		return $sql;
 	}
 
 	/*********************************************************************************
@@ -1133,22 +1150,28 @@ class WireDatabaseSQLiteTranslator {
 			$columns[] = $this->name($part[count($part) - 1]);
 			if(count($part) >= 3 && $part[count($part) - 2][1] === '.') $qualifier = $this->name($part[count($part) - 3]);
 		}
+		$sorted = $columns;
+		sort($sorted);
+		$findKey = function($table) use($sorted) {
+			foreach($this->ftsKeys($table) as $info) {
+				$keyColumns = $info['columns'];
+				sort($keyColumns);
+				if($keyColumns === $sorted) return $info;
+			}
+			return null;
+		};
 		if($qualifier === '') {
+			// unqualified columns: the statement's one table with a FULLTEXT key on them (or its only table)
 			$tables = array_values(array_unique($this->aliases));
+			$withKey = array_values(array_filter($tables, function($table) use($findKey) { return $findKey($table) !== null; }));
+			if(count($withKey) === 1) $tables = $withKey;
 			if(count($tables) !== 1) throw new \PDOException('SQLite translator: MATCH columns must be qualified when a query has several tables');
 			$qualifier = $tables[0];
 			$table = $tables[0];
 		} else {
 			$table = isset($this->aliases[$qualifier]) ? $this->aliases[$qualifier] : $qualifier;
 		}
-		$key = null;
-		$sorted = $columns;
-		sort($sorted);
-		foreach($this->ftsKeys($table) as $info) {
-			$keyColumns = $info['columns'];
-			sort($keyColumns);
-			if($keyColumns === $sorted) { $key = $info; break; }
-		}
+		$key = $findKey($table);
 		if($key === null) {
 			// the translator does not depend on the rest of ProcessWire (the installer uses it on its own)
 			if(!class_exists(__NAMESPACE__ . '\\WireDatabaseSQLiteException', false)) require_once(__DIR__ . '/WireDatabaseSQLiteException.php');
@@ -1186,11 +1209,27 @@ class WireDatabaseSQLiteTranslator {
 			$left = count($rowKeys) > 1 ? '(' . implode(', ', $rowKeys) . ')' : $rowKeys[0];
 			return "($left IN (SELECT " . implode(', ', $ftsKeys) . " FROM $fts WHERE $fts MATCH $filter))";
 		}
-		$same = [];
-		foreach($key['keys'] as $k) {
-			$same[] = $this->quoteId(self::fulltextKeyPrefix . $k) . ' = ' . ($k === 'rowid' ? "$q.rowid" : "$q." . $this->quoteId($k));
+		// the row's FTS5 row, by rowid (FTS5 cannot index its key columns, see fulltextKeys())
+		if($key['mode'] === 'rowid') {
+			$rowid = "$q.rowid";
+		} else if($key['mode'] === 'key') {
+			$rowid = "$q." . $this->quoteId($key['keys'][0]);
+		} else {
+			$same = [];
+			foreach($key['keys'] as $k) $same[] = $this->quoteId($k) . " = $q." . $this->quoteId($k);
+			$rowid = '(SELECT id FROM ' . $this->quoteId($key['map']) . ' WHERE ' . implode(' AND ', $same) . ')';
 		}
-		return "coalesce((SELECT -bm25($fts) FROM $fts WHERE $fts MATCH $filter AND " . implode(' AND ', $same) . ' LIMIT 1), 0)';
+		if($this->ftsCtes !== null) {
+			// a SELECT: the scores of each distinct match are computed once, in a materialized CTE (see translateStatement())
+			$cte = "SELECT rowid AS r, -bm25($fts) AS s FROM $fts WHERE $fts MATCH $filter";
+			$name = array_search($cte, $this->ftsCtes, true);
+			if($name === false) {
+				$name = 'pw_fts' . count($this->ftsCtes);
+				$this->ftsCtes[$name] = $cte;
+			}
+			return 'coalesce((SELECT s FROM ' . $this->quoteId($name) . " WHERE r = $rowid), 0)";
+		}
+		return "coalesce((SELECT -bm25($fts) FROM $fts WHERE $fts MATCH $filter AND rowid = $rowid), 0)";
 	}
 
 	/**

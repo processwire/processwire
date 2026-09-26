@@ -102,6 +102,22 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->check('MATCH on columns without a FULLTEXT key: MySQL error 1191', true, strpos($error, '1191') === 0 && stripos($error, 'FULLTEXT index matching the column list') !== false);
 		$sql = $this->translate("SELECT pages_id FROM `ft_m` WHERE MATCH(data) AGAINST('x' IN BOOLEAN MODE)");
 		$this->check('MATCH as a condition uses the FTS5 table, not a per-row score', true, strpos($sql, '`ft_m__fts_data` MATCH') !== false && strpos($sql, 'bm25') === false);
+		// scores are computed once per statement (a materialized CTE), and found by the row's FTS5 rowid
+		$sql = $this->translate("SELECT MATCH(data) AGAINST('x' IN BOOLEAN MODE) AS s, MATCH(data) AGAINST('x' IN BOOLEAN MODE) + 1 AS s2 FROM `ft_m`");
+		$this->check('MATCH as a score: one materialized CTE per distinct match', [0, 1, true],
+			[strpos($sql, 'WITH `pw_fts0` AS MATERIALIZED (SELECT rowid AS r, -bm25('), substr_count($sql, 'AS MATERIALIZED'), strpos($sql, 'WHERE r = `ft_m`.`pages_id`') !== false]);
+		$sql = $this->translate("INSERT INTO `ft_p` (id) SELECT MATCH(data) AGAINST('x' IN BOOLEAN MODE) FROM `ft_m`");
+		$this->check('MATCH as a score in a statement that is not a SELECT: a subquery by rowid', [false, true], [strpos($sql, 'MATERIALIZED') !== false, strpos($sql, 'AND rowid = `ft_m`.`pages_id`') !== false]);
+		$this->check('a score in a statement that is not a SELECT works', 5, $this->execMysql("INSERT INTO `ft_p` (id) SELECT pages_id + 100 FROM `ft_m` WHERE MATCH(data) AGAINST('hello' IN BOOLEAN MODE) + 1 > 0"));
+		$this->execMysql('DROP TABLE IF EXISTS `ft_mm`');
+		$this->execMysql("CREATE TABLE `ft_mm` (`pages_id` int unsigned NOT NULL, `sort` int unsigned NOT NULL, `data` text, PRIMARY KEY (`pages_id`, `sort`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_mm` VALUES (1, 0, 'hello world'), (1, 1, 'goodbye'), (2, 0, 'hello')");
+		$this->check('two key columns: MATCH as a condition and a score', [[1, 0, 1], [2, 0, 1]], array_map(function($r) { return [(int) $r[0], (int) $r[1], (int) ($r[2] > 0)]; }, $this->pdo->query($this->translate(
+			"SELECT pages_id, sort, MATCH(data) AGAINST('hello' IN BOOLEAN MODE) AS s FROM `ft_mm` WHERE MATCH(data) AGAINST('hello' IN BOOLEAN MODE) ORDER BY pages_id"
+		))->fetchAll(\PDO::FETCH_NUM)));
+		$sql = $this->translate("SELECT MATCH(data) AGAINST('x' IN BOOLEAN MODE) AS s FROM `ft_mm`");
+		$this->check('two key columns: a score finds the FTS5 row through the key map', true, strpos($sql, 'WHERE r = (SELECT id FROM `ft_mm__fts_data__keys`') !== false);
+		$this->execMysql('DROP TABLE `ft_mm`');
 		$this->translator->setFulltext(false);
 		$error = '';
 		try {
