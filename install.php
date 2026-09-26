@@ -1868,8 +1868,13 @@ class Installer {
 		);
 
 		if($values['dbType'] === 'sqlite' || $values['dbType'] === 'pgsql') {
-			// charset/engine do not apply here (utf8 avoids utf8mb4 index length adjustments in profile import)
-			$options = array('dbCharset' => 'utf8', 'dbEngine' => 'MyISAM');
+			// charset/engine do not apply here (utf8 avoids utf8mb4 index length adjustments in profile import),
+			// but the schema log records the tables as a MySQL install with the config's settings would create them
+			$options = array(
+				'dbCharset' => 'utf8',
+				'dbEngine' => 'MyISAM',
+				'schemaLog' => array('dbCharset' => 'utf8mb4', 'dbEngine' => 'InnoDB'),
+			);
 		}
 
 		// check if MySQL is new enough to support InnoDB with fulltext indexes
@@ -2292,6 +2297,32 @@ class Installer {
 	}
 	
 	/**
+	 * Get the find/replace applied to the profile's CREATE TABLE statements for the given engine and charset
+	 * 
+	 * @param string $dbEngine
+	 * @param string $dbCharset
+	 * @return array
+	 * 
+	 */
+	protected function profileImportReplacements($dbEngine, $dbCharset) {
+		$replace = array();
+		$replace['ENGINE=InnoDB'] = "ENGINE=$dbEngine";
+		$replace['ENGINE=MyISAM'] = "ENGINE=$dbEngine";
+		$replace['CHARSET=utf8mb4;'] = "CHARSET=$dbCharset;";
+		$replace['CHARSET=utf8;'] = "CHARSET=$dbCharset;";
+		$replace['CHARSET=utf8 COLLATE='] = "CHARSET=$dbCharset COLLATE=";
+		if(strtolower($dbCharset) === 'utf8mb4') {
+			if(strtolower($dbEngine) === 'innodb') {
+				$replace['(255)'] = '(191)'; 
+				$replace['(250)'] = '(191)'; 
+			} else {
+				$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
+			}
+		}
+		return $replace;
+	}
+
+	/**
 	 * Import profile SQL dump
 	 * 
 	 * @param \PDO $database
@@ -2308,22 +2339,7 @@ class Installer {
 		$options = array_merge($defaults, $options); 
 		if(self::TEST_MODE) return;
 		$restoreOptions = array();
-		$replace = array();
-		$replace['ENGINE=InnoDB'] = "ENGINE=$options[dbEngine]";
-		$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
-		$replace['CHARSET=utf8mb4;'] = "CHARSET=$options[dbCharset];";
-		$replace['CHARSET=utf8;'] = "CHARSET=$options[dbCharset];";
-		$replace['CHARSET=utf8 COLLATE='] = "CHARSET=$options[dbCharset] COLLATE=";
-		
-		if(strtolower($options['dbCharset']) === 'utf8mb4') {
-			if(strtolower($options['dbEngine']) === 'innodb') {
-				$replace['(255)'] = '(191)'; 
-				$replace['(250)'] = '(191)'; 
-			} else {
-				$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
-			}
-		}
-		
+		$replace = $this->profileImportReplacements($options['dbEngine'], $options['dbCharset']);
 		if(count($replace)) $restoreOptions['findReplaceCreateTable'] = $replace;
 		
 		$file = "./wire/core/WireDatabase/WireDatabaseBackup.php"; // >= 3.0.260+
@@ -2335,7 +2351,13 @@ class Installer {
 			$this->ok("Imported database file: $file1");
 			$this->ok("Imported database file: $file2"); 
 			if(method_exists($backup, 'getCreatedTables')) {
-				$this->schemaLogSeed($database, $backup->getCreatedTables(), $options);
+				$creates = $backup->getCreatedTables();
+				if(isset($options['schemaLog'])) {
+					// the log keeps each table as a MySQL install would have created it (see dbSaveConfig())
+					$logReplace = $this->profileImportReplacements($options['schemaLog']['dbEngine'], $options['schemaLog']['dbCharset']);
+					foreach($creates as $name => $sql) $creates[$name] = str_replace(array_keys($logReplace), array_values($logReplace), $sql);
+				}
+				$this->schemaLogSeed($database, $creates, $options);
 			}
 		} else {
 			foreach($backup->errors() as $error) $this->alertErr($error); 
