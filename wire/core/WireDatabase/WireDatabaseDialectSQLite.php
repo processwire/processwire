@@ -70,6 +70,14 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	protected $fulltext = null;
 
 	/**
+	 * Fold indexes in use? ($config->dbOptions['sqlite']['foldIndex'], see WireDatabaseSQLiteTranslator::setFoldIndex())
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $foldIndex = false;
+
+	/**
 	 * Get dialect name
 	 *
 	 * @return string
@@ -93,6 +101,7 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 				pathinfo(self::databaseFile($this->wire()->config), PATHINFO_FILENAME)
 			);
 			$this->translator->setFulltext($this->fulltext === true);
+			$this->translator->setFoldIndex($this->foldIndex);
 		}
 		return $this->translator;
 	}
@@ -352,6 +361,10 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		WireDatabaseSQLiteTranslator::registerFunctions($pdo, self::databaseFile($this->wire()->config));
 		$this->fulltext = $this->setting('fulltext', true) !== false && WireDatabaseSQLiteTranslator::setupFulltext($pdo);
 		if($this->translator !== null) $this->translator->setFulltext($this->fulltext);
+		// fold indexes, when turned on (see WireDatabaseSQLiteTranslator::setFoldIndex()): added or removed to match
+		$this->foldIndex = $this->setting('foldIndex', false) === true;
+		WireDatabaseSQLiteTranslator::syncFoldIndexes($pdo, $this->foldIndex);
+		if($this->translator !== null) $this->translator->setFoldIndex($this->foldIndex);
 	}
 
 	/**
@@ -967,7 +980,7 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 			"WHERE type='table' AND name NOT LIKE 'sqlite\_%' ESCAPE '\' " .
 			// not FTS5 tables (and their shadow tables) or the fulltext marker, which are part of FULLTEXT keys
 			"AND instr(name, '" . WireDatabaseSQLiteTranslator::fulltextSeparator . "') = 0 " .
-			"AND name <> '" . WireDatabaseSQLiteTranslator::fulltextMarker . "' " .
+			"AND name NOT IN ('" . WireDatabaseSQLiteTranslator::fulltextMarker . "', '" . WireDatabaseSQLiteTranslator::foldIndexMarker . "') " .
 			"ORDER BY name";
 		$query = $this->database->pdo()->query($sql);
 		$tables = $query->fetchAll(\PDO::FETCH_COLUMN);

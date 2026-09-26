@@ -64,6 +64,18 @@ class WireDatabaseSQLiteTranslator {
 	const fulltextMapSuffix = '__keys';
 
 	/**
+	 * Suffix of an index's fold index (see setFoldIndex()): table__index__fold, on pw_fold(column)
+	 *
+	 */
+	const foldIndexSuffix = '__fold';
+
+	/**
+	 * Table whose presence means the database has fold indexes (see syncFoldIndexes())
+	 *
+	 */
+	const foldIndexMarker = 'pw_fold_index_v1';
+
+	/**
 	 * Cache of translated SQL, indexed by original SQL
 	 *
 	 * @var array
@@ -122,6 +134,14 @@ class WireDatabaseSQLiteTranslator {
 	 *
 	 */
 	protected $ftsKeysCache = [];
+
+	/**
+	 * Give single text column indexes a fold index, and compare COLLATE pw_ci on pw_fold()? (see setFoldIndex())
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $foldIndex = false;
 
 	/**
 	 * Table aliases of the statement being translated: [ alias => table ] (tables map to themselves)
@@ -658,6 +678,146 @@ class WireDatabaseSQLiteTranslator {
 	}
 
 	/**
+	 * Use fold indexes (true) or not (false, the default)
+	 *
+	 * With fold indexes, an index on a single text column gets a companion on pw_fold(column), and comparisons
+	 * with COLLATE pw_ci (i.e. `title=Äpfel`, see WireDatabaseDialectSQLite::compareCollation()) become
+	 * `pw_fold(column) = pw_fold(value)`, which is the same comparison but can use it. The database then needs
+	 * pw_fold() to write to those tables, so other tools (i.e. the sqlite3 command line) cannot, nor VACUUM it:
+	 * syncFoldIndexes() adds or removes them for an existing database.
+	 *
+	 * @param bool $on
+	 * @return self
+	 *
+	 */
+	public function setFoldIndex($on) {
+		$this->foldIndex = (bool) $on;
+		$this->cache = [];
+		return $this;
+	}
+
+	/**
+	 * Are fold indexes used? (see setFoldIndex())
+	 *
+	 * @return bool
+	 *
+	 */
+	public function foldIndex() {
+		return $this->foldIndex;
+	}
+
+	/**
+	 * Get the statement that creates the fold index of an index on a single text column
+	 *
+	 * @param string $table
+	 * @param string $name Index name without table prefix
+	 * @param string $column
+	 * @param bool $ifNotExists
+	 * @return string
+	 *
+	 */
+	protected function foldIndexSql($table, $name, $column, $ifNotExists = false) {
+		return 'CREATE INDEX ' . ($ifNotExists ? 'IF NOT EXISTS ' : '') . $this->quoteId($this->indexName($table, $name) . self::foldIndexSuffix) .
+			' ON ' . $this->quoteId($table) . ' (pw_fold(' . $this->quoteId($column) . '))';
+	}
+
+	/**
+	 * Get the statements that create an index, and its fold index when it has one (see setFoldIndex())
+	 *
+	 * @param string $table
+	 * @param string $name Index name without table prefix
+	 * @param array $columns
+	 * @param bool $unique
+	 * @param bool $ifNotExists
+	 * @param array $textColumns Which of the table's columns are text (for the fold index)
+	 * @return array
+	 *
+	 */
+	protected function indexStatements($table, $name, array $columns, $unique, $ifNotExists, array $textColumns) {
+		$statements = [$this->createIndexSql($table, $name, $columns, $unique, $ifNotExists)];
+		if($this->foldIndex && count($columns) === 1 && in_array($columns[0], $textColumns, true)) {
+			$statements[] = $this->foldIndexSql($table, $name, $columns[0], $ifNotExists);
+		}
+		return $statements;
+	}
+
+	/**
+	 * Get the text columns of an existing table (none without a connection)
+	 *
+	 * @param string $table
+	 * @return array
+	 *
+	 */
+	protected function textColumns($table) {
+		$pdo = $this->pdo();
+		if(!$pdo) return [];
+		$columns = [];
+		foreach($pdo->query('SELECT name, type FROM pragma_table_info(' . $pdo->quote($table) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+			if(self::isTextType($row['type'])) $columns[] = $row['name'];
+		}
+		return $columns;
+	}
+
+	/**
+	 * Is given column type (or definition, of which only the type word is used) a text type, by SQLite's affinity rules?
+	 *
+	 * @param string $type
+	 * @return bool
+	 *
+	 */
+	protected static function isTextType($type) {
+		return preg_match('/^\s*([a-z_]+)/i', (string) $type, $m) === 1 && preg_match('/CHAR|CLOB|TEXT/i', $m[1]) === 1;
+	}
+
+	/**
+	 * Add or remove the fold indexes of an existing database, to match the setting (see setFoldIndex())
+	 *
+	 * Turning them on gives each index on a single text column made by this translator its fold index; turning
+	 * them off drops them all, so that the database no longer needs pw_fold(). A marker table
+	 * (see foldIndexMarker) records that they are there, so that this does nothing when they already match.
+	 *
+	 * @param \PDO $pdo
+	 * @param bool $on
+	 * @return int Number of fold indexes added or dropped
+	 *
+	 */
+	public static function syncFoldIndexes(\PDO $pdo, $on) {
+		$marker = self::foldIndexMarker;
+		$has = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='$marker'")->fetchColumn();
+		if($on && $has) return 0;
+		if(!$on && !$has && !$pdo->query("SELECT 1 FROM sqlite_master WHERE type='index' AND substr(name, -" . strlen(self::foldIndexSuffix) . ") = '" . self::foldIndexSuffix . "'")->fetchColumn()) return 0;
+		$q = function($name) { return '`' . str_replace('`', '', $name) . '`'; };
+		$qty = 0;
+		$suffix = self::foldIndexSuffix;
+		$indexes = $pdo->query("SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND sql IS NOT NULL ORDER BY name")->fetchAll(\PDO::FETCH_ASSOC);
+		if(!$on) {
+			foreach($indexes as $row) {
+				if(substr($row['name'], -strlen($suffix)) !== $suffix) continue;
+				$pdo->exec('DROP INDEX IF EXISTS ' . $q($row['name']));
+				$qty++;
+			}
+			$pdo->exec("DROP TABLE IF EXISTS `$marker`");
+			return $qty;
+		}
+		foreach($indexes as $row) {
+			$table = $row['tbl_name'];
+			$prefix = $table . self::indexSeparator;
+			if(strpos($row['name'], $prefix) !== 0 || substr($row['name'], -strlen($suffix)) === $suffix) continue;
+			$columns = $pdo->query('SELECT name FROM pragma_index_info(' . $pdo->quote($row['name']) . ')')->fetchAll(\PDO::FETCH_COLUMN);
+			if(count($columns) !== 1 || $columns[0] === null) continue;
+			$type = '';
+			foreach($pdo->query('SELECT name, type FROM pragma_table_info(' . $pdo->quote($table) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $col) {
+				if($col['name'] === $columns[0]) $type = $col['type'];
+			}
+			if(!self::isTextType($type)) continue;
+			$pdo->exec('CREATE INDEX IF NOT EXISTS ' . $q($row['name'] . $suffix) . ' ON ' . $q($table) . ' (pw_fold(' . $q($columns[0]) . '))');
+			$qty++;
+		}
+		$pdo->exec("CREATE TABLE IF NOT EXISTS `$marker` (v INTEGER)");
+		return $qty;
+	}
+
+	/**
 	 * Get the FTS5 table name for given table and FULLTEXT key name
 	 *
 	 * @param string $table
@@ -1079,6 +1239,11 @@ class WireDatabaseSQLiteTranslator {
 					$i = $end;
 				}
 
+			} else if($w === 'COLLATE' && $this->foldIndex && ($j = $this->next($tokens, $i + 1)) > -1 && $this->isWord($tokens[$j], 'PW_CI') && $this->foldComparison($out)) {
+				// "col op value COLLATE pw_ci" was rewritten as "pw_fold(col) op pw_fold(value)", which can use a fold index
+				$i = $j;
+				continue;
+
 			} else if($w === 'BINARY') {
 				// "BINARY x" (case-sensitive comparison) => "x COLLATE BINARY", overriding the column's NOCASE collation
 				$j = $this->next($tokens, $i + 1);
@@ -1131,6 +1296,43 @@ class WireDatabaseSQLiteTranslator {
 			} while(true);
 		}
 		return $aliases;
+	}
+
+	/**
+	 * Rewrite a comparison just translated, "col op value" (before COLLATE pw_ci), as "pw_fold(col) op pw_fold(value)"
+	 *
+	 * The shape ProcessWire writes (see WireDatabaseDialectSQLite::compareCollation()): a column, optionally
+	 * qualified, a comparison operator and a parameter or string. pw_fold() values compare as pw_ci compares
+	 * (strcmp of folded values), so the result is the same, and an index on pw_fold(col) can serve it.
+	 *
+	 * @param array $out Translated tokens, ending with the comparison (changed in place when it matches)
+	 * @return bool Rewritten?
+	 *
+	 */
+	protected function foldComparison(array &$out) {
+		$v = $this->prev($out, count($out) - 1);
+		if($v < 0 || !in_array($out[$v][0], ['param', 'str'], true)) return false;
+		$o = $this->prev($out, $v - 1);
+		if($o < 0 || $out[$o][0] !== 'punct' || !in_array($out[$o][1], ['=', '!=', '<>', '<', '>', '<=', '>='], true)) return false;
+		$c = $this->prev($out, $o - 1);
+		if($c < 0 || !in_array($out[$c][0], ['id', 'word'], true)) return false;
+		$start = $c;
+		$d = $this->prev($out, $c - 1);
+		if($d > -1 && $out[$d][0] === 'punct' && $out[$d][1] === '.') {
+			$q = $this->prev($out, $d - 1);
+			if($q < 0 || !in_array($out[$q][0], ['id', 'word'], true)) return false;
+			$start = $q;
+		}
+		$b = $this->prev($out, $start - 1); // not part of a larger expression, i.e. lower(col) or a + col
+		if($b > -1 && ($out[$b][0] !== 'punct' || !in_array($out[$b][1], ['(', ','], true)) && !$this->isWord($out[$b], ['WHERE', 'AND', 'OR', 'ON', 'NOT', 'HAVING', 'WHEN'])) return false;
+		if($b > -1 && $out[$b][1] === '(') {
+			$f = $this->prev($out, $b - 1); // a function's paren, i.e. lower(col = ...)
+			if($f > -1 && in_array($out[$f][0], ['id', 'word'], true) && !$this->isWord($out[$f], ['WHERE', 'AND', 'OR', 'ON', 'NOT', 'HAVING', 'WHEN', 'IN', 'EXISTS'])) return false;
+		}
+		$column = $this->join(array_slice($out, $start, $c - $start + 1));
+		$sql = "pw_fold($column)" . $out[$o][1] . 'pw_fold(' . $out[$v][1] . ')';
+		array_splice($out, $start, count($out) - $start, [['raw', $sql], ['ws', ' ']]);
+		return true;
 	}
 
 	/**
@@ -1823,10 +2025,12 @@ class WireDatabaseSQLiteTranslator {
 	 */
 	protected function renameTableStatements($from, $to) {
 		$statements = ['ALTER TABLE ' . $this->quoteId($from) . ' RENAME TO ' . $this->quoteId($to)];
+		$textColumns = $this->textColumns($from);
 		foreach($this->getIndexes($from) as $index) {
 			if($index['name'] === null) continue; // not a table-prefixed index created by this translator
 			$statements[] = 'DROP INDEX ' . $this->quoteId($index['sqliteName']);
-			$statements[] = $this->createIndexSql($to, $index['name'], $index['columns'], $index['unique']);
+			$statements[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($index['sqliteName'] . self::foldIndexSuffix);
+			foreach($this->indexStatements($to, $index['name'], $index['columns'], $index['unique'], false, $textColumns) as $sql) $statements[] = $sql;
 		}
 		// FTS5 tables and their triggers follow the table (SQLite updates trigger bodies, but not trigger names)
 		foreach($this->ftsKeys($from) as $name => $info) {
@@ -1854,6 +2058,7 @@ class WireDatabaseSQLiteTranslator {
 		$prefix = $table . self::indexSeparator;
 		foreach($pdo->query('SELECT * FROM pragma_index_list(' . $pdo->quote($table) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $row) {
 			if($row['origin'] !== 'c') continue;
+			if(substr($row['name'], -strlen(self::foldIndexSuffix)) === self::foldIndexSuffix) continue; // made along with its index
 			$columns = $pdo->query('SELECT name FROM pragma_index_info(' . $pdo->quote($row['name']) . ') ORDER BY seqno')->fetchAll(\PDO::FETCH_COLUMN);
 			$indexes[] = [
 				'sqliteName' => $row['name'],
@@ -1917,7 +2122,35 @@ class WireDatabaseSQLiteTranslator {
 		$k = $this->next($tokens, $j + 1);
 		$table = $this->name($tokens[$k]);
 		if(isset($this->ftsKeys($table)[$index])) return $this->dropFulltextStatements($table, $index);
-		return 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index));
+		$sql = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index));
+		return $this->hasFoldIndex($table, $index) ? [$sql, $this->dropFoldIndexSql($table, $index)] : $sql;
+	}
+
+	/**
+	 * Does an index have a fold index? (see setFoldIndex())
+	 *
+	 * @param string $table
+	 * @param string $index Index name without table prefix
+	 * @return bool
+	 *
+	 */
+	protected function hasFoldIndex($table, $index) {
+		$pdo = $this->pdo();
+		if(!$pdo) return false;
+		$name = $pdo->quote($this->indexName($table, $index) . self::foldIndexSuffix);
+		return (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type='index' AND name=$name")->fetchColumn();
+	}
+
+	/**
+	 * Get the statement that drops an index's fold index
+	 *
+	 * @param string $table
+	 * @param string $index Index name without table prefix
+	 * @return string
+	 *
+	 */
+	protected function dropFoldIndexSql($table, $index) {
+		return 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index) . self::foldIndexSuffix);
 	}
 
 	/**
@@ -2012,7 +2245,7 @@ class WireDatabaseSQLiteTranslator {
 			case 'TABLES':
 				// not FTS5 tables (and their shadow tables) or the fulltext marker, which are part of FULLTEXT keys
 				$sql = "SELECT name AS " . $this->quoteId('Tables_in_' . $this->databaseName) . " FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'" .
-					" AND instr(name, '" . self::fulltextSeparator . "') = 0 AND name <> '" . self::fulltextMarker . "'";
+					" AND instr(name, '" . self::fulltextSeparator . "') = 0 AND name NOT IN ('" . self::fulltextMarker . "', '" . self::foldIndexMarker . "')";
 				if($like !== null) $sql .= " AND name LIKE $like ESCAPE '\\'";
 				$sql .= " ORDER BY name";
 				return $sql;
@@ -2039,7 +2272,7 @@ class WireDatabaseSQLiteTranslator {
 					"CASE WHEN il.origin='pk' THEN 'PRIMARY' WHEN il.origin='c' THEN substr(il.name, $prefixLen) ELSE il.name END AS `Key_name`, " .
 					"CASE WHEN il.\"unique\" THEN 0 ELSE 1 END AS `Non_unique`, " .
 					"ii.seqno + 1 AS `Seq_in_index`, ii.name AS `Column_name`, 'BTREE' AS `Index_type` " .
-					"FROM pragma_index_list($qt) il JOIN pragma_index_info(il.name) ii " .
+					"FROM pragma_index_list($qt) il JOIN pragma_index_info(il.name) ii WHERE ii.name IS NOT NULL " . // (not fold indexes, on expressions)
 					"UNION ALL " .
 					"SELECT $qt, 'PRIMARY', 0, 1, ti.name, 'BTREE' FROM pragma_table_info($qt) ti " .
 					"WHERE ti.pk > 0 AND NOT EXISTS (SELECT 1 FROM pragma_index_list($qt) WHERE origin='pk')";
@@ -2126,6 +2359,7 @@ class WireDatabaseSQLiteTranslator {
 		$constraints = [];
 		$indexes = [];
 		$fulltextDefs = []; // [ [ name, columns ] ] of FULLTEXT keys that become FTS5 tables
+		$indexDefs = [];
 		$autoIncrementCol = '';
 		$primaryCols = [];
 
@@ -2145,7 +2379,7 @@ class WireDatabaseSQLiteTranslator {
 				} else {
 					// a FULLTEXT key on a TEMPORARY table stays a regular index (its triggers and FTS5 table would have to be temporary too)
 					if($temporary && $this->isFulltextDef($def)) $def = array_values(array_filter($def, function($t) { return !$this->isWord($t, 'FULLTEXT'); }));
-					$indexes[] = $this->indexDef($table, $def, $ifNotExists);
+					$indexDefs[] = $def; // (after the columns, whose types fold indexes need)
 				}
 
 			} else if($this->isWord($first, ['CONSTRAINT', 'FOREIGN', 'CHECK'])) {
@@ -2160,6 +2394,9 @@ class WireDatabaseSQLiteTranslator {
 		}
 
 		$tableKeys = count($primaryCols) ? $primaryCols : ['rowid']; // for FTS5 tables (before $primaryCols is used up below)
+		$textColumns = [];
+		foreach($columns as $name => $col) if(self::isTextType($col['sql'])) $textColumns[] = $name;
+		foreach($indexDefs as $def) $indexes[] = $this->indexDef($table, $def, $ifNotExists, $textColumns);
 
 		$lines = [];
 		foreach($columns as $name => $col) {
@@ -2186,7 +2423,7 @@ class WireDatabaseSQLiteTranslator {
 			$this->quoteId($table) . " (\n  " . implode(",\n  ", $lines) . "\n)"
 		];
 
-		foreach($indexes as $index) $statements[] = $index;
+		foreach($indexes as $index) foreach((array) $index as $sql) $statements[] = $sql;
 
 		$integerKey = count($tableKeys) === 1 && isset($columns[$tableKeys[0]]) && self::isIntegerType($columns[$tableKeys[0]]['sql']);
 		foreach($fulltextDefs as $ft) {
@@ -2365,10 +2602,11 @@ class WireDatabaseSQLiteTranslator {
 	 * @param string $table
 	 * @param array $def
 	 * @param bool $ifNotExists
-	 * @return string|array Array for a FULLTEXT key that becomes an FTS5 table
+	 * @param array|null $textColumns Text columns of the table (for fold indexes), or null to look them up
+	 * @return string|array Array for a FULLTEXT key that becomes an FTS5 table, or an index with a fold index
 	 *
 	 */
-	protected function indexDef($table, array $def, $ifNotExists = false) {
+	protected function indexDef($table, array $def, $ifNotExists = false, $textColumns = null) {
 		$unique = false;
 		foreach($def as $t) {
 			if($this->isWord($t, 'UNIQUE')) $unique = true;
@@ -2382,7 +2620,10 @@ class WireDatabaseSQLiteTranslator {
 			$keys = $this->tableKeys($table, $integer);
 			return $this->fulltextStatements($table, $name, $keys, $cols, true, $this->fulltextMode($keys, $integer));
 		}
-		return $this->createIndexSql($table, $name, $cols, $unique, $ifNotExists);
+		if(!$this->foldIndex || $this->isFulltextDef($def)) return $this->createIndexSql($table, $name, $cols, $unique, $ifNotExists);
+		if($textColumns === null) $textColumns = $this->textColumns($table);
+		$statements = $this->indexStatements($table, $name, $cols, $unique, $ifNotExists, $textColumns);
+		return count($statements) > 1 ? $statements : $statements[0];
 	}
 
 	/**
@@ -2422,6 +2663,7 @@ class WireDatabaseSQLiteTranslator {
 		$columnOps = []; // column operations: [ 'action' => ..., 'sql' => native ALTER statement, ... ]
 		$otherOps = []; // index and table rename statements
 		$renameTo = '';
+		$addedText = []; // text columns this statement adds (for fold indexes of indexes it adds on them)
 		$rebuild = false;
 
 		foreach($specs as $spec) {
@@ -2435,7 +2677,8 @@ class WireDatabaseSQLiteTranslator {
 
 			if($w === 'ADD') {
 				if(in_array($w2, ['INDEX', 'KEY', 'UNIQUE', 'FULLTEXT', 'SPATIAL'])) {
-					foreach((array) $this->indexDef($table, $rest) as $sql) $otherOps[] = $sql;
+					$textColumns = $this->foldIndex ? array_merge($this->textColumns($table), $addedText) : null;
+					foreach((array) $this->indexDef($table, $rest, false, $textColumns) as $sql) $otherOps[] = $sql;
 				} else if($w2 === 'PRIMARY') {
 					$columnOps[] = ['action' => 'primary', 'columns' => $this->indexColumns($rest)];
 					$rebuild = true;
@@ -2452,6 +2695,7 @@ class WireDatabaseSQLiteTranslator {
 					}
 					foreach($colDefs as $colDef) {
 						$col = $this->columnDef($this->trimTokens($colDef));
+						if(self::isTextType($col['sql'])) $addedText[] = $col['name'];
 						// SQLite cannot ADD COLUMN with a non-constant default to a table that has rows
 						if($col['nonConstantDefault']) $rebuild = true;
 						$columnOps[] = [
@@ -2470,6 +2714,7 @@ class WireDatabaseSQLiteTranslator {
 						foreach($this->dropFulltextStatements($table, $index) as $sql) $otherOps[] = $sql;
 					} else {
 						$otherOps[] = 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index));
+						if($this->hasFoldIndex($table, $index)) $otherOps[] = $this->dropFoldIndexSql($table, $index);
 					}
 				} else if($w2 === 'PRIMARY') {
 					$columnOps[] = ['action' => 'dropPrimary'];
@@ -2702,7 +2947,9 @@ class WireDatabaseSQLiteTranslator {
 				$columns[] = isset($renames[$column]) ? $renames[$column] : $column;
 			}
 			if(!count($columns)) continue;
-			$statements[] = $this->createIndexSql($table, $index['name'], $columns, $index['unique']);
+			$textColumns = [];
+			foreach($cols as $name => $col) if(self::isTextType($col['sql'])) $textColumns[] = $name;
+			foreach($this->indexStatements($table, $index['name'], $columns, $index['unique'], false, $textColumns) as $sql) $statements[] = $sql;
 		}
 
 		// FULLTEXT keys: DROP TABLE removed their triggers; rename, rebuild or drop their FTS5 tables as MySQL does indexes
@@ -3346,6 +3593,11 @@ class WireDatabaseSQLiteTranslator {
 			return preg_match($arg, $value) ? 1 : 0;
 		}, -1, $det);
 
+		// pw_fold(text): folded as for pw_ci comparisons (see setFoldIndex()), deterministic so that it can be indexed
+		$create('pw_fold', function($value) {
+			return $value === null ? null : self::fold((string) $value);
+		}, 1, $det);
+
 		// pw_fts5query(query, boolean): MySQL fulltext query syntax as an FTS5 MATCH expression
 		$create('pw_fts5query', function($query, $boolean) {
 			return self::fts5Query($query, $boolean);
@@ -3478,6 +3730,7 @@ class WireDatabaseSQLiteTranslator {
 			if($index['origin'] === 'pk') continue;
 			$name = strpos($index['name'], $prefix) === 0 ? substr($index['name'], strlen($prefix)) : $index['name'];
 			$cols = $pdo->query("SELECT name FROM pragma_index_info(" . $pdo->quote($index['name']) . ") ORDER BY seqno")->fetchAll(\PDO::FETCH_COLUMN);
+			if(in_array(null, $cols, true)) continue; // an index on an expression, i.e. a fold index (see setFoldIndex())
 			$lines[] = ($index['unique'] ? 'UNIQUE KEY ' : 'KEY ') . $q($name) . ' (' . implode(',', array_map($q, $cols)) . ')';
 		}
 		foreach(self::fulltextKeys($pdo, $table) as $name => $info) {

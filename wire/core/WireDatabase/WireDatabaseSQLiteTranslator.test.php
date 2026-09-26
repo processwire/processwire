@@ -45,7 +45,85 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testFulltextIntrospection();
 		$this->testFulltextMatch();
 		$this->testFulltextReviewFixes();
+		$this->testFoldIndex();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * Opt-in fold indexes: accented text comparisons (COLLATE pw_ci) use an index on pw_fold()
+	 *
+	 */
+	protected function testFoldIndex() {
+		$this->translator->setFulltext(false);
+		$names = function($type, $like) {
+			$q = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type=? AND name LIKE ? ESCAPE '!' ORDER BY name");
+			$q->execute([$type, $like]);
+			return $q->fetchAll(\PDO::FETCH_COLUMN);
+		};
+		$this->check('pw_fold() folds case and accents', ['apfel', null], [$this->pdo->query("SELECT pw_fold('Äpfel')")->fetchColumn(), $this->pdo->query('SELECT pw_fold(NULL)')->fetchColumn()]);
+		foreach(['fx', 'fx2', 'fx_off'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+
+		// off (the default): nothing changes
+		$this->execMysql("CREATE TABLE `fx_off` (`pages_id` int NOT NULL, `data` text, PRIMARY KEY (`pages_id`), KEY `data_exact` (`data`(250)))");
+		$this->check('off: no fold index', [], $names('index', 'fx!_off!_!_%!_!_fold'));
+		$this->check('off: COLLATE pw_ci stays', true, strpos($this->translate("SELECT pages_id FROM fx_off WHERE fx_off.data=:v COLLATE pw_ci"), 'COLLATE pw_ci') !== false);
+
+		$this->translator->setFoldIndex(true);
+		$this->execMysql("CREATE TABLE `fx` (`pages_id` int NOT NULL, `data` text, `num` int, `name` varchar(20), PRIMARY KEY (`pages_id`), " .
+			"KEY `data_exact` (`data`(250)), KEY `num` (`num`), KEY `name_num` (`name`, `num`))");
+		$this->check('CREATE TABLE: a fold index for a single text column index only', ['fx__data_exact__fold'], $names('index', 'fx!_!_%!_!_fold'));
+		$rows = [1 => 'Äpfel', 2 => 'APFEL', 3 => 'apfelkuchen', 4 => 'Birne', 5 => null];
+		foreach($rows as $id => $data) {
+			$q = $this->pdo->prepare($this->translate('INSERT INTO `fx` (pages_id, data, num) VALUES (:id, :d, :id)'));
+			$q->execute([':id' => $id, ':d' => $data]);
+		}
+		$ids = function($sql, $value) {
+			$q = $this->pdo->prepare($this->translate($sql));
+			$q->execute([':v' => $value]);
+			return array_map('intval', $q->fetchAll(\PDO::FETCH_COLUMN));
+		};
+		$sql = $this->translate("SELECT pages_id FROM fx WHERE fx.data=:v COLLATE pw_ci");
+		$this->check('on: col = value COLLATE pw_ci becomes pw_fold(col) = pw_fold(value)', true, strpos($sql, 'pw_fold(fx.data)=pw_fold(:v)') !== false && strpos($sql, 'pw_ci') === false);
+		$plan = implode('; ', array_column($this->pdo->query('EXPLAIN QUERY PLAN ' . str_replace(':v', "'äpfel'", $sql))->fetchAll(\PDO::FETCH_ASSOC), 'detail'));
+		$this->check('on: the comparison uses the fold index', true, strpos($plan, 'fx__data_exact__fold') !== false);
+		$this->check('on: = matches as pw_ci does', [1, 2], $ids("SELECT pages_id FROM fx WHERE fx.data=:v COLLATE pw_ci ORDER BY pages_id", 'äpfel'));
+		$this->check('on: != matches as pw_ci does', [3, 4], $ids("SELECT pages_id FROM fx WHERE fx.data!=:v COLLATE pw_ci ORDER BY pages_id", 'äpfel'));
+		$this->check('on: < and >= as pw_ci orders', [[1, 2, 3], [4]], [
+			$ids("SELECT pages_id FROM fx WHERE fx.data<:v COLLATE pw_ci ORDER BY pages_id", 'bírne'),
+			$ids("SELECT pages_id FROM fx WHERE fx.data>=:v COLLATE pw_ci ORDER BY pages_id", 'bírne'),
+		]);
+		$this->check('on: inside NOT (...) and OR', [3, 4], $ids("SELECT pages_id FROM fx WHERE NOT (fx.data=:v COLLATE pw_ci) AND (fx.data=:v COLLATE pw_ci OR fx.pages_id > 2) ORDER BY pages_id", 'äpfel'));
+		$this->check('on: another shape keeps COLLATE pw_ci', true, strpos($this->translate("SELECT pages_id FROM fx WHERE lower(fx.data)=:v COLLATE pw_ci"), 'COLLATE pw_ci') !== false);
+		$this->check('on: writes keep the fold index in step', [1, 2, 6], call_user_func(function() use($ids) {
+			$this->execMysql("INSERT INTO `fx` (pages_id, data) VALUES (6, 'äPFEL')");
+			$this->execMysql("UPDATE `fx` SET data = 'Pflaume' WHERE pages_id = 3");
+			return $ids("SELECT pages_id FROM fx WHERE fx.data=:v COLLATE pw_ci ORDER BY pages_id", 'äpfel');
+		}));
+
+		// hidden from introspection, kept in step with DDL
+		$keyNames = array_values(array_unique($this->pdo->query($this->translate('SHOW INDEX FROM `fx`'))->fetchAll(\PDO::FETCH_COLUMN, 1)));
+		sort($keyNames);
+		$this->check('SHOW INDEX does not report fold indexes', ['PRIMARY', 'data_exact', 'name_num', 'num'], $keyNames);
+		$this->check('SHOW CREATE TABLE does not include fold indexes', false, strpos(WireDatabaseSQLiteTranslator::mysqlCreateTable($this->pdo, 'fx'), '__fold') !== false);
+		$this->execMysql("ALTER TABLE `fx` ADD `title` varchar(80), ADD KEY `title` (`title`)");
+		$this->check('ALTER TABLE ADD KEY on a text column adds its fold index', ['fx__data_exact__fold', 'fx__title__fold'], $names('index', 'fx!_!_%!_!_fold'));
+		$this->execMysql("ALTER TABLE `fx` MODIFY `data` mediumtext");
+		$this->check('a table rebuild keeps fold indexes', ['fx__data_exact__fold', 'fx__title__fold'], $names('index', 'fx!_!_%!_!_fold'));
+		$this->execMysql("ALTER TABLE `fx` DROP INDEX `title`");
+		$this->check('dropping an index drops its fold index', ['fx__data_exact__fold'], $names('index', 'fx!_!_%!_!_fold'));
+		$this->execMysql("RENAME TABLE `fx` TO `fx2`");
+		$this->check('RENAME TABLE renames fold indexes', [[], ['fx2__data_exact__fold']], [$names('index', 'fx!_!_%!_!_fold'), $names('index', 'fx2!_!_%!_!_fold')]);
+		$this->check('after RENAME the comparison still uses it', true, strpos(implode('; ', array_column($this->pdo->query('EXPLAIN QUERY PLAN ' . str_replace(':v', "'x'", $this->translate("SELECT pages_id FROM fx2 WHERE fx2.data=:v COLLATE pw_ci")))->fetchAll(\PDO::FETCH_ASSOC), 'detail')), 'fx2__data_exact__fold') !== false);
+
+		// turning it on and off for an existing database
+		WireDatabaseSQLiteTranslator::syncFoldIndexes($this->pdo, false);
+		$this->check('off for an existing database: its fold indexes are dropped, and the marker', [[], []], [$names('index', '%!_!_fold'), $names('table', 'pw!_fold!_index%')]);
+		WireDatabaseSQLiteTranslator::syncFoldIndexes($this->pdo, true);
+		$this->check('on for an existing database: fold indexes for its single text column indexes', true, in_array('fx2__data_exact__fold', $names('index', '%!_!_fold'), true) && in_array('fx_off__data_exact__fold', $names('index', '%!_!_fold'), true));
+		$this->check('the marker is hidden from SHOW TABLES', false, in_array(WireDatabaseSQLiteTranslator::foldIndexMarker, $this->pdo->query($this->translate('SHOW TABLES'))->fetchAll(\PDO::FETCH_COLUMN), true));
+		WireDatabaseSQLiteTranslator::syncFoldIndexes($this->pdo, false);
+		$this->translator->setFoldIndex(false);
+		foreach(['fx', 'fx2', 'fx_off'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
 	}
 
 	/**
