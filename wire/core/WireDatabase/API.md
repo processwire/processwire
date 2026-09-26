@@ -219,16 +219,22 @@ extension and SQLite 3.35+ are available (CLI installer: `'dbType' => 'sqlite'`,
   are executed atomically.
 - **Settings:** `$config->dbOptions` may contain an array indexed by database type, holding PDO driver
   options and ProcessWire settings that apply only to that type. For SQLite the settings are currently
-  `unicodeSort` (see the table below) and `fulltext` (see Fulltext search below). Assign the whole array, as in
-  `$config->dbOptions = ['sqlite' => ['unicodeSort' => true]];`
+  `unicodeSort` (see the table below), `fulltext` (see Fulltext search below) and `foldIndex` (see Fold indexes
+  below). Assign the whole array, as in `$config->dbOptions = ['sqlite' => ['unicodeSort' => true]];`
 - **Connection:** WAL journal mode, 5 second busy timeout. Errors for unknown tables and columns use MySQL's
   SQLSTATE codes (`42S02`, `42S22`) and are reported at `execute()` rather than `prepare()`, as with MySQL.
+- **Planner statistics:** without them SQLite often leaves unused the index that would serve a query (i.e. a
+  `title=` lookup scans the template's pages). A database that has none (one just installed, or made before
+  ProcessWire gathered them) gets a full `ANALYZE` on connecting, once: about 0.7 seconds per 20,000 pages. After
+  that, `PRAGMA optimize` runs when each request ends (normally a fraction of a millisecond), analyzing again
+  tables whose size has changed a lot, which SQLite does from a sample of their rows. `ANALYZE TABLE` (MySQL syntax)
+  gathers full statistics for the tables it names at any time, i.e. after a large import.
 
 Behavior differences from MySQL:
 
 | Area | SQLite behavior |
 |------|-----------------|
-| Case- and accent-insensitive matching | Selector searches (`%=`, `*=`, `~=`, `^=`, `$=`, etc.) and `=` comparisons fold case and accents as MySQL does, so `title%=apfel` matches "Äpfel". This is done in PHP rather than in the collation, at a cost of roughly 1.5µs per row compared. Two limits: an `=` comparison whose value is ASCII-only uses the built-in `NOCASE` collation so that it can still use an index, meaning `title=apfel` does not match "Äpfel" (`title=äpfel` does); and ligature expansions follow MySQL 8 (`ß` as `ss`, `æ` as `ae`) rather than MySQL 5.7/MariaDB. |
+| Case- and accent-insensitive matching | Selector searches (`%=`, `*=`, `~=`, `^=`, `$=`, etc.) and `=` comparisons fold case and accents as MySQL does, so `title%=apfel` matches "Äpfel". This is done in PHP rather than in the collation, at a cost of roughly 1.5µs per row compared. Two limits: an `=` comparison whose value is ASCII-only uses the built-in `NOCASE` collation so that it can still use an index, meaning `title=apfel` does not match "Äpfel" (`title=äpfel` does), and one whose value is not compares every row unless fold indexes are on (see below); and ligature expansions follow MySQL 8 (`ß` as `ss`, `æ` as `ae`) rather than MySQL 5.7/MariaDB. |
 | Sorting text | Sorts use `COLLATE NOCASE`, which folds ASCII letters only, so accented letters sort after `z` (`apple, zebra, Äpfel`) rather than with their base letter as MySQL does. Enable `$config->dbOptions['sqlite']['unicodeSort']` to match MySQL's ordering, at the cost of sorting in PHP — SQLite then calls back into PHP for every comparison and cannot use an index to avoid the sort. |
 | Fulltext search | With FTS5 (see Fulltext search below), as MySQL, except: every word is indexed (no stopwords, no minimum word length, so `~=ab` can match where MySQL matches nothing); relevance values differ in scale (only their order matters); query expansion (`~+=`, `*+=`, `**+=`) matches as natural language; and a few folding differences (`strasse` does not match "Straße"). Without FTS5 (a database created before it, or `fulltext` turned off), FULLTEXT keys are regular indexes and the fulltext operators use `LIKE`/`REGEXP`: no relevance ordering; stopwords are not ignored; word operators such as `~=` also match partial words; query expansion and boolean commands (`#=`) are approximated. |
 | Column types | Not enforced (SQLite type affinity). `UNSIGNED`, display widths, `CHARACTER SET` and `COLLATE` are ignored, `ENUM`/`SET` become `TEXT`, and `VARCHAR` lengths are not enforced. |
@@ -238,7 +244,7 @@ Behavior differences from MySQL:
 | `TRUNCATE` | Deletes all rows and resets the auto-increment counter. |
 | Unfinished `SELECT` | SQLite cannot drop or rebuild a table while a `SELECT` on it is unfinished. ProcessWire closes such cursors and retries, so further fetches from them return nothing. |
 | Concurrency | One writer at a time. Other writers wait (up to 5 seconds). Transactions start with `BEGIN IMMEDIATE` (taking the write lock up front), so a transaction that reads before it writes waits for other writers rather than failing with "database is locked". |
-| No-op statements | `LOCK TABLES`, `UNLOCK TABLES`, `SET ...` (i.e. `SET NAMES`), `OPTIMIZE`/`ANALYZE`/`REPAIR`/`CHECK TABLE`. |
+| No-op statements | `LOCK TABLES`, `UNLOCK TABLES`, `SET ...` (i.e. `SET NAMES`), `OPTIMIZE`/`REPAIR`/`CHECK TABLE`. (`ANALYZE TABLE` gathers SQLite's planner statistics.) |
 
 Not supported (throws an exception):
 
@@ -270,6 +276,20 @@ MySQL, with relevance ordering.
 - To turn it off, set `$config->dbOptions = ['sqlite' => ['fulltext' => false]];` before the database is
   created.
 - Differences from MySQL are listed in the table above.
+
+#### Fold indexes
+
+An `=` (or `!=`, `<`, `>`...) comparison of text with a value that is not ASCII-only (i.e. `title=Crème brûlée`) is
+folded in PHP (`COLLATE pw_ci`), so it compares every row: about 17 ms rather than 0.3 ms at 20,000 pages. With
+`$config->dbOptions = ['sqlite' => ['foldIndex' => true]];` each index on a single text column gets a companion
+index on `pw_fold(column)` (named `table__index__fold`, and not reported by `getIndexes()`, `SHOW INDEX` or
+`SHOW CREATE TABLE`), and such comparisons become `pw_fold(column) = pw_fold(value)`, which can use it.
+
+- The companion indexes are added on the next connection after turning it on, and dropped on the next one after
+  turning it off (a marker table, `pw_fold_index_v1`, records that they are there).
+- **Off by default**, because the database file then needs ProcessWire's `pw_fold()` function: other tools, i.e.
+  the `sqlite3` command line or a database browser, can still read it, but cannot insert, update or delete rows in
+  those tables, `VACUUM` it or run `PRAGMA integrity_check`. Turn it off (and connect once) before doing those.
 
 ### PostgreSQL
 

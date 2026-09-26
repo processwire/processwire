@@ -46,7 +46,27 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testFulltextMatch();
 		$this->testFulltextReviewFixes();
 		$this->testFoldIndex();
+		$this->testAnalyze();
 		$this->testSiteDatabase();
+	}
+
+	/**
+	 * ANALYZE TABLE gathers SQLite's planner statistics (rather than doing nothing)
+	 *
+	 */
+	protected function testAnalyze() {
+		foreach(['an_a', 'an_b'] as $t) {
+			$this->execMysql("DROP TABLE IF EXISTS `$t`");
+			$this->execMysql("CREATE TABLE `$t` (`id` int NOT NULL, `v` varchar(20), PRIMARY KEY (`id`), KEY `v` (`v`))");
+			$this->execMysql("INSERT INTO `$t` VALUES (1, 'x'), (2, 'y'), (3, 'y')");
+		}
+		$this->check('ANALYZE TABLE a, b is one ANALYZE per table', ['ANALYZE `an_a`', 'ANALYZE `an_b`'], $this->translator->translateStatements('ANALYZE NO_WRITE_TO_BINLOG TABLE `an_a`, an_b'));
+		$this->check('ANALYZE TABLE of one table', 'ANALYZE `an_a`', $this->translate('ANALYZE TABLE an_a'));
+		$this->execMysql('ANALYZE TABLE `an_a`, `an_b`');
+		$tables = $this->pdo->query("SELECT DISTINCT tbl FROM sqlite_stat1 WHERE tbl IN ('an_a', 'an_b') ORDER BY tbl")->fetchAll(\PDO::FETCH_COLUMN);
+		$this->check('ANALYZE TABLE gathers statistics for its tables', ['an_a', 'an_b'], $tables);
+		$this->check('OPTIMIZE TABLE is still a no-op', 'SELECT 1', $this->translate('OPTIMIZE TABLE an_a'));
+		foreach(['an_a', 'an_b'] as $t) $this->execMysql("DROP TABLE `$t`");
 	}
 
 	/**
