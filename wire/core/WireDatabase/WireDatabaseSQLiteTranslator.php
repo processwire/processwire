@@ -132,6 +132,15 @@ class WireDatabaseSQLiteTranslator {
 	protected $aliases = [];
 
 	/**
+	 * Table aliases by query scope, for the statement being translated (see aliasScopes())
+	 *
+	 * @var array [ 'tokens' => number of tokens, 'scopeOf' => [ token index => scope ], 'parent' => [ scope => parent scope or null ],
+	 *   'aliases' => [ scope => [ alias => table ] ] ]
+	 *
+	 */
+	protected $aliasScopes = [];
+
+	/**
 	 * Materialized CTEs for the fulltext scores of the SELECT being translated: [ name => SELECT ], or null when not a SELECT
 	 *
 	 * @var array|null
@@ -249,6 +258,7 @@ class WireDatabaseSQLiteTranslator {
 
 		// this statement's tables (for MATCH), before any of the translations below use expressions()
 		$this->aliases = $this->tableAliases($tokens);
+		$this->aliasScopes = $this->aliasScopes($tokens);
 		$this->ftsCtes = null;
 
 		switch($first) {
@@ -1124,6 +1134,100 @@ class WireDatabaseSQLiteTranslator {
 	}
 
 	/**
+	 * Get a statement's table aliases by query scope
+	 *
+	 * Each parenthesized query, and each part of a UNION, INTERSECT or EXCEPT, is a scope within the one around it.
+	 * An alias belongs to the scope of its FROM or JOIN, and is seen from there and from the scopes within it,
+	 * so that a subquery or UNION part may use an alias the others use for another table.
+	 *
+	 * @param array $tokens
+	 * @return array See $aliasScopes
+	 *
+	 */
+	protected function aliasScopes(array $tokens) {
+		$scopeOf = [];
+		$parent = ['-1:0' => null];
+		$stack = [];
+		$part = [-1 => 0];
+		$scope = '-1:0';
+		$n = count($tokens);
+		for($i = 0; $i < $n; $i++) {
+			$t = $tokens[$i];
+			if($t[0] === 'punct' && $t[1] === '(') {
+				$scopeOf[$i] = $scope;
+				$stack[] = [$i, $scope];
+				$part[$i] = 0;
+				$parent["$i:0"] = $scope;
+				$scope = "$i:0";
+				continue;
+			}
+			if($t[0] === 'punct' && $t[1] === ')' && count($stack)) {
+				list(, $scope) = array_pop($stack);
+				$scopeOf[$i] = $scope;
+				continue;
+			}
+			if($this->isWord($t, ['UNION', 'INTERSECT', 'EXCEPT'])) {
+				$open = count($stack) ? $stack[count($stack) - 1][0] : -1;
+				$outer = $parent[$scope];
+				$scope = $open . ':' . (++$part[$open]);
+				$parent[$scope] = $outer;
+			}
+			$scopeOf[$i] = $scope;
+		}
+		$aliases = [];
+		$stop = ['ON', 'USING', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'CROSS', 'NATURAL', 'STRAIGHT_JOIN',
+			'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'UNION', 'SET', 'FOR', 'LOCK', 'FORCE', 'USE', 'IGNORE', 'WINDOW', 'VALUES', 'SELECT'];
+		for($i = 0; $i < $n; $i++) {
+			if(!$this->isWord($tokens[$i], ['FROM', 'JOIN', 'UPDATE', 'INTO'])) continue;
+			$j = $i;
+			do {
+				$j = $this->next($tokens, $j + 1);
+				if($j < 0) break;
+				if($tokens[$j][1] === '(') {
+					// a derived table: its alias belongs to this scope, after the parens
+					$j = $this->matchParen($tokens, $j);
+					if($j < 0) break;
+					$k = $this->next($tokens, $j + 1);
+					if($k > -1 && $this->isWord($tokens[$k], 'AS')) $k = $this->next($tokens, $k + 1);
+					if($k > -1 && in_array($tokens[$k][0], ['id', 'word'], true) && !$this->isWord($tokens[$k], $stop)) $j = $k;
+				} else {
+					if(!in_array($tokens[$j][0], ['id', 'word'], true) || $this->isWord($tokens[$j], $stop)) break;
+					$table = $this->name($tokens[$j]);
+					$aliases[$scopeOf[$i]][$table] = $table;
+					$k = $this->next($tokens, $j + 1);
+					if($k > -1 && $this->isWord($tokens[$k], 'AS')) $k = $this->next($tokens, $k + 1);
+					if($k > -1 && in_array($tokens[$k][0], ['id', 'word'], true) && !$this->isWord($tokens[$k], $stop)) {
+						$aliases[$scopeOf[$i]][$this->name($tokens[$k])] = $table;
+						$j = $k;
+					}
+				}
+				$c = $this->next($tokens, $j + 1);
+				if($c < 0 || $tokens[$c][1] !== ',') break;
+				$j = $c;
+			} while(true);
+		}
+		return ['tokens' => $n, 'scopeOf' => $scopeOf, 'parent' => $parent, 'aliases' => $aliases];
+	}
+
+	/**
+	 * Get the tables a MATCH at token $i can see, by alias, innermost scope first (see aliasScopes())
+	 *
+	 * @param array $tokens The tokens expressions() is translating (when not the whole statement, all of its aliases)
+	 * @param int $i
+	 * @return array [ [ alias => table ], ... ], innermost first
+	 *
+	 */
+	protected function visibleAliases(array $tokens, $i) {
+		$scopes = $this->aliasScopes;
+		if(!isset($scopes['tokens']) || $scopes['tokens'] !== count($tokens) || !isset($scopes['scopeOf'][$i])) return [$this->aliases];
+		$visible = [];
+		for($scope = $scopes['scopeOf'][$i]; $scope !== null; $scope = $scopes['parent'][$scope]) {
+			if(isset($scopes['aliases'][$scope])) $visible[] = $scopes['aliases'][$scope];
+		}
+		return count($visible) ? $visible : [$this->aliases];
+	}
+
+	/**
 	 * Is the MATCH at $i (whose AGAINST(...) ends at $close) a condition, rather than a value (i.e. a score)?
 	 *
 	 * @param array $tokens
@@ -1183,16 +1287,26 @@ class WireDatabaseSQLiteTranslator {
 			}
 			return null;
 		};
+		$visible = $this->visibleAliases($tokens, $i); // innermost query first
 		if($qualifier === '') {
-			// unqualified columns: the statement's one table with a FULLTEXT key on them (or its only table)
-			$tables = array_values(array_unique($this->aliases));
-			$withKey = array_values(array_filter($tables, function($table) use($findKey) { return $findKey($table) !== null; }));
-			if(count($withKey) === 1) $tables = $withKey;
+			// unqualified columns: the one table with a FULLTEXT key on them (or the only table) of the nearest query that has one
+			$tables = [];
+			foreach($visible as $aliases) {
+				$tables = array_values(array_unique($aliases));
+				$withKey = array_values(array_filter($tables, function($table) use($findKey) { return $findKey($table) !== null; }));
+				if(count($withKey) === 1) $tables = $withKey;
+				if(count($withKey)) break;
+			}
 			if(count($tables) !== 1) throw new \PDOException('SQLite translator: MATCH columns must be qualified when a query has several tables');
 			$qualifier = $tables[0];
 			$table = $tables[0];
 		} else {
-			$table = isset($this->aliases[$qualifier]) ? $this->aliases[$qualifier] : $qualifier;
+			$table = $qualifier;
+			foreach($visible as $aliases) {
+				if(!isset($aliases[$qualifier])) continue;
+				$table = $aliases[$qualifier];
+				break;
+			}
 		}
 		$key = $findKey($table);
 		if($key === null) {
@@ -2658,7 +2772,7 @@ class WireDatabaseSQLiteTranslator {
 	 */
 	public static function fold($value, $lower = true) {
 
-		static $from = null, $to = null;
+		static $pairs = null;
 
 		if($value === null) return '';
 		$value = (string) $value;
@@ -2666,7 +2780,7 @@ class WireDatabaseSQLiteTranslator {
 		// fast path: text without any high bytes needs no accent folding
 		if(!preg_match('/[\x80-\xFF]/', $value)) return $lower ? strtolower($value) : $value;
 
-		if($from === null) {
+		if($pairs === null) {
 			$map = [
 				'A' => 'ÀÁÂÃÄÅĀĂĄ', 'a' => 'àáâãäåāăą',
 				'C' => 'ÇĆĈĊČ', 'c' => 'çćĉċč',
@@ -2692,18 +2806,15 @@ class WireDatabaseSQLiteTranslator {
 				'ss' => 'ß',
 				'TH' => 'Þ', 'th' => 'þ',
 			];
-			$from = [];
-			$to = [];
+			$pairs = [];
 			foreach($map as $replace => $chars) {
 				$len = mb_strlen($chars);
-				for($n = 0; $n < $len; $n++) {
-					$from[] = mb_substr($chars, $n, 1);
-					$to[] = $replace;
-				}
+				for($n = 0; $n < $len; $n++) $pairs[mb_substr($chars, $n, 1)] = $replace;
 			}
 		}
 
-		$value = str_replace($from, $to, $value);
+		// one pass (str_replace() with a list goes over the text once per character)
+		$value = strtr($value, $pairs);
 
 		// mb_strtolower() also covers scripts not in the map above (Greek, Cyrillic, etc.)
 		return $lower ? mb_strtolower($value) : $value;
@@ -2885,13 +2996,18 @@ class WireDatabaseSQLiteTranslator {
 	/**
 	 * Register MySQL-compatible functions on given SQLite PDO connection
 	 *
-	 * Static so that it can also be used by the installer before ProcessWire is booted.
+	 * Static so that it can also be used by the installer before ProcessWire is booted. Also turns on
+	 * recursive_triggers, so that the rows REPLACE deletes fire delete triggers (as MySQL's REPLACE does): a
+	 * FULLTEXT key's FTS5 table then loses the replaced row's entry even when the conflict is on a key other
+	 * than the one its triggers go by.
 	 *
 	 * @param \PDO $pdo
 	 * @param string $databaseFile Database file path (namespace for GET_LOCK() and name returned by DATABASE())
 	 *
 	 */
 	public static function registerFunctions(\PDO $pdo, $databaseFile = '') {
+
+		$pdo->exec('PRAGMA recursive_triggers = ON');
 
 		if(class_exists('\Pdo\Sqlite', false) && defined('\Pdo\Sqlite::DETERMINISTIC')) {
 			$det = constant('\Pdo\Sqlite::DETERMINISTIC'); // PHP 8.4+

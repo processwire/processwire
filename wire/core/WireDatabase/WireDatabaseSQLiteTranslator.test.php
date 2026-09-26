@@ -122,6 +122,44 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$keys = WireDatabaseSQLiteTranslator::fulltextKeys($this->pdo, 'ft_r_text');
 		$this->check('text primary key: key map mode, and inserts work', ['map', ''], [isset($keys['body']) ? $keys['body']['mode'] : null, $error]);
 		foreach(['ft_r', 'ft_r_other', 'ft_r_dst', 'ft_r_text'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+
+		// a table without a primary key (rowid mode): REPLACE on a UNIQUE key removes the old row's FTS5 row too
+		$this->execMysql('DROP TABLE IF EXISTS `ft_r_uniq`');
+		$this->execMysql("CREATE TABLE `ft_r_uniq` (`name` varchar(20) NOT NULL, `body` text, UNIQUE KEY `name` (`name`), FULLTEXT KEY `body` (`body`))");
+		$this->execMysql("INSERT INTO `ft_r_uniq` (name, body) VALUES ('a', 'first'), ('b', 'second')");
+		$this->execMysql("REPLACE INTO `ft_r_uniq` (name, body) VALUES ('a', 'replaced')");
+		$counts = [(int) $this->pdo->query('SELECT COUNT(*) FROM `ft_r_uniq`')->fetchColumn(), (int) $this->pdo->query('SELECT COUNT(*) FROM `ft_r_uniq__fts_body`')->fetchColumn()];
+		$first = (int) $this->pdo->query("SELECT COUNT(*) FROM `ft_r_uniq__fts_body` WHERE `ft_r_uniq__fts_body` MATCH '\"first\"'")->fetchColumn();
+		$this->check('rowid mode: REPLACE on a UNIQUE key leaves no FTS5 row behind', [[2, 2], 0], [$counts, $first]);
+		$this->execMysql('DROP TABLE `ft_r_uniq`');
+
+		// an alias means the table of its own query: subqueries and UNION parts can use the same alias for other tables
+		foreach(['ft_s1', 'ft_s2', 'ft_s3'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ft_s1` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("CREATE TABLE `ft_s2` (`id` int unsigned NOT NULL, PRIMARY KEY (`id`))");
+		$this->execMysql("CREATE TABLE `ft_s3` (`pages_id` int unsigned NOT NULL, `data` text NOT NULL, PRIMARY KEY (`pages_id`), FULLTEXT KEY `data` (`data`))");
+		$this->execMysql("INSERT INTO `ft_s1` VALUES (1, 'one apple'), (2, 'two')");
+		$this->execMysql("INSERT INTO `ft_s2` VALUES (1), (2)");
+		$this->execMysql("INSERT INTO `ft_s3` VALUES (1, 'three'), (2, 'three apple')");
+		$rows = function($sql) {
+			try {
+				return array_map('intval', $this->pdo->query($this->translate($sql))->fetchAll(\PDO::FETCH_COLUMN));
+			} catch(\PDOException $e) {
+				return 'ERROR ' . $e->getMessage();
+			}
+		};
+		$this->check('an alias in a derived table, used again by the outer query for another table', [1], $rows(
+			"SELECT x.pages_id FROM (SELECT a.pages_id FROM `ft_s1` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE)) x " .
+			"JOIN `ft_s2` a ON a.id = x.pages_id ORDER BY x.pages_id"
+		));
+		$this->check('the same alias for different tables in the parts of a UNION', [1, 102], $rows(
+			"SELECT a.pages_id FROM `ft_s1` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE) " .
+			"UNION SELECT a.pages_id + 100 FROM `ft_s3` a WHERE MATCH(a.data) AGAINST('apple' IN BOOLEAN MODE) ORDER BY 1"
+		));
+		$this->check('an outer alias used inside a subquery (correlated)', [1], $rows(
+			"SELECT b.id FROM `ft_s2` b WHERE EXISTS (SELECT 1 FROM `ft_s1` c WHERE c.pages_id = b.id AND MATCH(c.data) AGAINST('apple' IN BOOLEAN MODE)) ORDER BY b.id"
+		));
+		foreach(['ft_s1', 'ft_s2', 'ft_s3'] as $t) $this->execMysql("DROP TABLE `$t`");
 	}
 
 	/**
