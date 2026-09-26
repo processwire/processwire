@@ -2078,6 +2078,8 @@ class PagesLoader extends Wire {
 		}
 		$options['loadPages'] = false;
 		$options['getTotal'] = true;
+		// with no pages to load, a COUNT(*) is one query where SQL_CALC_FOUND_ROWS is two
+		if(!isset($options['getTotalType'])) $options['getTotalType'] = 'count';
 		$options['caller'] = 'pages.count';
 		$options['returnVerbose'] = false;
 		if(is_string($selector)) {

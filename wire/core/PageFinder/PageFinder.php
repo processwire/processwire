@@ -955,14 +955,26 @@ class PageFinder extends Wire {
 			
 		if($this->getTotal) {
 			if($this->getTotalType === 'count') {
-				$query->set('select', array('COUNT(*)'));
-				$query->set('orderby', array()); 
-				$query->set('groupby', array()); 
+				// a join may give several rows per page, which the GROUP BY (if any) makes one again
+				$groups = $query->groupby;
+				$countRows = count($groups) > 1; // i.e. with HAVING, count the grouped rows themselves
+				$query->set('orderby', array());
 				$query->set('limit', array());
+				if($countRows) {
+					$query->set('select', array('pages.id'));
+				} else {
+					$query->set('select', array(count($groups) ? 'COUNT(DISTINCT ' . reset($groups) . ')' : 'COUNT(*)'));
+					$query->set('groupby', array());
+				}
 				$stmt = $query->execute();
 				$errorInfo = $stmt->errorInfo();
 				if($stmt->errorCode() > 0) throw new PageFinderException($errorInfo[2]);
-				list($this->total) = $stmt->fetch(\PDO::FETCH_NUM); 
+				if($countRows) {
+					$this->total = 0;
+					while($stmt->fetch(\PDO::FETCH_NUM)) $this->total++;
+				} else {
+					list($this->total) = $stmt->fetch(\PDO::FETCH_NUM);
+				}
 				$stmt->closeCursor();
 			} else {
 				$this->total = (int) $database->query("SELECT FOUND_ROWS()")->fetchColumn();

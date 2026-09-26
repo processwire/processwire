@@ -29,6 +29,7 @@ class WireTest_PageFinder extends WireTest {
 		$this->testExceptionsAndTiming();
 		$this->testStrictSqlModes();
 		$this->testUngroupedQueries();
+		$this->testCountTotals();
 	}
 
 	public function finish() {
@@ -171,6 +172,38 @@ class WireTest_PageFinder extends WireTest {
 		$this->check('the total of a paginated find without GROUP BY', $totals[1], $totals[0]);
 	}
 
+	/**
+	 * A total by COUNT(*) counts each page once, also when a join gives several rows per page
+	 *
+	 */
+	protected function testCountTotals() {
+		$pages = $this->wire()->pages;
+		$selectors = array(
+			'template=user, roles=superuser|guest, include=all', // multi-value join, grouped
+			'template=user, roles.count>0, include=all',
+			'parent=1, num_children<3, include=all', // HAVING
+			'parent=1, include=all', // not grouped
+		);
+		foreach($selectors as $selector) {
+			$expected = count($pages->findIDs($selector));
+			foreach(array('count', 'calc') as $type) {
+				$this->check("count() by $type: $selector", $expected, $pages->count($selector, array('getTotalType' => $type)));
+			}
+			$this->check("getTotal() by count: $selector", $expected, $pages->find("$selector, limit=1", array('getTotalType' => 'count'))->getTotal());
+		}
+
+		// $pages->count() loads no pages, so it needs only a COUNT(*), not a select and SQL_CALC_FOUND_ROWS
+		$database = $this->wire()->database;
+		$debugMode = $database->debugMode;
+		try {
+			$database->queryLog(true);
+			$pages->count('parent=1, include=all');
+			$queries = $database->queryLog();
+		} finally {
+			$database->queryLog($debugMode ? 1 : false);
+		}
+		$this->check('$pages->count() counts with a single COUNT(*) query', true, count(array_filter($queries, function($sql) { return stripos($sql, 'COUNT(') !== false; })) === 1 && count(array_filter($queries, function($sql) { return stripos($sql, 'FOUND_ROWS') !== false; })) === 0);
+	}
 
 	protected function finder() {
 		return $this->wire(new PageFinder());
