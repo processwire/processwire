@@ -28,6 +28,7 @@ class WireTest_PageFinder extends WireTest {
 		$this->testCursorAndReverseOptions();
 		$this->testExceptionsAndTiming();
 		$this->testStrictSqlModes();
+		$this->testUngroupedQueries();
 	}
 
 	public function finish() {
@@ -132,6 +133,44 @@ class WireTest_PageFinder extends WireTest {
 
 		$this->check('SQL mode restored after test', $originalMode, $database->sqlMode());
 	}
+
+	/**
+	 * Finds whose joins give at most one row per page have no GROUP BY (and so no aggregates for it)
+	 *
+	 * The GROUP BY pages.id only removes duplicates that a join to several rows per page makes. Without one, MySQL
+	 * need not build a temporary table to group and sort, i.e. sort=title with a large start is about 3 times faster.
+	 *
+	 */
+	protected function testUngroupedQueries() {
+		$pages = $this->wire()->pages;
+		$parent = $this->getTestPage();
+		$sel = "parent=$parent, include=hidden";
+		$query = function($selector, array $options = []) {
+			return $this->finder()->find(new Selectors($selector), array_merge(['returnQuery' => true], $options));
+		};
+		$sql = function($selector, array $options = []) use($query) { return $query($selector, $options)->getQuery(); };
+		$ungrouped = function($selector) use($sql) { $s = $sql($selector); return stripos($s, 'GROUP BY') === false && stripos($s, 'MIN(') === false && stripos($s, 'MAX(') === false; };
+
+		$this->check('no GROUP BY: a find on pages columns only', true, $ungrouped("$sel, sort=name"));
+		$this->check('no GROUP BY: sort by a single-value field', true, $ungrouped("$sel, sort=title"));
+		$this->check('no GROUP BY: sort by a single-value field descending', true, $ungrouped("$sel, sort=-title"));
+		$this->check('no GROUP BY: a condition on a single-value field', true, $ungrouped("$sel, title%=PageFinder"));
+		$this->check('no GROUP BY: parent and template joins', true, $ungrouped("$sel, parent.name!=x, sort=parent.name"));
+		$this->check('GROUP BY kept: a multi-value field condition', false, $ungrouped('template=user, roles=superuser, include=all'));
+		$this->check('GROUP BY kept: sort by a multi-value field', false, $ungrouped('template=user, sort=roles, include=all'));
+		$this->check('GROUP BY kept: returnParentIDs (grouped by parent)', true, stripos($sql($sel, ['returnParentIDs' => true]), 'GROUP BY pages.parent_id') !== false);
+		$this->check('GROUP BY kept: the ungroup option off', false, stripos($sql("$sel, sort=title", ['ungroup' => false]), 'GROUP BY') === false);
+
+		// same pages, in the same order, either way
+		foreach(["$sel, sort=title", "$sel, sort=-title", "$sel, sort=title, limit=2, start=1", "$sel, title%=PageFinder, sort=-created, sort=id"] as $selector) {
+			$a = $pages->findIDs($selector);
+			$b = $this->finder()->findIDs(new Selectors($selector), ['ungroup' => false]);
+			$this->check("same results with and without GROUP BY: $selector", $b, $a);
+		}
+		$totals = [$pages->find("$sel, sort=title, limit=1")->getTotal(), count($this->finder()->findIDs(new Selectors($sel), ['ungroup' => false]))];
+		$this->check('the total of a paginated find without GROUP BY', $totals[1], $totals[0]);
+	}
+
 
 	protected function finder() {
 		return $this->wire(new PageFinder());

@@ -45,6 +45,7 @@ class WireTest_DatabaseQuerySelect extends WireTest {
 		$this->testWhereClause();
 		$this->testOrderby();
 		$this->testGroupby();
+		$this->testUngroup();
 		$this->testLimit();
 		$this->testSQLCaching();
 		$this->testDbCache();
@@ -289,6 +290,48 @@ class WireTest_DatabaseQuerySelect extends WireTest {
 		$q->select("id")->from("pages");
 		$sql = $q->getQuery();
 		$this->check('No groupby() omits GROUP BY', false, stripos($sql, 'GROUP BY') !== false);
+	}
+
+	/**
+	 * ungroup(): removes GROUP BY and puts back what aggregateExpression() and addGroupAggregate() aggregated for it
+	 *
+	 */
+	protected function testUngroup() {
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id');
+		$q->select($q->aggregateExpression('pages.parent_id'));
+		$q->select($q->aggregateExpression('pages.templates_id AS tpl'));
+		$q->addGroupAggregate('MIN(UNIX_TIMESTAMP(pages.created)) AS created', 'UNIX_TIMESTAMP(pages.created) AS created');
+		$q->select('MIN(UNIX_TIMESTAMP(pages.created)) AS created');
+		$q->from('pages');
+		$q->orderby($q->aggregateExpression('t.data', false, 'MAX') . ' DESC');
+		$q->groupby('pages.id');
+		$this->check('before ungroup(): grouped and aggregated', true, strpos($q->getQuery(), 'GROUP BY') !== false && strpos($q->getQuery(), 'MIN(pages.parent_id)') !== false);
+		$this->check('ungroup() of a query with only its own aggregates', true, $q->ungroup());
+		$this->check('ungroup(): no GROUP BY', [], $q->groupby);
+		$this->check('ungroup(): selects put back', ['pages.id', 'pages.parent_id AS parent_id', 'pages.templates_id AS tpl', 'UNIX_TIMESTAMP(pages.created) AS created'], array_values($q->select));
+		$this->check('ungroup(): sort put back, direction kept', ['t.data DESC'], array_values($q->orderby));
+
+		// an aggregate it did not add (i.e. COUNT(), GROUP_CONCAT()) or HAVING needs the GROUP BY
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id')->select('COUNT(c.id) AS n')->from('pages')->groupby('pages.id');
+		$this->check('ungroup() keeps GROUP BY for an aggregate it did not add', [false, ['pages.id']], [$q->ungroup(), $q->groupby]);
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id')->from('pages')->groupby('pages.id')->groupby('HAVING COUNT(c.id)>1');
+		$this->check('ungroup() keeps GROUP BY with HAVING', false, $q->ungroup());
+
+		// an aggregate within a subquery is the subquery's own
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id, (SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren')->from('pages')->groupby('pages.id');
+		$this->check('ungroup() of a query with an aggregate in a subquery', true, $q->ungroup());
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id, (SELECT COUNT(*) FROM pages AS c WHERE c.parent_id=pages.id) + COUNT(x.id) AS n')->from('pages')->groupby('pages.id');
+		$this->check('ungroup() keeps GROUP BY for an aggregate beside a subquery', false, $q->ungroup());
 	}
 
 	protected function testLimit() {
