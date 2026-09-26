@@ -332,8 +332,9 @@ class WireDatabaseSQLiteTranslator {
 				return 'SELECT 1';
 			case 'TRUNCATE':
 				return $this->truncate($tokens);
-			case 'OPTIMIZE':
 			case 'ANALYZE':
+				return $this->analyze($tokens);
+			case 'OPTIMIZE':
 			case 'REPAIR':
 			case 'CHECK':
 				return 'SELECT 1';
@@ -2151,6 +2152,26 @@ class WireDatabaseSQLiteTranslator {
 	 */
 	protected function dropFoldIndexSql($table, $index) {
 		return 'DROP INDEX IF EXISTS ' . $this->quoteId($this->indexName($table, $index) . self::foldIndexSuffix);
+	}
+
+	/**
+	 * ANALYZE [NO_WRITE_TO_BINLOG | LOCAL] TABLE a [, b ...]: SQLite's ANALYZE of each table (planner statistics)
+	 *
+	 * @param array $tokens
+	 * @return string|array
+	 *
+	 */
+	protected function analyze(array $tokens) {
+		$statements = [];
+		$i = $this->next($tokens, 0);
+		while($i > -1 && $tokens[$i][0] === 'word' && !$this->isWord($tokens[$i], 'TABLE')) $i = $this->next($tokens, $i + 1);
+		if($i < 0) return 'ANALYZE';
+		foreach($this->splitCommas(array_slice($tokens, $i + 1)) as $part) {
+			$part = array_values(array_filter($part, function($t) { return $t[0] !== 'ws'; }));
+			if(count($part)) $statements[] = 'ANALYZE ' . $this->quoteId($this->name($part[0]));
+		}
+		if(!count($statements)) return 'ANALYZE';
+		return count($statements) > 1 ? $statements : $statements[0];
 	}
 
 	/**

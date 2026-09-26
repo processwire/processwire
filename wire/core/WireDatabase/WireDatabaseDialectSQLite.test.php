@@ -11,6 +11,29 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 		$this->testFulltext();
 		$this->testOldSiteWithoutMarker();
 		$this->testFoldIndex();
+		$this->testStatistics();
+	}
+
+	/**
+	 * A database without planner statistics gets them when connecting, so that SQLite uses its indexes (live, sqlite only)
+	 *
+	 */
+	protected function testStatistics() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'sqlite') return;
+		$pdo = $database->pdo();
+		$pdo->exec('DROP TABLE IF EXISTS sqlite_stat1');
+		$database->dialect()->initConnection($pdo);
+		$has = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE name = 'sqlite_stat1'")->fetchColumn();
+		$tables = $has ? $pdo->query("SELECT DISTINCT tbl FROM sqlite_stat1 WHERE tbl IN ('pages', 'field_title') ORDER BY tbl")->fetchAll(\PDO::FETCH_COLUMN) : [];
+		$this->check('connecting to a database without statistics gathers them', ['field_title', 'pages'], $tables);
+		$error = '';
+		try {
+			$database->dialect()->optimize($pdo);
+		} catch(\Exception $e) {
+			$error = $e->getMessage();
+		}
+		$this->check('optimize() (run when the connection closes) works', '', $error);
 	}
 
 	/**

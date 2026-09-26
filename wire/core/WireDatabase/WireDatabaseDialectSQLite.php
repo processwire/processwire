@@ -365,6 +365,56 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		$this->foldIndex = $this->setting('foldIndex', false) === true;
 		WireDatabaseSQLiteTranslator::syncFoldIndexes($pdo, $this->foldIndex);
 		if($this->translator !== null) $this->translator->setFoldIndex($this->foldIndex);
+		// planner statistics: without them SQLite often leaves the indexes that serve a query unused
+		$this->initStatistics($pdo);
+	}
+
+	/**
+	 * PDO connections whose optimize() is registered to run at shutdown, by spl_object_id()
+	 *
+	 * @var array
+	 *
+	 */
+	protected static $optimizeRegistered = [];
+
+	/**
+	 * Gather planner statistics for a database that has none, and keep them current as SQLite advises
+	 *
+	 * A database without statistics (sqlite_stat1), i.e. one created before this or just installed, gets a full
+	 * ANALYZE on connecting (about 0.7 seconds for 20,000 pages, once). After that, optimize() runs when each
+	 * request ends, which analyzes again the tables whose size has changed a lot. ANALYZE TABLE (MySQL syntax)
+	 * gathers them for given tables at any time, i.e. after a large import.
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	protected function initStatistics(\PDO $pdo) {
+		try {
+			$tables = (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'")->fetchColumn();
+			$stats = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_stat1'")->fetchColumn();
+			if($tables && !$stats) $pdo->exec('ANALYZE');
+		} catch(\Exception $e) {
+			// statistics only affect how fast queries are
+		}
+		$id = spl_object_id($pdo);
+		if(isset(self::$optimizeRegistered[$id])) return;
+		self::$optimizeRegistered[$id] = true;
+		$dialect = $this;
+		register_shutdown_function(function() use($dialect, $pdo) { $dialect->optimize($pdo); });
+	}
+
+	/**
+	 * Run PRAGMA optimize, which analyzes again the tables whose statistics are out of date (when a connection closes)
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	public function optimize(\PDO $pdo) {
+		try {
+			$pdo->exec('PRAGMA optimize');
+		} catch(\Exception $e) {
+			// i.e. the database is locked by another writer: statistics can wait for another request
+		}
 	}
 
 	/**
