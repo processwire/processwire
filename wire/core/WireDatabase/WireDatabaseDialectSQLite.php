@@ -62,6 +62,22 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	protected $supportsJson = null;
 
 	/**
+	 * FTS5 fulltext in use for this database? (null until connected, see initConnection())
+	 *
+	 * @var bool|null
+	 *
+	 */
+	protected $fulltext = null;
+
+	/**
+	 * Fold indexes in use? ($config->dbOptions['sqlite']['foldIndex'], see WireDatabaseSQLiteTranslator::setFoldIndex())
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $foldIndex = false;
+
+	/**
 	 * Get dialect name
 	 *
 	 * @return string
@@ -84,6 +100,8 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 				function() use($database) { return $database->pdo(); },
 				pathinfo(self::databaseFile($this->wire()->config), PATHINFO_FILENAME)
 			);
+			$this->translator->setFulltext($this->fulltext === true);
+			$this->translator->setFoldIndex($this->foldIndex);
 		}
 		return $this->translator;
 	}
@@ -341,6 +359,62 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		$pdo->exec('PRAGMA busy_timeout=5000');
 		$pdo->exec('PRAGMA foreign_keys=OFF');
 		WireDatabaseSQLiteTranslator::registerFunctions($pdo, self::databaseFile($this->wire()->config));
+		$this->fulltext = $this->setting('fulltext', true) !== false && WireDatabaseSQLiteTranslator::setupFulltext($pdo);
+		if($this->translator !== null) $this->translator->setFulltext($this->fulltext);
+		// fold indexes, when turned on (see WireDatabaseSQLiteTranslator::setFoldIndex()): added or removed to match
+		$this->foldIndex = $this->setting('foldIndex', false) === true;
+		WireDatabaseSQLiteTranslator::syncFoldIndexes($pdo, $this->foldIndex);
+		if($this->translator !== null) $this->translator->setFoldIndex($this->foldIndex);
+		// planner statistics: without them SQLite often leaves the indexes that serve a query unused
+		$this->initStatistics($pdo);
+	}
+
+	/**
+	 * PDO connections whose optimize() is registered to run at shutdown, by spl_object_id()
+	 *
+	 * @var array
+	 *
+	 */
+	protected static $optimizeRegistered = [];
+
+	/**
+	 * Gather planner statistics for a database that has none, and keep them current as SQLite advises
+	 *
+	 * A database without statistics (sqlite_stat1), i.e. one created before this or just installed, gets a full
+	 * ANALYZE on connecting (about 0.7 seconds for 20,000 pages, once). After that, optimize() runs when each
+	 * request ends, which analyzes again the tables whose size has changed a lot. ANALYZE TABLE (MySQL syntax)
+	 * gathers them for given tables at any time, i.e. after a large import.
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	protected function initStatistics(\PDO $pdo) {
+		try {
+			$tables = (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'")->fetchColumn();
+			$stats = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_stat1'")->fetchColumn();
+			if($tables && !$stats) $pdo->exec('ANALYZE');
+		} catch(\Exception $e) {
+			// statistics only affect how fast queries are
+		}
+		$id = spl_object_id($pdo);
+		if(isset(self::$optimizeRegistered[$id])) return;
+		self::$optimizeRegistered[$id] = true;
+		$dialect = $this;
+		register_shutdown_function(function() use($dialect, $pdo) { $dialect->optimize($pdo); });
+	}
+
+	/**
+	 * Run PRAGMA optimize, which analyzes again the tables whose statistics are out of date (when a connection closes)
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	public function optimize(\PDO $pdo) {
+		try {
+			$pdo->exec('PRAGMA optimize');
+		} catch(\Exception $e) {
+			// i.e. the database is locked by another writer: statistics can wait for another request
+		}
 	}
 
 	/**
@@ -617,21 +691,26 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	}
 
 	/**
+	 * Supports FULLTEXT and MATCH ... AGAINST? Yes, with FTS5, in a database created with it (see WireDatabaseSQLiteTranslator::setupFulltext())
+	 *
+	 * Disable with $config->dbOptions['sqlite']['fulltext'] = false (before the database is created).
+	 *
 	 * @return bool
 	 *
 	 */
 	public function supportsFulltext() {
-		return false;
+		if($this->fulltext === null) $this->database->pdo(); // connects, see initConnection()
+		return $this->fulltext === true;
 	}
 
 	/**
-	 * Stopwords for the LIKE-based fulltext operators: MySQL's built-in list (as for MyISAM), whatever dbEngine is set
+	 * Stopwords: none when FTS5 is used (every word is indexed), otherwise MySQL's built-in list (as for MyISAM) for the LIKE-based operators
 	 *
 	 * @return array
 	 *
 	 */
 	public function fulltextStopwords() {
-		return DatabaseStopwords::getAll();
+		return $this->supportsFulltext() ? array() : DatabaseStopwords::getAll();
 	}
 
 	/**
@@ -917,6 +996,20 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 			}
 		}
 
+		// FULLTEXT keys are FTS5 tables (see WireDatabaseSQLiteTranslator::fulltextKeys())
+		foreach(WireDatabaseSQLiteTranslator::fulltextKeys($this->database->pdo(), $table) as $keyName => $info) {
+			foreach($info['columns'] as $n => $column) {
+				$rows[] = array(
+					'Table' => $table,
+					'Key_name' => $keyName,
+					'Non_unique' => 1,
+					'Seq_in_index' => $n + 1,
+					'Column_name' => $column,
+					'Index_type' => 'FULLTEXT',
+				);
+			}
+		}
+
 		usort($rows, function($a, $b) {
 			$result = strcmp($a['Key_name'], $b['Key_name']);
 			return $result === 0 ? $a['Seq_in_index'] - $b['Seq_in_index'] : $result;
@@ -935,6 +1028,9 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		$sql =
 			"SELECT name FROM sqlite_master " .
 			"WHERE type='table' AND name NOT LIKE 'sqlite\_%' ESCAPE '\' " .
+			// not FTS5 tables (and their shadow tables) or the fulltext marker, which are part of FULLTEXT keys
+			"AND instr(name, '" . WireDatabaseSQLiteTranslator::fulltextSeparator . "') = 0 " .
+			"AND name NOT IN ('" . WireDatabaseSQLiteTranslator::fulltextMarker . "', '" . WireDatabaseSQLiteTranslator::foldIndexMarker . "') " .
 			"ORDER BY name";
 		$query = $this->database->pdo()->query($sql);
 		$tables = $query->fetchAll(\PDO::FETCH_COLUMN);

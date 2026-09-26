@@ -4618,6 +4618,7 @@ class InstallerSQLitePDO extends InstallerSQLitePDOBase {
 		parent::exec('PRAGMA journal_mode=WAL');
 		WireDatabaseSQLiteTranslator::registerFunctions($this, $file);
 		$this->translator = new WireDatabaseSQLiteTranslator($this, pathinfo($file, PATHINFO_FILENAME));
+		$this->translator->setFulltext(WireDatabaseSQLiteTranslator::setupFulltext($this));
 	}
 
 	/**
