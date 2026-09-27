@@ -498,40 +498,54 @@ class InstallerAi {
 	public function testProvider(array $values) {
 
 		$anthropic = $values['provider'] !== self::providerOpenAI;
+		$endpoint = $anthropic ? $values['endpoint'] : $this->normalizeEndpoint($values['endpoint']);
+		$responses = !$anthropic && $this->isResponsesEndpoint($endpoint);
 
-		$payload = [
-			'model' => $values['model'],
-			'messages' => [['role' => 'user', 'content' => 'Hi']],
-		];
+		$payload = ['model' => $values['model']];
 
 		if($anthropic) {
-			$payload['max_tokens'] = 1;
+			$payload['messages'] = [['role' => 'user', 'content' => 'Hi']];
+			$payload['max_tokens'] = self::testMaxTokens;
 			$headers = [
 				'x-api-key: ' . $values['apiKey'],
 				'anthropic-version: 2023-06-01',
 				'content-type: application/json',
 			];
 		} else {
-			// Newer OpenAI models reject max_tokens and require max_completion_tokens. Most
-			// OpenAI-compatible providers accept either, and those that don't are retried below.
-			$payload['max_completion_tokens'] = self::testMaxTokens;
 			$headers = [
 				'Authorization: Bearer ' . $values['apiKey'],
 				'content-type: application/json',
 			];
+			if($responses) {
+				// the Responses API takes input rather than messages, and no token limit here
+				$payload['input'] = 'Hi';
+			} else {
+				$payload['messages'] = [['role' => 'user', 'content' => 'Hi']];
+				// Newer OpenAI models reject max_tokens and require max_completion_tokens, while
+				// older and self-hosted servers know only max_tokens; anything left is retried below.
+				$payload['max_completion_tokens'] = self::testMaxTokens;
+			}
 		}
 
-		$headers = array_merge($headers, $this->getSessionHeaders($values['endpoint']));
+		$headers = array_merge($headers, $this->getSessionHeaders($endpoint));
 
-		$response = $this->httpPost($values['endpoint'], $headers, json_encode($payload));
+		$response = $this->httpPost($endpoint, $headers, json_encode($payload));
 		$status = (int) $response['status'];
 
-		if($status === 400 && !$anthropic && stripos((string) $response['body'], 'max_completion_tokens') !== false) {
-			// an OpenAI-compatible provider that only knows the older parameter name
-			unset($payload['max_completion_tokens']);
-			$payload['max_tokens'] = self::testMaxTokens;
-			$response = $this->httpPost($values['endpoint'], $headers, json_encode($payload));
-			$status = (int) $response['status'];
+		if($status === 400 && isset($payload['max_completion_tokens'])) {
+			if(stripos((string) $response['body'], 'max_completion_tokens') !== false) {
+				// an OpenAI-compatible provider that only knows the older parameter name
+				unset($payload['max_completion_tokens']);
+				$payload['max_tokens'] = self::testMaxTokens;
+				$response = $this->httpPost($endpoint, $headers, json_encode($payload));
+				$status = (int) $response['status'];
+			}
+			if($status === 400) {
+				// still rejected: send no token limit at all, which is what AgentTools does
+				unset($payload['max_tokens'], $payload['max_completion_tokens']);
+				$response = $this->httpPost($endpoint, $headers, json_encode($payload));
+				$status = (int) $response['status'];
+			}
 		}
 
 		if($status >= 200 && $status < 300) {
@@ -559,6 +573,37 @@ class InstallerAi {
 		}
 
 		return ['ok' => false, 'error' => $error, 'status' => $status];
+	}
+
+	/**
+	 * Complete an OpenAI-compatible endpoint URL the way AgentTools does
+	 *
+	 * AgentTools appends the chat completions path to a base URL, and uses URLs that already
+	 * name a chat completions, responses or messages path as given. This must match it, so
+	 * that an endpoint AgentTools accepts also passes the installer's test.
+	 *
+	 * @param string $endpoint
+	 * @return string
+	 *
+	 */
+	protected function normalizeEndpoint($endpoint) {
+		$path = rtrim((string) parse_url($endpoint, PHP_URL_PATH), '/');
+		foreach(['/chat/completions', '/responses', '/messages'] as $known) {
+			if(substr($path, -strlen($known)) === $known) return $endpoint;
+		}
+		return rtrim($endpoint, '/') . '/chat/completions';
+	}
+
+	/**
+	 * Is this an OpenAI Responses API endpoint, which takes input rather than messages?
+	 *
+	 * @param string $endpoint
+	 * @return bool
+	 *
+	 */
+	protected function isResponsesEndpoint($endpoint) {
+		$path = rtrim((string) parse_url($endpoint, PHP_URL_PATH), '/');
+		return substr($path, -10) === '/responses';
 	}
 
 	/**
@@ -1133,6 +1178,7 @@ class InstallerAi {
 			"would like to build and it will create the fields, templates, pages and files for your site."
 		);
 		$installer->btn('What would you like to build?', ['value' => 1, 'icon' => 'magic', 'href' => $url]);
+		$installer->p("You can also find this in the admin at: Setup / Agent Tools / Site Builder.");
 		$installer->sectionStop();
 	}
 
