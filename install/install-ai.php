@@ -421,8 +421,11 @@ class InstallerAi {
 			return false;
 		}
 
-		if(stripos($values['endpoint'], 'https://') !== 0) {
-			$this->providerStep($values, 'The endpoint URL must begin with https://');
+		if(stripos($values['endpoint'], 'https://') !== 0 && !$this->isLocalEndpoint($values['endpoint'])) {
+			$this->providerStep($values,
+				'The endpoint URL must begin with https://, so that your API key is not sent in plain text. ' .
+				'Only a local model running on this machine may use http://'
+			);
 			return false;
 		}
 
@@ -573,6 +576,23 @@ class InstallerAi {
 		}
 
 		return ['ok' => false, 'error' => $error, 'status' => $status];
+	}
+
+	/**
+	 * Is this endpoint a model running on this machine?
+	 *
+	 * Mainstream providers are all reached over HTTPS. A local model server such as Ollama or
+	 * LM Studio typically isn't, so http:// is accepted for loopback addresses only: there the
+	 * request never leaves the machine, so the API key cannot be read off the network.
+	 *
+	 * @param string $endpoint
+	 * @return bool
+	 *
+	 */
+	protected function isLocalEndpoint($endpoint) {
+		if(stripos($endpoint, 'http://') !== 0) return false;
+		$host = strtolower(trim((string) parse_url($endpoint, PHP_URL_HOST), '[]'));
+		return in_array($host, ['localhost', '127.0.0.1', '::1'], true);
 	}
 
 	/**
