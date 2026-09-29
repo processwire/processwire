@@ -355,6 +355,162 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * @return PageArray|null
 	 * 
 	 */
+	/**
+	 * Get the selector that getSelectablePages() would use, or null when it cannot be
+	 * expressed as one
+	 * 
+	 * Returned as an array of [ 'selector' => string, 'parent' => Page|null ] where a
+	 * non-null 'parent' means the selector is relative to that page's children.
+	 * 
+	 * Returns null for the modes that do not correspond to a find: config mode, render
+	 * value / locked modes (which return the current value), findPagesCode (arbitrary
+	 * PHP), and the unconfigured case (which intentionally selects nothing).
+	 * 
+	 * This exists so that getSelectablePages() and getSelectablePagesRaw() cannot drift
+	 * apart: both derive their selector from here.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param string $filterSelector
+	 * @return array|null
+	 * @since 3.0.271
+	 * 
+	 */
+	protected function getSelectablePagesSelector(Page $page, $filterSelector = '') {
+		
+		$pages = $this->wire()->pages;
+		$lockedModes = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked, Inputfield::collapsedBlankLocked);
+		$statusUnder = $this->allowUnpub ? Page::statusTrash : Page::statusUnpublished;
+		$templateIDs = $this->getTemplateIDs(true);
+		$findPagesSelector = $this->getSetting('findPagesSelector');
+		if(empty($findPagesSelector)) $findPagesSelector = $this->getSetting('findPagesSelect');
+		
+		if($this->configMode) return null;
+		if($this->renderValueMode || in_array($this->getSetting('collapsed'), $lockedModes)) return null;
+		
+		// note: core checks findPagesSelector before findPagesCode, so a field
+		// configured with both uses the selector — order preserved here
+		if($findPagesSelector) {
+			if($this->processInputMode) {
+				$instance = $this;
+			} else if(strpos($findPagesSelector, '=page.') || strpos($findPagesSelector, '=item.')) {
+				$instance = $this;
+			} else {
+				$instance = null;
+			}
+			$selector = self::populateFindPagesSelector($page, $findPagesSelector, $instance);
+			if($templateIDs) $selector = trim("$selector, templates_id=$templateIDs", ", ");
+			if($this->parent_id) $selector = trim("$selector, parent_id=$this->parent_id", ", ");
+			if($filterSelector) $selector .= ", $filterSelector";
+			return array('selector' => $selector, 'parent' => null);
+			
+		} else if($this->findPagesCode) {
+			return null; // arbitrary PHP, not expressible as a selector
+			
+		} else if($this->parent_id) {
+			$parent = $pages->get($this->parent_id);
+			if(!$parent || !$parent->id) return null;
+			if($templateIDs) {
+				$selector = "templates_id=$templateIDs, check_access=0, status<$statusUnder";
+			} else {
+				$selector = "check_access=0, status<$statusUnder";
+			}
+			if($filterSelector) $selector .= ", $filterSelector";
+			return array('selector' => $selector, 'parent' => $parent);
+			
+		} else if($templateIDs) {
+			$selector = "templates_id=$templateIDs, check_access=0, status<$statusUnder";
+			if($filterSelector) $selector .= ", $filterSelector";
+			return array('selector' => $selector, 'parent' => null);
+		}
+		
+		return null;
+	}
+
+	/**
+	 * Can selectable pages be loaded as raw rows rather than Page objects?
+	 * 
+	 * Only true where the raw path is provably equivalent to getSelectablePages():
+	 * the label must come from a single field (no labelFieldFormat, which needs
+	 * Page::getMarkup), the selection must be expressible as a selector, and nothing
+	 * may be hooking the methods that would otherwise receive Page objects.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return bool
+	 * @since 3.0.271
+	 * 
+	 */
+	protected function allowSelectablePagesRaw() {
+		if(strlen((string) $this->labelFieldFormat) && $this->labelFieldName === '.') return false;
+		if($this->findPagesCode && !$this->getSetting('findPagesSelector') && !$this->getSetting('findPagesSelect')) return false;
+		$hooks = $this->wire()->hooks;
+		if($hooks->isHooked('InputfieldPage::getSelectablePages()')) return false;
+		if($hooks->isHooked('InputfieldPage::renderPageLabel()')) return false;
+		return true;
+	}
+
+	/**
+	 * Get selectable pages as raw rows: array of [ id => label ]
+	 * 
+	 * Equivalent to iterating getSelectablePages() and calling getPageLabel() on each,
+	 * but loads one row per page rather than a full Page object. Returns null when the
+	 * raw path does not apply, in which case the caller must fall back.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param string $filterSelector
+	 * @return array|null
+	 * @since 3.0.271
+	 * 
+	 */
+	protected function getSelectablePagesRaw(Page $page, $filterSelector = '') {
+		
+		if(!$this->allowSelectablePagesRaw()) return null;
+		
+		$info = $this->getSelectablePagesSelector($page, $filterSelector);
+		if($info === null) return null;
+		
+		$selector = $info['selector'];
+		if($info['parent'] instanceof Page) {
+			// getSelectablePages() uses $parent->children(), which sorts by the parent's
+			// configured sortfield. Apply the same, or the option order changes.
+			$selector = "parent_id=" . $info['parent']->id . ", $selector";
+			if(strpos($selector, 'sort=') === false) {
+				$selector .= ", sort=" . $info['parent']->sortfield();
+			}
+		}
+		
+		$labelFieldName = (string) $this->labelFieldName;
+		$labelField = ($labelFieldName !== '' && $labelFieldName !== '.') ? $labelFieldName : 'title';
+		$fields = array('name', 'status', $labelField);
+		
+		$rows = $this->wire()->pages->findRaw($selector, $fields);
+		if(!is_array($rows)) return null;
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$unpublishedLabel = $this->_('(unpublished)');
+		$a = array();
+		
+		foreach($rows as $id => $row) {
+			$id = (int) $id;
+			if($id === $page->id) continue; // don't allow page being edited to be selected
+			$label = '';
+			if($labelFieldName !== '.') {
+				$label = isset($row[$labelField]) ? $row[$labelField] : '';
+				if(is_array($label)) $label = reset($label);
+				$label = (string) $label;
+			}
+			if(!strlen($label)) $label = isset($row['name']) ? (string) $row['name'] : '';
+			if(((int) $row['status']) & Page::statusUnpublished) $label .= ' ' . $unpublishedLabel;
+			$a[$id] = $sanitizer->markupToLine($label);
+		}
+		
+		return $a;
+	}
+
 	public function ___getSelectablePages(Page $page, $filterSelector = '') {
 	
 		$pages = $this->wire()->pages;
@@ -377,45 +533,22 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				$children = $pages->newPageArray();
 			}
 			
-		} else if($findPagesSelector) { 
-			// a find() selector
-			if($this->processInputMode) {
-				$instance = $this;
-			} else if(strpos($findPagesSelector, '=page.') || strpos($findPagesSelector, '=item.')) {
-				$instance = $this;
-			} else {
-				$instance = null;
-			}
-			$selector = self::populateFindPagesSelector($page, $findPagesSelector, $instance);
-			if($templateIDs) $selector = trim("$selector, templates_id=$templateIDs", ", "); 
-			if($this->parent_id) $selector = trim("$selector, parent_id=$this->parent_id", ", "); 
-			if($filterSelector) $selector .= ", $filterSelector";
-			$children = $pages->find($selector); 
-
-		} else if($this->findPagesCode) {
+		} else if($this->findPagesCode && !$findPagesSelector) {
 			// php statement that returns a PageArray or a Page (to represent a parent)
 			$children = $this->findPagesCode($page);
 			if($children instanceof Page) $children = $children->children($filterSelector); // @teppokoivula
 
-		} else if($this->parent_id) {
-			$parent = $pages->get($this->parent_id); 
-			if($parent) {
-				if($templateIDs) {
-					$selector = "templates_id=$templateIDs, check_access=0, status<$statusUnder";
-				} else {
-					$selector = "check_access=0, status<$statusUnder";
-				}
-				if($filterSelector) $selector .= ", $filterSelector";
-				$children = $parent->children($selector);
-			}
-
-		} else if($templateIDs) {
-			$selector = "templates_id=$templateIDs, check_access=0, status<$statusUnder";
-			if($filterSelector) $selector .= ", $filterSelector";
-			$children = $pages->find($selector); 
-
 		} else {
-			$children = $pages->newPageArray();
+			// all remaining modes are expressible as a selector, and are built by
+			// getSelectablePagesSelector() so that the raw variant cannot diverge
+			$info = $this->getSelectablePagesSelector($page, $filterSelector);
+			if($info === null) {
+				$children = $pages->newPageArray();
+			} else if($info['parent'] instanceof Page) {
+				$children = $info['parent']->children($info['selector']);
+			} else {
+				$children = $pages->find($info['selector']);
+			}
 		}
 	
 		if($children && $children->has($page)) {
@@ -740,12 +873,23 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				}
 			}
 			
-			$children = $this->getSelectablePages($page);
+			// Load option labels as raw rows where that is provably equivalent, so a
+			// field with many selectable pages does not load one Page object per
+			// option. Falls back to the PageArray path whenever it does not apply.
+			$rawOptions = $this->getSelectablePagesRaw($page);
 			
-			if($children) {
-				foreach($children as $child) {
-					$label = $this->getPageLabel($child);
-					$inputfield->addOption($child->id, $label);
+			if($rawOptions !== null) {
+				foreach($rawOptions as $optionID => $optionLabel) {
+					$inputfield->addOption($optionID, $optionLabel);
+				}
+			} else {
+				$children = $this->getSelectablePages($page);
+				
+				if($children) {
+					foreach($children as $child) {
+						$label = $this->getPageLabel($child);
+						$inputfield->addOption($child->id, $label);
+					}
 				}
 			}
 			
