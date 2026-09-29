@@ -3057,12 +3057,13 @@ SQL;
 	 */
 	protected function tableSchema($table) {
 		if(isset($this->schema[$table])) return $this->schema[$table];
-		$facts = ['primary' => [], 'identity' => null, 'columns' => [], 'notnull' => []];
+		$facts = ['primary' => [], 'identity' => null, 'columns' => [], 'notnull' => [], 'lengths' => []];
 		if($this->pdo()) {
 			$primary = [];
 			foreach($this->getColumnTypes($table) as $name => $info) {
 				$facts['columns'][$name] = $info['pgType'];
 				if($info['notnull']) $facts['notnull'][$name] = true;
+				if($info['length']) $facts['lengths'][$name] = $info['length'];
 				if($info['identity'] && $facts['identity'] === null) $facts['identity'] = $name;
 				if($info['primary'] !== null) $primary[$info['primary']] = $name;
 			}
@@ -3267,6 +3268,18 @@ SQL;
 				$out[] = ['word', $tokens[$r][0] === 'param' ? self::zeroDateParam($tokens[$r][1], $schema['columns'][$column]) : 'NULL'];
 				$i = $r;
 				continue;
+			}
+			if($assignment && $class === 'text' && $r > -1 && ($value = $this->lengthValue($tokens[$r], $schema, $column)) !== null) {
+				// SET col = value: a value for a VARCHAR(n) or CHAR(n) column is cut to its length, as MySQL does,
+				// when it is the whole value (not the start of an expression)
+				$after = $this->next($tokens, $r + 1);
+				if($after < 0 || ($tokens[$after][0] === 'punct' && $tokens[$after][1] === ',') || ($tokens[$after][0] === 'word' && $this->isWord($tokens[$after], ['WHERE', 'ORDER', 'LIMIT', 'RETURNING']))) {
+					foreach($colTokens as $ct) $out[] = $ct;
+					for($x = $end; $x < $r; $x++) $out[] = $tokens[$x];
+					$out[] = ['word', $value];
+					$i = $r;
+					continue;
+				}
 			}
 			if($class === 'datetime' && !$assignment && $r > -1 && $tokens[$r][0] === 'str' && self::isZeroDate($tokens[$r][1])) {
 				// MySQL's zero date is NULL here: = and <= match it, != and > match every other date
@@ -3474,7 +3487,7 @@ SQL;
 	 */
 	protected function getColumnTypes($table) {
 		$rows = $this->catalogRows(
-			"SELECT a.attname AS column_name, format_type(a.atttypid, NULL) AS data_type, a.attidentity <> '' AS is_identity, a.attnotnull AS not_null, " .
+			"SELECT a.attname AS column_name, format_type(a.atttypid, NULL) AS data_type, format_type(a.atttypid, a.atttypmod) AS full_type, a.attidentity <> '' AS is_identity, a.attnotnull AS not_null, " .
 			"array_position(i.indkey::int2[], a.attnum) AS pk FROM pg_attribute a " .
 			"JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace " .
 			"LEFT JOIN pg_index i ON i.indrelid = c.oid AND i.indisprimary " .
@@ -3491,6 +3504,7 @@ SQL;
 				'identity' => in_array($row['is_identity'], [true, 't', '1', 1], true),
 				'primary' => $row['pk'] === null ? null : (int) $row['pk'],
 				'notnull' => in_array($row['not_null'], [true, 't', '1', 1], true),
+				'length' => preg_match('/^(?:character varying|character)\((\d+)\)$/', (string) $row['full_type'], $m) ? (int) $m[1] : 0, // VARCHAR(n), CHAR(n)
 			];
 		}
 		return $types;
@@ -4446,6 +4460,41 @@ SQL;
 	}
 
 	/**
+	 * Get the lengths of a table's VARCHAR(n) and CHAR(n) columns
+	 *
+	 * @param string $table
+	 * @return array [ column => n ]
+	 *
+	 */
+	public function columnLengths($table) {
+		$schema = $this->tableSchema($table);
+		return isset($schema['lengths']) ? $schema['lengths'] : [];
+	}
+
+	/**
+	 * Get a value (a bound value or a string literal) cut to its column's length, for a VARCHAR(n) or CHAR(n) column
+	 *
+	 * PostgreSQL rejects a value longer than such a column ("value too long"), where MySQL, in ProcessWire's
+	 * default SQL modes, stores its first n characters. `left()` gives it those. Returns null for other columns
+	 * and other values (i.e. an expression, which is left as it is).
+	 *
+	 * @param array $token The value's token
+	 * @param array $schema The table's schema (see tableSchema())
+	 * @param string $column
+	 * @return string|null
+	 *
+	 */
+	protected function lengthValue(array $token, array $schema, $column) {
+		if($token[0] !== 'param' && $token[0] !== 'str') return null;
+		$length = isset($schema['lengths'][$column]) ? (int) $schema['lengths'][$column] : 0;
+		if(!$length && isset($schema['columns'][$column]) && preg_match('/^(?:character varying|varchar|character|char)\s*\((\d+)\)/i', $schema['columns'][$column], $m)) {
+			$length = (int) $m[1]; // (a type given with its length, i.e. by setSchemaCache())
+		}
+		if(!$length) return null;
+		return 'left((' . $this->join([$token]) . ")::text, $length)";
+	}
+
+	/**
 	 * Replace MySQL's zero dates with NULL where an INSERT or REPLACE gives them to a date column
 	 *
 	 * Values in VALUES rows (by the column list, or the table's column order), and assignments in `SET` and
@@ -4468,8 +4517,14 @@ SQL;
 		$schema = $this->tableSchema($this->name($tokens[$ti]));
 		if(!count($schema['columns'])) return $tokens;
 		$fix = function($k, $col) use(&$tokens, $schema) {
-			if($k < 0 || $col === null || !isset($schema['columns'][$col]) || $this->typeClass($schema['columns'][$col]) !== 'datetime') return;
+			if($k < 0 || $col === null || !isset($schema['columns'][$col])) return;
 			$t = $tokens[$k];
+			if($this->typeClass($schema['columns'][$col]) !== 'datetime') {
+				// a value for a VARCHAR(n) or CHAR(n) column is cut to its length, as MySQL does (see lengthValue())
+				$value = $this->lengthValue($t, $schema, $col);
+				if($value !== null) $tokens[$k] = ['word', $value];
+				return;
+			}
 			if($t[0] === 'str' && self::isZeroDate($t[1])) {
 				$tokens[$k] = ['word', 'NULL'];
 			} else if($t[0] === 'param') {

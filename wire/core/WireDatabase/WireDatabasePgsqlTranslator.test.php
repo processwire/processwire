@@ -25,6 +25,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->testFolding();
 		$this->testJson();
 		$this->testGaps();
+		$this->testVarcharLength();
 		$this->testFulltext();
 		$this->testPlaceholderCache();
 		$this->testPersistentCache();
@@ -177,6 +178,27 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('JSON functions left alone again when unavailable', $sql, $t($sql));
 	}
 
+	/**
+	 * A value written to a VARCHAR(n) or CHAR(n) column is cut to n characters, as MySQL does in ProcessWire's
+	 * default SQL modes, where PostgreSQL would reject it ("value too long")
+	 *
+	 */
+	protected function testVarcharLength() {
+		$tr = new WireDatabasePgsqlTranslator();
+		$t = function($sql) use($tr) { return $tr->translateStatements($sql); };
+		$tr->setSchemaCache([
+			'v' => ['primary' => ['id'], 'identity' => null, 'columns' => ['id' => 'integer', 'code' => 'character varying(10)', 'fixed' => 'character(3)', 'name' => 'text', 'any' => 'character varying']],
+		]);
+		$this->check('INSERT: a bound value for a VARCHAR(n) column', 'INSERT INTO v (id, code, name) VALUES (:id, left((:c)::text, 10), :n)', $t('INSERT INTO v (id, code, name) VALUES (:id, :c, :n)')[0]);
+		$this->check('INSERT: a literal for a VARCHAR(n) column', "INSERT INTO v (id, code) VALUES (1, left(('abcdefghijklmnop')::text, 10))", $t("INSERT INTO v (id, code) VALUES (1, 'abcdefghijklmnop')")[0]);
+		$this->check('INSERT: a CHAR(n) column', 'INSERT INTO v (id, fixed) VALUES (:id, left((:f)::text, 3))', $t('INSERT INTO v (id, fixed) VALUES (:id, :f)')[0]);
+		$this->check('INSERT: text, and VARCHAR without a length, are left alone', 'INSERT INTO v (name, any) VALUES (:n, :a)', $t('INSERT INTO v (name, any) VALUES (:n, :a)')[0]);
+		$this->check('INSERT SET', true, strpos(implode(';', $t('INSERT INTO v SET id=1, code=:c')), 'left((:c)::text, 10)') !== false);
+		$this->check('ON DUPLICATE KEY UPDATE', true, strpos(implode(';', $t('INSERT INTO v (id, code) VALUES (1, :c) ON DUPLICATE KEY UPDATE code=:c2')), 'code=left((:c2)::text, 10)') !== false);
+		$this->check('UPDATE SET: a bound value', 'UPDATE v SET code=left((:c)::text, 10), name=:n WHERE id=1', $t('UPDATE v SET code=:c, name=:n WHERE id=1')[0]);
+		$this->check('UPDATE SET: a literal', "UPDATE v SET code=left(('abcdefghijklmnop')::text, 10) WHERE id=1", $t("UPDATE v SET code='abcdefghijklmnop' WHERE id=1")[0]);
+		$this->check('a comparison is left alone', 'SELECT id FROM v WHERE code=:c', $t('SELECT id FROM v WHERE code=:c')[0]);
+	}
 	/**
 	 * ON UPDATE CURRENT_TIMESTAMP, zero dates, UPDATE ... JOIN, and constraints
 	 *

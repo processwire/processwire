@@ -810,10 +810,30 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 			foreach($list as $key => $value) $names[] = is_int($key) ? (string) $value : (string) $key;
 		}
 		if(!empty($options['conflict'])) $names = array_merge($names, $options['conflict']);
+		// values for VARCHAR(n) and CHAR(n) columns are cut to their length, as MySQL does in ProcessWire's
+		// SQL modes (this SQL is not translated, where WireDatabasePgsqlTranslator does it for other statements)
+		$lengths = $translator->columnLengths($table);
+		if(!empty($options['rows'])) {
+			$i = 0;
+			foreach($columns as $key => $value) {
+				$name = is_int($key) ? (string) $value : (string) $key;
+				if(isset($lengths[$name])) {
+					foreach($options['rows'] as $r => $row) {
+						if(isset($row[$i]) && is_string($row[$i])) $options['rows'][$r][$i] = mb_substr($row[$i], 0, $lengths[$name]);
+					}
+				}
+				$i++;
+			}
+		}
 		$translatedColumns = array();
 		foreach($columns as $key => $value) {
 			if(is_int($key)) {
-				$translatedColumns[] = $value;
+				$name = (string) $value;
+				if(isset($lengths[$name]) && empty($options['rows'])) {
+					$translatedColumns[$name] = 'left((:' . $this->database->escapeCol($name) . ")::text, $lengths[$name])";
+				} else {
+					$translatedColumns[] = $value;
+				}
 			} else {
 				$translatedColumns[$key] = $translator->upsertValueSql($value);
 			}

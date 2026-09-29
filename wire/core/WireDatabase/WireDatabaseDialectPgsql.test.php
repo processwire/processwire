@@ -23,6 +23,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$this->testFulltext();
 		$this->testFulltextUnderscores();
 		$this->testOnUpdateNoChange();
+		$this->testVarcharLength();
 		$this->testTranslationCache();
 	}
 
@@ -664,6 +665,37 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		$database->exec("UPDATE `$table` SET data = 'hello there'");
 		$this->check('an UPDATE that changes the row sets it', true, $modified() !== '2020-01-02 03:04:05');
 		$database->exec("DROP TABLE IF EXISTS `$table`");
+	}
+
+	/**
+	 * A value too long for a VARCHAR(n) column is cut to n characters, as MySQL does in ProcessWire's modes (live, pgsql only)
+	 *
+	 */
+	protected function testVarcharLength() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'pgsql') return;
+		$table = WireTests::fieldPrefix . 'pgsql_varchar';
+		$long = str_repeat('é', 25);
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$database->exec("CREATE TABLE `$table` (`id` int unsigned NOT NULL, `code` varchar(10) NOT NULL DEFAULT '', PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+		$code = function() use($database, $table) { return $database->query("SELECT code FROM `$table` WHERE id=1")->fetchColumn(); };
+		try {
+			$query = $database->prepare("INSERT INTO `$table` (id, code) VALUES (1, :code)");
+			$query->bindValue(':code', $long);
+			$query->execute();
+			$this->check('INSERT of 25 characters into VARCHAR(10): the first 10', str_repeat('é', 10), $code());
+			$database->exec("UPDATE `$table` SET code='abcdefghijklmnopqrstuvwxy' WHERE id=1");
+			$this->check('UPDATE with 25 characters: the first 10', 'abcdefghij', $code());
+			$query = $database->prepare($database->dialect()->upsert($table, ['id', 'code'], ['code'], ['conflict' => ['id']]));
+			$query->bindValue(':id', 1);
+			$query->bindValue(':code', 'zyxwvutsrqponmlkjihgfedcba');
+			$query->execute();
+			$this->check('upsert() with 26 characters: the first 10', 'zyxwvutsrq', $code());
+			$database->exec($database->dialect()->upsert($table, ['id', 'code'], ['code'], ['conflict' => ['id'], 'rows' => [[1, $long], [2, 'short']]]));
+			$this->check('upsert() rows: values cut to the first 10', [str_repeat('é', 10), 'short'], $database->query("SELECT code FROM `$table` ORDER BY id")->fetchAll(\PDO::FETCH_COLUMN));
+		} finally {
+			$database->exec("DROP TABLE IF EXISTS `$table`");
+		}
 	}
 
 	/**
