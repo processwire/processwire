@@ -114,7 +114,7 @@ ErrorDocument 404 /index.php
 # 5A. Block access to inc, info, info.json/php, module/php, sh, sql and composer files
 # -----------------------------------------------------------------------------------------------
 
-<FilesMatch "\.(inc|info|info\.(json|php)|module|module\.php|sh|sql)$|^\..*$|composer\.(json|lock)$">
+<FilesMatch "(?i)\.(inc|info|info\.(json|php)|module|module\.php|sh|sql)$|^\..*$|composer\.(json|lock)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>
@@ -127,7 +127,7 @@ ErrorDocument 404 /index.php
 # 5B. Block bak, conf, dist, ini, log, orig, sh, sql, sqlite, swo, swp, ~, and more
 # -----------------------------------------------------------------------------------------------
 
-<FilesMatch "(^#.*#|\.(bak|conf|dist|in[ci]|log|orig|sh|sql|sqlite3?(-wal|-shm|-journal)?|sw[op])|~)$">
+<FilesMatch "(?i)(^#.*#|\.(bak|conf|dist|in[ci]|log|orig|sh|sql|sqlite3?(-wal|-shm|-journal)?|sw[op])|~)$">
   <IfModule mod_authz_core.c>
      Require all denied
   </IfModule>
@@ -405,7 +405,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
   
   # Block access to any software identifying txt, markdown or textile files
-  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess)\.(txt|md|textile)$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx)\.(txt|md|textile)$ [NC,OR]
 
   # Block potential arbitrary backup files within site directories for things like config
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$ [NC,OR]

@@ -845,7 +845,7 @@ class Installer {
 		if($this->cli || empty($_SERVER['HTTP_HOST'])) {
 			$this->warn(
 				"The command line installer cannot check whether the SQLite database file is accessible from the web. " .
-				"If your web server does not support .htaccess files, $howToFix"
+				"If your web server does not use .htaccess files (or the directives in nginx.txt for nginx), $howToFix"
 			);
 			return;
 		}
@@ -873,7 +873,7 @@ class Installer {
 		} else if($status === 200 && is_string($data) && strpos($data, 'SQLite format 3') === 0) {
 			$this->alertErr(
 				"WARNING: The SQLite database file can be downloaded from the web at " . htmlspecialchars($url) . ". " .
-				"Your web server does not appear to support the .htaccess files that protect it. Please $howToFix"
+				"Your web server does not appear to use the .htaccess files (or the directives in nginx.txt for nginx) that protect it. Please $howToFix"
 			);
 			$this->numErrors--; // warn prominently, but do not stop the installation
 		} else {
@@ -1018,6 +1018,44 @@ class Installer {
 		if($this->ai !== null) $this->ai->welcomeButton();
 	}
 
+
+	/**
+	 * Is the web server nginx?
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function isNginx() {
+		if(isset($_SERVER['PW_NGINX_VERSION'])) return true;
+		$software = isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '';
+		return stripos($software, 'nginx') !== false;
+	}
+
+	/**
+	 * Check that the nginx configuration has the directives from nginx.txt
+	 *
+	 * The directives pass their version to PHP in a PW_NGINX_VERSION parameter.
+	 *
+	 */
+	protected function checkNginx() {
+		$version = isset($_SERVER['PW_NGINX_VERSION']) ? (int) $_SERVER['PW_NGINX_VERSION'] : 0;
+		$data = is_readable('./nginx.txt') ? file_get_contents('./nginx.txt') : '';
+		$available = preg_match('/@nginxVersion\s+(\d+)/', $data, $matches) ? (int) $matches[1] : 0;
+		if(!$version) {
+			$this->err(
+				"Your web server is nginx, but its configuration does not appear to have the ProcessWire directives " .
+				"from the included /nginx.txt file, which are required by ProcessWire. Please add them to your nginx " .
+				"server configuration and reload nginx, then click the 'check again' button at the bottom of this screen."
+			);
+		} else if($version < $available) {
+			$this->warn(
+				"Found ProcessWire nginx directives version $version, but /nginx.txt has version $available. " .
+				"We recommend updating your nginx server configuration with the directives from /nginx.txt."
+			);
+		} else {
+			$this->ok("Found ProcessWire nginx directives (version $version)");
+		}
+	}
 
 	/**
 	 * Check if the given function $name exists and report OK or fail with $label
@@ -1265,7 +1303,11 @@ class Installer {
 		$this->checkFunction("hash", "HASH support"); 
 		$this->checkFunction("spl_autoload_register", "SPL support"); 
 
-		if(!$this->cli) {
+		$nginx = !$this->cli && $this->isNginx();
+
+		if($nginx) {
+			$this->checkNginx();
+		} else if(!$this->cli) {
 			if(function_exists('apache_get_modules')) {
 				if(in_array('mod_rewrite', apache_get_modules())) $this->ok("Found Apache module: mod_rewrite");
 					else $this->err("Apache 'mod_rewrite' module does not appear to be installed and is required by ProcessWire.");
@@ -1331,7 +1373,9 @@ class Installer {
 			$this->err("Site profile is missing a /site/config.php file.");
 		}
 		
-		if(!is_file("./.htaccess") || !is_readable("./.htaccess")) {
+		if($nginx) {
+			// nginx does not use .htaccess files, see checkNginx()
+		} else if(!is_file("./.htaccess") || !is_readable("./.htaccess")) {
 			if(@rename("./htaccess.txt", "./.htaccess")) {
 				$this->ok("Installed .htaccess");
 			} else {

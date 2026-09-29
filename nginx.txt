@@ -1,0 +1,538 @@
+#################################################################################################
+# START PROCESSWIRE NGINX DIRECTIVES
+# @version 3.0
+# @nginxVersion 301
+#################################################################################################
+#
+# This is the nginx equivalent of ProcessWire's htaccess.txt file. Sections are numbered the
+# same as in htaccess.txt so that the two files can be compared. Section numbers that do not
+# apply to nginx are listed with a note explaining why.
+#
+# Installing
+# -----------------------------------------------------------------------------------------------
+# nginx does not read per-directory files like .htaccess, so the directives below must go in
+# your nginx server configuration, and nginx must be reloaded after any change to it. This file
+# is a complete "server" block. Either use it as the server block for your site, or copy the
+# directives within it into your existing server block. Then edit the lines marked (E) to match
+# your server. To find them, search this file for all instances of "(E)".
+#
+# The access restrictions in sections 5, 12 and 15 are at the server level rather than within
+# "location" blocks. This ensures they apply to every request, including requests matched by
+# any location blocks that you (or your hosting control panel) add. Keep them at the server level.
+#
+# If ProcessWire is installed in a subdirectory, see section 19.
+#
+# Upgrading
+# -----------------------------------------------------------------------------------------------
+# The @nginxVersion at the top of this file matches the @htaccessVersion in htaccess.txt, and
+# is passed to PHP in section 21. ProcessWire uses it to tell you when your nginx configuration
+# is out of date. When updating, replace sections 5, 12 and 15, and update the version in
+# section 21. Sections tagged "(v301)" are new or have significant changes.
+#
+# Optional features
+# -----------------------------------------------------------------------------------------------
+# Many of the directives in this file are optional and commented out by default. To quickly
+# locate them, search this file for all instances of "(O)".
+#
+# If using a load balancer or proxy
+# -----------------------------------------------------------------------------------------------
+# If nginx is behind a load balancer or proxy (like those available from AWS) some directives
+# will need to change. Search this file for instances of "(L)" for details.
+#
+
+server {
+
+  # -----------------------------------------------------------------------------------------------
+  # 0. Server settings (E)
+  # -----------------------------------------------------------------------------------------------
+
+  listen 80;
+  # listen 443 ssl;
+  # ssl_certificate /path/to/fullchain.pem;
+  # ssl_certificate_key /path/to/privkey.pem;
+
+  # Your domain name(s)
+  server_name example.com www.example.com;
+
+  # The directory where ProcessWire is installed (where its index.php file is)
+  root /var/www/example.com;
+
+  # Maximum size of a request body, which limits the size of file uploads. The nginx default is
+  # only 1 MB, which is too small for most sites. Make this at least as large as your PHP
+  # upload_max_filesize and post_max_size settings.
+  client_max_body_size 128m;
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 1. Server options
+  #
+  # nginx does not show directory indexes unless "autoindex on" is set, and it follows symbolic
+  # links unless "disable_symlinks" is set, so neither needs a directive here.
+  # -----------------------------------------------------------------------------------------------
+
+  # Character encoding: Serve text/html or text/plain as UTF-8
+  charset utf-8;
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 2. Have ProcessWire handle 404s
+  #
+  # Requests for files and directories that do not exist are passed to ProcessWire (section 19),
+  # so ProcessWire handles 404s without an "error_page" directive.
+  # -----------------------------------------------------------------------------------------------
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 3. Handle request for missing favicon.ico/robots.txt files
+  #
+  # Requests for missing favicon.ico and robots.txt files get a plain 404 rather than being
+  # passed to ProcessWire. See section 17.
+  # -----------------------------------------------------------------------------------------------
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 4. Protect from XSS with headers
+  #
+  # Note: nginx only inherits "add_header" directives from the server level when a location
+  # block has none of its own. If you add an "add_header" to any location block, repeat these
+  # headers within that location block too.
+  # -----------------------------------------------------------------------------------------------
+
+  # prevent site from being loaded in an iframe on another site
+  # you will need to remove this one if you want to allow external iframes
+  add_header X-Frame-Options SAMEORIGIN always;
+
+  # To prevent cross site scripting (IE8+ proprietary), see link before using:
+  # https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-XSS-Protection
+  # add_header X-XSS-Protection "1; mode=block" always;
+
+  # Optionally (O) prevent mime-based attacks via content sniffing (IE+Chrome)
+  # add_header X-Content-Type-Options "nosniff" always;
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 5. Prevent access to various types of files (v301)
+  #
+  # Note that some of these rules are duplicated by the rules in section 15, as we try to
+  # maintain two layers of protection when/where possible.
+  # -----------------------------------------------------------------------------------------------
+
+  # 5A. Block access to inc, info, info.json/php, module/php, sh, sql and composer files
+  # -----------------------------------------------------------------------------------------------
+
+  if ($uri ~* "\.(inc|info|info\.(json|php)|module|module\.php|sh|sql)$|/\.[^/]*$|composer\.(json|lock)$") {
+    return 403;
+  }
+
+  # 5B. Block bak, conf, dist, ini, log, orig, sh, sql, sqlite, swo, swp, ~, and more
+  # -----------------------------------------------------------------------------------------------
+
+  if ($uri ~* "(/#[^/]*#|\.(bak|conf|dist|in[ci]|log|orig|sh|sql|sqlite3?(-wal|-shm|-journal)?|sw[op])|~)$") {
+    return 403;
+  }
+
+  # 5C. Block AI agent and API markdown files at all directory levels
+  # -----------------------------------------------------------------------------------------------
+
+  if ($uri ~* "/(AGENTS?|CLAUDE|SKILLS?|MEMORY|API)\.md$") {
+    return 403;
+  }
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 6. Override a few PHP settings that can't be changed at runtime
+  #
+  # Not applicable to nginx. Use your PHP-FPM pool configuration or a .user.ini file instead.
+  # -----------------------------------------------------------------------------------------------
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 7. Set default directory index files
+  # -----------------------------------------------------------------------------------------------
+
+  index index.php index.html index.htm;
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 8. Enable rewrites
+  #
+  # Not applicable to nginx, where rewriting is built in. The installer detects this ProcessWire
+  # configuration by the PW_NGINX_VERSION parameter in section 21 (rather than the Apache 8B
+  # environment variable).
+  # -----------------------------------------------------------------------------------------------
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 9. Optionally Force HTTPS (O)
+  #
+  # If on a load balancer or proxy setup, you will likely need to use 9B rather than 9A.
+  # -----------------------------------------------------------------------------------------------
+
+  # 9A. To redirect HTTP requests to HTTPS, uncomment the lines below:
+  # -----------------------------------------------------------------------------------------------
+  # if ($scheme = http) {
+  #   return 301 https://$host$request_uri;
+  # }
+
+  # 9B. If using load balancer/AWS or behind proxy, use the following rather than 9A above: (L)
+  # -----------------------------------------------------------------------------------------------
+  # if ($http_x_forwarded_proto = http) {
+  #   return 301 https://$host$request_uri;
+  # }
+
+  # 9C. If using Let's Encrypt webroot or similar certificate validation, you may need to let
+  # validation requests through before redirecting to HTTPS. Uncomment the location below:
+  # -----------------------------------------------------------------------------------------------
+  # location ^~ /.well-known/acme-challenge/ {
+  #   try_files $uri =404;
+  # }
+  #
+  # When the 9A or 9B redirect is at the server level (as it is above), it runs before this
+  # location. So in that case, move the 9A or 9B lines into section 17's "location /" block
+  # and into the PHP location block in section 21, instead of at the server level.
+
+  # 9D. Store current scheme in a 'proto' environment variable for later use
+  # -----------------------------------------------------------------------------------------------
+  # Not needed for nginx, which provides it in the $scheme variable.
+
+  # 9E. If using load balancer/AWS or behind proxy, use $http_x_forwarded_proto rather than
+  # $scheme in section 13. (L)
+  # -----------------------------------------------------------------------------------------------
+
+  # 9F. Tell web browsers to only allow access via HSTS: Strict-Transport-Security (O) (v301)
+  # -----------------------------------------------------------------------------------------------
+  # This forces client-side SSL redirection. Before enabling be absolutely certain you can
+  # always serve via HTTPS because it becomes non-revokable for the duration of your max-age.
+  # See link below for details and options (note 'max-age=31536000' is 1-year):
+  # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+
+  # Uncomment one (1) line below & adjust as needed to enable Strict-Transport-Security (HSTS):
+  # add_header Strict-Transport-Security "max-age=31536000;" always;
+  # add_header Strict-Transport-Security "max-age=31536000; includeSubdomains" always;
+  # add_header Strict-Transport-Security "max-age=31536000; preload" always;
+  # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+
+  # Section 10 intentionally omitted for future use
+
+  # -----------------------------------------------------------------------------------------------
+  # 11. Nuisance blocking/firewall
+  # -----------------------------------------------------------------------------------------------
+  # None of these are enabled by default, but are here for convenience when the need arises.
+  # Review and uncomment as needed.
+  # -----------------------------------------------------------------------------------------------
+
+  # 11A. Block via IP addresses
+  # -----------------------------------------------------------------------------------------------
+  # Note that IP addresses here are examples only and should be replaced with actual IPs.
+
+  # Block single IP address
+  # deny 111.222.33.44;
+
+  # Block IP address range
+  # deny 99.88.77.0/24;
+
+  # 11B. Block via request URI (matches strings anywhere in request URL)
+  # -----------------------------------------------------------------------------------------------
+  # if ($uri ~* "(bad-word|wp-admin|wp-content)") {
+  #   return 403;
+  # }
+
+  # 11B. Block via user agent strings (matches strings anywhere in user-agent)
+  # -----------------------------------------------------------------------------------------------
+  # if ($http_user_agent ~* "(bad-bot|mean-bot)") {
+  #   return 403;
+  # }
+
+  # 11C. Block via remote hosts
+  # -----------------------------------------------------------------------------------------------
+  # Not available in nginx, which does not look up the host names of remote IP addresses.
+
+  # 11D. Block via HTTP referrer (matches anywhere in referrer URL)
+  # -----------------------------------------------------------------------------------------------
+  # if ($http_referer ~* "(bad-referrer|gross-referrer)") {
+  #   return 403;
+  # }
+
+  # 11E. Block unneeded request methods (only if you do not need them)
+  # -----------------------------------------------------------------------------------------------
+  # if ($request_method ~* "^(connect|debug|delete|move|put|trace|track)$") {
+  #   return 403;
+  # }
+
+  # 11F. Limit file upload size
+  # -----------------------------------------------------------------------------------------------
+  # See client_max_body_size in section 0.
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 12. Access Restrictions: Keep web users out of dirs or files that begin with a period,
+  # but let services like Lets Encrypt use the webroot authentication method.
+  # -----------------------------------------------------------------------------------------------
+
+  if ($uri ~ "/\.(?!well-known)") {
+    return 403;
+  }
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 13. Optional domain redirects (O)
+  #
+  # Redirect domain.com to www.domain.com redirect (or www to domain.com redirect).
+  # To use, uncomment either 13A or 13C. Do not use more than one of them. 13A redirects
+  # non-www hosts to www.domain.com, 13C redirects www.domain.com host to domain.com.
+  # -----------------------------------------------------------------------------------------------
+
+  # 13A. Redirect domain.com and *.domain.com to www.domain.com:
+  # -----------------------------------------------------------------------------------------------
+  # if ($host !~* "^www\.") {
+  #   return 301 $scheme://www.$host$request_uri;
+  # }
+
+  # 13B. Alternate www redirect
+  # -----------------------------------------------------------------------------------------------
+  # Not needed for nginx, use 13A.
+
+  # 13C. Redirect www.domain.com to domain.com (do not combine with 13A):
+  # -----------------------------------------------------------------------------------------------
+  # if ($host ~* "^www\.(.+)$") {
+  #   return 301 $scheme://$1$request_uri;
+  # }
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 14. Optionally send URLs with non-ASCII name-format characters to 404 page (optimization).
+  #
+  # See section 16, where this option is located for nginx.
+  # -----------------------------------------------------------------------------------------------
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 15. Access Restrictions (v301)
+  # -----------------------------------------------------------------------------------------------
+
+  # 15A. Keep http requests out of specific files and directories
+  # -----------------------------------------------------------------------------------------------
+
+  set $pw_deny 0;
+
+  # Block access to any htaccess or nginx.txt files
+  if ($uri ~* "(^|/)(\.htaccess|htaccess\..*|nginx\.txt)$") {
+    set $pw_deny 1;
+  }
+
+  # Block access to various assets directories
+  if ($uri ~* "(^|/)(site|site-[^/]+)/assets/(cache|logs|backups|sessions|config|database|install|tmp)($|/.*$)") {
+    set $pw_deny 1;
+  }
+
+  # Block access to the /site/install/ directories
+  if ($uri ~* "(^|/)(site|site-[^/]+)/install($|/.*$)") {
+    set $pw_deny 1;
+  }
+
+  # Block dirs in /site/assets/dirs that start with a hyphen (see config.pagefileSecure)
+  if ($uri ~* "(^|/)(site|site-[^/]+)/assets.*/-.+/.*") {
+    set $pw_deny 1;
+  }
+
+  # Block access to /wire/config.php, /site/config.php, /site/config-dev.php, /wire/index.config.php, etc.
+  if ($uri ~* "(^|/)(wire|site|site-[^/]+)/(config|index\.config|config-dev)\.php($|/)") {
+    set $pw_deny 1;
+  }
+
+  # Block access to any PHP-based files in /site/templates-admin/ or /wire/templates-admin/
+  if ($uri ~* "(^|/)(wire|site|site-[^/]+)/templates-admin($|/|/.*\.(php|html?|tpl|inc))($|/)") {
+    set $pw_deny 1;
+  }
+
+  # Block access to any PHP or markup files in /site/templates/ or /site-*/templates/
+  if ($uri ~* "(^|/)(site|site-[^/]+)/templates($|/|/.*\.(php|html?|tpl|inc))($|/)") {
+    set $pw_deny 1;
+  }
+
+  # Block access to any files in /site/classes/ or /site-*/classes/
+  if ($uri ~* "(^|/)(site|site-[^/]+)/classes($|/.*)") {
+    set $pw_deny 1;
+  }
+
+  # Block access to any PHP files within /site/assets/ and further
+  if ($uri ~* "(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/)") {
+    set $pw_deny 1;
+  }
+
+  # Block access to any PHP, module, inc or info files in core or core modules directories
+  if ($uri ~* "(^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)($|/)") {
+    set $pw_deny 1;
+  }
+
+  # Block access to any PHP, tpl or info.json files in /site/modules/ or /site-*/modules/
+  if ($uri ~* "(^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$") {
+    set $pw_deny 1;
+  }
+
+  # Block access to any software identifying txt, markdown or textile files
+  if ($uri ~* "(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx)\.(txt|md|textile)$") {
+    set $pw_deny 1;
+  }
+
+  # Block potential arbitrary backup files within site directories for things like config
+  if ($uri ~* "(^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$") {
+    set $pw_deny 1;
+  }
+
+  # Block access throughout to temporary files ending with tilde created by certain editors
+  if ($uri ~* "\.(html?|inc|json|lock|module|php|py|rb|sh|sql|tpl|tmpl|twig)~$") {
+    set $pw_deny 1;
+  }
+
+  # Block access to names of potential backup file extensions within wire or site directories
+  if ($uri ~* "(^|/)(wire/|site[-/]).+\.(bak|old|sql|sw[op]|(bak|php|sql)[./]+.*)[\d.]*$") {
+    set $pw_deny 1;
+  }
+
+  # Block all http access to the default/uninstalled site-default directory
+  if ($uri ~ "(^|/)site-default/") {
+    set $pw_deny 1;
+  }
+
+  # Prevent all the above rules from blocking images in site install directories
+  if ($uri ~ "(^|/)site-[^/]+/install/[^/]+\.(jpg|jpeg|png|gif|webp|svg)$") {
+    set $pw_deny 0;
+  }
+
+  # If any rules above match, issue a 403 forbidden
+  if ($pw_deny) {
+    return 403;
+  }
+
+  # 15B. Block archive file types commonly used for backup purposes (O)
+  # -----------------------------------------------------------------------------------------------
+  # This blocks requests for zip, rar, tar, gz, and tgz files that are sometimes left on servers
+  # as backup files, and thus can be problematic for security. This rule blocks those files
+  # unless they are located within the /site/assets/files/ directory. This is not enabled by
+  # default since there are many legitimate use cases for these files, so uncomment the lines
+  # below if you want to enable this.
+
+  # set $pw_archive 0;
+  # if ($uri ~* "\.(zip|rar|tar|gz|tgz)$") {
+  #   set $pw_archive 1;
+  # }
+  # if ($uri ~* "(^|/)(site|site-[^/]+)/assets/files/\d+/") {
+  #   set $pw_archive 0;
+  # }
+  # if ($pw_archive) {
+  #   return 403;
+  # }
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 17. If the request is for a file or directory that physically exists on the server,
+  # then don't give control to ProcessWire, and instead load the file
+  # -----------------------------------------------------------------------------------------------
+
+  location / {
+    try_files $uri $uri/ @processwire;
+  }
+
+
+  location @processwire {
+
+    # Requests for missing favicon.ico or robots.txt files get a plain 404
+    if ($uri ~ "(favicon\.ico|robots\.txt)") {
+      return 404;
+    }
+
+    # ---------------------------------------------------------------------------------------------
+    # 18. Optionally (O) prevent PW from serving some file types, or anything in /site/assets/.
+    # Both of these are optional, but can help to reduce server load. However, they are not
+    # compatible with the $config->pagefileSecure option (if enabled) and they produce an nginx
+    # 404 rather than your regular 404. You may uncomment the lines below if you don't need to
+    # use the $config->pagefileSecure option.
+    # ---------------------------------------------------------------------------------------------
+
+    # if ($uri ~* "\.(jpg|jpeg|gif|png|ico|webp|svg|js|css)$") {
+    #   return 404;
+    # }
+    # if ($uri ~ "(^|/)site/assets/") {
+    #   return 404;
+    # }
+
+    # PW-PAGENAME
+    # ---------------------------------------------------------------------------------------------
+    # 16A. Ensure that the URL follows the name-format specification required by PW
+    # See also directive 16B below, you should choose and use either 16A or 16B. A URL that does
+    # not match is passed to ProcessWire without a path, which responds with a 404.
+    # ---------------------------------------------------------------------------------------------
+
+    if ($uri !~ "^/~?[-_.a-zA-Z0-9/]*$") {
+      rewrite ^ /index.php last;
+    }
+
+    # ---------------------------------------------------------------------------------------------
+    # 16B. Alternative name-format specification for UTF8 page name support. (O)
+    # If used, comment out section 16A above and uncomment the lines below. If you have updated
+    # your $config->pageNameWhitelist make the characters below consistent with that.
+    # ---------------------------------------------------------------------------------------------
+
+    # if ($uri !~ "(*UTF8)^/~?[-_./a-zA-Z0-9æåäßöüđжхцчшщюяàáâèéëêěìíïîõòóôøùúûůñçčćďĺľńňŕřšťýžабвгдеёзийклмнопрстуфыэęąśłżź]*$") {
+    #   rewrite ^ /index.php last;
+    # }
+
+    # END-PW-PAGENAME
+
+    # ---------------------------------------------------------------------------------------------
+    # 14. Optionally send URLs with non-ASCII name-format characters to 404 page (optimization).
+    #
+    # This ensures that ProcessWire does not spend time processing URLs that we know ahead of
+    # time are going to result in 404s. To enable, replace the "rewrite" line in 16A or 16B
+    # above with the one below. (O)
+    # ---------------------------------------------------------------------------------------------
+
+    # rewrite ^ /index.php?it=/http404/ last;
+
+    # ---------------------------------------------------------------------------------------------
+    # 19. Pass control to ProcessWire if all the above directives allow us to this point.
+    #
+    # If ProcessWire is installed in a subdirectory, such as /pw/, then add that subdirectory to
+    # the start of the rewrite pattern and to the index.php path, in 16A, 16B, 14 and below. For
+    # example: "rewrite ^/pw/(.*)$ /pw/index.php?it=$1 last;"
+    # ---------------------------------------------------------------------------------------------
+
+    rewrite ^/(.*)$ /index.php?it=$1 last;
+  }
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 20. VirtualDocumentRoot
+  #
+  # Not applicable to nginx.
+  # -----------------------------------------------------------------------------------------------
+
+
+  # -----------------------------------------------------------------------------------------------
+  # 21. Pass PHP files to PHP-FPM (E)
+  # -----------------------------------------------------------------------------------------------
+
+  location ~ \.php$ {
+
+    # Pass requests for PHP files that do not exist to ProcessWire, which prevents nginx from
+    # passing them to PHP. Do not remove this line.
+    try_files $uri @processwire;
+
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+
+    # Tells ProcessWire the version of these directives, like @nginxVersion at the top of this
+    # file. Update this whenever you update the directives in this file.
+    fastcgi_param PW_NGINX_VERSION 301;
+
+    # Where PHP-FPM is listening, which varies by server (E)
+    fastcgi_pass unix:/run/php/php-fpm.sock;
+    # fastcgi_pass 127.0.0.1:9000;
+  }
+}
+
+#################################################################################################
+# END PROCESSWIRE NGINX DIRECTIVES
+#################################################################################################

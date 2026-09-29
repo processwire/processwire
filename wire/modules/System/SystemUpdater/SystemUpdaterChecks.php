@@ -79,6 +79,7 @@ class SystemUpdaterChecks extends Wire {
 			'checkWelcome',
 			'checkIndexFile',
 			'checkHtaccessFile',
+			'checkNginxConfig',
 			'checkOtherHtaccessFiles',
 			'checkInstallerFiles',
 			'checkFilePermissions',
@@ -176,6 +177,47 @@ class SystemUpdaterChecks extends Wire {
 		}
 		
 		return true;
+	}
+
+	/**
+	 * Check that nginx configuration has the directives from nginx.txt at the correct version
+	 *
+	 * The directives pass their version to PHP in a PW_NGINX_VERSION parameter.
+	 *
+	 * @return bool Returns true if not nginx, or if nginx directives are present and up-to-date
+	 * @since 3.0.275
+	 *
+	 */
+	public function checkNginxConfig() {
+
+		$software = isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '';
+		$foundVersion = isset($_SERVER['PW_NGINX_VERSION']) ? (int) $_SERVER['PW_NGINX_VERSION'] : 0;
+		$requiredVersion = ProcessWire::htaccessVersion;
+
+		if(!$foundVersion && stripos($software, 'nginx') === false && !$this->testAll) return true; // not nginx
+		if($foundVersion >= $requiredVersion && !$this->testAll) return true;
+
+		if($this->showNotices) {
+			if($foundVersion) {
+				$warning = sprintf(
+					$this->_('Please note that your nginx configuration is not up-to-date with the directives in %s for this ProcessWire version, please update it when possible.'),
+					$this->location('nginx.txt')
+				);
+			} else {
+				$warning = sprintf(
+					$this->_('Please note that your nginx configuration does not appear to have the directives from %s, which protect files that should not be accessible from the web.'),
+					$this->location('nginx.txt')
+				);
+			}
+			$details = $this->small(
+				$this->versionsLabel($requiredVersion, $foundVersion ? $foundVersion : '?') . ' ' .
+				$this->_('After updating, make sure your nginx PHP location block has the following line, then reload nginx:') .
+				$this->code("fastcgi_param PW_NGINX_VERSION $requiredVersion;")
+			);
+			$this->warning("$warning$details", Notice::log | Notice::allowMarkup);
+		}
+
+		return false;
 	}
 
 	/**
