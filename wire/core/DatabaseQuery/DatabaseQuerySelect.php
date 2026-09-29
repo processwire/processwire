@@ -207,6 +207,87 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	}
 
 	/**
+	 * Aggregate a SELECT or ORDER BY expression for ONLY_FULL_GROUP_BY compatibility
+	 * 
+	 * When a query has a GROUP BY, every selected or sorted expression must either appear in the
+	 * GROUP BY or be aggregated. Columns that are functionally dependent on the grouped column 
+	 * still qualify in MySQL 5.7+, but MariaDB does not make that inference, so such columns must
+	 * be aggregated explicitly. This wraps the given expression in MIN() to satisfy that, which is
+	 * a no-op for values that are already unique per group. 
+	 * 
+	 * MIN() is used rather than ANY_VALUE() because ANY_VALUE() requires MySQL 5.7.5+ or 
+	 * MariaDB 10.5+, whereas MIN() is available everywhere.
+	 * 
+	 * Any `AS alias` is kept outside the wrapper so the result column keeps the name callers fetch
+	 * it by, and an alias is added for plain `table.column` expressions that did not have one. 
+	 * 
+	 * Returned unmodified: expressions that are already aggregated, that contain a wildcard 
+	 * (which cannot be a function argument), or that reference no column at all, such as a bare 
+	 * select alias or a function like RAND().
+	 * 
+	 * ~~~~~
+	 * $query->aggregateExpression('pages.parent_id'); // MIN(pages.parent_id) AS parent_id
+	 * $query->aggregateExpression('COUNT(t.id) AS n'); // COUNT(t.id) AS n
+	 * ~~~~~
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $sql Expression to aggregate
+	 * @param bool $addAlias Add an `AS alias` for plain `table.column` expressions? Specify false
+	 *   for ORDER BY or GROUP BY expressions, which cannot carry an alias. (default=true)
+	 * @param string $function Aggregate function to wrap with, "MIN" or "MAX". Use "MAX" when 
+	 *   aggregating a descending sort, so that the row that sorts first is the one selected. 
+	 *   (default="MIN")
+	 * @return string
+	 * @since 3.0.271
+	 * 
+	 */
+	public function aggregateExpression($sql, $addAlias = true, $function = 'MIN') {
+		
+		$sql = trim("$sql");
+		$alias = '';
+		
+		if(preg_match('/^(.+?)\s+AS\s+(`[^`]+`|[a-z_][a-z0-9_]*)\s*$/is', $sql, $matches)) {
+			$sql = trim($matches[1]);
+			$alias = " AS $matches[2]";
+		}
+		
+		if($sql === '' || $this->isAggregateExpression($sql)) return $sql . $alias;
+		
+		// a wildcard cannot be an argument to a function, i.e. MIN(pages.*) is not valid SQL
+		if(strpos($sql, '*') !== false && preg_match('/(^|[\s,(.])\*/', $sql)) return $sql . $alias;
+		
+		// nothing column-like to be ambiguous about, i.e. a literal, an alias, RAND() or NOW()
+		if(!preg_match('/[a-z_][a-z0-9_]*\s*\.\s*[a-z_]/i', str_replace('`', '', $sql))) return $sql . $alias;
+		
+		if($addAlias && $alias === '' && preg_match('/^`?[a-z_][a-z0-9_]*`?\s*\.\s*`?([a-z_][a-z0-9_]*)`?$/i', $sql, $matches)) {
+			// preserve the result column name that callers fetch this column by
+			$alias = " AS $matches[1]";
+		}
+		
+		$function = strtoupper($function) === 'MAX' ? 'MAX' : 'MIN';
+		
+		return "$function($sql)$alias";
+	}
+
+	/**
+	 * Does the given SQL expression already contain an aggregate function call?
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $sql
+	 * @return bool
+	 * @since 3.0.271
+	 * 
+	 */
+	public function isAggregateExpression($sql) {
+		$functions = 
+			'ANY_VALUE|AVG|BIT_AND|BIT_OR|BIT_XOR|COUNT|GROUP_CONCAT|JSON_ARRAYAGG|JSON_OBJECTAGG|' . 
+			'MAX|MIN|STD|STDDEV|STDDEV_POP|STDDEV_SAMP|SUM|VAR_POP|VAR_SAMP|VARIANCE';
+		return (bool) preg_match('/\b(?:' . $functions . ')\s*\(/i', "$sql");
+	}
+
+	/**
 	 * Get GROUP BY section of SQL
 	 * 
 	 * @return string

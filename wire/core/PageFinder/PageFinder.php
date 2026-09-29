@@ -1742,14 +1742,22 @@ class PageFinder extends Wire {
 		if($options['returnAllCols']) {
 			$opts = $this->defaultOptions['returnAllColsOptions'];
 			if(!empty($options['returnAllColsOptions'])) $opts = array_merge($opts, $options['returnAllColsOptions']);
-			$columns = array('pages.*'); 
+			// this query has a GROUP BY (see below), so "pages.*" is expanded to its individual
+			// columns and each is aggregated, keeping the query valid under ONLY_FULL_GROUP_BY.
+			// Every column is functionally dependent on the grouped column, so MIN() does not
+			// change any value, it only satisfies the SQL mode. See aggregateExpression().
+			$columns = array();
+			foreach($this->pages->loader()->getNativeColumns() as $col) {
+				$col = $database->escapeCol($col);
+				$columns[] = $col === 'id' ? 'pages.id' : "MIN(pages.$col) AS $col";
+			}
 			if($opts['unixTimestamps']) {
-				$columns[] = 'UNIX_TIMESTAMP(pages.created) AS created';
-				$columns[] = 'UNIX_TIMESTAMP(pages.modified) AS modified';
-				$columns[] = 'UNIX_TIMESTAMP(pages.published) AS published';
+				$columns[] = 'MIN(UNIX_TIMESTAMP(pages.created)) AS created';
+				$columns[] = 'MIN(UNIX_TIMESTAMP(pages.modified)) AS modified';
+				$columns[] = 'MIN(UNIX_TIMESTAMP(pages.published)) AS published';
 			}
 			if($opts['joinSortfield']) {
-				$columns[] = 'pages_sortfields.sortfield AS sortfield';
+				$columns[] = 'MIN(pages_sortfields.sortfield) AS sortfield';
 				$query->leftjoin('pages_sortfields ON pages_sortfields.pages_id=pages.id');
 			}
 			if($opts['getNumChildren']) {
@@ -1759,7 +1767,7 @@ class PageFinder extends Wire {
 				if(!$this->wire()->modules->isInstalled('PagePaths')) {
 					throw new PageFinderException('Requested option for URL or path (joinPath) requires the PagePaths module be installed'); 
 				}
-				$columns[] = 'pages_paths.path AS path';
+				$columns[] = 'MIN(pages_paths.path) AS path';
 				$query->leftjoin('pages_paths ON pages_paths.pages_id=pages.id'); 
 			}
 			if(!empty($opts['joinFields'])) {
@@ -1779,11 +1787,12 @@ class PageFinder extends Wire {
 				}
 			}
 		} else if($options['returnVerbose']) {
-			$columns = array('pages.id', 'pages.parent_id', 'pages.templates_id');
+			$columns = array('pages.id', 'MIN(pages.parent_id) AS parent_id', 'MIN(pages.templates_id) AS templates_id');
 		} else if($options['returnParentIDs']) {
+			// grouped by pages.parent_id below, so this column needs no aggregation
 			$columns = array('pages.parent_id AS id');
 		} else if($options['returnTemplateIDs']) {
-			$columns = array('pages.id', 'pages.templates_id');
+			$columns = array('pages.id', 'MIN(pages.templates_id) AS templates_id');
 		} else {
 			$columns = array('pages.id');
 		}
@@ -3277,7 +3286,8 @@ class PageFinder extends Wire {
 		} else {
 
 			// non zero values
-			$query->select("$a.$b AS $b"); 
+			// aggregated for ONLY_FULL_GROUP_BY; the subquery yields one row per page so MIN() is a no-op
+			$query->select("MIN($a.$b) AS $b"); 
 			$query->leftjoin(
 				"(" . 
 				"SELECT p$n.parent_id, COUNT(p$n.id) AS $b " . 

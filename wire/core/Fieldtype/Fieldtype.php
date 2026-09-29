@@ -1287,7 +1287,28 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
-		return $this->getLoadQuery($field, $query); 
+
+		$numSelect = count($query->select);
+		$query = $this->getLoadQuery($field, $query);
+
+		if(!$query instanceof DatabaseQuerySelect) return $query;
+
+		// The autojoin query groups by pages.id so that autojoined multi-value fields can be
+		// collapsed with GROUP_CONCAT(). Columns added by getLoadQuery() above are functionally
+		// dependent on pages.id, but MySQL cannot always infer that and MariaDB never does, so
+		// they must still be aggregated to remain valid under the ONLY_FULL_GROUP_BY SQL mode.
+		// This applies only here and not in getLoadQuery(), which is also used without a GROUP BY.
+		$select = $query->select;
+		$keys = array_keys($select);
+
+		for($n = $numSelect; $n < count($keys); $n++) {
+			$key = $keys[$n];
+			$select[$key] = $query->aggregateExpression($select[$key]);
+		}
+
+		$query->set('select', $select);
+
+		return $query;
 	}
 
 	/**
