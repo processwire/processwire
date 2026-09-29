@@ -28,6 +28,14 @@ class PagesEditor extends Wire {
 	 *
 	 */
 	protected $cloning = 0;
+
+	/**
+	 * Number of the last savepoint made for a field save within a transaction (unique names across nested saves)
+	 *
+	 * @var int
+	 *
+	 */
+	protected static $savepointNum = 0;
 	
 	/**
 	 * @var Pages
@@ -914,8 +922,14 @@ class PagesEditor extends Wire {
 				continue;
 			}
 			
+			// within a transaction (the caller’s), a field that fails rolls back only itself, and the save
+			// continues, as it does outside a transaction
+			$savepoint = $database->inTransaction() ? 'pw_field_' . (++self::$savepointNum) : '';
+			if($savepoint !== '') $database->savepointCreate($savepoint);
+
 			try {
 				$fieldtype->savePageField($page, $field);
+				if($savepoint !== '') $database->savepointRelease($savepoint);
 				$lastSql = $database->lastSql();
 				$changedLabel = $changed ? 'changed' : 'unchanged';
 				if($sql !== $lastSql) $changedLabel = 'changed(?)'; // fieldtype executed one or more queries
@@ -923,13 +937,18 @@ class PagesEditor extends Wire {
 				$logMessages[] = "Saved $changedLabel field: $field->name";
 				$sql = $lastSql;
 			} catch(\Exception $e) {
+				if($savepoint !== '') {
+					// an error that ended the transaction itself (i.e. a deadlock, which MySQL answers by rolling
+					// back the whole transaction) is for the transaction’s owner, who may retry it
+					$retryable = $e instanceof \PDOException && $database->dialect()->getRetryableErrorType($e) !== '';
+					if($retryable || !$database->savepointRollback($savepoint)) throw $e;
+				}
 				$label = $field->getLabel();
 				$message = $e->getMessage();
 				if(strpos($message, $label) !== false) $label = $name;
 				$error = sprintf($this->_('Error saving field "%s"'), $label) . ' — ' . $message;
 				$logErrors[] = "Error saving field: $field->name - $message";
 				$this->trackException($e, true, $error);
-				if($database->inTransaction()) throw $e;
 			}
 		}
 

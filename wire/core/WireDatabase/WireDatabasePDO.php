@@ -960,6 +960,62 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Create a savepoint in the active transaction, which savepointRollback() can undo to while the rest continues
+	 *
+	 * ~~~~~
+	 * $database->savepointCreate('my_step');
+	 * try {
+	 *   // queries that may fail
+	 *   $database->savepointRelease('my_step');
+	 * } catch(\Exception $e) {
+	 *   $database->savepointRollback('my_step'); // undo just those, the transaction continues
+	 * }
+	 * ~~~~~
+	 *
+	 * #pw-group-transactions
+	 *
+	 * @param string $name Letters, digits and underscores
+	 * @return bool False if not in a transaction (and no savepoint was created)
+	 * @since 3.0.274
+	 *
+	 */
+	public function savepointCreate($name) {
+		if(!$this->inTransaction()) return false;
+		return $this->dialect()->savepointCreate($this->pdoWriter(), $name);
+	}
+
+	/**
+	 * Release a savepoint, keeping what was done since it
+	 *
+	 * #pw-group-transactions
+	 *
+	 * @param string $name
+	 * @return bool
+	 * @since 3.0.274
+	 *
+	 */
+	public function savepointRelease($name) {
+		if(!$this->inTransaction()) return false;
+		return $this->dialect()->savepointRelease($this->pdoWriter(), $name);
+	}
+
+	/**
+	 * Roll back to a savepoint, undoing what was done since it, and leave the transaction usable
+	 *
+	 * #pw-group-transactions
+	 *
+	 * @param string $name
+	 * @return bool False if it could not be rolled back to, i.e. the whole transaction was already rolled
+	 *   back by the database (as MySQL does for a deadlock)
+	 * @since 3.0.274
+	 *
+	 */
+	public function savepointRollback($name) {
+		if(!$this->inTransaction()) return false;
+		return $this->dialect()->savepointRollback($this->pdoWriter(), $name);
+	}
+
+	/**
 	 * Get an array of all queries that have been executed thus far
 	 *
 	 * Active in ProcessWire debug mode only
