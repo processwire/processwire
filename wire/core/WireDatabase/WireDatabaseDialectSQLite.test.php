@@ -12,6 +12,45 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 		$this->testOldSiteWithoutMarker();
 		$this->testFoldIndex();
 		$this->testStatistics();
+		$this->testOnUpdateTimestamp();
+	}
+
+	/**
+	 * ON UPDATE CURRENT_TIMESTAMP through $database, and for a table made before its trigger (live, sqlite only)
+	 *
+	 */
+	protected function testOnUpdateTimestamp() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'sqlite') return;
+		$pdo = $database->pdo();
+		$table = WireTests::fieldPrefix . 'on_update';
+		$old = '2000-01-01 00:00:00';
+		$trigger = $table . WireDatabaseSQLiteTranslator::onUpdateSeparator . 'ts';
+		$hasTrigger = function() use($pdo, $trigger) {
+			return (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=" . $pdo->quote($trigger))->fetchColumn();
+		};
+		$ts = function() use($database, $table) {
+			return $database->query("SELECT ts FROM `$table` WHERE id=1")->fetchColumn();
+		};
+		$database->exec("DROP TABLE IF EXISTS `$table`");
+		$database->exec("CREATE TABLE `$table` (`id` int unsigned NOT NULL, `qty` int NOT NULL DEFAULT 0, " .
+			"`ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`id`))");
+		try {
+			$database->exec("INSERT INTO `$table` (id, qty, ts) VALUES (1, 1, '$old')");
+			$database->exec("UPDATE `$table` SET qty=2 WHERE id=1");
+			$this->check('ON UPDATE CURRENT_TIMESTAMP: an UPDATE that changes the row sets the column', true, $ts() > $old);
+
+			// a table made before the triggers (as if): its trigger comes back on connecting, from the schema log
+			$pdo->exec('DROP TRIGGER ' . $database->escapeTable($trigger));
+			$pdo->exec('DROP TABLE IF EXISTS ' . WireDatabaseSQLiteTranslator::onUpdateMarker);
+			$database->dialect()->initConnection($pdo);
+			$this->check('a table made before its trigger gets it when connecting', true, $hasTrigger());
+			$database->exec("UPDATE `$table` SET ts='$old' WHERE id=1");
+			$database->exec("UPDATE `$table` SET qty=3 WHERE id=1");
+			$this->check('the trigger made when connecting works', true, $ts() > $old);
+		} finally {
+			$database->exec("DROP TABLE IF EXISTS `$table`");
+		}
 	}
 
 	/**

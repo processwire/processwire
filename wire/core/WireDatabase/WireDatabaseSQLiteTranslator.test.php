@@ -47,9 +47,95 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 		$this->testFulltextReviewFixes();
 		$this->testFoldIndex();
 		$this->testAnalyze();
+		$this->testOnUpdateTimestamp();
 		$this->testSiteDatabase();
 	}
 
+	/**
+	 * ON UPDATE CURRENT_TIMESTAMP: a trigger sets the column when an UPDATE changes the row and not the column
+	 *
+	 * The trigger names the table's columns, so it follows ALTER TABLE (ADD, DROP, CHANGE, MODIFY), rebuilds and renames.
+	 *
+	 */
+	protected function testOnUpdateTimestamp() {
+		$old = '2000-01-01 00:00:00';
+		$ts = function($table, $column = 'ts') {
+			return $this->pdo->query("SELECT \"$column\" FROM \"$table\" WHERE id=1")->fetchColumn();
+		};
+		$reset = function($table, $column = 'ts') use($old) {
+			$this->execMysql("UPDATE `$table` SET `$column`='$old' WHERE id=1");
+		};
+		$triggers = function($table) {
+			$q = $this->pdo->prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=? ORDER BY name");
+			$q->execute([$table]);
+			return $q->fetchAll(\PDO::FETCH_COLUMN);
+		};
+		foreach(['ou_t', 'ou_t2'] as $t) $this->execMysql("DROP TABLE IF EXISTS `$t`");
+		$this->execMysql("CREATE TABLE `ou_t` (`id` int unsigned NOT NULL AUTO_INCREMENT, `name` varchar(32) NOT NULL, `qty` int NOT NULL DEFAULT 0, " .
+			"`ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`id`))");
+		$this->check('CREATE TABLE: a trigger for the ON UPDATE column', ['ou_t__on_update__ts'], $triggers('ou_t'));
+		$this->execMysql("INSERT INTO `ou_t` (name, qty) VALUES ('a', 1)");
+		$reset('ou_t');
+		$this->check('setting the column itself leaves it as set', $old, $ts('ou_t'));
+		$this->execMysql("UPDATE `ou_t` SET qty=1 WHERE id=1");
+		$this->check('an UPDATE that changes nothing leaves it alone', $old, $ts('ou_t'));
+		$this->execMysql("UPDATE `ou_t` SET qty=2 WHERE id=1");
+		$this->check('an UPDATE that changes the row sets it to the current time', true, $ts('ou_t') > $old);
+		$this->check('the current time is local, as the default is', $this->pdo->query("SELECT datetime('now','localtime')")->fetchColumn(), $ts('ou_t'));
+		$this->execMysql("UPDATE `ou_t` SET qty=3, ts='$old' WHERE id=1");
+		$this->check('an UPDATE that sets it and changes the row keeps the value set', $old, $ts('ou_t'));
+
+		// ALTER TABLE: the trigger follows the columns
+		$this->execMysql("ALTER TABLE `ou_t` ADD `note` varchar(32)");
+		$reset('ou_t');
+		$this->execMysql("UPDATE `ou_t` SET note='x' WHERE id=1");
+		$this->check('ADD COLUMN: a change of the new column sets it', true, $ts('ou_t') > $old);
+		$this->execMysql("ALTER TABLE `ou_t` DROP COLUMN `note`");
+		$this->check('DROP COLUMN of another column works, keeping the trigger', ['ou_t__on_update__ts'], $triggers('ou_t'));
+		$reset('ou_t');
+		$this->execMysql("UPDATE `ou_t` SET name='b' WHERE id=1");
+		$this->check('DROP COLUMN: still sets it', true, $ts('ou_t') > $old);
+		$this->execMysql("ALTER TABLE `ou_t` MODIFY `name` varchar(64) NOT NULL"); // (a rebuild)
+		$reset('ou_t');
+		$this->execMysql("UPDATE `ou_t` SET name='c' WHERE id=1");
+		$this->check('a rebuild keeps it', true, $ts('ou_t') > $old);
+		$this->execMysql("ALTER TABLE `ou_t` CHANGE `ts` `changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+		$this->check('CHANGE of the column renames its trigger', ['ou_t__on_update__changed'], $triggers('ou_t'));
+		$reset('ou_t', 'changed');
+		$this->execMysql("UPDATE `ou_t` SET qty=4 WHERE id=1");
+		$this->check('CHANGE: still sets it', true, $ts('ou_t', 'changed') > $old);
+		$this->execMysql("RENAME TABLE `ou_t` TO `ou_t2`");
+		$this->check('RENAME TABLE moves the trigger', [[], ['ou_t2__on_update__changed']], [$triggers('ou_t'), $triggers('ou_t2')]);
+		$reset('ou_t2', 'changed');
+		$this->execMysql("UPDATE `ou_t2` SET qty=5 WHERE id=1");
+		$this->check('RENAME TABLE: still sets it', true, $ts('ou_t2', 'changed') > $old);
+		$this->execMysql("ALTER TABLE `ou_t2` MODIFY `changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP");
+		$this->check('MODIFY without ON UPDATE removes it (as in MySQL)', [], $triggers('ou_t2'));
+		$reset('ou_t2', 'changed');
+		$this->execMysql("UPDATE `ou_t2` SET qty=6 WHERE id=1");
+		$this->check('MODIFY without ON UPDATE: no longer set', $old, $ts('ou_t2', 'changed'));
+		$this->execMysql("ALTER TABLE `ou_t2` MODIFY `changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+		$this->check('MODIFY with ON UPDATE adds it', ['ou_t2__on_update__changed'], $triggers('ou_t2'));
+		$this->execMysql("DROP TABLE `ou_t2`");
+		$this->check('DROP TABLE drops the trigger', 0, (int) $this->pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'ou_t%'")->fetchColumn());
+
+		// a table made before the triggers gets its trigger once, from its MySQL definition (i.e. the schema log)
+		$this->pdo->exec('DROP TABLE IF EXISTS ' . WireDatabaseSQLiteTranslator::onUpdateMarker);
+		$this->pdo->exec("CREATE TABLE ou_old (id INTEGER PRIMARY KEY, qty INT, ts TEXT)"); // (as the translator made it before)
+		$mysql = array(
+			'ou_old' => "CREATE TABLE `ou_old` (`id` int NOT NULL AUTO_INCREMENT, `qty` int, `ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`id`))",
+			'ou_gone' => "CREATE TABLE `ou_gone` (`id` int NOT NULL, `ts` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`id`))",
+		);
+		$this->check('syncOnUpdateTriggers() makes the missing trigger', 1, WireDatabaseSQLiteTranslator::syncOnUpdateTriggers($this->pdo, $mysql));
+		$this->check('syncOnUpdateTriggers(): the trigger', ['ou_old__on_update__ts'], $triggers('ou_old'));
+		$this->pdo->exec("INSERT INTO ou_old (id, qty, ts) VALUES (1, 1, '$old')");
+		$this->pdo->exec("UPDATE ou_old SET qty=2 WHERE id=1");
+		$this->check('syncOnUpdateTriggers(): the trigger works', true, $ts('ou_old') > $old);
+		$called = false;
+		$this->check('syncOnUpdateTriggers() does nothing once done', null, WireDatabaseSQLiteTranslator::syncOnUpdateTriggers($this->pdo, function() use(&$called) { $called = true; return array(); }));
+		$this->check('syncOnUpdateTriggers() does not read the definitions once done', false, $called);
+		$this->pdo->exec('DROP TABLE ou_old');
+	}
 	/**
 	 * ANALYZE TABLE gathers SQLite's planner statistics (rather than doing nothing)
 	 *
@@ -1172,7 +1258,7 @@ class WireTest_WireDatabaseSQLiteTranslator extends WireTest {
 			}
 			$this->check("rebuild refused for $table", true, $refused);
 		}
-		$this->check('refused rebuild keeps trigger', 1, (int) $this->pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger'")->fetchColumn());
+		$this->check('refused rebuild keeps trigger', 1, (int) $this->pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND tbl_name='rebuild_trigger'")->fetchColumn());
 	}
 
 	/**
