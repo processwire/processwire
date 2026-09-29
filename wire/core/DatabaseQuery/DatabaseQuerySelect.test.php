@@ -45,6 +45,7 @@ class WireTest_DatabaseQuerySelect extends WireTest {
 		$this->testWhereClause();
 		$this->testOrderby();
 		$this->testGroupby();
+		$this->testUngroup();
 		$this->testLimit();
 		$this->testSQLCaching();
 		$this->testDbCache();
@@ -291,6 +292,48 @@ class WireTest_DatabaseQuerySelect extends WireTest {
 		$this->check('No groupby() omits GROUP BY', false, stripos($sql, 'GROUP BY') !== false);
 	}
 
+	/**
+	 * ungroup(): removes GROUP BY and puts back what aggregateExpression() and addGroupAggregate() aggregated for it
+	 *
+	 */
+	protected function testUngroup() {
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id');
+		$q->select($q->aggregateExpression('pages.parent_id'));
+		$q->select($q->aggregateExpression('pages.templates_id AS tpl'));
+		$q->addGroupAggregate('MIN(UNIX_TIMESTAMP(pages.created)) AS created', 'UNIX_TIMESTAMP(pages.created) AS created');
+		$q->select('MIN(UNIX_TIMESTAMP(pages.created)) AS created');
+		$q->from('pages');
+		$q->orderby($q->aggregateExpression('t.data', false, 'MAX') . ' DESC');
+		$q->groupby('pages.id');
+		$this->check('before ungroup(): grouped and aggregated', true, strpos($q->getQuery(), 'GROUP BY') !== false && strpos($q->getQuery(), 'MIN(pages.parent_id)') !== false);
+		$this->check('ungroup() of a query with only its own aggregates', true, $q->ungroup());
+		$this->check('ungroup(): no GROUP BY', [], $q->groupby);
+		$this->check('ungroup(): selects put back', ['pages.id', 'pages.parent_id AS parent_id', 'pages.templates_id AS tpl', 'UNIX_TIMESTAMP(pages.created) AS created'], array_values($q->select));
+		$this->check('ungroup(): sort put back, direction kept', ['t.data DESC'], array_values($q->orderby));
+
+		// an aggregate it did not add (i.e. COUNT(), GROUP_CONCAT()) or HAVING needs the GROUP BY
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id')->select('COUNT(c.id) AS n')->from('pages')->groupby('pages.id');
+		$this->check('ungroup() keeps GROUP BY for an aggregate it did not add', [false, ['pages.id']], [$q->ungroup(), $q->groupby]);
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id')->from('pages')->groupby('pages.id')->groupby('HAVING COUNT(c.id)>1');
+		$this->check('ungroup() keeps GROUP BY with HAVING', false, $q->ungroup());
+
+		// an aggregate within a subquery is the subquery's own
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id, (SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren')->from('pages')->groupby('pages.id');
+		$this->check('ungroup() of a query with an aggregate in a subquery', true, $q->ungroup());
+		$q = new DatabaseQuerySelect();
+		$this->wire($q);
+		$q->select('pages.id, (SELECT COUNT(*) FROM pages AS c WHERE c.parent_id=pages.id) + COUNT(x.id) AS n')->from('pages')->groupby('pages.id');
+		$this->check('ungroup() keeps GROUP BY for an aggregate beside a subquery', false, $q->ungroup());
+	}
+
 	protected function testLimit() {
 		// limit() with integer
 		$q = new DatabaseQuerySelect();
@@ -483,5 +526,64 @@ class WireTest_DatabaseQuerySelect extends WireTest {
 		$q = new DatabaseQuerySelect();
 		$q->set('comment', 'test comment');
 		$this->check('comment property returns string', 'test comment', $q->comment);
+
+		$this->testAggregateExpression();
+	}
+
+	/**
+	 * Aggregation helpers used to keep grouped queries valid under ONLY_FULL_GROUP_BY
+	 * 
+	 */
+	protected function testAggregateExpression() {
+
+		$q = new DatabaseQuerySelect();
+
+		// isAggregateExpression()
+		$this->check('isAggregateExpression() detects COUNT', true, $q->isAggregateExpression('COUNT(t.id)'));
+		$this->check('isAggregateExpression() detects GROUP_CONCAT', true, $q->isAggregateExpression("GROUP_CONCAT(t.data SEPARATOR ',')"));
+		$this->check('isAggregateExpression() detects lowercase min', true, $q->isAggregateExpression('min(t.data)'));
+		$this->check('isAggregateExpression() detects nested aggregate', true, $q->isAggregateExpression('IF(x.a IS NULL, MAX(y.b), 0)'));
+		$this->check('isAggregateExpression() ignores plain column', false, $q->isAggregateExpression('pages.name'));
+		$this->check('isAggregateExpression() ignores non-aggregate function', false, $q->isAggregateExpression('UNIX_TIMESTAMP(pages.created)'));
+
+		// aggregateExpression() wraps and keeps the result column name
+		$this->check('aggregateExpression() wraps plain column and adds alias',
+			'MIN(pages.parent_id) AS parent_id', $q->aggregateExpression('pages.parent_id'));
+		$this->check('aggregateExpression() keeps an existing alias outside the wrapper',
+			'MIN(t.data) AS `title__data`', $q->aggregateExpression('t.data AS `title__data`'));
+		$this->check('aggregateExpression() wraps a non-aggregate function call',
+			'MIN(UNIX_TIMESTAMP(pages.created)) AS created', $q->aggregateExpression('UNIX_TIMESTAMP(pages.created) AS created'));
+
+		// already aggregated expressions are left alone
+		$this->check('aggregateExpression() leaves aggregate unchanged',
+			'COUNT(t.id) AS n', $q->aggregateExpression('COUNT(t.id) AS n'));
+		$this->check('aggregateExpression() leaves GROUP_CONCAT unchanged',
+			'GROUP_CONCAT(t.data) AS d', $q->aggregateExpression('GROUP_CONCAT(t.data) AS d'));
+
+		// wildcards cannot be wrapped in a function call
+		$this->check('aggregateExpression() leaves wildcard unchanged', 'pages.*', $q->aggregateExpression('pages.*'));
+
+		// expressions with no column reference are left alone
+		$this->check('aggregateExpression() leaves RAND() unchanged', 'RAND()', $q->aggregateExpression('RAND()'));
+
+		// ORDER BY expressions cannot carry an alias
+		$this->check('aggregateExpression() omits alias when requested',
+			'MIN(t.data)', $q->aggregateExpression('t.data', false));
+
+		// MAX is used for descending sorts so a page sorts by its best value
+		$this->check('aggregateExpression() can wrap with MAX',
+			'MAX(t.data)', $q->aggregateExpression('t.data', false, 'MAX'));
+		$this->check('aggregateExpression() falls back to MIN for unknown function',
+			'MIN(t.data)', $q->aggregateExpression('t.data', false, 'BOGUS'));
+
+		// a grouped query built through the API stays valid
+		$q = new DatabaseQuerySelect();
+		$q->select('pages.id');
+		$q->select($q->aggregateExpression('pages.name'));
+		$q->from('pages');
+		$q->groupby('pages.id');
+		$sql = $q->getQuery();
+		$this->check('grouped query aggregates its non-grouped column', true, strpos($sql, 'MIN(pages.name) AS name') !== false);
+		$this->check('grouped query still groups by pages.id', true, strpos($sql, 'GROUP BY pages.id') !== false);
 	}
 }
