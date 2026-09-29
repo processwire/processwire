@@ -300,6 +300,79 @@ abstract class WireDatabaseDialect extends Wire {
 		return $pdo->rollBack();
 	}
 
+	/**
+	 * Create a savepoint in the active transaction
+	 *
+	 * A savepoint lets part of a transaction be undone with savepointRollback() while the rest of it
+	 * continues, i.e. one field of a page save within a caller’s transaction. MySQL (InnoDB), SQLite and
+	 * PostgreSQL all support them, with the same SQL. Call only within a transaction.
+	 *
+	 * @param \PDO $pdo
+	 * @param string $name Letters, digits and underscores
+	 * @return bool
+	 * @since 3.0.274
+	 *
+	 */
+	public function savepointCreate(\PDO $pdo, $name) {
+		$pdo->exec('SAVEPOINT ' . $this->savepointName($name));
+		return true;
+	}
+
+	/**
+	 * Release a savepoint, keeping what was done since it
+	 *
+	 * @param \PDO $pdo
+	 * @param string $name Savepoint name, or blank for none
+	 * @return bool False if it could not be released (i.e. the transaction has already ended)
+	 * @since 3.0.274
+	 *
+	 */
+	public function savepointRelease(\PDO $pdo, $name) {
+		if($name === '') return false;
+		try {
+			$pdo->exec('RELEASE SAVEPOINT ' . $this->savepointName($name));
+		} catch(\PDOException $e) {
+			// transaction already ended (i.e. by a COMMIT or ROLLBACK issued as SQL)
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Roll back to a savepoint, undoing what was done since it, and leave the transaction usable
+	 *
+	 * @param \PDO $pdo
+	 * @param string $name Savepoint name, or blank for none
+	 * @return bool False if it could not be rolled back to (i.e. the database already rolled back the whole
+	 *   transaction, as MySQL does for a deadlock, or the connection was lost)
+	 * @since 3.0.274
+	 *
+	 */
+	public function savepointRollback(\PDO $pdo, $name) {
+		if($name === '') return false;
+		$name = $this->savepointName($name);
+		try {
+			$pdo->exec("ROLLBACK TO SAVEPOINT $name");
+			$pdo->exec("RELEASE SAVEPOINT $name");
+		} catch(\PDOException $e) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Validate a savepoint name
+	 *
+	 * @param string $name
+	 * @return string
+	 * @throws \InvalidArgumentException
+	 *
+	 */
+	protected function savepointName($name) {
+		if(!preg_match('/^[a-z_][a-z0-9_]*$/i', "$name")) throw new \InvalidArgumentException("Invalid savepoint name: $name");
+		return $name;
+	}
+
 	/*********************************************************************************
 	 * SQL translation
 	 *

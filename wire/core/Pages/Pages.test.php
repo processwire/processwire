@@ -47,6 +47,7 @@ class WireTest_Pages extends WireTest {
 		$this->testCreatingSavingSortingAndDeletingPages();
 		$this->testSortRebuild();
 		$this->testAutojoinMultiValueField();
+		$this->testSaveInTransaction();
 	}
 
 	/**
@@ -58,6 +59,125 @@ class WireTest_Pages extends WireTest {
 		$user = $this->wire()->users->get($this->wire()->config->superUserPageID);
 		$loaded = $pages->getById(array($user->id), array('getOne' => true, 'getFromCache' => false, 'cache' => false, 'joinFields' => array('roles')));
 		$this->check('Loading with a Page reference field autojoined gets its values, in order', $user->roles->explode('id'), $loaded->roles->explode('id'));
+	}
+	/**
+	 * A page saved inside an open transaction: a field that fails rolls back only itself, and the rest is saved
+	 *
+	 * Each field saves within a savepoint, so the failure is reported and the save continues, as outside a transaction.
+	 * Errors that end the transaction itself (i.e. a deadlock) still reach the transaction's owner.
+	 *
+	 */
+	protected function testSaveInTransaction() {
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$database = $this->wire()->database;
+		if(!$database->allowTransaction()) return; // i.e. MyISAM
+		$template = $this->wire()->templates->get($this->childTemplateName);
+		$numName = 'pages_test_txn_num';
+		$num = $fields->get($numName);
+		$createdField = false;
+		if(!$num) {
+			$num = new Field();
+			$num->type = $this->wire()->modules->get('FieldtypeInteger');
+			$num->name = $numName;
+			$num->label = 'Pages test number';
+			$num->save();
+			$createdField = true;
+		}
+		if(!$template->hasField($num)) {
+			$template->fieldgroup->add($num); // after title, so it saves after a failing title
+			$template->fieldgroup->save();
+		}
+		$page = $pages->add($this->childTemplateName, $this->getTestPage(), array('name' => 'pages-test-txn', 'title' => 'Transaction fixture', $numName => 1));
+		$this->createdPageIDs[$page->id] = $page->id;
+		$pageID = $page->id;
+		$hook = $this->wire()->addHookAfter('Fieldtype::savePageField', function(HookEvent $e) use($pageID) {
+			$p = $e->arguments(0); // (the test saves fresh copies of the page, so matched by id)
+			if($p->id !== $pageID || $e->arguments(1)->name !== $p->get('_failField')) return;
+			$exception = $p->get('_failException');
+			throw $exception ? $exception : new WireException('Failing this field for the test');
+		});
+		// a reported field error is not rethrown ($config->allowExceptions), even where a module (i.e. TracyDebugger)
+		// turns that on for each trackException()
+		$allowExceptions = $this->wire()->config->allowExceptions;
+		$noThrowHook = $this->wire()->addHookBefore('Wire::trackException', function(HookEvent $e) {
+			$e->wire()->config->allowExceptions = false;
+		}, array('priority' => 1000));
+		try {
+			// a field that fails, after writing, inside a transaction
+			$database->beginTransaction();
+			try {
+				$page->of(false);
+				$page->name = 'pages-test-txn-renamed';
+				$page->title = 'Transaction fixture changed';
+				$page->set($numName, 2);
+				$page->setQuietly('_failField', 'title');
+				$error = '';
+				try {
+					$page->save();
+				} catch(\Exception $e) {
+					$error = $e->getMessage();
+				}
+				$this->check('in a transaction, a failed field does not stop the save', '', $error);
+				$this->check('in a transaction, the transaction stays open', true, $database->inTransaction());
+				if($database->inTransaction()) $database->commit();
+			} finally {
+				if($database->inTransaction()) $database->rollBack();
+			}
+			$reported = false;
+			foreach($this->wire()->notices as $notice) {
+				if($notice instanceof NoticeError && strpos($notice->text, 'Failing this field for the test') !== false) $reported = true;
+			}
+			$this->check('in a transaction, the failed field is reported', true, $reported);
+			$fresh = $pages->getFresh($page->id);
+			$this->check('in a transaction, the failed field is not saved, and the rest are', array('pages-test-txn-renamed', 'Transaction fixture', 2), array($fresh->name, (string) $fresh->title, (int) $fresh->get($numName)));
+
+			// an error that ends the transaction (i.e. a deadlock) goes to its owner
+			$deadlock = new \PDOException('Deadlock found for the test');
+			$deadlock->errorInfo = array('40001', $database->dialect()->name() === 'sqlite' ? 5 : 1213, 'Deadlock found for the test');
+			if($database->dialect()->getRetryableErrorType($deadlock) !== '') {
+				$page = $pages->getFresh($page->id);
+				$page->of(false);
+				$page->title = 'Transaction fixture deadlock';
+				$page->setQuietly('_failField', 'title');
+				$page->setQuietly('_failException', $deadlock);
+				$database->beginTransaction();
+				$thrown = null;
+				try {
+					$page->save();
+				} catch(\Exception $e) {
+					$thrown = $e;
+				} finally {
+					if($database->inTransaction()) $database->rollBack();
+				}
+				$this->check('in a transaction, a deadlock in a field save is rethrown', true, $thrown === $deadlock);
+			}
+
+			// outside a transaction, as before: the failed field is reported and the rest are saved
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$page->title = 'Transaction fixture outside';
+			$page->set($numName, 3);
+			$page->setQuietly('_failField', 'title');
+			$page->setQuietly('_failException', null);
+			$error = '';
+			try {
+				$page->save();
+			} catch(\Exception $e) {
+				$error = $e->getMessage();
+			}
+			$fresh = $pages->getFresh($page->id);
+			$this->check('outside a transaction, a failed field does not stop the save', array('', 3), array($error, (int) $fresh->get($numName)));
+		} finally {
+			$this->wire()->removeHook($hook);
+			$this->wire()->removeHook($noThrowHook);
+			$this->wire()->config->allowExceptions = $allowExceptions;
+			$pages->delete($pages->get($page->id), true);
+			unset($this->createdPageIDs[$page->id]);
+			$template->fieldgroup->remove($num);
+			$template->fieldgroup->save();
+			if($createdField) $fields->delete($num);
+		}
 	}
 	/**
 	 * sortRebuild() must renumber children 0..n-1 in their existing order, removing gaps and duplicates

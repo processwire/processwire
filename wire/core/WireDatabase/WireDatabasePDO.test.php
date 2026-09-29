@@ -119,6 +119,31 @@ class WireTest_WireDatabasePDO extends WireTest {
 			$database->exec("INSERT INTO `$table` (name, qty) VALUES ('commit-test', 2)");
 			$this->check('commit() returns true', true, $database->commit());
 			$this->check('commit() persists inserted row', 1, (int) $database->query("SELECT COUNT(*) FROM `$table` WHERE name='commit-test'")->fetchColumn());
+
+			// savepoints: undo part of a transaction, and keep the rest
+			$this->check('savepointCreate() outside a transaction does nothing', false, $database->savepointCreate('pw_test_sp'));
+			$database->beginTransaction();
+			$database->exec("INSERT INTO `$table` (name, qty) VALUES ('savepoint-kept', 1)");
+			$this->check('savepointCreate() returns true', true, $database->savepointCreate('pw_test_sp'));
+			$database->exec("INSERT INTO `$table` (name, qty) VALUES ('savepoint-undone', 1)");
+			$this->check('savepointRollback() returns true', true, $database->savepointRollback('pw_test_sp'));
+			$this->check('savepointRollback() leaves the transaction open', true, $database->inTransaction());
+			$database->savepointCreate('pw_test_sp2');
+			$database->exec("INSERT INTO `$table` (name, qty) VALUES ('savepoint-released', 1)");
+			$this->check('savepointRelease() returns true', true, $database->savepointRelease('pw_test_sp2'));
+			$database->commit();
+			$names = $database->query("SELECT name FROM `$table` WHERE name LIKE 'savepoint-%' ORDER BY name")->fetchAll(\PDO::FETCH_COLUMN);
+			$this->check('savepointRollback() undoes only what came after its savepoint', array('savepoint-kept', 'savepoint-released'), $names);
+			$error = '';
+			try {
+				$database->beginTransaction();
+				$database->savepointCreate('bad name;');
+			} catch(\InvalidArgumentException $e) {
+				$error = 'invalid';
+			} finally {
+				$database->rollBack();
+			}
+			$this->check('savepointCreate() rejects an invalid name', 'invalid', $error);
 		}
 
 		// ===== SCHEMA =====

@@ -573,39 +573,6 @@ class WireDatabaseDialectPgsql extends WireDatabaseDialect {
 	}
 
 	/**
-	 * Release a statement savepoint
-	 *
-	 * @param \PDO $pdo
-	 * @param string $name
-	 *
-	 */
-	public function savepointRelease(\PDO $pdo, $name) {
-		if($name === '') return;
-		try {
-			$pdo->exec("RELEASE SAVEPOINT $name");
-		} catch(\PDOException $e) {
-			// transaction already ended by the statement itself (i.e. COMMIT/ROLLBACK issued as SQL)
-		}
-	}
-
-	/**
-	 * Roll back to a statement savepoint after a failure, leaving the transaction usable
-	 *
-	 * @param \PDO $pdo
-	 * @param string $name
-	 *
-	 */
-	public function savepointRollback(\PDO $pdo, $name) {
-		if($name === '') return;
-		try {
-			$pdo->exec("ROLLBACK TO SAVEPOINT $name");
-			$pdo->exec("RELEASE SAVEPOINT $name");
-		} catch(\PDOException $e) {
-			// connection-level failure: the original exception is more useful
-		}
-	}
-
-	/**
 	 * Execute a single translated statement, within a savepoint when in a transaction
 	 *
 	 * @param \PDO $pdo

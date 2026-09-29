@@ -611,6 +611,30 @@ if($database->allowTransaction()) {
 - **Returns:** bool
 - **Purpose:** Determine whether transactions are supported and currently allowed.
 
+### savepointCreate() / savepointRelease() / savepointRollback()
+
+- **Arguments:** `savepointCreate($name)`, `savepointRelease($name)`, `savepointRollback($name)`; the name is
+  letters, digits and underscores
+- **Returns:** bool. False when not in a transaction; `savepointRollback()` also returns false when the savepoint
+  is gone, i.e. the database already rolled back the whole transaction (as MySQL does for a deadlock).
+- **Purpose:** Undo part of a transaction and continue with the rest. `savepointRollback()` undoes what was done
+  since the savepoint and leaves the transaction open. Same SQL on MySQL (InnoDB), SQLite and PostgreSQL.
+  (Since 3.0.274.)
+
+```php
+$database->savepointCreate('import_row');
+try {
+    $database->exec("INSERT ...");
+    $database->savepointRelease('import_row');
+} catch(\PDOException $e) {
+    if(!$database->savepointRollback('import_row')) throw $e; // the transaction itself has ended
+}
+```
+
+A page saved while a transaction is open (i.e. your own) saves each field within a savepoint. A field that
+fails is rolled back and reported, and the rest of the save continues, as it does outside a transaction. An
+error that ends the transaction itself (a deadlock or a lost connection) is rethrown for its owner to handle.
+
 ---
 
 ## Schema
