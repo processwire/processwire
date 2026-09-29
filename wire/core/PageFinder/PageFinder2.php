@@ -2724,6 +2724,7 @@ class PageFinder2 extends Wire {
 			$descending = $fc == '-' || $lc == '-';
 			$value = trim($value, "-+"); 
 			$subValue = '';
+			$multiValue = false; // sorting by a field with several rows per page?
 			// $terValue = ''; // not currently used, here for future use
 			
 			if($this->lastOptions['reverseSort']) $descending = !$descending;
@@ -2823,6 +2824,7 @@ class PageFinder2 extends Wire {
 				}
 
 				$query->leftjoin("$table AS $tableAlias ON $tableAlias.pages_id=pages.$idColumn");
+				$multiValue = $field->type instanceof FieldtypeMulti;
 				
 				$customValue = $field->type->getMatchQuerySort($field, $query, $tableAlias, $subValue, $descending);
 				
@@ -2883,6 +2885,11 @@ class PageFinder2 extends Wire {
 			}
 	
 			if(is_string($value) && strlen($value)) {
+				if($multiValue && stripos($value, 'COUNT(') !== 0) {
+					// a page has a row per value (the query groups by pages.id): rank it by its highest value when
+					// descending and its lowest when ascending, rather than by whichever row the database reaches first
+					$value = ($descending ? 'MAX' : 'MIN') . "($value)";
+				}
 				if($descending) {
 					$query->orderby("$value DESC", true);
 				} else {
