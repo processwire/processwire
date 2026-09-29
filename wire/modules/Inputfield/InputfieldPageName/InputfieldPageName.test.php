@@ -10,6 +10,7 @@ class WireTest_InputfieldPageName extends WireTest {
 		$this->testBasicProperties();
 		$this->testSanitization();
 		$this->testProcessInput();
+		$this->testAdminPostName();
 		$this->testUrlPreview();
 		$this->testReplacements();
 		$this->testConfigInputfields();
@@ -78,6 +79,49 @@ class WireTest_InputfieldPageName extends WireTest {
 		$f->val('existing');
 		$this->processInput($f, 'changed');
 		$this->check('disabled processInput() preserves value', 'existing', $f->val());
+	}
+
+	protected function testAdminPostName() {
+		$f = $this->newInputfield('_pw_page_name');
+		$attrs = $f->getAttributesString();
+		$this->check('admin page name uses WAF-safe POST name', 'name="_pw_pg_name"', $attrs, '*=');
+		$this->check('admin page name retains legacy DOM id', 'id="Inputfield__pw_page_name"', $attrs, '*=');
+		$this->check('admin page name retains internal name', '_pw_page_name', $f->attr('name'));
+
+		$post = $this->wire()->input->post;
+		try {
+			$post->set('_pw_pg_name', 'Early Safe Name');
+			$post->remove('_pw_page_name');
+			$initField = $this->wire(new InputfieldPageName());
+			$initField->init();
+			$this->check('WAF-safe POST name is available early under internal name', 'Early Safe Name', $post->get('_pw_page_name'));
+		} finally {
+			$post->remove('_pw_pg_name');
+			$post->remove('_pw_page_name');
+		}
+
+		$data = array('_pw_pg_name' => 'WAF Safe Name!');
+		$input = new WireInputData($data);
+		$f->processInput($input);
+		$this->check('WAF-safe POST name processes value', $this->expectedSanitized('WAF Safe Name!'), $f->val());
+		$this->check('WAF-safe POST name restores internal input', 'WAF Safe Name!', $input->get('_pw_page_name'));
+
+		$f = $this->newInputfield('_pw_page_name123');
+		$attrs = $f->getAttributesString();
+		$this->check('language page name uses suffixed WAF-safe POST name', 'name="_pw_pg_name123"', $attrs, '*=');
+		$data = array('_pw_pg_name123' => 'Language Name');
+		$input = new WireInputData($data);
+		$f->processInput($input);
+		$this->check('language page name restores suffixed internal input', 'Language Name', $input->get('_pw_page_name123'));
+
+		$f = $this->newInputfield('_pw_page_name');
+		$data = array(
+			'_pw_page_name' => 'Legacy Name',
+			'_pw_pg_name' => 'Alternate Name',
+		);
+		$input = new WireInputData($data);
+		$f->processInput($input);
+		$this->check('legacy POST name takes precedence when both are present', $this->expectedSanitized('Legacy Name'), $f->val());
 	}
 
 	protected function testUrlPreview() {

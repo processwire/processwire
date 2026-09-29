@@ -131,6 +131,7 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 
 	public function init() {
 		parent::init();
+		$this->usePostName($this->wire()->input->post, '_pw_page_name');
 		$this->label = $this->_('Name'); // Field label for 'Name'
 		$this->icon = 'angle-double-right';
 		$this->set('editPage', null); // page being edited, when available
@@ -159,6 +160,47 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 		$this->hasLanguagePageNames = $this->wire()->modules->isInstalled('LanguageSupportPageNames'); 
 		
 		$this->removeClass('InputfieldNoBorder', 'wrapClass'); 
+	}
+
+	/**
+	 * Use a WAF-safe POST name for ProcessWire's admin page name input
+	 *
+	 * @param string $name
+	 * @return string
+	 *
+	 */
+	protected function getPostName($name) {
+		$inputName = '_pw_page_name';
+		if(strpos($name, $inputName) !== 0) return $name;
+		$suffix = substr($name, strlen($inputName));
+		if(strlen($suffix) && !ctype_digit($suffix)) return $name;
+		return '_pw_pg_name' . $suffix;
+	}
+
+	/**
+	 * Make WAF-safe page name POST values available under their internal names
+	 *
+	 * @param WireInputData $input
+	 * @param string $inputName Internal input name
+	 *
+	 */
+	protected function usePostName(WireInputData $input, $inputName) {
+		$postName = $this->getPostName($inputName);
+		if($postName === $inputName || isset($input[$inputName]) || !isset($input[$postName])) return;
+		$input->set($inputName, $input->get($postName));
+	}
+
+	/**
+	 * Get an HTML-ready string of this Inputfield's attributes
+	 *
+	 * @param array|null $attributes
+	 * @return string
+	 *
+	 */
+	public function getAttributesString(?array $attributes = null) {
+		if(is_null($attributes)) $attributes = $this->getAttributes();
+		if(isset($attributes['name'])) $attributes['name'] = $this->getPostName($attributes['name']);
+		return parent::getAttributesString($attributes);
 	}
 
 	public function ___render() {
@@ -259,10 +301,16 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 	}
 	
 	public function ___processInput(WireInputData $input) {
+		$inputName = $this->attr('name');
+		$this->usePostName($input, $inputName);
 		if($this->attr('disabled')) return $this;
 		$languages = $this->wire()->languages;
 		if($this->editPage && $this->editPage->template->noLang) $languages = false;
 		if($languages && $this->hasLanguagePageNames) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$this->usePostName($input, $inputName . $language->id);
+			}
 			$user = $this->wire()->user;
 			if(!$languages->editable($user->language)) return $this;
 			$return = parent::___processInput($input);
