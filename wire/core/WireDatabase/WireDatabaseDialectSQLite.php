@@ -381,20 +381,38 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 	 * Gather planner statistics for a database that has none, and keep them current as SQLite advises
 	 *
 	 * A database without statistics (sqlite_stat1), i.e. one created before this or just installed, gets a full
-	 * ANALYZE on connecting (about 0.7 seconds for 20,000 pages, once). After that, optimize() runs when each
-	 * request ends, which analyzes again the tables whose size has changed a lot. ANALYZE TABLE (MySQL syntax)
-	 * gathers them for given tables at any time, i.e. after a large import.
+	 * ANALYZE on connecting (about 0.7 seconds for 20,000 pages, once). One connection runs it, in a write
+	 * transaction: others that connect meanwhile find the database locked and skip it rather than wait, or run
+	 * it too. After that, optimize() runs when each request ends, which analyzes again the tables whose size has
+	 * changed a lot. ANALYZE TABLE (MySQL syntax) gathers them for given tables at any time, i.e. after a large import.
 	 *
 	 * @param \PDO $pdo
 	 *
 	 */
 	protected function initStatistics(\PDO $pdo) {
+		$hasStats = function() use($pdo) {
+			return (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_stat1'")->fetchColumn();
+		};
 		try {
 			$tables = (int) $pdo->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'")->fetchColumn();
-			$stats = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_stat1'")->fetchColumn();
-			if($tables && !$stats) $pdo->exec('ANALYZE');
+			if($tables && !$hasStats()) {
+				$timeout = (int) $pdo->query('PRAGMA busy_timeout')->fetchColumn();
+				$pdo->exec('PRAGMA busy_timeout=0'); // another connection writing (i.e. analyzing) fails at once
+				try {
+					$pdo->exec('BEGIN IMMEDIATE');
+				} finally {
+					$pdo->exec("PRAGMA busy_timeout=$timeout");
+				}
+				try {
+					if(!$hasStats()) $pdo->exec('ANALYZE'); // unless another connection has just gathered them
+					$pdo->exec('COMMIT');
+				} catch(\Exception $e) {
+					$pdo->exec('ROLLBACK');
+					throw $e;
+				}
+			}
 		} catch(\Exception $e) {
-			// statistics only affect how fast queries are
+			// statistics only affect how fast queries are, and a later connection gathers them
 		}
 		$id = spl_object_id($pdo);
 		if(isset(self::$optimizeRegistered[$id])) return;
