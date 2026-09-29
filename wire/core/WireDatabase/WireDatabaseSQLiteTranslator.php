@@ -76,6 +76,18 @@ class WireDatabaseSQLiteTranslator {
 	const foldIndexMarker = 'pw_fold_index_v1';
 
 	/**
+	 * Between table name and column name in an ON UPDATE CURRENT_TIMESTAMP trigger's name: table__on_update__column
+	 *
+	 */
+	const onUpdateSeparator = '__on_update__';
+
+	/**
+	 * Table whose presence means the triggers of ON UPDATE columns made before them are there (see syncOnUpdateTriggers())
+	 *
+	 */
+	const onUpdateMarker = 'pw_on_update_v1';
+
+	/**
 	 * Cache of translated SQL, indexed by original SQL
 	 *
 	 * @var array
@@ -819,6 +831,46 @@ class WireDatabaseSQLiteTranslator {
 	}
 
 	/**
+	 * Give the ON UPDATE CURRENT_TIMESTAMP columns of an existing database their triggers, once
+	 *
+	 * Tables made before the triggers have these columns without one. SQLite’s schema does not say which
+	 * columns they are, so they are found in the tables’ MySQL definitions (i.e. from the schema log, see
+	 * WireDatabaseSchemaLog::getCreateTables()). A marker table (see onUpdateMarker) records that it is done.
+	 *
+	 * @param \PDO $pdo
+	 * @param array|callable $createTables [ table => MySQL CREATE TABLE statement ], or a function that returns
+	 *   them (called only when the marker is missing)
+	 * @return int|null Number of triggers made, or null if already done
+	 *
+	 */
+	public static function syncOnUpdateTriggers(\PDO $pdo, $createTables) {
+		$marker = self::onUpdateMarker;
+		if($pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='$marker'")->fetchColumn()) return null;
+		if(is_callable($createTables)) $createTables = $createTables();
+		$parser = new self(); // without a connection, so that it translates each definition alone
+		$translator = new self($pdo);
+		$qty = 0;
+		foreach($createTables as $table => $sql) {
+			if(stripos($sql, 'ON UPDATE') === false) continue;
+			$columns = $translator->columnNames($table);
+			if(!count($columns)) continue; // not in this database
+			$prefix = '`' . $table . self::onUpdateSeparator;
+			foreach($parser->translateStatements($sql) as $statement) {
+				$p = strpos($statement, $prefix);
+				if($p === false || strpos($statement, 'CREATE TRIGGER') !== 0) continue;
+				$column = substr($statement, $p + strlen($prefix), strpos($statement, '`', $p + strlen($prefix)) - $p - strlen($prefix));
+				if(!in_array($column, $columns, true)) continue;
+				$create = $translator->onUpdateTriggerSql($table, $column, $columns, true);
+				if($create === '') continue;
+				$pdo->exec($create);
+				$qty++;
+			}
+		}
+		$pdo->exec("CREATE TABLE IF NOT EXISTS `$marker` (v INTEGER)");
+		return $qty;
+	}
+
+	/**
 	 * Get the FTS5 table name for given table and FULLTEXT key name
 	 *
 	 * @param string $table
@@ -1106,6 +1158,86 @@ class WireDatabaseSQLiteTranslator {
 			'DROP TABLE IF EXISTS ' . $this->quoteId($fts),
 			'DROP TABLE IF EXISTS ' . $this->quoteId($fts . self::fulltextMapSuffix),
 		];
+	}
+
+	/**
+	 * Get the statement that creates a column’s ON UPDATE CURRENT_TIMESTAMP trigger
+	 *
+	 * MySQL sets such a column to the current time when an UPDATE changes the row and does not set the column
+	 * itself. SQLite has no column option for it, and its BEFORE triggers cannot change the row, so an AFTER
+	 * UPDATE trigger sets it: when the column is unchanged and another column changed (as the PostgreSQL
+	 * translator does). The trigger names the table’s columns, so it is made again when they change. Its own
+	 * UPDATE changes the column, so it does not fire it again (with recursive_triggers).
+	 *
+	 * @param string $table
+	 * @param string $column
+	 * @param array $columns All of the table’s columns
+	 * @param bool $ifNotExists
+	 * @param bool $temporary For a TEMPORARY table
+	 * @return string Blank when the table has no other column
+	 *
+	 */
+	protected function onUpdateTriggerSql($table, $column, array $columns, $ifNotExists = false, $temporary = false) {
+		$changed = [];
+		foreach($columns as $name) {
+			if($name === $column) continue;
+			$q = $this->quoteId($name);
+			$changed[] = "new.$q IS NOT old.$q";
+		}
+		if(!count($changed)) return '';
+		$qColumn = $this->quoteId($column);
+		$qTable = $this->quoteId($table);
+		return 'CREATE ' . ($temporary ? 'TEMP ' : '') . 'TRIGGER ' . ($ifNotExists ? 'IF NOT EXISTS ' : '') .
+			$this->quoteId($table . self::onUpdateSeparator . $column) . " AFTER UPDATE ON $qTable FOR EACH ROW " .
+			"WHEN new.$qColumn IS old.$qColumn AND (" . implode(' OR ', $changed) . ') ' .
+			"BEGIN UPDATE $qTable SET $qColumn = " . self::currentTimestampDefault . ' WHERE rowid = new.rowid; END';
+	}
+
+	/**
+	 * Get the columns of a table that have an ON UPDATE CURRENT_TIMESTAMP trigger (none without a connection)
+	 *
+	 * @param string $table
+	 * @return array
+	 *
+	 */
+	protected function onUpdateColumns($table) {
+		$pdo = $this->pdo();
+		if(!$pdo) return [];
+		$prefix = $table . self::onUpdateSeparator;
+		$q = $pdo->prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=? AND substr(name, 1, ?)=?");
+		$q->execute([$table, strlen($prefix), $prefix]);
+		$columns = [];
+		foreach($q->fetchAll(\PDO::FETCH_COLUMN) as $name) $columns[] = substr($name, strlen($prefix));
+		return $columns;
+	}
+
+	/**
+	 * Get the column names of an existing table (none without a connection)
+	 *
+	 * @param string $table
+	 * @return array
+	 *
+	 */
+	protected function columnNames($table) {
+		$pdo = $this->pdo();
+		if(!$pdo) return [];
+		return $pdo->query('SELECT name FROM pragma_table_info(' . $pdo->quote($table) . ')')->fetchAll(\PDO::FETCH_COLUMN);
+	}
+
+	/**
+	 * Get statements that drop the ON UPDATE CURRENT_TIMESTAMP triggers of the given columns
+	 *
+	 * @param string $table
+	 * @param array $columns
+	 * @return array
+	 *
+	 */
+	protected function dropOnUpdateStatements($table, array $columns) {
+		$statements = [];
+		foreach($columns as $column) {
+			$statements[] = 'DROP TRIGGER IF EXISTS ' . $this->quoteId($table . self::onUpdateSeparator . $column);
+		}
+		return $statements;
 	}
 
 	/*********************************************************************************
@@ -2024,8 +2156,17 @@ class WireDatabaseSQLiteTranslator {
 	 * @return array
 	 *
 	 */
-	protected function renameTableStatements($from, $to) {
+	protected function renameTableStatements($from, $to, $onUpdate = true) {
 		$statements = ['ALTER TABLE ' . $this->quoteId($from) . ' RENAME TO ' . $this->quoteId($to)];
+		// ON UPDATE CURRENT_TIMESTAMP triggers are named after the table (unless the caller makes them again)
+		if($onUpdate) {
+			$columns = $this->columnNames($from);
+			foreach($this->onUpdateColumns($from) as $column) {
+				foreach($this->dropOnUpdateStatements($from, [$column]) as $sql) $statements[] = $sql;
+				$sql = $this->onUpdateTriggerSql($to, $column, $columns);
+				if($sql !== '') $statements[] = $sql;
+			}
+		}
 		$textColumns = $this->textColumns($from);
 		foreach($this->getIndexes($from) as $index) {
 			if($index['name'] === null) continue; // not a table-prefixed index created by this translator
@@ -2266,7 +2407,7 @@ class WireDatabaseSQLiteTranslator {
 			case 'TABLES':
 				// not FTS5 tables (and their shadow tables) or the fulltext marker, which are part of FULLTEXT keys
 				$sql = "SELECT name AS " . $this->quoteId('Tables_in_' . $this->databaseName) . " FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'" .
-					" AND instr(name, '" . self::fulltextSeparator . "') = 0 AND name NOT IN ('" . self::fulltextMarker . "', '" . self::foldIndexMarker . "')";
+					" AND instr(name, '" . self::fulltextSeparator . "') = 0 AND name NOT IN ('" . self::fulltextMarker . "', '" . self::foldIndexMarker . "', '" . self::onUpdateMarker . "')";
 				if($like !== null) $sql .= " AND name LIKE $like ESCAPE '\\'";
 				$sql .= " ORDER BY name";
 				return $sql;
@@ -2452,6 +2593,12 @@ class WireDatabaseSQLiteTranslator {
 			foreach($this->fulltextStatements($table, $ft[0], $tableKeys, $ft[1], false, $mode, $ifNotExists) as $sql) $statements[] = $sql;
 		}
 
+		foreach($columns as $name => $col) {
+			if(!$col['onUpdate']) continue;
+			$sql = $this->onUpdateTriggerSql($table, $name, array_keys($columns), $ifNotExists, $temporary);
+			if($sql !== '') $statements[] = $sql;
+		}
+
 		return $statements;
 	}
 
@@ -2525,7 +2672,7 @@ class WireDatabaseSQLiteTranslator {
 				$p = $this->next($def, $z + 1);
 				if($p > -1 && $def[$p][1] === '(') $z = $this->matchParen($def, $p);
 				$x = $z;
-				// @todo emulate with trigger
+				$onUpdate = true; // a trigger, see onUpdateTriggerSql()
 			} else if($w === 'DEFAULT') {
 				$y = $this->next($def, $x + 1);
 				$v = $def[$y];
@@ -2574,6 +2721,7 @@ class WireDatabaseSQLiteTranslator {
 			'autoIncrement' => $autoIncrement,
 			'primary' => $primary,
 			'nonConstantDefault' => $nonConstantDefault,
+			'onUpdate' => !empty($onUpdate),
 		];
 	}
 
@@ -2801,14 +2949,39 @@ class WireDatabaseSQLiteTranslator {
 			}
 		}
 
-		$statements = [];
+		// ON UPDATE CURRENT_TIMESTAMP triggers name the columns, so are made again for the columns after this (and
+		// dropped first: SQLite cannot drop a column that a trigger uses)
+		$onUpdate = $this->onUpdateColumns($table);
+		$onUpdateBefore = $onUpdate;
+		$onUpdateChanged = false;
+		if(count($columnOps)) {
+			$names = $this->columnNames($table);
+			foreach($columnOps as $op) {
+				if($op['action'] === 'add') {
+					$names[] = $op['def']['name'];
+					if($op['def']['onUpdate']) $onUpdate[] = $op['def']['name'];
+				} else if($op['action'] === 'drop') {
+					$names = array_values(array_diff($names, [$op['column']]));
+					$onUpdate = array_values(array_diff($onUpdate, [$op['column']]));
+				} else if($op['action'] === 'rename' || $op['action'] === 'modify') {
+					$to = $op['action'] === 'rename' ? $op['to'] : $op['def']['name'];
+					foreach($names as $k => $name) if($name === $op['column']) $names[$k] = $to;
+					$onUpdate = array_values(array_diff($onUpdate, [$op['column']]));
+					// MODIFY/CHANGE replace the whole definition, ON UPDATE included (as in MySQL)
+					if($op['action'] === 'modify' ? $op['def']['onUpdate'] : in_array($op['column'], $onUpdateBefore, true)) $onUpdate[] = $to;
+				}
+			}
+			$onUpdateChanged = count($onUpdateBefore) || count($onUpdate);
+		}
+
+		$statements = $onUpdateChanged ? $this->dropOnUpdateStatements($table, $onUpdateBefore) : [];
 
 		if($rebuild) {
 			$rebuildStatements = $this->rebuildTableStatements($table, $columnOps);
 			if($rebuildStatements === null) {
 				throw new \PDOException("SQLite translator: unable to rebuild table $table for ALTER TABLE: " . $this->join($tokens));
 			}
-			$statements = $rebuildStatements;
+			foreach($rebuildStatements as $sql) $statements[] = $sql;
 		} else {
 			foreach($columnOps as $op) $statements[] = $op['sql'];
 		}
@@ -2816,7 +2989,15 @@ class WireDatabaseSQLiteTranslator {
 		foreach($otherOps as $sql) $statements[] = $sql;
 
 		if($renameTo !== '') {
-			foreach($this->renameTableStatements($table, $renameTo) as $sql) $statements[] = $sql;
+			foreach($this->renameTableStatements($table, $renameTo, !$onUpdateChanged) as $sql) $statements[] = $sql;
+		}
+
+		if($onUpdateChanged) {
+			$final = $renameTo !== '' ? $renameTo : $table;
+			foreach($onUpdate as $column) {
+				$sql = $this->onUpdateTriggerSql($final, $column, $names);
+				if($sql !== '') $statements[] = $sql;
+			}
 		}
 
 		if(!count($statements)) return 'SELECT 1';
@@ -2854,6 +3035,8 @@ class WireDatabaseSQLiteTranslator {
 		foreach(array_keys($ftsKeys) as $name) {
 			foreach(['_ai', '_ad', '_au'] as $suffix) $ownTriggers[] = $this->fulltextName($table, $name) . $suffix;
 		}
+		// (as are those of ON UPDATE CURRENT_TIMESTAMP columns, by alterTable())
+		foreach($this->onUpdateColumns($table) as $column) $ownTriggers[] = $table . self::onUpdateSeparator . $column;
 		foreach($pdo->query("SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name=$qt")->fetchAll(\PDO::FETCH_COLUMN) as $trigger) {
 			if(!in_array($trigger, $ownTriggers, true)) return null;
 		}

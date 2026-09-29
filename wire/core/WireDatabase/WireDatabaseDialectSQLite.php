@@ -365,8 +365,33 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 		$this->foldIndex = $this->setting('foldIndex', false) === true;
 		WireDatabaseSQLiteTranslator::syncFoldIndexes($pdo, $this->foldIndex);
 		if($this->translator !== null) $this->translator->setFoldIndex($this->foldIndex);
+		// ON UPDATE CURRENT_TIMESTAMP columns of tables made before their triggers get them, once
+		$this->initOnUpdateTriggers($pdo);
 		// planner statistics: without them SQLite often leaves the indexes that serve a query unused
 		$this->initStatistics($pdo);
+	}
+
+	/**
+	 * Give the ON UPDATE CURRENT_TIMESTAMP columns of tables made before their triggers existed a trigger, once
+	 *
+	 * Which columns they are is found in the tables’ MySQL definitions, from the schema log (read with the
+	 * connection directly, since it is still being set up). See WireDatabaseSQLiteTranslator::syncOnUpdateTriggers().
+	 *
+	 * @param \PDO $pdo
+	 *
+	 */
+	protected function initOnUpdateTriggers(\PDO $pdo) {
+		try {
+			WireDatabaseSQLiteTranslator::syncOnUpdateTriggers($pdo, function() use($pdo) {
+				$log = WireDatabaseSchemaLog::table;
+				if(!$pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='$log'")->fetchColumn()) return array();
+				$replay = new WireDatabaseSchemaReplay();
+				foreach($pdo->query("SELECT ddl FROM `$log` ORDER BY id")->fetchAll(\PDO::FETCH_COLUMN) as $sql) $replay->apply($sql);
+				return $replay->getCreateTables();
+			});
+		} catch(\Exception $e) {
+			// i.e. the database is locked by another writer: a later connection makes them
+		}
 	}
 
 	/**
@@ -1030,7 +1055,7 @@ class WireDatabaseDialectSQLite extends WireDatabaseDialect {
 			"WHERE type='table' AND name NOT LIKE 'sqlite\_%' ESCAPE '\' " .
 			// not FTS5 tables (and their shadow tables) or the fulltext marker, which are part of FULLTEXT keys
 			"AND instr(name, '" . WireDatabaseSQLiteTranslator::fulltextSeparator . "') = 0 " .
-			"AND name NOT IN ('" . WireDatabaseSQLiteTranslator::fulltextMarker . "', '" . WireDatabaseSQLiteTranslator::foldIndexMarker . "') " .
+			"AND name NOT IN ('" . WireDatabaseSQLiteTranslator::fulltextMarker . "', '" . WireDatabaseSQLiteTranslator::foldIndexMarker . "', '" . WireDatabaseSQLiteTranslator::onUpdateMarker . "') " .
 			"ORDER BY name";
 		$query = $this->database->pdo()->query($sql);
 		$tables = $query->fetchAll(\PDO::FETCH_COLUMN);
