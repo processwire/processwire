@@ -4637,6 +4637,8 @@ class InstallerSQLitePDO extends InstallerSQLitePDOBase {
 
 	#[\ReturnTypeWillChange]
 	public function exec($statement) {
+		// registerFunctions() in the constructor runs its own statements before the translator exists
+		if($this->translator === null) return parent::exec($statement);
 		$qty = 0;
 		foreach($this->translator->translateStatements($statement) as $sql) {
 			$result = parent::exec($sql);
