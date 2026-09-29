@@ -27,6 +27,37 @@ class WireTest_PageFinder extends WireTest {
 		$this->testIncludeAndAccessModes();
 		$this->testCursorAndReverseOptions();
 		$this->testExceptionsAndTiming();
+		$this->testCountTotals();
+	}
+
+	/**
+	 * A total by COUNT(*) counts each page once, also when a join gives several rows per page (PageFinder and PageFinder2)
+	 *
+	 */
+	protected function testCountTotals() {
+		$roles = $this->wire()->roles;
+		$roleIDs = $roles->get('superuser')->id . '|' . $roles->getGuestRole()->id; // (IDs: an OR of names fails on PostgreSQL until #384)
+		$selectors = array(
+			"template=user, roles=$roleIDs, include=all", // multi-value join, grouped
+			'template=user, sort=roles, include=all', // multi-value sort join
+			'parent=1, num_children<3, include=all', // HAVING
+			'parent=1, include=all', // not grouped
+		);
+		$finders = array(
+			'PageFinder' => function() { return $this->wire(new PageFinder()); },
+			'PageFinder2' => function() { return PageFinder2::getInstance($this, true); },
+		);
+		foreach($finders as $name => $finder) {
+			foreach($selectors as $selector) {
+				$expected = count($finder()->findIDs(new Selectors($selector)));
+				foreach(array('count', 'calc') as $type) {
+					$this->check("$name count() by $type: $selector", $expected, $finder()->count($selector, array('getTotalType' => $type)));
+				}
+				$f = $finder();
+				$f->findIDs(new Selectors("$selector, limit=1"), array('getTotal' => true, 'getTotalType' => 'count'));
+				$this->check("$name getTotal() by count: $selector", $expected, $f->getTotal());
+			}
+		}
 	}
 
 	public function finish() {
