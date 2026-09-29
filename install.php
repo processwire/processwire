@@ -4629,6 +4629,7 @@ class InstallerSQLitePDO extends InstallerSQLitePDOBase {
 	 *
 	 */
 	protected function translateRunLeading($sql) {
+		if($this->translator === null) return $sql; // i.e. the connection's own setup, before the translator exists
 		$statements = $this->translator->translateStatements($sql);
 		$last = array_pop($statements);
 		foreach($statements as $statement) parent::exec($statement);
@@ -4637,6 +4638,7 @@ class InstallerSQLitePDO extends InstallerSQLitePDOBase {
 
 	#[\ReturnTypeWillChange]
 	public function exec($statement) {
+		if($this->translator === null) return parent::exec($statement); // as in translateRunLeading()
 		$qty = 0;
 		foreach($this->translator->translateStatements($statement) as $sql) {
 			$result = parent::exec($sql);
@@ -4804,6 +4806,7 @@ class InstallerPgsqlPDO extends InstallerPgsqlPDOBase {
 	 *
 	 */
 	protected function translateRunLeading($sql) {
+		if($this->translator === null) return $sql; // i.e. the connection's own setup, before the translator exists
 		$statements = $this->translator->translateStatements($sql);
 		$last = array_pop($statements);
 		foreach($statements as $statement) parent::exec($statement);
@@ -4812,6 +4815,7 @@ class InstallerPgsqlPDO extends InstallerPgsqlPDOBase {
 
 	#[\ReturnTypeWillChange]
 	public function exec($statement) {
+		if($this->translator === null) return parent::exec($statement); // as in translateRunLeading()
 		$qty = 0;
 		foreach($this->translator->translateStatements($statement) as $sql) {
 			$result = parent::exec($sql);
