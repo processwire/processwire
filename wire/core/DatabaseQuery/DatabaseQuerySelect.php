@@ -71,6 +71,14 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	protected $sql = null;
 
 	/**
+	 * Aggregates added only because of a GROUP BY, and what they aggregate: [ aggregated => original ] (see ungroup())
+	 *
+	 * @var array
+	 *
+	 */
+	protected $groupAggregates = array();
+
+	/**
 	 * Setup the components of a SELECT query
 	 *
 	 */
@@ -266,8 +274,68 @@ class DatabaseQuerySelect extends DatabaseQuery {
 		}
 		
 		$function = strtoupper($function) === 'MAX' ? 'MAX' : 'MIN';
+		$aggregated = "$function($sql)$alias";
+		$this->groupAggregates[$aggregated] = $sql . $alias;
 		
-		return "$function($sql)$alias";
+		return $aggregated;
+	}
+
+	/**
+	 * Record an aggregate added only because of a GROUP BY, with what it aggregates, so that ungroup() can put it back
+	 * 
+	 * For aggregates made other than by aggregateExpression(), which records its own.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $aggregated
+	 * @param string $original
+	 * @return self
+	 * @since 3.0.274
+	 * 
+	 */
+	public function addGroupAggregate($aggregated, $original) {
+		$this->groupAggregates[trim("$aggregated")] = trim("$original");
+		return $this;
+	}
+
+	/**
+	 * Remove the GROUP BY, and put back the expressions aggregated only because of it
+	 * 
+	 * For a caller that knows the grouping is not needed, i.e. every join gives at most one row per group. Does
+	 * nothing (and returns false) when the query has HAVING, or an aggregate not recorded by aggregateExpression()
+	 * or addGroupAggregate(), which the GROUP BY is there for. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return bool True if the GROUP BY was removed
+	 * @since 3.0.274
+	 * 
+	 */
+	public function ungroup() {
+		if(!count($this->groupby)) return false;
+		foreach($this->groupby as $group) {
+			if(stripos(ltrim($group), 'HAVING') === 0) return false;
+		}
+		// longest first, so that an aggregate is replaced before one inside it
+		$aggregates = $this->groupAggregates;
+		uksort($aggregates, function($a, $b) { return strlen($b) - strlen($a); });
+		$restore = function($sql) use($aggregates) {
+			foreach($aggregates as $aggregated => $original) {
+				if(strpos($sql, $aggregated) !== false) $sql = str_replace($aggregated, $original, $sql);
+			}
+			return $sql;
+		};
+		$select = array_map($restore, $this->select);
+		$orderby = array_map($restore, $this->orderby);
+		foreach(array_merge($select, $orderby) as $sql) {
+			// an aggregate within a subquery, i.e. (SELECT COUNT(*) FROM ...), is the subquery’s own
+			$sql = preg_replace('/\(\s*SELECT\b(?:[^()]++|(\((?:[^()]++|(?1))*\)))*\)/i', '(subquery)', $sql);
+			if($this->isAggregateExpression($sql)) return false;
+		}
+		$this->set('select', $select);
+		$this->set('orderby', $orderby);
+		$this->set('groupby', array());
+		return true;
 	}
 
 	/**

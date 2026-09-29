@@ -145,6 +145,17 @@ class PageFinder2 extends Wire {
 		'getTotal' => null,
 
 		/**
+		 * Leave out the GROUP BY pages.id when every join gives at most one row per page?
+		 * 
+		 * The grouping (and the aggregates it requires under ONLY_FULL_GROUP_BY) is then not needed,
+		 * and without it the database can often read pages in sort order rather than sorting them all. 
+		 * 
+		 * @since 3.0.274
+		 * 
+		 */
+		'ungroup' => true,
+
+		/**
 		 * Method to use when counting total records
 		 *
 		 * If 'count', total will be calculated using a COUNT(*).
@@ -988,7 +999,10 @@ class PageFinder2 extends Wire {
 		$database = $this->database;
 		$matches = array();
 		$query = $this->getQuery($selectors, $options); /** @var DatabaseQuerySelect $query */
-		
+
+		// after getQuery() hooks, which may add joins of their own
+		if($options['ungroup']) $this->ungroupQuery($query);
+
 		if($options['returnQuery']) {
 			$this->finished = true;
 			if($timer !== null) self::$totalTime += Debug::stopTimer($timer);
@@ -1959,6 +1973,13 @@ class PageFinder2 extends Wire {
 			$columns = array('pages.id');
 		}
 
+		foreach($columns as $column) {
+			// record the aggregates above as added only for the GROUP BY, see ungroupQuery()
+			if(preg_match('/^MIN\((.+)\)( AS [a-z_]+)$/i', $column, $matches)) {
+				$query->addGroupAggregate($column, $matches[1] . $matches[2]);
+			}
+		}
+
 		$query->select($columns);
 		$query->from("pages"); 
 		$query->set('_aggregateScoreFields', true); // GPT 5.5 Codex
@@ -2901,6 +2922,109 @@ class PageFinder2 extends Wire {
 		}
 	}
 
+	/**
+	 * Remove the query’s GROUP BY pages.id when every join gives at most one row per page
+	 *
+	 * A join gives at most one row per page when its table’s whole primary key is equated, at the top
+	 * level of the ON clause, with columns of the pages table, of a join already known to give at most
+	 * one row per page, or with constants. Derived tables and tables of unknown primary key keep the
+	 * grouping. The aggregates added only for the grouping are then put back, see DatabaseQuerySelect::ungroup().
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @return bool True if the GROUP BY was removed
+	 * @since 3.0.274
+	 *
+	 */
+	protected function ungroupQuery(DatabaseQuerySelect $query) {
+
+		if($query->groupby !== array('pages.id') || $query->from !== array('pages')) return false;
+
+		$single = array('pages' => true); // aliases known to give at most one row per page
+
+		foreach(array_merge($query->join, $query->leftjoin) as $join) {
+			if(!preg_match('/^\s*`?([a-z0-9_]+)`?(?:\s+(?:AS\s+)?`?([a-z0-9_]+)`?)?\s+ON\s+(.+)$/is', $join, $matches)) return false;
+			list(, $table, $alias, $on) = $matches;
+			if($alias === '') $alias = $table;
+			$primaryKeys = $this->getTablePrimaryKeys($table);
+			if(empty($primaryKeys)) return false;
+			// only conditions at the top level of the ON clause, joined by AND, are certain to apply
+			$on = trim($on);
+			while(substr($on, 0, 1) === '(' && $this->removeParenthesized($on) === '()') $on = trim(substr($on, 1, -1));
+			$on = $this->removeParenthesized($on);
+			if(preg_match('/\bOR\b/i', $on)) return false;
+			$equated = array();
+			foreach(preg_split('/\bAND\b/i', $on) as $condition) {
+				$sides = explode('=', $condition);
+				if(count($sides) !== 2) continue;
+				$sides = array_map(function($side) { return str_replace('`', '', trim($side)); }, $sides);
+				foreach(array(array($sides[0], $sides[1]), array($sides[1], $sides[0])) as $pair) {
+					list($column, $value) = $pair;
+					if(!preg_match('/^([a-z0-9_]+)\.([a-z0-9_]+)$/i', $column, $c) || $c[1] !== $alias) continue;
+					if(preg_match('/^([a-z0-9_]+)\.[a-z0-9_]+$/i', $value, $v)) {
+						if(empty($single[$v[1]])) continue;
+					} else if(!preg_match('/^(:[a-z0-9_]+|-?\d+|\'[^\']*\')$/i', $value)) {
+						continue;
+					}
+					$equated[$c[2]] = true;
+				}
+			}
+			foreach($primaryKeys as $col) {
+				if(empty($equated[$col])) return false;
+			}
+			$single[$alias] = true;
+		}
+
+		return $query->ungroup();
+	}
+
+	/**
+	 * Get the primary key columns of a table joined by a find, or an empty array if not known
+	 *
+	 * Taken from the Fieldtype’s schema for field tables and known for core tables, so that no query is needed.
+	 *
+	 * @param string $table
+	 * @return array
+	 * @since 3.0.274
+	 *
+	 */
+	protected function getTablePrimaryKeys($table) {
+		$tables = array(
+			'pages' => array('id'),
+			'templates' => array('id'),
+			'pages_access' => array('pages_id'),
+			'pages_sortfields' => array('pages_id'),
+			'pages_paths' => array('pages_id', 'language_id'),
+			'pages_parents' => array('pages_id', 'parents_id'),
+		);
+		if(isset($tables[$table])) return $tables[$table];
+		if(strpos($table, Field::tablePrefix) !== 0) return array();
+		$field = $this->fields->get(substr($table, strlen(Field::tablePrefix)));
+		if(!$field instanceof Field || !$field->type || $field->getTable() !== $table) return array();
+		static $cache = array(); // PageFinder instances are one per find, so the cache is the request's
+		$key = "$table:" . $field->type->className();
+		if(!isset($cache[$key])) {
+			$primaryKeys = $field->type->getDatabaseSchemaVerbose($field, 'primaryKeys');
+			$cache[$key] = is_array($primaryKeys) ? $primaryKeys : array();
+		}
+		return $cache[$key];
+	}
+
+	/**
+	 * Replace each parenthesized part of the given SQL with “()”, leaving only its top level
+	 *
+	 * @param string $sql
+	 * @return string
+	 * @since 3.0.274
+	 *
+	 */
+	protected function removeParenthesized($sql) {
+		$sql = preg_replace('/\'(?:[^\'\\\\]|\\\\.)*\'/s', "''", $sql); // quoted strings may contain parentheses
+		do {
+			$sql = preg_replace('/\([^()]*\)/', '[]', $sql, -1, $count);
+		} while($count);
+		return str_replace('[]', '()', $sql);
+	}
+
 	protected function getQueryStartLimit(DatabaseQuerySelect $query) {
 
 		$start = $this->start; 
@@ -3483,6 +3607,7 @@ class PageFinder2 extends Wire {
 			// non zero values
 			// aggregated for ONLY_FULL_GROUP_BY; the subquery yields one row per page so MIN() is a no-op
 			$query->select("MIN($a.$b) AS $b"); 
+			$query->addGroupAggregate("MIN($a.$b) AS $b", "$a.$b AS $b");
 			$query->leftjoin(
 				"(" . 
 				"SELECT p$n.parent_id, COUNT(p$n.id) AS $b " . 
