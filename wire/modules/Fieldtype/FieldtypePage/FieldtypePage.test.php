@@ -201,6 +201,32 @@ class WireTest_FieldtypePage extends WireTest {
 
 		$this->testTrashPageRefs();
 		$this->testTrashPageRefsChunkBoundary();
+		$this->testOrOfNames();
+	}
+
+	/**
+	 * An OR of page names (i.e. roles=superuser|guest) finds the same pages as the same pages by ID
+	 *
+	 * The names are first checked against the pages table, with a query that must also be valid
+	 * where every selected column has to be grouped or aggregated (PostgreSQL, ONLY_FULL_GROUP_BY).
+	 *
+	 */
+	protected function testOrOfNames() {
+		$pages = $this->wire()->pages;
+		$roles = $this->wire()->roles;
+		$superuser = $roles->get('superuser');
+		$guest = $roles->getGuestRole();
+		$byID = $pages->findIDs("template=user, roles=$superuser->id|$guest->id, include=all");
+		$error = '';
+		try {
+			$byName = $pages->findIDs('template=user, roles=superuser|guest, include=all');
+		} catch(\Exception $e) {
+			$byName = array();
+			$error = $e->getMessage();
+		}
+		$this->check('an OR of names runs', '', $error);
+		$this->check('an OR of names finds the same pages as by ID', $byID, $byName);
+		$this->check('an OR of names with one that does not exist ignores it', $byID, $pages->findIDs('template=user, roles=superuser|guest|no-such-role, include=all'));
 	}
 
 	/**
