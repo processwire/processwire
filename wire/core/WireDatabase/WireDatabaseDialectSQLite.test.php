@@ -73,6 +73,28 @@ class WireTest_WireDatabaseDialectSQLite extends WireTest {
 			$error = $e->getMessage();
 		}
 		$this->check('optimize() (run when the connection closes) works', '', $error);
+
+		// while another connection writes (i.e. another request already analyzing), a connection skips the
+		// ANALYZE rather than running it too, or waiting
+		$file = $pdo->query('PRAGMA database_list')->fetch(\PDO::FETCH_ASSOC)['file'];
+		$pdo->exec('DROP TABLE IF EXISTS sqlite_stat1');
+		$other = new \PDO("sqlite:$file");
+		$other->exec('BEGIN IMMEDIATE');
+		try {
+			$time = microtime(true);
+			$database->dialect()->initConnection($pdo);
+			$time = microtime(true) - $time;
+			$has = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE name = 'sqlite_stat1'")->fetchColumn();
+		} finally {
+			$other->exec('ROLLBACK');
+			$other = null;
+		}
+		$this->check('while another connection writes, statistics are left to it', false, $has);
+		$this->check('while another connection writes, connecting does not wait for it', true, $time < 1);
+		$this->check('the busy timeout is kept', 5000, (int) $pdo->query('PRAGMA busy_timeout')->fetchColumn());
+		$database->dialect()->initConnection($pdo);
+		$has = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE name = 'sqlite_stat1'")->fetchColumn();
+		$this->check('once the other connection is done, statistics are gathered', true, $has);
 	}
 
 	/**

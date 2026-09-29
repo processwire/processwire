@@ -225,8 +225,11 @@ extension and SQLite 3.35+ are available (CLI installer: `'dbType' => 'sqlite'`,
   SQLSTATE codes (`42S02`, `42S22`) and are reported at `execute()` rather than `prepare()`, as with MySQL.
 - **Planner statistics:** without them SQLite often leaves unused the index that would serve a query (i.e. a
   `title=` lookup scans the template's pages). A database that has none (one just installed, or made before
-  ProcessWire gathered them) gets a full `ANALYZE` on connecting, once: about 0.7 seconds per 20,000 pages. After
-  that, `PRAGMA optimize` runs when each request ends (normally a fraction of a millisecond), analyzing again
+  ProcessWire gathered them) gets a full `ANALYZE` on connecting, once: about 0.7 seconds per 20,000 pages. So on
+  a large site, the first request after upgrading takes that much longer. One connection runs it, in a write
+  transaction; requests that arrive meanwhile skip it rather than wait, and until it finishes, their queries run
+  without statistics, as before (and their writes wait for it, up to the busy timeout). After that,
+  `PRAGMA optimize` runs when each request ends (normally a fraction of a millisecond), analyzing again
   tables whose size has changed a lot, which SQLite does from a sample of their rows. `ANALYZE TABLE` (MySQL syntax)
   gathers full statistics for the tables it names at any time, i.e. after a large import.
 
