@@ -947,20 +947,20 @@ class PageFinder extends Wire {
 				$query->set('orderby', array());
 				$query->set('limit', array());
 				if($countRows) {
+					// count the grouped rows in the database, rather than fetching each one
 					$query->set('select', array('pages.id'));
+					$sql = $query->getQuery();
+					$stmt = $database->prepare("SELECT COUNT(*) FROM ($sql) AS pw_count");
+					$query->copyBindValuesTo($stmt, array('inSQL' => $sql));
+					$database->execute($stmt);
 				} else {
 					$query->set('select', array(count($groups) ? 'COUNT(DISTINCT ' . reset($groups) . ')' : 'COUNT(*)'));
 					$query->set('groupby', array());
+					$stmt = $query->execute();
 				}
-				$stmt = $query->execute();
 				$errorInfo = $stmt->errorInfo();
 				if($stmt->errorCode() > 0) throw new PageFinderException($errorInfo[2]);
-				if($countRows) {
-					$this->total = 0;
-					while($stmt->fetch(\PDO::FETCH_NUM)) $this->total++;
-				} else {
-					list($this->total) = $stmt->fetch(\PDO::FETCH_NUM);
-				}
+				list($this->total) = $stmt->fetch(\PDO::FETCH_NUM);
 				$stmt->closeCursor();
 			} else {
 				$this->total = (int) $database->query("SELECT FOUND_ROWS()")->fetchColumn();
