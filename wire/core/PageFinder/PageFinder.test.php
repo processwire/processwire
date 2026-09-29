@@ -28,8 +28,63 @@ class WireTest_PageFinder extends WireTest {
 		$this->testCursorAndReverseOptions();
 		$this->testExceptionsAndTiming();
 		$this->testCountTotals();
+		$this->testPageFinder2MultiValueSort();
 	}
 
+	/**
+	 * PageFinder2: a sort on a multi-value field ranks each page by its highest value when descending, and its
+	 * lowest when ascending, rather than by whichever of its rows the database reaches first
+	 *
+	 */
+	protected function testPageFinder2MultiValueSort() {
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$template = $this->wire()->templates->get($this->childTemplateName);
+		$name = 'wire_test_pagefinder_refs';
+		$field = $fields->get($name);
+		$created = false;
+		if(!$field) {
+			$field = new Field();
+			$field->type = $this->wire()->modules->get('FieldtypePage');
+			$field->name = $name;
+			$field->label = 'PageFinder test refs';
+			$field->derefAsPage = FieldtypePage::derefAsPageArray;
+			$field->save();
+			$created = true;
+		}
+		if(!$template->hasField($field)) {
+			$template->fieldgroup->add($field);
+			$template->fieldgroup->save();
+		}
+		$parent = $this->getTestPage();
+		$p = array();
+		foreach(array('a', 'b', 'c') as $n) $p[$n] = $pages->get("parent=$parent, name=pagefinder-test-$n, include=all");
+		try {
+			// referenced names: a has b and c, b has a, c has a and b (a page can't reference itself)
+			foreach(array('a' => array('b', 'c'), 'b' => array('a'), 'c' => array('a', 'b')) as $n => $refs) {
+				$page = $p[$n];
+				$page->of(false);
+				$page->set($name, array_map(function($r) use($p) { return $p[$r]->id; }, $refs));
+				$page->save($name);
+			}
+			$pages->uncacheAll();
+			$sel = "parent=$parent, template=$this->childTemplateName, include=all";
+			$finder = function() { return PageFinder2::getInstance($this, true); };
+			$ids = function($selector) use($finder) { return $finder()->findIDs(new Selectors($selector)); };
+			$sql = $finder()->find(new Selectors("$sel, sort=-$name"), array('returnQuery' => true))->getQuery();
+			$this->check('descending sort on a multi-value field uses each page’s highest value', true, stripos($sql, 'ORDER BY MAX(') !== false);
+			$sql = $finder()->find(new Selectors("$sel, sort=$name"), array('returnQuery' => true))->getQuery();
+			$this->check('ascending sort on a multi-value field uses each page’s lowest value', true, stripos($sql, 'ORDER BY MIN(') !== false);
+			// highest: a has c, c has b, b has a; lowest: b has a, c has a, a has b (ties by id)
+			$this->check('descending: by the highest value', array($p['a']->id, $p['c']->id, $p['b']->id), $ids("$sel, sort=-$name, sort=id"));
+			$this->check('ascending: by the lowest value', array($p['b']->id, $p['c']->id, $p['a']->id), $ids("$sel, sort=$name, sort=id"));
+			$this->check('a single-value field’s sort is not aggregated', false, stripos($finder()->find(new Selectors("$sel, sort=-title"), array('returnQuery' => true))->getQuery(), 'MAX(') !== false);
+		} finally {
+			$template->fieldgroup->remove($field);
+			$template->fieldgroup->save();
+			if($created) $fields->delete($field);
+		}
+	}
 	/**
 	 * A total by COUNT(*) counts each page once, also when a join gives several rows per page (PageFinder and PageFinder2)
 	 *
