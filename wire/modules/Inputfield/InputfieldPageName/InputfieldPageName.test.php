@@ -6,6 +6,21 @@
  */
 class WireTest_InputfieldPageName extends WireTest {
 
+	protected $previousUser = null;
+
+	public function init() {
+		// with language page names, processInput() only processes a user's editable language (not the CLI's guest)
+		$users = $this->wire()->users;
+		$this->previousUser = $this->wire()->user;
+		$users->setCurrentUser($users->get($this->wire()->config->superUserPageID));
+	}
+
+	public function finish() {
+		if($this->previousUser && $this->previousUser->id) {
+			$this->wire()->users->setCurrentUser($this->previousUser);
+		}
+	}
+
 	public function execute() {
 		$this->testBasicProperties();
 		$this->testSanitization();
