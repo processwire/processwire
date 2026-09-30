@@ -746,8 +746,9 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 		if($value !== null && $value !== $valuePrevious && !$this->readonly) {
 			parent::___processInput($input);
 			$value = $this->tools->purifyValue($value);
+			// The parent assigned the submitted value, so always replace it with the purified value.
+			$this->val($value);
 			if($value !== $valuePrevious) {
-				$this->val($value);
 				$this->trackChange('value');
 			}
 		}

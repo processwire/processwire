@@ -11,6 +11,7 @@ class WireTest_InputfieldTinyMCE extends WireTest {
 		$this->testSettingNames();
 		$this->testInvalidStylesParser();
 		$this->testRenderAndProcess();
+		$this->testPurifyInput();
 		$this->testConfigInputfields();
 	}
 
@@ -124,6 +125,17 @@ class WireTest_InputfieldTinyMCE extends WireTest {
 		$html = $f->renderValue();
 		$this->check('renderValue wraps sanitized content', 'mce-content-body', $html, '*=');
 		$this->check('renderValue removes script tag', false, strpos($html, '<script') !== false);
+	}
+
+	protected function testPurifyInput() {
+		$f = $this->newInputfield('purify_body');
+		$previous = '<p>Original</p>';
+		$f->val($previous);
+		$submitted = $previous . '<script>alert(1)</script>';
+
+		$this->check('purifier removes disallowed HTML', $previous, $f->tools->purifyValue($submitted));
+		$this->processInput($f, $submitted);
+		$this->check('processInput retains purified value when unchanged', $previous, $f->val());
 	}
 
 	protected function testConfigInputfields() {
