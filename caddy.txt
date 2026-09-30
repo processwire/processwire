@@ -1,0 +1,436 @@
+#################################################################################################
+# START PROCESSWIRE CADDY DIRECTIVES
+# @version 3.0
+# @caddyVersion 301
+#################################################################################################
+#
+# This is the Caddy equivalent of ProcessWire's htaccess.txt file. Sections are numbered the
+# same as in htaccess.txt so that the two files can be compared. Section numbers that do not
+# apply to Caddy are listed with a note explaining why.
+#
+# Installing
+# -----------------------------------------------------------------------------------------------
+# Caddy does not read per-directory files like .htaccess, so the directives below must go in
+# your Caddyfile, and Caddy must be reloaded after any change to it. This file is a complete
+# site block. Either use it as the site block for your site, or copy the directives within it
+# into your existing site block. Then edit the lines marked (E) to match your server. To find
+# them, search this file for all instances of "(E)".
+#
+# The directives are within a "route" block, so that they run in the order written. The access
+# restrictions in sections 5, 12 and 15 must run before anything else, so do not add "rewrite",
+# "uri" or "try_files" directives outside of the route block, since Caddy runs those first.
+#
+# If ProcessWire is installed in a subdirectory, see section 19.
+#
+# Upgrading
+# -----------------------------------------------------------------------------------------------
+# The @caddyVersion at the top of this file matches the @htaccessVersion in htaccess.txt, and
+# is passed to PHP in section 21. ProcessWire uses it to tell you when your Caddy configuration
+# is out of date. When updating, replace sections 5, 12 and 15, and update the version in
+# section 21. Sections tagged "(v301)" are new or have significant changes.
+#
+# Optional features
+# -----------------------------------------------------------------------------------------------
+# Many of the directives in this file are optional and commented out by default. To quickly
+# locate them, search this file for all instances of "(O)".
+#
+# If using a load balancer or proxy
+# -----------------------------------------------------------------------------------------------
+# If Caddy is behind a load balancer or proxy (like those available from AWS) some directives
+# will need to change. Search this file for instances of "(L)" for details.
+#
+
+# -----------------------------------------------------------------------------------------------
+# 0. Server settings (E)
+#
+# Replace example.com with your domain name(s), separated by commas. Caddy automatically gets
+# and renews an HTTPS certificate for them, and redirects HTTP requests to HTTPS. See also
+# section 9.
+# -----------------------------------------------------------------------------------------------
+
+example.com {
+
+	# The directory where ProcessWire is installed (where its index.php file is) (E)
+	root * /var/www/example.com
+
+	route {
+
+		# -----------------------------------------------------------------------------------------
+		# 1. Server options
+		#
+		# Caddy does not show directory indexes unless "file_server browse" is used, and it follows
+		# symbolic links, so neither needs a directive here.
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 2. Have ProcessWire handle 404s
+		#
+		# Requests for files and directories that do not exist are passed to ProcessWire (section 19),
+		# so ProcessWire handles 404s without a "handle_errors" directive.
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 3. Handle request for missing favicon.ico/robots.txt files
+		#
+		# Requests for missing favicon.ico and robots.txt files get a plain 404 rather than being
+		# passed to ProcessWire. See section 17.
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 4. Protect from XSS with headers
+		# -----------------------------------------------------------------------------------------
+
+		# prevent site from being loaded in an iframe on another site
+		# you will need to remove this one if you want to allow external iframes
+		header X-Frame-Options SAMEORIGIN
+
+		# To prevent cross site scripting (IE8+ proprietary), see link before using:
+		# https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-XSS-Protection
+		# header X-XSS-Protection "1; mode=block"
+
+		# Optionally (O) prevent mime-based attacks via content sniffing (IE+Chrome)
+		# header X-Content-Type-Options nosniff
+
+		# -----------------------------------------------------------------------------------------
+		# 5. Prevent access to various types of files (v301)
+		#
+		# Note that some of these rules are duplicated by the rules in section 15, as we try to
+		# maintain two layers of protection when/where possible.
+		# -----------------------------------------------------------------------------------------
+
+		# 5A. Block access to inc, info, info.json/php, module/php, sh, sql and composer files
+		# -----------------------------------------------------------------------------------------
+
+		@pw_5a path_regexp `(?i)\.(inc|info|info\.(json|php)|module|module\.php|sh|sql)$|/\.[^/]*$|composer\.(json|lock)$`
+		respond @pw_5a 403
+
+		# 5B. Block bak, conf, dist, ini, log, orig, sh, sql, sqlite, swo, swp, ~, and more
+		# -----------------------------------------------------------------------------------------
+
+		@pw_5b path_regexp `(?i)(/#[^/]*#|\.(bak|conf|dist|in[ci]|log|orig|sh|sql|sqlite3?(-wal|-shm|-journal)?|sw[op])|~)$`
+		respond @pw_5b 403
+
+		# 5C. Block AI agent and API markdown files at all directory levels
+		# -----------------------------------------------------------------------------------------
+
+		@pw_5c path_regexp `(?i)/(AGENTS?|CLAUDE|SKILLS?|MEMORY|API)\.md$`
+		respond @pw_5c 403
+
+		# -----------------------------------------------------------------------------------------
+		# 6. Override a few PHP settings that can't be changed at runtime
+		#
+		# Not applicable to Caddy. Use your PHP-FPM pool configuration or a .user.ini file instead.
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 7. Set default directory index files
+		#
+		# Caddy uses index.php (section 21) or index.html files as directory index files.
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 8. Enable rewrites
+		#
+		# Not applicable to Caddy, where rewriting is built in. The installer detects this ProcessWire
+		# configuration by the PW_CADDY_VERSION variable in section 21 (rather than the Apache 8B
+		# environment variable).
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 9. Force HTTPS
+		#
+		# Caddy redirects HTTP requests to HTTPS automatically when the site address is a domain
+		# name (section 0). If Caddy is behind a load balancer or proxy that handles HTTPS, use a
+		# site address that begins with "http://" instead, and let the load balancer redirect. (L)
+		#
+		# 9F. Tell web browsers to only allow access via HSTS: Strict-Transport-Security (O) (v301)
+		# -----------------------------------------------------------------------------------------
+		# This forces client-side SSL redirection. Before enabling be absolutely certain you can
+		# always serve via HTTPS because it becomes non-revokable for the duration of your max-age.
+		# See link below for details and options (note 'max-age=31536000' is 1-year):
+		# https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+
+		# Uncomment one (1) line below & adjust as needed to enable Strict-Transport-Security (HSTS):
+		# header Strict-Transport-Security "max-age=31536000;"
+		# header Strict-Transport-Security "max-age=31536000; includeSubdomains"
+		# header Strict-Transport-Security "max-age=31536000; preload"
+		# header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+		# Section 10 intentionally omitted for future use
+
+		# -----------------------------------------------------------------------------------------
+		# 11. Nuisance blocking/firewall
+		# -----------------------------------------------------------------------------------------
+		# None of these are enabled by default, but are here for convenience when the need arises.
+		# Review and uncomment as needed.
+		# -----------------------------------------------------------------------------------------
+
+		# 11A. Block via IP addresses
+		# -----------------------------------------------------------------------------------------
+		# Note that IP addresses here are examples only and should be replaced with actual IPs.
+		# @pw_11a remote_ip 111.222.33.44 99.88.77.0/24
+		# respond @pw_11a 403
+
+		# 11B. Block via request URI (matches strings anywhere in request URL)
+		# -----------------------------------------------------------------------------------------
+		# @pw_11b_uri path_regexp `(?i)(bad-word|wp-admin|wp-content)`
+		# respond @pw_11b_uri 403
+
+		# 11B. Block via user agent strings (matches strings anywhere in user-agent)
+		# -----------------------------------------------------------------------------------------
+		# @pw_11b_agent header_regexp User-Agent `(?i)(bad-bot|mean-bot)`
+		# respond @pw_11b_agent 403
+
+		# 11C. Block via remote hosts
+		# -----------------------------------------------------------------------------------------
+		# Not available in Caddy, which does not look up the host names of remote IP addresses.
+
+		# 11D. Block via HTTP referrer (matches anywhere in referrer URL)
+		# -----------------------------------------------------------------------------------------
+		# @pw_11d header_regexp Referer `(?i)(bad-referrer|gross-referrer)`
+		# respond @pw_11d 403
+
+		# 11E. Block unneeded request methods (only if you do not need them)
+		# -----------------------------------------------------------------------------------------
+		# @pw_11e method CONNECT DEBUG DELETE MOVE PUT TRACE TRACK
+		# respond @pw_11e 403
+
+		# 11F. Limit file upload size (i.e. 10MB, adjust as needed)
+		# -----------------------------------------------------------------------------------------
+		# request_body {
+		# 	max_size 10MB
+		# }
+
+		# -----------------------------------------------------------------------------------------
+		# 12. Access Restrictions: Keep web users out of dirs or files that begin with a period,
+		# but let services like Lets Encrypt use the webroot authentication method.
+		# -----------------------------------------------------------------------------------------
+
+		@pw_12 {
+			path_regexp `/\.`
+			not path_regexp `^(/[^/.][^/]*)*/\.well-known(/[^/.][^/]*)*/?$`
+		}
+		respond @pw_12 403
+
+		# -----------------------------------------------------------------------------------------
+		# 13. Optional domain redirects (O)
+		#
+		# To redirect www.example.com to example.com (or the reverse), add a separate site block
+		# for the domain being redirected, outside of this one:
+		#
+		# www.example.com {
+		# 	redir https://example.com{uri} permanent
+		# }
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 14. Optionally send URLs with non-ASCII name-format characters to 404 page (optimization).
+		#
+		# See section 16, where this option is located for Caddy.
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 15. Access Restrictions (v301)
+		# -----------------------------------------------------------------------------------------
+
+		# 15A. Keep http requests out of specific files and directories
+		# -----------------------------------------------------------------------------------------
+
+		# Block access to any htaccess, nginx.txt or caddy.txt files
+		@pw_15a_1 path_regexp `(?i)(^|/)(\.htaccess|htaccess\..*|nginx\.txt|caddy\.txt)$`
+		vars @pw_15a_1 pw_deny 1
+
+		# Block access to various assets directories
+		@pw_15a_2 path_regexp `(?i)(^|/)(site|site-[^/]+)/assets/(cache|logs|backups|sessions|config|database|install|tmp)($|/.*$)`
+		vars @pw_15a_2 pw_deny 1
+
+		# Block access to the /site/install/ directories
+		@pw_15a_3 path_regexp `(?i)(^|/)(site|site-[^/]+)/install($|/.*$)`
+		vars @pw_15a_3 pw_deny 1
+
+		# Block dirs in /site/assets/dirs that start with a hyphen (see config.pagefileSecure)
+		@pw_15a_4 path_regexp `(?i)(^|/)(site|site-[^/]+)/assets.*/-.+/.*`
+		vars @pw_15a_4 pw_deny 1
+
+		# Block access to /wire/config.php, /site/config.php, /site/config-dev.php, /wire/index.config.php, etc.
+		@pw_15a_5 path_regexp `(?i)(^|/)(wire|site|site-[^/]+)/(config|index\.config|config-dev)\.php($|/)`
+		vars @pw_15a_5 pw_deny 1
+
+		# Block access to any PHP-based files in /site/templates-admin/ or /wire/templates-admin/
+		@pw_15a_6 path_regexp `(?i)(^|/)(wire|site|site-[^/]+)/templates-admin($|/|/.*\.(php|html?|tpl|inc))($|/)`
+		vars @pw_15a_6 pw_deny 1
+
+		# Block access to any PHP or markup files in /site/templates/ or /site-*/templates/
+		@pw_15a_7 path_regexp `(?i)(^|/)(site|site-[^/]+)/templates($|/|/.*\.(php|html?|tpl|inc))($|/)`
+		vars @pw_15a_7 pw_deny 1
+
+		# Block access to any files in /site/classes/ or /site-*/classes/
+		@pw_15a_8 path_regexp `(?i)(^|/)(site|site-[^/]+)/classes($|/.*)`
+		vars @pw_15a_8 pw_deny 1
+
+		# Block access to any PHP files within /site/assets/ and further
+		@pw_15a_9 path_regexp `(?i)(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/)`
+		vars @pw_15a_9 pw_deny 1
+
+		# Block access to any PHP, module, inc or info files in core or core modules directories
+		@pw_15a_10 path_regexp `(?i)(^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)($|/)`
+		vars @pw_15a_10 pw_deny 1
+
+		# Block access to any PHP, tpl or info.json files in /site/modules/ or /site-*/modules/
+		@pw_15a_11 path_regexp `(?i)(^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$`
+		vars @pw_15a_11 pw_deny 1
+
+		# Block access to any software identifying txt, markdown or textile files
+		@pw_15a_12 path_regexp `(?i)(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$`
+		vars @pw_15a_12 pw_deny 1
+
+		# Block potential arbitrary backup files within site directories for things like config
+		@pw_15a_13 path_regexp `(?i)(^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$`
+		vars @pw_15a_13 pw_deny 1
+
+		# Block access throughout to temporary files ending with tilde created by certain editors
+		@pw_15a_14 path_regexp `(?i)\.(html?|inc|json|lock|module|php|py|rb|sh|sql|tpl|tmpl|twig)~$`
+		vars @pw_15a_14 pw_deny 1
+
+		# Block access to names of potential backup file extensions within wire or site directories
+		@pw_15a_15 path_regexp `(?i)(^|/)(wire/|site[-/]).+\.(bak|old|sql|sw[op]|(bak|php|sql)[./]+.*)[\d.]*$`
+		vars @pw_15a_15 pw_deny 1
+
+		# Block all http access to the default/uninstalled site-default directory
+		@pw_15a_16 path_regexp `(^|/)site-default/`
+		vars @pw_15a_16 pw_deny 1
+
+		# Prevent all the above rules from blocking images in site install directories
+		@pw_15a_images path_regexp `(^|/)site-[^/]+/install/[^/]+\.(jpg|jpeg|png|gif|webp|svg)$`
+		vars @pw_15a_images pw_deny 0
+
+		# If any rules above match, issue a 403 forbidden
+		@pw_15a vars pw_deny 1
+		respond @pw_15a 403
+
+		# 15B. Block archive file types commonly used for backup purposes (O)
+		# -----------------------------------------------------------------------------------------
+		# This blocks requests for zip, rar, tar, gz, and tgz files that are sometimes left on servers
+		# as backup files, and thus can be problematic for security. This rule blocks those files
+		# unless they are located within the /site/assets/files/ directory. This is not enabled by
+		# default since there are many legitimate use cases for these files, so uncomment the lines
+		# below if you want to enable this.
+
+		# @pw_15b {
+		# 	path_regexp `(?i)\.(zip|rar|tar|gz|tgz)$`
+		# 	not path_regexp `(?i)(^|/)(site|site-[^/]+)/assets/files/\d+/`
+		# }
+		# respond @pw_15b 403
+
+		# -----------------------------------------------------------------------------------------
+		# 17. If the request is for a file or directory that physically exists on the server,
+		# then don't give control to ProcessWire, and instead load the file
+		# -----------------------------------------------------------------------------------------
+
+		# Requests for missing favicon.ico or robots.txt files get a plain 404
+		@pw_17 {
+			path_regexp `(favicon\.ico|robots\.txt)`
+			not file
+		}
+		respond @pw_17 404
+
+		# -----------------------------------------------------------------------------------------
+		# 18. Optionally (O) prevent PW from serving some file types, or anything in /site/assets/.
+		# Both of these are optional, but can help to reduce server load. However, they are not
+		# compatible with the $config->pagefileSecure option (if enabled) and they produce a Caddy
+		# 404 rather than your regular 404. You may uncomment the lines below if you don't need to
+		# use the $config->pagefileSecure option.
+		# -----------------------------------------------------------------------------------------
+
+		# @pw_18_types {
+		# 	not file {path} {path}/
+		# 	path_regexp `(?i)\.(jpg|jpeg|gif|png|ico|webp|svg|js|css)$`
+		# }
+		# respond @pw_18_types 404
+		# @pw_18_assets {
+		# 	not file {path} {path}/
+		# 	path_regexp `(^|/)site/assets/`
+		# }
+		# respond @pw_18_assets 404
+
+		# -----------------------------------------------------------------------------------------
+		# 16. Ensure that the URL follows the name-format specification required by PW
+		#
+		# A URL that does not match is passed to ProcessWire without a path, which responds
+		# with a 404.
+		# -----------------------------------------------------------------------------------------
+
+		@pw_16 {
+			not file {path} {path}/
+
+			# PW-PAGENAME
+			# -------------------------------------------------------------------------------------
+			# 16A. Name-format specification required by PW
+			# See also directive 16B below, you should choose and use either 16A or 16B.
+			# -------------------------------------------------------------------------------------
+
+			not path_regexp `^/~?[-_.a-zA-Z0-9/]*$`
+
+			# -------------------------------------------------------------------------------------
+			# 16B. Alternative name-format specification for UTF8 page name support. (O)
+			# If used, comment out the 16A line above and uncomment the line below. If you have
+			# updated your $config->pageNameWhitelist make the characters below consistent with that.
+			# -------------------------------------------------------------------------------------
+
+			# not path_regexp `^/~?[-_./a-zA-Z0-9æåäßöüđжхцчшщюяàáâèéëêěìíïîõòóôøùúûůñçčćďĺľńňŕřšťýžабвгдеёзийклмнопрстуфыэęąśłżź]*$`
+
+			# END-PW-PAGENAME
+		}
+		rewrite @pw_16 /index.php
+
+		# -----------------------------------------------------------------------------------------
+		# 14. Optionally send URLs with non-ASCII name-format characters to 404 page (optimization).
+		#
+		# This ensures that ProcessWire does not spend time processing URLs that we know ahead of
+		# time are going to result in 404s. To enable, replace the "rewrite @pw_16" line above with
+		# the one below. (O)
+		# -----------------------------------------------------------------------------------------
+
+		# rewrite @pw_16 /index.php?it=/http404/
+
+		# -----------------------------------------------------------------------------------------
+		# 19. Pass control to ProcessWire if all the above directives allow us to this point.
+		#
+		# If ProcessWire is installed in a subdirectory, such as /pw/, then add that subdirectory to
+		# the start of the path_regexp pattern below and to the index.php paths in the rewrites in
+		# 16, 14 and below. For example: path_regexp pw_path `^/pw/(.*)$` and
+		# rewrite @pw_19 /pw/index.php?it={re.pw_path.1}&{query}
+		# -----------------------------------------------------------------------------------------
+
+		@pw_19 {
+			not file {path} {path}/
+			path_regexp pw_path `^/(.*)$`
+		}
+		rewrite @pw_19 /index.php?it={re.pw_path.1}&{query}
+
+		# -----------------------------------------------------------------------------------------
+		# 20. VirtualDocumentRoot
+		#
+		# Not applicable to Caddy.
+		# -----------------------------------------------------------------------------------------
+
+		# -----------------------------------------------------------------------------------------
+		# 21. Pass PHP files to PHP-FPM (E)
+		# -----------------------------------------------------------------------------------------
+
+		# Where PHP-FPM is listening, which varies by server (E)
+		php_fastcgi unix//run/php/php-fpm.sock {
+
+			# Tells ProcessWire the version of these directives, like @caddyVersion at the top of this
+			# file. Update this whenever you update the directives in this file.
+			env PW_CADDY_VERSION 301
+		}
+
+		# Serve all other files that exist
+		file_server
+	}
+}
+
+#################################################################################################
+# END PROCESSWIRE CADDY DIRECTIVES
+#################################################################################################

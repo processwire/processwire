@@ -79,7 +79,7 @@ class SystemUpdaterChecks extends Wire {
 			'checkWelcome',
 			'checkIndexFile',
 			'checkHtaccessFile',
-			'checkNginxConfig',
+			'checkWebServerConfig',
 			'checkOtherHtaccessFiles',
 			'checkInstallerFiles',
 			'checkFilePermissions',
@@ -180,44 +180,72 @@ class SystemUpdaterChecks extends Wire {
 	}
 
 	/**
-	 * Check that nginx configuration has the directives from nginx.txt at the correct version
+	 * Check that nginx or Caddy configuration has the directives from nginx.txt or caddy.txt at the correct version
 	 *
-	 * The directives pass their version to PHP in a PW_NGINX_VERSION parameter.
+	 * The directives pass their version to PHP in a PW_NGINX_VERSION or PW_CADDY_VERSION variable.
 	 *
-	 * @return bool Returns true if not nginx, or if nginx directives are present and up-to-date
+	 * @return bool Returns true if not nginx or Caddy, or if the directives are present and up-to-date
 	 * @since 3.0.275
 	 *
 	 */
-	public function checkNginxConfig() {
+	public function checkWebServerConfig() {
 
-		$software = isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '';
-		$foundVersion = isset($_SERVER['PW_NGINX_VERSION']) ? (int) $_SERVER['PW_NGINX_VERSION'] : 0;
+		$name = $this->getWebServerName();
+		if($name === '') {
+			if(!$this->testAll) return true; // not nginx or Caddy
+			$name = 'nginx';
+		}
+
+		$label = $name === 'caddy' ? 'Caddy' : $name;
+		$var = 'PW_' . strtoupper($name) . '_VERSION';
+		$foundVersion = isset($_SERVER[$var]) ? (int) $_SERVER[$var] : 0;
 		$requiredVersion = ProcessWire::htaccessVersion;
 
-		if(!$foundVersion && stripos($software, 'nginx') === false && !$this->testAll) return true; // not nginx
 		if($foundVersion >= $requiredVersion && !$this->testAll) return true;
 
 		if($this->showNotices) {
+			$file = $this->location("$name.txt");
 			if($foundVersion) {
 				$warning = sprintf(
-					$this->_('Please note that your nginx configuration is not up-to-date with the directives in %s for this ProcessWire version, please update it when possible.'),
-					$this->location('nginx.txt')
+					$this->_('Please note that your %1$s configuration is not up-to-date with the directives in %2$s (included with ProcessWire) for this ProcessWire version, please update it when possible.'),
+					$label, $file
 				);
 			} else {
 				$warning = sprintf(
-					$this->_('Please note that your nginx configuration does not appear to have the directives from %s, which protect files that should not be accessible from the web.'),
-					$this->location('nginx.txt')
+					$this->_('Please note that your %1$s configuration does not appear to have the directives from %2$s (included with ProcessWire), which protect files that should not be accessible from the web.'),
+					$label, $file
 				);
 			}
+			if($name === 'caddy') {
+				$line = $this->_('After updating, make sure the php_fastcgi block in your Caddyfile has the following line, then reload Caddy:');
+				$code = "env $var $requiredVersion";
+			} else {
+				$line = $this->_('After updating, make sure your nginx PHP location block has the following line, then reload nginx:');
+				$code = "fastcgi_param $var $requiredVersion;";
+			}
 			$details = $this->small(
-				$this->versionsLabel($requiredVersion, $foundVersion ? $foundVersion : '?') . ' ' .
-				$this->_('After updating, make sure your nginx PHP location block has the following line, then reload nginx:') .
-				$this->code("fastcgi_param PW_NGINX_VERSION $requiredVersion;")
+				$this->versionsLabel($requiredVersion, $foundVersion ? $foundVersion : '?') . ' ' . $line . $this->code($code)
 			);
 			$this->warning("$warning$details", Notice::log | Notice::allowMarkup);
 		}
 
 		return false;
+	}
+
+	/**
+	 * Get the name of the web server when it is one that uses a ProcessWire directives file rather than .htaccess
+	 *
+	 * @return string Returns 'nginx', 'caddy', or blank string for Apache, other web servers, or command line
+	 * @since 3.0.275
+	 *
+	 */
+	protected function getWebServerName() {
+		$software = isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '';
+		foreach([ 'nginx', 'caddy' ] as $name) {
+			if(isset($_SERVER['PW_' . strtoupper($name) . '_VERSION'])) return $name;
+			if(stripos($software, $name) !== false) return $name;
+		}
+		return '';
 	}
 
 	/**
@@ -287,14 +315,30 @@ class SystemUpdaterChecks extends Wire {
 	 * 
 	 */
 	public function checkInstallerFiles() {
-		if(is_file($this->wire()->config->paths->root . "install.php") || $this->testAll) {
+		$root = $this->wire()->config->paths->root;
+		$result = true;
+		if(is_file($root . "install.php") || $this->testAll) {
 			if($this->showNotices) {
 				$warning = $this->_("Security Warning: file '%s' exists and should be deleted as soon as possible.");
 				$this->warning(sprintf($warning, '/install.php'), Notice::log);
 			}
-			return false;
+			$result = false;
 		}
-		return true;
+		if(!empty($_SERVER['SERVER_SOFTWARE'])) {
+			// directives files for web servers other than the one in use (web server not known from command line)
+			$webServer = $this->getWebServerName();
+			$names = [ 'nginx', 'caddy' ];
+			if($webServer !== '') $names[] = 'htaccess'; // Apache (or other .htaccess web server) needs htaccess.txt
+			foreach($names as $name) {
+				if($name === $webServer || !is_file($root . "$name.txt")) continue;
+				if($this->showNotices) {
+					$warning = $this->_("File '%s' is for a web server that this site is not using, and should be deleted.");
+					$this->warning(sprintf($warning, "/$name.txt"), Notice::log);
+				}
+				$result = false;
+			}
+		}
+		return $result;
 	}
 
 	/**

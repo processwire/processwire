@@ -316,8 +316,8 @@ server {
 
   set $pw_deny 0;
 
-  # Block access to any htaccess or nginx.txt files
-  if ($uri ~* "(^|/)(\.htaccess|htaccess\..*|nginx\.txt)$") {
+  # Block access to any htaccess, nginx.txt or caddy.txt files
+  if ($uri ~* "(^|/)(\.htaccess|htaccess\..*|nginx\.txt|caddy\.txt)$") {
     set $pw_deny 1;
   }
 
@@ -372,7 +372,7 @@ server {
   }
 
   # Block access to any software identifying txt, markdown or textile files
-  if ($uri ~* "(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx)\.(txt|md|textile)$") {
+  if ($uri ~* "(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$") {
     set $pw_deny 1;
   }
 

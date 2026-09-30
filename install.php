@@ -845,7 +845,7 @@ class Installer {
 		if($this->cli || empty($_SERVER['HTTP_HOST'])) {
 			$this->warn(
 				"The command line installer cannot check whether the SQLite database file is accessible from the web. " .
-				"If your web server does not use .htaccess files (or the directives in nginx.txt for nginx), $howToFix"
+				"If your web server does not use .htaccess files (or the directives in nginx.txt or caddy.txt for those web servers), $howToFix"
 			);
 			return;
 		}
@@ -873,7 +873,7 @@ class Installer {
 		} else if($status === 200 && is_string($data) && strpos($data, 'SQLite format 3') === 0) {
 			$this->alertErr(
 				"WARNING: The SQLite database file can be downloaded from the web at " . htmlspecialchars($url) . ". " .
-				"Your web server does not appear to use the .htaccess files (or the directives in nginx.txt for nginx) that protect it. Please $howToFix"
+				"Your web server does not appear to use the .htaccess files (or the directives in nginx.txt or caddy.txt for those web servers) that protect it. Please $howToFix"
 			);
 			$this->numErrors--; // warn prominently, but do not stop the installation
 		} else {
@@ -1020,40 +1020,57 @@ class Installer {
 
 
 	/**
-	 * Is the web server nginx?
+	 * Web servers that use a ProcessWire directives file rather than .htaccess
 	 *
-	 * @return bool
+	 * Each directives file is in the root (e.g. /nginx.txt), has a version tag (e.g. @nginxVersion)
+	 * and passes that version to PHP in a server variable (e.g. PW_NGINX_VERSION).
+	 *
+	 * @var array Server name => label
 	 *
 	 */
-	protected function isNginx() {
-		if(isset($_SERVER['PW_NGINX_VERSION'])) return true;
+	protected $webServers = [ 'nginx' => 'nginx', 'caddy' => 'Caddy' ];
+
+	/**
+	 * Get the name of the web server if it uses a ProcessWire directives file rather than .htaccess
+	 *
+	 * @return string Returns 'nginx', 'caddy', or blank string for Apache or other web servers
+	 *
+	 */
+	protected function webServerName() {
 		$software = isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '';
-		return stripos($software, 'nginx') !== false;
+		foreach($this->webServers as $name => $label) {
+			if(isset($_SERVER['PW_' . strtoupper($name) . '_VERSION'])) return $name;
+			if(stripos($software, $name) !== false) return $name;
+		}
+		return '';
 	}
 
 	/**
-	 * Check that the nginx configuration has the directives from nginx.txt
+	 * Check that the web server configuration has the directives from its directives file (e.g. /nginx.txt)
 	 *
-	 * The directives pass their version to PHP in a PW_NGINX_VERSION parameter.
+	 * @param string $name Web server name, e.g. 'nginx' or 'caddy'
 	 *
 	 */
-	protected function checkNginx() {
-		$version = isset($_SERVER['PW_NGINX_VERSION']) ? (int) $_SERVER['PW_NGINX_VERSION'] : 0;
-		$data = is_readable('./nginx.txt') ? file_get_contents('./nginx.txt') : '';
-		$available = preg_match('/@nginxVersion\s+(\d+)/', $data, $matches) ? (int) $matches[1] : 0;
+	protected function checkWebServerDirectives($name) {
+		$label = $this->webServers[$name];
+		$file = "/$name.txt";
+		$var = 'PW_' . strtoupper($name) . '_VERSION';
+		$version = isset($_SERVER[$var]) ? (int) $_SERVER[$var] : 0;
+		$data = is_readable(".$file") ? file_get_contents(".$file") : '';
+		$available = preg_match('/@' . $name . 'Version\s+(\d+)/', $data, $matches) ? (int) $matches[1] : 0;
 		if(!$version) {
 			$this->err(
-				"Your web server is nginx, but its configuration does not appear to have the ProcessWire directives " .
-				"from the included /nginx.txt file, which are required by ProcessWire. Please add them to your nginx " .
-				"server configuration and reload nginx, then click the 'check again' button at the bottom of this screen."
+				"Your web server is $label, but its configuration does not appear to have the ProcessWire directives " .
+				"from the included $file file, which are required by ProcessWire. Please add them to your $label " .
+				"server configuration and reload $label, then click the 'check again' button at the bottom of this screen."
 			);
 		} else if($version < $available) {
 			$this->warn(
-				"Found ProcessWire nginx directives version $version, but /nginx.txt has version $available. " .
-				"We recommend updating your nginx server configuration with the directives from /nginx.txt."
+				"Found ProcessWire $label directives version $version, but $file has version $available. " .
+				"We recommend updating your $label server configuration with the directives from $file."
 			);
 		} else {
-			$this->ok("Found ProcessWire nginx directives (version $version)");
+			$this->ok("Found ProcessWire $label directives (version $version)");
 		}
 	}
 
@@ -1303,10 +1320,10 @@ class Installer {
 		$this->checkFunction("hash", "HASH support"); 
 		$this->checkFunction("spl_autoload_register", "SPL support"); 
 
-		$nginx = !$this->cli && $this->isNginx();
+		$webServer = $this->cli ? '' : $this->webServerName();
 
-		if($nginx) {
-			$this->checkNginx();
+		if($webServer) {
+			$this->checkWebServerDirectives($webServer);
 		} else if(!$this->cli) {
 			if(function_exists('apache_get_modules')) {
 				if(in_array('mod_rewrite', apache_get_modules())) $this->ok("Found Apache module: mod_rewrite");
@@ -1373,8 +1390,8 @@ class Installer {
 			$this->err("Site profile is missing a /site/config.php file.");
 		}
 		
-		if($nginx) {
-			// nginx does not use .htaccess files, see checkNginx()
+		if($webServer) {
+			// nginx and Caddy do not use .htaccess files, see checkWebServerDirectives()
 		} else if(!is_file("./.htaccess") || !is_readable("./.htaccess")) {
 			if(@rename("./htaccess.txt", "./.htaccess")) {
 				$this->ok("Installed .htaccess");
@@ -2648,6 +2665,21 @@ class Installer {
 				'file' => '/install/',
 				'path' => $root . 'install/',
 			);
+		}
+
+		if(!$this->cli) {
+			// directives files for web servers other than the one in use (not known to the CLI installer)
+			$webServer = $this->webServerName();
+			$names = array_keys($this->webServers);
+			if($webServer !== '') $names[] = 'htaccess'; // Apache (or other .htaccess web server) needs htaccess.txt
+			foreach($names as $name) {
+				if($name === $webServer) continue;
+				$items["server-$name"] = array(
+					'label' => "Remove unused web server directives file (/$name.txt)",
+					'file' => "/$name.txt",
+					'path' => $root . "$name.txt",
+				);
+			}
 		}
 
 		foreach($this->findProfiles() as $name => $profile) {

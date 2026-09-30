@@ -1,12 +1,12 @@
 <?php namespace ProcessWire;
 
 /**
- * Tests for the web server access rules in htaccess.txt and nginx.txt
+ * Tests for the web server access rules in htaccess.txt, nginx.txt and caddy.txt
  *
  * Makes HTTP requests to this installation and verifies that files and directories which
  * must not be web accessible are blocked (403), and that regular pages and files still load.
- * The checks are the same for every web server, so they verify both Apache (.htaccess) and
- * nginx configurations.
+ * The checks are the same for every web server, so they verify Apache (.htaccess), nginx
+ * and Caddy configurations.
  *
  * Requests go to `$config->urls->httpRoot`. To test a different web server for the same
  * installation, set the PW_TEST_HTTP_ROOT environment variable to its URL, for example:
@@ -114,6 +114,7 @@ class WireTest_WebAccess extends WireTest {
 			'wire-test.php~',
 			'htaccess.txt',
 			'nginx.txt',
+			'caddy.txt',
 		];
 		foreach($blocked as $path) $this->checkBlocked($root . $path);
 	}
@@ -171,12 +172,12 @@ class WireTest_WebAccess extends WireTest {
 	}
 
 	/**
-	 * Versions in htaccess.txt and nginx.txt match ProcessWire::htaccessVersion
+	 * Versions in htaccess.txt, nginx.txt and caddy.txt match ProcessWire::htaccessVersion
 	 *
 	 */
 	protected function testVersions() {
 		$root = $this->wire()->config->paths->root;
-		foreach([ 'htaccess.txt' => 'htaccessVersion', 'nginx.txt' => 'nginxVersion' ] as $name => $tag) {
+		foreach([ 'htaccess.txt' => 'htaccessVersion', 'nginx.txt' => 'nginxVersion', 'caddy.txt' => 'caddyVersion' ] as $name => $tag) {
 			if(!is_file($root . $name)) continue;
 			$version = preg_match("/@$tag\s+(\d+)/", (string) file_get_contents($root . $name), $m) ? (int) $m[1] : 0;
 			$this->check("$name @$tag matches ProcessWire::htaccessVersion", ProcessWire::htaccessVersion, $version);
