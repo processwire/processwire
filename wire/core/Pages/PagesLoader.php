@@ -706,7 +706,14 @@ class PagesLoader extends Wire {
 			
 			$page = $this->pages->newPage($set);
 			$page->instanceID = ++self::$pageInstanceID;
-			
+
+			if(isset($row['name']) && strpos($row['name'], 'xn-') === 0) {
+				// UTF-8 page name stored as punycode needs decode via setName(),
+				// same as getById() would do (setForced would keep it punycode)
+				$page->setName($row['name']);
+				unset($row['name']);
+			}
+
 			if($languages) {
 				foreach($languageIds as $id) {
 					$key = "name$id";
