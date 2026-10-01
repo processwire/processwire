@@ -5,7 +5,7 @@
  *
  * Field that stories references to one or more ProcessWire pages. 
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -1134,12 +1134,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			if(!$idstr) $subfield = 'name';
 		}
 
-		// let the FieldtypeMulti base class handle count queries
 		if($subfield == 'count') {
-			
+
+			$countQuery = $this->getMatchQueryCount($query, $table, $operator, $value);
+			if($countQuery) return $countQuery;
+			// let the FieldtypeMulti base class handle any other count queries
 			return parent::getMatchQuery($query, $table, $subfield, $operator, $value);
 
-		} else if(in_array($subfield, $names) || ($subfield == 'name' && $operator == '!=')) { 
+		} else if(in_array($subfield, $names) || ($subfield == 'name' && $operator == '!=')) {
 
 			if(!$database->isOperator($operator)) {
 				throw new WireException("Operator '$operator' is not implemented in {$this->className}");
@@ -1209,6 +1211,82 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 
 		return $query; 
+	}
+
+	/**
+	 * Update a query object to match a count of the countable pages referenced by this field
+	 *
+	 * This is modeled on the 'count' handling in FieldtypeMulti::getMatchQuery(), with the
+	 * difference that only rows referencing countable pages are counted, so that the matched
+	 * count is consistent with the quantity of pages present in the field's value (as per
+	 * wakeupValue). Rows referencing pages in the trash are never counted, and rows
+	 * referencing unpublished pages are only counted for fields configured to allow
+	 * unpublished pages (allowUnpub).
+	 *
+	 * @param PageFinderDatabaseQuerySelect|DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $operator
+	 * @param string $value
+	 * @return PageFinderDatabaseQuerySelect|DatabaseQuerySelect|null Query when handled, or
+	 *   null when not a numeric comparison count query
+	 *
+	 */
+	protected function getMatchQueryCount($query, $table, $operator, $value) {
+
+		static $n = 0;
+
+		$database = $this->wire()->database;
+		$field = $query->field;
+
+		if(!empty($value) && !ctype_digit(ltrim("$value", '-'))) return null;
+		if(!$database->isOperator($operator, WireDatabasePDO::operatorTypeComparison)) return null;
+
+		$n++;
+		$value = (int) $value;
+		$table = $database->escapeTable($table);
+		$t = $table . "_$n";
+		$c = $database->escapeTable($this->className()) . "_$n";
+		$p = $c . "_pages";
+		$operator = $database->escapeOperator($operator);
+		$statusUnder = (int) ($field->get('allowUnpub') ? Page::statusTrash : Page::statusUnpublished);
+
+		$query->select("$t.num_$t AS num_$t");
+		$query->leftjoin(
+			"(" .
+			"SELECT $c.pages_id, COUNT($p.id) AS num_$t " .
+			"FROM " . $database->escapeTable($field->table) . " AS $c " .
+			"LEFT JOIN pages AS $p ON $p.id=$c.data AND $p.status<$statusUnder " .
+			"GROUP BY $c.pages_id " .
+			") $t ON $t.pages_id=pages.id"
+		);
+
+		if( (in_array($operator, array('<', '<=', '!=')) && $value) ||
+			(in_array($operator, array('>', '>=')) && $value < 0) ||
+			(in_array($operator, array('=', '>=')) && !$value)) {
+			// allow for possible zero values
+			$bindKey = $query->bindValueGetKey($value);
+			$query->where("(num_$t{$operator}$bindKey OR num_$t IS NULL)"); // QA
+		} else {
+			// non zero values
+			$bindKey = $query->bindValueGetKey($value);
+			$query->where("num_$t{$operator}$bindKey"); // QA
+		}
+
+		// only allow matches using templates with the requested field
+		$templates = $field->getTemplates();
+		if(count($templates)) {
+			$ids = array();
+			foreach($templates as $template) {
+				/** @var Template $template */
+				$ids[] = (int) $template->id;
+			}
+			$sql = 'pages.templates_id IN(' . implode(',', $ids) . ')'; // QA
+		} else {
+			$sql = 'pages.templates_id=0';
+		}
+		$query->where($sql); // QA
+
+		return $query;
 	}
 
 	/**
