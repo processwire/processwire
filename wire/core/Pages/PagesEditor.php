@@ -945,8 +945,10 @@ class PagesEditor extends Wire {
 				}
 				$label = $field->getLabel();
 				$message = $e->getMessage();
+				// i.e. a value rejected by STRICT_TRANS_TABLES: say what was wrong (the log keeps the database’s message)
+				$readable = $e instanceof \PDOException ? $database->dialect()->rejectedValueMessage($e) : '';
 				if(strpos($message, $label) !== false) $label = $name;
-				$error = sprintf($this->_('Error saving field "%s"'), $label) . ' — ' . $message;
+				$error = sprintf($this->_('Error saving field "%s"'), $label) . ' — ' . ($readable !== '' ? $readable : $message);
 				$logErrors[] = "Error saving field: $field->name - $message";
 				$this->trackException($e, true, $error);
 			}

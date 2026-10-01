@@ -48,8 +48,52 @@ class WireTest_Pages extends WireTest {
 		$this->testSortRebuild();
 		$this->testAutojoinMultiValueField();
 		$this->testSaveInTransaction();
+		$this->testRejectedValues();
 	}
 
+	/**
+	 * With STRICT_TRANS_TABLES, a value its column can't hold is rejected: the field keeps its value, the rest of
+	 * the page saves, and the error says what was wrong rather than giving only the database's code (MySQL only)
+	 *
+	 */
+	protected function testRejectedValues() {
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'mysql') return; // SQL modes are MySQL's (SQLite stores any length, PostgreSQL cuts to fit)
+		$pages = $this->wire()->pages;
+		$page = $pages->add($this->childTemplateName, $this->getTestPage(), array('name' => 'pages-test-rejected', 'title' => 'Rejected fixture'));
+		$this->createdPageIDs[$page->id] = $page->id;
+		$originalMode = $database->sqlMode();
+		$allowExceptions = $this->wire()->config->allowExceptions;
+		// a reported field error is not rethrown, even where a module (i.e. TracyDebugger) turns that on
+		$noThrowHook = $this->wire()->addHookBefore('Wire::trackException', function(HookEvent $e) {
+			$e->wire()->config->allowExceptions = false;
+		}, array('priority' => 1000));
+		$lastError = function() {
+			$text = '';
+			foreach($this->wire()->notices as $notice) if($notice instanceof NoticeError) $text = $notice->text;
+			return $text;
+		};
+		try {
+			$database->sqlMode('add', 'STRICT_TRANS_TABLES');
+			foreach(array('ASCII' => str_repeat('x', 70000), 'UTF-8' => str_repeat('é', 40000)) as $kind => $long) {
+				$page = $pages->getFresh($page->id);
+				$page->of(false);
+				$page->name = "pages-test-rejected-" . strtolower(str_replace('-', '', $kind));
+				$page->title = $long; // a TEXT column holds 65,535 bytes
+				$page->save();
+				$fresh = $pages->getFresh($page->id);
+				$this->check("$kind title too long for its column: the title is not changed", 'Rejected fixture', (string) $fresh->title);
+				$this->check("$kind title too long for its column: the rest of the page is saved", $page->name, $fresh->name);
+				$error = $lastError();
+				$this->check("$kind title too long for its column: the error says so", true, stripos($error, 'too long') !== false);
+				$this->check("$kind title too long for its column: the error names the field", true, strpos($error, 'Title') !== false);
+			}
+		} finally {
+			$database->sqlMode('set', $originalMode);
+			$this->wire()->removeHook($noThrowHook);
+			$this->wire()->config->allowExceptions = $allowExceptions;
+		}
+	}
 	/**
 	 * A page loads with a multi-value field autojoined, i.e. a Page reference field (joinFields option)
 	 *
