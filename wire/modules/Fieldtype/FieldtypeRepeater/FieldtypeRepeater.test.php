@@ -71,6 +71,18 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$item->addStatus(Page::statusUnpublished);
 		$item->save();
 
+		// unpublishing via addStatus() must not leave the item in the "new item pending publish"
+		// state (statusOn + statusUnpublished), which the page editor would auto-publish on save
+		$item = $pages->getFresh($item->id);
+		if(!$item->hasStatus(Page::statusUnpublished)) {
+			$this->fail('Expected unpublished status after addStatus(statusUnpublished)');
+		}
+		if($item->hasStatus(Page::statusOn)) {
+			$this->fail('Expected statusOn to be removed when unpublishing item via addStatus(), got status: ' . $item->status);
+		}
+		$this->li('addStatus(statusUnpublished) removes statusOn (item unpublished rather than pending publish) verified');
+
+		$page = $pages->getFresh($page->id);
 		$page->of(true);
 		$countFormatted = $page->get($name)->count();
 
@@ -86,6 +98,49 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$item = $page->get($name)->first();
 		$item->removeStatus(Page::statusUnpublished);
 		$item->save();
+
+		// publishing via removeStatus() must restore statusOn, consistent with items
+		// published from the page editor
+		$item = $pages->getFresh($item->id);
+		if($item->hasStatus(Page::statusUnpublished)) {
+			$this->fail('Expected published status after removeStatus(statusUnpublished)');
+		}
+		if(!$item->hasStatus(Page::statusOn)) {
+			$this->fail('Expected statusOn to be restored when publishing item via removeStatus(), got status: ' . $item->status);
+		}
+		$this->li('removeStatus(statusUnpublished) restores statusOn verified');
+
+		// string status names should behave the same as the constants
+		$item->addStatus('unpublished');
+		if($item->hasStatus(Page::statusOn) || !$item->hasStatus(Page::statusUnpublished)) {
+			$this->fail("Expected addStatus('unpublished') to match addStatus(statusUnpublished), got status: " . $item->status);
+		}
+		$item->removeStatus('unpublished');
+		if(!$item->hasStatus(Page::statusOn) || $item->hasStatus(Page::statusUnpublished)) {
+			$this->fail("Expected removeStatus('unpublished') to match removeStatus(statusUnpublished), got status: " . $item->status);
+		}
+		$this->li('addStatus/removeStatus by string status name verified');
+
+		// ready pages must keep their statusOn + statusHidden + statusUnpublished combination
+		$field = $fields->get($name);
+		/** @var FieldtypeRepeater $fieldtype */
+		$fieldtype = $field->type;
+		$readyPage = $fieldtype->getBlankRepeaterPage($page, $field);
+		foreach(array('statusOn' => Page::statusOn, 'statusHidden' => Page::statusHidden, 'statusUnpublished' => Page::statusUnpublished) as $statusName => $status) {
+			if(!$readyPage->hasStatus($status)) {
+				$this->fail("Expected ready page to have $statusName, got status: " . $readyPage->status);
+			}
+		}
+		$this->li('Ready page keeps statusOn + statusHidden + statusUnpublished verified');
+
+		// setting status directly must remain available for the "pending publish" state
+		$item->status = Page::statusOn | Page::statusUnpublished;
+		if(!$item->hasStatus(Page::statusOn) || !$item->hasStatus(Page::statusUnpublished)) {
+			$this->fail('Expected direct status set to allow statusOn + statusUnpublished, got status: ' . $item->status);
+		}
+		$item->status = Page::statusOn;
+		$item->save();
+		$this->li('Direct status set can still express the pending publish state verified');
 
 		$page = $pages->getFresh($page->id);
 		$page->of(false);

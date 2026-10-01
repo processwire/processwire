@@ -18,10 +18,14 @@
  * @method saveConfigInputfields(Field $field, Template $template, Page $parent)
  * @method readyPageSaved(Page $readyPage, Page $ownerPage, Field $field) Hook called when ready page is saved
  * 
- * Page status notes for repeater items: 
+ * Page status notes for repeater items:
  * - Unpublished & Hidden: Ready page, not yet used. Appears in unformatted repeater PageArray but user has not saved it.
- * - Unpublished & On: Publish requested and can be published as long as no input errors. 
+ * - Unpublished & On: Publish requested and can be published as long as no input errors.
  * - Unpublished & NOT On: Item has been unpublished.
+ *
+ * RepeaterPage::addStatus() and removeStatus() maintain the statusOn flag accordingly, so
+ * $item->addStatus(Page::statusUnpublished) unpublishes an item and removeStatus() publishes
+ * it, same as the page editor. Set $item->status directly to express the other states.
  * 
  * Unpublished or hidden pages do not appear in formatted PageArray value, only in unformatted. 
  *

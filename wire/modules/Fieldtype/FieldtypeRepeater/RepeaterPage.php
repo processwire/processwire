@@ -3,7 +3,7 @@
 /**
  * RepeaterPage represents an individual repeater page item
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property-read int $depth
@@ -248,12 +248,81 @@ class RepeaterPage extends Page {
 
 	/**
 	 * Is this a ready page?
-	 * 
+	 *
 	 * @return bool
-	 * 
+	 *
 	 */
 	public function isReady() {
 		return $this->isUnpublished() && $this->isHidden();
+	}
+
+	/**
+	 * Add the given status to this repeater item
+	 *
+	 * Repeater items combine statusOn with statusUnpublished to mean "new item pending publish"
+	 * (see status notes in FieldtypeRepeater.module). So when unpublished status is added to an
+	 * active (non-ready) item, this also removes statusOn. Without this, an item unpublished by
+	 * addStatus() would show as "New" in the page editor and be published by its next save.
+	 * To intentionally give an item the pending publish state, set the status directly instead:
+	 * `$item->status = Page::statusOn | Page::statusUnpublished;`
+	 *
+	 * #pw-group-status
+	 * #pw-group-manipulation
+	 *
+	 * @param int|string $statusFlag Status flag constant or string representation (hidden, locked, unpublished, etc.)
+	 * @return $this
+	 * @see Page::addStatus()
+	 *
+	 */
+	public function addStatus($statusFlag) {
+		if($statusFlag === 'published') return $this->removeStatus(Page::statusUnpublished);
+		if(is_string($statusFlag) && isset(PageProperties::$statuses[$statusFlag])) {
+			$statusFlag = PageProperties::$statuses[$statusFlag];
+		}
+		$statusFlag = (int) $statusFlag;
+		if(($statusFlag & Page::statusUnpublished)
+			&& !($statusFlag & Page::statusHidden)
+			&& !$this->hasStatus(Page::statusHidden)
+			&& $this->hasStatus(Page::statusOn)) {
+			// unpublishing an active item: remove statusOn so item is interpreted as
+			// "unpublished" rather than "pending publish" (statusOn + statusUnpublished)
+			parent::addStatus($statusFlag);
+			return parent::removeStatus(Page::statusOn);
+		}
+		return parent::addStatus($statusFlag);
+	}
+
+	/**
+	 * Remove the given status from this repeater item
+	 *
+	 * Overrides the parent so that publishing a genuinely unpublished item (statusUnpublished
+	 * without statusOn) restores the statusOn flag, consistent with the status that items
+	 * published from the page editor receive.
+	 *
+	 * #pw-group-status
+	 * #pw-group-manipulation
+	 *
+	 * @param int|string $statusFlag Status flag constant or string representation (hidden, locked, unpublished, etc.)
+	 * @return $this
+	 * @see Page::removeStatus()
+	 *
+	 */
+	public function removeStatus($statusFlag) {
+		if($statusFlag === 'published') return $this->addStatus(Page::statusUnpublished);
+		if(is_string($statusFlag) && isset(PageProperties::$statuses[$statusFlag])) {
+			$statusFlag = PageProperties::$statuses[$statusFlag];
+		}
+		$statusFlag = (int) $statusFlag;
+		if(($statusFlag & Page::statusUnpublished)
+			&& $this->hasStatus(Page::statusUnpublished)
+			&& !$this->hasStatus(Page::statusHidden)
+			&& !$this->hasStatus(Page::statusOn)) {
+			// publishing an unpublished (non-ready) item: restore statusOn to match
+			// items published from the page editor
+			parent::removeStatus($statusFlag);
+			return parent::addStatus(Page::statusOn);
+		}
+		return parent::removeStatus($statusFlag);
 	}
 
 	/**
