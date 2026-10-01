@@ -1229,35 +1229,51 @@ class Session extends Wire implements \IteratorAggregate {
 
 		$fail = true;
 		$failReason = '';
-		
+		$authenticated = false;
+
 		if($name instanceof User) {
 			$user = $name;
 			$name = $user->name;
 		} else {
 			$name = $sanitizer->pageNameUTF8($name);
 		}
-		
+
 		if(!strlen($name)) return null;
-		
-		$allowAttempt = $this->allowLoginAttempt($name); 
-		
+
+		$allowAttempt = $this->allowLoginAttempt($name);
+
 		if($allowAttempt && is_null($user)) {
-			$user = $users->get('name=' . $sanitizer->selectorValue($name));
+			$foundUsers = $users->find('name=' . $sanitizer->selectorValue($name) . ', sort=id');
+			$user = $foundUsers->first();
+			if($user && $force !== true && $foundUsers->count() > 1) {
+				// multiple users share this name (i.e. alternate user parents/templates):
+				// identify the account that the given password authenticates, so login is
+				// not attempted on an arbitrary same-named account (which would fail even
+				// though the credentials are valid for another)
+				foreach($foundUsers as $foundUser) {
+					/** @var User $foundUser */
+					if($foundUser->id == $guestUserID) continue;
+					if(!$this->authenticate($foundUser, $pass)) continue;
+					$user = $foundUser;
+					$authenticated = true;
+					break;
+				}
+			}
 		}
-		
+
 		if(!$allowAttempt) {
 			$failReason = 'Blocked login attempt';
 
 		} else if(!$user || !$user->id) {
 			$failReason = 'Unknown user';
-			
+
 		} else if($user->id == $guestUserID) {
 			$failReason = 'Guest user may not login';
-			
+
 		} else if(!$this->allowLogin($name, $user)) {
 			$failReason = 'Login not allowed';
-			
-		} else if($force === true || $this->authenticate($user, $pass)) { 
+
+		} else if($force === true || $authenticated || $this->authenticate($user, $pass)) {
 
 			$this->trackChange('login', $this->wire()->user, $user); 
 			session_regenerate_id(true);
