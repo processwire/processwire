@@ -411,7 +411,7 @@ class WireRandom extends Wire {
 			/* No longer applicable but kept in comment for reference:
 		} else if(function_exists('mcrypt_create_iv') && defined('MCRYPT_DEV_URANDOM')) {
 			// via user contributed notes at: http://php.net/manual/en/function.random-int.php
-			// this is likely no longer needed as it is no longer in PHP and we require PHP 7.2+
+			// this is likely no longer needed as it is no longer in PHP and we require PHP 7.4+
 			$range = $counter = $max - $min;
 			$bits = 1;
 			while($counter >>= 1) ++$bits;
