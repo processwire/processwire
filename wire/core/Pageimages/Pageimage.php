@@ -965,7 +965,7 @@ class Pageimage extends Pagefile {
 					if($debug && empty($options['webpOnly'])) $this->wire()->log->save('image-sizer',
 						str_replace('ImageSizerEngine', '', $sizer->getEngine()) . ' ' . 
 						($this->error ? "FAILED Resize: " : "Resized: ") . "$originalName => " . basename($filenameFinal) . " " . 
-						"({$width}x{$height}) " . Debug::timer($timer) . " secs $originalSize => " . filesize($filenameFinal) . " bytes " . 
+						"({$width}x{$height}) " . Debug::timer($timer) . " secs $originalSize => " . (is_file($filenameFinal) ? filesize($filenameFinal) : 0) . " bytes " .
 						"(quality=$options[quality], sharpening=$options[sharpening]) "
 					);
 					
