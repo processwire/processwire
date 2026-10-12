@@ -117,6 +117,17 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	protected $systemPageFields = array();
 
 	/**
+	 * Cache of getSelectorInfo() results indexed by field ID
+	 * 
+	 * Each row of filters calls getSelectorInfo() for the same field several times while rendering,
+	 * and a Fieldtype's getSelectorInfo() may perform queries, so the result is cached per instance. 
+	 *
+	 * @var array
+	 *
+	 */
+	protected $selectorInfoCache = array();
+
+	/**
 	 * Fields that modify behaviors of selectors but don't refer to any data: sort, limit, include
 	 * 
 	 * @var array
@@ -690,6 +701,11 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$field = $fields->get($field);
 		}
 		if(!$field instanceof Field || !$field->type) return array();
+		
+		// cache only the global field instance, as a context field may have different settings
+		$cacheable = $field->id && $fields->get($field->id) === $field;
+		if($cacheable && isset($this->selectorInfoCache[$field->id])) return $this->selectorInfoCache[$field->id];
+		
 		$info = $field->type->getSelectorInfo($field);
 		if($info['input'] == 'page') {
 			$info['subfields'] = array_merge($info['subfields'], $this->systemPageFields);
@@ -739,6 +755,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			}
 			$info['subfields'] = $subfields;
 		}
+		
+		if($cacheable) $this->selectorInfoCache[$field->id] = $info;
 		
 		return $info;
 	}
