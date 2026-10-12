@@ -250,6 +250,11 @@ function pwTinyMCE_image(editor) {
 		var queryString;
 		var $repeaterItem = $inputfield.closest('.InputfieldRepeaterItem');
 		
+		if($repeaterItem.length && $repeaterItem.find('.InputfieldImage').length) {
+			var dataPageAttr = $repeaterItem.attr('data-page');
+			if(typeof dataPageAttr !== 'undefined') pageId = parseInt(dataPageAttr);
+		}
+		
 		if(src) {
 			imgClass = $node.attr('class'); // class for img only
 			nodeClass = $figure ? $figure.attr('class') : $node.attr('class'); // class for img OR figure
@@ -272,11 +277,6 @@ function pwTinyMCE_image(editor) {
 				}
 			}
 			if(pathPageId.length) pageId = parseInt(pathPageId);
-		}
-		
-		if($repeaterItem.length && $repeaterItem.find('.InputfieldImage').length) {
-			var dataPageAttr = $repeaterItem.attr('data-page');
-			if(typeof dataPageAttr !== 'undefined') pageId = parseInt(dataPageAttr);
 		}
 		
 		queryString = '?id=' + pageId + '&edit_page_id=' + editPageId + '&modal=1';
