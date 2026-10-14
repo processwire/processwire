@@ -1129,6 +1129,45 @@ $config->httpHost = '';
 $config->protectCSRF = true;
 
 /**
+ * CSRF token mode
+ *
+ * How CSRF tokens (used by $session->CSRF and all PW forms) are generated and validated:
+ *
+ * - `session` (default): tokens are random values stored in the user's session. A token
+ *   is only valid for the session that created it, so a token survives neither session
+ *   expiration nor a session the browser could not retain.
+ *
+ * - `signed`: tokens are derived (HMAC-SHA256, keyed by $config->userAuthSalt) from a
+ *   long-lived, httpOnly binding cookie that is independent of the session. Tokens stay
+ *   valid across session expiration and re-creation, and on pages restored from the
+ *   browser back/forward cache, for as long as the binding cookie lasts (1 year). The
+ *   cookie is rotated at login and whenever tokens are reset. Single-use tokens remain
+ *   session-based in either mode.
+ *
+ * @var string
+ *
+ */
+$config->csrfMode = 'session';
+
+/**
+ * Accept same-origin requests when CSRF token validation fails?
+ *
+ * When true, a POST that submitted a CSRF token which fails validation (typically
+ * because the session that issued it no longer exists) is still accepted if the
+ * browser proves the request is same-origin: an Origin header whose scheme matches the
+ * current request and whose host is in $config->httpHosts, or - when no Origin header
+ * is present - a Sec-Fetch-Site header of 'same-origin' or 'none'. Browsers set these
+ * headers and they cannot be forged cross-site, so cross-site forgery remains blocked.
+ *
+ * Applies only to the default token (never named or single-use tokens) and only when a
+ * token was actually submitted - tokenless POSTs are never rescued.
+ *
+ * @var bool
+ *
+ */
+$config->csrfOriginFallback = false;
+
+/**
  * Maximum URL segments
  * 
  * Maximum number of extra stacked URL segments allowed in a page's URL (including page numbers).
