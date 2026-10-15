@@ -20,6 +20,7 @@ class WireTest_TemplateFile extends WireTest {
 		$this->check('TemplateFile class exists', true, class_exists('ProcessWire\\TemplateFile'));
 
 		$this->testBasicRender();
+		$this->testFilesRenderAllowedPaths();
 		$this->testFalseyValues();
 		$this->testPrependAppend();
 		$this->testTrimAndReturnValue();
@@ -44,6 +45,42 @@ class WireTest_TemplateFile extends WireTest {
 		$this->check('render() returns captured output', 'Hello TemplateFile', $t->render());
 		$this->check('set() variable remains readable', 'TemplateFile', $t->get('headline'));
 		$this->check('filename property returns primary file', $file, $t->get('filename'));
+	}
+
+	protected function testFilesRenderAllowedPaths() {
+		$files = $this->wire()->files;
+		$allowed = $this->path . 'allowed';
+		$files->mkdir($allowed . '/nested/', true);
+		$files->mkdir($this->path . 'allowed-other/', true);
+		$file = $this->createFile('allowed/target.php', '<?php echo $headline;');
+		$nested = $this->createFile('allowed/nested/target.php', '<?php echo $headline;');
+		$outside = $this->createFile('allowed-other/target.php', '<?php echo "outside";');
+
+		// Emulate Windows separator normalization on any platform, using the real render() method.
+		$windowsFiles = $this->wire(new class extends WireFileTools {
+			public function unixDirName($dir, $trailingSlash = true) {
+				return parent::unixDirName(str_replace('\\', '/', $dir), $trailingSlash);
+			}
+		});
+		$windowsAllowed = str_replace('/', '\\', $allowed);
+		$this->check('files->render() accepts backslash allowed paths', 'Windows', $windowsFiles->render($file, ['headline' => 'Windows'], [
+			'allowedPaths' => [$windowsAllowed . '\\'],
+		]));
+		$this->check('files->render() accepts mixed separators from __DIR__ plus slash', 'Mixed', $windowsFiles->render(str_replace('/', '\\', $file), ['headline' => 'Mixed'], [
+			'allowedPaths' => [$windowsAllowed . '/'],
+		]));
+		foreach([$allowed, "$allowed/"] as $path) {
+			$options = ['allowedPaths' => [$path]];
+			$this->check('files->render() accepts an allowed directory with or without trailing slash', 'Allowed', $files->render($file, ['headline' => 'Allowed'], $options));
+			$this->check('files->render() accepts descendants of an allowed directory', 'Nested', $files->render($nested, ['headline' => 'Nested'], $options));
+			$this->check('files->render() rejects a sibling sharing the allowed directory prefix', 'not in an allowed path', $this->exceptionMessage(function() use ($files, $outside, $options) {
+				$files->render($outside, [], $options);
+			}), '*=');
+		}
+		$this->check('files->render() retains dot-dot rejection', 'Filename may not have ".."', $this->exceptionMessage(function() use ($files, $allowed) {
+			$files->render("$allowed/../allowed-other/target.php", [], ['allowedPaths' => [$allowed]]);
+		}), '*=');
+		$this->check('files->render() retains default allowed paths', 'Default', $files->render($file, ['headline' => 'Default']));
 	}
 
 	protected function testFalseyValues() {

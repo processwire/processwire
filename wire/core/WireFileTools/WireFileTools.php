@@ -1645,6 +1645,7 @@ class WireFileTools extends Wire {
 			// filename is absolute, make sure it's in a location we consider safe
 			$allowed = false;
 			foreach($options['allowedPaths'] as $path) {
+				$path = $this->unixDirName($path);
 				if(strpos($filename, $path) === 0) {
 					$allowed = true;
 					break;
