@@ -204,10 +204,50 @@ class WireTest_Modules extends WireTest {
 
 		$modules->refresh();
 		$this->check('refresh() discovers newly added module file', true, $modules->isInstallable($name));
+		$this->testRefreshInformationFiles();
 
 		$this->cleanupRefreshProbe();
 		$modules->refresh();
 		$this->check('refresh() removes deleted module file', false, $modules->isInstallable($name));
+	}
+
+	protected function testRefreshInformationFiles() {
+		$modules = $this->wire()->modules;
+		$name = $this->refreshProbeName;
+		$file = $this->refreshProbeFile;
+		$providedFiles = array($this->refreshProbeDir => array(basename($file)));
+		// Keep fixture timestamps older than the request so the same-request retry does not mask the bug.
+		touch($file, 1600000000);
+		clearstatcache(true, $file);
+		$modules->refresh();
+		foreach(array('php', 'json') as $format) {
+			$infoFile = $this->refreshProbeDir . "$name.info.$format";
+			$before = $modules->files->getModuleFileSnapshot($providedFiles);
+			foreach(array(100, 101) as $version) {
+				$info = array('title' => 'WireTest refresh probe', 'version' => $version);
+				$content = $format === 'php' ? '<?php namespace ProcessWire; $info = ' . var_export($info, true) . ';' : json_encode($info);
+				file_put_contents($infoFile, $content);
+				touch($infoFile, 1600000000 + $version);
+				clearstatcache(true, $infoFile);
+				$snapshot = $modules->files->getModuleFileSnapshot($providedFiles);
+				$this->check("snapshot includes .info.$format from provided module files", true, isset($snapshot[$infoFile]));
+				$this->check("snapshot detects .info.$format version $version", false, $before === $snapshot);
+				$all = $modules->files->getModuleFileSnapshot();
+				$this->check("snapshot includes .info.$format from known module files", true, isset($all[$infoFile]));
+				$modules->refresh();
+				$actual = $modules->getModuleInfo($name);
+				$this->check("refresh() reads .info.$format version $version", $version, $actual['version']);
+				$this->check("unchanged .info.$format snapshot is stable", $snapshot, $modules->files->getModuleFileSnapshot($providedFiles));
+				$before = $snapshot;
+			}
+			$this->wire()->files->unlink($infoFile);
+			clearstatcache(true, $infoFile);
+			$snapshot = $modules->files->getModuleFileSnapshot($providedFiles);
+			$this->check("snapshot detects removal of .info.$format", false, $before === $snapshot);
+			$modules->refresh();
+			$actual = $modules->getModuleInfo($name);
+			$this->check("refresh() falls back to internal info after removing .info.$format", 1, $actual['version']);
+		}
 	}
 
 	protected function testUninstallLifecycle() {
@@ -228,6 +268,10 @@ class WireTest_Modules extends WireTest {
 		$dir = $this->refreshProbeDir ? $this->refreshProbeDir : $this->wire()->config->paths->siteModules . "$name/";
 		$file = $this->refreshProbeFile ? $this->refreshProbeFile : $dir . "$name.module.php";
 
+		foreach(array('php', 'json') as $format) {
+			$infoFile = $dir . "$name.info.$format";
+			if(is_file($infoFile)) $files->unlink($infoFile);
+		}
 		if(is_file($file)) $files->unlink($file);
 		if(is_dir($dir)) $files->rmdir($dir);
 		$this->refreshProbeDir = '';

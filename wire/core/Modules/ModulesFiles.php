@@ -431,7 +431,7 @@ class ModulesFiles extends ModulesClass {
 	}
 
 	/**
-	 * Get a snapshot of mtimes and sizes for all module files
+	 * Get a snapshot of mtimes and sizes for all module files and their external info files
 	 *
 	 * Returns array keyed by absolute file path, each value an array of [mtime, size].
 	 * Used by refresh() to detect whether any module files have changed since the last refresh.
@@ -459,6 +459,13 @@ class ModulesFiles extends ModulesClass {
 				if($file && is_file($file) && !isset($snapshot[$file])) {
 					$snapshot[$file] = array(filemtime($file), filesize($file));
 				}
+			}
+		}
+		foreach(array_keys($snapshot) as $file) {
+			$base = preg_replace('/\.module(?:\.php)?$/', '', $file);
+			foreach(array('php', 'json') as $ext) {
+				$infoFile = "$base.info.$ext";
+				if(is_file($infoFile)) $snapshot[$infoFile] = array(filemtime($infoFile), filesize($infoFile));
 			}
 		}
 		ksort($snapshot);
