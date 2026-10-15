@@ -246,7 +246,7 @@ $(document).ready(function() {
 		httpHost = $this.attr('data-httphost');
 		if(httpHost && httpHost.length) {
 			external = true; 
-			for(n = 0; n < ProcessWire.config.httpHosts; n++) {
+			for(n = 0; n < ProcessWire.config.httpHosts.length; n++) {
 				if(ProcessWire.config.httpHosts[n] == httpHost) {
 					external = false;
 					break;
