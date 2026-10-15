@@ -930,8 +930,8 @@ class WireMarkupRegions extends Wire {
 			if(strpos($markup, " $attrName") === false) continue;
 			$regions = $this->find($attrName, $markup, array('verbose' => true));
 			foreach($regions as $region) {
-				$pos = strpos($markup, $region['html']);
-				if($pos === false) continue;
+				if(strpos($markup, $region['html']) === false) continue;
+				$html = $region['html'];
 				$content = trim($region['region']);
 				if(strpos($content, 'pw-optional') && $level < 10) {
 					// go resursive if pw-optional elements are nested
@@ -940,7 +940,6 @@ class WireMarkupRegions extends Wire {
 					$level--;
 					if(strlen($nestedContent) && $nestedContent !== $content) {
 						$html = str_replace($content, $nestedContent, $region['html']); 
-						$markup = str_replace($region['html'], $html, $markup);
 					}
 					$content = $nestedContent;
 				}
@@ -948,15 +947,17 @@ class WireMarkupRegions extends Wire {
 					// not empty, remove just the pw-optional attribute
 					$open = $region['open'];
 					$open = str_ireplace(" $attrName", '', $open);
-					$markup = substr($markup, 0, $pos) . $open . substr($markup, $pos + strlen($region['open']));
+					$html = $open . substr($html, strlen($region['open']));
 				} else {
 					// empty optional region, can be removed
-					$markup = substr($markup, 0, $pos) . substr($markup, $pos + strlen($region['html']));
+					$html = '';
 					if($debug) {
 						$optional = '[sm]' . ($level ? "nested (×$level) optional region" : "optional region") . '[/sm]';
 						$this->debugNotes[] = "REMOVED #$region[pwid] $optional"; 
 					}
 				}
+				// find() returns one result for identical regions; update every occurrence.
+				$markup = str_replace($region['html'], $html, $markup);
 			}
 		}
 		return $markup; 

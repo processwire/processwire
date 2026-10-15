@@ -15,6 +15,7 @@ class WireTest_WireMarkupRegions extends WireTest {
 		$this->testPopulate($regions);
 		$this->testTagUtilities($regions);
 		$this->testStripAndDetection($regions);
+		$this->testRepeatedOptionalRegions($regions);
 	}
 
 	/**
@@ -197,5 +198,28 @@ class WireTest_WireMarkupRegions extends WireTest {
 		$this->check('hasRegions() detects id regions', true, $regions->hasRegions($html));
 		$html = '<p pw-append="main">Body</p>';
 		$this->check('hasRegionActions() detects pw actions', true, $regions->hasRegionActions($html));
+	}
+
+	protected function testRepeatedOptionalRegions(WireMarkupRegions $regions) {
+		foreach(['pw-optional', 'data-pw-optional'] as $optional) {
+			foreach(['aside', 'p'] as $tag) {
+				$document = "<main>Body</main><$tag pw-id='sidebar' $optional></$tag><$tag pw-id='footbar' $optional></$tag>";
+				$regions->populate($document, '');
+				$this->check("populate() removes both adjacent empty $tag regions ($optional)", '<main>Body</main>', $document);
+
+				$empty = "<$tag $optional></$tag>";
+				$this->check("stripOptional() removes repeated empty $tag regions ($optional)", '<hr>', $regions->stripOptional("$empty<hr>$empty"));
+
+				$filled = "<$tag $optional>Keep</$tag>";
+				$this->check("stripOptional() cleans both repeated filled $tag regions ($optional)", "<$tag>Keep</$tag><$tag>Keep</$tag>", $regions->stripOptional($filled . $filled));
+				$this->check("stripOptional() distinguishes empty and filled $tag regions ($optional)", "<$tag>Keep</$tag>", $regions->stripOptional($filled . $empty));
+			}
+
+			$empty = "<aside $optional></aside>";
+			$this->check("stripOptional() removes empty parent after repeated empty children ($optional)", '', $regions->stripOptional("<section $optional>$empty$empty</section>"));
+			$this->check("stripOptional() preserves parent content after repeated empty children ($optional)", '<section>Keep</section>', $regions->stripOptional("<section $optional>Keep$empty$empty</section>"));
+			$nested = "<section $optional>Keep$empty</section>";
+			$this->check("stripOptional() updates repeated nested regions ($optional)", '<section>Keep</section><section>Keep</section>', $regions->stripOptional($nested . $nested));
+		}
 	}
 }
