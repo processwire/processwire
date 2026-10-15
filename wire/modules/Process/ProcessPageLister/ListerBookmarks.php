@@ -98,7 +98,7 @@ class ListerBookmarks extends Wire {
 	 * Get owned bookmarks
 	 *
 	 * @param int $userID
-	 * @return array
+	 * @return array Each bookmark includes its owner's user ID in the 'owner' key.
 	 *
 	 */
 	public function getOwnedBookmarks($userID = 0) {
@@ -114,6 +114,7 @@ class ListerBookmarks extends Wire {
 			$bookmark = $this->wakeupBookmark($bookmark, $bookmarkID, self::typeOwned);
 			if(!$bookmark) continue;
 			if($userID && $userID != $this->user->id && empty($bookmark['share'])) continue;
+			$bookmark['owner'] = $userID ? (int) $userID : $this->user->id;
 			$bookmarks[$bookmarkID] = $bookmark;
 		}
 
@@ -520,9 +521,9 @@ class ListerBookmarks extends Wire {
 	 *
 	 */
 	public function isBookmarkEditable(array $bookmark) {
-		if($this->user->isSuperuser()) return true;
-		if($bookmark['type'] == self::typePublic) return false;
-		return true;
+		if($bookmark['type'] == self::typePublic) return $this->user->isSuperuser();
+		// Sharing permits viewing; private bookmark edits are saved only to the owner's account.
+		return isset($bookmark['owner']) && (int) $bookmark['owner'] === $this->user->id;
 	}
 
 	/**
@@ -654,7 +655,7 @@ class ListerBookmarks extends Wire {
 	}
 
 	protected function sleepBookmark(array $bookmark) {
-		unset($bookmark['id'], $bookmark['url'], $bookmark['editUrl']);
+		unset($bookmark['id'], $bookmark['url'], $bookmark['editUrl'], $bookmark['owner']);
 		if($bookmark['type'] === self::typeOwned) unset($bookmark['roles']);
 		if(empty($bookmark['share'])) unset($bookmark['share']);
 		return $bookmark;

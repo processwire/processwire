@@ -260,12 +260,15 @@ var InputfieldTinyMCE = {
 		
 		t.log('Resizing image to width=' + width, url); 
 		
-		jQuery.getJSON(url, function(data) {
+		var postData = {};
+		var $token = jQuery('input._post_token:first');
+		if($token.length) postData[$token.attr('name')] = $token.val();
+		jQuery.post(url, postData, function(data) {
 			editor.dom.setAttrib(img, 'src', data.src); 
 			// editor.dom.setAttrib(img, 'width', data.width);
 			// editor.dom.setAttrib(img, 'height', data.height);
 			t.log('Resized image to width=' + data.width, data.src);
-		});
+		}, 'json');
 	},
 	
 	/**

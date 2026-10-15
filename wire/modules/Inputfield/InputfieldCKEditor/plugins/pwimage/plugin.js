@@ -334,7 +334,10 @@
 							if(rotate) resizeURL += '&rotate=' + rotate; 
 							if($img.hasClass('flip_horizontal')) resizeURL += '&flip=h';
 								else if($img.hasClass('flip_vertical')) resizeURL += '&flip=v';
-							jQuery.get(resizeURL, function(data) {
+							var postData = {};
+							var $token = jQuery('input._post_token:first', $i);
+							if($token.length) postData[$token.attr('name')] = $token.val();
+							jQuery.post(resizeURL, postData, function(data) {
 								var $div = jQuery("<div></div>").html(data); 
 								var src = $div.find('#selected_image').attr('src');
 								insertImage(src); 
