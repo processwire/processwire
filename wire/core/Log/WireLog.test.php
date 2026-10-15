@@ -167,6 +167,7 @@ class WireTest_WireLog extends WireTest {
 		// ===== FILELOG BACKEND =====
 
 		$this->testFileLogBackend();
+		$this->testRepeatedLogLines();
 	}
 
 	public function finish() {
@@ -252,5 +253,54 @@ class WireTest_WireLog extends WireTest {
 		$this->check('FileLog sanitizes duplicate count marker in user text', 'Duplicate marker ^ +999', $line, '*=');
 
 		$this->check('FileLog::delete() removes file', true, $fileLog->delete());
+	}
+
+	protected function testRepeatedLogLines() {
+		$log = $this->wire()->log;
+		$name = $this->name('repeated');
+		$filename = $log->getFilename($name);
+		$old = date('Y-m-d H:i:s', strtotime('-10 days')) . "\tuser\turl\tOld entry";
+		$repeated = date('Y-m-d H:i:s', time() - 60) . "\tuser\turl\tRepeated entry";
+		$other = date('Y-m-d H:i:s', time() - 60) . "\tuser\turl\tOther entry";
+		$keep = array($repeated, $repeated, $other, $repeated);
+		file_put_contents($filename, implode("\n", array_merge(array($old), $keep)) . "\n");
+		$this->check('getLines() retains identical entries', $keep, array_values($log->getLines($name, array(
+			'limit' => 0, 'reverse' => false, 'text' => 'entry', 'dateFrom' => strtotime('-1 day'),
+		))));
+		$this->check('prune() counts all in-range repeated entries', count($keep), $log->prune($name, 1));
+		$this->check('prune() preserves repeated entries on disk', $keep, file($filename, FILE_IGNORE_NEW_LINES));
+
+		// Small chunks exercise partial lines and exact boundaries without a large fixture.
+		$fileLog = $this->wire(new class($this->fileLogPath, 'repeated-chunks') extends FileLog {
+			public function setChunkSize($size) { $this->chunkSize = $size; }
+		});
+		$entries = array();
+		for($n = 0; $n < 20; $n++) {
+			$entries[] = $n % 3 ? $repeated : $other;
+		}
+		foreach(array(true, false) as $newline) {
+			file_put_contents($fileLog->pathname(), implode("\n", $entries) . ($newline ? "\n" : ''));
+			clearstatcache(true, $fileLog->pathname());
+			foreach(array(32, 64, 127, strlen($repeated) + 1, filesize($fileLog->pathname()), FileLog::defaultChunkSize) as $chunkSize) {
+				$fileLog->setChunkSize($chunkSize);
+				$label = "chunk size $chunkSize, trailing newline " . (int) $newline;
+				$this->check("getTotalLines() counts all repeated entries ($label)", count($entries), $fileLog->getTotalLines());
+				$this->check("find() preserves forward entries ($label)", $entries, array_values($fileLog->find(0, 1, array('reverse' => false))));
+				$this->check("find() preserves reverse entries ($label)", array_reverse($entries), array_values($fileLog->find(0)));
+				$this->check("find() paginates repeated entries ($label)", array_slice(array_reverse($entries), 5, 5), array_values($fileLog->find(5, 2)));
+			}
+		}
+
+		// Exercise the real chunk size too, including pruneDate() writing across several chunks.
+		$fileLog->setChunkSize(FileLog::defaultChunkSize);
+		$entries = array();
+		for($n = 0; $n < 1000; $n++) {
+			$entries[] = $n % 3 ? $repeated : $other;
+		}
+		file_put_contents($fileLog->pathname(), $old . "\n" . implode("\n", $entries) . "\n");
+		clearstatcache(true, $fileLog->pathname());
+		$this->check('find() preserves repeated entries across default chunks', array_reverse(array_merge(array($old), $entries)), array_values($fileLog->find(0)));
+		$this->check('pruneDate() counts repeated entries across default chunks', count($entries), $fileLog->pruneDate(strtotime('-1 day')));
+		$this->check('pruneDate() writes all repeated entries in order across default chunks', $entries, file($fileLog->pathname(), FILE_IGNORE_NEW_LINES));
 	}
 }

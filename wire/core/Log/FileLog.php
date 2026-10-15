@@ -425,11 +425,14 @@ class FileLog extends Wire {
 	protected function getChunk($chunkNum = 1, $chunkSize = 0, $reverse = true, $clean = true) {
 
 		if($chunkSize < 1) $chunkSize = $this->chunkSize;
+		$filesize = filesize($this->logFilename);
 	
 		if($reverse) {
-			$offset = -1 * ($chunkSize * $chunkNum);
+			$offset = max(0, $filesize - ($chunkSize * $chunkNum));
+			$length = min($chunkSize, $filesize - ($chunkSize * ($chunkNum - 1)));
 		} else {
 			$offset = $chunkSize * ($chunkNum-1);
+			$length = min($chunkSize, $filesize - $offset);
 		}
 		
 		if(self::debug) {
@@ -437,33 +440,29 @@ class FileLog extends Wire {
 		}
 		
 		$data = '';
-		$totalChunks = $this->getTotalChunks($chunkSize); 
-		if($chunkNum > $totalChunks) return $data; 
+		if($length < 1) return $data;
 
 		if(!$fp = fopen($this->logFilename, "r")) return $data;
 		flock($fp, LOCK_SH);
 
-		fseek($fp, $offset, ($reverse ? SEEK_END : SEEK_SET));
-
+		$start = $offset;
 		if($clean) {
-			// make chunk include up to beginning of first line
-			fseek($fp, -1, SEEK_CUR);
-			while(ftell($fp) > 0) {
-				$chr = fread($fp, 1);
-				if($chr == "\n") break;
-				fseek($fp, -2, SEEK_CUR);
-				$data = $chr . $data;
+			// Include the beginning of the line that ends in this chunk.
+			while($start > 0) {
+				fseek($fp, $start - 1);
+				if(fread($fp, 1) === "\n") break;
+				$start--;
 			}
-			fseek($fp, $offset, ($reverse ? SEEK_END : SEEK_SET));
 		}
+		fseek($fp, $start);
 		
 		// get the big part of the chunk
-		$data .= fread($fp, $chunkSize);
+		$data = fread($fp, $length + $offset - $start);
 
-		if($clean) {
-			// remove last partial line
+		if($clean && $offset + $length < $filesize) {
+			// Leave the last partial line for the next chunk; retain an unterminated line at EOF.
 			$pos = strrpos($data, "\n");
-			if($pos) $data = substr($data, 0, $pos);
+			$data = $pos === false ? '' : substr($data, 0, $pos);
 		}
 
 		flock($fp, LOCK_UN);
@@ -502,11 +501,14 @@ class FileLog extends Wire {
 		
 		if(!$fp = fopen($this->logFilename, "r")) return 0;
 		$totalLines = 0;
+		$lastChar = '';
 
 		while(!feof($fp)) { 
 			$data = fread($fp, $this->chunkSize);
 			$totalLines += substr_count($data, "\n"); 
+			if(strlen($data)) $lastChar = substr($data, -1);
 		}
+		if($lastChar !== '' && $lastChar !== "\n") $totalLines++;
 		
 		fclose($fp); 
 		
@@ -587,20 +589,16 @@ class FileLog extends Wire {
 		$chunkNum = 0;
 		$totalChunks = $this->getTotalChunks($this->chunkSize); 
 		$stopNow = false;
-		$chunkLineHashes = array();
 		
-		while($chunkNum <= $totalChunks && !$stopNow) {
+		while($chunkNum < $totalChunks && !$stopNow) {
 			
 			$chunk = $this->getChunkArray(++$chunkNum, 0, $options['reverse']);
-			if(empty($chunk)) break;
+			if(empty($chunk)) continue;
 			
 			foreach($chunk as $line) {
 
 				$line = trim($line); 
-				$hash = md5($line); 
-				$valid = !isset($chunkLineHashes[$hash]);
-				$chunkLineHashes[$hash] = 1; 
-				if($valid) $valid = $this->isValidLine($line, $options, $stopNow);
+				$valid = $this->isValidLine($line, $options, $stopNow);
 				if(!$hasFilters && $limit && count($lines) >= $limit) $stopNow = true;
 				if($stopNow) break;
 				if(!$valid) continue; 
@@ -611,7 +609,7 @@ class FileLog extends Wire {
 				if($fp) {
 					fwrite($fp, $line . "\n");
 				} else {
-					if(self::debug) $line .= " (line $n, chunk $chunkNum, hash=$hash)";
+					if(self::debug) $line .= " (line $n, chunk $chunkNum)";
 					$lines[$n] = $line;
 				}
 			}
