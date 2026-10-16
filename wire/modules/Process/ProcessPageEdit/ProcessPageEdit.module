@@ -1961,6 +1961,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field = $this->modules->get('InputfieldCheckboxes');
 		$field->attr('name', 'status');
 		$field->icon = 'sliders';
+		// Distinguish an empty selection from a status field that was not rendered/submitted.
+		$field->addHookAfter('render', function(HookEvent $event) {
+			$event->return = "<input type='hidden' name='status[]' value='0' />" . $event->return;
+		});
 
 		$value = array();
 		
@@ -2707,6 +2711,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function processInputStatus(Inputfield $inputfield) {
+
+		if(!is_array($this->input->post('status'))) return true;
 
 		$inputStatusFlags = $inputfield->val(); 
 		if(!is_array($inputStatusFlags)) $inputStatusFlags = array();

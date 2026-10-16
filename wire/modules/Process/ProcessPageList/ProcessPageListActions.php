@@ -202,7 +202,7 @@ class ProcessPageListActions extends Wire {
 			}
 		}
 
-		if($user->hasPermission('page-lock', $page) && !$trash && $statusEditable) {
+		if($user->hasPermission('page-lock', $page) && $statusEditable) {
 			if($locked) {
 				$extras['unlock'] = array(
 					'cn'    => 'Unlock',
@@ -210,7 +210,7 @@ class ProcessPageListActions extends Wire {
 					'url'   => "$adminUrl?action=unlock&id=$page->id",
 					'ajax' => true, 
 				);
-			} else {
+			} else if(!$trash) {
 				$extras['lock'] = array(
 					'cn'    => 'Lock',
 					'name'  => $this->actionLabels['lock'],
