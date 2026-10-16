@@ -356,8 +356,8 @@ server {
     set $pw_deny 1;
   }
 
-  # Block access to any PHP files within /site/assets/ and further
-  if ($uri ~* "(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/)") {
+  # Block access to any PHP/executable files within /site/assets/ and further
+  if ($uri ~* "(^|/)(site|site-[^/]+)/assets($|/|/.*\.(ph(p|ps|tml|ar|p[0-9])|cgi|pl|py))($|/)") {
     set $pw_deny 1;
   }
 
@@ -372,7 +372,22 @@ server {
   }
 
   # Block access to any software identifying txt, markdown or textile files
-  if ($uri ~* "(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$") {
+  if ($uri ~* "(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICEN[CS]E|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$") {
+    set $pw_deny 1;
+  }
+
+  # Block access to license files without an extension, as most third-party modules and libraries have them
+  # (within the wire, site and vendor directories, so that a page named "license" is not affected)
+  if ($uri ~* "(^|/)(wire|vendor|site|site-[^/]+)/.+/LICEN[CS]E$") {
+    set $pw_deny 1;
+  }
+
+  # Block access to old copies of the core left by a manual upgrade: /wire-3.0.200/, index-3.0.200.php,
+  # htaccess-3.0.200.txt (copies renamed with a leading dot, i.e. /.wire-3.0.200/, are blocked already)
+  if ($uri ~* "(^|/)wire-\d+\.\d+\.\d+($|/)") {
+    set $pw_deny 1;
+  }
+  if ($uri ~* "(^|/)(index|htaccess)-\d+\.\d+\.\d+\.(php|txt)$") {
     set $pw_deny 1;
   }
 
