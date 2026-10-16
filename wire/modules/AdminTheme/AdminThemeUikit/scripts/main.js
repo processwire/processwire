@@ -415,6 +415,10 @@ var ProcessWireAdminTheme = {
 		$('.pw-sidebar-nav').on('click', 'a', function(event) {
 			var $a = $(this);
 			if(!$a.hasClass('pw-has-ajax-items')) {
+				if($a.parent().hasClass('uk-parent') && $a.siblings('ul').length &&
+					!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+					event.preventDefault();
+				}
 				// as of Uikit beta 34, clicking nav items closes the offcanvas unless the following line is here
 				event.stopPropagation();
 				return;
