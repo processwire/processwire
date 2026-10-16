@@ -444,6 +444,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		foreach($fields as $field) {
 
+			if(!$page->viewable($field)) continue;
+			// RTE selection needs view access; direct image editing also needs field edit access.
+			if(!$this->rte && !$page->editable($field)) continue;
+
 			$fieldtype = $field->type;
 			
 			if(in_array($field->name, $skipFields)) continue; 
