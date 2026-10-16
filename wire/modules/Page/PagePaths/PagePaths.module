@@ -6,22 +6,23 @@
  * Keeps a cache of page paths to improve performance and 
  * make paths more queryable by selectors.
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property array $rootSegments
  *
  */
 
-class PagePaths extends WireData implements Module, ConfigurableModule {
+class PagePaths extends WireData implements Module, ConfigurableModule, CliModule {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Paths', 
-			'version' => 4, 
-			'summary' => "Enables page paths/urls to be queryable by selectors. Also offers potential for improved load performance. Builds an index at install (may take time on a large site).",
+			'version' => 5, 
+			'summary' => "Enables page paths/urls to be queryable by selectors. Also offers potential for improved load performance. Builds an index at install, or on a large site from the module settings or the command line (php index.php pagepaths rebuild).",
 			'singular' => true, 
 			'autoload' => true, 
+			'cli' => 'pagepaths',
 		);
 	}
 
@@ -30,6 +31,12 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	const dbTableName = 'pages_paths';
+
+	/**
+	 * Build the index at install for sites with up to this many pages (larger sites build it separately)
+	 *
+	 */
+	const installRebuildMaxPages = 10000;
 
 	/**
 	 * @var Languages|false
@@ -808,6 +815,62 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			") ENGINE=$engine DEFAULT CHARSET=$charset";
 
 		$database->query($sql); 
+
+		$numPages = $this->wire()->pages->count("id>0, include=all");
+		if($numPages <= self::installRebuildMaxPages) {
+			$this->rebuild();
+		} else {
+			$this->warning(sprintf(
+				$this->_('Please build the page paths index for your %d pages, either from this module’s settings or on the command line: %s'),
+				$numPages, 'php index.php pagepaths rebuild'
+			));
+		}
+	}
+
+	/**
+	 * Get CLI commands
+	 *
+	 * @return array
+	 *
+	 */
+	public function getCliCommands() {
+		return [
+			'rebuild' => 'Rebuild the page paths index (optionally for one branch: rebuild /path/to/page/)',
+			'status' => 'Show the number of index rows and pages',
+		];
+	}
+
+	/**
+	 * Execute a CLI command, i.e. php index.php pagepaths rebuild
+	 *
+	 * @param array $args
+	 *
+	 */
+	public function executeCli(array $args) {
+		$command = count($args) ? $args[0] : '';
+		if($command === 'rebuild') {
+			$page = null;
+			if(isset($args[1])) {
+				// a path lookup that doesn't depend on this module's index, which may be empty
+				$page = $this->wire()->pages->pathFinder()->getPage($args[1], ['usePagePaths' => false]);
+				if(!$page->id) {
+					echo "No page at path: $args[1]";
+					return;
+				}
+			}
+			$label = $page ? $page->path : 'all pages';
+			echo "Rebuilding page paths index for $label...\n";
+			$timer = Debug::timer();
+			$this->rebuild($page);
+			echo sprintf('Completed in %s seconds. ', Debug::timer($timer));
+			$this->executeCli(['status']);
+		} else if($command === 'status') {
+			$query = $this->wire()->database->prepare('SELECT COUNT(*) FROM ' . self::dbTableName);
+			$numRows = $this->executeQuery($query, false) ? (int) $query->fetchColumn() : 0;
+			$query->closeCursor();
+			$numPages = $this->wire()->pages->count("id>0, include=all");
+			echo "Index has $numRows rows for $numPages pages (one row per page and language).";
+		}
 	}
 
 	/**
@@ -840,7 +903,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 				$timer = Debug::timer();
 				$this->rebuild();
 				$elapsed = Debug::timer($timer);
-				$this->message(sprintf($this->_('Completed rebuild in %d seconds'), $elapsed), Notice::noGroup);
+				$this->message(sprintf($this->_('Completed rebuild in %01.1f seconds'), (float) $elapsed), Notice::noGroup);
 			} else {
 				$table = self::dbTableName;
 				$query = $this->wire()->database->prepare("SELECT COUNT(*) FROM $table");
@@ -856,8 +919,9 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$f->label = sprintf($this->_('Rebuild page paths index for %d pages'), $numPages); 
 		$f->label2 = $this->_('Rebuild now');
 		if($numPages) $f->description =
-			$this->_('Estimated rebuild time is up to 5 seconds per 1000 pages.') . ' ' . 
-			sprintf($this->_('There are %d pages to process.'), $numPages); 
+			$this->_('Estimated rebuild time is about 1 second per 5000 pages (longer with multiple languages).') . ' ' . 
+			sprintf($this->_('There are %d pages to process.'), $numPages) . ' ' . 
+			sprintf($this->_('On a large site, you may prefer to rebuild on the command line instead: %s'), '`php index.php pagepaths rebuild`'); 
 		if($numRows > 0) {
 			$f->notes = sprintf($this->_('There are currently %d rows stored by this module (path paths and versions of path paths).'), $numRows);
 		} else if($numRows === 0 && $input->requestMethod('GET')) {
