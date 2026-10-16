@@ -30,6 +30,7 @@ class WireTest_Modules extends WireTest {
 		$this->testFinders();
 		$this->testConfiguration();
 		$this->testHelperProperties();
+		$this->testModuleFileAssets();
 		$this->testRefreshDiscoversNewModuleFile();
 		$this->testUninstallLifecycle();
 	}
@@ -247,6 +248,94 @@ class WireTest_Modules extends WireTest {
 			$modules->refresh();
 			$actual = $modules->getModuleInfo($name);
 			$this->check("refresh() falls back to internal info after removing .info.$format", 1, $actual['version']);
+		}
+	}
+
+	/**
+	 * Module versions must retain their dotted components in asset cache keys.
+	 * Explicit version-URL settings are applied later by FilenameArray::urls().
+	 */
+	protected function testModuleFileAssets() {
+		$wire = $this->wire();
+		$config = $wire->config;
+		$files = $wire->files;
+		$previous = [];
+		foreach(['debug', 'useVersionUrls', 'styles', 'scripts'] as $key) $previous[$key] = $config->$key;
+		$base = uniqid('WireTestAsset');
+		$dir = $config->paths->cache . "$base/";
+		$url = $config->urls->cache . "$base/";
+		$created = [];
+		$classes = [];
+		$tokens = [];
+		$cases = [
+			['1.0.1', null, false],
+			['1.0.2', null, false],
+			[123, null, false],
+			['1.0.2', null, true],
+			['1.0.2', true, false],
+			['1.0.2', false, false],
+			['1.0.2', '?release=assets-123', false],
+		];
+		$files->mkdir($dir);
+
+		try {
+			foreach($cases as $index => $case) {
+				list($version, $setting, $debug) = $case;
+				$name = $base . "Case$index";
+				$class = __NAMESPACE__ . "\\$name";
+				$classes[] = $name;
+				$info = ['title' => 'WireTest asset probe', 'version' => $version];
+				$file = $dir . "$name.module.php";
+				$created[] = $file;
+				file_put_contents($file, "<?php namespace ProcessWire;\nclass $name extends WireData implements Module {\n" .
+					'public static function getModuleInfo() { return ' . var_export($info, true) . "; }\n}\n");
+				require_once($file);
+				$module = $wire->wire(new $class());
+				$config->paths->set($name, $dir);
+				$config->urls->set($name, $url);
+				$config->debug = $debug;
+				$config->useVersionUrls = $setting;
+				foreach(['styles', 'scripts'] as $type) $config->$type = $wire->wire(new FilenameArray());
+				foreach(['css' => 1, 'js' => 2] as $ext => $offset) {
+					foreach(['', '.min'] as $min) {
+						$file = "$dir$name$min.$ext";
+						$created[] = $file;
+						file_put_contents($file, "/* WireTest asset */\n");
+						touch($file, 1600000000 + $offset + ($min ? 10 : 0));
+						clearstatcache(true, $file);
+					}
+				}
+				$this->check("asset case $index loads CSS and JS", 2, $wire->modules->files->loadModuleFileAssets($module));
+				foreach(['styles' => 'css', 'scripts' => 'js'] as $type => $ext) {
+					$min = $debug ? '' : '.min';
+					$assetURL = "$url$name$min.$ext";
+					$mtime = filemtime("$dir$name$min.$ext");
+					$queued = array_values(iterator_to_array($config->$type));
+					$expected = $assetURL;
+					if($setting === null) $expected .= '?v=' . $version . '-' . ($debug ? $mtime : $config->version);
+					$this->check("asset case $index queues the expected $ext URL", [$expected], $queued);
+					$rendered = $config->$type->urls();
+					if($setting === true) {
+						$expected .= '?' . base_convert($mtime, 10, 36);
+					} else if($setting === false) {
+						$expected .= "?v=$config->version";
+					} else if(is_string($setting)) {
+						$expected .= $setting;
+					}
+					$this->check("asset case $index renders the expected $ext URL", [$expected], $rendered);
+					if($index < 2 && $ext === 'css') $tokens[] = parse_url($rendered[0], PHP_URL_QUERY);
+				}
+				$this->check("asset case $index is not loaded twice", 0, $wire->modules->files->loadModuleFileAssets($module));
+			}
+			$this->check('dotted patch releases have different asset cache tokens', false, $tokens[0] === $tokens[1]);
+		} finally {
+			foreach($previous as $key => $value) $config->$key = $value;
+			foreach($classes as $name) {
+				$config->paths->remove($name);
+				$config->urls->remove($name);
+			}
+			foreach($created as $file) if(is_file($file)) $files->unlink($file);
+			$files->rmdir($dir);
 		}
 	}
 

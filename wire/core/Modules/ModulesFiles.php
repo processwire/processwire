@@ -581,7 +581,7 @@ class ModulesFiles extends ModulesClass {
 			if($fileURL) {
 				if(!$moduleVersion) {
 					$info = $this->modules->info->getModuleInfo($module, array('verbose' => false));
-					$moduleVersion = (int) (isset($info['version']) ? $info['version'] : 0);
+					$moduleVersion = (string) (isset($info['version']) ? $info['version'] : 0);
 				}
 				if($config->useVersionUrls === null) $fileURL .= "?v=$moduleVersion-$fileVersion";
 				$config->$type->add($fileURL);
