@@ -95,7 +95,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * @var string
 	 * 
 	 */
-	protected $extensions = 'jpg|jpeg|gif|png|svg';
+	protected $extensions = 'jpg|jpeg|gif|png|svg|webp';
 
 	/**
 	 * Common translation labels (see init)
