@@ -592,11 +592,12 @@ class PagePermissions extends WireData implements Module {
 		$user = $this->wire()->user;
 		if($user->isSuperuser()) return true;
 		if(!$pagefile instanceof Pagefile) {
+			$basename = basename($pagefile);
 			$of = $page->of();
 			if($of) $page->of(false); // false so that temp files are considered 
-			$pagefile = $page->hasFile(basename($pagefile), array('getPagefile' => true));
+			$pagefile = $page->hasFile($basename, array('getPagefile' => true));
 			if($of) $page->of(true);
-			if(!$pagefile) return null;
+			if(!$pagefile) return $this->imageFileViewable($page, $basename);
 		}
 		$field = $pagefile->field;
 		if(!$field) return null;
@@ -607,6 +608,40 @@ class PagePermissions extends WireData implements Module {
 			return $this->fieldEditable($page, $field);
 		}
 		return $this->fieldViewable($page, $field, false);
+	}
+
+	/**
+	 * Apply an original image's file permissions to its existing variations and WebP copies.
+	 *
+	 * @param Page $page
+	 * @param string $basename
+	 * @return bool|null Null when the file has no recognized image owner
+	 *
+	 */
+	protected function imageFileViewable(Page $page, $basename) {
+		if(!PagefilesManager::hasFile($page, $basename)) return null;
+		$webp = strtolower(pathinfo($basename, PATHINFO_EXTENSION)) === 'webp';
+		$webpBase = $webp ? substr($basename, 0, -5) : '';
+		$viewable = null;
+		foreach($page->template->fieldgroup as $field) {
+			if(!$field->type instanceof FieldtypeImage) continue;
+			$images = $page->getUnformatted($field->name);
+			if(!$images instanceof Pageimages) continue;
+			foreach($images as $image) {
+				$names = array($basename);
+				// Recognize both name.webp and name.jpg.webp, including variation names.
+				if($webp) $names = array_merge($names, array($webpBase, "$webpBase.$image->ext"));
+				foreach($names as $name) {
+					if($name !== $image->basename && !$image->isVariation($name)) continue;
+					$allowed = $this->fileViewable($page, $image);
+					if($allowed === false) return false;
+					if($allowed === true) $viewable = true;
+					// Check all candidates: short WebP names can be shared by different source extensions.
+					break;
+				}
+			}
+		}
+		return $viewable;
 	}
 
 	/**
