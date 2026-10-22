@@ -387,6 +387,19 @@ class ProcessPageSearchLive extends Wire {
 
 		if($property && ($fields->isNative($property) || $fields->get($property)) && !in_array($lp, $this->skipProperties)) {
 			// we recognize this property as searchable, so add it to the selector
+			$field = $fields->get($property);
+			if($field) {
+				// Restrict the query before matching/counting, not just the returned field values.
+				$templateIDs = array();
+				if(!wireInstanceOf($field->type, 'FieldtypePassword') && !wireInstanceOf($field->type, 'FieldtypeFieldsetOpen')) {
+					$fieldTemplates = $template instanceof Template ? array($template) : $field->getTemplates();
+					foreach($fieldTemplates as $fieldTemplate) {
+						$context = $fieldTemplate->fieldgroup->getFieldContext($field);
+						if($context && $context->viewable()) $templateIDs[] = $fieldTemplate->id;
+					}
+				}
+				$selectors[] = 'templates_id=' . (count($templateIDs) ? implode('|', $templateIDs) : '0');
+			}
 			if($lp == 'status' && !$user->isSuperuser() && $value > Page::statusHidden) $value = Page::statusHidden;
 			if($lp == 'id' && $operator === $this->liveSearchDefaults['operator']) $operator = '=';
 			$selectors[] = $property . $operator . $value;
