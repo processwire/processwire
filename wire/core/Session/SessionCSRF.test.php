@@ -7,10 +7,10 @@
 class WireTest_SessionCSRF extends WireTest {
 
 	/**
-	 * @var string
+	 * @var mixed
 	 *
 	 */
-	protected $originalMode = '';
+	protected $originalSettings = null;
 
 	/**
 	 * @var array
@@ -34,26 +34,25 @@ class WireTest_SessionCSRF extends WireTest {
 		$config = $this->wire()->config;
 		$input = $this->wire()->input;
 
-		$this->originalMode = (string) $config->csrfMode;
+		$this->originalSettings = $config->SessionCSRF;
 		$this->originalPost = $input->post()->getArray();
 		$this->originalAjax = (bool) $config->ajax;
-		$cookieName = session_name() . SessionCSRF::bindingCookieSuffix;
+		$cookieName = $this->wire(new SessionCSRF())->bindingCookieName();
 		$this->originalCookie = isset($_COOKIE[$cookieName]) ? $_COOKIE[$cookieName] : null;
 
-		$originalFallback = (bool) $config->csrfOriginFallback;
-
 		try {
-			$config->csrfMode = 'session';
+			$this->testSettings();
+			$this->setSettings(array('mode' => 'session'));
 			$this->testSessionMode();
 			$this->testOriginFallback();
-			$config->csrfMode = 'signed';
+			$this->setSettings(array('mode' => 'signed'));
 			$this->testSignedMode();
 			$this->testSignedModeRotation();
 			$this->testSingleUseInSignedMode();
+			$this->testHostPrefixedCookie();
 		} finally {
 			// restore state
-			$config->csrfMode = $this->originalMode;
-			$config->csrfOriginFallback = $originalFallback;
+			$config->SessionCSRF = $this->originalSettings;
 			$config->ajax = $this->originalAjax;
 			$input->post()->removeAll()->setArray($this->originalPost);
 			if($this->originalCookie === null) {
@@ -63,6 +62,32 @@ class WireTest_SessionCSRF extends WireTest {
 			}
 			$this->wipeTokens();
 		}
+	}
+
+	/**
+	 * Set $config->SessionCSRF to the given settings
+	 *
+	 * @param array $settings
+	 *
+	 */
+	protected function setSettings(array $settings) {
+		$this->wire()->config->SessionCSRF = $settings;
+	}
+
+	/**
+	 * Test that $config->SessionCSRF is merged with the defaults
+	 *
+	 */
+	protected function testSettings() {
+		$csrf = $this->wire(new SessionCSRF());
+		$this->setSettings(array());
+		$this->check('mode defaults to session', 'session', $csrf->getSetting('mode'));
+		$this->check('originFallback defaults to false', false, $csrf->getSetting('originFallback'));
+		$this->setSettings(array('originFallback' => true));
+		$this->check('overriding one key keeps the other default', 'session', $csrf->getSetting('mode'));
+		$this->check('overridden key is used', true, $csrf->getSetting('originFallback'));
+		$this->wire()->config->SessionCSRF = null;
+		$this->check('missing $config->SessionCSRF uses defaults', 'session', $csrf->getSetting('mode'));
 	}
 
 	/**
@@ -127,7 +152,7 @@ class WireTest_SessionCSRF extends WireTest {
 	}
 
 	/**
-	 * Test the Origin fallback ($config->csrfOriginFallback)
+	 * Test the Origin fallback ($config->SessionCSRF['originFallback'])
 	 *
 	 */
 	protected function testOriginFallback() {
@@ -151,11 +176,31 @@ class WireTest_SessionCSRF extends WireTest {
 			$scheme = $config->https ? 'https' : 'http';
 
 			$_SERVER['HTTP_ORIGIN'] = "$scheme://example.com";
-			$config->csrfOriginFallback = false;
+			$this->setSettings(array('mode' => 'session', 'originFallback' => false));
 			$this->check('fallback disabled: stale token rejected despite same-origin', false, $csrf->hasValidToken());
 
-			$config->csrfOriginFallback = true;
+			$this->setSettings(array('mode' => 'session', 'originFallback' => true));
 			$this->check('fallback enabled: stale token accepted with matching Origin', true, $csrf->hasValidToken());
+
+			// ports: browsers treat a different port as a different origin
+			$defaultPort = $scheme === 'https' ? 443 : 80;
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://example.com:$defaultPort";
+			$this->check('fallback accepts explicit default port', true, $csrf->hasValidToken());
+
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://example.com:8080";
+			$this->check('fallback rejects Origin on a port not in httpHosts', false, $csrf->hasValidToken());
+
+			$config->httpHosts = array('localhost:8888');
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://localhost:8888";
+			$this->check('fallback accepts Origin matching httpHosts host:port', true, $csrf->hasValidToken());
+
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://localhost";
+			$this->check('fallback rejects default port when httpHosts names another', false, $csrf->hasValidToken());
+
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://localhost:9999";
+			$this->check('fallback rejects Origin on a different port than httpHosts', false, $csrf->hasValidToken());
+			$config->httpHosts = array('example.com');
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://example.com";
 
 			$_SERVER['HTTP_ORIGIN'] = "$scheme://evil.example.net";
 			$this->check('fallback rejects mismatched Origin host', false, $csrf->hasValidToken());
@@ -189,7 +234,7 @@ class WireTest_SessionCSRF extends WireTest {
 			$_SERVER = $originalServer;
 			$_POST = $originalPost;
 			$config->httpHosts = $originalHosts;
-			$config->csrfOriginFallback = false;
+			$this->setSettings(array('mode' => 'session'));
 		}
 	}
 
@@ -199,7 +244,7 @@ class WireTest_SessionCSRF extends WireTest {
 	 */
 	protected function testSignedMode() {
 		$config = $this->wire()->config;
-		$cookieName = session_name() . SessionCSRF::bindingCookieSuffix;
+		$cookieName = $this->wire(new SessionCSRF())->bindingCookieName();
 
 		$this->wipeTokens();
 		unset($_COOKIE[$cookieName]);
@@ -252,7 +297,7 @@ class WireTest_SessionCSRF extends WireTest {
 	 *
 	 */
 	protected function testSignedModeRotation() {
-		$cookieName = session_name() . SessionCSRF::bindingCookieSuffix;
+		$cookieName = $this->wire(new SessionCSRF())->bindingCookieName();
 
 		$this->wipeTokens();
 		$csrf = $this->wire(new SessionCSRF());
@@ -276,7 +321,7 @@ class WireTest_SessionCSRF extends WireTest {
 	 *
 	 */
 	protected function testSingleUseInSignedMode() {
-		$cookieName = session_name() . SessionCSRF::bindingCookieSuffix;
+		$cookieName = $this->wire(new SessionCSRF())->bindingCookieName();
 
 		$this->wipeTokens();
 		$csrf = $this->wire(new SessionCSRF());
@@ -290,6 +335,44 @@ class WireTest_SessionCSRF extends WireTest {
 		$this->check('signed-mode single-use token valid on first check', true, $csrf->hasValidToken($token['id']));
 		$this->check('signed-mode single-use token invalid on second check', false, $csrf->hasValidToken($token['id']));
 		$this->check('single-use validation does not rotate the binding cookie', $cookieBefore, $_COOKIE[$cookieName]);
+	}
+
+	/**
+	 * Test the __Host- binding cookie name prefix
+	 *
+	 */
+	protected function testHostPrefixedCookie() {
+		$config = $this->wire()->config;
+		$originalHttps = $config->https;
+		$originalDomain = $config->sessionCookieDomain;
+		$plainName = session_name() . SessionCSRF::bindingCookieSuffix;
+		$csrf = $this->wire(new SessionCSRF());
+
+		try {
+			$config->https = false;
+			$config->sessionCookieDomain = null;
+			$this->check('no __Host- prefix over http', $plainName, $csrf->bindingCookieName());
+
+			$config->https = true;
+			$this->check('__Host- prefix over https without cookie domain', "__Host-$plainName", $csrf->bindingCookieName());
+
+			$config->sessionCookieDomain = '.example.com';
+			$this->check('no __Host- prefix when sessionCookieDomain is set', $plainName, $csrf->bindingCookieName());
+
+			// tokens are bound to the prefixed cookie
+			$config->sessionCookieDomain = null;
+			unset($_COOKIE["__Host-$plainName"]);
+			$csrf = $this->wire(new SessionCSRF());
+			$name = $csrf->getTokenName();
+			$value = $csrf->getTokenValue();
+			$this->check('signed mode mints the __Host- cookie over https', true, isset($_COOKIE["__Host-$plainName"]));
+			$this->simulatePost($name, $value);
+			$this->check('token bound to __Host- cookie validates', true, $this->wire(new SessionCSRF())->hasValidToken());
+		} finally {
+			unset($_COOKIE["__Host-$plainName"]);
+			$config->https = $originalHttps;
+			$config->sessionCookieDomain = $originalDomain;
+		}
 	}
 
 }
