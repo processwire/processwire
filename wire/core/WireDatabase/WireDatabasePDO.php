@@ -1944,6 +1944,25 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Must a grouped query aggregate every column that it does not group by? (ONLY_FULL_GROUP_BY)
+	 *
+	 * This is true when MySQL’s ONLY_FULL_GROUP_BY SQL mode is on. With the default
+	 * `$config->dbSqlModes`, which removes that mode, it is known to be false without a query.
+	 * Otherwise the result is cached per connection. Always false for other database types.
+	 *
+	 * #pw-internal
+	 *
+	 * @param \PDO|null $pdo Connection to check, or omit for the one that SELECT queries use
+	 * @return bool
+	 * @since 3.0.275
+	 *
+	 */
+	public function onlyFullGroupBy($pdo = null) {
+		if($pdo === null) $pdo = $this->pdo('reader');
+		return $this->dialect()->onlyFullGroupBy($pdo);
+	}
+
+	/**
 	 * Get current date/time ISO-8601 string or UNIX timestamp according to database
 	 * 
 	 * #pw-group-info

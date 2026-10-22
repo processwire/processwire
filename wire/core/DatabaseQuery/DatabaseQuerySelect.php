@@ -239,7 +239,7 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	 *   aggregating a descending sort, so that the row that sorts first is the one selected. 
 	 *   (default="MIN")
 	 * @return string
-	 * @since 3.0.271
+	 * @since 3.0.275
 	 * 
 	 */
 	public function aggregateExpression($sql, $addAlias = true, $function = 'MIN') {
@@ -277,7 +277,7 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	 * 
 	 * @param string $sql
 	 * @return bool
-	 * @since 3.0.271
+	 * @since 3.0.275
 	 * 
 	 */
 	public function isAggregateExpression($sql) {

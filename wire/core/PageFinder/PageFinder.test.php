@@ -103,6 +103,8 @@ class WireTest_PageFinder extends WireTest {
 			'PageFinder' => function() { return $this->wire(new PageFinder()); },
 			'PageFinder2' => function() { return PageFinder2::getInstance($this, true); },
 		);
+		// with ONLY_FULL_GROUP_BY, $pages uses PageFinder2 only, and PageFinder's multi-value sort is not valid
+		if($this->wire()->database->onlyFullGroupBy()) unset($finders['PageFinder']);
 		foreach($finders as $name => $finder) {
 			foreach($selectors as $selector) {
 				$expected = count($finder()->findIDs(new Selectors($selector)));
@@ -122,23 +124,44 @@ class WireTest_PageFinder extends WireTest {
 	}
 
 	/**
-	 * Core find queries must work under the MySQL 5.7+ default SQL modes
+	 * Core find and load queries work with MySQL’s default SQL modes (ONLY_FULL_GROUP_BY, STRICT_TRANS_TABLES)
 	 * 
-	 * ProcessWire used to switch ONLY_FULL_GROUP_BY and STRICT_TRANS_TABLES off in
-	 * $config->dbSqlModes. It no longer does, so the queries built here have to be valid with
-	 * both enabled. Note that MariaDB does not infer functional dependency on a grouped primary
-	 * key the way MySQL 5.7+ does, so grouped queries must aggregate every other column.
+	 * The default $config->dbSqlModes removes both, and a site may keep them. MariaDB does not infer 
+	 * functional dependency on a grouped primary key the way MySQL does, so with ONLY_FULL_GROUP_BY 
+	 * grouped queries aggregate every other column, and $pages uses PageFinder2, which does that. 
+	 * Without the mode, the queries are as they were.
 	 *
 	 */
 	protected function testStrictSqlModes() {
 
 		$database = $this->wire()->database;
-		if($database->dialect()->name() !== 'mysql') return; // SQL modes are MySQL's (other databases are strict already)
+		if($database->dialect()->name() !== 'mysql') {
+			// SQL modes are MySQL's (other databases are strict already)
+			$this->check('onlyFullGroupBy() is false for other databases', false, $database->onlyFullGroupBy());
+			return;
+		}
 		$pages = $this->wire()->pages;
 		$parent = $this->getTestPage();
 		$originalMode = $database->sqlMode();
+		$getByIdSql = function() use($pages, $parent, $database) {
+			// the getById() query, from a fresh query log
+			$database->queryLog(true); // clears the log and logs queries
+			$pages->getById(array($parent->id), array('getOne' => true, 'getFromCache' => false, 'cache' => false));
+			$sql = '';
+			foreach($database->queryLog() as $q) if(strpos($q, 'false AS isLoaded') !== false) $sql = $q;
+			$database->queryLog($this->wire()->config->debug ? 1 : false);
+			return $sql;
+		};
 
 		try {
+			$database->sqlMode('remove', 'ONLY_FULL_GROUP_BY');
+			$this->check('onlyFullGroupBy() is false when the mode is off', false, $database->onlyFullGroupBy());
+			$this->check('$pages uses the configured PageFinder when the mode is off', 
+				(int) ($this->wire()->config->PageFinder['version'] ?? 1) >= 2 ? 'PageFinder2' : 'PageFinder', 
+				wireClassName($pages->getPageFinder()));
+			$sql = $getByIdSql();
+			$this->check('getById() selects pages.* when the mode is off', true, strpos($sql, 'pages.*') !== false && strpos($sql, 'MIN(') === false);
+			
 			$database->sqlMode('add', 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES');
 			$mode = $database->sqlMode();
 
@@ -147,10 +170,13 @@ class WireTest_PageFinder extends WireTest {
 				return;
 			}
 
-			$this->check('ONLY_FULL_GROUP_BY is active for this test', true, true);
+			$this->check('onlyFullGroupBy() is true when the mode is on', true, $database->onlyFullGroupBy());
+			$this->check('$pages uses PageFinder2 when the mode is on', 'PageFinder2', wireClassName($pages->getPageFinder()));
+			$sql = $getByIdSql();
+			$this->check('getById() aggregates columns when the mode is on', true, strpos($sql, 'pages.*') === false && strpos($sql, 'MIN(pages.parent_id) AS parent_id') !== false);
 
 			$sel = "parent=$parent, include=hidden";
-			$finder = $this->finder();
+			$finder = $pages->getPageFinder();
 
 			// sorting by a custom field requires a joined table, which is not functionally
 			// dependent on the grouped pages.id and so must be aggregated
@@ -213,6 +239,13 @@ class WireTest_PageFinder extends WireTest {
 			// a multi-value field's count (FieldtypeMulti), and a page loaded with a multi-value field autojoined
 			$users = $pages->findIDs('template=user, roles.count>0, include=all');
 			$this->check('field.count selector works', true, count($users) > 0);
+
+			// sorting by a multi-value field and by its subfield (PageFinder2 aggregates the ORDER BY)
+			$all = $pages->findIDs('template=user, include=all');
+			$this->check('sort by a multi-value field works', count($all), count($pages->findIDs('template=user, sort=roles, include=all')));
+			$this->check('sort by a multi-value field’s subfield works', count($all), count($pages->findIDs('template=user, sort=roles.name, include=all')));
+			$this->check('descending sort by a multi-value field’s subfield works', count($all), count($pages->findIDs('template=user, sort=-roles.name, include=all')));
+			$this->check('sort by a multi-value field’s custom subfield works', count($all), count($pages->findIDs('template=user, sort=roles.title, include=all')));
 			$superuser = $pages->getById(array($this->wire()->config->superUserPageID), array('getOne' => true, 'getFromCache' => false, 'cache' => false, 'joinFields' => array('roles')));
 			$this->check('page loaded with a multi-value field autojoined has its values', true, $superuser->roles->count() > 0);
 
@@ -246,6 +279,8 @@ class WireTest_PageFinder extends WireTest {
 	}
 
 	protected function finder() {
+		// with ONLY_FULL_GROUP_BY, $pages uses PageFinder2 only, so that is the one to test
+		if($this->wire()->database->onlyFullGroupBy()) return PageFinder2::getInstance($this, true);
 		return $this->wire(new PageFinder());
 	}
 

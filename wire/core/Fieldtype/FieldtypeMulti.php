@@ -942,8 +942,12 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$c = $database->escapeTable($this->className()) . "_" . $n;
 			$operator = $database->escapeOperator($operator); 
 
-			// aggregated for ONLY_FULL_GROUP_BY; the subquery yields one row per page so MIN() is a no-op
-			$query->select("MIN($t.num_$t) AS num_$t");
+			if($database->onlyFullGroupBy()) {
+				// aggregated for ONLY_FULL_GROUP_BY; the subquery yields one row per page so MIN() is a no-op
+				$query->select("MIN($t.num_$t) AS num_$t");
+			} else {
+				$query->select("$t.num_$t AS num_$t");
+			}
 			$query->leftjoin(
 				"(" .
 				"SELECT $c.pages_id, COUNT($c.pages_id) AS num_$t " .

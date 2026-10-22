@@ -1292,6 +1292,7 @@ abstract class Fieldtype extends WireData implements Module {
 		$query = $this->getLoadQuery($field, $query);
 
 		if(!$query instanceof DatabaseQuerySelect) return $query;
+		if(!$this->wire()->database->onlyFullGroupBy()) return $query;
 
 		// The autojoin query groups by pages.id so that autojoined multi-value fields can be
 		// collapsed with GROUP_CONCAT(). Columns added by getLoadQuery() above are functionally
