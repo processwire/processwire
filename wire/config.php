@@ -1129,43 +1129,51 @@ $config->httpHost = '';
 $config->protectCSRF = true;
 
 /**
- * CSRF token mode
- *
- * How CSRF tokens (used by $session->CSRF and all PW forms) are generated and validated:
- *
+ * Settings for SessionCSRF class
+ * 
+ * These settings specify how CSRF tokens (used by `$session->CSRF` and all PW forms) are
+ * generated and validated. Specify only the keys you want to change, i.e. 
+ * `$config->SessionCSRF = [ 'mode' => 'signed' ];` and the rest keep their defaults.
+ * 
+ * Token modes: 
+ * 
  * - `session` (default): tokens are random values stored in the user's session. A token
  *   is only valid for the session that created it, so a token survives neither session
  *   expiration nor a session the browser could not retain.
- *
+ * 
  * - `signed`: tokens are derived (HMAC-SHA256, keyed by $config->userAuthSalt) from a
  *   long-lived, httpOnly binding cookie that is independent of the session. Tokens stay
  *   valid across session expiration and re-creation, and on pages restored from the
  *   browser back/forward cache, for as long as the binding cookie lasts (1 year). The
- *   cookie is rotated at login and whenever tokens are reset. Single-use tokens remain
- *   session-based in either mode.
- *
- * @var string
- *
+ *   cookie is rotated at login and whenever tokens are reset, which invalidates forms
+ *   open in all of the user's tabs. Single-use tokens remain session-based in either mode.
+ *   On HTTPS without $config->sessionCookieDomain, the cookie uses the `__Host-` name
+ *   prefix so that subdomains cannot set it. Otherwise, anyone controlling a subdomain
+ *   of the site could set a binding cookie of their choosing in a visitor's browser
+ *   and submit tokens they fetched for it; use `session` mode if you do not trust all
+ *   subdomains.
+ * 
+ * Origin fallback: when `originFallback` is true, a POST that submitted a CSRF token which
+ * fails validation (typically because the session that issued it no longer exists) is
+ * still accepted if the browser proves the request is same-origin: an Origin header whose
+ * scheme, host and port match the current request's scheme and one of $config->httpHosts
+ * (ports 80/443 are the defaults for http/https, so include the port in httpHosts for any 
+ * other), or - when no Origin header is present - a Sec-Fetch-Site header of 'same-origin'
+ * or 'none'. Browsers set these headers and they cannot be forged cross-site. It applies
+ * only to the default token (never named or single-use tokens) and only when a token was
+ * actually submitted - tokenless POSTs are never rescued.
+ * 
+ * @var array
+ * @since 3.0.275
+ * 
+ * #property string $mode Token mode, either `session` or `signed` (default='session')
+ * #property bool $originFallback Accept same-origin requests when token validation fails? (default=false)
+ * 
  */
-$config->csrfMode = 'session';
-
-/**
- * Accept same-origin requests when CSRF token validation fails?
- *
- * When true, a POST that submitted a CSRF token which fails validation (typically
- * because the session that issued it no longer exists) is still accepted if the
- * browser proves the request is same-origin: an Origin header whose scheme matches the
- * current request and whose host is in $config->httpHosts, or - when no Origin header
- * is present - a Sec-Fetch-Site header of 'same-origin' or 'none'. Browsers set these
- * headers and they cannot be forged cross-site, so cross-site forgery remains blocked.
- *
- * Applies only to the default token (never named or single-use tokens) and only when a
- * token was actually submitted - tokenless POSTs are never rescued.
- *
- * @var bool
- *
- */
-$config->csrfOriginFallback = false;
+$config->SessionCSRF = [
+	'mode' => 'session', // or 'signed'
+	'originFallback' => false, 
+];
 
 /**
  * Maximum URL segments

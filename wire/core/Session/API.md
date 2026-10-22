@@ -283,9 +283,23 @@ if($session->CSRF->hasValidToken()) {
 $session->CSRF->validate();
 ~~~~~
 
+### Settings
+
+Both settings live in `$config->SessionCSRF`, merged with the defaults, so a site
+can override just one key:
+
+~~~~~
+$config->SessionCSRF = [
+  'mode' => 'session', // or 'signed'
+  'originFallback' => false,
+];
+~~~~~
+
+`$config->protectCSRF` remains the master switch for CSRF protection.
+
 ### Token modes
 
-Tokens come in two modes, selected by `$config->csrfMode`:
+Tokens come in two modes, selected by the `mode` setting:
 
 - **`session`** (default): tokens are random values stored in the user's session. A token
   is only valid for the session that created it — if the session expires, is re-created,
@@ -301,16 +315,29 @@ Tokens come in two modes, selected by `$config->csrfMode`:
 
 Both modes use the same API — no form or validation code changes when switching modes.
 
+Notes on signed mode:
+
+- Rotating the binding cookie (at login, `resetAll()`, or `resetToken()` of the default
+  token, which `validate()` does on failure) invalidates forms open in **all** of the
+  user's tabs, not just the current one.
+- On HTTPS without `$config->sessionCookieDomain`, the binding cookie is named with the
+  `__Host-` prefix, which browsers never let a subdomain set. Otherwise, anyone who
+  controls a subdomain of your site could set a binding cookie of their choosing in a
+  visitor's browser and submit a token they fetched for that same value (the known
+  weakness of cookie-bound tokens, shared by Django). Use `session` mode if you do not
+  trust all subdomains, or if the site is not on HTTPS.
+
 ### Origin fallback
 
-Independently of the token mode, `$config->csrfOriginFallback = true` accepts a POST
-whose submitted token fails validation when the browser proves the request is
-same-origin: an Origin header whose scheme matches the current request and whose host
-is in `$config->httpHosts`, or — when no Origin header is present — a `Sec-Fetch-Site`
-header of `same-origin` or `none`. These headers are set by the browser and cannot be
-forged cross-site, so cross-site forgery remains blocked. The fallback applies only to
-the default token (never named or single-use tokens) and only when a token was actually
-submitted — tokenless POSTs are never rescued. Off by default.
+Independently of the token mode, `'originFallback' => true` accepts a POST whose
+submitted token fails validation when the browser proves the request is same-origin: an
+Origin header whose scheme matches the current request and whose host and port match one
+of `$config->httpHosts` (80/443 are the defaults for http/https, so list any other port
+in `httpHosts`, e.g. `localhost:8888`), or — when no Origin header is present — a
+`Sec-Fetch-Site` header of `same-origin` or `none`. These headers are set by the browser
+and cannot be forged cross-site, so cross-site forgery remains blocked. The fallback
+applies only to the default token (never named or single-use tokens) and only when a
+token was actually submitted — tokenless POSTs are never rescued. Off by default.
 
 ### Single-use tokens
 

@@ -24,7 +24,9 @@
  * $session->CSRF->validate();
  * ~~~~
  *
- * Tokens come in two modes, selected by `$config->csrfMode`:
+ * Settings come from `$config->SessionCSRF` (merged with the defaults in this class):
+ *
+ * Tokens come in two modes, selected by `$config->SessionCSRF['mode']`:
  *
  * - `session` (default): random tokens stored in the session. A token is only valid
  *   for the session that created it.
@@ -33,18 +35,21 @@
  *   long-lived, httpOnly binding cookie that is independent of the session. Tokens stay
  *   valid across session expiration and re-creation, and on pages restored from the
  *   browser back/forward cache, for as long as the binding cookie lasts. The cookie is
- *   rotated at login (via resetAll) and whenever tokens are reset. Single-use tokens
- *   are always session-based.
+ *   rotated at login (via resetAll) and whenever tokens are reset, which invalidates
+ *   forms open in all of the user's tabs. Single-use tokens are always session-based.
+ *   On HTTPS without `$config->sessionCookieDomain` the cookie uses the `__Host-` name
+ *   prefix, so subdomains cannot set it. Otherwise a subdomain could plant a binding
+ *   cookie of its choosing; use `session` mode if you do not trust all subdomains.
  *
- * Independently of the mode, `$config->csrfOriginFallback` (off by default) accepts a
- * POST whose submitted token fails validation when the browser proves the request is
- * same-origin (Origin header matching `$config->httpHosts`, or Sec-Fetch-Site when no
- * Origin header is present). This applies only to the default token, and only when a
+ * Independently of the mode, `$config->SessionCSRF['originFallback']` (off by default)
+ * accepts a POST whose submitted token fails validation when the browser proves the
+ * request is same-origin (Origin scheme, host and port matching `$config->httpHosts`,
+ * or Sec-Fetch-Site when no Origin header is present). This applies only to the default token, and only when a
  * token was actually submitted.
  *
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -61,6 +66,17 @@ class SessionCSRF extends Wire {
 	 *
 	 */
 	const bindingCookieAge = 31536000;
+
+	/**
+	 * Default settings, overridden by any keys present in $config->SessionCSRF
+	 *
+	 * @var array
+	 *
+	 */
+	protected $defaultSettings = array(
+		'mode' => 'session', // 'session' or 'signed'
+		'originFallback' => false, // accept same-origin requests when token validation fails?
+	);
 
 	/**
 	 * Cached binding cookie value for signed mode (blank when not yet resolved)
@@ -140,7 +156,7 @@ class SessionCSRF extends Wire {
 	 * So call them once and store your result if you need the result multiple times.
 	 *
 	 * Single-use tokens require per-token server-side state, so they are always
-	 * session-based, regardless of `$config->csrfMode`.
+	 * session-based, regardless of the `mode` setting.
 	 *
 	 * #pw-group-initiating
 	 *
@@ -168,7 +184,7 @@ class SessionCSRF extends Wire {
 	/**
 	 * Returns true if the current POST request contains a valid CSRF token, false if not
 	 * 
-	 * When `$config->csrfOriginFallback` is enabled and the submitted token fails
+	 * When the `originFallback` setting is enabled and the submitted token fails
 	 * validation, the default token (no $id) is still accepted if the request is
 	 * provably same-origin — see requestIsSameOrigin(). Named and single-use tokens
 	 * never use the fallback.
@@ -211,7 +227,7 @@ class SessionCSRF extends Wire {
 			$valid = true;
 		}
 
-		if(!$valid && $id === '' && $config->csrfOriginFallback && $this->originFallbackValid()) {
+		if(!$valid && $id === '' && $this->getSetting('originFallback') && $this->originFallbackValid()) {
 			$valid = true;
 		}
 
@@ -241,7 +257,8 @@ class SessionCSRF extends Wire {
 	 * Clear out token value
 	 *
 	 * In signed mode, resetting a token that has no session-based state rotates the
-	 * binding cookie, which invalidates all signed tokens previously issued to the client.
+	 * binding cookie, which invalidates all signed tokens previously issued to the client,
+	 * including those in forms open in the user's other tabs.
 	 *
 	 * #pw-group-resetting
 	 *
@@ -335,23 +352,56 @@ class SessionCSRF extends Wire {
 	}
 
 	/**
+	 * Get a setting from $config->SessionCSRF, falling back to the default
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $key Either 'mode' or 'originFallback'
+	 * @return mixed
+	 *
+	 */
+	public function getSetting($key) {
+		$settings = $this->wire()->config->SessionCSRF;
+		if(is_array($settings) && array_key_exists($key, $settings)) return $settings[$key];
+		return isset($this->defaultSettings[$key]) ? $this->defaultSettings[$key] : null;
+	}
+
+	/**
 	 * Are tokens in signed (cookie-derived) mode rather than session mode?
 	 *
 	 * @return bool
 	 *
 	 */
 	protected function signedMode() {
-		return strtolower((string) $this->wire()->config->csrfMode) === 'signed';
+		return strtolower((string) $this->getSetting('mode')) === 'signed';
+	}
+
+	/**
+	 * Use the __Host- cookie name prefix for the binding cookie?
+	 *
+	 * Browsers only accept a __Host- cookie that is Secure, has path '/' and no Domain,
+	 * and never let a subdomain set one, which stops a subdomain from planting a binding
+	 * cookie of its choosing. So it applies on HTTPS when no session cookie domain is set.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function bindingCookieHostOnly() {
+		$config = $this->wire()->config;
+		return $config->https && !strlen((string) $config->sessionCookieDomain);
 	}
 
 	/**
 	 * Get the name of the signed-mode binding cookie
 	 *
+	 * #pw-internal
+	 *
 	 * @return string
 	 *
 	 */
-	protected function bindingCookieName() {
-		return session_name() . self::bindingCookieSuffix;
+	public function bindingCookieName() {
+		$name = session_name() . self::bindingCookieSuffix;
+		return $this->bindingCookieHostOnly() ? "__Host-$name" : $name;
 	}
 
 	/**
@@ -385,11 +435,13 @@ class SessionCSRF extends Wire {
 		$samesite = empty($samesite) ? 'Lax' : ucfirst(strtolower($samesite));
 		if(!in_array($samesite, array('Strict', 'Lax', 'None'), true)) $samesite = 'Lax';
 		if($samesite === 'None') $secure = true;
+		$hostOnly = $this->bindingCookieHostOnly();
+		if($hostOnly) $secure = true; // required by the __Host- prefix
 		if(!headers_sent()) {
 			setcookie($name, $value, array(
 				'expires' => time() + self::bindingCookieAge,
 				'path' => '/',
-				'domain' => (string) $config->sessionCookieDomain,
+				'domain' => $hostOnly ? '' : (string) $config->sessionCookieDomain,
 				'secure' => $secure,
 				'httponly' => true,
 				'samesite' => $samesite,
@@ -480,7 +532,9 @@ class SessionCSRF extends Wire {
 	 * Do the request headers prove it originated from this site?
 	 *
 	 * The Origin header is set by the browser and cannot be forged cross-site: trust it
-	 * only when its scheme matches the current request and its host is one of ours. When
+	 * only when its scheme matches the current request and its host and port match one
+	 * of $config->httpHosts (80/443 being the defaults for http/https, as browsers treat
+	 * a different port as a different origin). When
 	 * no Origin header is present, defer to the browser's Sec-Fetch-Site classification —
 	 * 'same-origin', or 'none' (user-initiated with no initiator), is safe; anything
 	 * else (or neither header) is not.
@@ -493,17 +547,36 @@ class SessionCSRF extends Wire {
 		$origin = isset($_SERVER['HTTP_ORIGIN']) ? (string) $_SERVER['HTTP_ORIGIN'] : '';
 
 		if($origin !== '') {
-			$scheme = parse_url($origin, PHP_URL_SCHEME);
-			$host = parse_url($origin, PHP_URL_HOST);
-			if($scheme !== ($config->https ? 'https' : 'http')) return false;
-			if(!is_string($host) || $host === '') return false;
+			$scheme = $config->https ? 'https' : 'http';
+			if(strtolower((string) parse_url($origin, PHP_URL_SCHEME)) !== $scheme) return false;
+			$origin = $this->hostPort($origin, $scheme);
+			if($origin === '') return false;
 			$hosts = $config->httpHosts;
 			if(empty($hosts)) $hosts = array((string) $config->httpHost);
-			return in_array(strtolower($host), array_map('strtolower', (array) $hosts), true);
+			foreach((array) $hosts as $host) {
+				if($this->hostPort("$scheme://$host", $scheme) === $origin) return true;
+			}
+			return false;
 		}
 
 		$sfs = isset($_SERVER['HTTP_SEC_FETCH_SITE']) ? $_SERVER['HTTP_SEC_FETCH_SITE'] : '';
 		return $sfs === 'same-origin' || $sfs === 'none';
+	}
+
+	/**
+	 * Get "host:port" from a URL, using the scheme's default port when none is given
+	 *
+	 * @param string $url
+	 * @param string $scheme Either 'http' or 'https'
+	 * @return string Lowercase "host:port", or blank if the URL has no host
+	 *
+	 */
+	protected function hostPort($url, $scheme) {
+		$host = parse_url($url, PHP_URL_HOST);
+		if(!is_string($host) || $host === '') return '';
+		$port = parse_url($url, PHP_URL_PORT);
+		if(!$port) $port = $scheme === 'https' ? 443 : 80;
+		return strtolower($host) . ':' . $port;
 	}
 
 }
