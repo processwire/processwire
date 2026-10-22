@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $noticeUnknown
@@ -2231,6 +2231,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * variables. The page id is near the beginning of the form and survives, which is why
 	 * the request still appears to be a page edit POST. Without this notice the editor
 	 * simply re-renders and looks like a save that quietly lost its changes.
+	 * 
+	 * The logged `token` is `ok` when the current session's token was posted, `stale` when
+	 * a token was posted under a name the session no longer recognizes (i.e. the session
+	 * was reset by a login or forceLogin() after the form was rendered), or `missing`.
 	 *
 	 * #pw-hooker
 	 *
@@ -2244,7 +2248,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		$max = (int) ini_get('max_input_vars');
 		$tokenName = $session->CSRF()->getTokenName();
-		$hasToken = $input->post($tokenName) !== null;
+		$token = $input->post($tokenName) !== null ? 'ok' : 'missing';
+		if($token === 'missing') {
+			foreach(array_keys($_POST) as $key) {
+				if(!is_string($key) || !preg_match('/^TOKEN\d+X\d+$/', $key)) continue;
+				$token = 'stale';
+				break;
+			}
+		}
 		$hasLandmark = $input->post('_InputfieldForm') === $this->form->getFormName();
 
 		// note that no max_input_vars notice is given here, as _checkForMaxInputVars() in
@@ -2254,7 +2265,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		$this->error(
 			"POST for page $this->id was not processed " .
-			"(token=" . ($hasToken ? 'ok' : 'missing') . ", " .
+			"(token=$token, " .
 			"landmark=" . ($hasLandmark ? 'ok' : 'missing') . ", " .
 			"postVars=" . count($_POST, COUNT_RECURSIVE) . ", " .
 			"max_input_vars=$max)",
