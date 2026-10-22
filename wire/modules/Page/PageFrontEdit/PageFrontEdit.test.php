@@ -20,6 +20,103 @@ class WireTest_PageFrontEdit extends WireTest {
 		$this->testHookPageEditorBasics();
 		$this->testNoEditMarkupCleanup();
 		$this->testRenderAssets();
+		$this->testInlineResponseAccess();
+	}
+
+	protected function testInlineResponseAccess() {
+		$wire = $this->wire();
+		$admin = $wire->user;
+		$postPrevious = $wire->input->post->getArray();
+		$outputFormatting = $wire->pages->of();
+		$name = uniqid('wiretest_front_');
+		$role = $user = null;
+		$templates = $pages = $fields = array();
+		try {
+			$role = $wire->roles->add($name);
+			foreach(array('page-view', 'page-edit', 'page-edit-front') as $permission) $role->addPermission($permission);
+			$role->save();
+			$user = $wire->users->add($name);
+			$user->addRole($role);
+			$user->save();
+			foreach(array('allowed', 'hidden', 'readonly') as $access) {
+				$field = $wire->fields->new('FieldtypeText', $name . '_' . $access);
+				$fields[$access] = $field;
+				$field->useRoles = true;
+				$field->viewRoles = $access === 'hidden' ? array() : array($role->id);
+				$field->editRoles = $access === 'allowed' ? array($role->id) : array();
+				$field->save();
+			}
+			foreach(array('own', 'other') as $access) {
+				$template = $wire->templates->add($name . '_' . $access);
+				$templates[$access] = $template;
+				$template->useRoles = true;
+				$roles = $access === 'own' ? array($role->id) : array($wire->roles->get('superuser')->id);
+				$template->setRoles($roles, 'view');
+				$template->setRoles($roles, 'edit');
+				$template->save();
+				foreach($fields as $field) $template->fieldgroup->add($field);
+				$template->fieldgroup->save();
+				$page = $wire->pages->newPage(array('template' => $template, 'parent' => 1, 'name' => $name . '_' . $access));
+				$pages[$access] = $page;
+				foreach($fields as $fieldAccess => $field) $page->set($field->name, "synthetic-$access-$fieldAccess");
+				$page->save();
+			}
+			$wire->users->setCurrentUser($user);
+			$pfe = $this->wire(new WireTestable_PageFrontEdit());
+			$pfe->activateForTest($pages['own']);
+			$this->check('response test permitted field is saveable', true, $pfe->inlineIsSaveable($pages['own'], $fields['allowed']));
+			$this->check('response test other page is not viewable', false, $pages['other']->viewable(false));
+			$this->check('response test hidden field is not viewable', false, $pages['own']->viewable($fields['hidden']));
+			$rejected = array();
+			foreach($pages as $access => $page) {
+				foreach($fields as $fieldAccess => $field) {
+					if($access === 'own' && $fieldAccess === 'allowed') continue;
+					$rejected[$page->id . '__' . $field->name] = 'rejected-update';
+				}
+			}
+			$data = $pfe->processForTest($rejected);
+			$this->check('rejected-only request has no formatted response values', array(), $data['formatted']);
+			$this->check('rejected-only request has no unformatted response values', array(), $data['unformatted']);
+
+			$allowedKey = $pages['own']->id . '__' . $fields['allowed']->name;
+			$postFields = $rejected + array(
+				$allowedKey => 'permitted-update',
+				'missingseparator' => 'invalid',
+				$pages['own']->id . '__' . $name . '_missing' => 'invalid',
+				'0__' . $fields['allowed']->name => 'invalid',
+			);
+			$data = $pfe->processForTest($postFields);
+			$this->check('mixed request returns only the authorized formatted field', array($allowedKey), array_keys($data['formatted']));
+			$this->check('mixed request returns only the authorized unformatted field', array($allowedKey), array_keys($data['unformatted']));
+			$this->check('permitted save response remains available', 'permitted-update', $data['unformatted'][$allowedKey]);
+			foreach($pages as $access => $page) {
+				$fresh = $wire->pages->getFresh($page->id);
+				foreach($fields as $fieldAccess => $field) {
+					$expected = $access === 'own' && $fieldAccess === 'allowed' ? 'permitted-update' : "synthetic-$access-$fieldAccess";
+					$this->check("response test $access/$fieldAccess persisted value", $expected, $fresh->getUnformatted($field->name));
+				}
+			}
+
+			$pfe->failValidationForTest = $fields['allowed']->name;
+			$data = $pfe->processForTest(array($allowedKey => 'invalid-update'));
+			$this->check('authorized validation failure reports an error', true, strpos($data['error'], 'Fixture validation failure') !== false);
+			$this->check('authorized validation failure returns the previous value', 'permitted-update', $data['unformatted'][$allowedKey]);
+			$this->check('authorized validation failure does not change storage', 'permitted-update', $wire->pages->getFresh($pages['own']->id)->getUnformatted($fields['allowed']->name));
+		} finally {
+			$wire->users->setCurrentUser($admin);
+			$wire->pages->of($outputFormatting);
+			$wire->input->post->removeAll();
+			$wire->input->post->setArray($postPrevious);
+			foreach($pages as $page) if($page->id) $wire->pages->delete($page, true);
+			foreach($templates as $template) {
+				$fieldgroup = $template->fieldgroup;
+				$wire->templates->delete($template);
+				$wire->fieldgroups->delete($fieldgroup);
+			}
+			foreach($fields as $field) $wire->fields->delete($field);
+			if($user && $user->id) $wire->users->delete($user);
+			if($role && $role->id) $wire->roles->delete($role);
+		}
 	}
 
 	protected function editor() {
@@ -131,5 +228,29 @@ class WireTest_PageFrontEdit extends WireTest {
 			'method' => 'edit',
 			'arguments' => $arguments,
 		));
+	}
+}
+
+/** Exposes processing without the HTTP response/exit wrapper; permission checks stay intact. */
+class WireTestable_PageFrontEdit extends PageFrontEdit {
+	public $failValidationForTest = '';
+
+	public function activateForTest(Page $page) {
+		$this->setPage($page);
+		$this->editorAllowed = $page->editable() && $this->wire()->user->hasPermission('page-edit-front', $page);
+	}
+
+	public function processForTest(array $fields) {
+		return $this->inlineProcessSaveEdits($fields, array('status' => 0, 'error' => '', 'changes' => '', 'formatted' => array(), 'unformatted' => array()));
+	}
+
+	protected function getInputfield(Page $page, Field $field) {
+		$inputfield = parent::getInputfield($page, $field);
+		if($field->name === $this->failValidationForTest) {
+			$inputfield->addHookAfter('processInput', function(HookEvent $event) {
+				$event->object->error('Fixture validation failure');
+			});
+		}
+		return $inputfield;
 	}
 }
