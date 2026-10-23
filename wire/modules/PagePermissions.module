@@ -1199,6 +1199,8 @@ class PagePermissions extends WireData implements Module {
 	 * 
 	 * Note: If a page has children and current user is not superuser, this method will return
 	 * true only if the user has the `page-clone-tree` permission (from ProcessPageClone module). 
+	 * Non-superusers must be able to view the source content, including all descendants
+	 * when cloning a tree. Having a template file is not required.
 	 * 
 	 * ~~~~~
 	 * if($page->cloneable()) {
@@ -1238,6 +1240,8 @@ class PagePermissions extends WireData implements Module {
 		}
 		
 		if(!$user->hasPermission('page-create', $page)) return;
+		// Copying requires access to the source content, not permission to modify it.
+		if(!$page->viewable(false)) return;
 		
 		if(!$parent->addable()) return;
 		
@@ -1252,6 +1256,10 @@ class PagePermissions extends WireData implements Module {
 			// check that they have page-clone-tree permission IF the page has children
 			// recursive cloning is only allowed via ProcessPageClone module
 			if(!$user->hasPermission('page-clone-tree', $page)) return;
+			// Check the entire source tree before a recursive copy can begin.
+			foreach($this->wire()->pages->findMany("has_parent=$page->id, include=all") as $child) {
+				if(!$child->viewable(false)) return;
+			}
 		}
 	
 		$event->return = true;
