@@ -93,14 +93,23 @@ ErrorDocument 404 /index.php
 <IfModule mod_headers.c>
   # prevent site from being loaded in an iframe on another site
   # you will need to remove this one if you want to allow external iframes
-  Header always append X-Frame-Options SAMEORIGIN 
+  # (sent once: the admin also sends it from PHP, and a repeated value may be ignored by browsers,
+  # so the "unset" removes that copy and "always set" covers every response, errors included)
+  Header unset X-Frame-Options
+  Header always set X-Frame-Options SAMEORIGIN
 
   # To prevent cross site scripting (IE8+ proprietary), see link before using:
   # https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-XSS-Protection
   # Header set X-XSS-Protection "1; mode=block"
 
   # Optionally (O) prevent mime-based attacks via content sniffing (IE+Chrome)
-  # Header set X-Content-Type-Options "nosniff" 
+  # Header always set X-Content-Type-Options "nosniff"
+
+  # Do not leak the PHP version via the X-Powered-By header (added by PHP when
+  # expose_php is On). Harmless when the header is absent. Both lines are needed:
+  # "always" covers error responses, and the other the headers PHP sets itself.
+  Header unset X-Powered-By
+  Header always unset X-Powered-By
 </IfModule>
 
 
@@ -395,8 +404,8 @@ DirectoryIndex index.php index.html index.htm
   # Block access to any files in /site/classes/ or /site-*/classes/
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/classes($|/.*) [NC,OR]
   
-  # Block access to any PHP files within /site/assets/ and further
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/) [NC,OR]
+  # Block access to any PHP/executable files within /site/assets/ and further
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.(ph(p|ps|tml|ar|p[0-9])|cgi|pl|py))($|/) [NC,OR]
   
   # Block access to any PHP, module, inc or info files in core or core modules directories
   RewriteCond %{REQUEST_URI} (^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)($|/) [NC,OR]
@@ -405,7 +414,16 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
   
   # Block access to any software identifying txt, markdown or textile files
-  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICEN[CS]E|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$ [NC,OR]
+
+  # Block access to license files without an extension, as most third-party modules and libraries have them
+  # (within the wire, site and vendor directories, so that a page named "license" is not affected)
+  RewriteCond %{REQUEST_URI} (^|/)(wire|vendor|site|site-[^/]+)/.+/LICEN[CS]E$ [NC,OR]
+
+  # Block access to old copies of the core left by a manual upgrade: /wire-3.0.200/, index-3.0.200.php,
+  # htaccess-3.0.200.txt (copies renamed with a leading dot, i.e. /.wire-3.0.200/, are blocked already)
+  RewriteCond %{REQUEST_URI} (^|/)wire-\d+\.\d+\.\d+($|/) [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(index|htaccess)-\d+\.\d+\.\d+\.(php|txt)$ [NC,OR]
 
   # Block potential arbitrary backup files within site directories for things like config
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$ [NC,OR]
