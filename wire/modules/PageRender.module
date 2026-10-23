@@ -311,7 +311,8 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			} else if($cacheExpire == Template::cacheExpireSelector && $template->cacheExpireSelector) {
 				// expire pages matching a selector
 				/** @var PageFinder $finder */
-				$finder = $this->wire(new PageFinder());
+				// PageFinder2 with ONLY_FULL_GROUP_BY, as $pages uses then
+				$finder = $this->wire()->database->onlyFullGroupBy() ? $this->wire()->pages->getPageFinder() : $this->wire(new PageFinder());
 				$selectors = new Selectors();
 				$this->wire($selectors);
 				$selectors->init($template->cacheExpireSelector);

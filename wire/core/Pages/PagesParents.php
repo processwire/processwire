@@ -268,14 +268,18 @@ class PagesParents extends Wire {
 			if(!in_array('name', $columns)) $columns[] = 'name';
 		}
 		
+		// grouped by pages.id below, so with ONLY_FULL_GROUP_BY the other pages columns are 
+		// aggregated with MIN(). They are functionally dependent on pages.id, so MIN() selects 
+		// the same value it would without it, and each keeps its own name.
+		$onlyFullGroupBy = $database->onlyFullGroupBy();
 		$sql['select'] = "SELECT pages.id, COUNT(children.id) AS numChildren";
-		if($getPages) $sql['select'] .= ", pages.templates_id";
+		if($getPages) $sql['select'] .= $onlyFullGroupBy ? ", MIN(pages.templates_id) AS templates_id" : ", pages.templates_id";
 	
 		foreach($columns as $key => $col) {
 			if($col === 'id' || $col === 'numChildren') continue; // already have it
 			$col = $database->escapeCol($col); 
 			if($col !== $columns[$key]) continue;
-			$sql['select'] .= ", pages.$col";
+			$sql['select'] .= $onlyFullGroupBy ? ", MIN(pages.$col) AS $col" : ", pages.$col";
 		}
 			
 		$sql['from'] = "FROM pages";
@@ -446,13 +450,16 @@ class PagesParents extends Wire {
 		
 		if($parents == null) {
 			$parents = array();
+			$database = $this->wire()->database;
+			// with ONLY_FULL_GROUP_BY, group by the selected columns (the same groups, as parents.id=pages.parent_id)
+			$groupBy = $database->onlyFullGroupBy() ? 'parents.id, parents.parent_id' : 'pages.parent_id';
 			$sql = "
 				SELECT parents.id, parents.parent_id 
 				FROM pages 
 				JOIN pages AS parents on pages.parent_id=parents.id AND parents.parent_id>=:id
-				GROUP BY pages.parent_id 
+				GROUP BY $groupBy 
 			";
-			$query = $this->wire()->database->prepare(trim($sql));
+			$query = $database->prepare(trim($sql));
 			$query->bindValue(':id', $minParentID, \PDO::PARAM_INT); 
 			$query->execute();
 			while($row = $query->fetch(\PDO::FETCH_NUM)) {
