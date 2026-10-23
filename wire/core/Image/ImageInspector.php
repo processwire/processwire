@@ -47,7 +47,8 @@ class ImageInspector extends WireData {
 		'gif' => \IMAGETYPE_GIF,
 		'jpg' => \IMAGETYPE_JPEG,
 		'jpeg' => \IMAGETYPE_JPEG,
-		'png' => \IMAGETYPE_PNG
+		'png' => \IMAGETYPE_PNG,
+		'webp' => \IMAGETYPE_WEBP
 	);
 
 	/**
@@ -59,7 +60,8 @@ class ImageInspector extends WireData {
 	protected $supportedMimeTypes = array(
 		\IMAGETYPE_GIF => 'image/gif',
 		\IMAGETYPE_JPEG => 'image/jpeg',
-		\IMAGETYPE_PNG => 'image/png'
+		\IMAGETYPE_PNG => 'image/png',
+		\IMAGETYPE_WEBP => 'image/webp'
 	);
 
 	/**
@@ -127,6 +129,9 @@ class ImageInspector extends WireData {
 				break;
 			case \IMAGETYPE_PNG:
 				$this->loadImageInfoPng();
+				break;
+			case \IMAGETYPE_WEBP:
+				$this->loadImageInfoWebp();
 				break;
 		}
 
@@ -211,6 +216,42 @@ class ImageInspector extends WireData {
 		}
 		$this->info = array_merge($this->info, $png->info);
 		unset($png);
+		return true;
+	}
+
+	/**
+	 * Parse WebP container header and collect information into $this->info
+	 *
+	 * Reads the RIFF header only: an extended (VP8X) file carries alpha and
+	 * animation flags, a lossless (VP8L) file carries an alpha bit in its
+	 * bitstream header, and a simple lossy (VP8) file has neither.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function loadImageInfoWebp() {
+		$alpha = false;
+		$animated = false;
+		$fp = @fopen($this->filename, 'rb');
+		if(!$fp) return false;
+		$head = fread($fp, 30);
+		fclose($fp);
+		if(strlen($head) < 30 || substr($head, 0, 4) !== 'RIFF' || substr($head, 8, 4) !== 'WEBP') return false;
+		$chunk = substr($head, 12, 4);
+		if($chunk === 'VP8X') {
+			$flags = ord($head[20]);
+			$alpha = ($flags & 0x10) > 0;
+			$animated = ($flags & 0x02) > 0;
+		} else if($chunk === 'VP8L') {
+			// 5-byte header after the 0x2f signature byte at offset 20:
+			// 14 bits width-1, 14 bits height-1, 1 bit alpha_is_used, 3 bits version
+			$alpha = ((ord($head[24]) >> 4) & 1) > 0;
+		}
+		$this->info['alpha'] = $alpha;
+		$this->info['trans'] = false;
+		$this->info['animated'] = $animated;
+		if($this->info['channels'] < 1) $this->info['channels'] = $alpha ? 4 : 3;
+		if($this->info['bits'] < 1) $this->info['bits'] = 8;
 		return true;
 	}
 
