@@ -15,26 +15,25 @@ if(!defined("PROCESSWIRE")) die();
 /** @var string $layout */
 
 $version = $config->version;
-$rootUrl = $config->urls->root;
 $themeUrl = $adminTheme->url();
 $styles = $config->styles;
 $scripts = $config->scripts;
 $adminIcons = $config->adminIcons;
 $iconVersion = $adminIcons['version'];
 
-$styles->prepend($rootUrl . "wire/templates-admin/styles/AdminTheme.css?v=$version");
+$styles->prepend($config->urls->adminTemplates . "styles/AdminTheme.css?v=$version");
 $styles->prepend($adminTheme->getUikitCSS());
 
 if(version_compare($iconVersion, '6.0.0', '<')) {
-	$styles->append($rootUrl . "wire/templates-admin/styles/font-awesome/css/font-awesome.min.css?v=$version");
+	$styles->append($config->urls->adminTemplates . "styles/font-awesome/css/font-awesome.min.css?v=$version");
 } else {
-	$styles->append($rootUrl . "wire/templates-admin/styles/font-awesome-$iconVersion/css/all.min.css");
-	$styles->append($rootUrl . "wire/templates-admin/styles/font-awesome-$iconVersion/css/v4-shims.min.css");
+	$styles->append($config->urls->adminTemplates . "styles/font-awesome-$iconVersion/css/all.min.css");
+	$styles->append($config->urls->adminTemplates . "styles/font-awesome-$iconVersion/css/v4-shims.min.css");
 }
 
 $ext = $config->debug ? "js" : "min.js";
-$scripts->append($rootUrl . "wire/templates-admin/scripts/inputfields.$ext?v=$version");
-$scripts->append($rootUrl . "wire/templates-admin/scripts/main.$ext?v=$version");
+$scripts->append($config->urls->adminTemplates . "scripts/inputfields.$ext?v=$version");
+$scripts->append($config->urls->adminTemplates . "scripts/main.$ext?v=$version");
 $scripts->append($themeUrl . "uikit/dist/js/uikit.min.js?v=$version");
 $scripts->append($themeUrl . "uikit/dist/js/uikit-icons.min.js?v=$version");
 $scripts->append($themeUrl . "scripts/main.$ext?v=$version");
