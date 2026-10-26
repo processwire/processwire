@@ -180,7 +180,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 		static $context = null;
 		if($translate === null) $translate = $this->wire()->languages !== null;
 		if($translate === false) return $text;
-		if($context === null) $context = $this->wire()->config->paths->root . 'wire/templates-admin/default.php';
+		if($context === null) $context = $this->wire()->config->paths->adminTemplates . 'default.php';
 		$value = __($text, $context);
 		if($value === $text) $value = parent::_($text);
 		return $value;

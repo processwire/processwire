@@ -1209,6 +1209,8 @@ class ProcessWire extends Wire {
 	 *   May also include scheme & hostname, i.e. "http://hostname.com/url" to force use of scheme+host. 
 	 * @param array $options Options to modify default behaviors (experimental): 
 	 *  - `siteDir` (string): Name of "site" directory in $rootPath that contains site's config.php, no slashes (default="site").
+	 *  - `wireDir` (string): Name of "wire" directory in $rootPath that contains the core, no slashes (default="wire").
+	 *  - `assetsDir` (string): Path of the writable assets directory relative to $rootPath, no leading or trailing slashes (default="$siteDir/assets").
 	 * @return Config
 	 * 
 	 */
@@ -1218,6 +1220,7 @@ class ProcessWire extends Wire {
 		$httpHost = '';
 		$scheme = '';
 		$siteDir = $options['siteDir'] ?? 'site';
+		$wireDir = $options['wireDir'] ?? 'wire';
 		$cfg = array('dbName' => '');
 		
 		if($rootURL && strpos($rootURL, '://')) {
@@ -1298,9 +1301,8 @@ class ProcessWire extends Wire {
 
 		// other default directories
 		$sitePath = $rootPath . "/$siteDir/";
-		$wireDir = "wire";
 		$coreDir = "$wireDir/core";
-		$assetsDir = "$siteDir/assets";
+		$assetsDir = $options['assetsDir'] ?? "$siteDir/assets";
 		$adminTplDir = 'templates-admin';
 	
 		// create new Config instance

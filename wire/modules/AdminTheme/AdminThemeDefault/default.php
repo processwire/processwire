@@ -31,13 +31,13 @@ if($user->hasPermission('page-edit')) {
 
 $version = $config->version;
 
-$config->styles->prepend($config->urls->root . "wire/templates-admin/styles/AdminTheme.css?v=$version"); 
+$config->styles->prepend($config->urls->adminTemplates . "styles/AdminTheme.css?v=$version"); 
 $config->styles->prepend($config->urls->adminTemplates . "styles/" . ($adminTheme->colors ? "main-$adminTheme->colors" : "main-classic") . ".css?v=$version"); 
-$config->styles->append($config->urls->root . "wire/templates-admin/styles/font-awesome/css/font-awesome.min.css?v=$version"); 
+$config->styles->append($config->urls->adminTemplates . "styles/font-awesome/css/font-awesome.min.css?v=$version"); 
 	
 $ext = $config->debug ? "js" : "min.js";
-$config->scripts->append($config->urls->root . "wire/templates-admin/scripts/inputfields.$ext?v=$version");
-$config->scripts->append($config->urls->root . "wire/templates-admin/scripts/main.$ext?v=$version"); 
+$config->scripts->append($config->urls->adminTemplates . "scripts/inputfields.$ext?v=$version");
+$config->scripts->append($config->urls->adminTemplates . "scripts/main.$ext?v=$version"); 
 $config->scripts->append($config->urls->adminTemplates . "scripts/main.$ext?v=$version");
 	
 require_once(dirname(__FILE__) . "/AdminThemeDefaultHelpers.php");
@@ -138,7 +138,7 @@ $extras = $adminTheme->getExtraMarkup();
 			<?php 
 			echo $extras['footer'];
 			if($config->debug && $user->isSuperuser()) {
-				include($config->paths->root . '/wire/templates-admin/debug.inc');
+				include($config->paths->adminTemplates . 'debug.inc');
 			}
 			?>
 		</div>
