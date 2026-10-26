@@ -206,6 +206,42 @@ abstract class WireDatabaseDialect extends Wire {
 	 */
 	abstract public function getRetryableErrorType(\PDOException $e);
 
+	/**
+	 * Get a readable message for an error that rejected a value its column can't hold, or blank for other errors
+	 *
+	 * With STRICT_TRANS_TABLES, MySQL rejects a value that is too long for its column, out of its range, or not
+	 * of its type, where it would otherwise change it to fit. The errors are named by standard SQLSTATE codes
+	 * (22001, 22003, 22007) that don't say this plainly (22007 is "Invalid datetime format", which MySQL also
+	 * uses for text it can't store). MariaDB reports a UTF-8 value too long for a TEXT column as "Incorrect
+	 * string value", the same as characters the column can't store, so that message names both.
+	 *
+	 * @param \PDOException $e
+	 * @return string
+	 * @since 3.0.274
+	 *
+	 */
+	public function rejectedValueMessage(\PDOException $e) {
+		$state = isset($e->errorInfo[0]) ? (string) $e->errorInfo[0] : (is_string($e->getCode()) ? substr($e->getCode(), 0, 5) : '');
+		$errno = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
+		$message = $e->getMessage();
+		$column = '';
+		if(preg_match('/for column (\S+)/', $message, $m)) {
+			$parts = explode('.', str_replace(array('`', "'", '"'), '', $m[1]));
+			$column = end($parts);
+		}
+		$in = $column === '' ? '' : " ($column)";
+		if($state === '22001' || $errno === 1406) {
+			return sprintf($this->_('The value is too long for its column%s'), $in);
+		} else if($state === '22003' || $errno === 1264) {
+			return sprintf($this->_('The value is out of range for its column%s'), $in);
+		} else if($errno === 1366 && stripos($message, 'Incorrect string value') !== false) {
+			return sprintf($this->_('The value is too long for its column%s, or has characters it can’t store'), $in);
+		} else if($errno === 1366 || $errno === 1292 || ($state === '22007' && $errno === 0)) {
+			return sprintf($this->_('The value is not valid for its column%s'), $in);
+		}
+		return '';
+	}
+
 	/*********************************************************************************
 	 * Connection
 	 *

@@ -31,6 +31,28 @@ class WireTest_WireDatabaseDialect extends WireTest {
 		$this->testUpsertMySQL();
 		$this->testUpsertSQLite();
 		$this->testUpsertLive();
+		$this->testRejectedValueMessage();
+	}
+
+	/**
+	 * rejectedValueMessage(): readable messages for the errors STRICT_TRANS_TABLES gives values a column can't hold
+	 *
+	 */
+	protected function testRejectedValueMessage() {
+		$dialect = $this->wire()->database->dialect();
+		$e = function($state, $errno, $message) {
+			$x = new \PDOException("SQLSTATE[$state]: $message");
+			$x->errorInfo = array($state, $errno, $message);
+			return $x;
+		};
+		$this->check('too long (1406)', 'The value is too long for its column (data)', $dialect->rejectedValueMessage($e('22001', 1406, "Data too long for column 'data' at row 1")));
+		$this->check('out of range (1264)', 'The value is out of range for its column (data)', $dialect->rejectedValueMessage($e('22003', 1264, "Out of range value for column 'data' at row 1")));
+		$this->check('incorrect string value (1366): too long, or characters it can’t store', 'The value is too long for its column (data), or has characters it can’t store',
+			$dialect->rejectedValueMessage($e('22007', 1366, "Incorrect string value: '\\xC3\\xA9' for column `pwtest`.`field_title`.`data` at row 1")));
+		$this->check('incorrect integer value (1366)', 'The value is not valid for its column (qty)', $dialect->rejectedValueMessage($e('HY000', 1366, "Incorrect integer value: 'abc' for column 'qty' at row 1")));
+		$this->check('incorrect datetime value (1292)', 'The value is not valid for its column (created)', $dialect->rejectedValueMessage($e('22007', 1292, "Incorrect datetime value: 'x' for column 'created' at row 1")));
+		$this->check('PostgreSQL value too long (22001, no column)', 'The value is too long for its column', $dialect->rejectedValueMessage($e('22001', 7, 'ERROR: value too long for type character varying(10)')));
+		$this->check('other errors: blank', '', $dialect->rejectedValueMessage($e('42S02', 1146, "Table 'x' doesn't exist")));
 	}
 
 	public function finish() {

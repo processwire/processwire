@@ -162,6 +162,15 @@ $database->exec($sql);
 Helper output goes through `prepare()`, `query()` and `exec()` like any other SQL. A translating dialect's
 translator recognizes statements that are already in its own syntax and leaves them unchanged.
 
+### SQL modes and rejected values (MySQL)
+
+`$config->dbSqlModes` removes `ONLY_FULL_GROUP_BY` and `STRICT_TRANS_TABLES` from each connection by default.
+A site that keeps MySQL's standard modes (i.e. `$config->dbSqlModes = []`) gets values its columns can't hold
+rejected rather than changed to fit: a value too long for its column, out of its range, or not of its type.
+When a page field's value is rejected, the field keeps its stored value, the rest of the page saves, and the
+error names the field and what was wrong. `dialect()->rejectedValueMessage($e)` gives that message for such
+a `PDOException` (blank for other errors); the log keeps the database's own message. (Since 3.0.274.)
+
 ### Writing SQL that works with every database
 
 Most MySQL syntax that ProcessWire and modules commonly use works on SQLite and PostgreSQL unchanged, including
