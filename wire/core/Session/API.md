@@ -339,6 +339,17 @@ and cannot be forged cross-site, so cross-site forgery remains blocked. The fall
 applies only to the default token (never named or single-use tokens) and only when a
 token was actually submitted — tokenless POSTs are never rescued. Off by default.
 
+The check is the hookable `SessionCSRF::originFallbackValid()`, called only after the
+default token has failed, so a true return value means the fallback is accepting the
+request. For example, to log each request the fallback accepts:
+
+~~~~~php
+$wire->addHookAfter('SessionCSRF::originFallbackValid', function(HookEvent $event) {
+  if(!$event->return) return;
+  $event->wire()->log->save('csrf-origin-fallback', $event->wire()->input->url());
+});
+~~~~~
+
 ### Single-use tokens
 
 Use these for one-time actions such as delete confirmations.
