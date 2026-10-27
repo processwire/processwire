@@ -49,6 +49,8 @@
  *
  * #pw-body
  *
+ * @method bool originFallbackValid() May the Origin fallback accept the current request despite a failed token check? #pw-hooker
+ *
  * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
@@ -499,10 +501,17 @@ class SessionCSRF extends Wire {
 	 * client rendered one of our forms — the fallback never rescues tokenless POSTs),
 	 * and browser-asserted same-origin headers.
 	 *
+	 * Called only when the `originFallback` setting is enabled and the default token has
+	 * already failed, so an after hook that sees a true return value is seeing a request
+	 * the fallback is about to accept (useful for logging). A hook may also set the return
+	 * value to false to refuse the fallback for particular requests.
+	 *
+	 * #pw-hooker
+	 *
 	 * @return bool
 	 *
 	 */
-	protected function originFallbackValid() {
+	protected function ___originFallbackValid() {
 		$method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : '';
 		if($method !== 'POST') return false;
 		if(!$this->postedTokenExists()) return false;
