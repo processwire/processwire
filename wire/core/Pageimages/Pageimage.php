@@ -376,10 +376,12 @@ class Pageimage extends Pagefile {
 	public function set($key, $value) {
 		if($key === 'sizeOptions' && is_array($value)) {
 			$this->sizeOptions = $value;
-			return $this;
+		} else if($key === 'error') {
+			$this->error = (string) $value;
 		} else {
 			return parent::set($key, $value);
 		}
+		return $this;
 	}
 	
 	/**
