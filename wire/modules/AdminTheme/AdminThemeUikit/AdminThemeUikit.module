@@ -582,7 +582,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			case 'none': break;
 		}
 
-		if(strpos($inputfield->attr('name'), '_repeater') === false || $themeBorder === 'card') {
+		if(strpos((string) $inputfield->attr('name'), '_repeater') === false || $themeBorder === 'card') {
 			switch($themeBorder) {
 				case 'none': $wrapClasses[] = 'InputfieldNoBorder'; break;
 				case 'hide': $wrapClasses[] = 'InputfieldHideBorder'; break;

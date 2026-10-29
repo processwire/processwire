@@ -95,7 +95,7 @@ class WireTest_WireDatabaseSchemaLog extends WireTest {
 	protected function testParse() {
 		$log = $this->wire()->database->schemaLog();
 		$ref = new \ReflectionMethod($log, 'parse');
-		$ref->setAccessible(true);
+		if(PHP_VERSION_ID < 80100) $ref->setAccessible(true);
 		$parse = function($sql) use($log, $ref) { return $ref->invoke($log, $sql); };
 
 		$p = $parse('CREATE TABLE IF NOT EXISTS `db`.`t1` (id INT)');

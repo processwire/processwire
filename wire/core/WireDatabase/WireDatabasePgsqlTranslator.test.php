@@ -64,7 +64,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 	protected function testPlaceholderCache() {
 		$tr = new WireDatabasePgsqlTranslator();
 		$a = $tr->translate('SELECT id FROM pages WHERE name LIKE :pf1s0 AND parent_id=:pf1i0 LIMIT 1, 2');
-		$count = function() use($tr) { $p = (new \ReflectionClass($tr))->getProperty('cache'); $p->setAccessible(true); return count($p->getValue($tr)); };
+		$count = function() use($tr) { $p = (new \ReflectionClass($tr))->getProperty('cache'); if(PHP_VERSION_ID < 80100) $p->setAccessible(true); return count($p->getValue($tr)); };
 		$before = $count();
 		$b = $tr->translate('SELECT id FROM pages WHERE name LIKE :pf22s0 AND parent_id=:pf22i0 LIMIT 1, 2');
 		$this->check('same statement with other placeholder names is not translated again', $before, $count());

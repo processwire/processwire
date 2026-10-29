@@ -383,7 +383,7 @@ class WireTest_WireDatabasePDO extends WireTest {
 		$database->closeConnection();
 		$this->check('inTransaction() false without a connection', false, $database->inTransaction());
 		$writer = new \ReflectionProperty($database, 'writer');
-		$writer->setAccessible(true);
+		if(PHP_VERSION_ID < 80100) $writer->setAccessible(true);
 		$this->check('inTransaction() does not connect', null, $writer->getValue($database)['pdo']);
 
 		if($database->dialect()->name() !== 'mysql') return;
@@ -425,7 +425,7 @@ class WireTest_WireDatabasePDO extends WireTest {
 	protected function fakePDOException($message, $code, $errno = null) {
 		$e = new \PDOException($message);
 		$property = new \ReflectionProperty($e, 'code');
-		$property->setAccessible(true);
+		if(PHP_VERSION_ID < 80100) $property->setAccessible(true);
 		$property->setValue($e, $code);
 		if($errno !== null) $e->errorInfo = array(is_string($code) ? $code : 'HY000', $errno, $message);
 		return $e;

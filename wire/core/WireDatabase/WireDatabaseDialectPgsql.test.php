@@ -432,7 +432,7 @@ class WireTest_WireDatabaseDialectPgsql extends WireTest {
 		if(is_file($file)) unlink($file);
 		$rc = new \ReflectionClass($dialect);
 		$prop = $rc->getProperty('translationCacheFile');
-		$prop->setAccessible(true);
+		if(PHP_VERSION_ID < 80100) $prop->setAccessible(true);
 		$was = $prop->getValue($dialect);
 		$prop->setValue($dialect, $file);
 		$translator = $dialect->translator();

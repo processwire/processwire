@@ -458,7 +458,7 @@ class LanguagePorter extends Wire {
 		
 		$defaultCol = $language->name == 'en' ? 'default' : 'en';
 		$columns = array($defaultCol, $language->name, 'description', 'file', 'hash');
-		fputcsv($fp, $columns);
+		fputcsv($fp, $columns, ",", "\"", "\\");
 		
 		require_once(__DIR__ . '/LanguageParser.php');
 		$numMatched = 0;
@@ -493,7 +493,7 @@ class LanguagePorter extends Wire {
 				$comment = $comments[$hash] ?? '';
 				if(strpos($comment, '//') !== false) list(, $comment) = explode('//', $comment);
 				$columns = array($textUntranslated, $textTranslated, trim($comment), $file, $hash);
-				fputcsv($fp, $columns);
+				fputcsv($fp, $columns, ",", "\"", "\\");
 				$numExported++;
 			}
 		}
@@ -611,7 +611,7 @@ class LanguagePorter extends Wire {
 			$optionsFileBasename = basename($options['file']);
 		}
 		
-		while(($csvData = fgetcsv($fp, 8192, ",")) !== FALSE) {
+		while(($csvData = fgetcsv($fp, 8192, ",", "\"", "\\")) !== FALSE) {
 			
 			if(++$n === 1) {
 				// header row

@@ -622,9 +622,9 @@ class WireTest_LanguageSupport extends WireTest {
 		fwrite($input, $csv);
 		rewind($input);
 
-		while(($row = fgetcsv($input, 8192, ',')) !== false) {
+		while(($row = fgetcsv($input, 8192, ',', '"', '\\')) !== false) {
 			if(isset($row[0]) && $row[0] === $original) $row[1] = $translated;
-			fputcsv($output, $row);
+			fputcsv($output, $row, ',', '"', '\\');
 		}
 
 		rewind($output);

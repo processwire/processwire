@@ -3535,7 +3535,7 @@ SQL;
 				'name' => self::mysqlIndexName($table, (string) $row['name'], $row['comment']),
 				'unique' => in_array($row['is_unique'], [true, 't', '1', 1], true),
 				'primary' => in_array($row['is_primary'], [true, 't', '1', 1], true),
-				'columns' => $cols === '' ? [] : array_map(function($c) { return trim($c, '"'); }, str_getcsv($cols)),
+				'columns' => $cols === '' ? [] : array_map(function($c) { return trim($c, '"'); }, str_getcsv($cols, ",", "\"", "\\")),
 			];
 		}
 		return $indexes;
