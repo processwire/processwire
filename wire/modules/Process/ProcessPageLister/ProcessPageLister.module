@@ -1196,6 +1196,22 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			}
 		}
 		
+		// Check the merged selector, including configured initSelector conditions.
+		// No configured predicate implicitly grants access to filter on a restricted field.
+		$fieldAccess = array();
+		try {
+			$deniedTemplates = $this->getSelectorFieldAccessTemplates($selectors, $fieldAccess);
+		} catch(WireException $e) {
+			$this->error($e->getMessage());
+			return 'id=0';
+		}
+		if(count($deniedTemplates)) {
+			// Deliberately conservative: exclusions apply to the entire query, even when
+			// a restricted field occurs in only one OR branch or is used only for sorting.
+			$selectors->add(new SelectorNotEqual('templates_id', array_values($deniedTemplates)));
+			$changed = true;
+		}
+
 		if($changed) {
 			// rebuild the selector string and return it
 			return (string) $selectors;
@@ -1203,6 +1219,76 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	
 		// return unmodified
 		return $selector;
+	}
+
+	/**
+	 * Find template contexts that must not contribute to a field-filtered result.
+	 * Related-page filters cannot be scoped by the result page's template, so reject
+	 * those that reference a restricted field rather than silently removing a condition.
+	 *
+	 * @param Selectors $selectors
+	 * @param array $fieldAccess Per-query cache of denied template IDs by field name
+	 * @param int $depth
+	 * @param bool $related Whether selectors apply to related rather than result pages
+	 * @return array
+	 * @throws WirePermissionException
+	 */
+	protected function getSelectorFieldAccessTemplates(Selectors $selectors, array &$fieldAccess, $depth = 0, $related = false) {
+		if($depth > 20) throw new WirePermissionException($this->_('Selector nesting is too deep.'));
+		$fields = $this->wire()->fields;
+		$denied = array();
+		$tags = null;
+		foreach($selectors as $selector) {
+			// Match PageFinder: a truthy group means the outer field is the condition,
+			// and a parenthesized value is literal rather than another selector.
+			$isOrGroup = $selector->quote === '(' && !$selector->group;
+			if($isOrGroup || $selector->quote === '[') {
+				foreach($selector->values as $value) {
+					$nested = $this->wire(new Selectors((string) $value));
+					$denied += $this->getSelectorFieldAccessTemplates($nested, $fieldAccess, $depth + 1, $related || $selector->quote === '[');
+				}
+				if($isOrGroup) continue; // field names here identify OR groups
+			}
+			$names = $selector->fields;
+			if($depth && array_intersect(array('include', 'check_access', 'checkAccess', 'checkaccess'), $names)) {
+				throw new WirePermissionException($this->_('Access modifiers are not allowed in nested selectors.'));
+			}
+			if($names === array('sort')) $names = $selector->values;
+			foreach($names as $name) {
+				foreach(explode('.', ltrim($name, '-+')) as $index => $part) {
+					$field = $fields->get($part);
+					if($field) {
+						$partFields = array($field);
+					} else {
+						if($fields->isNative($part)) continue;
+						if($tags === null) $tags = $fields->getTags(true);
+						$partFields = array();
+						if(isset($tags[$part])) foreach($tags[$part] as $fieldName) {
+							$field = $fields->get($fieldName);
+							if($field) $partFields[] = $field;
+						}
+					}
+					foreach($partFields as $field) {
+						if(wireInstanceOf($field->type, array('FieldtypePassword', 'FieldtypeFieldsetOpen'))) {
+							throw new WirePermissionException($this->_('Field is not available for filtering:') . " $field->name");
+						}
+						if(!isset($fieldAccess[$field->name])) {
+							$fieldAccess[$field->name] = array();
+							foreach($field->getTemplates() as $template) {
+								$context = $template->fieldgroup->getFieldContext($field);
+								if($context && !$context->viewable()) $fieldAccess[$field->name][$template->id] = $template->id;
+							}
+						}
+						$deniedContexts = $fieldAccess[$field->name];
+						if(($related || $index > 0) && count($deniedContexts)) {
+							throw new WirePermissionException($this->_('Related field is not available for filtering:') . " $field->name");
+						}
+						$denied += $deniedContexts;
+					}
+				}
+			}
+		}
+		return $denied;
 	}
 
 	/**

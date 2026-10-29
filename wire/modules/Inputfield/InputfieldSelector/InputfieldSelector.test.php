@@ -13,6 +13,7 @@ class WireTest_InputfieldSelector extends WireTest {
 		$this->testProcessInputAndInitValue();
 		$this->testRenderRow();
 		$this->testRender();
+		$this->testCounterAccess();
 	}
 
 	protected function newInputfield($name = 'selector') {
@@ -127,5 +128,45 @@ class WireTest_InputfieldSelector extends WireTest {
 		$this->check('render marks allow blank values', 'allow-blank', $html, '*=');
 		$this->check('render includes add field link by default', 'selector-add', $html, '*=');
 	}
+
+	protected function testCounterAccess() {
+		$wire = $this->wire();
+		$previousUser = $wire->user;
+		$f = $this->wire(new WireTestable_InputfieldSelectorCounter());
+		$sessionName = $f->className();
+		$previousSession = $wire->session->get($sessionName);
+		$previousBookmarks = $wire->session->get(ProcessPageLister::sessionBookmarksName);
+		$limited = null;
+		try {
+			$wire->users->setCurrentUser($wire->users->get($wire->config->superUserPageID));
+			$limited = $wire->users->add(uniqid('wiretest_selector_counter_'));
+			$wire->users->setCurrentUser($limited);
+			$this->check('counter control account is logged in', true, $limited->isLoggedin());
+			$this->check('logged-in non-superuser receives no selector count', false, strpos($f->testCountForTest('id=' . $this->getTestPage()->id . ', include=all'), 'matches ') !== false);
+			$wire->users->setCurrentUser($wire->users->get($wire->config->guestUserPageID));
+			$denied = $f->testCountForTest('id=' . $this->getTestPage()->id);
+			$this->check('non-superuser receives no selector test count', false, strpos($denied, 'matches ') !== false);
+			$this->check('non-superuser selector test rejects before parsing', $denied, $f->testCountForTest('not a valid selector'));
+			$f->counter = true;
+			$this->check('non-superuser render disables auxiliary counter', true, strpos($f->render(), 'selector-counter-disabled') !== false);
+			$wire->users->setCurrentUser($wire->users->get($wire->config->superUserPageID));
+			$this->check('superuser retains selector test counts', true, strpos($f->testCountForTest('id=' . $this->getTestPage()->id . ', include=all'), 'matches 1 page') !== false);
+			$f->counter = true;
+			$this->check('superuser can retain auxiliary counter', false, strpos($f->render(), 'selector-counter-disabled') !== false);
+		} finally {
+			$wire->users->setCurrentUser($wire->users->get($wire->config->superUserPageID));
+			if($limited && $limited->id) $wire->users->delete($limited);
+			$wire->users->setCurrentUser($previousUser);
+			if($previousSession === null) $wire->session->remove($sessionName);
+			else $wire->session->set($sessionName, $previousSession);
+			if($previousBookmarks === null) $wire->session->remove(ProcessPageLister::sessionBookmarksName);
+			else $wire->session->set(ProcessPageLister::sessionBookmarksName, $previousBookmarks);
+		}
+	}
+}
+
+/** Exercises the same counter method called by the AJAX test action. */
+class WireTestable_InputfieldSelectorCounter extends InputfieldSelector {
+	public function testCountForTest($selector) { return $this->renderTestSelector($selector); }
 }
 
