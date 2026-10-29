@@ -861,7 +861,11 @@ class Templates extends WireSaveableItems {
 				$selector .= ", limit=2";
 			}
 			
-			foreach($pages->find($selector) as $parentPage) {
+			// when checking access there is no limit, so load lazily: in most cases the loop below
+			// exits after finding 2 addable parents, without loading every page using the template
+			$parentPages = $checkAccess ? $pages->findMany($selector) : $pages->find($selector);
+
+			foreach($parentPages as $parentPage) {
 				if($checkAccess && !$parentPage->addable($childTestPage)) continue;
 				$foundParents->add($parentPage);
 				$earlyExit = !$getAll && $foundParents->count() > 1;
