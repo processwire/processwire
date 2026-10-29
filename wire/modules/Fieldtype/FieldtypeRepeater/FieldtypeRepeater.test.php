@@ -67,6 +67,20 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		}
 		$this->li('getForPage() and getForField() verified');
 
+		// getForPage() must not change the output formatting state of a cached owner (#2352)
+		$of = $pages->outputFormatting;
+		$pages->of(true);
+		$owner = $pages->get($page->id);
+		$owner->of(false);
+		$item = $owner->get($name)->first();
+		if($item->getForPage() !== $owner) $this->fail('Expected getForPage() to return the owner instance set by wakeupValue');
+		$item = $pages->getFresh($item->id);
+		if($item->getForPage() !== $owner) $this->fail('Expected getForPage() to return the cached owner instance');
+		$ownerOf = $owner->of();
+		$pages->of($of);
+		if($ownerOf) $this->fail('Expected owner output formatting to remain off after getForPage()');
+		$this->li('getForPage() leaves owner output formatting unchanged verified');
+
 		$item = $page->get($name)->first();
 		$item->addStatus(Page::statusUnpublished);
 		$item->save();

@@ -50,6 +50,14 @@ class PagesLoaderCache extends Wire {
 	 * 
 	 */
 	protected $pages;
+	
+	/**
+	 * When true, get pages from cache without output formatting adjustments
+	 * 
+	 * @var bool 
+	 * 
+	 */
+	protected $quiet = false;
 
 	/**
 	 * Construct
@@ -84,6 +92,25 @@ class PagesLoaderCache extends Wire {
 	}
 	
 	/**
+	 * Get page from cache quietly or omit $id to get all cached pages
+	 * 
+	 * Quietly implies get without changes to page output formatting state.
+	 * 
+	 * #pw-group-get
+	 * 
+	 * @param int|string|null $id
+	 * @return Page|array|null
+	 * @since 3.0.275
+	 * 
+	 */
+	public function get($id = null) {
+		$this->quiet = true;
+		$value = $this->getCache($id);
+		$this->quiet = false;
+		return $value;
+	}
+	
+	/**
 	 * Given a Page ID, return it if it's cached, or NULL if it's not.
 	 *
 	 * If no ID is provided, then this will return an array copy of the full cache.
@@ -102,6 +129,7 @@ class PagesLoaderCache extends Wire {
 		if(ctype_digit("$id")) $id = (int) $id;
 		if(!isset($this->pageIdCache[$id])) return null;
 		$page = $this->pageIdCache[$id]; /** @var Page $page */
+		if($this->quiet) return $page;
 		$of = $this->pages->loader()->getOutputFormatting();
 		if(!$of && $page === $this->wire()->page) return $page; // skip of() adjustment
 		$page->of($of);

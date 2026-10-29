@@ -929,6 +929,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		
 		$pageArray = $this->wire()->pages->find($selector, $options);
 		$pageArray->finderOptions('loadOrder', "$pageArray"); 
+		
+		foreach($pageArray as $item) {
+			// so that RepeaterPage::getForPage() does not need to load the owner page
+			if($item instanceof RepeaterPage) $item->setForPage($page);
+		}
+		
 		$pageArray->resetTrackChanges(true);
 
 		return $pageArray; 

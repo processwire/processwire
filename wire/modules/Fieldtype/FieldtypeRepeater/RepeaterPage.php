@@ -78,7 +78,10 @@ class RepeaterPage extends Page {
 		if(strpos($parentName, $prefix) === 0) {
 			// determine owner page from parent name in format: for-page-1234
 			$forID = (int) substr($parentName, strlen($prefix));
-			$this->forPage = $this->wire()->pages->get($forID); 
+			$pages = $this->wire()->pages;
+			// use an already-loaded owner without changing its output formatting state
+			$this->forPage = $pages->cacher()->get($forID);
+			if(!$this->forPage) $this->forPage = $pages->get($forID);
 		} else {
 			// this probably can't occur, but here just in case
 			$this->forPage = $this->wire()->pages->newNullPage();
