@@ -155,7 +155,20 @@ var AdminDarkMode = {
 		this.body.addClass(this.getName(mode) + '-theme');
 		this.mode = mode;
 		this.updateLink();
-		// $(document).trigger('admin-color-change'); 
+		this.updateEditors();
+		// $(document).trigger('admin-color-change');
+	},
+
+	/**
+	 * Apply the admin's color-scheme to iframe editors (TinyMCE), which don't inherit it
+	 *
+	 */
+	updateEditors: function() {
+		if(typeof tinymce === 'undefined') return;
+		var scheme = getComputedStyle(document.documentElement).colorScheme;
+		tinymce.get().forEach(function(editor) {
+			if(!editor.inline && editor.getDoc()) editor.getDoc().documentElement.style.colorScheme = scheme;
+		});
 	},
 	
 	setLight: function() {
