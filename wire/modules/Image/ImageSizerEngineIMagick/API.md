@@ -22,7 +22,7 @@ $wide = $page->image->width(1200);
 ## Properties
 
 Properties are inherited from [[ImageSizerEngine]] and configured via `$config->imageSizerOptions`
-in `site/config.php` or per-image options arrays. This module adds no public properties of its own.
+in `site/config.php` or per-image options arrays. The `sRGB` option is specific to this module.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -36,6 +36,7 @@ in `site/config.php` or per-image options arrays. This module adds no public pro
 | `webpOnly` | `bool` | `false` | Create only the WebP file (no original format) |
 | `webpQuality` | `int` | `90` | WebP image quality (1–100) |
 | `enginePriority` | `int` | `1` | Priority among engines (1 = first) |
+| `sRGB` | `bool` | `false` | Convert images with an embedded ICC profile (such as Display P3 or Adobe RGB) to sRGB before the profile is removed, so their colors display correctly. Requires the ImageMagick LCMS delegate; if conversion fails it is logged to the `imagesizer` log and skipped. 3.0.268+ |
 
 ## Methods
 
@@ -183,9 +184,10 @@ $wire->addHookAfter('ImageSizerEngineIMagick::install', function($event) {
   results visually similar to GD's 90. This is set in the constructor and can be overridden
   via `$config->imageSizerOptions['quality']` in `site/config.php`.
 
-- **Color management**: IMagick provides superior color profile handling compared to GD.
-  ICC profiles, EXIF, IPTC, and XMP metadata are all processed and can be stripped or
-  preserved. By default, non-ICC metadata is removed to reduce file size, matching GD behavior.
+- **Color management**: All embedded profiles and metadata (ICC, EXIF, IPTC and XMP) are
+  removed from image variations to reduce file size, matching GD behavior. Browsers display an
+  image without an ICC profile as sRGB, so a wide-gamut image (Display P3, Adobe RGB) can look
+  dull. Set `$config->imageSizerOptions['sRGB'] = true` to convert such images to sRGB first.
 
 - **Engine priority**: This module sets `enginePriority` to 1 (first). If multiple engines
   are installed, the one with the lowest priority number that passes its `supported()` check
