@@ -247,6 +247,9 @@ class LazyCron extends WireData implements Module, ConfigurableModule, CliModule
 				$elapsedTime = $time - $lasttime;
 				if(empty($filedata[$n]) || $elapsedTime >= $seconds) {
 					if(!isset($staticHooks[$func])) {
+						// no jobs: keep its time and its line in the file, which is read by position
+						$times[$seconds] = $lasttime;
+						$n++;
 						continue;
 						/*
 						$skipping = "Skipping $func hook (no jobs)";
