@@ -66,9 +66,11 @@
 	 */
 	$.fn.removeHighlight = function() {
 		return this.find("span.highlight").each(function() {
-			this.parentNode.firstChild.nodeName;
 			var parent = this.parentNode;
-			parent.replaceChild(this.firstChild, this);
+			// move out all children rather than only the first, since highlights can be nested,
+			// i.e. "a" highlighted within "neat" (processwire/processwire-issues#2369)
+			while(this.firstChild) parent.insertBefore(this.firstChild, this);
+			parent.removeChild(this);
 			parent.normalize();
 		}).end();
 	};
