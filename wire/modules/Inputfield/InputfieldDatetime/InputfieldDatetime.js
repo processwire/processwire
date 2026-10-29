@@ -53,6 +53,12 @@ function InputfieldDatetimeDatepicker($t) {
 	if(hasTimePicker) { 
 		options.ampm = ampm; 
 		options.timeFormat = timeFormat; 
+		if(ampm) {
+			// the server parses AM/PM in English only, so keep them English rather than as
+			// translated by the timepicker's language file, i.e. "nachm." (processwire-issues#2018)
+			options.amNames = ['AM', 'A'];
+			options.pmNames = ['PM', 'P'];
+		}
 		if(timeSelect > 0) {
 			options.controlType = 'select';
 			options.oneLine = true;
