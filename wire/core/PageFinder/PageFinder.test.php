@@ -29,6 +29,46 @@ class WireTest_PageFinder extends WireTest {
 		$this->testExceptionsAndTiming();
 		$this->testCountTotals();
 		$this->testPageFinder2MultiValueSort();
+		$this->testAdvancedSearchCommands();
+	}
+
+	/**
+	 * Advanced search (#=) commands match the same pages with fulltext and LIKE, and the same as in-memory
+	 * matching, including a value with only disallowed (-) commands (processwire/processwire-issues#2363)
+	 *
+	 */
+	protected function testAdvancedSearchCommands() {
+		$pages = $this->wire()->pages;
+		$parent = $this->getTestPage();
+		$selector = "parent=$parent, template=$this->childTemplateName, include=all";
+		$names = array();
+		foreach($pages->find($selector) as $p) $names[$p->id] = $p->name;
+		$all = $pages->find("$selector, sort=name");
+		$like = function($value) use($names) {
+			$query = $this->wire(new DatabaseQuerySelect());
+			$query->select('pages_id')->from('field_title')->where('pages_id IN(' . implode(',', array_keys($names)) . ')');
+			$fulltext = new DatabaseQuerySelectFulltext($query);
+			$fulltext->forceLike(true);
+			$fulltext->match('field_title', 'data', '#=', $value);
+			$a = array();
+			foreach($query->execute()->fetchAll(\PDO::FETCH_COLUMN) as $id) $a[] = $names[(int) $id];
+			sort($a);
+			return implode('|', $a);
+		};
+		$tests = array(
+			'-alpha' => 'pagefinder-test-b|pagefinder-test-c',
+			'-alpha -bravo' => 'pagefinder-test-c',
+			'+pagefinder -charlie' => 'pagefinder-test-a|pagefinder-test-b',
+			'alpha bravo' => 'pagefinder-test-a|pagefinder-test-b',
+			'+pagefinder alpha' => 'pagefinder-test-a|pagefinder-test-b|pagefinder-test-c',
+			'-(test bravo)' => 'pagefinder-test-a|pagefinder-test-c',
+		);
+		foreach($tests as $value => $expected) {
+			$s = "title#=\"$value\"";
+			$this->check("$s (database)", $expected, $pages->find("$selector, $s, sort=name")->implode('|', 'name'));
+			$this->check("$s (LIKE)", $expected, $like($value));
+			$this->check("$s (in-memory)", $expected, $all->find($s)->implode('|', 'name'));
+		}
 	}
 
 	/**

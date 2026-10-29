@@ -187,7 +187,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 				'~~=' => '~%=',
 				'~|*=' => '~|%=',
 				'~|+=' => '~|%=',
-				'#=' => '~%=',
 			));
 		}
 	}
@@ -958,16 +957,65 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *
 	 */
 	protected function matchCommands($text) {
+		$commands = $this->getCommands($text);
+		if($this->forceLike) {
+			$this->matchLikeCommands($commands);
+			return;
+		}
+		$not = '';
+		$numDisallowed = 0;
+		foreach($commands as $command) {
+			if($command['type'] === '-') $numDisallowed++;
+		}
+		if($numDisallowed && $numDisallowed === count($commands)) {
+			// only disallowed (-) commands, which match nothing in boolean mode,
+			// so instead match rows that have none of them
+			foreach($commands as $key => $command) $commands[$key]['type'] = '';
+			$not = 'NOT ';
+		}
 		$tableField = $this->tableField();
 		$scoreField = $this->getScoreFieldName();
-		$against = $this->getBooleanModeCommands($text);
+		$against = $this->getBooleanModeCommands($commands);
 		$bindKey = $this->query->bindValueGetKey($against);
 		$matchType = $this->matchType();
 		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) ";
-		$this->query->where($matchAgainst);
-		if($this->allowOrder) {
+		$this->query->where($not . $matchAgainst);
+		if($this->allowOrder && !$not) {
 			$this->selectScoreField($matchAgainst, $scoreField);
 			$this->query->orderby("$scoreField DESC");
+		}
+	}
+
+	/**
+	 * Match advanced search commands using only LIKE (no match/against index)
+	 *
+	 * As with boolean mode, unprefixed words or phrases are optional when there are required (+)
+	 * ones, otherwise at least one of them must match.
+	 *
+	 * @param array $commands From getCommands()
+	 * @since 3.0.275
+	 *
+	 */
+	protected function matchLikeCommands(array $commands) {
+		$required = false;
+		$optional = array();
+		$binds = array();
+		foreach($commands as $command) {
+			$like = '%' . $this->escapeLike($command['value']) . '%';
+			if($command['type'] === '+') {
+				$this->query->where("($this->tableField LIKE ?)", $like);
+				$required = true;
+			} else if($command['type'] === '-') {
+				$this->query->where("($this->tableField NOT LIKE ?)", $like);
+			} else {
+				$bindKey = $this->query->getUniqueBindKey();
+				$optional[] = "($this->tableField LIKE $bindKey)";
+				$binds[$bindKey] = $like;
+			}
+		}
+		if(count($optional) && !$required) {
+			$this->query->where('(' . implode(' OR ', $optional) . ')');
+			$this->query->bindValues($binds);
 		}
 	}
 
@@ -1205,18 +1253,30 @@ class DatabaseQuerySelectFulltext extends Wire {
 	}
 
 	/**
-	 * Get boolean query value where "+" and "-" and "*" and '"' are allowed in query to affect results
-	 * 
+	 * Get array of advanced search commands from given value
+	 *
 	 * @param string $value
-	 * @return string
-	 * 
+	 * @return array
+	 * @since 3.0.275
+	 *
 	 */
-	protected function getBooleanModeCommands($value) {
-		$booleanValues = array();
+	protected function getCommands($value) {
 		$value = str_replace(array('“', '”'), '"', $value);
 		/** @var SelectorContainsAdvanced $selector */
 		$selector = Selectors::getSelectorByOperator('#=');
-		$commands = $selector->valueToCommands($value);
+		return $selector->valueToCommands($value);
+	}
+
+	/**
+	 * Get boolean query value where "+" and "-" and "*" and '"' are allowed in query to affect results
+	 * 
+	 * @param string|array $value Value or commands array from getCommands()
+	 * @return string
+	 *
+	 */
+	protected function getBooleanModeCommands($value) {
+		$booleanValues = array();
+		$commands = is_array($value) ? $value : $this->getCommands($value);
 		foreach($commands as $command) {
 			$booleanValue = $this->escapeAgainst($command['value']); 
 			if($command['phrase']) $booleanValue = '"' . $booleanValue . '"'; 
