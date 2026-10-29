@@ -125,6 +125,15 @@ class Role extends Page {
 					break;
 				}
 			}
+			if(!$has && $name === 'page-view') {
+				// every role has page-view (see Roles::loaded), even when its permissions were
+				// reloaded after an uncache and page-view is not stored in the database
+				$p = $permissions->get($name);
+				if($p->id) {
+					$permission = $p;
+					$has = true;
+				}
+			}
 		}
 
 		if($context instanceof Page || $context instanceof Template) {

@@ -130,6 +130,8 @@ class WireTest_Users extends WireTest {
 
 		$role = $roles->get($role->id);
 		$this->check('loaded Role has page-view permission', true, $role->hasPermission('page-view'));
+		$this->wire()->pages->uncacheAll(); // reloads permissions, where page-view is not stored (#2348)
+		$this->check('Role keeps page-view permission after uncache', true, $role->hasPermission('page-view'));
 		$this->check('Role::addPermission(name) returns true', true, $role->addPermission($permission->name));
 		$role->save();
 		$role = $roles->get($role->id);
