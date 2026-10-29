@@ -159,7 +159,12 @@ function pwTinyMCE_image(editor) {
 			resizeUrl += '&flip=v';
 		}
 		
-		$.get(resizeUrl, function(data) {
+		// resize requires the CSRF token from the image select form
+		var postData = {};
+		var $token = $('input._post_token:first', $i);
+		if($token.length) postData[$token.attr('name')] = $token.val();
+
+		$.post(resizeUrl, postData, function(data) {
 			var $div = $("<div></div>").html(data);
 			var src = $div.find('#selected_image').attr('src');
 			insertImage(src, $i);
