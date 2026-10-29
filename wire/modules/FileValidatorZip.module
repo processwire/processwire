@@ -156,23 +156,45 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 	protected $isUpgrade = false;
 	
 	/**
+	 * Default settings
+	 * 
+	 */
+	protected $defaults = [
+		'minFiles' => 1,
+		'maxFiles' => 1500,
+		'maxDepth' => 10,
+		'maxFileMegabytes' => 40,
+		'maxTotalMegabytes' => 100,
+		'maxErrors' => 10,
+		'requireFiles' => [],
+		'fatalFiles' => [],
+		'maxCompRatio' => 0,
+		'allowEncrypted' => false, 
+	];
+	
+	/**
 	 * Construct
 	 * 
 	 */
 	public function __construct() {
-		$this->setArray([
-			'minFiles' => 1,
-			'maxFiles' => 1500,
-			'maxDepth' => 10,
-			'maxFileMegabytes' => 20,
-			'maxTotalMegabytes' => 100,
-			'maxErrors' => 10,
-			'requireFiles' => [],
-			'fatalFiles' => [],
-			'maxCompRatio' => 0,
-			'allowEncrypted' => false, 
-		]);
+		$this->setArray($this->defaults);
 		parent::__construct();
+	}
+	
+	/**
+	 * Set property
+	 * 
+	 * @param string $key
+	 * @param $value
+	 * @return self
+	 * 
+	 */
+	public function set($key, $value) {
+		if(isset($this->defaults[$key])) {
+			$default = $this->defaults[$key]; 
+			if(is_int($default)) $value = (int) $value; 
+		}
+		return parent::set($key, $value);
 	}
 
 	/**
@@ -197,6 +219,7 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		$zipArchive = '\ZipArchive';
 		$close = true;
 		$this->isUpgrade = $this->wire()->page->process == 'ProcessWireUpgrade';
+		if($this->wire()->config->debug) $this->verbose = true;
 		
 		if(!class_exists($zipArchive)) {
 			$this->error($this->_('PHP’s ZipArchive class is not available and is required'));
@@ -285,8 +308,8 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		$this->lastReason = '';
 		
 		$name = $info['name'];
-		$bytes = $info['size'];
-		$megabytes = $bytes > 0 ? ($bytes / 1000000) : 0;
+		$bytes = (int) $info['size'];
+		$megabytes = $bytes > 0 ? (int) ($bytes / 1000000) : 0;
 		$comp = $info['comp_size'];
 		$errors = [];
 

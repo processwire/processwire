@@ -600,8 +600,7 @@ class WireUpload extends Wire {
 		$tmpDir = $dir . '.zip_tmp/';
 	
 		try {
-			$options = [];
-			if($this->maxFileSize) $options['maxTotalMegabytes'] = $this->maxFileSize / 1000000;
+			$options = []; // size limits for ZIP contents come from FileValidatorZip module config
 			$extensions = $this->validExtensions;
 			$key = array_search('zip', $extensions);
 			if($key !== false) unset($extensions[$key]); 
