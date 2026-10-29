@@ -78,6 +78,7 @@ class WireTest_LanguageSupport extends WireTest {
 		$this->testInputfieldLanguageValues();
 		$this->testPageLanguageHooks();
 		$this->testTranslator();
+		$this->testTranslatorSave();
 		$this->testPorter();
 		$this->testPageNameHooks();
 		$this->testLocaleHelpers();
@@ -289,6 +290,38 @@ class WireTest_LanguageSupport extends WireTest {
 		$this->check('getTranslation() returns in-memory translation', 'Translated language', $translator->getTranslation($textdomain, 'Hello language'));
 		$this->check('getTranslationOrFalse() returns false on miss', false, $translator->getTranslationOrFalse($textdomain, 'Missing language text'));
 		$this->check('getTranslations() includes set translation', true, isset($translator->getTranslations($textdomain)[$hash]));
+	}
+
+	/**
+	 * setTranslation() and removeTranslation() keep the existing translations of a textdomain that is
+	 * not loaded in memory, rather than saveTextdomain() replacing the file (processwire/processwire-issues#2366)
+	 *
+	 */
+	protected function testTranslatorSave() {
+		$language = $this->wire()->languages->getDefault();
+		$translator = $language->translator;
+		$textdomain = $translator->filenameToTextdomain('site/templates/wiretests-language-save.php');
+		$file = $language->filesManager()->path() . "$textdomain.json";
+		$count = function() use($file) {
+			return is_file($file) ? count(json_decode(file_get_contents($file), true)['translations']) : 0;
+		};
+		try {
+			$translator->unloadTextdomain($textdomain);
+			$translator->setTranslation($textdomain, 'Contact', 'Translated contact');
+			$translator->setTranslation($textdomain, 'Terms', 'Translated terms');
+			$translator->saveTextdomain($textdomain);
+			$translator->unloadTextdomain($textdomain);
+			$translator->setTranslation($textdomain, 'Privacy', 'Translated privacy');
+			$translator->saveTextdomain($textdomain);
+			$this->check('setTranslation() on unloaded textdomain keeps saved translations', 3, $count());
+			$translator->unloadTextdomain($textdomain);
+			$translator->removeTranslation($textdomain, 'Translated contact');
+			$translator->saveTextdomain($textdomain);
+			$this->check('removeTranslation() on unloaded textdomain removes only that one', 2, $count());
+		} finally {
+			$translator->unloadTextdomain($textdomain);
+			if(is_file($file)) $this->wire()->files->unlink($file);
+		}
 	}
 
 	/**

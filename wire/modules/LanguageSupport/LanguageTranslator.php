@@ -557,7 +557,10 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Set a translation
-	 * 
+	 *
+	 * The textdomain’s existing translations are loaded first if they are not already, so that
+	 * saveTextdomain() keeps them. Call saveTextdomain() to save the change to disk.
+	 *
 	 * @param string $textdomain
 	 * @param string $text
 	 * @param string $translation
@@ -584,9 +587,14 @@ class LanguageTranslator extends Wire {
 	 */
 	public function setTranslationFromHash($textdomain, $hash, $translation) {
 
-		// if the textdomain isn't yet setup, then set it up
+		// if the textdomain isn't yet loaded, load its existing translations so that a
+		// later saveTextdomain() does not replace them (sets up an empty one if no file yet)
 		if(!isset($this->textdomains[$textdomain]) || !is_array($this->textdomains[$textdomain])) {
-			$this->textdomains[$textdomain] = $this->textdomainTemplate();
+			$this->loadTextdomain($textdomain);
+			if(!isset($this->textdomains[$textdomain])) {
+				// given $textdomain is not in normalized form, so loadTextdomain() used another key
+				$this->textdomains[$textdomain] = $this->textdomainTemplate();
+			}
 		}
 
 		// populate the new translation
@@ -607,7 +615,10 @@ class LanguageTranslator extends Wire {
 	 */
 	public function removeTranslation($textdomain, $hash) {
 
-		if(empty($hash)) return $this; 
+		if(empty($hash)) return $this;
+
+		if(!isset($this->textdomains[$textdomain])) $this->loadTextdomain($textdomain);
+		if(!isset($this->textdomains[$textdomain]['translations'])) return $this;
 
 		if(isset($this->textdomains[$textdomain]['translations'][$hash])) {
 			// remove by $hash
