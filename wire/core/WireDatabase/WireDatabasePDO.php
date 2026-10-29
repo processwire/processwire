@@ -897,7 +897,10 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function inTransaction() {
-		return $this->dialect()->inTransaction($this->pdoWriter());
+		// a connection that is not yet established has no transaction, and answering without
+		// connecting lets retry handlers check this while the server is unavailable
+		if(!$this->writer['pdo']) return false;
+		return $this->dialect()->inTransaction($this->writer['pdo']);
 	}
 
 	/**
@@ -1134,9 +1137,10 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * Given a PDOStatement ($query) this method will execute the statement and return
 	 * true or false as to whether it was successful. 
 	 * 
-	 * Unlike other PDO methods, this one (native to ProcessWire) will retry queries
-	 * if they failed due to a lost connection. By default it will retry up to 3 times,
-	 * but you can adjust this number as needed in the arguments. 
+	 * Unlike other PDO methods, this one (native to ProcessWire) will retry queries that
+	 * failed due to a transient error such as a deadlock or lost connection. The retry policy
+	 * comes from `$config->dbOptions['retry']` (see retryOptions()), but you can specify an
+	 * explicit max number of retries in the arguments.
 	 * 
 	 * ~~~~~
 	 * // prepare the query
@@ -1149,12 +1153,13 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 * @param \PDOStatement $query
 	 * @param bool $throw Whether or not to throw exception on query error (default=true)
-	 * @param int $maxTries Max number of times it will attempt to retry query on lost connection error
+	 * @param int|null $maxTries Max number of times to retry the query on a transient error,
+	 *   or null to use the configured retry policy (default=null)
 	 * @return bool True on success, false on failure. Note if you want this, specify $throw=false in your arguments.
 	 * @throws \PDOException
 	 *
 	 */
-	public function execute(\PDOStatement $query, $throw = true, $maxTries = 3) {
+	public function execute(\PDOStatement $query, $throw = true, $maxTries = null) {
 		$tries = 0;
 
 		do {
@@ -1169,9 +1174,12 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 					if(preg_match('/[\'"]([_a-z0-9]+\.[_a-z0-9]+)[\'"]/i', $errorInfo[2], $matches)) {
 						$this->unknownColumnError($matches[1]);
 					}
-				} else if($tries < $maxTries) {
+				} else {
 					$errorType = $this->dialect()->getRetryableErrorType($e);
-					if($errorType !== '' && $this->inTransaction()) {
+					$delay = $errorType === '' ? false : $this->retryDelay($errorType, $tries, $maxTries);
+					if($delay === false) {
+						// not a transient error, or retries are exhausted
+					} else if($this->inTransaction()) {
 						// a single statement cannot be safely retried within an open transaction:
 						// on deadlock the server has already rolled back the entire transaction, and
 						// reconnecting after a lost connection discards it, so retrying just this
@@ -1180,14 +1188,15 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 						// the transaction can retry the transaction as a whole.
 					} else if($errorType === 'deadlock') {
 						// deadlock: server already rolled back, so retry needs no reconnect
-						usleep(100000 * ($tries + 1)); // backoff: 100ms, 200ms, 300ms
+						if($delay) usleep($delay);
 						$tryAgain = true;
 						$tries++;
-					} else if($errorType === 'gone-away' || $errorType === 'comm-failure') {
-						// connection lost, so reconnect before retrying
-						$this->reset();
-						$tryAgain = true;
-						$tries++;
+					} else {
+						// connection lost: this statement belongs to the lost connection, so it cannot
+						// be run again, and its bound values cannot be carried over to a new one. Close
+						// the connection so that queries that follow reconnect, and let the exception
+						// propagate. (DatabaseQuery::execute() prepares its query again, so it retries.)
+						$this->closeConnection();
 					}
 				}
 				if($tryAgain) {
@@ -1214,6 +1223,70 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 */
 	protected function ___unknownColumnError($column) { }
+
+	/**
+	 * Get the retry policy for queries that fail with a transient error
+	 *
+	 * Returns `$config->dbOptions['retry']` merged over the defaults:
+	 *
+	 * - `maxTries` (int): Max times a failed query is retried, or 0 to disable retries (default=3)
+	 * - `delayMs` (int): Base delay in milliseconds, which grows linearly with each retry (default=100)
+	 * - `maxDelayMs` (int): Max delay in milliseconds for any single retry (default=5000)
+	 * - `cliMaxTries` (int): Max retries for lost connection errors when running from the command line,
+	 *    or 0 to use maxTries (default=0)
+	 *
+	 * #pw-group-queries
+	 *
+	 * @return array
+	 * @since 3.0.275
+	 *
+	 */
+	public function retryOptions() {
+		$options = array(
+			'maxTries' => 3,
+			'delayMs' => 100,
+			'maxDelayMs' => 5000,
+			'cliMaxTries' => 0,
+		);
+		$config = $this->wire()->config;
+		$dbOptions = $config ? $config->dbOptions : null;
+		if(is_array($dbOptions) && isset($dbOptions['retry']) && is_array($dbOptions['retry'])) {
+			foreach(array_intersect_key($dbOptions['retry'], $options) as $key => $value) {
+				$options[$key] = (int) $value;
+			}
+		}
+		return $options;
+	}
+
+	/**
+	 * Get microseconds to wait before retrying a query that failed with a transient error
+	 *
+	 * Applies the policy from retryOptions(): a delay of `delayMs` that grows linearly with each
+	 * retry, up to `maxDelayMs`, for up to `maxTries` retries. When running from the command line
+	 * and `cliMaxTries` is set, lost connection errors are allowed that many retries instead, so
+	 * that long-running scripts can wait out a database restart or failover.
+	 *
+	 * #pw-group-queries
+	 *
+	 * @param string $errorType Error type from WireDatabaseDialect::getRetryableErrorType()
+	 * @param int $numTries Number of retries already made
+	 * @param int|null $maxTries Max retries that overrides the configured policy, or null to use it (default=null)
+	 * @return int|false Microseconds to wait before the next retry, or false if it should not be retried
+	 * @since 3.0.275
+	 *
+	 */
+	public function retryDelay($errorType, $numTries, $maxTries = null) {
+		if($errorType !== 'deadlock' && $errorType !== 'gone-away' && $errorType !== 'comm-failure') return false;
+		$options = $this->retryOptions();
+		if($maxTries === null) {
+			$maxTries = $options['maxTries'];
+			if($errorType !== 'deadlock' && $options['cliMaxTries'] > 0 && $this->wire()->config->cli) {
+				$maxTries = $options['cliMaxTries'];
+			}
+		}
+		if($numTries >= (int) $maxTries) return false;
+		return min($options['delayMs'] * ($numTries + 1), $options['maxDelayMs']) * 1000;
+	}
 
 	/**
 	 * Log a query, start/stop query logging, or return logged queries

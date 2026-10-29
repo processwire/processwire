@@ -242,10 +242,10 @@ abstract class FieldtypeMulti extends Fieldtype {
 
 		// a deadlock or lost connection invalidates the entire transaction rather than only the
 		// statement that reported it, so the delete+insert below is retried as a complete unit
-		$maxRetries = 3;
+		// (as many times as the retry policy allows, see WireDatabasePDO::retryOptions())
 		$result = true;
 
-		for($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+		for($attempt = 0; ; $attempt++) {
 
 			$exception = null;
 
@@ -359,7 +359,9 @@ abstract class FieldtypeMulti extends Fieldtype {
 				$errorType = '';
 			}
 
-			if($errorType === '' || $attempt >= $maxRetries) {
+			$delay = $errorType === '' ? false : $database->retryDelay($errorType, $attempt);
+
+			if($delay === false) {
 				if($config->allowExceptions) throw $exception; // throw original
 				WireException([ 'class' => 'WireDatabaseQueryException', 'previous' => $exception ]);
 			}
@@ -368,7 +370,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 				$database->closeConnection(); // note: it reconnects automatically
 			}
 
-			usleep(100000 * ($attempt + 1)); // backoff: 100ms, 200ms, 300ms
+			if($delay) usleep($delay);
 		}
 
 		return $result; // not reached: loop above always returns or throws

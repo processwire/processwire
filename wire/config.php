@@ -1570,12 +1570,24 @@ $config->dbSqlModes = array(
  * With PostgreSQL, values come back as pdo_pgsql returns them (integers as ints, everything else as
  * strings), which matches what pdo_mysql returns on PHP 8.1 and newer.
  *
+ * Queries that fail with a transient error (a deadlock or lost connection) are retried. Adjust how
+ * with a 'retry' array, for any database type, containing any of these settings (3.0.275+):
+ *
+ * - `maxTries` (int): Max times a failed query is retried, or 0 to disable retries. (default=3)
+ * - `delayMs` (int): Delay in milliseconds before a retry, which grows with each one, i.e. 100, 200, 300. (default=100)
+ * - `maxDelayMs` (int): Max delay in milliseconds before any one retry. (default=5000)
+ * - `cliMaxTries` (int): When running from the command line (cron jobs, etc.), lost connection errors are
+ *    retried this many times instead of maxTries, so that long-running scripts can wait out a database
+ *    restart or failover. With the default delays, 60 keeps retrying for about 3 minutes. Does not apply
+ *    to deadlocks or web requests. 0 to use maxTries. (default=0)
+ *
  * ~~~~~
  * $config->dbOptions = array(
  *   \PDO::ATTR_TIMEOUT => 10, // any database type
  *   'mysql' => array(\PDO::MYSQL_ATTR_SSL_CA => '/path/to/ca.pem'), // MySQL only
  *   'sqlite' => array('unicodeSort' => true), // SQLite only
  *   'pgsql' => array('schema' => 'processwire'), // PostgreSQL only
+ *   'retry' => array('maxTries' => 5, 'cliMaxTries' => 60), // retry policy, any database type
  * );
  * ~~~~~
  * 

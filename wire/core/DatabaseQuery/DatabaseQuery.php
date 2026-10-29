@@ -709,7 +709,8 @@ abstract class DatabaseQuery extends WireData {
 	 * 
 	 * @param array $options
 	 *  - `throw` (bool): Throw exceptions? (default=true)
-	 *  - `maxTries` (int): Max times to retry if connection lost during query. (default=3)
+	 *  - `maxTries` (int|null): Max times to retry on a transient error (deadlock, lost connection),
+	 *     or null to use the configured retry policy, see WireDatabasePDO::retryOptions(). (default=null)
 	 *  - `returnQuery` (bool): Return PDOStatement query? If false, returns bool result of execute. (default=true)
 	 * @return \PDOStatement|bool
 	 * @throws WireDatabaseQueryException|\PDOException
@@ -719,7 +720,7 @@ abstract class DatabaseQuery extends WireData {
 		
 		$defaults = array(
 			'throw' => true, 
-			'maxTries' => 3, 
+			'maxTries' => null,
 			'returnQuery' => true,
 		);
 	
@@ -738,7 +739,8 @@ abstract class DatabaseQuery extends WireData {
 			} catch(\PDOException $e) {
 				$database = $this->wire()->database;
 				$errorType = $database->dialect()->getRetryableErrorType($e);
-				if($errorType !== '' && $database->inTransaction()) {
+				$delay = $errorType === '' ? false : $database->retryDelay($errorType, $numTries, $options['maxTries']);
+				if($delay !== false && $database->inTransaction()) {
 					// a single statement cannot be safely retried within an open transaction:
 					// on deadlock the server has already rolled back the entire transaction, and
 					// reconnecting after a lost connection discards it, so retrying just this
@@ -746,13 +748,11 @@ abstract class DatabaseQuery extends WireData {
 					// came before it. Report the exception instead, so that the owner of the
 					// transaction can retry the transaction as a whole.
 					$exception = $e;
-				} else if($errorType !== '' && $numTries < $options['maxTries']) {
+				} else if($delay !== false) {
 					if($errorType === 'gone-away' || $errorType === 'comm-failure') {
 						$database->closeConnection(); // note: it reconnects automatically
 					}
-					if($errorType === 'deadlock' || $errorType === 'comm-failure') {
-						usleep(100000 * ($numTries + 1)); // backoff: 100ms, 200ms, 300ms
-					}
+					if($delay) usleep($delay);
 					$retry = true;
 					$numTries++;
 				} else {

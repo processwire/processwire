@@ -266,6 +266,8 @@ class WireTest_WireDatabasePDO extends WireTest {
 		}
 		$this->check('DROP TABLE works while a query() cursor is open', true, $dropped);
 
+		$this->testRetryPolicy();
+
 		if($dialect->name() === 'sqlite') {
 			$e = $this->fakePDOException('database is locked', 'HY000', 5);
 			$this->check('getRetryableErrorType() deadlock for SQLITE_BUSY', 'deadlock', $dialect->getRetryableErrorType($e));
@@ -315,6 +317,12 @@ class WireTest_WireDatabasePDO extends WireTest {
 		$e = $this->fakePDOException('Lost connection to MySQL server during query', 'HY000', 2013);
 		$this->check('getRetryableErrorType() comm-failure by errno 2013', 'comm-failure', $dialect->getRetryableErrorType($e));
 
+		$e = $this->fakePDOException("SQLSTATE[HY000] [2002] Connection refused", 2002);
+		$this->check('getRetryableErrorType() comm-failure by errno 2002 (cannot connect)', 'comm-failure', $dialect->getRetryableErrorType($e));
+
+		$e = $this->fakePDOException("SQLSTATE[HY000] [2003] Can't connect to MySQL server", 2003);
+		$this->check('getRetryableErrorType() comm-failure by errno 2003 (cannot connect)', 'comm-failure', $dialect->getRetryableErrorType($e));
+
 		$e = $this->fakePDOException('MySQL server has gone away', 'HY000', 2006);
 		$this->check('getRetryableErrorType() gone-away by errno 2006', 'gone-away', $dialect->getRetryableErrorType($e));
 
@@ -333,6 +341,76 @@ class WireTest_WireDatabasePDO extends WireTest {
 
 		$e = $this->fakePDOException("Field 'foo' doesn't have a default value", 'HY000', 1364);
 		$this->check('getRetryableErrorType() blank for no-default-value HY000 error', '', $dialect->getRetryableErrorType($e));
+	}
+
+	/**
+	 * Retry policy for transient errors from $config->dbOptions['retry'] (processwire/processwire-issues#2345)
+	 *
+	 */
+	protected function testRetryPolicy() {
+		$database = $this->wire()->database;
+		$config = $this->wire()->config;
+		$dbOptions = $config->dbOptions;
+		$cli = $config->cli;
+
+		try {
+			$this->check('retryOptions() defaults',
+				array('maxTries' => 3, 'delayMs' => 100, 'maxDelayMs' => 5000, 'cliMaxTries' => 0),
+				$database->retryOptions()
+			);
+			$this->check('retryDelay() first retry waits delayMs', 100000, $database->retryDelay('deadlock', 0));
+			$this->check('retryDelay() grows with each retry', 300000, $database->retryDelay('deadlock', 2));
+			$this->check('retryDelay() false once maxTries reached', false, $database->retryDelay('deadlock', 3));
+			$this->check('retryDelay() false for a non-retryable error', false, $database->retryDelay('', 0));
+			$this->check('retryDelay() explicit maxTries=0 disables retry', false, $database->retryDelay('gone-away', 0, 0));
+
+			$config->dbOptions = array_merge(is_array($dbOptions) ? $dbOptions : array(), array(
+				'retry' => array('maxTries' => 5, 'delayMs' => 2000, 'maxDelayMs' => 3000, 'cliMaxTries' => 60),
+			));
+			$this->check('retryOptions() uses $config->dbOptions[retry]', 5, $database->retryOptions()['maxTries']);
+			$this->check('retryDelay() capped at maxDelayMs', 3000000, $database->retryDelay('deadlock', 1));
+			$this->check('cliMaxTries does not apply to deadlocks', false, $database->retryDelay('deadlock', 5));
+			$config->cli = true;
+			$this->check('cliMaxTries applies to lost connections from the command line', 3000000, $database->retryDelay('gone-away', 5));
+			$config->cli = false;
+			$this->check('cliMaxTries does not apply to web requests', false, $database->retryDelay('gone-away', 5));
+		} finally {
+			$config->dbOptions = $dbOptions;
+			$config->cli = $cli;
+		}
+
+		// retry handlers check this while the server may be unavailable, so it must not connect
+		$database->closeConnection();
+		$this->check('inTransaction() false without a connection', false, $database->inTransaction());
+		$writer = new \ReflectionProperty($database, 'writer');
+		$writer->setAccessible(true);
+		$this->check('inTransaction() does not connect', null, $writer->getValue($database)['pdo']);
+
+		if($database->dialect()->name() !== 'mysql') return;
+
+		// a query recovers from a lost connection by reconnecting and retrying, unless maxTries=0
+		$dsn = "mysql:dbname=$config->dbName;host=$config->dbHost" . ($config->dbPort ? ";port=$config->dbPort" : '') .
+			($config->dbSocket ? ";unix_socket=$config->dbSocket" : '');
+		$killer = new \PDO($dsn, $config->dbUser, $config->dbPass, array(\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION));
+		$kill = function() use($database, $killer) {
+			$killer->exec('KILL ' . ((int) $database->query('SELECT CONNECTION_ID()')->fetchColumn()));
+			usleep(50000);
+		};
+		$kill();
+		$query = new DatabaseQuerySelect();
+		$this->wire($query);
+		$query->select('1')->from('pages')->limit(1);
+		$this->check('DatabaseQuery::execute() recovers from a lost connection', '1', (string) $query->execute()->fetchColumn());
+		$kill();
+		$failed = false;
+		try {
+			$query->execute(array('maxTries' => 0));
+		} catch(\Exception $e) {
+			$failed = true;
+		}
+		$this->check('DatabaseQuery::execute() with maxTries=0 does not retry', true, $failed);
+		$database->closeConnection(); // connection is lost after the above
+		$killer = null;
 	}
 
 	/**
