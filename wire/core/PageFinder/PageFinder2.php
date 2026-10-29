@@ -2095,7 +2095,8 @@ class PageFinder2 extends Wire {
 									if($operator == '=') $whereFieldsType = 'OR';
 								} else {
 									$fieldCnt[$field->table]--;
-									if($fieldCnt[$field->table] < 1) unset($fieldCnt[$field->table]);
+									// unset only if this was the first instance, otherwise an earlier selector joined the table (0=once)
+									if($fieldCnt[$field->table] < 0) unset($fieldCnt[$field->table]);
 								}
 								continue;
 							}

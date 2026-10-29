@@ -30,6 +30,48 @@ class WireTest_PageFinder extends WireTest {
 		$this->testCountTotals();
 		$this->testPageFinder2MultiValueSort();
 		$this->testAdvancedSearchCommands();
+		$this->testJoinFieldsWithComparisons();
+	}
+
+	/**
+	 * Joining a field that has two comparison selectors, where one can match an empty value, does not
+	 * join its table twice (processwire/processwire-issues#2356)
+	 *
+	 */
+	protected function testJoinFieldsWithComparisons() {
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$config = $this->wire()->config;
+		$template = $this->wire()->templates->get($this->childTemplateName);
+		$fieldName = WireTests::fieldPrefix . 'pagefinder_num';
+		$field = $fields->get($fieldName);
+		if(!$field) {
+			$field = $fields->new('FieldtypeInteger', $fieldName);
+		}
+		$template->fieldgroup->add($field);
+		$template->fieldgroup->save();
+		$settings = $config->PageFinder;
+		try {
+			$n = 0;
+			foreach($pages->find("template=$this->childTemplateName, include=all, sort=name") as $p) {
+				$p->of(false);
+				$p->set($fieldName, ++$n);
+				$p->save($fieldName);
+			}
+			$selector = "template=$this->childTemplateName, $fieldName>1, $fieldName<3, include=all";
+			foreach([1, 2] as $version) {
+				$config->PageFinder = ['version' => $version];
+				$pages->uncacheAll();
+				$found = $pages->findJoin($selector, [$fieldName]);
+				$this->check("findJoin() with $fieldName>1, $fieldName<3 (PageFinder v$version)", 'pagefinder-test-b', $found->implode('|', 'name'));
+			}
+		} finally {
+			$config->PageFinder = $settings;
+			$template->fieldgroup->remove($field);
+			$template->fieldgroup->save();
+			$fields->delete($field);
+			$pages->uncacheAll();
+		}
 	}
 
 	/**
