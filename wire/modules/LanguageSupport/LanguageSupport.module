@@ -211,6 +211,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$this->addHookAfter('Field::getInputfield', $this, 'hookFieldGetInputfield');
 		$pages->addHook('added', $this, 'hookPageAdded'); 
 		$pages->addHook('deleteReady', $this, 'hookPageDeleteReady'); 
+		$pages->addHookAfter('deleted', $this, 'hookPageDeleted', array('priority' => 50)); // before other deleted hooks
 		$this->addHook('Page::setLanguageValue', $this, 'hookPageSetLanguageValue');
 		$this->addHook('Page::setLanguageValues', $this, 'hookPageSetLanguageValues');
 		$this->addHook('Page::getLanguageValue', $this, 'hookPageGetLanguageValue');
@@ -817,10 +818,37 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 			}
 		}
 
-		// trigger hook in $languages
-		$this->wire()->languages->deleted($page);
+		// note: $languages->deleted() is called by Pages::deleted() once the page has been deleted,
+		// which drops its columns. Doing it here (before the delete) would leave the language in use
+		// while its page is deleted, so queries during the delete would refer to dropped columns.
+		// The language is removed from otherLanguagePageIDs after that, in hookPageDeleted().
+	}
 
-		// update the other language module IDs to remove the uninstalled language
+	/**
+	 * Hook called after a language has been deleted (after Pages::deleted)
+	 *
+	 * By now $languages->deleted() has dropped the language’s columns, which it finds through
+	 * otherLanguagePageIDs, so the language can now be removed from them.
+	 *
+	 * @param HookEvent $event
+	 * @since 3.0.275
+	 *
+	 */
+	public function hookPageDeleted(HookEvent $event) {
+
+		/** @var Page $page */
+		$page = $event->arguments[0];
+		if($page->template->name != self::languageTemplateName) return;
+
+		// update the other language module IDs to remove the deleted language, both at runtime
+		// (where language fields get their columns from, see FieldtypeTextLanguage::getDatabaseSchema)
+		// and in the module config
+		$ids = $this->otherLanguagePageIDs;
+		$key = array_search($page->id, $ids);
+		if($key !== false) {
+			unset($ids[$key]);
+			$this->set('otherLanguagePageIDs', array_values($ids));
+		}
 		$modules = $this->wire()->modules;
 		$configData = $modules->getModuleConfigData('LanguageSupport'); 
 		$key = array_search($page->id, $configData['otherLanguagePageIDs']); 

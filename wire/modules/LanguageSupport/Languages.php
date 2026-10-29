@@ -197,7 +197,10 @@ class Languages extends PagesType {
 		$parent_id = $this->getParentID();
 		$selector = "parent_id=$parent_id, template=$template, include=all, sort=sort";
 		$languagesAll = $this->wire()->pages->find($selector, array(
-				'loadOptions' => $this->getLoadOptions(), 
+				// not from the selector cache, which can hold a result from before a language was
+				// added or deleted in this request, but pages are still cached (loadOptions)
+				'cache' => false,
+				'loadOptions' => $this->getLoadOptions(array('cache' => true)),
 				'caller' => $this->className() . '.getAll()'
 			)
 		); 
