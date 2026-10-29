@@ -868,8 +868,7 @@ class PageFinder extends Wire {
 		if($options['loadPages'] || $this->getTotalType === 'calc') {
 
 			try {
-				$stmt = $query->prepare();
-				$database->execute($stmt);
+				$stmt = $query->execute();
 				$error = '';
 			} catch(\Exception $e) {
 				$this->trackException($e, true);
