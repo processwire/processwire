@@ -1890,6 +1890,9 @@ class Pages extends Wire {
 	/**
 	 * Return a new PageFinder object, ready to use
 	 * 
+	 * PageFinder2 is used when `$config->PageFinder['version']` is 2 or higher, and also when the
+	 * database has the ONLY_FULL_GROUP_BY SQL mode on, since PageFinder2 builds queries valid under it.
+	 * 
 	 * #pw-internal
 	 *
 	 * @return PageFinder
@@ -1897,7 +1900,7 @@ class Pages extends Wire {
 	 */
 	public function getPageFinder() {
 		$settings = $this->wire()->config->PageFinder;
-		if(isset($settings['version']) && $settings['version'] >= 2) {
+		if((isset($settings['version']) && $settings['version'] >= 2) || $this->wire()->database->onlyFullGroupBy()) {
 			return PageFinder2::getInstance($this);
 		} else {
 			return $this->wire(new PageFinder());

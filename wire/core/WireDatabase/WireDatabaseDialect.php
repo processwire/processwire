@@ -175,6 +175,22 @@ abstract class WireDatabaseDialect extends Wire {
 	abstract public function sqlMode($action = 'get', $mode = '', $minVersion = '', $pdo = null);
 
 	/**
+	 * Must a grouped query aggregate every column that it does not group by?
+	 *
+	 * This is the case under MySQL’s ONLY_FULL_GROUP_BY SQL mode, since MariaDB does not infer
+	 * that a column is functionally dependent on a grouped primary key, and MySQL does not infer
+	 * it in every case. Databases of other dialects either infer it or have no such rule.
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 * @since 3.0.275
+	 *
+	 */
+	public function onlyFullGroupBy(\PDO $pdo) {
+		return false;
+	}
+
+	/**
 	 * Get current date/time ISO-8601 string or UNIX timestamp according to database
 	 *
 	 * @param bool $getTimestamp

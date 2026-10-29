@@ -33,6 +33,16 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 	protected $variableCache = array();
 
 	/**
+	 * Is ONLY_FULL_GROUP_BY on, per connection: [ spl_object_id => [ WeakReference, bool|null ] ]
+	 *
+	 * A null state means not known yet, so onlyFullGroupBy() asks the server.
+	 *
+	 * @var array
+	 *
+	 */
+	protected $onlyFullGroupBy = array();
+
+	/**
 	 * Get dialect name
 	 *
 	 * @return string
@@ -112,6 +122,7 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 	public function initConnection(\PDO $pdo) {
 
 		$sqlModes = $this->wire()->config->dbSqlModes;
+		$onlyFullGroupBy = null; // not known unless a command below sets, adds or removes it
 
 		if(is_array($sqlModes)) {
 			// ["5.7.0" => "remove:mode1,mode2/add:mode3"]
@@ -126,10 +137,44 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 					if(empty($modes)) continue;
 					$action = 'set';
 					if(strpos($modes, ':')) list($action, $modes) = explode(':', $modes);
-					$this->sqlMode(trim($action), trim($modes), $minVersion, $pdo);
+					$action = trim($action);
+					if($this->sqlMode($action, trim($modes), $minVersion, $pdo) === false) continue; // version too old
+					$has = in_array('ONLY_FULL_GROUP_BY', array_map('trim', explode(',', strtoupper($modes))));
+					if($action === 'set') {
+						$onlyFullGroupBy = $has;
+					} else if($has) {
+						$onlyFullGroupBy = $action === 'add';
+					}
 				}
 			}
 		}
+
+		$this->onlyFullGroupBy[spl_object_id($pdo)] = array(\WeakReference::create($pdo), $onlyFullGroupBy);
+	}
+
+	/**
+	 * Is the ONLY_FULL_GROUP_BY SQL mode on for the given connection?
+	 *
+	 * Known without a query when $config->dbSqlModes sets, adds or removes the mode, as the
+	 * default does (it removes it). Otherwise the server is asked once per connection, and
+	 * again after sqlMode() changes the mode. A mode changed with a plain SET query is not seen.
+	 *
+	 * @param \PDO $pdo
+	 * @return bool
+	 * @since 3.0.275
+	 *
+	 */
+	public function onlyFullGroupBy(\PDO $pdo) {
+		$id = spl_object_id($pdo);
+		$item = isset($this->onlyFullGroupBy[$id]) ? $this->onlyFullGroupBy[$id] : null;
+		// the WeakReference tells a dead connection apart from a new one given the same object id
+		if($item !== null && $item[0]->get() === $pdo && $item[1] !== null) return $item[1];
+		$query = $pdo->query('SELECT @@sql_mode');
+		$mode = (string) $query->fetchColumn();
+		$query->closeCursor();
+		$onlyFullGroupBy = stripos($mode, 'ONLY_FULL_GROUP_BY') !== false;
+		$this->onlyFullGroupBy[$id] = array(\WeakReference::create($pdo), $onlyFullGroupBy);
+		return $onlyFullGroupBy;
 	}
 
 	/**
@@ -505,6 +550,9 @@ class WireDatabaseDialectMySQL extends WireDatabaseDialect {
 				$modes[] = $this->database->escapeStr(strtoupper($this->wire()->sanitizer->fieldName($m)));
 			}
 		}
+
+		// the mode may change below, so onlyFullGroupBy() asks the server next time
+		if($action !== 'get') unset($this->onlyFullGroupBy[spl_object_id($pdo)]);
 
 		switch($action) {
 			case 'get':

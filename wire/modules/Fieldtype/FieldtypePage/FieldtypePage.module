@@ -1366,7 +1366,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$field = $query->field;
 		$group = $query->group;
 		$table = $database->escapeTable($table);
-		$pageFinder = $this->wire(new PageFinder());
+		// PageFinder2 with ONLY_FULL_GROUP_BY, as $pages uses then
+		$pageFinder = $database->onlyFullGroupBy() ? $this->wire()->pages->getPageFinder() : $this->wire(new PageFinder());
 		$pageFinderOptions = array('getTotal' => false);
 		$value = $this->wire()->sanitizer->selectorValue($value);
 		$findPagesSelector = $field->get('findPagesSelector');

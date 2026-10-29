@@ -29,6 +29,7 @@ class WireTest_PageFinder extends WireTest {
 		$this->testExceptionsAndTiming();
 		$this->testCountTotals();
 		$this->testPageFinder2MultiValueSort();
+		$this->testStrictSqlModes();
 	}
 
 	/**
@@ -102,6 +103,8 @@ class WireTest_PageFinder extends WireTest {
 			'PageFinder' => function() { return $this->wire(new PageFinder()); },
 			'PageFinder2' => function() { return PageFinder2::getInstance($this, true); },
 		);
+		// with ONLY_FULL_GROUP_BY, $pages uses PageFinder2 only, and PageFinder's multi-value sort is not valid
+		if($this->wire()->database->onlyFullGroupBy()) unset($finders['PageFinder']);
 		foreach($finders as $name => $finder) {
 			foreach($selectors as $selector) {
 				$expected = count($finder()->findIDs(new Selectors($selector)));
@@ -120,7 +123,164 @@ class WireTest_PageFinder extends WireTest {
 		$this->cleanupTemplate();
 	}
 
+	/**
+	 * Core find and load queries work with MySQL’s default SQL modes (ONLY_FULL_GROUP_BY, STRICT_TRANS_TABLES)
+	 * 
+	 * The default $config->dbSqlModes removes both, and a site may keep them. MariaDB does not infer 
+	 * functional dependency on a grouped primary key the way MySQL does, so with ONLY_FULL_GROUP_BY 
+	 * grouped queries aggregate every other column, and $pages uses PageFinder2, which does that. 
+	 * Without the mode, the queries are as they were.
+	 *
+	 */
+	protected function testStrictSqlModes() {
+
+		$database = $this->wire()->database;
+		if($database->dialect()->name() !== 'mysql') {
+			// SQL modes are MySQL's (other databases are strict already)
+			$this->check('onlyFullGroupBy() is false for other databases', false, $database->onlyFullGroupBy());
+			return;
+		}
+		$pages = $this->wire()->pages;
+		$parent = $this->getTestPage();
+		$originalMode = $database->sqlMode();
+		$getByIdSql = function() use($pages, $parent, $database) {
+			// the getById() query, from a fresh query log
+			$database->queryLog(true); // clears the log and logs queries
+			$pages->getById(array($parent->id), array('getOne' => true, 'getFromCache' => false, 'cache' => false));
+			$sql = '';
+			foreach($database->queryLog() as $q) if(strpos($q, 'false AS isLoaded') !== false) $sql = $q;
+			$database->queryLog($this->wire()->config->debug ? 1 : false);
+			return $sql;
+		};
+
+		try {
+			$database->sqlMode('remove', 'ONLY_FULL_GROUP_BY');
+			$this->check('onlyFullGroupBy() is false when the mode is off', false, $database->onlyFullGroupBy());
+			$this->check('$pages uses the configured PageFinder when the mode is off', 
+				(int) ($this->wire()->config->PageFinder['version'] ?? 1) >= 2 ? 'PageFinder2' : 'PageFinder', 
+				wireClassName($pages->getPageFinder()));
+			$sql = $getByIdSql();
+			$this->check('getById() selects pages.* when the mode is off', true, strpos($sql, 'pages.*') !== false && strpos($sql, 'MIN(') === false);
+			
+			$database->sqlMode('add', 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES');
+			$mode = $database->sqlMode();
+
+			if(strpos($mode, 'ONLY_FULL_GROUP_BY') === false) {
+				$this->check('ONLY_FULL_GROUP_BY can be enabled for this test', true, false);
+				return;
+			}
+
+			$this->check('onlyFullGroupBy() is true when the mode is on', true, $database->onlyFullGroupBy());
+			$this->check('$pages uses PageFinder2 when the mode is on', 'PageFinder2', wireClassName($pages->getPageFinder()));
+			$sql = $getByIdSql();
+			$this->check('getById() aggregates columns when the mode is on', true, strpos($sql, 'pages.*') === false && strpos($sql, 'MIN(pages.parent_id) AS parent_id') !== false);
+
+			$sel = "parent=$parent, include=hidden";
+			$finder = $pages->getPageFinder();
+
+			// sorting by a custom field requires a joined table, which is not functionally
+			// dependent on the grouped pages.id and so must be aggregated
+			$ids = $pages->findIDs("$sel, sort=title");
+			$this->check('sort by custom field returns all test pages', 3, count($ids));
+
+			$titles = array();
+			foreach($pages->find("$sel, sort=title") as $p) $titles[] = (string) $p->title; // (a language value object on multi-language sites)
+			$this->check('sort by custom field is ascending',
+				array('PageFinder Test Alpha', 'PageFinder Test Bravo', 'PageFinder Test Charlie'), $titles);
+
+			$titles = array();
+			foreach($pages->find("$sel, sort=-title") as $p) $titles[] = (string) $p->title;
+			$this->check('sort by custom field is descending',
+				array('PageFinder Test Charlie', 'PageFinder Test Bravo', 'PageFinder Test Alpha'), $titles);
+
+			// sorting by native columns, which are functionally dependent on the grouped column
+			$this->check('sort by native name works', 3, count($pages->findIDs("$sel, sort=name")));
+			$this->check('sort by native sort works', 3, count($pages->findIDs("$sel, sort=-sort")));
+			$this->check('sort by parent name works', 3, count($pages->findIDs("$sel, sort=parent.name")));
+			$this->check('sort random works', 3, count($pages->findIDs("$sel, sort=random")));
+
+			// pages load through a grouped autojoin query
+			$page = $pages->get(reset($ids));
+			$this->check('page loaded under strict modes has its title', true, strlen((string) $page->title) > 0);
+			$this->check('page loaded under strict modes has its parent', $parent->id, $page->parent_id);
+
+			// returnAllCols expands pages.* into aggregated columns
+			$rows = $finder->findVerboseIDs($sel, array(
+				'joinSortfield' => true,
+				'getNumChildren' => true,
+				'joinFields' => array('title'),
+			));
+			$this->check('findVerboseIDs() returns all test pages', 3, count($rows));
+			$row = reset($rows);
+			$this->check('findVerboseIDs() row keeps id column', true, isset($row['id']));
+			$this->check('findVerboseIDs() row keeps name column', true, isset($row['name']));
+			$this->check('findVerboseIDs() row keeps parent_id column', $parent->id, (int) $row['parent_id']);
+			$this->check('findVerboseIDs() row includes numChildren', true, array_key_exists('numChildren', $row));
+			$this->check('findVerboseIDs() row includes joined field', true, array_key_exists('title__data', $row));
+
+			$rows = $finder->findVerboseIDs($sel, array('unixTimestamps' => true));
+			$row = reset($rows);
+			$this->check('findVerboseIDs() returns unix timestamps', true, ctype_digit((string) $row['created']));
+
+			// other return modes, each with their own column set
+			$this->check('findParentIDs() works', array($parent->id), $finder->findParentIDs($sel));
+			$this->check('findTemplateIDs() works', 3, count($finder->findTemplateIDs($sel)));
+			$this->check('count() works', 3, $finder->count($sel));
+
+			// selectors that add aggregate joins
+			$this->check('num_children selector works', 0, count($pages->findIDs("$sel, num_children>0")));
+			$this->check('children.count selector works', 0, count($pages->findIDs("$sel, children.count>0")));
+			$this->check('parent num_children selector works', 1, count($pages->findIDs("id=$parent, include=all, num_children>0")));
+
+			// getTotal via both SQL_CALC_FOUND_ROWS and a separate count query
+			$this->check('getTotal by count works', 3, $pages->find("$sel, limit=2")->getTotal());
+			$this->check('getTotal by calc works', 3, $pages->find("$sel, limit=2, getTotal=calc")->getTotal());
+
+			// a multi-value field's count (FieldtypeMulti), and a page loaded with a multi-value field autojoined
+			$users = $pages->findIDs('template=user, roles.count>0, include=all');
+			$this->check('field.count selector works', true, count($users) > 0);
+
+			// sorting by a multi-value field and by its subfield (PageFinder2 aggregates the ORDER BY)
+			$all = $pages->findIDs('template=user, include=all');
+			$this->check('sort by a multi-value field works', count($all), count($pages->findIDs('template=user, sort=roles, include=all')));
+			$this->check('sort by a multi-value field’s subfield works', count($all), count($pages->findIDs('template=user, sort=roles.name, include=all')));
+			$this->check('descending sort by a multi-value field’s subfield works', count($all), count($pages->findIDs('template=user, sort=-roles.name, include=all')));
+			$this->check('sort by a multi-value field’s custom subfield works', count($all), count($pages->findIDs('template=user, sort=roles.title, include=all')));
+			$superuser = $pages->getById(array($this->wire()->config->superUserPageID), array('getOne' => true, 'getFromCache' => false, 'cache' => false, 'joinFields' => array('roles')));
+			$this->check('page loaded with a multi-value field autojoined has its values', true, $superuser->roles->count() > 0);
+
+			// other grouped queries: page parents, access, and paths (PagePaths)
+			$this->check('PagesParents findParentIDs() works', true, count($pages->parents()->findParentIDs()) > 0);
+			$found = $pages->parents()->findParents(array('getPages' => true));
+			$this->check('PagesParents findParents() works', true, $found instanceof PageArray && $found->count() > 0);
+			$pages->editor()->newPagesAccess()->updateTemplate($parent->template);
+			$this->check('PagesAccess rebuild works', true, true);
+			if($this->wire()->modules->isInstalled('PagePaths')) {
+				$p = $pages->add($this->childTemplateName, $parent, array('name' => 'pagefinder-test-paths', 'title' => 'PageFinder Test Paths'));
+				$child = $pages->add($this->childTemplateName, $p, array('name' => 'child', 'title' => 'PageFinder Test Paths Child'));
+				try {
+					$p->of(false);
+					$p->name = 'pagefinder-test-paths-renamed';
+					$p->save();
+					$stored = $database->query("SELECT path FROM pages_paths WHERE pages_id=" . (int) $child->id . " AND language_id=0")->fetchColumn();
+					$this->check('PagePaths updates the paths of renamed children', trim($pages->getFresh($child->id)->path, '/'), $stored);
+				} finally {
+					$pages->delete($p, true);
+				}
+			}
+
+		} catch(\Exception $e) {
+			$this->check('find queries run under strict SQL modes: ' . $e->getMessage(), true, false);
+		} finally {
+			$database->sqlMode('set', $originalMode);
+		}
+
+		$this->check('SQL mode restored after test', $originalMode, $database->sqlMode());
+	}
+
 	protected function finder() {
+		// with ONLY_FULL_GROUP_BY, $pages uses PageFinder2 only, so that is the one to test
+		if($this->wire()->database->onlyFullGroupBy()) return PageFinder2::getInstance($this, true);
 		return $this->wire(new PageFinder());
 	}
 
