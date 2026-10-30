@@ -60,7 +60,9 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 * 
 	 */
 	protected function validSourceImageFormats() {
-		return array('JPG', 'JPEG', 'PNG', 'GIF');
+		$formats = array('JPG', 'JPEG', 'PNG', 'GIF');
+		if($this->supported('webp')) $formats[] = 'WEBP';
+		return $formats;
 	}
 
 	/**
@@ -109,6 +111,14 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 					case 'gif-trans-anim':
 						// Animated GIF images are not supported, but GD renders the first image of the animation
 						#return false;
+						return true;
+					case 'webp-anim':
+					case 'webp-alpha-anim':
+						// GD cannot read animated WebP images
+						return false;
+					case 'webp':
+					case 'webp-alpha':
+						return $this->supported('webp');
 					default:
 						return true;
 				}
@@ -184,12 +194,15 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			case \IMAGETYPE_JPEG:
 				$image = @imagecreatefromjpeg($srcFilename);
 				break;
+			case \IMAGETYPE_WEBP:
+				$image = @imagecreatefromwebp($srcFilename);
+				break;
 		}
 
 		if(!$image) return false;
 
-		if($this->imageType != \IMAGETYPE_PNG || !$this->hasAlphaChannel()) {
-			// @horst: linearize gamma to 1.0 - we do not use gamma correction with pngs containing alphachannel, because GD-lib doesn't respect transparency here (is buggy)
+		if(!$this->hasAlphaChannel() || !in_array($this->imageType, array(\IMAGETYPE_PNG, \IMAGETYPE_WEBP))) {
+			// @horst: linearize gamma to 1.0 - we do not use gamma correction with pngs (or webp) containing alphachannel, because GD-lib doesn't respect transparency here (is buggy)
 			$this->gammaCorrection($image, true);
 		}
 
@@ -357,7 +370,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 
 		// optionally apply sharpening to the final thumb
 		if($this->sharpening && $this->sharpening != 'none') { // @horst
-			if(\IMAGETYPE_PNG != $this->imageType || !$this->hasAlphaChannel()) {
+			if(!$this->hasAlphaChannel() || !in_array($this->imageType, array(\IMAGETYPE_PNG, \IMAGETYPE_WEBP))) {
 				$w = imagesx($thumb);
 				$h = imagesy($thumb);
 				if($this->useUSM) {
@@ -412,6 +425,13 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 					$result = imagejpeg($thumb, $dstFilename, $this->quality);
 				}
 				break;
+
+			case \IMAGETYPE_WEBP:
+				// optionally correct gamma from linearized 1.0 back to 2.0
+				if(!$this->hasAlphaChannel()) $this->gammaCorrection($thumb, false);
+				// save the final WebP image file
+				if($this->imSaveReady($thumb, $srcFilename)) $result = imagewebp($thumb, $dstFilename, $this->webpQuality);
+				break;
 				
 			default:
 				$result = false;
@@ -436,6 +456,11 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 * 
 	 */
 	protected function ___imSaveReady($im, $filename) {
+		if($this->imageType == \IMAGETYPE_WEBP) {
+			// the image being saved is already WebP, so there is no extra WebP copy to make
+			if($this->webpOnly || $this->webpAdd) $this->webpResult = true;
+			return true;
+		}
 		if($this->webpOnly || $this->webpAdd) {
 			$this->webpResult = $this->imSaveWebP($im, $filename, $this->webpQuality);
 		}
@@ -1031,6 +1056,8 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$img = imagecreatefrompng($srcFilename);
 		} else if($ext == 'gif') {
 			$img = imagecreatefromgif($srcFilename);
+		} else if($ext == 'webp') {
+			$img = imagecreatefromwebp($srcFilename);
 		}
 
 		if(!$img) {
@@ -1069,6 +1096,8 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 				$success = imagepng($img, $dstFilename, 9);
 			} else if($ext == 'gif') {
 				$success = imagegif($img, $dstFilename);
+			} else if($ext == 'webp') {
+				$success = imagewebp($img, $dstFilename, $this->webpQuality);
 			} else {
 				$success = imagejpeg($img, $dstFilename, $this->quality);
 			}
