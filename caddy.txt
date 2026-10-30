@@ -268,8 +268,8 @@ example.com {
 		@pw_15a_8 path_regexp `(?i)(^|/)(site|site-[^/]+)/classes($|/.*)`
 		vars @pw_15a_8 pw_deny 1
 
-		# Block access to any PHP files within /site/assets/ and further
-		@pw_15a_9 path_regexp `(?i)(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/)`
+		# Block access to any PHP/executable files within /site/assets/ and further
+		@pw_15a_9 path_regexp `(?i)(^|/)(site|site-[^/]+)/assets($|/|/.*\.(ph(p|ps|tml|ar|p[0-9])|cgi|pl|py))($|/)`
 		vars @pw_15a_9 pw_deny 1
 
 		# Block access to any PHP, module, inc or info files in core or core modules directories
@@ -281,8 +281,20 @@ example.com {
 		vars @pw_15a_11 pw_deny 1
 
 		# Block access to any software identifying txt, markdown or textile files
-		@pw_15a_12 path_regexp `(?i)(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$`
+		@pw_15a_12 path_regexp `(?i)(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICEN[CS]E|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$`
 		vars @pw_15a_12 pw_deny 1
+
+		# Block access to license files without an extension, as most third-party modules and libraries have them
+		# (within the wire, site and vendor directories, so that a page named "license" is not affected)
+		@pw_15a_12a path_regexp `(?i)(^|/)(wire|vendor|site|site-[^/]+)/.+/LICEN[CS]E$`
+		vars @pw_15a_12a pw_deny 1
+
+		# Block access to old copies of the core left by a manual upgrade: /wire-3.0.200/, index-3.0.200.php,
+		# htaccess-3.0.200.txt (copies renamed with a leading dot, i.e. /.wire-3.0.200/, are blocked already)
+		@pw_15a_12b path_regexp `(?i)(^|/)wire-\d+\.\d+\.\d+($|/)`
+		vars @pw_15a_12b pw_deny 1
+		@pw_15a_12c path_regexp `(?i)(^|/)(index|htaccess)-\d+\.\d+\.\d+\.(php|txt)$`
+		vars @pw_15a_12c pw_deny 1
 
 		# Block potential arbitrary backup files within site directories for things like config
 		@pw_15a_13 path_regexp `(?i)(^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$`
