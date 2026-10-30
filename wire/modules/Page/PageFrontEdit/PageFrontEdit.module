@@ -425,7 +425,9 @@ class PageFrontEdit extends WireData implements Module {
 	 */
 	public function hookPageRender(HookEvent $event) {
 
-		$this->editorNum = 0;
+		// note: editorNum is not reset here, as inline editors rendered during the page render
+		// (i.e. formatted field values) are already numbered, and <edit> regions numbered below
+		// must not reuse their pw-edit-N ids. Numbering still repeats for each render of a page.
 		$out = $event->return;
 		if(stripos($out, '<html') === false) return;
 		
