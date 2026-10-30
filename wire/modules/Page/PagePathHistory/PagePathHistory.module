@@ -57,6 +57,14 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	protected $version = 0;
 
 	/**
+	 * Whether each page's path was publicly visible before its current save, indexed by page ID
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $wasPublic = array();
+
+	/**
 	 * Construct
 	 * 
 	 */
@@ -71,6 +79,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function init() {
+		$this->pages->addHookAfter('saveReady', $this, 'hookPageSaveReady');
 		$this->pages->addHook('moved', $this, 'hookPageMoved'); 
 		$this->pages->addHook('renamed', $this, 'hookPageMoved'); 
 		$this->pages->addHook('deleted', $this, 'hookPageDeleted');
@@ -882,6 +891,39 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	/*** HOOKS *******************************************************************/
 	
 	/**
+	 * Hook called before a page is saved, to note whether its current path was publicly visible
+	 * 
+	 * This is determined before the save since a save may also publish the page, in which case its 
+	 * previous path (if the save also renames or moves it) was not publicly visible.
+	 *
+	 * @param HookEvent $event
+	 * @since 3.0.275
+	 *
+	 */
+	public function hookPageSaveReady(HookEvent $event) {
+		/** @var Page $page */
+		$page = $event->arguments(0);
+		if($page->id) $this->wasPublic[$page->id] = $this->pageWasPublic($page);
+	}
+
+	/**
+	 * Was the page's path publicly visible before any changes to its status that haven't yet been saved?
+	 * 
+	 * True if the page has been published at some point (even if unpublished now), or if it was
+	 * not unpublished before any status change made since it was last saved.
+	 * 
+	 * @param Page $page
+	 * @return bool
+	 * @since 3.0.275
+	 * 
+	 */
+	protected function pageWasPublic(Page $page) {
+		if($page->published > 0) return true;
+		$status = $page->isChanged('status') && $page->statusPrevious !== null ? $page->statusPrevious : $page->status;
+		return !($status & Page::statusUnpublished);
+	}
+
+	/**
 	 * Hook called when a page is moved or renamed
 	 *
 	 * @param HookEvent $event
@@ -896,6 +938,11 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 
 		$age = time() - $page->created;
 		if($page->template->name === 'admin' || $this->wire()->pages->cloning || $age < $this->minimumAge) return;
+		
+		// do not save paths that were never publicly visible, as there is nothing to redirect from,
+		// i.e. a page copy's temporary name such as /page-name-1/ (processwire-issues#1024)
+		$wasPublic = isset($this->wasPublic[$page->id]) ? $this->wasPublic[$page->id] : $this->pageWasPublic($page);
+		if(!$wasPublic) return;
 
 		// note that the paths we store have no trailing slash
 
