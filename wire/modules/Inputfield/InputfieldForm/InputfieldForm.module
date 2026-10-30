@@ -179,11 +179,18 @@ class InputfieldForm extends InputfieldWrapper {
 			$landmark = '';
 		}
 	
+		self::$renderForms[] = $this;
+		try {
+			$out = parent::___render();
+		} finally {
+			array_pop(self::$renderForms);
+		}
+	
 		return
 			"<form $attrStr>" . 
 				$description . 
 				$this->getSetting('prependMarkup') . 
-				parent::___render() .
+				$out .
 				$tokenField . 
 				$this->getSetting('appendMarkup') . 
 				$landmark . 
@@ -565,6 +572,106 @@ class InputfieldForm extends InputfieldWrapper {
 		}
 
 		return $matches;
+	}
+
+	/**
+	 * Evaluate the conditions on locked fields in a showIf or requiredIf selector
+	 * 
+	 * A locked or non-editable Inputfield renders its value rather than an input, so the
+	 * browser has nothing to read for a condition on it. Its value can't change in the
+	 * browser either, so the condition has a fixed result: it is evaluated here, the same
+	 * way processInput() evaluates it, and only what remains is left for the browser.
+	 * 
+	 * - A condition on locked fields that matches is removed.
+	 * - A condition on locked fields that doesn't match makes the whole selector false.
+	 * - A condition naming both locked and editable fields (`a|b=1`) is reduced to the
+	 *   editable fields, unless a locked one matches.
+	 * - Anything else (OR-groups, fields not in this form, locked fields with a showIf of
+	 *   their own) is returned unchanged.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $selectorString
+	 * @return array Returns [$matches, $selectorString], where $matches is true when every
+	 *   condition matches, false when one can't match, or null when the returned selector
+	 *   string still has conditions on editable fields for the browser to evaluate.
+	 * @since 3.0.275
+	 * 
+	 */
+	public function resolveLockedDependencies($selectorString) {
+		
+		try {
+			$selectors = $this->wire(new Selectors($selectorString));
+		} catch(\Exception $e) {
+			return array(null, $selectorString);
+		}
+		
+		$remaining = array();
+		
+		foreach($selectors as $selector) {
+			/** @var Selector $selector */
+			$names = $selector->fields;
+			if(!count($names) || in_array('', $names, true) || $selector->quote === '(') {
+				// OR-groups and other selectors without plain field names are left to the browser
+				return array(null, $selectorString);
+			}
+			
+			$lockedNames = array();
+			$editableNames = array();
+			foreach($names as $name) {
+				list($baseName) = explode('.', $name);
+				if($this->isLockedDependency($this->getChildByName($baseName))) {
+					$lockedNames[] = $name;
+				} else {
+					$editableNames[] = $name;
+				}
+			}
+			
+			if(!count($lockedNames)) {
+				$remaining[] = (string) $selector;
+				continue;
+			}
+			
+			// as in processInputShowIf(), a condition naming more than one field (a|b=1) 
+			// matches when any of those fields matches
+			$matches = false;
+			foreach($lockedNames as $name) {
+				$matches = $this->selectorMatchesInputfield($selector, $name, 'locked dependency');
+				if($matches === null) return array(null, $selectorString);
+				if($matches) break;
+			}
+			
+			if($matches) continue;
+			if(!count($editableNames)) return array(false, '');
+			
+			$selector = clone $selector;
+			$selector->field = count($editableNames) === 1 ? reset($editableNames) : $editableNames;
+			$remaining[] = (string) $selector;
+		}
+		
+		return array(count($remaining) ? null : true, implode(', ', $remaining));
+	}
+
+	/**
+	 * Is the given Inputfield a dependency whose value is fixed for the life of the rendered form?
+	 * 
+	 * True when it renders its value rather than an input (locked, or not editable) and is 
+	 * always present, meaning it has no showIf of its own.
+	 * 
+	 * @param Inputfield|null $inputfield
+	 * @return bool
+	 * 
+	 */
+	protected function isLockedDependency($inputfield) {
+		if(!$inputfield instanceof Inputfield || $inputfield instanceof InputfieldWrapper) return false;
+		if(strlen((string) $inputfield->getSetting('showIf'))) return false;
+		$lockedStates = array(
+			Inputfield::collapsedNoLocked,
+			Inputfield::collapsedYesLocked,
+			Inputfield::collapsedBlankLocked,
+			Inputfield::collapsedTabLocked
+		);
+		return in_array((int) $inputfield->getSetting('collapsed'), $lockedStates, true) || !$inputfield->editable();
 	}
 
 	/**
