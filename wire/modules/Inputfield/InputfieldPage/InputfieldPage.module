@@ -38,7 +38,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page',
-			'version' => 109,
+			'version' => 110,
 			'summary' => 'Select one or more pages',
 			'permanent' => true,
 		);
@@ -600,6 +600,21 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	}
 
 	/**
+	 * Get class(es) identifying an unpublished or hidden page, as used in the page list
+	 * 
+	 * @param Page $page
+	 * @return string
+	 * @since 3.0.275
+	 * 
+	 */
+	public function getPageStatusClass(Page $page) {
+		$classes = array();
+		if($page->isUnpublished()) $classes[] = 'PageListStatusUnpublished';
+		if($page->isHidden()) $classes[] = 'PageListStatusHidden';
+		return implode(' ', $classes);
+	}
+
+	/**
 	 * Get a label for the given page
 	 * 
 	 * @param Page $page
@@ -726,7 +741,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			
 			if($inputfield instanceof InputfieldHasSelectableOptions) {
 				foreach($valueArray as $p) {
-					$inputfield->addOption($p->id, $this->getPageLabel($p));
+					$class = $this->getPageStatusClass($p);
+					$inputfield->addOption($p->id, $this->getPageLabel($p), $class ? array('class' => $class) : null);
 				}
 			}
 
@@ -745,7 +761,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			if($children) {
 				foreach($children as $child) {
 					$label = $this->getPageLabel($child);
-					$inputfield->addOption($child->id, $label);
+					$class = $this->getPageStatusClass($child);
+					$inputfield->addOption($child->id, $label, $class ? array('class' => $class) : null);
 				}
 			}
 			

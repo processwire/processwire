@@ -114,6 +114,15 @@ class WireTest_InputfieldPageListSelect extends WireTest {
 		$this->check('multiple render includes root data attribute', true, strpos($html, 'data-root="1"') !== false);
 		$this->check('multiple render includes selected label data attribute', true, strpos($html, 'data-selected="Selected"') !== false);
 		$this->check('multiple render stores CSV value', true, strpos($html, "value='$page->id'") !== false);
+		$status = $page->status; // statuses below are set in memory only, never saved
+		$page->setQuietly('status', $status & ~Page::statusUnpublished & ~Page::statusHidden);
+		$visibleHtml = $f->render();
+		$page->setQuietly('status', $status | Page::statusUnpublished | Page::statusHidden);
+		$html = $f->render();
+		$page->setQuietly('status', $status);
+		$this->check('multiple render has no status class for a published, visible page', false, strpos($visibleHtml, 'PageListStatus') !== false);
+		$this->check('multiple render identifies unpublished page', true, strpos($html, 'PageListStatusUnpublished') !== false);
+		$this->check('multiple render identifies hidden page', true, strpos($html, 'PageListStatusHidden') !== false);
 
 		$markup = $f->renderMarkupValue(array($page->id));
 		$this->check('multiple renderMarkupValue() renders list', true, strpos($markup, '<ul><li>') === 0);

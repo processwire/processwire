@@ -14,3 +14,12 @@
 .InputfieldPageAddItems input {
 	width: 99%; 
 }
+
+/* identify unpublished and hidden pages, as in the page list */
+.InputfieldPage .PageListStatusUnpublished {
+	text-decoration: line-through;
+}
+
+.InputfieldPage .PageListStatusHidden {
+	opacity: 0.5;
+}

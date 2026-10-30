@@ -185,6 +185,21 @@ class WireTest_InputfieldPage extends WireTest {
 		$html = $f->render();
 		$this->check('render includes delegate select', '<select', $html, '*=');
 		$this->check('render includes selected page option label', $page->title, $html, '*=');
+
+		// unpublished and hidden pages are identified with the same classes as in the page list (#2044)
+		$status = $page->status; // statuses below are set in memory only, never saved
+		$page->setQuietly('status', $status & ~Page::statusUnpublished & ~Page::statusHidden);
+		$visibleClass = $f->getPageStatusClass($page);
+		$page->setQuietly('status', $status | Page::statusUnpublished | Page::statusHidden);
+		$f = $this->configureForTestPage($this->newInputfield());
+		$f->attr('value', $page->id);
+		$statusClass = $f->getPageStatusClass($page);
+		$attrs = $f->getInputfield()->getOptionAttributes($page->id);
+		$page->setQuietly('status', $status);
+		$this->check('getPageStatusClass() is blank for a published, visible page', '', $visibleClass);
+		$this->check('getPageStatusClass() identifies unpublished page', 'PageListStatusUnpublished', $statusClass, '*=');
+		$this->check('getPageStatusClass() identifies hidden page', 'PageListStatusHidden', $statusClass, '*=');
+		$this->check('delegate option has page status class', $statusClass, isset($attrs['class']) ? $attrs['class'] : '');
 	}
 
 	protected function testProcessInput() {

@@ -137,6 +137,15 @@ class WireTest_InputfieldPageAutocomplete extends WireTest {
 		$this->check('renderList returns ordered list', '<ol ', $list, '*=');
 		$this->check('renderList includes template item', 'itemTemplate', $list, '*=');
 		$this->check('renderList includes selected page id', (string) $page->id, $list, '*=');
+		$status = $page->status; // statuses below are set in memory only, never saved
+		$page->setQuietly('status', $status & ~Page::statusUnpublished & ~Page::statusHidden);
+		$visibleList = $f->renderList();
+		$page->setQuietly('status', $status | Page::statusUnpublished | Page::statusHidden);
+		$list = $f->renderList();
+		$page->setQuietly('status', $status);
+		$this->check('renderList has no status class for a published, visible page', false, strpos($visibleList, 'PageListStatus') !== false);
+		$this->check('renderList identifies unpublished page', 'PageListStatusUnpublished', $list, '*=');
+		$this->check('renderList identifies hidden page', 'PageListStatusHidden', $list, '*=');
 
 		$f->hideDeleted = true;
 		$this->check('renderList hideDeleted adds class', "class='hideDeleted'", $f->renderList(), '*=');

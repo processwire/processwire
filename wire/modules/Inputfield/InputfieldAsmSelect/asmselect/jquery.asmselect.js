@@ -693,6 +693,9 @@
 					.append($itemLabel)
 					.append($itemDesc)
 					.append($itemStatus);
+				// carry over page status classes from the <option>, i.e. PageListStatusUnpublished
+				var statusClasses = ($O.attr('class') || '').match(/\bPageListStatus\w+/g);
+				if(statusClasses) $item.addClass(statusClasses.join(' '));
 				if($removeLink) $item.append($removeLink);
 				$item.hide();
 

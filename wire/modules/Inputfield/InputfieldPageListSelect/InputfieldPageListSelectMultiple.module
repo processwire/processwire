@@ -91,7 +91,9 @@ class InputfieldPageListSelectMultiple extends Inputfield
 			if(!$page || !$page->id) continue; 
 			$label = $page->getText($this->labelFieldName, true, true);
 			if(!strlen($label)) $label = $page->name;
-			$out .= $this->renderListItem($label, $page->id); 
+			// identify unpublished/hidden pages, as in the page list
+			$class = trim(($page->isUnpublished() ? 'PageListStatusUnpublished ' : '') . ($page->isHidden() ? 'PageListStatusHidden' : ''));
+			$out .= $this->renderListItem($label, $page->id, $class); 
 		}
 		
 		$out .= "</ol>";
