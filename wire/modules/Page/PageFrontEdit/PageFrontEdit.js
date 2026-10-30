@@ -426,8 +426,19 @@ function PageFrontEditInit($) {
 
 		// test if font-awesome needs to be loaded
 		var test = $('#pw-fa-test');
-		var width = test.width();
-		if(width < 10) loadCSS(ProcessWire.config.PageFrontEdit.files.fa);
+		var files = ProcessWire.config.PageFrontEdit.files;
+		var loadFa = test.width() < 10;
+		if(!loadFa && files.faShims) {
+			// Font Awesome is present, but the admin markup that appears here (i.e. in modals) uses 6.x,
+			// so also load it if what is present is another version (i.e. 4.x from another module)
+			var $test6 = $("<i class='fas fa-fw'></i>").appendTo('body');
+			loadFa = (window.getComputedStyle($test6[0]).fontFamily || '').indexOf('Font Awesome 6') === -1;
+			$test6.remove();
+		}
+		if(loadFa) {
+			loadCSS(files.fa);
+			if(files.faShims) loadCSS(files.faShims);
+		}
 		test.hide();
 
 		// load PageFrontEdit.css

@@ -731,10 +731,41 @@ class PageFrontEdit extends WireData implements Module {
 	}
 
 	/**
+	 * Get URLs of Font Awesome CSS files to load when the page doesn't already have Font Awesome
+	 *
+	 * Uses the same version as the admin, since admin markup (i.e. in modal dialogs) appears in
+	 * front-end editing. For Font Awesome 6 this includes its v4 shims, so 4.x markup also works.
+	 *
+	 * @return array
+	 * @since 3.0.275
+	 *
+	 */
+	protected function getFontAwesomeFiles() {
+		$config = $this->wire()->config;
+		$url = $config->urls->adminTemplates . 'styles/';
+		$path = $config->paths->adminTemplates . 'styles/';
+		$fa4 = array($url . 'font-awesome/css/font-awesome.min.css');
+		$icons = $config->adminIcons;
+		$version = is_array($icons) && !empty($icons['version']) ? (string) $icons['version'] : '';
+		if($version !== '' && version_compare($version, '6.0.0', '<')) return $fa4; // 4.x configured
+		if($version === '' || !is_dir($path . "font-awesome-$version")) {
+			// version is determined by the admin theme, so use the latest 6.x included with the core
+			$dirs = glob($path . 'font-awesome-6*', GLOB_ONLYDIR);
+			if(empty($dirs)) return $fa4;
+			natsort($dirs);
+			$version = substr(basename(end($dirs)), strlen('font-awesome-'));
+		}
+		return array(
+			$url . "font-awesome-$version/css/all.min.css",
+			$url . "font-awesome-$version/css/v4-shims.min.css",
+		);
+	}
+
+	/**
 	 * Render markup output for javascripts and editor interface
-	 * 
+	 *
 	 * @return string
-	 * 
+	 *
 	 */
 	public function renderAssets() {
 	
@@ -775,7 +806,9 @@ class PageFrontEdit extends WireData implements Module {
 		
 		$ajaxPostUrl = $this->getAjaxPostUrl();
 		if($draft) $ajaxPostUrl .= (strpos($ajaxPostUrl, '?') ? '&' : '?') . "draft=$draft";
-		
+
+		$faFiles = $this->getFontAwesomeFiles();
+
 		$configJS = $config->js();
 		$configJS['modals'] = $config->modals;
 		$configJS['urls'] = array(
@@ -791,7 +824,8 @@ class PageFrontEdit extends WireData implements Module {
 				'tinymce1' => $tinymceFile1, // tinymce.min.js
 				'tinymce2' => $tinymceFile2, // InputfieldTinyMCE.js
 				'css' => ($config->urls($className)) . "$className.css?nc=" . filemtime(dirname(__FILE__) . "/$className.css"),
-				'fa' => $config->urls->adminTemplates . "styles/font-awesome/css/font-awesome.min.css", 
+				'fa' => $faFiles[0],
+				'faShims' => isset($faFiles[1]) ? $faFiles[1] : '',
 			),
 			'adminTheme' => $adminTheme ? $adminTheme : 'AdminThemeDefault',
 			'pageURL' => $ajaxPostUrl
