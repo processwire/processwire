@@ -444,6 +444,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		foreach($fields as $field) {
 
+			if(!$page->viewable($field)) continue;
+			// RTE selection needs view access; direct image editing also needs field edit access.
+			if(!$this->rte && !$page->editable($field)) continue;
+
 			$fieldtype = $field->type;
 			
 			if(in_array($field->name, $skipFields)) continue; 
@@ -749,6 +753,9 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	/**
 	 * Check if user has image edit permission and throw exception if they don't
 	 *
+	 * RTE mode may create separate variations from viewable source images. Keeping variations
+	 * with the source image ensures they are removed with it. Direct image edits require edit access.
+	 *
 	 * @param bool $throw Specify false if you only want this method to return a true|false rather than throw exception
 	 * @throws WirePermissionException
 	 * @return bool if the $throw argument was false
@@ -808,6 +815,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$radioClass = $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('input-radio') : '';
 		
 		$this->checkImageEditPermission();
+
+		if($input->post('submit_crop') || $input->post('submit_save_replace') || $input->post('submit_save_copy')) {
+			$session->CSRF()->validate();
+		}
 
 		if($input->post('submit_crop')) {
 			$crop = $this->processCrop();
@@ -1018,6 +1029,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		// @todo move all this markup to a separate template file
 		$out =	
 			"<form id='selected_image_settings' class='$formClass' method='post' action='$formActionURL'>" .
+			$session->CSRF()->renderInput() .
 			"<small class='ui-helper-clearfix'>" . 
 			"<p id='wrap_info'>" .
 				"<select id='selected_image_class' name='class'>" .
@@ -1364,6 +1376,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * Resize image and output basic markup with information about the resize
 	 * 
 	 * The output is intended to be read by the rich text editor for insertion into the text. 
+	 * Requires a valid session CSRF token in POST data or an AJAX header.
 	 * 
 	 * Required GET variables: 
 	 * 	- file (string): URL of image
@@ -1383,6 +1396,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	public function ___executeResize() {
 
 		$this->checkImageEditPermission();
+		$this->wire()->session->CSRF()->validate();
 		
 		$input = $this->wire()->input;
 		$adminTheme = $this->wire()->adminTheme;

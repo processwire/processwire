@@ -270,14 +270,16 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$button->value = $this->labels['manageTags'];
 		$out .= $button->render();
 
-		/** @var InputfieldButton $button */
-		$button = $modules->get('InputfieldButton');
-		$button->id = 'import_button';
-		$button->href = "./import/";
-		$button->value = $this->labels['Import'];
-		$button->icon = 'paste';
-		$button->setSecondary();
-		$out .= $button->render();
+		if($this->wire()->user->isSuperuser()) {
+			/** @var InputfieldButton $button */
+			$button = $modules->get('InputfieldButton');
+			$button->id = 'import_button';
+			$button->href = "./import/";
+			$button->value = $this->labels['Import'];
+			$button->icon = 'paste';
+			$button->setSecondary();
+			$out .= $button->render();
+		}
 
 		/** @var InputfieldButton $button */
 		$button = $modules->get('InputfieldButton');
@@ -3648,6 +3650,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___executeImport() {
+		if(!$this->wire()->user->isSuperuser()) throw new WirePermissionException($this->_('Superuser access is required to import templates.'));
 
 		$this->headline($this->labels['Import']);
 		$this->breadcrumb('../', $this->moduleInfo['title']);

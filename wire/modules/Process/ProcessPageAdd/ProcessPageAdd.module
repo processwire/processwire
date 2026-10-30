@@ -249,7 +249,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			if($p->id == 'bookmark' && !$user->isSuperuser()) continue;
 			$item = array(
 				'url' => ($p->id == 'bookmark' ? 'bookmarks/?role=0' : "?parent_id=$p->id"),
-				'label' => $p->get('title|name') . ($p instanceof Page ? ' &hellip;' : ''),  
+				'label' => $sanitizer->entities1($p->get('title|name')) . ($p instanceof Page ? ' &hellip;' : ''),
 				'icon' => $p->get('_icon') ? $p->get('_icon') : 'arrow-circle-right', 
 				'className' => $p->get('_class') . (!$n ? ' separator' : '')
 			);

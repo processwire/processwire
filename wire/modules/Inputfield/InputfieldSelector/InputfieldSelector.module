@@ -36,7 +36,7 @@
  * @property string $optgroupsOrder [system,field,subfield,group,modifier,adjust] Order and presence of field selection option groups.
  * @property string|array $previewColumns [name,template,id] Array or CSV string of columns to show in bookmark previews
  * @property bool $preview [true] Whether to show a live preview of selector in notes section.
- * @property bool $counter [true] Whether to show a live "number of matches" indicator.
+ * @property bool $counter [true] Whether to show a live "number of matches" indicator (superusers only).
  * @property bool $allowAddRemove [true] Whether to allow adding new rows / removing existing rows
  * @property bool $allowSystemCustomFields [false] Allow system custom fields to appear in field selects?
  * @property bool $allowSystemNativeFields [true] Allow system native fields to appear in field selects?
@@ -764,6 +764,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	protected function renderTestSelector($selector) {
+		if(!$this->wire()->user->isSuperuser()) return $this->_('Selector counts are available to superusers only.');
 		try {
 			$selector = $this->sanitizeSelectorString($selector); 
 			$cnt = $this->wire()->pages->count($selector, array('allowCustom' => true));
@@ -1950,6 +1951,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$jQueryUI->use('modal'); 
 
 		if(self::debug) $this->counter = true;
+		if(!$this->wire()->user->isSuperuser()) $this->counter = false;
 
 		// force load the CSS/JS files used for dates, since we don't know if they will be needed or not
 		$this->renderDateInput('tmp', '', true); 

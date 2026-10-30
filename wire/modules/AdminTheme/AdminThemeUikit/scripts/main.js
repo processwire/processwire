@@ -465,7 +465,7 @@ var ProcessWireAdminTheme = {
 						label = label.substring(0, 30);
 						var n = label.lastIndexOf(' ');
 						if(n > 3) label = label.substring(0, n) + '… ';
-						$label.html(label);
+						$label.text(label);
 						if($small.length) $label.append($small);
 						//label = $label.html();
 					}

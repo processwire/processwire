@@ -1145,15 +1145,18 @@ class PageFrontEdit extends WireData implements Module {
 		
 		foreach($postFields as $key => $value) {
 			
-			if($sanitizer->name($key) != $key) {
+			if($sanitizer->name($key) != $key || strpos($key, '__') === false) {
 				unset($postFields[$key]);
 				continue;
 			}
 		
 			list($pageID, $name) = explode('__', $key, 2);
 			$name = $sanitizer->fieldName($name);
-			$names[$key] = $name;
 			$field = $fields->get($name);
+			if(!$field) {
+				$errors[] = "Field '$name' does not exist.";
+				continue;
+			}
 			$useLanguages = in_array('FieldtypeLanguageInterface', wireClassImplements($field->type));
 			$pageID = (int) $pageID; 
 			if(!$pageID) continue;
@@ -1173,15 +1176,12 @@ class PageFrontEdit extends WireData implements Module {
 				$pagesToSave[$pageID] = $page;
 			}
 			
-			if(!$field) {
-				$errors[] = "Field '$name' does not exist.";
-				continue;
-			}
-			
 			if(!$this->inlineIsSaveable($page, $field)) {
 				$errors[] = "Field '$name' is not saveable.";
 				continue; 
 			}
+			// Only authorized page/field pairs may contribute values to the save response.
+			$names[$key] = $name;
 			
 			// let the Inputfield process the input
 			$inputfield = $this->getInputfield($page, $field);
@@ -1281,9 +1281,8 @@ class PageFrontEdit extends WireData implements Module {
 			}
 			$page->of(false);
 
-			foreach($postFields as $key => $value) {
+			foreach($names as $key => $name) {
 				if(strpos($key, $page->id . '__') !== 0) continue;
-				$name = $names[$key];	
 				$data['unformatted'][$key] = (string) $this->getUnformattedValue($page, $name);
 				$data['formatted'][$key] = (string) $page->getFormatted($name);
 			}

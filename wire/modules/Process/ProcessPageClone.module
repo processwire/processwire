@@ -362,6 +362,9 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 		$titleField = $form->get('clone_page_title');
 		$nameField = $form->get('clone_page_name');
 		$cloneTree = $input->post('clone_page_tree') && $this->page->cloneable(true);
+		if($input->post('clone_page_tree') && !$cloneTree) {
+			throw new WirePermissionException($this->_('You do not have permission to copy this page and its children.'));
+		}
 		
 		if($input->post('clone_page_unpublished')) {
 			$page->addStatus(Page::statusUnpublished);
