@@ -881,6 +881,9 @@ class Pageimage extends Pagefile {
 			$filenameFinalWebp = $this->pagefiles->path() . $basenameNoExt . '.webp'; // file.webp
 		}
 		
+		// with webpOnly, the regular variation is not kept, so whether the webp exists determines if it exists
+		if($options['webpAdd'] && $options['webpOnly']) $filenameFinalExists = file_exists($filenameFinalWebp);
+
 		// force new creation if requested webp copy doesn't exist, (regardless if regular variation exists or not)
 		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) $options['forceNew'] = true;
 		

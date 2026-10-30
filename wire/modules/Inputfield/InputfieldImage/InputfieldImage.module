@@ -534,6 +534,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$imageSizerOptions = $this->imageSizerOptions;
 			$imageSizerOptions['upscaling'] = true;
 			$imageSizerOptions['focus'] = false; // disable focus since we show focus from JS/CSS in admin thumbs
+			$imageSizerOptions['webpOnly'] = false; // admin thumbs use the primary (i.e. jpg/png) file
 			$adminThumbOptions = $this->wire()->config->adminThumbOptions;
 			$gridSize2x = $this->gridSize * 2;
 			// if($adminThumbOptions['scale'] === 1.0) $gridSize2x = $this->gridSize; // force non-HiDPI
