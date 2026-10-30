@@ -102,17 +102,8 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 		}
 
 		if($language) {
-			// include i18n support for the datepicker 
-			// note that the 'xx' in the filename is just a placeholder to indicate what should be replaced for translations, as that file doesn't exist
-			$langFile = ltrim($this->_('/wire/modules/Jquery/JqueryUI/i18n/jquery.ui.datepicker-xx.js'), '/'); // Datepicker translation file // Replace 'xx' with jQuery UI language code or specify your own js file
-			if(is_file($config->paths->root . $langFile)) {
-				// add a custom language file
-				$config->scripts->add($config->urls->root . $langFile);
-			} else {
-				// attempt to auto-find one based on the language name (which are often 2 char language codes)
-				$langFile = "wire/modules/Jquery/JqueryUI/i18n/jquery.ui.datepicker-{$language->name}.js";
-				if(is_file($config->paths->root . $langFile)) $config->scripts->add($config->urls->root . $langFile);
-			}
+			$langFile = $this->getDatepickerLanguageFile();
+			if($langFile) $config->scripts->add($config->urls->root . $langFile);
 			if($useTime) {
 				$langFile = $this->_('timepicker/i18n/jquery-ui-timepicker-xx.js'); // Timepicker translation file // Replace 'xx' with jQuery UI language code or specify your own js file. Timepicker i18n files are located in /wire/modules/Inputfield/InputfieldDatetime/timepicker/i18n/.
 				$path = $config->paths->get('InputfieldDatetime');
@@ -235,7 +226,135 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 	 *
 	 */
 	public function processInput(WireInputData $input) {
-		return false; // tell InputfieldDatetime to process the input instead
+		$name = $this->getAttribute('name');
+		if(!isset($input[$name])) return $this->getAttribute('value');
+		list($dateFormat, $timeFormat) = $this->getInputFormat(true);
+		$format = trim("$dateFormat $timeFormat");
+		$value = $input[$name];
+		if(!is_scalar($value)) return $this->invalidInput($format);
+		$value = trim((string) $value);
+		if(!strlen($value)) return '';
+
+		$timestamp = $this->parseInputValue($value, $format);
+		if($timestamp === false && preg_match('/(?<!\\\\):s(?=\s*[aA]?$)/', $timeFormat)) {
+			// Manual entry may omit seconds, including before a 12-hour meridiem.
+			$shortTimeFormat = preg_replace('/(?<!\\\\):s(?=\s*[aA]?$)/', '', $timeFormat);
+			$timestamp = $this->parseInputValue($value, trim("$dateFormat $shortTimeFormat"));
+		}
+		if($timestamp === false && strlen($dateFormat) && strlen($timeFormat)) {
+			// A date without the optional time continues to mean midnight.
+			$timestamp = $this->parseInputValue($value, $dateFormat);
+		}
+		return $timestamp === false ? $this->invalidInput($format, $value) : $timestamp;
+	}
+
+	/**
+	 * Use the same calendar language file for rendering and submitted date words.
+	 *
+	 * @return string Relative filename, or blank when no translation file is available
+	 *
+	 */
+	protected function getDatepickerLanguageFile() {
+		$language = $this->wire()->languages ? $this->wire()->user->language : null;
+		if(!$language) return '';
+		$config = $this->wire()->config;
+		$file = ltrim($this->_('/wire/modules/Jquery/JqueryUI/i18n/jquery.ui.datepicker-xx.js'), '/'); // Datepicker translation file // Replace 'xx' with jQuery UI language code or specify your own js file
+		if(is_file($config->paths->root . $file)) return $file;
+		$file = "wire/modules/Jquery/JqueryUI/i18n/jquery.ui.datepicker-{$language->name}.js";
+		return is_file($config->paths->root . $file) ? $file : '';
+	}
+
+	/**
+	 * Read static calendar label arrays as data, never evaluating the JavaScript file.
+	 *
+	 * @param string $file Absolute filename
+	 * @return array
+	 *
+	 */
+	protected function getDatepickerLabels($file) {
+		static $cache = [];
+		if(isset($cache[$file])) return $cache[$file];
+		$labels = [];
+		$source = file_get_contents($file);
+		if($source === false) return [];
+		$quoted = '"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'';
+		$pattern = '~\b(monthNames|monthNamesShort|dayNames|dayNamesShort)\s*:\s*\[((?:\s*(?:' . $quoted . ')\s*,?)+)\]~s';
+		preg_match_all($pattern, $source, $arrays, PREG_SET_ORDER);
+		foreach($arrays as $array) {
+			preg_match_all('~' . $quoted . '~s', $array[2], $strings);
+			$values = [];
+			foreach($strings[0] as $string) {
+				if($string[0] === "'") {
+					$string = '"' . str_replace(["\\'", '"'], ["'", '\\"'], substr($string, 1, -1)) . '"';
+				}
+				$value = json_decode($string, true);
+				if(!is_string($value)) continue 2;
+				$values[] = $value;
+			}
+			$labels[$array[1]] = $values;
+		}
+		$cache[$file] = $labels;
+		return $labels;
+	}
+
+	/**
+	 * Parse only the format's named date components as localized calendar words.
+	 *
+	 * @param string $value
+	 * @param string $format
+	 * @return int|false
+	 *
+	 */
+	protected function parseInputValue($value, $format) {
+		$tokens = ['F' => 'monthNames', 'M' => 'monthNamesShort', 'l' => 'dayNames', 'D' => 'dayNamesShort'];
+		$pattern = '';
+		$groups = [];
+		$labels = null;
+		$config = $this->wire()->config;
+		for($n = 0; $n < strlen($format); $n++) {
+			$c = $format[$n];
+			if($c === '\\' && isset($format[$n + 1])) {
+				$pattern .= preg_quote($format[++$n], '~');
+			} else if(isset($tokens[$c])) {
+				if($labels === null) {
+					$file = $this->getDatepickerLanguageFile();
+					$labels = $file ? $this->getDatepickerLabels($config->paths->root . $file) : [];
+					$labels = array_replace($labels, (array) $config->js('InputfieldDatetimeDatepickerDefaults'),
+						$this->inputfield->datepickerOptions(), (array) $config->js('InputfieldDatetimeDatepickerOptions'));
+				}
+				$words = [];
+				$count = $c === 'F' || $c === 'M' ? 12 : 7;
+				foreach(range(0, $count - 1) as $i) {
+					$ts = $count === 12 ? mktime(12, 0, 0, $i + 1, 15, 2000) : mktime(12, 0, 0, 1, $i + 2, 2000);
+					$english = date($c, $ts);
+					$words[$english] = $english;
+					$words[$this->wire()->datetime->date($c, $ts)] = $english;
+				}
+				foreach((array) ($labels[$tokens[$c]] ?? []) as $i => $label) {
+					if(!is_string($label) || !strlen($label) || !is_int($i) || $i < 0 || $i >= $count) continue;
+					$ts = $count === 12 ? mktime(12, 0, 0, $i + 1, 15, 2000) : mktime(12, 0, 0, 1, $i + 2, 2000);
+					$words[$label] = date($c, $ts);
+				}
+				uksort($words, function($a, $b) { return strlen($b) - strlen($a); });
+				$name = 'word' . count($groups);
+				$groups[$name] = $words;
+				$pattern .= '(?<' . $name . '>' . implode('|', array_map(function($word) { return preg_quote($word, '~'); }, array_keys($words))) . ')';
+			} else if(strpos('djmntLoYyNSwzWBgGhHisuveIOPTZcrU', $c) !== false) {
+				$pattern .= '.+?'; // The native format parser validates these components afterward.
+			} else {
+				$pattern .= $c === ' ' ? '\s+' : preg_quote($c, '~');
+			}
+		}
+		if(count($groups) && preg_match('~\A' . $pattern . '\z~isu', $value, $matches, PREG_OFFSET_CAPTURE)) {
+			foreach(array_reverse($groups, true) as $name => $words) {
+				foreach($words as $word => $english) {
+					if(!preg_match('~\A' . preg_quote($word, '~') . '\z~iu', $matches[$name][0])) continue;
+					$value = substr_replace($value, $english, $matches[$name][1], strlen($matches[$name][0]));
+					break;
+				}
+			}
+		}
+		return parent::parseInputValue($value, $format);
 	}
 	
 	/**

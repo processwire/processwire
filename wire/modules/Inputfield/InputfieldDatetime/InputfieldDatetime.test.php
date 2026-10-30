@@ -11,6 +11,13 @@ class WireTest_InputfieldDatetime extends WireTest {
 		$this->testAttributeAndSettingNormalization();
 		$this->testHtmlInputProcessingAndRendering();
 		$this->testTextInputProcessingAndRendering();
+		$this->testInvalidSubmittedValues();
+		$this->testSubmittedFormats();
+		$this->testLanguageInputFormats();
+		$this->testDatepickerWordOverrides();
+		$this->testBundledDatepickerWords();
+		$this->testInputValidationBoundaries();
+		$this->testValidationFeedback();
 		$this->testSelectInputProcessingAndRendering();
 		$this->testDatepickerOptionsAndRenderValue();
 	}
@@ -129,6 +136,314 @@ class WireTest_InputfieldDatetime extends WireTest {
 		$this->check('render(text) includes formatted value', true, strpos($html, "value='2026-07-10 16:45'") !== false);
 		$this->check('render(text) includes JS date format data', true, strpos($html, "data-dateformat='yy-mm-dd'") !== false);
 		$this->check('render(text) includes custom datepicker option', true, strpos($html, '&quot;numberOfMonths&quot;:2') !== false);
+	}
+
+	/**
+	 * Invalid submissions must report an error without replacing a valid existing value.
+	 *
+	 */
+	protected function testInvalidSubmittedValues() {
+		$previous = strtotime('2026-07-10 14:30:00');
+		$cases = [];
+		foreach([InputfieldDatetime::datepickerNo, InputfieldDatetime::datepickerFocus] as $picker) {
+			foreach(['2015', 'October', 'Friday', 'check with Bob', '2026-02-31', '2026-02-28 trailing', '26-10-05', '999-10-05', '0', ['2026-02-28']] as $value) {
+				$cases[] = [['datepicker' => $picker], ['event_invalid' => $value]];
+			}
+		}
+		$cases[] = [['timeInputFormat' => 'H:i'], ['event_invalid' => '2026-02-28 25:00']];
+		$cases[] = [['dateInputFormat' => 'j F Y'], ['event_invalid' => '31 February 2026']];
+		$cases[] = [['dateInputFormat' => 'l, F j, Y'], ['event_invalid' => 'Friday, February 28, 2026']];
+		foreach(['2015', '2026-02-31', '26-10-05', 'check with Bob', ['2026-02-28']] as $value) {
+			$cases[] = [['inputType' => 'html', 'htmlType' => 'date'], ['event_invalid' => $value]];
+		}
+		foreach(['25:00', 'check with Bob', ['09:30']] as $value) {
+			$cases[] = [['inputType' => 'html', 'htmlType' => 'time'], ['event_invalid' => $value]];
+		}
+		foreach([
+			['event_invalid' => '2026-02-31', 'event_invalid__time' => '09:30'],
+			['event_invalid' => '26-10-05', 'event_invalid__time' => '09:30'],
+			['event_invalid' => '2026-02-28', 'event_invalid__time' => '25:00'],
+			['event_invalid' => '2026-02-28', 'event_invalid__time' => ['09:30']],
+		] as $data) {
+			$cases[] = [['inputType' => 'html', 'htmlType' => 'datetime'], $data];
+		}
+		foreach($cases as $n => $case) {
+			list($settings, $data) = $case;
+			$f = $this->newInputfield('event_invalid');
+			$f->setArray($settings);
+			$f->val($previous);
+			$f->resetTrackChanges();
+			$f->processInput($this->wire(new WireInputData($data)));
+			$this->check("Invalid submission $n retains previous value", $previous, $f->val());
+			$this->check("Invalid submission $n reports a field error", true, count($f->getErrors(true)) > 0);
+			$this->check("Invalid submission $n does not track a value change", false, $f->isChanged('value'));
+		}
+		foreach(['text', 'date', 'time', 'datetime'] as $type) {
+			$f = $this->newInputfield('event_invalid');
+			if($type !== 'text') $f->setArray(['inputType' => 'html', 'htmlType' => $type]);
+			$f->val($previous);
+			$data = [];
+			$f->processInput($this->wire(new WireInputData($data)));
+			$this->check("Omitted $type input retains previous value", $previous, $f->val());
+			$this->check("Omitted $type input has no field error", [], $f->getErrors(true));
+			$data = ['event_invalid' => '', 'event_invalid__time' => ''];
+			$f->processInput($this->wire(new WireInputData($data)));
+			$this->check("Blank $type input clears previous value", '', $f->val());
+			$this->check("Blank $type input has no field error", [], $f->getErrors(true));
+		}
+	}
+
+	/**
+	 * Validate configured formats without changing timestamp assignment through the API.
+	 *
+	 */
+	protected function testSubmittedFormats() {
+		$timestamp = strtotime('2026-07-10 14:35:30');
+		$datetime = $this->wire()->datetime;
+		foreach($datetime->getDateFormats() as $format) {
+			$f = $this->newInputfield('event_format');
+			$f->dateInputFormat = $format;
+			$data = ['event_format' => date($format, $timestamp)];
+			$f->processInput($this->wire(new WireInputData($data)));
+			$this->check("Submitted date format $format parses correctly", date('Y-m-d', $timestamp), date('Y-m-d', (int) $f->val()));
+			$this->check("Submitted date format $format has no field error", [], $f->getErrors(true));
+		}
+		foreach($datetime->getTimeFormats() as $format) {
+			if(strpos($format, '!') === 0) continue;
+			$f = $this->newInputfield('event_format');
+			$f->timeInputFormat = $format;
+			$data = ['event_format' => date("Y-m-d $format", $timestamp)];
+			$f->processInput($this->wire(new WireInputData($data)));
+			$this->check("Submitted time format $format parses correctly", date("Y-m-d $format", $timestamp), date("Y-m-d $format", (int) $f->val()));
+			$this->check("Submitted time format $format has no field error", [], $f->getErrors(true));
+		}
+		foreach([
+			['Y-m-d', '', '2026-2-8', strtotime('2026-02-08')],
+			['Y-m-d', 'H:i', '2026-02-28', strtotime('2026-02-28')],
+			['Y-m-d', 'H:i:s', '2026-01-05 14:30', strtotime('2026-01-05 14:30:00')],
+			['Y-m-d', 'g:i:s A', '2026-01-05 2:30 PM', strtotime('2026-01-05 14:30:00')],
+			['', 'H:i:s', '14:30', strtotime(date('Y-m-d') . ' 14:30:00')],
+			['y-m-d', '', '26-10-05', strtotime('2026-10-05')],
+			['Y-m-d', '', '1000-10-05', strtotime('1000-10-05')],
+			['Ymd', '', '20260228', strtotime('2026-02-28')],
+			['Y', '', '2015', strtotime('2015-01-01')],
+			['U', '', '2015', 2015],
+			['U', '', '0', 0],
+			['U', '', '-2015', -2015],
+			['Y-m-d\\T', 'H:i', '2026-02-28T 09:30', strtotime('2026-02-28 09:30')],
+			['', 'H:i', '09:30', strtotime(date('Y-m-d') . ' 09:30')],
+			['n/j', '', '2/28', strtotime(date('Y') . '-02-28')],
+			['Y-m', '', '2026-02', strtotime('2026-02-01')],
+			['c', '', date('c', $timestamp), $timestamp],
+			['r', '', date('r', $timestamp), $timestamp],
+		] as $case) {
+			list($dateFormat, $timeFormat, $value, $expected) = $case;
+			$f = $this->newInputfield('event_format');
+			$f->dateInputFormat = $dateFormat;
+			$f->timeInputFormat = $timeFormat;
+			$data = ['event_format' => $value];
+			$f->processInput($this->wire(new WireInputData($data)));
+			$this->check("Custom format $dateFormat $timeFormat accepts $value", $expected, $f->val());
+			$this->check("Custom format $dateFormat $timeFormat has no field error", [], $f->getErrors(true));
+		}
+		$f = $this->newInputfield('event_format');
+		foreach([2015, '2015', -2015, 0] as $value) {
+			$f->val($value);
+			$this->check("API timestamp assignment still accepts $value", (int) $value, $f->val());
+		}
+	}
+
+	/**
+	 * Use each user's configured language format, not the default-language format.
+	 *
+	 */
+	protected function testLanguageInputFormats() {
+		$languages = $this->wire()->languages;
+		if(!$languages) return;
+		$users = $this->wire()->users;
+		$originalUser = $this->wire()->user;
+		try {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$user = clone $originalUser;
+				$user->language = $language;
+				$users->setCurrentUser($user);
+				$f = $this->newInputfield('event_language');
+				$f->set('dateInputFormat' . $language->id, 'd.m.Y');
+				$data = ['event_language' => '28.02.2026'];
+				$f->processInput($this->wire(new WireInputData($data)));
+				$previous = strtotime('2026-02-28');
+				$this->check("Language $language->name accepts its configured date format", $previous, $f->val());
+				$data = ['event_language' => '31.02.2026'];
+				$f->processInput($this->wire(new WireInputData($data)));
+				$this->check("Language $language->name retains previous date on invalid input", $previous, $f->val());
+				$this->check("Language $language->name reports invalid input", true, count($f->getErrors(true)) > 0);
+				$cases = [];
+				if($language->name === 'de') $cases = [
+					['l, d.m.Y', 'Samstag, 28.02.2026', '2026-02-28'],
+					['j F Y', '28 Februar 2026', '2026-02-28'],
+					['j F Y', '1 MÄRZ 2026', '2026-03-01'],
+					['j M Y', '1 Mär 2026', '2026-03-01'],
+					['l, j F Y', 'Freitag, 28 Februar 2026', false],
+					['j F Y', '31 Februar 2026', false],
+				];
+				if($language->name === 'fi') $cases = [
+					['l, j F Y', 'Lauantai, 28 Helmikuu 2026', '2026-02-28'],
+					['D, j M Y', 'La, 28 Helmi 2026', '2026-02-28'],
+					['j F Y', '31 Helmikuu 2026', false],
+				];
+				foreach($cases as $case) {
+					list($format, $raw, $expected) = $case;
+					$f->set('dateInputFormat' . $language->id, $format);
+					$f->val($previous);
+					$data = ['event_language' => $raw];
+					$f->processInput($this->wire(new WireInputData($data)));
+					$this->check("Localized input $raw", $expected === false ? $previous : strtotime($expected), $f->val());
+					$this->check("Localized input $raw reports errors only when invalid", $expected === false, count($f->getErrors(true)) > 0);
+				}
+			}
+		} finally {
+			$users->setCurrentUser($originalUser);
+		}
+	}
+
+	/**
+	 * Normalize only named date components, including custom calendar labels.
+	 *
+	 */
+	protected function testDatepickerWordOverrides() {
+		$f = $this->newInputfield('event_words');
+		$months = [];
+		$days = [];
+		for($n = 1; $n <= 12; $n++) $months[] = 'Month' . $n;
+		for($n = 0; $n < 7; $n++) $days[] = 'Day' . $n;
+		$f->datepickerOptions(['monthNames' => $months, 'dayNames' => $days]);
+		$f->dateInputFormat = 'l, j F Y \\M\\o\\n\\t\\h2';
+		$data = ['event_words' => 'Day6, 28 Month2 2026 Month2'];
+		$f->processInput($this->wire(new WireInputData($data)));
+		$this->check('Custom calendar words parse without replacing matching literal text', strtotime('2026-02-28'), $f->val());
+		$this->check('Custom calendar words have no field error', [], $f->getErrors(true));
+		$data = ['event_words' => 'Day5, 28 Month2 2026 Month2'];
+		$f->processInput($this->wire(new WireInputData($data)));
+		$this->check('Custom calendar words do not hide weekday conflicts', true, count($f->getErrors(true)) > 0);
+	}
+
+	/**
+	 * Check the shipped static language files, including punctuation and non-Latin labels.
+	 *
+	 */
+	protected function testBundledDatepickerWords() {
+		$f = $this->newInputfield('event_locale');
+		$type = $f->getInputType('text');
+		$method = new \ReflectionMethod($type, 'getDatepickerLabels');
+		$method->setAccessible(true);
+		$files = glob($this->wire()->config->paths->wire . 'modules/Jquery/JqueryUI/i18n/jquery.ui.datepicker-*.js');
+		$this->check('Bundled calendar language files are available', true, count($files) > 0);
+		foreach($files as $file) {
+			$labels = $method->invoke($type, $file);
+			$name = basename($file, '.js');
+			foreach(['monthNames' => 12, 'monthNamesShort' => 12, 'dayNames' => 7, 'dayNamesShort' => 7] as $key => $count) {
+				$this->check("$name provides $key labels", $count, count($labels[$key] ?? []));
+			}
+			foreach([
+				['l, j F Y', $labels['dayNames'][5] . ', 10 ' . $labels['monthNames'][6] . ' 2026'],
+				['D, j M Y', $labels['dayNamesShort'][5] . ', 10 ' . $labels['monthNamesShort'][6] . ' 2026'],
+			] as $case) {
+				$f = $this->newInputfield('event_locale');
+				$f->dateInputFormat = $case[0];
+				$f->datepickerOptions($labels);
+				$data = ['event_locale' => $case[1]];
+				$f->processInput($this->wire(new WireInputData($data)));
+				$this->check("$name parses $case[0]", strtotime('2026-07-10'), $f->val());
+				$this->check("$name accepts its localized date words", [], $f->getErrors(true));
+			}
+		}
+	}
+
+	/**
+	 * Check calendar boundaries and integration with the normal form error renderer.
+	 *
+	 */
+	protected function testInputValidationBoundaries() {
+		$f = $this->newInputfield('event_boundary');
+		$form = $this->wire()->modules->get('InputfieldForm');
+		$form->protectCSRF = false; // This test processes synthetic input, not an HTTP submission.
+		$form->add($f);
+		$previous = strtotime('2026-02-28');
+		$f->val($previous);
+		$form->resetTrackChanges();
+		$f->resetTrackChanges();
+		$data = ['event_boundary' => '2026-02-31'];
+		$form->processInput($this->wire(new WireInputData($data)));
+		$this->check('Invalid form submission retains previous value', $previous, $f->val());
+		$this->check('Invalid form submission does not mark form value changed', false, $form->isChanged('event_boundary'));
+		$html = $form->render();
+		$this->check('Normal form renderer displays the validation error', true, strpos($html, 'Invalid date/time') !== false);
+		$this->check('Normal form renderer identifies the rejected input', true, strpos($html, '2026-02-31') !== false);
+		$this->check('Normal form renderer displays the retained date', true, strpos($html, '2026-02-28') !== false);
+		$f->getErrors(true);
+
+		foreach([
+			['date', ['event_boundary' => '2024-02-29'], strtotime('2024-02-29')],
+			['datetime', ['event_boundary' => '2026-02-28', 'event_boundary__time' => ''], strtotime('2026-02-28')],
+			['datetime', ['event_boundary' => '', 'event_boundary__time' => '09:30'], strtotime(date('Y-m-d') . ' 09:30')],
+			['time', ['event_boundary' => '09:30:45.123'], strtotime('2010-04-08 09:30:45')],
+		] as $case) {
+			list($type, $data, $expected) = $case;
+			$f = $this->newInputfield('event_boundary');
+			$f->inputType = 'html';
+			$f->htmlType = $type;
+			$f->processInput($this->wire(new WireInputData($data)));
+			$this->check("Valid HTML $type boundary parses correctly", $expected, $f->val());
+			$this->check("Valid HTML $type boundary has no field error", [], $f->getErrors(true));
+		}
+
+		$timezone = date_default_timezone_get();
+		try {
+			date_default_timezone_set('America/New_York');
+			foreach(['text', 'html'] as $type) {
+				$f = $this->newInputfield('event_boundary');
+				$f->setArray(['inputType' => $type, 'htmlType' => 'datetime', 'timeInputFormat' => 'H:i']);
+				$previous = strtotime('2026-03-07 14:30');
+				$f->val($previous);
+				$data = $type === 'text' ? ['event_boundary' => '2026-03-08 02:30'] : ['event_boundary' => '2026-03-08', 'event_boundary__time' => '02:30'];
+				$f->processInput($this->wire(new WireInputData($data)));
+				$this->check("Nonexistent DST time in $type input retains previous value", $previous, $f->val());
+				$this->check("Nonexistent DST time in $type input reports an error", true, count($f->getErrors(true)) > 0);
+			}
+		} finally {
+			date_default_timezone_set($timezone);
+		}
+	}
+
+	/**
+	 * Retain useful rejected input in errors without interpreting it as HTML or Markdown.
+	 *
+	 */
+	protected function testValidationFeedback() {
+		$f = $this->newInputfield('event_feedback');
+		$f->dateInputFormat = 'j F Y';
+		$data = ['event_feedback' => 'check with Bob'];
+		$f->processInput($this->wire(new WireInputData($data)));
+		$errors = implode(' ', $f->getErrors(true));
+		$this->check('Validation error identifies the rejected text', true, strpos($errors, '"check with Bob"') !== false);
+		$this->check('Validation error example uses the localized date API', true, strpos($errors, $this->wire()->datetime->date('j F Y')) !== false);
+		$modes = [[true, Inputfield::textFormatBasic], [false, Inputfield::textFormatBasic]];
+		if($this->wire()->modules->isInstalled('TextformatterMarkdownExtra')) $modes[] = [true, Inputfield::textFormatMarkdown];
+		foreach($modes as $n => $mode) {
+			$f = $this->newInputfield('event_feedback');
+			$f->entityEncodeText = $mode[0];
+			$f->textFormat = $mode[1];
+			$form = $this->wire()->modules->get('InputfieldForm');
+			$form->add($f);
+			$data = ['event_feedback' => '<em>bad</em> [link](https://example.invalid/)'];
+			$f->processInput($this->wire(new WireInputData($data)));
+			$html = $form->render();
+			$this->check("Rejected text is not HTML in error mode $n", false, strpos($html, '<em>bad</em>') !== false);
+			$this->check("Rejected text is not a link in error mode $n", false, strpos($html, 'href="https://example.invalid/') !== false);
+			$this->check("Rejected text is still represented in error mode $n", true, strpos($html, 'bad') !== false);
+			$f->getErrors(true);
+		}
 	}
 
 	/**

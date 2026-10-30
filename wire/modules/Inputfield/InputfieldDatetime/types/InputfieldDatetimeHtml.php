@@ -134,28 +134,46 @@ class InputfieldDatetimeHtml extends InputfieldDatetimeType {
 	public function processInput(WireInputData $input) {
 		
 		$name = $this->getAttribute('name');
-		$value = $input->$name;
-		
-		switch($this->getSetting('htmlType')) {
+		$type = $this->getSetting('htmlType');
+		$timeName = $name . '__time';
+		if(!isset($input[$name]) && ($type !== 'datetime' || !isset($input[$timeName]))) {
+			return $this->getAttribute('value');
+		}
+		$value = $input[$name];
+		$timeValue = $type === 'datetime' ? $input[$timeName] : '';
+		$format = $type === 'time' ? 'H:i' : 'Y-m-d';
+		if($type === 'datetime') $format .= ' H:i';
+		if(($value !== null && !is_scalar($value)) || ($timeValue !== null && !is_scalar($timeValue))) {
+			return $this->invalidInput($format);
+		}
+		$value = trim((string) $value);
+		$timeValue = trim((string) $timeValue);
+		if(!strlen($value) && !strlen($timeValue)) return '';
+		$submittedValue = trim("$value $timeValue");
+
+		switch($type) {
 			case 'datetime':
-				$dateValue = trim($input->$name);
-				$timeName = $name . '__time';
-				$timeValue = trim($input->$timeName);
 				// if time present but no date, substitute today's date
-				if(!strlen($dateValue) && strlen($timeValue)) $dateValue = date('Y-m-d'); 
-				$value = strlen($dateValue) ? strtotime(trim("$dateValue $timeValue")) : '';
-				if($value === false) $value = '';
+				if(!strlen($value)) $value = date('Y-m-d');
+				$value .= ' ' . (strlen($timeValue) ? $timeValue : '00:00');
+				$formats = ['Y-m-d H:i', 'Y-m-d H:i:s', 'Y-m-d H:i:s.u'];
 				break;
 			case 'date':
+				$value .= ' ' . $this->inputfield->subTime();
+				$formats = ['Y-m-d H:i:s'];
+				break;
 			case 'time':
-				$value = $this->sanitizeValue($value);
+				$value = $this->inputfield->subDate() . ' ' . $value;
+				$formats = ['Y-m-d H:i', 'Y-m-d H:i:s', 'Y-m-d H:i:s.u'];
 				break;
 			default:
-				$value = $value ? strtotime($value) : '';
-				if($value === false) $value = '';
+				$formats = [$format];
 		}
-		
-		return $value; 
+		foreach($formats as $inputFormat) {
+			$timestamp = $this->parseInputValue($value, $inputFormat);
+			if($timestamp !== false) return $timestamp;
+		}
+		return $this->invalidInput($format, $submittedValue);
 	}
 	
 	public function sanitizeValue($value) {
