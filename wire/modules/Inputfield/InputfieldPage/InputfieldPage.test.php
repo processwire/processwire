@@ -187,6 +187,9 @@ class WireTest_InputfieldPage extends WireTest {
 		$this->check('render includes selected page option label', $page->title, $html, '*=');
 
 		// unpublished and hidden pages are identified with the same classes as in the page list (#2044)
+		// use the cached copy of the page, which is what the inputfield loads, rather than a copy
+		// that earlier tests may have uncached
+		$page = $this->wire()->pages->get($page->id);
 		$status = $page->status; // statuses below are set in memory only, never saved
 		$page->setQuietly('status', $status & ~Page::statusUnpublished & ~Page::statusHidden);
 		$visibleClass = $f->getPageStatusClass($page);

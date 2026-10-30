@@ -137,6 +137,9 @@ class WireTest_InputfieldPageAutocomplete extends WireTest {
 		$this->check('renderList returns ordered list', '<ol ', $list, '*=');
 		$this->check('renderList includes template item', 'itemTemplate', $list, '*=');
 		$this->check('renderList includes selected page id', (string) $page->id, $list, '*=');
+		// use the cached copy of the page, which is what the inputfield loads, rather than a copy
+		// that earlier tests may have uncached
+		$page = $this->wire()->pages->get($page->id);
 		$status = $page->status; // statuses below are set in memory only, never saved
 		$page->setQuietly('status', $status & ~Page::statusUnpublished & ~Page::statusHidden);
 		$visibleList = $f->renderList();

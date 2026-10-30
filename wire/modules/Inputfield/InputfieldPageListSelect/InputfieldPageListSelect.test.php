@@ -114,6 +114,9 @@ class WireTest_InputfieldPageListSelect extends WireTest {
 		$this->check('multiple render includes root data attribute', true, strpos($html, 'data-root="1"') !== false);
 		$this->check('multiple render includes selected label data attribute', true, strpos($html, 'data-selected="Selected"') !== false);
 		$this->check('multiple render stores CSV value', true, strpos($html, "value='$page->id'") !== false);
+		// use the cached copy of the page, which is what the inputfield loads, rather than a copy
+		// that earlier tests may have uncached
+		$page = $this->wire()->pages->get($page->id);
 		$status = $page->status; // statuses below are set in memory only, never saved
 		$page->setQuietly('status', $status & ~Page::statusUnpublished & ~Page::statusHidden);
 		$visibleHtml = $f->render();
