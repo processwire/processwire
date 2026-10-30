@@ -423,6 +423,7 @@ class PagesNames extends Wire {
 	 *
 	 * The returned value is not yet assigned to the given $page, so if it is something different than what
 	 * is already on $page, you’ll want to assign it manually after this.
+	 * Existing numbers are treated as part of the requested name. A collision adds a new numbered suffix.
 	 * 
 	 * #pw-group-generators
 	 *
@@ -514,7 +515,8 @@ class PagesNames extends Wire {
 			if(++$n > 5 || $fallbackFormat === 'random') {
 				$name = $this->uniqueRandomPageName([ 'confirm' => false ]);
 			} else {
-				$name = $this->incrementName($name);
+				// Preserve the requested name; only increment a suffix added by this search.
+				$name = $n === 1 ? $name . $this->delimiter . '1' : $this->incrementName($name);
 			}
 			if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
 		}
@@ -892,7 +894,8 @@ class PagesNames extends Wire {
 					if(++$numIncrements > 5) {
 						$page->name = $this->uniqueRandomPageName([ 'confirm' => false ]);
 					} else {
-						$page->name = $this->incrementName($page->name);
+						$page->name = $numIncrements === 1 ?
+							$this->adjustNameLength($page->name . $this->delimiter . '1') : $this->incrementName($page->name);
 					}
 				}
 				

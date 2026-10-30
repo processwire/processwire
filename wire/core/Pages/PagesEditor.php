@@ -752,6 +752,8 @@ class PagesEditor extends Wire {
 
 		$tries = 0;
 		$maxTries = 100;
+		// Starting values distinguish requested numbers from suffixes added by this query's retries.
+		$options['_nameValues'] = $data;
 
 		do {
 			$result = false;
@@ -818,7 +820,10 @@ class PagesEditor extends Wire {
 		// get either 'name' or 'name123' (where 123 is language ID)
 		$pageName = $page->get($nameField);
 		$pageNamePrev = $pageName;
-		$pageName = $this->pages->names()->incrementName($pageName);
+		$nameWasAdjusted = isset($options['_nameValues'][$nameField]) &&
+			$options['_nameValues'][$nameField] !== $sanitizer->pageName($pageName, Sanitizer::toAscii);
+		$pageName = $nameWasAdjusted ? $this->pages->names()->incrementName($pageName) :
+			$this->pages->names()->adjustNameLength($pageName . '-1');
 		if($pageName != $pageNamePrev) $verboseData['messages'][] = "Adjusted name from '$pageNamePrev' to '$pageName'";
 		$page->set($nameField, $pageName);
 		$query->bindValue(":$nameField", $sanitizer->pageName($pageName, Sanitizer::toAscii));

@@ -43,6 +43,8 @@ class WireTest_Pages extends WireTest {
 		$this->testFindingPages();
 		$this->testCreatingInstances();
 		$this->testPageNameFormats();
+		$this->testPageNameNumericSuffixes();
+		$this->testPageNameLanguageSuffixes();
 		$this->testPageNameConflicts();
 		$this->testCreatingSavingSortingAndDeletingPages();
 		$this->testSortRebuild();
@@ -297,12 +299,157 @@ class WireTest_Pages extends WireTest {
 
 		$probe = $pages->newPage(array('template' => $this->childTemplateName, 'parent' => $parent, 'name' => "$name-19"));
 		$names->checkNameConflicts($probe);
-		$this->check('A small number of conflicts still increments an existing numeric suffix', "$name-20", $probe->name);
+		$this->check('A conflicting requested numeric suffix is preserved', "$name-19-1", $probe->name);
 
 		$previousName = $page->name;
 		$page->name = $name;
 		$names->checkNameConflicts($page);
 		$this->check('Conflicting rename restores the previous name', $previousName, $page->name);
+	}
+
+	/**
+	 * A requested trailing number is content, not necessarily a collision suffix (#1192).
+	 */
+	protected function testPageNameNumericSuffixes() {
+		$pages = $this->wire()->pages;
+		$names = $pages->names();
+		$parent = $this->getTestPage();
+		foreach(['title', 'name'] as $source) {
+			$base = "pages-test-$source-2018";
+			$items = [];
+			for($i = 0; $i < 3; $i++) {
+				$values = ['template' => $this->childTemplateName, 'parent' => $parent, 'title' => $base];
+				if($source === 'name') $values['name'] = $base;
+				$item = $pages->newPage($values);
+				$item->save();
+				$this->createdPageIDs[$item->id] = $item->id;
+				$items[] = $item;
+				$expected = $base . ($i ? "-$i" : '');
+				$this->check("$source collision $i preserves the requested year", $expected, $pages->getFresh($item->id)->name);
+			}
+			$this->check("uniquePageName preserves the full $source base", "$base-3",
+				$names->uniquePageName($base, null, ['parent' => $parent]));
+			$this->check("uniquePageName preserves an explicitly requested suffix ($source)", "$base-1-1",
+				$names->uniquePageName("$base-1", null, ['parent' => $parent]));
+			$copy = $pages->clone($items[0], null, false);
+			$this->createdPageIDs[$copy->id] = $copy->id;
+			$this->check("cloning preserves the requested year ($source)", "$base-3", $copy->name);
+			$copy = $pages->clone($items[1], null, false);
+			$this->createdPageIDs[$copy->id] = $copy->id;
+			$this->check("cloning preserves an existing suffix ($source)", "$base-1-1", $copy->name);
+		}
+
+		// The low-level increment helper still means explicitly increment the final number.
+		$this->check('incrementName retains its explicit increment behavior', 'october-2019', $names->incrementName('october-2018'));
+
+		foreach(['pages-test-code-007', str_repeat('a', Pages::nameMaxLength - 5) . '-2018'] as $base) {
+			for($i = 0; $i < 2; $i++) {
+				$item = $pages->add($this->childTemplateName, $parent, ['name' => $base, 'title' => $base]);
+				$this->createdPageIDs[$item->id] = $item->id;
+				$this->check('numeric names remain within the length limit', true, strlen($item->name) <= Pages::nameMaxLength);
+				$this->check('numeric name remains conflict-free', false, $names->pageNameHasConflict($item));
+			}
+			if(strpos($base, '007') !== false) {
+				$this->check('collision preserves leading zeros in the requested name', "$base-1", $item->name);
+			}
+		}
+
+		// A race after the pre-save conflict check must preserve the base on its first retry.
+		$base = 'pages-test-race-2018';
+		$item = $pages->newPage(['template' => $this->childTemplateName, 'parent' => $parent, 'name' => $base, 'title' => $base]);
+		// A flag left by an earlier save must not be mistaken for a suffix added by this retry.
+		$names->hasAdjustedName($item, true);
+		$hook = $pages->addHookBefore('saveReady', function(HookEvent $e) use($pages, $parent, $base, $item) {
+			if($e->arguments(0) !== $item) return;
+			foreach([$base, "$base-1"] as $name) {
+				$blocker = $pages->add($this->childTemplateName, $parent, ['name' => $name, 'title' => $name]);
+				$this->createdPageIDs[$blocker->id] = $blocker->id;
+			}
+		});
+		try {
+			$item->save();
+			$this->createdPageIDs[$item->id] = $item->id;
+			$this->check('database retries increment only their newly added suffix', "$base-2", $pages->getFresh($item->id)->name);
+		} finally {
+			$pages->removeHook($hook);
+		}
+
+		$item = $pages->newPage(['template' => $this->childTemplateName, 'parent' => $parent, 'name' => $base, 'title' => $base]);
+		$failed = false;
+		try {
+			$item->save(['adjustName' => false]);
+			$this->createdPageIDs[$item->id] = $item->id;
+		} catch(\PDOException $e) {
+			$failed = true;
+		}
+		$this->check('adjustName=false still rejects an explicitly requested duplicate', true, $failed);
+	}
+
+	/**
+	 * Preserve translated names during generation, cloning, and duplicate-entry retries.
+	 */
+	protected function testPageNameLanguageSuffixes() {
+		if(!$this->wire()->modules->isInstalled('LanguageSupportPageNames')) return;
+		$pages = $this->wire()->pages;
+		$parent = $this->getTestPage();
+		$base = 'pages-test-language-2018';
+		$languages = [];
+		foreach($this->wire()->languages as $language) {
+			if(!$language->isDefault()) $languages[] = $language;
+		}
+		if(!count($languages)) return;
+		$items = [];
+		for($i = 0; $i < 3; $i++) {
+			$item = $pages->newPage(['template' => $this->childTemplateName, 'parent' => $parent,
+				'name' => "$base-$i", 'title' => $base]);
+			foreach($languages as $language) {
+				$name = $pages->names()->uniquePageName($base, $item, ['language' => $language]);
+				$item->set("name$language->id", $name);
+			}
+			$item->save();
+			$this->createdPageIDs[$item->id] = $item->id;
+			$items[] = $pages->getFresh($item->id);
+			$this->check('translated-name generation leaves the default name unchanged', "$base-$i", $item->name);
+			foreach($languages as $language) {
+				$this->check("$language->name collision $i preserves the requested year", $base . ($i ? "-$i" : ''),
+					$items[$i]->get("name$language->id"));
+			}
+		}
+		$copy = $pages->clone($items[0], null, false);
+		$this->createdPageIDs[$copy->id] = $copy->id;
+		foreach($languages as $language) {
+			$this->check("cloning preserves the year in $language->name", "$base-3", $pages->getFresh($copy->id)->get("name$language->id"));
+		}
+		$copy = $pages->clone($items[1], null, false);
+		$this->createdPageIDs[$copy->id] = $copy->id;
+		foreach($languages as $language) {
+			$this->check("cloning preserves the existing suffix in $language->name", "$base-1-1", $pages->getFresh($copy->id)->get("name$language->id"));
+		}
+
+		// Current translated-name indexes are non-unique. Simulate legacy duplicate-key
+		// exceptions to exercise the retry handler without changing the site's indexes.
+		$probe = $pages->newPage(['template' => $this->childTemplateName, 'parent' => $parent, 'name' => $base]);
+		$values = ['name' => $base];
+		foreach($languages as $language) {
+			$field = "name$language->id";
+			$probe->set($field, $base);
+			$values[$field] = $base;
+		}
+		$names = $pages->names();
+		$names->hasAdjustedName($probe, true);
+		$query = $this->wire()->database->prepare('SELECT :' . implode(', :', array_keys($values)));
+		$method = new \ReflectionMethod($pages->editor(), 'savePageQueryException');
+		if(PHP_VERSION_ID < 80100) $method->setAccessible(true);
+		$options = ['adjustName' => true, '_nameValues' => $values];
+		$verbose = ['messages' => []];
+		for($i = 1; $i <= 2; $i++) {
+			foreach($values as $field => $value) {
+				$exception = new \PDOException("Duplicate entry for key '{$field}_parent_id'", 23000);
+				$retry = $method->invokeArgs($pages->editor(), [$probe, $query, $exception, $options, &$verbose]);
+				$this->check("$field duplicate-entry handler requests retry $i", true, $retry);
+				$this->check("$field retry $i adjusts only its own suffix", "$base-$i", $probe->get($field));
+			}
+		}
 	}
 
 	public function finish() {
