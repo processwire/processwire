@@ -517,6 +517,17 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 			}
 		}
 
+		$joinFieldNames = $field->get('joinFields');
+		if($joinFieldNames) {
+			// fields to load with the items, i.e. those accessed when iterating them
+			$fields = $this->wire()->fields;
+			foreach(explode(',', $joinFieldNames) as $joinField) {
+				$joinField = $sanitizer->fieldName(trim($joinField));
+				if(!$joinField || $pages->loader()->isNativeColumn($joinField) || !$fields->get($joinField)) continue;
+				$joinFields[$joinField] = $joinField;
+			}
+		}
+
 		if(count($joinFields)) {
 			if(count($tableTemplates)) {
 				// merge joinFields with autojoin fields in template fieldgroups
@@ -766,6 +777,16 @@ class FieldtypePageTable extends FieldtypeMulti implements Module, FieldtypeDoes
 		$f->attr('value', $field->get('sortfields')); 
 		$inputfields->add($f); 
 		
+		$f = $inputfields->InputfieldText;
+		$f->attr('name', 'joinFields');
+		$f->label = $this->_('Join fields');
+		$f->description = $this->_('Enter the names of fields to load with the items, separated by commas, i.e. "summary, date".') . ' ' .
+			$this->_('This avoids an additional query per item for each of these fields when iterating the items and accessing them.');
+		$f->notes = $this->_('Sort fields are always loaded with the items, as are fields with the “autojoin” option enabled.');
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->attr('value', $field->get('joinFields'));
+		$inputfields->add($f);
+
 		return $inputfields;
 	}
 	

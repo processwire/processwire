@@ -99,5 +99,8 @@ foreach($page->pagetable_field as $item) {
 - When the owning page is deleted, trashed, or unpublished, the configured `trashOnDelete`,
   `unpubOnTrash`, and `unpubOnUnpub` settings control what happens to the item pages.
 - Cloning a page with a PageTable field automatically clones all of its PageTable items.
+- To load fields with the items rather than with one query per item when they are accessed, i.e. when
+  iterating the items in a loop, list them in the field's `joinFields` setting (comma-separated, 3.0.275+).
+  Fields in `sortfields`, and fields with the autojoin option, are always loaded with the items.
 - Database columns: `pages_id INT`, `data INT` (item page ID), `sort INT`.
 - Compatible fieldtypes: `FieldtypePageTable` only.

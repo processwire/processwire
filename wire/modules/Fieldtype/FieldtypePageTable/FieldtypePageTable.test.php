@@ -146,6 +146,58 @@ class WireTest_FieldtypePageTable extends WireTest {
 		$p = $pages->get("template=$template, $name.count=0");
 		if($p->id !== $page->id) $this->fail("Selector failed: $name.count=0");
 		$this->li("Selector passed: $name.count=0");
+
+		$this->testJoinFields();
+	}
+
+	/**
+	 * Fields in the joinFields setting are loaded with the items rather than queried when accessed
+	 *
+	 */
+	protected function testJoinFields() {
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$database = $this->wire()->database;
+		$name = $this->fieldName;
+		$field = $fields->get($name);
+		$itemTemplate = $this->wire()->templates->get($this->itemTemplateName);
+		$textName = WireTests::fieldPrefix . 'pagetable_text';
+		$textField = $fields->get($textName);
+		if(!$textField) $textField = $fields->new('FieldtypeText', $textName);
+		$itemTemplate->fieldgroup->add($textField);
+		$itemTemplate->fieldgroup->save();
+		$debugMode = $database->debugMode;
+		$item = null;
+		try {
+			$page = $pages->getFresh($this->getTestPage()->id);
+			$page->of(false);
+			$item = $page->get($name)->getNewItem();
+			$item->title = 'Join Item';
+			$item->set($textName, 'Joined text');
+			$item->save();
+			$page->save($name);
+			$database->setDebugMode(true);
+			foreach(['' => 1, $textName => 0] as $joinFields => $expected) {
+				$field->joinFields = $joinFields;
+				$pages->uncacheAll();
+				$items = $pages->getFresh($page->id)->get($name);
+				$database->queryLog(true);
+				$value = (string) $items->first()->getUnformatted($textName);
+				$numQueries = count($database->queryLog());
+				$label = $joinFields ? "with joinFields=$joinFields" : 'without joinFields';
+				$this->check("item field value loads $label", 'Joined text', $value);
+				$this->check("queries to access item field $label", $expected, $numQueries);
+			}
+		} finally {
+			$database->queryLog(false);
+			$database->setDebugMode($debugMode);
+			$field->joinFields = '';
+			if($item && $item->id) $pages->delete($item);
+			$itemTemplate->fieldgroup->remove($textField);
+			$itemTemplate->fieldgroup->save();
+			$fields->delete($textField);
+			$pages->uncacheAll();
+		}
 	}
 
 	protected function ensureField() {
