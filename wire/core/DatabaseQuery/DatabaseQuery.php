@@ -735,7 +735,9 @@ abstract class DatabaseQuery extends WireData {
 			
 			try {
 				$query = $this->prepare();
-				$result = $query->execute();
+				// retries are made here rather than by WireDatabasePDO::execute(), since only a newly
+				// prepared query can run again after a lost connection
+				$result = $this->wire()->database->execute($query, true, 0);
 			} catch(\PDOException $e) {
 				$database = $this->wire()->database;
 				$errorType = $database->dialect()->getRetryableErrorType($e);

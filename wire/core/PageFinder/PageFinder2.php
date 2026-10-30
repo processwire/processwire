@@ -1006,8 +1006,7 @@ class PageFinder2 extends Wire {
 			}
 
 			try {
-				$stmt = $query->prepare();
-				$database->execute($stmt);
+				$stmt = $query->execute();
 				$error = '';
 			} catch(\Exception $e) {
 				$this->trackException($e, true);
