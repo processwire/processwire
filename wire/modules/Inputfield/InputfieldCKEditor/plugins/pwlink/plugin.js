@@ -97,13 +97,14 @@
 	function loadIframeLinkPicker(editor) {
 
 		var $in = jQuery("#Inputfield_id"); 
+		var $pwEdit = jQuery("#" + editor.name).closest('.pw-edit');
 		var pageID;
-		if($in.length) {
-			//if($in.hasClass('PageFrontEdit')) {
-			//	var pageID = jQuery("#" + editor.name).closest('.pw-edit').attr('data-page');
-			//} else {
+		if($pwEdit.length) {
+			// front-end editing: the page the field belongs to, which may not be the page being
+			// viewed (that #Inputfield_id refers to), i.e. <edit page="123" field="body">
+			pageID = $pwEdit.attr('data-page');
+		} else if($in.length) {
 			pageID = $in.val();
-			//}
 		} else {
 			pageID = jQuery("#" + editor.name).closest('.Inputfield').attr('data-pid');
 		}

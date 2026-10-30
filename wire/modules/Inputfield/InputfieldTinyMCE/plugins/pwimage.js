@@ -249,7 +249,15 @@ function pwTinyMCE_image(editor) {
 		var $inputfield = $editor.closest('.Inputfield');
 		var $node = $(node);
 		var $in = $("#Inputfield_id");
-		var pageId = $in.length ? $in.val() : $inputfield.attr('data-pid');
+		var $pwEdit = $editor.closest('.pw-edit');
+		var pageId;
+		if($pwEdit.length) {
+			// front-end editing: the page the field belongs to, which may not be the page being
+			// viewed (that #Inputfield_id refers to), i.e. <edit page="123" field="body">
+			pageId = $pwEdit.attr('data-page');
+		} else {
+			pageId = $in.length ? $in.val() : $inputfield.attr('data-pid');
+		}
 		var editPageId = pageId;
 		var src = $node.attr('src');
 		var queryString;

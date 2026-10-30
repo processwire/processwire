@@ -25,8 +25,13 @@ function pwTinyMCE_link(editor) {
 	
 	function getPageId() {
 		var $in = jQuery("#Inputfield_id");
+		var $pwEdit = jQuery("#" + editor.id).closest('.pw-edit');
 		var pageId;
-		if($in.length) {
+		if($pwEdit.length) {
+			// front-end editing: the page the field belongs to, which may not be the page being
+			// viewed (that #Inputfield_id refers to), i.e. <edit page="123" field="body">
+			pageId = $pwEdit.attr('data-page');
+		} else if($in.length) {
 			pageId = $in.val();
 		} else {
 			pageId = $("#" + editor.id).closest('.Inputfield').attr('data-pid');

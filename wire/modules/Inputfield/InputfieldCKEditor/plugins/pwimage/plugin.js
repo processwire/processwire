@@ -78,8 +78,13 @@
 	function loadIframeImagePicker(editor) {
 
 		var $in = jQuery("#Inputfield_id"); 
+		var $pwEdit = jQuery("#" + editor.name).closest('.pw-edit');
 		var page_id;
-		if($in.length) {
+		if($pwEdit.length) {
+			// front-end editing: the page the field belongs to, which may not be the page being
+			// viewed (that #Inputfield_id refers to), i.e. <edit page="123" field="body">
+			page_id = $pwEdit.attr('data-page');
+		} else if($in.length) {
 			page_id = $in.val();
 		} else {
 			page_id = jQuery("#" + editor.name).closest('.Inputfield').attr('data-pid');
