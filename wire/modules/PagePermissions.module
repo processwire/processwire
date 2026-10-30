@@ -9,7 +9,7 @@
  * if(!$page->viewable()) { echo "sorry you can't view this"; }
  * ...and so on...
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * Optional special permissions that are optional (by default, not installed):
@@ -304,6 +304,11 @@ class PagePermissions extends WireData implements Module {
 
 		if($options['viewable']) {
 			// perform viewable checks rather than editable checks
+			if(!$user->isLoggedin() && $page->rootParent()->id === (int) $config->adminRootPageID) {
+				// user pages located within the admin branch are never viewable to users that are
+				// not logged in, regardless of any user-view-* permissions assigned to the guest role
+				return false;
+			}
 			if($page->template->useRoles && $user->hasPermission('page-view', $page)) {
 				// access permission provided by page-view permission configured directly (not inherited) on user template
 				if($user->isLoggedin()) return true;
