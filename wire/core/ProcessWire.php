@@ -588,6 +588,11 @@ class ProcessWire extends Wire {
 			if($this->debug) Debug::timer('boot.load.modules');
 			$modules = $this->wire('modules', new Modules($config->paths->modules), true);
 			$modules->addPath($config->paths->siteModules);
+			foreach((array) $config->modulePaths as $modulePath) {
+				// additional module directories from $config->modulePaths (searched after site modules)
+				$modulePath = rtrim((string) $modulePath, '/\\') . '/';
+				if(is_dir($modulePath)) $modules->addPath($modulePath);
+			}
 			$modules->setSubstitutes($config->substituteModules); 
 			$modules->init();
 			if($this->debug) Debug::saveTimer('boot.load.modules');

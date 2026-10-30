@@ -1780,6 +1780,18 @@ $config->substituteModules = array(
 );
 
 /**
+ * Additional module paths
+ *
+ * Full paths to directories containing modules, in addition to /wire/modules/ and /site/modules/.
+ * They are searched after /site/modules/, in the order given. A directory that does not exist is skipped.
+ *
+ * #notes Example: `$config->modulePaths = array($config->paths->root . 'vendor/acme/pw-modules/');`
+ * @var array
+ *
+ */
+$config->modulePaths = array();
+
+/**
  * WireMail module(s) default settings
  * 
  * Note you can add any other properties to the wireMail array that are supported by WireMail settings
