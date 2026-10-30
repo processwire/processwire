@@ -31,6 +31,49 @@ class WireTest_PageFinder extends WireTest {
 		$this->testPageFinder2MultiValueSort();
 		$this->testAdvancedSearchCommands();
 		$this->testJoinFieldsWithComparisons();
+		$this->testSortTieBreaker();
+	}
+
+	/**
+	 * Pages with the same value for the sort are returned in the same order (by id) from find(), findIDs()
+	 * and findRaw(), including with a limit (processwire/processwire-issues#2034)
+	 *
+	 */
+	protected function testSortTieBreaker() {
+		$pages = $this->wire()->pages;
+		$config = $this->wire()->config;
+		$database = $this->wire()->database;
+		$parent = $this->getTestPage();
+		$ids = $this->childIDs('id');
+		sort($ids);
+		$asc = implode(',', $ids);
+		$desc = implode(',', array_reverse($ids));
+		// give all test pages the same modified time, so that sort=modified is a tie for all of them
+		$database->exec('UPDATE pages SET modified=' . $database->quote('2026-01-01 00:00:00') . ' WHERE id IN(' . implode(',', $ids) . ')');
+		$pages->uncacheAll();
+		$settings = $config->PageFinder;
+		$selector = "parent=$parent->id, template=$this->childTemplateName, include=all";
+		try {
+			foreach([1, 2] as $version) {
+				$config->PageFinder = ['version' => $version];
+				foreach(['modified' => $asc, '-modified' => $desc] as $sort => $expected) {
+					$s = "$selector, sort=$sort";
+					$this->check("find() $sort ties ordered by id (v$version)", $expected, $pages->find($s)->implode(',', 'id'));
+					$this->check("findIDs() $sort ties ordered by id (v$version)", $expected, implode(',', $pages->findIDs($s)));
+					$this->check("findRaw() $sort ties ordered by id (v$version)", $expected, implode(',', array_keys($pages->findRaw($s, 'id'))));
+					$first2 = implode(',', array_slice(explode(',', $expected), 0, 2));
+					$this->check("find() $sort with limit returns first ties by id (v$version)", $first2, $pages->find("$s, limit=2")->implode(',', 'id'));
+					$this->check("findIDs() $sort with limit returns first ties by id (v$version)", $first2, implode(',', $pages->findIDs("$s, limit=2")));
+				}
+				$this->check("find() with limit and no sort ordered by id (v$version)",
+					implode(',', array_slice($ids, 0, 2)),
+					implode(',', $pages->findIDs("template=$this->childTemplateName, include=all, limit=2"))
+				);
+			}
+		} finally {
+			$config->PageFinder = $settings;
+			$pages->uncacheAll();
+		}
 	}
 
 	/**

@@ -2227,6 +2227,8 @@ class PageFinder2 extends Wire {
 				$this->getQuerySortSelector($query, $s);
 			}
 		}
+		
+		$this->getQueryOrderById($query, $options);
 
 		if((!empty($options['startAfterID']) || !empty($options['stopBeforeID'])) && count($query->where)) {
 			$wheres = array('(' . implode(' AND ', $query->where) . ')');
@@ -2898,6 +2900,33 @@ class PageFinder2 extends Wire {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Add pages.id as the last sort, so that pages are always returned in the same order
+	 * 
+	 * Without it, pages with the same value for the sort (or all pages, when there is a limit but no sort)
+	 * may be returned in any order, which can differ between find(), findIDs() and findRaw(), and between
+	 * paginations (processwire/processwire-issues#2034). It uses the same direction as the sort before it,
+	 * so that the database can still use an index for the sort.
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param array $options
+	 * @since 3.0.275
+	 * 
+	 */
+	protected function getQueryOrderById(DatabaseQuerySelect $query, array $options) {
+		if(!empty($options['returnParentIDs'])) return; // grouped by parent_id
+		$orderby = $query->orderby;
+		if(!count($orderby)) {
+			// with no sort, the order only matters when a limit determines which pages are returned
+			if($this->limit) $query->orderby('pages.id');
+			return;
+		}
+		if(stripos(implode(',', $orderby), 'RAND(') !== false) return; // random sort
+		$last = trim((string) end($orderby));
+		if(preg_match('/^pages\.id(\s+(ASC|DESC))?$/i', $last)) return; // already sorted by id
+		$query->orderby(preg_match('/\sDESC$/i', $last) ? 'pages.id DESC' : 'pages.id');
 	}
 
 	protected function getQueryStartLimit(DatabaseQuerySelect $query) {
