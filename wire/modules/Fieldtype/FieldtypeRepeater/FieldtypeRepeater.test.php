@@ -85,6 +85,12 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$item->addStatus(Page::statusUnpublished);
 		$item->save();
 
+		// API unpublish must mean unpublished, not "new item pending publish".
+		$item = $pages->getFresh($item->id);
+		$this->check('API unpublish retains unpublished status', true, $item->isUnpublished());
+		$this->check('API unpublish removes statusOn', false, $item->hasStatus(Page::statusOn));
+
+		$page = $pages->getFresh($page->id);
 		$page->of(true);
 		$countFormatted = $page->get($name)->count();
 
@@ -100,6 +106,32 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$item = $page->get($name)->first();
 		$item->removeStatus(Page::statusUnpublished);
 		$item->save();
+
+		$item = $pages->getFresh($item->id);
+		$this->check('API publish removes unpublished status', false, $item->isUnpublished());
+		$this->check('API publish restores statusOn', true, $item->hasStatus(Page::statusOn));
+
+		$item->addStatus('unpublished');
+		$this->check('string unpublish matches the constant', Page::statusUnpublished, $item->status);
+		$item->removeStatus('unpublished');
+		$this->check('string publish matches the constant', Page::statusOn, $item->status);
+
+		$field = $fields->get($name);
+		$fieldtype = $field->type;
+		$readyPage = $fieldtype->getBlankRepeaterPage($page, $field);
+		$this->check('ready page retains all three status flags',
+			Page::statusOn | Page::statusHidden | Page::statusUnpublished, $readyPage->status);
+		$readyItems = $fieldtype->getBlankValue($page, $field);
+		$readyItems->add($readyPage);
+		$this->check('getNewItem reuses a ready item', $readyPage, $readyItems->getNewItem());
+		$this->check('activating a ready item retains only statusOn', Page::statusOn, $readyPage->status);
+
+		$item->status = Page::statusOn | Page::statusUnpublished;
+		$this->check('direct assignment still expresses pending publish', 2049, $item->status);
+		$item->status = Page::statusOn;
+		$this->testCombinedStatusMasks($item);
+		$item->save();
+		$this->testPendingPublication($field, $subTextField);
 
 		$page = $pages->getFresh($page->id);
 		$page->of(false);
@@ -279,6 +311,78 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			$page->of(false);
 			foreach($page->get($name) as $item) $page->get($name)->remove($item);
 			$page->save($name);
+		}
+	}
+
+	/**
+	 * An explicitly supplied statusOn flag takes precedence over automatic normalization.
+	 */
+	protected function testCombinedStatusMasks(RepeaterPage $item) {
+		$on = Page::statusOn;
+		$unpublished = Page::statusUnpublished;
+		$hidden = Page::statusHidden;
+		$locked = Page::statusLocked;
+		$cases = [
+			['addStatus', $on, $unpublished | $on, $unpublished | $on],
+			['addStatus', $on, $unpublished | $on | $locked, $unpublished | $on | $locked],
+			['removeStatus', $unpublished, $unpublished | $on, 0],
+			['removeStatus', $unpublished | $locked, $unpublished | $on | $locked, 0],
+			['addStatus', $on, $unpublished | $locked, $unpublished | $locked],
+			['removeStatus', $unpublished | $locked, $unpublished | $locked, $on],
+			['addStatus', $on, $unpublished | $hidden, $on | $unpublished | $hidden],
+			['removeStatus', $on | $unpublished | $hidden, $unpublished, $on | $hidden],
+			['addStatus', $on, 'published', $on],
+			['removeStatus', $on, 'published', $unpublished],
+			['addStatus', $on, (string) ($unpublished | $on), $unpublished | $on],
+		];
+		$previous = $item->status;
+		try {
+			foreach($cases as $case) {
+				list($method, $initial, $mask, $expected) = $case;
+				$item->status = $initial;
+				$item->$method($mask);
+				$this->check("$method($mask) from status $initial", $expected, $item->status);
+			}
+		} finally {
+			$item->status = $previous;
+		}
+	}
+
+	/**
+	 * Keep the fieldtype's pending-publish protocol and deliberate unpublishing intact.
+	 */
+	protected function testPendingPublication(Field $field, Field $subField) {
+		$pages = $this->wire()->pages;
+		$owner = $pages->add($this->getTestTemplate(), $this->getTestPage(), [
+			'name' => uniqid('repeater-status-'), 'title' => 'Repeater status fixture',
+		]);
+		try {
+			$owner->of(false);
+			$item = $field->type->getBlankRepeaterPage($owner, $field);
+			$item->removeStatus(Page::statusHidden);
+			$item->set($subField->name, 'Pending publication');
+			$item->save();
+			$owner->get($field->name)->add($item);
+			$owner->save($field->name);
+			$this->check('unprocessed pending item remains pending', 2049, $pages->getFresh($item->id)->status);
+			$item->setQuietly('_repeater_processed', true);
+			$item->setQuietly('_repeater_errors', 1);
+			$owner->save($field->name);
+			$this->check('input errors prevent pending publication', 2049, $pages->getFresh($item->id)->status);
+			$item->setQuietly('_repeater_errors', 0);
+			$owner->save($field->name);
+			$this->check('processed error-free item publishes', Page::statusOn, $pages->getFresh($item->id)->status);
+			$item->addStatus(Page::statusUnpublished);
+			$owner->save($field->name);
+			$this->check('owner save does not republish an API-unpublished item', Page::statusUnpublished, $pages->getFresh($item->id)->status);
+
+			$owner = $pages->getFresh($owner->id);
+			$owner->of(false);
+			$markup = $field->type->getInputfield($owner, $field)->render();
+			$pattern = '~<input\b(?=[^>]*\bname=["\']publish_repeater' . $item->id . '["\'])(?=[^>]*\bvalue=["\']-1["\'])[^>]*>~';
+			$this->check('editor requests that API-unpublished item stays unpublished', 1, preg_match($pattern, $markup));
+		} finally {
+			$pages->delete($owner, true);
 		}
 	}
 
