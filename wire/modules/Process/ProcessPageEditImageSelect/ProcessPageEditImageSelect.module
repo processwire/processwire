@@ -1449,10 +1449,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			($hidpi && $width < $image->hidpiWidth()) ||
 			$flip || $rotate) {
 			
-			$suffix = array('is');  // is=image select
-			if($this->editorPage && $this->editorPage->id != $this->page->id) {
-				$suffix[] = "pid$this->editorPage"; // identify page that is using the variation
-			}
+			// is=image select. Prior to 3.0.275, a pid[id] suffix was also added when the image was
+			// from another page, giving each page its own copy of the same variation. Now pages share
+			// it, since the name identifies the variation (processwire/processwire-issues#2033).
+			$suffix = array('is');
 			$options = array(
 				'suffix' => $suffix,
 				'hidpi' => $hidpi,
