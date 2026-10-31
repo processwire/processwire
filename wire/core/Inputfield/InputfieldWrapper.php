@@ -3,7 +3,7 @@
 /**
  * ProcessWire InputfieldWrapper
  *
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * About InputfieldWrapper
@@ -143,6 +143,17 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 *
 	 */
 	protected $delayedChildren = array();
+
+	/**
+	 * Forms currently being rendered, innermost last (populated by InputfieldForm::render)
+	 * 
+	 * Children are rendered from the wrappers that preRenderChildren() creates, which have
+	 * no parent, so this is how render() finds the form that showIf/requiredIf refer to.
+	 * 
+	 * @var InputfieldForm[]
+	 * 
+	 */
+	protected static $renderForms = array();
 
 	/**
 	 * Label displayed when a value is required but missing
@@ -793,8 +804,22 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			$required = $inputfield->getSetting('required');
 			$requiredIf = $required ? $inputfield->getSetting('requiredIf') : false;
 			$showIf = $inputfield->getSetting('showIf'); 
+			$hiddenByShowIf = false;
 			
 			if($collapsed == Inputfield::collapsedHidden) continue; 
+			
+			if((strlen($showIf) || strlen($requiredIf)) && !$this->getSetting('renderValueMode') && count(self::$renderForms)) {
+				// conditions on locked fields are evaluated here, since the browser has no input to read for them
+				$form = end(self::$renderForms);
+				if(strlen($showIf)) {
+					list($matches, $showIf) = $form->resolveLockedDependencies($showIf);
+					if($matches === false) list($hiddenByShowIf, $required, $requiredIf) = array(true, false, '');
+				}
+				if(strlen($requiredIf)) {
+					list($matches, $requiredIf) = $form->resolveLockedDependencies($requiredIf);
+					if($matches === false) $required = false;
+				}
+			}
 			if(in_array($collapsed, $lockedStates)) $renderValueMode = true;
 
 			$ffOut = $this->renderInputfield($inputfield, $renderValueMode);
@@ -1018,6 +1043,11 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				} else {
 					$ffAttrs[$k] = $v;
 				}
+			}
+			if($hiddenByShowIf) {
+				// render it the way inputfields.js hides a field whose showIf doesn't match
+				$ffAttrs['class'] .= ' InputfieldStateHidden';
+				$ffAttrs['style'] = trim('display:none;' . (isset($ffAttrs['style']) ? $ffAttrs['style'] : ''));
 			}
 			foreach($ffAttrs as $k => $v) {
 				$k = $this->entityEncode($k);

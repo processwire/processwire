@@ -24,6 +24,7 @@ class WireTest_InputfieldForm extends WireTest {
 		$this->testProcessInputAndErrors();
 		$this->testProcess();
 		$this->testRenderOrProcessReadyHook();
+		$this->testLockedDependencies();
 	}
 
 	public function finish() {
@@ -209,5 +210,104 @@ class WireTest_InputfieldForm extends WireTest {
 
 		$this->check('renderOrProcessReady hook fires before render', true, in_array('render', $types));
 		$this->check('renderOrProcessReady hook fires before process', true, in_array('process', $types));
+	}
+
+	/**
+	 * showIf/requiredIf conditions on locked or non-editable fields are evaluated at render
+	 * 
+	 */
+	protected function testLockedDependencies() {
+		$form = $this->newForm('wire-test-locked-form');
+		$options = array('1' => 'One', '2' => 'Two', '3' => 'Three');
+
+		$type = $form->InputfieldSelect;
+		$type->attr('name', 'type');
+		$type->addOptions($options);
+		$type->val('2');
+		$type->collapsed = Inputfield::collapsedNoLocked;
+		$form->add($type);
+
+		$multi = $form->InputfieldCheckboxes;
+		$multi->attr('name', 'multi');
+		$multi->addOptions($options);
+		$multi->val(array('1', '3'));
+		$multi->collapsed = Inputfield::collapsedNoLocked;
+		$form->add($multi);
+
+		$secret = $this->addText($form, 'secret');
+		$secret->val('wire-test-locked-value');
+		$secret->collapsed = Inputfield::collapsedNoLocked;
+
+		$color = $this->addText($form, 'color'); // editable
+		$color->val('blue');
+
+		$viewOnly = $this->addText($form, 'view_only');
+		$viewOnly->val('yes');
+		$viewOnly->editable(false);
+
+		$lockedShowIf = $this->addText($form, 'locked_show_if'); // locked, but has a showIf of its own
+		$lockedShowIf->val('1');
+		$lockedShowIf->collapsed = Inputfield::collapsedNoLocked;
+		$lockedShowIf->showIf = 'color=blue';
+
+		$fieldset = $form->InputfieldFieldset;
+		$fieldset->attr('name', 'wire_test_fieldset');
+		$form->add($fieldset);
+
+		// name => array(showIf, requiredIf, expected rendered state)
+		$tests = array(
+			'show_true' => array('type=2', '', 'visible'),
+			'show_false' => array('type!=2', '', 'hidden'),
+			'show_label' => array('type=Two', '', 'visible'),
+			'show_mixed' => array('type=2, color=red', '', 'visible showIf:color=red'),
+			'show_mixed_false' => array('type=3, color=red', '', 'hidden'),
+			'or_editable' => array('type|color=3', '', 'visible showIf:color=3'),
+			'or_locked_match' => array('type|color=2', '', 'visible'),
+			'multi_count' => array('multi.count>1', '', 'visible'),
+			'multi_has' => array('multi=3', '', 'visible'),
+			'multi_not' => array('multi!=3', '', 'hidden'),
+			'multi_count_false' => array('multi.count>2', '', 'hidden'),
+			'secret_not' => array('secret!=wire-test-locked-value', '', 'hidden'),
+			'view_only_dep' => array('view_only=yes', '', 'visible'),
+			'editable_only' => array('color=red', '', 'visible showIf:color=red'),
+			'depends_show_if' => array('locked_show_if=1', '', 'visible showIf:locked_show_if=1'),
+			'or_group' => array('(type=2), (color=red)', '', 'visible showIf:(type=2), (color=red)'),
+			'required_true' => array('', 'type=2', 'visible required'),
+			'required_false' => array('', 'type=3', 'visible'),
+			'required_mixed' => array('', 'type=2, color=red', 'visible requiredIf:color=red required'),
+			'hidden_required' => array('type=3', 'color=red', 'hidden'),
+		);
+		foreach($tests as $name => $test) {
+			if($name === 'multi_has') {
+				$f = $form->InputfieldText; // in a fieldset, to check nested fields find the form
+				$f->attr('name', $name);
+				$fieldset->add($f);
+			} else {
+				$f = $this->addText($form, $name);
+			}
+			$f->showIf = $test[0];
+			$f->requiredIf = $test[1];
+			if(strlen($test[1])) $f->required = true;
+		}
+
+		$html = $form->render();
+
+		foreach($tests as $name => $test) {
+			$state = 'missing';
+			if(preg_match("~<li\\b[^>]*\\bid='wrap_Inputfield_$name'[^>]*>~", $html, $m)) {
+				$tag = html_entity_decode($m[0], ENT_QUOTES);
+				$state = strpos($tag, 'InputfieldStateHidden') && strpos($tag, 'display:none') ? 'hidden' : 'visible';
+				if(preg_match("~data-show-if='([^']*)'~", $tag, $a)) $state .= " showIf:$a[1]";
+				if(preg_match("~data-required-if='([^']*)'~", $tag, $a)) $state .= " requiredIf:$a[1]";
+				if(strpos($tag, 'InputfieldStateRequired')) $state .= ' required';
+			}
+			$this->check("locked dependency $name: " . ($test[0] ?: "requiredIf $test[1]"), $test[2], $state);
+		}
+
+		$f = $form->getChildByName('show_false');
+		$this->check('locked dependency leaves showIf setting unchanged', 'type!=2', $f->showIf);
+		$f = $form->getChildByName('required_false');
+		$this->check('locked dependency leaves required setting unchanged', true, (bool) $f->required);
+		$this->check('locked value is not copied into the form', 1, substr_count($html, 'wire-test-locked-value'));
 	}
 }
