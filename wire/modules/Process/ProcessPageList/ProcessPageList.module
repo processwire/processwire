@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $showRootPage Whether root page (like home) should be shown.
@@ -505,10 +505,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		if(!$this->page->editable()) throw new WireException("Page not editable");
 		if($this->page->id != $input->post('id')) throw new WireException("GET id does not match POST id");
 		
-		$tokenName = $session->CSRF->getTokenName();
-		$tokenValue = $session->CSRF->getTokenValue();
-		$postTokenValue = $input->post($tokenName);
-		if($postTokenValue === null || $postTokenValue !== $tokenValue) throw new WireException("CSRF token does not match");
+		if(!$session->CSRF->hasValidToken()) throw new WireException("CSRF token does not match");
 		
 		$renderer = $this->getPageListRender($this->page, 0);	
 		$result = $renderer->actions()->processAction($this->page, $action);
