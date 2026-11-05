@@ -29,6 +29,7 @@ class WireTest_Modules extends WireTest {
 		$this->testStatusChecks();
 		$this->testFinders();
 		$this->testConfiguration();
+		$this->testConfigHooks();
 		$this->testHelperProperties();
 		$this->testModuleFileAssets();
 		$this->testRefreshDiscoversNewModuleFile();
@@ -173,6 +174,80 @@ class WireTest_Modules extends WireTest {
 
 		$editUrl = $modules->getModuleEditUrl($moduleClass);
 		$this->check('getModuleEditUrl() returns non-empty string', true, strlen($editUrl) > 0);
+	}
+
+	/**
+	 * Hooks to saveConfig() and the legacy saveModuleConfigData() are both triggered, once each,
+	 * whichever of the two methods is called (processwire/processwire-issues#2370)
+	 *
+	 */
+	protected function testConfigHooks() {
+		$modules = $this->wire()->modules;
+		$moduleClass = $this->moduleClass;
+		$this->originalConfigData = $modules->getConfig($moduleClass);
+		$calls = array();
+		$legacyData = null;
+		$replace = '';
+		$hookIds = array(
+			$modules->addHookBefore('saveConfig', function(HookEvent $e) use(&$calls, &$replace) {
+				$calls[] = 'saveConfig';
+				if($replace === 'saveConfig') $e->replace = true;
+			}),
+			$modules->addHookBefore('saveModuleConfigData', function(HookEvent $e) use(&$calls, &$legacyData, &$replace) {
+				$calls[] = 'saveModuleConfigData';
+				$legacyData = $e->arguments(1);
+				if($replace === 'saveModuleConfigData') $e->replace = true;
+				if($replace === 'modify') {
+					$data = $e->arguments(1);
+					$data['testValue'] = 'WireTestsModifiedByHook';
+					$e->arguments(1, $data);
+				}
+			}),
+		);
+		$data = $this->originalConfigData;
+		$value = function() use($modules, $moduleClass) { return $modules->getConfig($moduleClass, 'testValue'); };
+
+		try {
+			$data['testValue'] = 'WireTestsHook1';
+			$modules->saveConfig($moduleClass, $data);
+			$this->check('saveConfig() triggers hooks to both methods once', 'saveConfig,saveModuleConfigData', implode(',', $calls));
+			$this->check('saveConfig() with legacy hooks saves the data', 'WireTestsHook1', $value());
+
+			$calls = array();
+			$data['testValue'] = 'WireTestsHook2';
+			$modules->saveModuleConfigData($moduleClass, $data);
+			$this->check('saveModuleConfigData() triggers hooks to both methods once', 'saveModuleConfigData,saveConfig', implode(',', $calls));
+			$this->check('saveModuleConfigData() saves the data', 'WireTestsHook2', $value());
+
+			$calls = array();
+			$modules->saveConfig($moduleClass, 'testValue', 'WireTestsHook3');
+			$this->check('saveConfig(property, value) passes full data array to legacy hooks', 'WireTestsHook3',
+				is_array($legacyData) && isset($legacyData['testValue']) ? $legacyData['testValue'] : null);
+			$this->check('saveConfig(property, value) saves the value', 'WireTestsHook3', $value());
+
+			$replace = 'modify';
+			$modules->saveConfig($moduleClass, 'testValue', 'WireTestsHook4');
+			$this->check('legacy before hook can modify data saved by saveConfig()', 'WireTestsModifiedByHook', $value());
+
+			$replace = 'saveModuleConfigData';
+			$modules->saveConfig($moduleClass, 'testValue', 'WireTestsHook5');
+			$this->check('legacy replace hook prevents save by saveConfig()', 'WireTestsModifiedByHook', $value());
+
+			$replace = 'saveConfig';
+			$modules->saveModuleConfigData($moduleClass, array('testValue' => 'WireTestsHook6') + $data);
+			$this->check('saveConfig replace hook prevents save by saveModuleConfigData()', 'WireTestsModifiedByHook', $value());
+
+			$replace = '';
+			foreach($hookIds as $hookId) $modules->removeHook($hookId);
+			$hookIds = array();
+			$calls = array();
+			$modules->saveConfig($moduleClass, 'testValue', 'WireTestsHook7');
+			$this->check('saveConfig() without hooks saves the value', 'WireTestsHook7', $value());
+		} finally {
+			foreach($hookIds as $hookId) $modules->removeHook($hookId);
+			$modules->saveConfig($moduleClass, $this->originalConfigData);
+			$this->originalConfigData = null;
+		}
 	}
 
 	protected function testHelperProperties() {

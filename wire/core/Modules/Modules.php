@@ -202,6 +202,17 @@ class Modules extends WireArray implements CliModule {
 	protected $refreshing = false;
 
 	/**
+	 * Names of modules whose config is being saved by saveConfig() or saveModuleConfigData()
+	 *
+	 * Used so that each of the two methods delegates to the other only once per save.
+	 *
+	 * @var array Indexed by module name
+	 * @since 3.0.275
+	 *
+	 */
+	protected $savingConfig = array();
+
+	/**
 	 * Runtime caches
 	 * 
 	 * @var array 
@@ -1697,11 +1708,11 @@ class Modules extends WireArray implements CliModule {
 	 * $modules->saveConfig('HelloWorld', 'some_property', 'New Value');
 	 * ~~~~~~
 	 *
-	 * This is the method to hook if you want to act on module configuration saves, as it is
-	 * the method that performs the save, and thus is reached regardless of whether the caller
-	 * used this method or the deprecated saveModuleConfigData() alias (which delegates to it).
-	 * Note that the reverse is not true: hooks to Modules::saveModuleConfigData are triggered
-	 * only when that specific method is called, and are skipped for calls to this one.
+	 * This is the method to hook if you want to act on module configuration saves. Hooks to
+	 * the legacy Modules::saveModuleConfigData method are also triggered when this method is
+	 * called (and vice versa), so either method may be hooked. Hooks to saveModuleConfigData
+	 * always receive the full array of configuration data, even when this method was called
+	 * with a property name and value.
 	 *
 	 * #pw-group-configuration
 	 * #pw-group-manipulation
@@ -1717,18 +1728,29 @@ class Modules extends WireArray implements CliModule {
 	 *
 	 */
 	public function ___saveConfig($class, $data, $value = null) {
-		static $warned = false;
-		if(!$warned && $this->hasHook('saveModuleConfigData()')) {
-			// help module authors find hooks that are no longer triggered by core (debug mode only)
-			$warned = true;
-			$this->warning(
-				'A hook is attached to the deprecated Modules::saveModuleConfigData method, which core no ' .
-				'longer calls. Please hook Modules::saveConfig instead, as it is triggered regardless of ' .
-				'which of the two methods the caller used.',
-				Notice::debug
-			);
+		$moduleName = wireClassName(is_object($class) ? $class->className() : $class, false);
+		if(isset($this->savingConfig[$moduleName]) || !$this->hasHook('saveModuleConfigData()')) {
+			// called by saveModuleConfigData(), or there are no legacy hooks to trigger
+			return $this->configs->saveConfig($class, $data, $value);
 		}
-		return $this->configs->saveConfig($class, $data, $value);
+		// trigger hooks to the legacy method, which receives the full config data array
+		if(is_string($data)) {
+			$property = $data;
+			$data = $this->getConfig($class);
+			if($value === null) {
+				unset($data[$property]);
+			} else {
+				$data[$property] = $value;
+			}
+		} else if(!is_array($data)) {
+			return false;
+		}
+		$this->savingConfig[$moduleName] = true;
+		try {
+			return $this->saveModuleConfigData($moduleName, $data);
+		} finally {
+			unset($this->savingConfig[$moduleName]);
+		}
 	}
 
 	/**
@@ -1836,12 +1858,9 @@ class Modules extends WireArray implements CliModule {
 	/**
 	 * Alias of saveConfig() for backwards compatibility
 	 *
-	 * Note that while this method and saveConfig() are equivalent for persistence, they are
-	 * not interchangeable for hooks: this method delegates to saveConfig(), so calls to it
-	 * trigger hooks to both Modules::saveModuleConfigData and Modules::saveConfig, whereas
-	 * calls to saveConfig() trigger only the latter. Since core no longer calls this method
-	 * anywhere, hooks to Modules::saveModuleConfigData are triggered only by code that calls
-	 * this method directly. Hook Modules::saveConfig instead, which is reached either way.
+	 * Calls to either this method or saveConfig() trigger hooks to both methods, once each,
+	 * so existing hooks to Modules::saveModuleConfigData continue to work. For new code,
+	 * please call and hook Modules::saveConfig instead.
 	 *
 	 * #pw-internal
 	 *
@@ -1853,7 +1872,17 @@ class Modules extends WireArray implements CliModule {
 	 *
 	 */
 	public function ___saveModuleConfigData($className, array $configData) {
-		return $this->saveConfig($className, $configData);
+		$moduleName = wireClassName(is_object($className) ? $className->className() : $className, false);
+		if(isset($this->savingConfig[$moduleName])) {
+			// called by saveConfig(), whose hooks are already running
+			return $this->configs->saveConfig($moduleName, $configData);
+		}
+		$this->savingConfig[$moduleName] = true;
+		try {
+			return $this->saveConfig($className, $configData);
+		} finally {
+			unset($this->savingConfig[$moduleName]);
+		}
 	}
 
 	/**

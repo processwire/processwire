@@ -298,7 +298,9 @@ Append `--json` to any command for verbose JSON output.
 - All write methods (`install`, `uninstall`, `delete`, `saveConfig`, `refresh`) are hookable
   via the triple-underscore `___methodName()` pattern.
 - `getConfig()` / `saveConfig()` replaced the older `getModuleConfigData()` /
-  `saveModuleConfigData()` names in ProcessWire 3.0.16. Both names still work.
+  `saveModuleConfigData()` names in ProcessWire 3.0.16. Both names still work, and calling
+  either one triggers hooks to both, so existing `saveModuleConfigData` hooks keep working.
+  New code should call and hook `saveConfig`.
 
 ## More about modules and how to make them
 
