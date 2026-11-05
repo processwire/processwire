@@ -152,7 +152,60 @@ class WireTest_FieldtypeFile extends WireTest {
 		if($p->id !== $page->id) $this->fail("Selector failed: $name=\"\"");
 		$this->li("Selector passed: $name=\"\"");
 
+		$this->testFormatValueKeepsModified($pdf1);
 		$this->testCustomFieldsTemplateUpgrade();
+	}
+
+	/**
+	 * Formatting descriptions and tags for output does not change file modified time or mark the page changed
+	 * (processwire/processwire-issues#2371)
+	 *
+	 * @param string $pdf
+	 *
+	 */
+	protected function testFormatValueKeepsModified($pdf) {
+		$pages = $this->wire()->pages;
+		$database = $this->wire()->database;
+		$field = $this->wire()->fields->get($this->fieldName);
+		$name = $this->fieldName;
+		$page = $this->getTestPage();
+		$textformatters = $field->get('textformatters');
+		$useTags = $field->get('useTags');
+
+		try {
+			$field->set('textformatters', array('TextformatterEntities'));
+			$field->set('useTags', 1);
+			$page->of(false);
+			$page->get($name)->deleteAll();
+			$page->get($name)->add($pdf);
+			$page->save($name);
+			$file = $page->get($name)->first();
+			$file->description = "Let's talk";
+			$file->tags = 'rock&roll';
+			$page->save($name);
+
+			// saving always sets modified to the current time, so set an earlier stored time directly
+			$modified = '2020-01-02 03:04:05';
+			$query = $database->prepare('UPDATE ' . $field->getTable() . ' SET modified=:modified WHERE pages_id=:id');
+			$query->bindValue(':modified', $modified);
+			$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
+			$query->execute();
+
+			$page = $pages->getFresh($page->id);
+			$page->of(true);
+			$file = $page->get($name)->first();
+			$this->check('formatValue() entity encodes description', 'Let&#039;s talk', $file->description);
+			$this->check('formatValue() entity encodes tags', 'rock&amp;roll', $file->tags);
+			$this->check('formatValue() keeps stored modified time', strtotime($modified), $file->modified);
+			$this->check('formatValue() does not mark the page changed', false, $page->isChanged($name));
+		} finally {
+			$field->set('textformatters', $textformatters);
+			$field->set('useTags', $useTags);
+			$page = $pages->getFresh($page->id);
+			$page->of(false);
+			$page->get($name)->deleteAll();
+			$page->save($name);
+		}
 	}
 
 	protected function testCustomFieldsTemplateUpgrade() {
