@@ -50,6 +50,67 @@ class WireTest_Pages extends WireTest {
 		$this->testSortRebuild();
 		$this->testAutojoinMultiValueField();
 		$this->testSaveInTransaction();
+		$this->testUnsavedChangesSurviveOtherSave();
+	}
+
+	/**
+	 * Unsaved changes to object values (i.e. PageArray, multi-language) survive saving another page,
+	 * which uncaches all pages (processwire/processwire-issues#2009)
+	 *
+	 */
+	protected function testUnsavedChangesSurviveOtherSave() {
+		$pages = $this->wire()->pages;
+		$fields = $this->wire()->fields;
+		$languages = $this->wire()->languages;
+		$template = $this->wire()->templates->get($this->childTemplateName);
+		$refName = 'pages_test_refs';
+		$ref = $fields->get($refName);
+		$createdField = false;
+		if(!$ref) {
+			$ref = new Field();
+			$ref->type = $this->wire()->modules->get('FieldtypePage');
+			$ref->name = $refName;
+			$ref->label = 'Pages test refs';
+			$ref->set('derefAsPage', FieldtypePage::derefAsPageArray);
+			$ref->save();
+			$createdField = true;
+		}
+		if(!$template->hasField($ref)) {
+			$template->fieldgroup->add($ref);
+			$template->fieldgroup->save();
+		}
+		$language = null;
+		if($languages && $template->fieldgroup->getField('title') instanceof Field) {
+			foreach($languages as $lang) if(!$lang->isDefault()) { $language = $lang; break; }
+			if($language && !$pages->get(1)->title instanceof LanguagesPageFieldValue) $language = null;
+		}
+		try {
+			$parent = $this->getTestPage();
+			$a = $pages->add($this->childTemplateName, $parent, array('name' => 'pages-test-unsaved-a', 'title' => 'A'));
+			$b = $pages->add($this->childTemplateName, $parent, array('name' => 'pages-test-unsaved-b', 'title' => 'B'));
+			$this->createdPageIDs[$a->id] = $a->id;
+			$this->createdPageIDs[$b->id] = $b->id;
+			$a = $pages->get($a->id);
+			$a->of(false);
+			$a->get($refName)->add($b);
+			if($language) $a->title->setLanguageValue($language, 'A translated');
+			$b->of(false);
+			$b->title = 'B changed';
+			$pages->save($b); // uncaches all pages, including $a
+			$pages->save($a);
+			$a = $pages->getFresh($a->id);
+			$a->of(false);
+			$this->check('PageArray change survives saving another page first', array($b->id), $a->get($refName)->explode('id'));
+			if($language) {
+				$this->check('Language value change survives saving another page first', 'A translated', $a->title->getLanguageValue($language));
+			}
+		} finally {
+			if($template->hasField($ref)) {
+				$template->fieldgroup->remove($ref);
+				$template->fieldgroup->save();
+			}
+			if($createdField) $fields->delete($ref);
+		}
 	}
 
 	/**

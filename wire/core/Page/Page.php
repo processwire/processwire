@@ -3904,6 +3904,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 		foreach($fieldgroup as $field) { /** @var Field $field */
 			$value = parent::get($field->name);
 			if(!is_object($value)) continue;
+			// keep values with unsaved changes, otherwise saving the page later would save the
+			// value reloaded from the database instead (processwire/processwire-issues#2009)
+			if(parent::isChanged($field->name) || ($value instanceof Wire && $value->isChanged())) continue;
 			parent::set($field->name, null); 
 			unset($this->wakeupNameQueue[$field->name]);
 		}
