@@ -22,6 +22,7 @@ class WireTest_WireHooks extends WireTest {
 		$this->testHookPropertiesAndMethods();
 		$this->testStaticLocalAndRemoval();
 		$this->testPriorityCustomDataAndCancel();
+		$this->testEqualPriorityOrder();
 		$this->testConditionalHooks();
 		$this->testHookEventArguments();
 	}
@@ -168,6 +169,42 @@ class WireTest_WireHooks extends WireTest {
 		$this->check('cancelled after hook did not run', false, $cancelled);
 	}
 
+	/**
+	 * Hooks of equal priority: static before local, and static hooks from different classes in the order added
+	 *
+	 */
+	protected function testEqualPriorityOrder() {
+		$wire = $this->wire();
+		$child = $this->wire(new WireHooksTestChildTarget());
+
+		// method provided by a hook to a parent class, then an after hook to it from a subclass
+		$this->addTestHook($wire, 'addHook', 'WireHooksTestTarget::providedValue', function(HookEvent $event) {
+			$event->return = 'provided';
+		});
+		$seen = array();
+		$this->addTestHook($wire, 'addHookAfter', 'WireHooksTestChildTarget::providedValue', function(HookEvent $event) use(&$seen) {
+			$seen[] = $event->return;
+			$event->return .= ':child';
+		});
+		$value = $child->providedValue();
+		$this->check('subclass after hook sees return value of hook-provided method', array('provided'), $seen);
+		$this->check('subclass after hook modifies return value of hook-provided method', 'provided:child', $value);
+
+		// local and static hooks of equal priority (local added first)
+		$target = $this->wire(new WireHooksTestTarget());
+		$order = array();
+		$this->addTestHook($target, 'addHookAfter', 'echoValue', function() use(&$order) { $order[] = 'local'; });
+		$this->addTestHook($wire, 'addHookAfter', 'WireHooksTestTarget::echoValue', function() use(&$order) { $order[] = 'static'; });
+		$this->addTestHook($wire, 'addHookAfter', 'WireHooksTestChildTarget::echoValue', function() use(&$order) { $order[] = 'child'; });
+		$child2 = $this->wire(new WireHooksTestChildTarget());
+		$this->addTestHook($child2, 'addHookAfter', 'echoValue', function() use(&$order) { $order[] = 'local2'; });
+		$target->echoValue('x');
+		$this->check('equal priority static hooks run before local hooks', array('static', 'local'), $order);
+		$order = array();
+		$child2->echoValue('x');
+		$this->check('equal priority static hooks from parent class and subclass run in the order added, before local hooks', array('static', 'child', 'local2'), $order);
+	}
+
 	protected function testConditionalHooks() {
 		$ready = $this->wire(new WireHooksTestDataTarget());
 		$ready->status = 'ready';
@@ -283,4 +320,7 @@ class WireHooksTestDataTarget extends WireData {
 	public function ___value($value) {
 		return $value;
 	}
+}
+
+class WireHooksTestChildTarget extends WireHooksTestTarget {
 }

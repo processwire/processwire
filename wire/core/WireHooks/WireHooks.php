@@ -186,6 +186,17 @@ class WireHooks {
 	protected $useGetHooksCache = false;
 
 	/**
+	 * Sequence number of the last added hook
+	 *
+	 * Used to run hooks of equal priority from different classes (or local and static) in the order added.
+	 *
+	 * @var int
+	 * @since 3.0.275
+	 *
+	 */
+	protected $hookSeq = 0;
+
+	/**
 	 * @var ProcessWire
 	 * 
 	 */
@@ -307,15 +318,12 @@ class WireHooks {
 				// retrieve all static hooks for method
 				if(!empty($staticHooks[$method])) {
 					if(count($hooks)) {
-						$collisions = array_intersect_key($hooks, $staticHooks[$method]);
-						$hooks = array_merge($hooks, $staticHooks[$method]);
-						if(count($collisions)) {
-							// identify and resolve priority collisions
-							foreach($collisions as $priority => $hook) {
-								$n = 0;
-								while(isset($hooks["$priority.$n"])) $n++;
-								$hooks["$priority.$n"] = $hook;
-							}
+						foreach($staticHooks[$method] as $priority => $hook) {
+							// resolve priority collisions with hooks from other classes or local hooks
+							$key = $priority;
+							$n = 0;
+							while(isset($hooks[$key])) $key = $priority . '.' . ($n++);
+							$hooks[$key] = $hook;
 						}
 						$needSort = true;
 					} else {
@@ -335,9 +343,15 @@ class WireHooks {
 		}
 
 		if($needSort && count($hooks) > 1) {
-			defined("SORT_NATURAL") ? ksort($hooks, SORT_NATURAL) : uksort($hooks, "strnatcmp");
+			// sort by priority, then for equal priority: static hooks before local hooks, then in the order added
+			uasort($hooks, function($a, $b) {
+				$n = strnatcmp((string) $a['options']['priority'], (string) $b['options']['priority']);
+				if($n === 0) $n = (int) empty($a['options']['allInstances']) - (int) empty($b['options']['allInstances']);
+				if($n === 0) $n = (isset($a['seq']) ? $a['seq'] : 0) - (isset($b['seq']) ? $b['seq'] : 0);
+				return $n;
+			});
 		}
-		
+
 		return $hooks;
 	}
 
@@ -819,8 +833,9 @@ class WireHooks {
 			'method' => $method,
 			'toObject' => $toObject,
 			'toMethod' => $toMethod,
-			'toPublic' => $toPublic, 
+			'toPublic' => $toPublic,
 			'options' => $options,
+			'seq' => ++$this->hookSeq,
 		);
 		$hooks[$method][$priority] = $hook;
 
