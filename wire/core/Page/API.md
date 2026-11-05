@@ -347,14 +347,19 @@ if($page->viewable()) { ... }         // is page viewable by current user?
 if($page->editable()) { ... }         // is page editable by current user?
 if($page->publishable()) { ... }      // can current user publish this page?
 if($page->listable()) { ... }         // is page listable by current user?
-if($page->deleteable()) { ... }       // can current user delete this page?
-if($page->trashable()) { ... }        // can current user trash this page?
+if($page->deleteable()) { ... }       // can current user permanently delete this page?
+if($page->trashable()) { ... }        // can current user move this page to the trash?
 if($page->addable()) { ... }          // can current user add children?
 if($page->addable('product')) { ... } // can current user add a child of given template?
 if($page->moveable()) { ... }         // can current user move this page?
 if($page->sortable()) { ... }         // can current user change sort of this page?
 if($page->cloneable()) { ... }        // can current user clone this page?
 ```
+
+By default the `page-delete` permission allows both trashing and permanent deletion. When the
+optional `page-delete-permanent` permission is installed, `page-delete` alone only allows moving
+pages to the trash, and permanent deletion also requires `page-delete-permanent`. Superusers can
+always delete.
 
 Lower-level access methods (always available):
 

@@ -2793,7 +2793,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->wire()->page->process != $this->className()) $redirectUrl = "../";
 		$pagePath = $page->path();
 
-		if(($this->isTrash || $page->template->noTrash) && $page->deleteable()) {
+		if($this->isTrash || $page->template->noTrash) {
+			// page cannot be moved to the trash, so it can only be deleted permanently
+			if(!$page->deleteable()) {
+				$this->error($this->_('This page is not deleteable'));
+				return false;
+			}
 			$this->session->message(sprintf($this->_('Deleted page: %s'), $pagePath)); // Page deleted message
 			$this->pages->delete($page, true); 
 			$this->deletedPage($page, $redirectUrl, false);
