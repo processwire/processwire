@@ -5,7 +5,7 @@
  * 
  * #pw-summary Provides management of all Permission pages independent of users, for access control.
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method PageArray find($selector) Return the permissions(s) matching the the given selector query.
@@ -45,6 +45,7 @@ class Permissions extends PagesType {
 		'page-lock' => 'page-edit',
 		'page-edit-created' => 'page-edit',
 		'page-edit-trash-created' => 'page-delete',
+		'page-delete-permanent' => 'page-delete',
 		'page-edit-images' => 'page-edit',
 		'page-rename' => 'page-edit',
 		'user-admin-all' => 'user-admin',
@@ -60,6 +61,7 @@ class Permissions extends PagesType {
 		'page-hide',
 		'page-publish',
 		'page-edit-created',
+		'page-delete-permanent',
 		'page-edit-images',
 		'page-rename',
 		'page-edit-lang-',
@@ -191,6 +193,7 @@ class Permissions extends PagesType {
 			'page-publish' => $this->_('Publish/unpublish pages or edit already published pages'),
 			'page-edit-created' => $this->_('Edit only pages user has created'),
 			'page-edit-trash-created' => $this->_('User can trash pages they created (without page-delete permission).'), 
+			'page-delete-permanent' => $this->_('Permanently delete pages (when installed, page-delete only allows moving pages to the trash)'),
 			'page-edit-images' => $this->_('Use the image editor to manipulate (crop, resize, etc.) images'),
 			'page-rename' => $this->_('Change the name of published pages they are allowed to edit'),
 			'user-admin-all' => $this->_('Administer users in any role (except superuser)'),
