@@ -466,6 +466,22 @@ class WireTest_LanguageSupport extends WireTest {
 		$match = $pages->findOne("template=wire-test, include=hidden, $baseName*='Other alternate value'");
 		$this->check('Selector on base field searches alternate field', $page->id, $match->id);
 
+		// Alternate field textformatters are applied once (processwire/processwire-issues#2372)
+		$altField = $this->wire()->fields->get($altName);
+		$textformatters = $altField->get('textformatters');
+		$altField->set('textformatters', array('TextformatterEntities'));
+		try {
+			$page->of(false);
+			$page->set($altName, 'A & B');
+			$page->save($altName);
+			$page = $pages->getFresh($page->id);
+			$page->of(true);
+			$this->check('Alternate field formats its own value once', 'A &amp; B', $page->get($altName));
+			$this->check('Base field returns alternate value formatted once', 'A &amp; B', $page->get($baseName));
+		} finally {
+			$altField->set('textformatters', $textformatters);
+		}
+
 		// Restore original language and clean up values
 		$user->setQuietly('language', $this->originalLanguage);
 		$page = $pages->getFresh($page->id);
