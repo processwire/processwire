@@ -504,7 +504,6 @@ function InputfieldRepeater($) {
 		var cloneID = $addLink.attr('data-clone');
 		var pageID = 0;
 		var depth = 0;
-		var redoSortAll = false;
 		var inputfieldPageID = parseInt($inputfieldRepeater.attr('data-page'));
 
 		function addRepeaterItem($addItem) {
@@ -519,7 +518,6 @@ function InputfieldRepeater($) {
 				var $toggleIcon = $addItem.children('.InputfieldHeader').find('.toggle-icon');
 				$toggleIcon.toggleClass($toggleIcon.attr('data-to')); 
 				$insertItem.replaceWith($addItem);
-				redoSortAll = true;
 			} else {
 				$inputfields.append($addItem);
 			}
@@ -600,13 +598,7 @@ function InputfieldRepeater($) {
 				// next line can remove 9/2019, as 'cloned' support will have been in InputfieldTable for awhile
 				$addItem.find('.InputfieldTableRowID').val(0); 
 			}
-			if(redoSortAll) {
-				$inputfields.children('.InputfieldRepeaterItem').each(function(n) {
-					setItemSort($(this), n);
-				}); 
-			} else {
-				setItemSort($addItem, $inputfields.children().length); 
-			}
+			updateItemSorts($inputfields);
 			if(depth) setItemDepth($addItem, depth);
 			if($addItem.hasClass('InputfieldStateCollapsed')) {
 				// ok
@@ -919,6 +911,22 @@ function InputfieldRepeater($) {
 		if($input.length) $input.val(sort);
 	}
 	
+	/**
+	 * Number the sort inputs of all items in $inputfields by position (0, 1, 2, ...)
+	 * 
+	 * This matches the numbering that InputfieldRepeater::buildForm() renders, so that a
+	 * later save without changes posts the same sort values and is not seen as a change.
+	 * The non-editable .InputfieldRepeaterNewItem template is skipped since it has no sort.
+	 * 
+	 * @param $inputfields The .Inputfields element that contains the .InputfieldRepeaterItem elements
+	 * 
+	 */
+	function updateItemSorts($inputfields) {
+		$inputfields.children('.InputfieldRepeaterItem:not(.InputfieldRepeaterNewItem)').each(function(n) {
+			setItemSort($(this), n);
+		});
+	}
+	
 	function getItemSort($item) {
 		var $input = getItemSortInput($item);
 		if($input.length) return parseInt($input.val());
@@ -1221,9 +1229,7 @@ function InputfieldRepeater($) {
 				}
 
 				ui.item.find('.InputfieldHeader').removeClass("ui-state-highlight");
-				$(this).children().each(function(n) {
-					$(this).find('.InputfieldRepeaterSort').slice(0,1).attr('value', n);
-				});
+				updateItemSorts($(this));
 
 				// Re-enable CKEditor instances
 				ui.item.find('textarea.InputfieldCKEditorNormal:not(.InputfieldCKEditorLoaded)').each(function() {
