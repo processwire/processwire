@@ -197,6 +197,7 @@ class FieldtypeRepeaterPorter extends Wire {
 		}
 
 		$pages = $this->wire()->pages;
+		$sanitizer = $this->wire()->sanitizer;
 
 		// update paths for local
 		foreach($value['pages'] as $key => $item) {
@@ -208,8 +209,17 @@ class FieldtypeRepeaterPorter extends Wire {
 			$path = $parentPath . $name . '/';
 			$importItemNames[$name] = $name;
 			$value['pages'][$key]['path'] = $path;
-			$p = $pages->get($path);
-			if($p->id) continue; // already exists
+			if($repeaterParent->id) {
+				// find by parent and name rather than path, which may not resolve (i.e. with a language segment)
+				$p = $pages->get("parent_id=$repeaterParent->id, name=" . $sanitizer->selectorValue($name) . ", include=all");
+			} else {
+				$p = $pages->get($path);
+			}
+			if($p->id) {
+				// already exists
+				$value['pages'][$key]['_importToID'] = $p->id;
+				continue;
+			}
 
 			// from this point forward, it is assumed we are creating a new repeater item
 			$numAdded++;
@@ -226,6 +236,7 @@ class FieldtypeRepeaterPorter extends Wire {
 				$p->setForField($field);
 				$p->save();
 				$itemsAdded[$p->id] = $p;
+				$value['pages'][$key]['_importToID'] = $p->id;
 				if($p->name != $name) $importItemNames[$p->name] = $p->name;
 			}
 		}
@@ -250,13 +261,16 @@ class FieldtypeRepeaterPorter extends Wire {
 			'pageArray' => $pageArray
 		);
 
+		// use the repeater parent directly rather than locating it by path
+		if($repeaterParent->id) $importOptions['parent'] = $repeaterParent;
+
 		/** @var PagesExportImport $importer */
 		$importer = $this->wire(new PagesExportImport());
 		$pageArray = $importer->arrayToPages($value, $importOptions);
 
 		foreach($pageArray as $p) {
 			$changes = $p->get('_importChanges');
-			if(!count($changes)) continue;
+			if(empty($changes)) continue; // no changes, or item could not be imported (errors already reported)
 			if(isset($itemsAdded[$p->id]) || !$p->id) continue;
 			$numUpdated++;
 			foreach($changes as $fieldName) {

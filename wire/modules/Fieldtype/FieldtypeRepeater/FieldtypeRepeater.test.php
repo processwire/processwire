@@ -132,6 +132,7 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$this->testCombinedStatusMasks($item);
 		$item->save();
 		$this->testPendingPublication($field, $subTextField);
+		$this->testImport($field, $subTextField);
 
 		$page = $pages->getFresh($page->id);
 		$page->of(false);
@@ -381,6 +382,52 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			$markup = $field->type->getInputfield($owner, $field)->render();
 			$pattern = '~<input\b(?=[^>]*\bname=["\']publish_repeater' . $item->id . '["\'])(?=[^>]*\bvalue=["\']-1["\'])[^>]*>~';
 			$this->check('editor requests that API-unpublished item stays unpublished', 1, preg_match($pattern, $markup));
+		} finally {
+			$pages->delete($owner, true);
+		}
+	}
+
+	/**
+	 * Import of repeater items updates, removes and adds items, locating existing items and their
+	 * parent by ID rather than by path, which may not resolve (i.e. with a default language segment)
+	 *
+	 */
+	protected function testImport(Field $field, Field $subField) {
+		$pages = $this->wire()->pages;
+		$owner = $pages->add($this->getTestTemplate(), $this->getTestPage(), [
+			'name' => uniqid('repeater-import-'), 'title' => 'Repeater import fixture',
+		]);
+		try {
+			$owner->of(false);
+			foreach(array('One', 'Two') as $headline) {
+				$item = $owner->get($field->name)->getNew();
+				$item->set($subField->name, $headline);
+				$item->save();
+				$owner->get($field->name)->add($item);
+			}
+			$owner->save($field->name);
+
+			$importer = $this->wire(new PagesExportImport());
+			$a = $importer->pagesToArray($pages->find("id=$owner->id, include=all"));
+			$data = $a['pages'][0];
+			$items = $data['data'][$field->name]['pages'];
+			$items[0]['data'][$subField->name] = 'One changed';
+			$new = $items[1];
+			$new['settings']['name'] = uniqid('imported-');
+			$new['settings']['id'] = 0;
+			$new['data'][$subField->name] = 'Three new';
+			$data['data'][$field->name]['pages'] = array($items[0], $new); // "Two" removed, "Three new" added
+			$data['_importToID'] = $owner->id;
+
+			$importer->arrayToPage($data, array('fieldNames' => array($field->name)));
+
+			$owner = $pages->getFresh($owner->id);
+			$owner->of(false);
+			$headlines = array();
+			foreach($owner->get($field->name) as $item) $headlines[] = (string) $item->get($subField->name);
+			$this->check('import updates existing item, removes missing item and adds new item', array('One changed', 'Three new'), $headlines);
+			$parent = $field->type->getRepeaterPageParent($owner, $field);
+			$this->check('import does not create duplicate repeater items', 2, $pages->count("parent=$parent, include=all"));
 		} finally {
 			$pages->delete($owner, true);
 		}

@@ -1404,9 +1404,12 @@ class PagesExportImport extends Wire {
 				$templateNames[$templateName] = array_keys($item['data']);
 			}
 			
-			$pageIDs = $pageFinder->findIDs(new Selectors("path=$path, include=all")); 
+			$pageIDs = empty($item['_importToID']) ? $pageFinder->findIDs(new Selectors("path=$path, include=all")) : array();
 			
-			if(!count($pageIDs)) {
+			if(!empty($item['_importToID'])) {
+				// local ID already identified by caller, i.e. FieldtypeRepeaterPorter
+				$pageID = (int) $item['_importToID'];
+			} else if(!count($pageIDs)) {
 				// no match
 				$pageID = 0;
 			} else if(count($pageIDs) > 1) {
