@@ -389,13 +389,26 @@ class Session extends Wire implements \IteratorAggregate {
 		$sessionName = session_name();
 
 		// check challenge cookie
+		$cookieName = $sessionName . self::challengeSuffix;
+		$cookie = isset($_COOKIE[$cookieName]) && is_string($_COOKIE[$cookieName]) ? $_COOKIE[$cookieName] : '';
+		$resendChallenge = null; // challenge cookie value to send again if session is valid
 		if($this->config->sessionChallenge) {
-			$cookieName = $sessionName . self::challengeSuffix;
-			if(empty($_COOKIE[$cookieName]) || ($this->get('_user', 'challenge') != $_COOKIE[$cookieName])) {
+			$challenge = (string) $this->get('_user', 'challenge');
+			// false until the browser returns the challenge cookie after login (null for sessions prior to 3.0.275)
+			$confirmed = $this->get('_user', 'challengeConfirmed') !== false;
+			if(strlen($cookie) && strlen($challenge) && hash_equals($challenge, $cookie)) {
+				if(!$confirmed) $this->set('_user', 'challengeConfirmed', true);
+			} else if(!strlen($cookie) && strlen($challenge) && !$confirmed) {
+				// browser has not yet stored the challenge cookie from login, so send it again
+				$resendChallenge = $challenge;
+			} else {
 				$valid = false; 
 				$reason = "Error: Invalid challenge value";
 			}
-		}	
+		} else if(!strlen($cookie)) {
+			// challenge disabled: keep the cookie present as an indicator of login, see hasLoginCookie()
+			$resendChallenge = '';
+		}
 
 		// check fingerprint
 		if(!$this->isValidFingerprint()) {
@@ -417,6 +430,7 @@ class Session extends Wire implements \IteratorAggregate {
 		if($valid) {
 			// if valid, update last request time
 			$this->set('_user', 'ts', time());
+			if($resendChallenge !== null) $this->setChallengeCookie($resendChallenge);
 			
 		} else if($reason && $userID && $userID != $this->config->guestUserPageID) {
 			// otherwise log the invalid session
@@ -1265,22 +1279,15 @@ class Session extends Wire implements \IteratorAggregate {
 			$this->set('_user', 'ts', time());
 
 			if($this->config->sessionChallenge) {
-				// create new challenge
+				// create new challenge, which is enforced once the browser has returned it
 				$rand = new WireRandom();
 				$challenge = $rand->base64(32);
 				$this->set('_user', 'challenge', $challenge); 
-				$secure = $this->config->sessionCookieSecure ? (bool) $this->config->https : false;
-				// set challenge cookie to last 30 days (should be longer than any session would feasibly last)
-				$this->setCookie(
-					session_name() . self::challengeSuffix,
-					$challenge,
-					time() + 60*60*24*30,
-					'/',
-					$this->config->sessionCookieDomain,
-					$secure,
-					true,
-					$this->config->sessionCookieSameSite
-				);
+				$this->set('_user', 'challengeConfirmed', false);
+				$this->setChallengeCookie($challenge);
+			} else {
+				// no challenge, but set the cookie as an indicator of login, see hasLoginCookie()
+				$this->setChallengeCookie();
 			}
 
 			if($this->config->sessionFingerprint) { 
@@ -1500,6 +1507,33 @@ class Session extends Wire implements \IteratorAggregate {
 		));
 	}
 
+	/**
+	 * Set the challenge cookie
+	 *
+	 * When `$config->sessionChallenge` is disabled, the cookie holds no challenge and only
+	 * indicates that the browser has logged in, for `$session->hasLoginCookie()`, the
+	 * `$config->sessionCacheLimiter` context and cache bypass rules (such as ProCache).
+	 *
+	 * @param string $challenge Challenge value, or omit when sessionChallenge is disabled
+	 * @return bool
+	 * @since 3.0.275
+	 *
+	 */
+	protected function setChallengeCookie($challenge = '') {
+		$config = $this->config;
+		$secure = $config->sessionCookieSecure ? (bool) $config->https : false;
+		// set challenge cookie to last 30 days (should be longer than any session would feasibly last)
+		return $this->setCookie(
+			session_name() . self::challengeSuffix,
+			strlen($challenge) ? $challenge : '1',
+			time() + 60*60*24*30,
+			'/',
+			$config->sessionCookieDomain,
+			$secure,
+			true,
+			$config->sessionCookieSameSite
+		);
+	}
 
 	/**
 	 * Remove all cookies used by the session
@@ -1550,12 +1584,8 @@ class Session extends Wire implements \IteratorAggregate {
 		$name = $this->config->sessionName;
 		$nameSecure = $this->config->sessionNameSecure;
 		if(empty($nameSecure)) $nameSecure = $this->config->sessionName . 's';
-		$a = array($name, $nameSecure); 
-		if($this->config->sessionChallenge) {
-			$a[] = $name . self::challengeSuffix;
-			$a[] = $nameSecure . self::challengeSuffix;
-		}
-		return $a;
+		// challenge cookies are also set when sessionChallenge is disabled, as an indicator of login
+		return array($name, $nameSecure, $name . self::challengeSuffix, $nameSecure . self::challengeSuffix);
 	}
 
 	/**

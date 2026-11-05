@@ -383,6 +383,11 @@ $config->sessionAllow = true;
  * 
  * Should login sessions have a challenge key? (for extra security, recommended)
  *
+ * The challenge cookie is sent at login and is enforced once the browser has returned it.
+ * When disabled, the same cookie is still set (with no challenge) as an indicator of login,
+ * as used by `$session->hasLoginCookie()`, the `sessionCacheLimiter` 'loggedin' context,
+ * and cache bypass rules such as those of ProCache.
+ *
  * @var bool
  *
  */
