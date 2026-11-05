@@ -5,7 +5,7 @@
  *
  * Provides the image selecting and editing capability for rich text editors (TinyMCE/CKEditor)
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $hidpiDefault HiDPI/Retina checkbox default checked?
@@ -1416,9 +1416,17 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	public function ___executeResize() {
 
 		$this->checkImageEditPermission();
-		$this->wire()->session->CSRF()->validate();
-		
+
 		$input = $this->wire()->input;
+		$csrf = $this->wire()->session->CSRF();
+
+		if($input->requestMethod('GET') && $this->wire()->config->protectCSRF && !$csrf->hasValidToken()) {
+			// outdated (browser-cached) editor plugins request resize by GET without a CSRF token
+			throw new WireException($this->_('Unable to insert image because the browser is using an outdated copy of the editor script. Please reload the page (clearing the browser cache if necessary) and try again.'));
+		}
+
+		$csrf->validate();
+
 		$adminTheme = $this->wire()->adminTheme;
 		$checkboxClass = $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('input-checkbox') : '';
 

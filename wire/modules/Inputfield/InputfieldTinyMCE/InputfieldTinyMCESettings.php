@@ -5,7 +5,7 @@
  *
  * Helper for managing TinyMCE settings and defaults
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method array prepareSettingsForOutput(array $settings)
@@ -441,7 +441,8 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 
 		if(!empty($settings['external_plugins'])) {
 			foreach($settings['external_plugins'] as $name => $url) {
-				$settings['external_plugins'][$name] = $rootUrl . ltrim($url, '/');
+				// version string busts browser caches when plugin files change
+				$settings['external_plugins'][$name] = $config->versionUrl($rootUrl . ltrim($url, '/'));
 			}
 		}
 		if(isset($settings['height'])) {

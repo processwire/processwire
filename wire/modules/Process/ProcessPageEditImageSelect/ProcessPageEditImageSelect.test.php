@@ -144,6 +144,7 @@ class WireTest_ProcessPageEditImageSelect extends WireTest {
 		$config = $this->wire()->config;
 		$postPrevious = $input->post->getArray();
 		$protectPrevious = $config->protectCSRF;
+		$methodPrevious = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : null;
 		$config->protectCSRF = true;
 
 		try {
@@ -176,7 +177,27 @@ class WireTest_ProcessPageEditImageSelect extends WireTest {
 				}
 				$this->check("RTE $action with a valid token reaches image processing", true, $module->testImageRequested);
 			}
+
+			// outdated browser-cached editor plugins request resize by GET without a token (processwire/processwire-issues#2373)
+			$_SERVER['REQUEST_METHOD'] = 'GET';
+			$input->post->removeAll();
+			$module->testImageRequested = false;
+			$message = '';
+			try {
+				$module->executeResize();
+			} catch(WireException $e) {
+				$message = $e instanceof WireCSRFException ? 'csrf' : $e->getMessage();
+			} catch(\RuntimeException $e) {
+				if(!$module->testImageRequested) throw $e;
+			}
+			$this->check('RTE resize by GET without a token explains the outdated editor script', true,
+				strpos($message, 'outdated') !== false && !$module->testImageRequested);
 		} finally {
+			if($methodPrevious === null) {
+				unset($_SERVER['REQUEST_METHOD']);
+			} else {
+				$_SERVER['REQUEST_METHOD'] = $methodPrevious;
+			}
 			$input->post->removeAll();
 			$input->post->setArray($postPrevious);
 			$config->protectCSRF = $protectPrevious;

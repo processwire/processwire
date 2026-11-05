@@ -3,7 +3,7 @@
 /**
  * ProcessWire Inputfield for CKEditor
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * #pw-body = 
@@ -43,7 +43,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 172, 
+			'version' => 173, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 		);
@@ -487,7 +487,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 
 		$settings = array(
 			'language' => $this->_x('en', 'language-code'), // 2 character language code, lowercase
-			'timestamp' => '2015030801.' . $info['version'], // for cache busting (thanks teppo!)
+			'timestamp' => '2015030801.' . $info['version'] . '.' . $this->wire()->config->version, // for cache busting (thanks teppo!)
 			'plugins' => $this->findPlugins(),
 			'editors' => array(),
 			'pwlink' => array(
