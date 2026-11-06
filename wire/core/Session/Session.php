@@ -372,9 +372,9 @@ class Session extends Wire implements \IteratorAggregate {
 	}
 
 	/**
-	 * Checks if the session is valid based on a challenge cookie and fingerprint
+	 * Checks session cookies, fingerprint, expiry and the current account credentials/status.
 	 *
-	 * These items may be disabled at the config level, in which case this method always returns true
+	 * Cookie and fingerprint checks may be disabled at the config level; account checks still apply.
 	 * 
 	 * #pw-hooker
  	 *
@@ -428,6 +428,19 @@ class Session extends Wire implements \IteratorAggregate {
 		}
 
 		if($valid) {
+			$user = $this->wire()->users->get((int) $userID);
+			$authHash = $this->get('_user', 'authHash');
+			if(!$user || !$user->id || $user->isGuest() || $user->isUnpublished()) {
+				$valid = false;
+				$reason = 'Session account is no longer available';
+			} else if(!is_string($authHash) || !hash_equals($this->getUserAuthHash($user), $authHash)) {
+				// Missing hashes also require reauthentication for sessions created before this check.
+				$valid = false;
+				$reason = 'Session credentials have changed or require reauthentication';
+			}
+		}
+
+		if($valid) {
 			// if valid, update last request time
 			$this->set('_user', 'ts', time());
 			if($resendChallenge !== null) $this->setChallengeCookie($resendChallenge);
@@ -441,6 +454,41 @@ class Session extends Wire implements \IteratorAggregate {
 		}
 
 		return $valid; 
+	}
+
+	/**
+	 * Bind a login to the account's local password without storing its hash in the session.
+	 * Empty local passwords (such as accounts authenticated by a hook) remain supported.
+	 *
+	 * @param User $user
+	 * @return string
+	 */
+	protected function getUserAuthHash(User $user) {
+		$password = $user->getUnformatted('pass');
+		$hash = $password instanceof Password ? $password->hash : '';
+		$salt = strlen($hash) ? $password->salt : '';
+		return hash_hmac('sha256', "$user->id:$salt:$hash", $this->config->userAuthSalt);
+	}
+
+	/**
+	 * Preserve this session after a validated, successfully saved self-service password change.
+	 * Regenerates the session ID and updates this session's credential binding, leaving other
+	 * sessions invalidated. Does not authenticate a user or save the password itself.
+	 * Call only from the authorized password-change workflow after validating the form and
+	 * saving the current user's password, never from a general user-save hook.
+	 *
+	 * @param User $user
+	 * @return bool True on success, false if account/session identity does not match or ID regeneration fails
+	 * @since 3.0.275
+	 * #pw-group-authentication
+	 */
+	public function refreshUserAuthHash(User $user) {
+		if(!$user->id || $user->isGuest() || $user->isUnpublished()) return false;
+		if($user->id !== $this->wire()->user->id || $user->id !== $this->get('_user', 'id')) return false;
+		// Retire the old ID as well, so a stolen copy of this very session cannot inherit the refresh.
+		if($this->sessionInit && !session_regenerate_id(true)) return false;
+		$this->set('_user', 'authHash', $this->getUserAuthHash($user));
+		return true;
 	}
 
 	/**
@@ -1277,6 +1325,7 @@ class Session extends Wire implements \IteratorAggregate {
 			session_regenerate_id(true);
 			$this->set('_user', 'id', $user->id); 
 			$this->set('_user', 'ts', time());
+			$this->set('_user', 'authHash', $this->getUserAuthHash($user));
 
 			if($this->config->sessionChallenge) {
 				// create new challenge, which is enforced once the browser has returned it

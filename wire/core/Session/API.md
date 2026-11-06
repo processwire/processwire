@@ -221,6 +221,18 @@ Log in a user by name and password.
 - Automatically sets the current user on success.
 - Specify `$force = true` to skip password check (or use `forceLogin()` instead).
 
+Authenticated sessions are bound to the account's local password. Changing that password
+invalidates prior sessions on their next request. The Profile and Users editors preserve
+the current session when the user successfully changes their own password; other sessions
+are still invalidated, and the current session ID is regenerated to retire stolen copies
+of that session. Administrative changes to another account and direct API password
+changes do not refresh the affected user's sessions. Unpublishing or deleting the account
+also prevents an existing session from being restored. Sessions established before
+credential binding was added require a fresh
+login after updating the core. For externally authenticated accounts, this checks the
+local account only; external credential revocation remains the authentication provider's
+responsibility.
+
 ~~~~~php
 $user = $session->login('bob', 's3cr3t');
 
@@ -230,6 +242,40 @@ if($user) {
     echo "Invalid username or password.";
 }
 ~~~~~
+
+---
+
+### $session->refreshUserAuthHash($user)
+
+Keep the current session signed in after a successful self-service password change.
+Available since **3.0.275**.
+
+- **Arguments:** `refreshUserAuthHash(User $user)`
+- **Returns:** `bool` — `true` on success, `false` if the user is not the current
+  authenticated session owner, is guest/unpublished, or session ID regeneration fails.
+- Regenerates the current session ID, retiring copied old session cookies, and updates
+  only this session's credential binding. Other sessions retain the old binding and
+  are rejected on their next request.
+- Does not save the password, authenticate a user, or replace form authorization,
+  CSRF protection, current-password verification or new-password validation.
+- Call immediately after a successful password save in your profile editor. Do not
+  call from a general user-save hook, an administrator's reset of another account,
+  or code that automatically refreshes mismatched session credentials.
+
+~~~~~php
+// After validating the form, CSRF token, current password and new password:
+$user->of(false);
+$user->pass = $newPassword;
+if($users->save($user)) {
+    if(!$session->refreshUserAuthHash($user)) {
+        $session->logout(); // require a fresh login if preservation failed
+    }
+}
+~~~~~
+
+Existing sessions created before this API was introduced still require a fresh login
+when upgrading. This method is for subsequent authorized password changes, not for
+silently upgrading or reviving old sessions.
 
 ---
 
