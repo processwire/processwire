@@ -9,7 +9,7 @@
  * if(!$page->viewable()) { echo "sorry you can't view this"; }
  * ...and so on...
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * Optional special permissions that are optional (by default, not installed):
@@ -52,8 +52,13 @@
  *    revoke it from them. Think of this permission as granting a user administrative privileges
  *    to just a specific group of users. Note that there would be no reason to combine this
  *    permission with the user-admin-all permission, as user-admin-all permission grants admin
- *    privileges to all roles. 
- * 
+ *    privileges to all roles.
+ *
+ * 9. page-delete-permanent: when installed, deleteable() returns false, when it would otherwise
+ *    return true, if user doesn't have this permission. The page-delete permission then only
+ *    allows moving pages to the trash (trashable). When not installed, page-delete allows both.
+ *    Superusers can always permanently delete pages.
+ *
  */
 
 class PagePermissions extends WireData implements Module {
@@ -886,8 +891,24 @@ class PagePermissions extends WireData implements Module {
 	public function deleteable($event) {
 		/** @var Page $page */
 		$page = $event->object;
-		$user = $this->wire()->user; 
-		
+		$event->return = $this->pageDeleteable($page, true);
+	}
+
+	/**
+	 * Can the current user delete the given page (permanently or by moving it to the trash)?
+	 *
+	 * When the optional `page-delete-permanent` permission is installed, the `page-delete` permission
+	 * alone only allows moving pages to the trash. Permanent deletion then also requires
+	 * `page-delete-permanent`. When not installed, `page-delete` allows both (the default).
+	 *
+	 * @param Page $page
+	 * @param bool $permanent True if asking about permanent deletion, false if asking about moving to trash
+	 * @return bool
+	 *
+	 */
+	protected function pageDeleteable(Page $page, $permanent) {
+		$user = $this->wire()->user;
+
 		if($page->isLocked()) {
 			$deleteable = false;
 		} else if($page instanceof User && $user->hasPermission('user-admin')) {
@@ -900,6 +921,10 @@ class PagePermissions extends WireData implements Module {
 			if($deleteable && !$user->isSuperuser()) {
 				// make sure the page is editable and user has page-delete permission, if not dealing with superuser
 				$deleteable = $page->editable() && $user->hasPermission("page-delete", $page);
+				if($deleteable && $permanent && $this->wire()->permissions->has('page-delete-permanent')) {
+					// optional permission is installed, so permanent deletion requires it
+					$deleteable = $user->hasPermission('page-delete-permanent', $page);
+				}
 			}
 			if($deleteable && $this->wire()->languages) {
 				// in multi-language environment, if user can't edit default language or can't edit non-multi-language fields,
@@ -909,8 +934,8 @@ class PagePermissions extends WireData implements Module {
 				}
 			}
 		}
-		
-		$event->return = $deleteable;
+
+		return $deleteable;
 	}
 
 	/**
@@ -940,7 +965,8 @@ class PagePermissions extends WireData implements Module {
 				$event->return = true;
 				return;
 			}
-			$this->deleteable($event);
+			// trashing requires page-delete, but not page-delete-permanent
+			$event->return = $this->pageDeleteable($page, false);
 			if(!$event->return && $this->wire()->permissions->has('page-edit-trash-created') && $page->editable()) {
 				// page can be trashable if user created it
 				$trashable = ($page->created_users_id === $user->id && $user->hasPermission('page-edit-trash-created', $page));

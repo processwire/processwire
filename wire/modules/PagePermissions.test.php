@@ -5,6 +5,7 @@ class WireTest_PagePermissions extends WireTest {
 
 	public function execute() {
 		$this->testCloneAccess();
+		$this->testTrashVersusPermanentDelete();
 		$wire = $this->wire();
 		$admin = $wire->user;
 		$superuser = $wire->users->get($wire->config->superUserPageID);
@@ -226,6 +227,106 @@ class WireTest_PagePermissions extends WireTest {
 			if($user && $user->id) $wire->users->delete($user);
 			if($role && $role->id) $wire->roles->delete($role);
 			foreach($permissionsCreated as $permission) $wire->permissions->delete($permission);
+			$wire->users->setCurrentUser($previousUser);
+		}
+	}
+
+	/** page-delete allows trashing; optional page-delete-permanent (when installed) gates permanent deletion. */
+	protected function testTrashVersusPermanentDelete() {
+		$wire = $this->wire();
+		$permissions = $wire->permissions;
+		$previousUser = $wire->user;
+		$superuser = $wire->users->get($wire->config->superUserPageID);
+		$name = uniqid('wiretest_trash_delete_');
+		$role = $user = $template = $page = $permanent = null;
+		$permissionsCreated = array();
+		$wasInstalled = $permissions->has('page-delete-permanent');
+		try {
+			$wire->users->setCurrentUser($superuser);
+			$role = $wire->roles->add($name);
+			foreach(array('page-view', 'page-edit', 'page-delete') as $permissionName) {
+				$permission = $permissions->get($permissionName);
+				if(!$permission->id) {
+					$permission = $permissions->add($permissionName);
+					$permissionsCreated[] = $permission;
+				}
+				$role->addPermission($permission);
+			}
+			foreach(array('page-edit-lang-default', 'page-edit-lang-none') as $permissionName) {
+				// multi-language sites deny deletion without these, when installed
+				if($permissions->has($permissionName)) $role->addPermission($permissionName);
+			}
+			$role->save();
+			$user = $wire->users->add($name);
+			$user->addRole($role);
+			$user->save();
+			$template = $wire->templates->add($name);
+			$template->useRoles = true;
+			$template->setRoles(array($wire->config->guestUserRolePageID, $role->id), 'view');
+			$template->setRoles(array($role->id), 'edit');
+			$template->save();
+			$template->fieldgroup->add($wire->fields->get('title'));
+			$template->fieldgroup->save();
+			$page = $wire->pages->new(array('template' => $template, 'parent' => 1, 'name' => $name, 'title' => 'Trash vs delete test'));
+			// owned by the test user so a runtime-cached page-edit-created state (from earlier tests) can't affect editability
+			$page->of(false);
+			$page->created_users_id = $user->id;
+			$page->save(array('quiet' => true));
+
+			$this->check('trash/delete control user is not superuser', false, $user->isSuperuser());
+
+			if(!$wasInstalled) {
+				$wire->users->setCurrentUser($user);
+				$this->check('without page-delete-permanent installed, page-delete allows permanent delete', true, $page->deleteable());
+				$this->check('without page-delete-permanent installed, page-delete allows trash', true, $page->trashable());
+				$wire->users->setCurrentUser($superuser);
+				$permanent = $permissions->add('page-delete-permanent');
+				$permanent->title = 'Permanently delete pages';
+				$permanent->save();
+			}
+			$this->check('page-delete-permanent is installed', true, $permissions->has('page-delete-permanent'));
+			$this->check('page-delete-permanent is a reducer permission', true, isset($permissions->getReducerPermissions()['page-delete-permanent']));
+
+			$wire->users->setCurrentUser($user);
+			$this->check('page-delete alone no longer allows permanent delete', false, $page->deleteable());
+			$this->check('page-delete alone still allows moving to trash', true, $page->trashable());
+			$this->check('page-delete alone is trashable-or-deleteable', true, $page->trashable(true));
+
+			$wire->users->setCurrentUser($superuser);
+			$wire->pages->trash($page);
+			$page = $wire->pages->get($page->id);
+			$wire->users->setCurrentUser($user);
+			$this->check('test page is in the trash', true, $page->isTrash());
+			$this->check('trashed page cannot be permanently deleted without page-delete-permanent', false, $page->deleteable());
+			$this->check('trashed page is not trashable again', false, $page->trashable());
+
+			$wire->users->setCurrentUser($superuser);
+			$role->addPermission('page-delete-permanent');
+			$role->save();
+			$wire->users->setCurrentUser($user);
+			$this->check('page-delete + page-delete-permanent allows permanent delete', true, $page->deleteable());
+
+			$wire->users->setCurrentUser($superuser);
+			$role->removePermission('page-delete-permanent');
+			$role->removePermission('page-delete');
+			$role->save();
+			$wire->users->setCurrentUser($user);
+			$this->check('without page-delete, page is not deleteable', false, $page->deleteable());
+
+			$wire->users->setCurrentUser($superuser);
+			$this->check('superuser can always permanently delete', true, $page->deleteable());
+		} finally {
+			$wire->users->setCurrentUser($superuser);
+			if($page && $page->id) $wire->pages->delete($page, true);
+			if($template && $template->id) {
+				$group = $template->fieldgroup;
+				$wire->templates->delete($template);
+				$wire->fieldgroups->delete($group);
+			}
+			if($user && $user->id) $wire->users->delete($user);
+			if($role && $role->id) $wire->roles->delete($role);
+			if($permanent && $permanent->id) $permissions->delete($permanent);
+			foreach($permissionsCreated as $permission) $permissions->delete($permission);
 			$wire->users->setCurrentUser($previousUser);
 		}
 	}
