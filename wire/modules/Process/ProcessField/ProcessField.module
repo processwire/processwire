@@ -47,9 +47,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		return array(
 			'title' => __('Fields', __FILE__),
 			'summary' => __('Edit individual fields that hold page data', __FILE__),
-			'version' => 114,
+			'version' => 115,
 			'permanent' => true, 
-			'permission' => 'field-admin', // add this permission if you want this Process available for roles other than Superuser
+			'permission' => '', // superuser only
 			'icon' => 'cube', 
 			'useNavJSON' => true,
 			'searchable' => 'fields', 
@@ -128,6 +128,8 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function init() {
+		// Enforce this independently of cached module permission metadata.
+		if(!$this->wire()->user->isSuperuser()) throw new WirePermissionException($this->_('Superuser access is required to administer fields.'));
 	
 		$input = $this->wire()->input;
 		
@@ -2952,6 +2954,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___executeImport() {
+		if(!$this->wire()->user->isSuperuser()) throw new WirePermissionException($this->_('Superuser access is required to import fields.'));
 		
 		$this->headline($this->labels['import']);
 		$this->breadcrumb('../', $this->moduleInfo['title']);

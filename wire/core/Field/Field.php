@@ -561,6 +561,8 @@ class Field extends WireData implements Saveable, Exportable {
 			}
 		}
 
+		// Retain legacy values in storage, but do not distribute this retired setting.
+		unset($data['findPagesCode']);
 		return $data;
 	}
 
@@ -585,6 +587,8 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function setImportData(array $data) {
+		// Legacy runtime values remain supported, but cannot be introduced or replaced by imports.
+		unset($data['findPagesCode']);
 
 		$changes = array();
 		$data['errors'] = array();
