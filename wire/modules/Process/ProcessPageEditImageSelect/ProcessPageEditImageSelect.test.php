@@ -21,6 +21,119 @@ class WireTest_ProcessPageEditImageSelect extends WireTest {
 		$this->check('RTE requests cannot invoke non-RTE image save actions', true, $denied);
 		$this->testRequestTokens($module);
 		$this->testFieldAccess();
+		$this->testRepeaterFieldAccess();
+	}
+
+	/**
+	 * Images in repeater items take page access from the page the repeater lives on, while field
+	 * access still applies (processwire/processwire-issues#2375)
+	 *
+	 */
+	protected function testRepeaterFieldAccess() {
+		$wire = $this->wire();
+		$modules = $wire->modules;
+		$userPrevious = $wire->user;
+		$getPrevious = $wire->input->get->getArray();
+		$name = uniqid('wiretest_imgrep_');
+		$fields = array();
+		$repeater = $template = $page = $role = $user = null;
+		$modules->get('FieldtypeRepeater')->getFieldClass();
+
+		try {
+			$role = $wire->roles->add($name);
+			$role->addPermission('page-view');
+			$role->addPermission('page-edit');
+			$role->save();
+			$user = $wire->users->add($name);
+			$user->addRole($role);
+			$user->save();
+			$template = $wire->templates->add($name);
+			$template->useRoles = true;
+			$template->setRoles(array($role->id), 'view');
+			$template->setRoles(array($role->id), 'edit');
+			$template->save();
+			foreach(array('open', 'hidden') as $access) {
+				$field = $wire->fields->new('FieldtypeImage', $name . '_' . $access);
+				if($access === 'hidden') {
+					$field->useRoles = true;
+					$field->viewRoles = array();
+					$field->editRoles = array();
+				}
+				$field->save();
+				$fields[$access] = $field;
+			}
+			$repeater = new RepeaterField();
+			$repeater->name = $name . '_repeater';
+			$repeater->type = $modules->get('FieldtypeRepeater');
+			$repeater->save();
+			$repeaterTemplate = $repeater->type->_getRepeaterTemplate($repeater);
+			$repeaterTemplate->set('pageClass', 'RepeaterPage'); // as FieldtypeRepeater::initField() does for existing fields
+			$repeaterTemplate->save();
+			$repeaterFieldgroup = $repeaterTemplate->fieldgroup;
+			foreach($fields as $field) $repeaterFieldgroup->add($field);
+			$repeaterFieldgroup->save();
+			$repeater->repeaterFields = array($fields['open']->id, $fields['hidden']->id);
+			$repeater->save();
+			$template->fieldgroup->add($repeater);
+			$template->fieldgroup->save();
+
+			$page = $wire->pages->newPage(array('template' => $template, 'parent' => 1, 'name' => $name));
+			$page->save();
+			$page->of(false);
+			$item = $page->get($repeater->name)->getNew();
+			$item->save();
+			$images = array();
+			foreach(array('open' => 'test1.jpg', 'hidden' => 'test2.png') as $access => $filename) {
+				$item->getUnformatted($fields[$access]->name)->add(dirname(__DIR__, 2) . '/Fieldtype/FieldtypeImage/tests/images/' . $filename);
+				$item->save($fields[$access]->name);
+				$images[$access] = $item->getUnformatted($fields[$access]->name)->first();
+			}
+			$page->get($repeater->name)->add($item);
+			$page->save($repeater->name);
+			$item = $wire->pages->getFresh($item->id);
+
+			$wire->users->setCurrentUser($user);
+			$this->check('limited editor can edit the page the repeater lives on', true, $page->editable());
+			$module = $this->wire(new WireTestFieldAccess_ProcessPageEditImageSelect());
+			$results = array();
+			foreach($images as $access => $image) {
+				foreach(array(false, true) as $rte) {
+					$module->configure($item, $fields[$access], $image->name, $rte);
+					$module->setMasterPage($page);
+					$wire->input->get->set('file', $item->id . ',' . $image->name);
+					try {
+						$found = $module->getPageimage()->name === $image->name;
+					} catch(WireException $e) {
+						$found = false;
+					}
+					$results[$access . ($rte ? '-rte' : '-edit')] = $found;
+				}
+			}
+			$this->check('repeater image can be edited by user who can edit the owning page', true, $results['open-edit']);
+			$this->check('repeater image can be selected in RTE by user who can edit the owning page', true, $results['open-rte']);
+			$this->check('field access still applies to images in repeater items', array(false, false), array($results['hidden-edit'], $results['hidden-rte']));
+		} finally {
+			$wire->users->setCurrentUser($userPrevious);
+			$wire->input->get->removeAll();
+			$wire->input->get->setArray($getPrevious);
+			if($page && $page->id) $wire->pages->delete($page, true);
+			if($template && $template->id) {
+				$fieldgroup = $template->fieldgroup;
+				$wire->templates->delete($template);
+				$wire->fieldgroups->delete($fieldgroup);
+			}
+			if($repeater && $repeater->id) $wire->fields->delete($repeater);
+			foreach($fields as $field) {
+				foreach($field->getFieldgroups() as $fieldgroup) {
+					$fieldgroup->remove($field);
+					$fieldgroup->save();
+				}
+				$wire->fields->delete($field);
+			}
+			if($user && $user->id) $wire->users->delete($user);
+			if($role && $role->id) $wire->roles->delete($role);
+		}
+		$this->check('temporary repeater test field removed', null, $wire->fields->get($name . '_repeater'));
 	}
 
 	protected function testFieldAccess() {
@@ -218,6 +331,10 @@ class WireTestFieldAccess_ProcessPageEditImageSelect extends ProcessPageEditImag
 
 	public function saveForTest() {
 		return $this->processSave(true);
+	}
+
+	public function setMasterPage(Page $page) {
+		$this->masterPage = $page;
 	}
 }
 
