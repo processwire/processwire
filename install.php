@@ -187,6 +187,21 @@ class Installer {
 	}
 
 	/**
+	 * Render the script tag for install/install.js
+	 *
+	 * Used by the profile and database steps. Linked rather than inline, so that the installer
+	 * works with a Content-Security-Policy that does not allow inline scripts. Not used on the
+	 * final step, which removes the /install/ directory.
+	 *
+	 * @return string
+	 *
+	 */
+	protected function renderScript() {
+		if(!is_file(__DIR__ . '/install/install.js')) return '';
+		return "\n<script src='install/install.js' defer></script>\n";
+	}
+
+	/**
 	 * Render the installer document head, masthead and opening form tag
 	 *
 	 * The installer renders its own document rather than using an admin theme, so that
@@ -1190,22 +1205,9 @@ class Installer {
 				Select an installation profile to see more information.
 			</p>
 			$out
-			<script>
-			(function() {
-				var select = document.getElementById('select-profile');
-				if(!select) return;
-				function updatePreview() {
-					var previews = document.querySelectorAll('.profile-preview');
-					for(var i = 0; i < previews.length; i++) previews[i].style.display = 'none';
-					var active = select.value ? document.getElementById(select.value) : null;
-					if(active) active.style.display = '';
-				}
-				select.addEventListener('change', updatePreview);
-				updatePreview();
-			})();
-			</script>
 		";
 		
+		echo $this->renderScript();
 	}
 	
 	/**
@@ -1518,7 +1520,7 @@ class Installer {
 		
 		$this->input('dbHost', 'DB Host', $values['dbHost']);
 		$this->input('dbPort', 'DB Port', $values['dbPort']);
-		$this->input('dbSocket', 'DB Socket', $values['dbSocket'], array('width' => 300));
+		$this->input('dbSocket', 'DB Socket', $values['dbSocket'], array('width' => 300, 'required' => false)); // install.js makes it required for socket connections
 		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8mb4', 'utf8'));
 		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('InnoDB', 'MyISAM'));
 		$this->clear();
@@ -1543,7 +1545,7 @@ class Installer {
 			$this->p("Using SQLite " . htmlspecialchars($this->sqliteVersion()) . ".", array('class' => 'detail', 'style' => 'margin-top:0'));
 			$this->sectionStop();
 		}
-		$this->sectionStart('fa-key Installer activation token', [ 'id' => 'installer-activation' ]);
+		$this->sectionStart('fa-key Installer activation token', [ 'id' => 'installer-activation', 'class' => (self::TEST_ACTIVATION ? 'pwi-test-activation' : '') ]);
 		$this->p(
 			'A remote database host requires proof of filesystem access. ' .
 			'Copy the activation token from the PHP comment at the top of the <code>/site/config.php</code> file and paste it below.'
@@ -1558,68 +1560,8 @@ class Installer {
 				'wrapClass' => 'pwi-no-margin-bottom',
 			)
 		);
+		echo $this->renderScript(); // automatic visibility and required states for database fields
 	
-		// automatic required states for host, port and socket
-		$testActivation = self::TEST_ACTIVATION ? 'true' : 'false';
-		echo "
-			<script>
-				(function() {
-					function el(selector) { return document.querySelector(selector); }
-					function row(input) { return input ? input.closest('p') : null; }
-					function display(node, show) { if(node) node.style.display = show ? '' : 'none'; }
-					var ho = el('input[name=dbHost]'), po = el('input[name=dbPort]'),
-						so = el('input[name=dbSocket]'), co = el('select[name=dbCon]'),
-						no = el('input[name=dbName]'), uo = el('input[name=dbUser]'),
-						to = el('select[name=dbType]'),
-						ao = el('input[name=installerActivationToken]'),
-						activation = el('#installer-activation');
-					if(!co) return;
-					var defaultPorts = { mysql: '3306', pgsql: '5432' };
-					function updatePort() {
-						// switch the port to the new database type's default, unless it was customized
-						var type = to ? to.value : 'mysql';
-						if(!po || !defaultPorts[type]) return;
-						var port = po.value.trim(), isDefault = port === '';
-						for(var key in defaultPorts) if(defaultPorts[key] === port) isDefault = true;
-						if(isDefault) po.value = defaultPorts[type];
-					}
-					function updateConnectionFields() {
-						var sqlite = to ? to.value === 'sqlite' : false,
-							pgsql = to ? to.value === 'pgsql' : false,
-							useHost = co.value === 'Hostname';
-						display(el('#pwi-mysql'), !sqlite);
-						display(el('#pwi-sqlite'), sqlite);
-						var dbName = el('#pwi-db-name');
-						if(dbName) dbName.textContent = pgsql ? 'PostgreSQL' : 'MySQL';
-						display(el('#pwi-mysql-intro'), !pgsql);
-						display(el('#pwi-pgsql-intro'), pgsql);
-						// charset and engine are MySQL settings (PostgreSQL databases are UTF-8 and have no engines)
-						display(row(el('select[name=dbCharset]')), !pgsql);
-						display(row(el('select[name=dbEngine]')), !pgsql);
-						display(el('#pwi-engine-note'), !pgsql);
-						// PostgreSQL wants the directory that holds its socket rather than the socket file
-						if(so) so.placeholder = pgsql ? 'Socket directory, i.e. /tmp' : '';
-						if(no) no.required = !sqlite;
-						if(uo) uo.required = !sqlite;
-						if(ho) { ho.required = !sqlite && useHost; display(row(ho), useHost); }
-						if(po) { po.required = !sqlite && useHost; display(row(po), useHost); }
-						if(so) { so.required = !sqlite && !useHost; display(row(so), !useHost); }
-						var testActivation = $testActivation,
-							host = (ho ? ho.value : '').trim().toLowerCase(),
-							localHosts = ['localhost', '127.0.0.1', '::1', '[::1]'],
-							activationRequired = !sqlite && (testActivation ||
-								(useHost && localHosts.indexOf(host) === -1));
-						if(ao) ao.required = activationRequired;
-						display(activation, activationRequired);
-					}
-					co.addEventListener('change', updateConnectionFields);
-					if(to) to.addEventListener('change', function() { updatePort(); updateConnectionFields(); });
-					if(ho) ho.addEventListener('input', updateConnectionFields);
-					updateConnectionFields();
-				})();
-			</script>
-		";
-
 		$this->sectionStop();
 
 		$cgi = false;
