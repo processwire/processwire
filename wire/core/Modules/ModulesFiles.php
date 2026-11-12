@@ -322,8 +322,9 @@ class ModulesFiles extends ModulesClass {
 		$wire1 = ProcessWire::getCurrentInstance();
 		$wire2 = $this->wire();
 
-		// check if there is more than one PW instance active
-		if($wire1 !== $wire2) {
+		// check if there is more than one PW instance active (this instance may also be the current one,
+		// i.e. while it boots or renders a template, so check the number of instances instead)
+		if(ProcessWire::getNumInstances() > 1) {
 			// multi-instance is active, don't autoload module if class already exists
 			// first do a fast check, which should catch any core modules 
 			if(class_exists(__NAMESPACE__ . "\\$moduleName", false)) return true;

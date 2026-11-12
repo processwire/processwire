@@ -342,13 +342,23 @@ class ProcessWire extends Wire {
 	 */
 	public function boot($config = null) {
 		if($config === null) $config = $this->wire()->config;
-		$this->setStatus(self::statusBoot);
-		$this->load($config);
-		if(self::getNumInstances() > 1) {
-			// this instance is not handling the request and needs a mock $page API var and pageview
-			/** @var ProcessPageView $view */
-			$view = $this->fuel->get('modules')->get('ProcessPageView');
-			$view->execute(false);
+		// when booting an additional instance, make it the current instance while it boots, so that
+		// wire() refers to it from its own modules' init() and ready() methods, then restore the previous
+		// (processwire/processwire-issues#2376)
+		$wirePrevious = self::getNumInstances() > 1 ? self::getCurrentInstance() : null;
+		if($wirePrevious === $this) $wirePrevious = null;
+		if($wirePrevious) self::setCurrentInstance($this);
+		try {
+			$this->setStatus(self::statusBoot);
+			$this->load($config);
+			if(self::getNumInstances() > 1) {
+				// this instance is not handling the request and needs a mock $page API var and pageview
+				/** @var ProcessPageView $view */
+				$view = $this->fuel->get('modules')->get('ProcessPageView');
+				$view->execute(false);
+			}
+		} finally {
+			if($wirePrevious) self::setCurrentInstance($wirePrevious);
 		}
 	}
 
