@@ -4,6 +4,7 @@
 class WireTest_PagePermissions extends WireTest {
 
 	public function execute() {
+		$this->testOptionalPermissionChanges();
 		$this->testCloneAccess();
 		$wire = $this->wire();
 		$admin = $wire->user;
@@ -120,6 +121,65 @@ class WireTest_PagePermissions extends WireTest {
 			}
 			foreach($fields as $field) $wire->fields->delete($field);
 			if($reader && $reader->id) $wire->users->delete($reader);
+		}
+	}
+
+	/** Adding or deleting an optional permission applies to editable() checks later in the same request. */
+	protected function testOptionalPermissionChanges() {
+		$wire = $this->wire();
+		$previousUser = $wire->user;
+		$superuser = $wire->users->get($wire->config->superUserPageID);
+		$name = uniqid('wiretest_optional_');
+		$template = $page = $role = $user = $permission = null;
+		if($wire->permissions->has('page-edit-created')) {
+			$this->li('Skipping optional permission test because page-edit-created is already installed');
+			return;
+		}
+		try {
+			$wire->users->setCurrentUser($superuser);
+			$role = $wire->roles->add($name);
+			$role->addPermission('page-view');
+			$role->addPermission('page-edit');
+			$role->save();
+			$user = $wire->users->add($name);
+			$user->addRole($role);
+			$user->save();
+			$template = $wire->templates->add($name);
+			$template->useRoles = true;
+			$template->setRoles(array($role->id), 'view');
+			$template->setRoles(array($role->id), 'edit');
+			$template->save();
+			$page = $wire->pages->newPage(array('template' => $template, 'parent' => 1, 'name' => $name));
+			$page->save(); // created by superuser, not $user
+
+			$wire->users->setCurrentUser($user);
+			$this->check('editor can edit page created by another user', true, $page->editable());
+
+			$wire->users->setCurrentUser($superuser);
+			$permission = $wire->permissions->add('page-edit-created');
+			$role->addPermission($permission);
+			$role->save();
+			$wire->users->setCurrentUser($user);
+			$this->check('added page-edit-created limits editor to own pages', false, $page->editable());
+
+			$wire->users->setCurrentUser($superuser);
+			$wire->permissions->delete($permission);
+			$permission = null;
+			$this->check('deleted page-edit-created is no longer installed', false, $wire->permissions->has('page-edit-created'));
+			$wire->users->setCurrentUser($user);
+			$this->check('deleted page-edit-created no longer limits editor', true, $page->editable());
+		} finally {
+			$wire->users->setCurrentUser($superuser);
+			if($permission && $permission->id) $wire->permissions->delete($permission);
+			if($page && $page->id) $wire->pages->delete($page, true);
+			if($template && $template->id) {
+				$group = $template->fieldgroup;
+				$wire->templates->delete($template);
+				$wire->fieldgroups->delete($group);
+			}
+			if($user && $user->id) $wire->users->delete($user);
+			if($role && $role->id) $wire->roles->delete($role);
+			$wire->users->setCurrentUser($previousUser);
 		}
 	}
 

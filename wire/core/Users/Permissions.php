@@ -5,7 +5,7 @@
  * 
  * #pw-summary Provides management of all Permission pages independent of users, for access control.
  * 
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method PageArray find($selector) Return the permissions(s) matching the the given selector query.
@@ -110,7 +110,8 @@ class Permissions extends PagesType {
 
 			if(empty($names)) {
 				$names = array();
-				foreach($this as $permission) {
+				// bypass the selector cache, which can still hold a permission deleted earlier in this request
+				foreach($this->find('id>0, sort=name', array('cache' => false)) as $permission) {
 					$names[$permission->name] = $permission->id;
 				}
 				$cache->save(self::cacheName, $names, WireCache::expireNever);

@@ -9,7 +9,7 @@
  * if(!$page->viewable()) { echo "sorry you can't view this"; }
  * ...and so on...
  * 
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * Optional special permissions that are optional (by default, not installed):
@@ -118,9 +118,28 @@ class PagePermissions extends WireData implements Module {
 		$this->addHook('Page::moveable', $this, 'moveable'); 
 		$this->addHook('Page::sortable', $this, 'sortable');
 		$this->addHook('Page::cloneable', $this, 'cloneable');
+		$this->addHookAfter('Permissions::saved', $this, 'hookPermissionsChanged');
+		$this->addHookAfter('Permissions::deleted', $this, 'hookPermissionsChanged');
 		// $this->addHook('Page::fieldViewable', $this, 'hookFieldViewable');
 		// $this->addHook('Page::fieldEditable', $this, 'hookFieldEditable');
 		// $this->addHook('Template::createable', $this, 'createable'); 
+	}
+
+	/**
+	 * Hook after Permissions::saved and Permissions::deleted to reset cached permission checks
+	 * 
+	 * The cached checks for whether optional permissions (like page-publish and page-edit-created)
+	 * are installed would otherwise be out of date when a permission is added or deleted earlier in
+	 * the same request, such as by a module install, migration or test.
+	 * 
+	 * @param HookEvent $event
+	 * @since 3.0.275
+	 * 
+	 */
+	public function hookPermissionsChanged(HookEvent $event) {
+		$this->hasPagePublish = null;
+		$this->hasPageEditCreated = null;
+		$this->hasOptionalPermissions = array();
 	}
 
 	/**
@@ -219,7 +238,7 @@ class PagePermissions extends WireData implements Module {
 
 		// now check if there is a page-publish permission in the system, and use it if so
 		if($this->hasPagePublish === null) {
-			$this->hasPagePublish = $this->wire()->permissions->get('page-publish')->id > 0;
+			$this->hasPagePublish = $this->wire()->permissions->has('page-publish');
 		}
 
 		/*
@@ -1283,7 +1302,7 @@ class PagePermissions extends WireData implements Module {
 		if($user->isSuperuser()) return true;
 		if(!array_key_exists($name, $this->hasOptionalPermissions)) {
 			if($this->wire()->languages) {
-				$this->hasOptionalPermissions[$name] = $this->wire()->permissions->get($name)->id > 0;
+				$this->hasOptionalPermissions[$name] = $this->wire()->permissions->has($name);
 			} else {
 				// not applicable since multi-language not installed
 				$this->hasOptionalPermissions[$name] = false;
