@@ -1124,7 +1124,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				for($n = 0; $n < $numNewItems; $n++) {
 					$page = $this->getNextReadyPage($pageIDs);
 					$page->removeStatus(Page::statusHidden);
-					$page->sort = count($value)+1;
+					$page->sort = count($value); // 0-based position, same as buildForm() renders
 					$value->add($page);
 					$numChanges++;
 				}
