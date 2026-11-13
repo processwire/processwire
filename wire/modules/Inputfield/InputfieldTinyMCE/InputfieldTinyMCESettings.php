@@ -354,8 +354,11 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 	/**
 	 * Get content_css URL
 	 * 
-	 * @param string $content_css
-	 * @return string
+	 * Local file URLs include a cache-busting version string (from the file modification time)
+	 * unless they already have a query string. External URLs are returned as-is.
+	 * 
+	 * @param string|array $content_css Name, URL or path, or array of them for multiple stylesheets
+	 * @return string|array Returns array only if given an array
 	 * 
 	 */
 	public function getContentCssUrl($content_css = '') {
@@ -366,6 +369,16 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 		
 		if($this->inputfield->useFeature('document')) {
 			$content_css = 'document';
+		}
+
+		if(is_array($content_css)) {
+			// multiple stylesheets (processwire/processwire-issues#1981)
+			$urls = array();
+			foreach($content_css as $value) {
+				if(!is_string($value) || $value === '') continue;
+				$urls[] = $this->getContentCssUrl($value);
+			}
+			return count($urls) ? $urls : $this->getContentCssUrl();
 		}
 
 		if(empty($content_css)) {
@@ -379,6 +392,10 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 		if($content_css === 'wire' || empty($content_css)) {
 			// default
 			$url = $defaultUrl;
+
+		} else if($this->isExternalUrl($content_css)) {
+			// external file
+			$url = $content_css;
 
 		} else if(strpos($content_css, '/') !== false) {
 			// custom file
@@ -394,6 +411,8 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 			$content_css_url = $this->inputfield->content_css_url;
 			if(empty($content_css_url) || strpos($content_css_url, '/') === false) {
 				$url = $defaultUrl;
+			} else if($this->isExternalUrl($content_css_url)) {
+				$url = $content_css_url;
 			} else {
 				$url = $rootUrl . ltrim($content_css_url, '/');
 			}
@@ -407,11 +426,23 @@ class InputfieldTinyMCESettings extends InputfieldTinyMCEClass {
 			$url = $defaultUrl;
 		}
 	
-		if(strpos($url, '.css') === false) {
+		if(strpos($url, '.css') === false && !$this->isExternalUrl($url)) {
 			$url = rtrim($url, '/') . '/content.css';
 		}
 
-		return $url;
+		// cache-busting version string from file modification time (processwire/processwire-issues#1981)
+		return $config->versionUrl($url, true);
+	}
+
+	/**
+	 * Is the given URL external, i.e. "https://domain.com/file.css" or "//domain.com/file.css"?
+	 * 
+	 * @param string $url
+	 * @return bool
+	 * 
+	 */
+	protected function isExternalUrl($url) {
+		return strpos($url, '//') === 0 || strpos($url, '://') !== false;
 	}
 
 	/**

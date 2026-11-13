@@ -564,6 +564,10 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 			$settingsField = $this->settings->applySettingsField($settingsField);
 		}
 
+		// load assets and call renderReadyHook() before settings are applied, so that
+		// renderReadyHook hooks can modify settings (processwire/processwire-issues#1981)
+		$result = parent::renderReady($parent, $renderValueMode);
+
 		$replaceTools = array();
 		$upload = $this->useFeature('imgUpload');
 		$imageField = $upload ? $this->tools->getImageField() : null;
@@ -616,7 +620,7 @@ class InputfieldTinyMCE extends InputfieldTextarea implements ConfigurableModule
 	
 		$this->settings->applyRenderReadySettings($addSettings);
 
-		return parent::renderReady($parent, $renderValueMode);
+		return $result;
 	}
 	
 	/**

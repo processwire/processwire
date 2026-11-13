@@ -12,6 +12,8 @@ class WireTest_InputfieldTinyMCE extends WireTest {
 		$this->testInvalidStylesParser();
 		$this->testRenderAndProcess();
 		$this->testPurifyInput();
+		$this->testContentCssUrls();
+		$this->testRenderReadyHook();
 		$this->testConfigInputfields();
 	}
 
@@ -137,6 +139,62 @@ class WireTest_InputfieldTinyMCE extends WireTest {
 		$this->processInput($f, $submitted);
 		$this->check('processInput retains purified value when unchanged', $previous, $f->val());
 	}
+
+
+	/**
+	 * content_css URLs: cache busting, arrays and external URLs
+	 * 
+	 * processwire/processwire-issues#1981
+	 * 
+	 */
+	protected function testContentCssUrls() {
+		$config = $this->wire()->config;
+		$f = $this->newInputfield('css_body');
+		$settings = $f->settings;
+		$wireUrl = $config->urls($f) . 'content_css/wire.css';
+		$wireFile = $config->paths($f) . 'content_css/wire.css';
+		$wireVersion = base_convert((int) filemtime($wireFile), 10, 36);
+
+		$this->check('local content CSS has filemtime version', "$wireUrl?$wireVersion", $settings->getContentCssUrl('wire'));
+		$this->check('versioned content CSS URL is unchanged on second pass', "$wireUrl?$wireVersion", $settings->getContentCssUrl($settings->getContentCssUrl('wire')));
+		$this->check('content CSS with query string is left alone', $config->urls->root . 'site/templates/x.css?v=2', $settings->getContentCssUrl('/site/templates/x.css?v=2'));
+		$this->check('external content CSS is left alone', 'https://example.com/a.css', $settings->getContentCssUrl('https://example.com/a.css'));
+		$this->check('protocol-relative content CSS is left alone', '//example.com/css?family=x', $settings->getContentCssUrl('//example.com/css?family=x'));
+
+		$urls = $settings->getContentCssUrl(array('wire', 'https://example.com/a.css'));
+		$this->check('content CSS array returns array', array("$wireUrl?$wireVersion", 'https://example.com/a.css'), $urls);
+		$prepared = $settings->prepareSettingsForOutput(array('content_css' => array('wire', 'https://example.com/a.css')));
+		$this->check('prepareSettingsForOutput accepts content CSS array', $urls, $prepared['content_css']);
+
+		$f = $this->newInputfield('css_custom_body');
+		$f->content_css = 'custom';
+		$f->content_css_url = 'https://example.com/custom.css';
+		$this->check('external custom content CSS URL is left alone', 'https://example.com/custom.css', $f->settings->getContentCssUrl());
+	}
+
+	/**
+	 * Settings changed by a renderReadyHook hook are applied
+	 * 
+	 * processwire/processwire-issues#1981
+	 * 
+	 */
+	protected function testRenderReadyHook() {
+		$hookId = $this->wire()->addHookBefore('InputfieldTinyMCE::renderReadyHook', function(HookEvent $event) {
+			$f = $event->object;
+			if($f->attr('name') !== 'hook_css_body') return;
+			$f->content_css = 'custom';
+			$f->content_css_url = 'https://example.com/hooked.css';
+		});
+		try {
+			$f = $this->newInputfield('hook_css_body');
+			$f->renderReady();
+			$settings = json_decode($f->wrapAttr('data-settings'), true);
+		} finally {
+			$this->wire()->removeHook($hookId);
+		}
+		$this->check('renderReadyHook can change content CSS', 'https://example.com/hooked.css', isset($settings['content_css']) ? $settings['content_css'] : null);
+	}
+
 
 	protected function testConfigInputfields() {
 		$f = $this->newInputfield();
