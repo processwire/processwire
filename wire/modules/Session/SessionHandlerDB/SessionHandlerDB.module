@@ -87,13 +87,18 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$query->closeCursor();
 	
 		if(!$locked) {
-			// 0: attempt timed out (for example, because another client has previously locked the name)
-			// null: error occurred (such as running out of memory or the thread was killed with mysqladmin kill)
 			$this->wire()->shutdown->setFatalErrorResponse(array(
 				'code' => 429, // http status 429: Too Many Requests (RFC 6585)
 				'headers' => array("Retry-After: $this->retrySeconds"),
 			));
-			throw new WireException("Unable to obtain lock for session (retry in {$this->retrySeconds}s)", 429);
+			if($locked === null) {
+				// null: error occurred (such as running out of memory or the thread was killed with mysqladmin kill)
+				$reason = 'database error while requesting session lock';
+			} else {
+				// 0: attempt timed out because another request for this session still holds the lock
+				$reason = "another request for this session held the lock longer than {$this->lockSeconds}s";
+			}
+			throw new WireException("Unable to obtain lock for session: $reason (retry in {$this->retrySeconds}s)", 429);
 		}
 		
 		$query = $database->prepare("SELECT data FROM `$table` WHERE id=:id");
