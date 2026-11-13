@@ -163,6 +163,14 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	protected $jsonTest = null;
 
 	/**
+	 * API state recorded before tests run and restored before each test
+	 *
+	 * @var array
+	 *
+	 */
+	protected $apiState = [];
+
+	/**
 	 * Construct
 	 *
 	 */
@@ -466,6 +474,85 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 	}
 
 	/**
+	 * Get API state that tests commonly change and should leave as they found it
+	 *
+	 * Recorded before tests run and restored before each test, so that each test starts
+	 * from the same state regardless of what a previous test did.
+	 *
+	 * @return array
+	 * @since 3.0.275
+	 *
+	 */
+	protected function getApiState() {
+		$wire = $this->wire();
+		$user = $wire->user;
+		$language = $user && $wire->languages ? $user->language : null;
+		return [
+			'outputFormatting' => (bool) $wire->pages->outputFormatting,
+			'user' => $user,
+			'language' => $language && $language->id ? $language : null,
+			'page' => $wire->page,
+		];
+	}
+
+	/**
+	 * Get labels for API state that differs from the given state
+	 *
+	 * @param array $state State from getApiState()
+	 * @return array
+	 * @since 3.0.275
+	 *
+	 */
+	protected function getApiStateChanges(array $state) {
+		$labels = [
+			'outputFormatting' => '$pages output formatting',
+			'user' => 'current user',
+			'language' => 'user language',
+			'page' => '$page API variable',
+		];
+		$current = $this->getApiState();
+		$changes = [];
+		foreach($state as $key => $value) {
+			$currentValue = $current[$key];
+			if($value instanceof Page || $currentValue instanceof Page) {
+				// compare by ID since pages may be reloaded
+				$same = ($value instanceof Page ? $value->id : 0) === ($currentValue instanceof Page ? $currentValue->id : 0);
+			} else {
+				$same = $value === $currentValue;
+			}
+			if(!$same) $changes[] = $labels[$key];
+		}
+		return $changes;
+	}
+
+	/**
+	 * Restore API state recorded by getApiState()
+	 *
+	 * @param array $state
+	 * @since 3.0.275
+	 *
+	 */
+	protected function restoreApiState(array $state) {
+		if(empty($state)) return;
+		$wire = $this->wire();
+		$pages = $wire->pages;
+		if((bool) $pages->outputFormatting !== $state['outputFormatting']) {
+			$pages->setOutputFormatting($state['outputFormatting']);
+		}
+		$user = $state['user'];
+		if($user instanceof User && $user->id && $wire->user->id !== $user->id) {
+			$wire->users->setCurrentUser($user);
+		}
+		$language = $state['language'];
+		if($language instanceof Language && $wire->user->language && $wire->user->language->id !== $language->id) {
+			$wire->user->setQuietly('language', $language);
+		}
+		if($state['page'] instanceof Page && $wire->page !== $state['page']) {
+			$wire->wire('page', $state['page']);
+		}
+	}
+
+	/**
 	 * Add current test name to failed tests list
 	 *
 	 */
@@ -663,8 +750,12 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 		extract($fuel); // place API variables in scope
 
 		$this->line("Running $numTests test(s)");
+		$this->apiState = $this->getApiState();
 
 		foreach($testFiles as $testName => $test) {
+
+			// start each test from the same API state, regardless of what a previous test did
+			$this->restoreApiState($this->apiState);
 
 			$page = $this->getTestPage(); // get again just in case a test overwrote it
 			$page->of(false); // reset output formatting before each test
@@ -731,9 +822,16 @@ class WireTests extends WireData implements Module, ConfigurableModule, CliModul
 				}
 			}
 
+			$changes = $this->getApiStateChanges($this->apiState);
+			if(count($changes)) {
+				// restored before the next test, but noted so the test itself can be fixed
+				$this->note("- NOTE: $className test did not restore: " . implode(', ', $changes));
+			}
+
 			if($success) $this->success();
 		}
 
+		$this->restoreApiState($this->apiState);
 		$this->summary();
 
 		if($this->cwd) chdir($this->cwd);
