@@ -81,6 +81,13 @@ class WireTest_Sanitizer extends WireTest {
 		$t->check("entitiesMarkdown() converts **bold**", '<strong>bold</strong>', $r, '*=');
 		$t->check("entitiesMarkdown() converts *em*", '<em>em</em>', $r, '*=');
 		$t->check("entitiesMarkdown() converts backtick code", '<code>code</code>', $r, '*=');
+		if($this->wire()->modules->isInstalled('TextformatterMarkdownExtra')) {
+			$markdown = $this->wire()->modules->get('TextformatterMarkdownExtra');
+			$flavor = $markdown->flavor;
+			$r = $s->entitiesMarkdown('# Heading', true);
+			$t->check("entitiesMarkdown() fullMarkdown converts heading", '<h1>Heading</h1>', $r, '*=');
+			$t->check("entitiesMarkdown() fullMarkdown restores the shared Markdown flavor", $flavor, $markdown->flavor);
+		}
 		
 		$r = $s->markupToText('<p>Hello <strong>World</strong></p>');
 		$t->check("markupToText() strips tags", false, strpos($r, '<') !== false);

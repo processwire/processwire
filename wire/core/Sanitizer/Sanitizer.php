@@ -91,7 +91,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @link https://processwire.com/api/variables/sanitizer/ Offical $sanitizer API variable Documentation
@@ -3262,12 +3262,18 @@ class Sanitizer extends Wire {
 			// full markdown
 			/** @var TextformatterMarkdownExtra $markdown */	
 			$markdown = $this->wire()->modules->get('TextformatterMarkdownExtra');
+			// the module is singular, so restore its flavor after, as other users of it share the instance
+			$flavor = $markdown->flavor;
 			if(is_int($options['fullMarkdown'])) {
 				$markdown->flavor = $options['fullMarkdown'];
 			} else {
 				$markdown->flavor = TextformatterMarkdownExtra::flavorParsedown;
 			}
-			$markdown->format($str);
+			try {
+				$markdown->format($str);
+			} finally {
+				$markdown->flavor = $flavor;
+			}
 			
 		} else {
 			// basic (inline) markdown
