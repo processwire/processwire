@@ -14,6 +14,7 @@ class WireTest_InputfieldSelector extends WireTest {
 		$this->testRenderRow();
 		$this->testRender();
 		$this->testCounterAccess();
+		$this->testContextLabels();
 	}
 
 	protected function newInputfield($name = 'selector') {
@@ -163,6 +164,70 @@ class WireTest_InputfieldSelector extends WireTest {
 			else $wire->session->set(ProcessPageLister::sessionBookmarksName, $previousBookmarks);
 		}
 	}
+
+	/**
+	 * Template context labels apply to the primary field select but not to parent/children subfields
+	 * 
+	 * processwire/processwire-issues#1985
+	 * 
+	 */
+	protected function testContextLabels() {
+		$wire = $this->wire();
+		$name = 'wiretest_selector_context';
+		$field = null;
+		$fieldgroup = null;
+		$template = null;
+		try {
+			$field = new Field();
+			$field->type = $wire->modules->get('FieldtypeText');
+			$field->name = $name;
+			$field->label = 'Summary';
+			$wire->fields->save($field);
+			$fieldgroup = new Fieldgroup();
+			$fieldgroup->name = $name;
+			$fieldgroup->add($wire->fields->get('title'));
+			$fieldgroup->add($field);
+			$wire->fieldgroups->save($fieldgroup);
+			$template = new Template();
+			$template->name = $name;
+			$template->fieldgroup = $fieldgroup;
+			$template->set('nameLabel', 'Slug');
+			$wire->templates->save($template);
+			$fieldgroup->setFieldContextArray($wire->fields->get('title')->id, array('label' => 'Headline'));
+			$fieldgroup->setFieldContextArray($field->id, array('label' => 'Teaser'));
+			$fieldgroup->saveContext();
+
+			$f = $this->newInputfield('filter');
+			$f->initValue = "template=$name";
+			$f->attr('value', 'title%=foo, parent.title%=bar');
+			$f->preview = false;
+			$f->counter = false;
+			$html = $f->render();
+
+			$labels = array();
+			preg_match_all('!<select[^>]*class=\'[^\']*(select-field|select-subfield)[^\']*\'[^>]*>(.*?)</select>!s', $html, $selects, PREG_SET_ORDER);
+			foreach($selects as $select) {
+				list(, $class, $options) = $select;
+				if(isset($labels[$class])) continue; // first of each (template row for select-field)
+				foreach(array('title', 'name', $name) as $value) {
+					$labels[$class][$value] = preg_match("!value='$value'[^>]*data-label='([^']*)'!", $options, $m) ? $m[1] : null;
+				}
+			}
+
+			$this->check('field select uses title label from template context', 'Headline', $labels['select-field']['title']);
+			$this->check('field select uses name label from template', 'Slug', $labels['select-field']['name']);
+			$this->check('field select uses custom field label from template context', 'Teaser', $labels['select-field'][$name]);
+			$this->check('parent subfield select uses default title label', 'Title', $labels['select-subfield']['title']);
+			$this->check('parent subfield select uses default name label', 'Name', $labels['select-subfield']['name']);
+			$this->check('parent subfield select uses default custom field label', 'Summary', $labels['select-subfield'][$name]);
+		} finally {
+			if($template && $template->id) $wire->templates->delete($template);
+			$fieldgroup = $wire->fieldgroups->get($name);
+			if($fieldgroup && $fieldgroup->id) $wire->fieldgroups->delete($fieldgroup);
+			if($field && $field->id) $wire->fields->delete($field);
+		}
+	}
+
 }
 
 /** Exercises the same counter method called by the AJAX test action. */

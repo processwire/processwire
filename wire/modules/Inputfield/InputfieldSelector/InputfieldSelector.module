@@ -837,9 +837,11 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'type' => '', 
 			'prepend' => '<option></option>',
 			'append' => '',
+			'contextTemplate' => $this->initTemplate, // template for field labels in context, or null for none
 		); 
 
 		$settings = array_merge($defaults, $settings); 
+		$contextTemplate = $settings['contextTemplate'];
 		if($this->exclude) {
 			$exclude = is_array($this->exclude) ? $this->exclude : explode(',', $this->exclude); 
 			foreach($exclude as $k => $v) $exclude[$k] = trim($v); 
@@ -892,8 +894,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$optgroups = array(); 
 		if($settings['showSystem']) {
 			$optgroups['system'] = $this->systemFields;
-			if($this->initTemplate) {
-				$nameLabel = $this->initTemplate->getNameLabel();
+			if($contextTemplate) {
+				$nameLabel = $contextTemplate->getNameLabel();
 				if($nameLabel) $optgroups['system']['name']['label'] = $nameLabel;
 			}
 		}
@@ -913,8 +915,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				$_name = $name; // $_name is for output only
 				if($hasSubfields) $_name = rtrim($_name, '.') . $this->subfieldIdentifier;
 				$label = $field['label'];
-				if($name == 'title' && $optgroupName == 'system' && $this->initTemplate) {
-					$contextField = $this->initTemplate->fieldgroup->getFieldContext($name);
+				if($name == 'title' && $optgroupName == 'system' && $contextTemplate) {
+					$contextField = $contextTemplate->fieldgroup->getFieldContext($name);
 					if($contextField) $label = $contextField->label;
 				}
 				if($settings['showFieldLabels'] == 2) $label .= " [$name]";
@@ -941,8 +943,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		foreach($settings['customFields'] as $field) {
 			/** @var Field $field */
 			if($settings['showFieldLabels']) {
-				if($this->initTemplate) {
-					$f = $this->initTemplate->fieldgroup->getField($field, true);
+				if($contextTemplate) {
+					$f = $contextTemplate->fieldgroup->getField($field, true);
 					if($f) $field = $f;
 				}
 				$label = $field->getLabel();
@@ -978,8 +980,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			} else {
 				if(!$field->viewable()) continue;
 			}
-			if($this->initTemplate) {
-				$f = $this->initTemplate->fieldgroup->getField($fieldName, true); 
+			if($contextTemplate) {
+				$f = $contextTemplate->fieldgroup->getField($fieldName, true); 
 				if($f) $field = $f;
 			}
 			if($limitSubfields) {
@@ -1549,6 +1551,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				'showSubfields' => false, 
 				'customFields' => $fields,
 				'exclude' => array(), // prevent exclusion of 'count'
+				'contextTemplate' => null, // subfields are of the parent or child pages, which may use other templates (#1985)
 				'prepend' => 
 					"<option value='$fieldName' class='select-subfield-default' data-name='$valueName' data-label='$valueLabel'>" . 
 					$valueLabel . 
