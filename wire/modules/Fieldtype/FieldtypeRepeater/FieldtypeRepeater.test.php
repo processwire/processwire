@@ -133,6 +133,7 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$item->save();
 		$this->testPendingPublication($field, $subTextField);
 		$this->testImport($field, $subTextField);
+		$this->testImportDepth($field, $subTextField);
 
 		$page = $pages->getFresh($page->id);
 		$page->of(false);
@@ -430,6 +431,58 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			$this->check('import does not create duplicate repeater items', 2, $pages->count("parent=$parent, include=all"));
 		} finally {
 			$pages->delete($owner, true);
+		}
+	}
+
+	/**
+	 * Import of repeater items to a new page keeps item depth (leading dashes in item names)
+	 * and does not create orphan items (processwire/processwire-issues#1667)
+	 *
+	 */
+	protected function testImportDepth(Field $field, Field $subField) {
+		$pages = $this->wire()->pages;
+		$name = uniqid('repeater-import-depth-');
+		$source = $pages->add($this->getTestTemplate(), $this->getTestPage(), [
+			'name' => $name, 'title' => 'Repeater import depth fixture',
+		]);
+		$target = null;
+		try {
+			$source->of(false);
+			$expected = array();
+			foreach(array('A' => 0, 'B' => 1, 'C' => 2, 'D' => 0) as $headline => $depth) {
+				$item = $source->get($field->name)->getNew();
+				$item->set($subField->name, $headline);
+				$item->save();
+				$item->setDepth($depth);
+				$item->save();
+				$source->get($field->name)->add($item);
+				$expected[] = "$headline:$depth";
+			}
+			$source->save($field->name);
+
+			$importer = $this->wire(new PagesExportImport());
+			$a = $importer->pagesToArray($pages->find("id=$source->id, include=all"));
+			$data = $a['pages'][0];
+			$data['settings']['name'] = "$name-copy";
+			$data['settings']['id'] = 0;
+			$data['path'] = $this->getTestPage()->path . "$name-copy/";
+
+			$target = $importer->arrayToPage($data, array('parent' => $this->getTestPage()));
+			$this->check('import creates target page', true, $target->id > 0);
+
+			$target = $pages->getFresh($target->id);
+			$target->of(false);
+			$actual = array();
+			foreach($target->get($field->name) as $item) {
+				/** @var RepeaterPage $item */
+				$actual[] = $item->get($subField->name) . ':' . $item->getDepth();
+			}
+			$this->check('import keeps repeater item depth', $expected, $actual);
+			$parent = $field->type->getRepeaterPageParent($target, $field);
+			$this->check('import does not create orphan repeater items', 4, $pages->count("parent=$parent, include=all"));
+		} finally {
+			if($target && $target->id) $pages->delete($target, true);
+			$pages->delete($source, true);
 		}
 	}
 
