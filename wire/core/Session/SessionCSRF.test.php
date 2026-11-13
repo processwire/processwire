@@ -218,6 +218,36 @@ class WireTest_SessionCSRF extends WireTest {
 			unset($_SERVER['HTTP_SEC_FETCH_SITE']);
 			$this->check('fallback rejects request with neither header', false, $csrf->hasValidToken());
 
+			// originFallbackValid() is hookable, called only after the token fails
+			$hookResults = array();
+			$hookId = $this->wire()->addHookAfter('SessionCSRF::originFallbackValid', function(HookEvent $event) use(&$hookResults) {
+				$hookResults[] = $event->return;
+			});
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://example.com";
+			$this->check('hooked: stale token accepted with matching Origin', true, $csrf->hasValidToken());
+			$this->check('after hook sees the rescue', array(true), $hookResults);
+			$hookResults = array();
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://evil.example.net";
+			$this->check('hooked: mismatched Origin rejected', false, $csrf->hasValidToken());
+			$this->check('after hook sees the refusal', array(false), $hookResults);
+			$hookResults = array();
+			$validName = $csrf->getTokenName();
+			$validValue = $csrf->getTokenValue();
+			$_POST = array($validName => $validValue);
+			$this->simulatePost($validName, $validValue);
+			$this->check('hooked: valid token accepted', true, $csrf->hasValidToken());
+			$this->check('hook not called when the token itself is valid', array(), $hookResults);
+			$_POST = array($staleName => 'stale-value-from-dead-session');
+			$this->simulatePost($staleName, 'stale-value-from-dead-session');
+			$_SERVER['HTTP_ORIGIN'] = "$scheme://example.com";
+			$vetoId = $this->wire()->addHookAfter('SessionCSRF::originFallbackValid', function(HookEvent $event) {
+				$event->return = false;
+			});
+			$this->check('hook can veto the fallback', false, $csrf->hasValidToken());
+			$this->wire()->removeHook($vetoId);
+			$this->wire()->removeHook($hookId);
+			unset($_SERVER['HTTP_ORIGIN']);
+
 			// tokenless POSTs are never rescued
 			$_SERVER['HTTP_SEC_FETCH_SITE'] = 'same-origin';
 			$_POST = array('some_field' => 'some_value');
