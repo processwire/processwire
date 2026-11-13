@@ -404,6 +404,9 @@ DirectoryIndex index.php index.html index.htm
   # Block access to any PHP, tpl or info.json files in /site/modules/ or /site-*/modules/
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
   
+  # Block directory access within /site/modules/ to prevent module enumeration
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/[^/]+/?$ [NC,OR]
+  
   # Block access to any software identifying txt, markdown or textile files
   RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$ [NC,OR]
 

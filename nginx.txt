@@ -371,6 +371,11 @@ server {
     set $pw_deny 1;
   }
 
+  # Block directory access within /site/modules/ to prevent module enumeration
+  if ($uri ~* "(^|/)(site|site-[^/]+)/modules/[^/]+/?$") {
+    set $pw_deny 1;
+  }
+
   # Block access to any software identifying txt, markdown or textile files
   if ($uri ~* "(^|/)(COPYRIGHT|INSTALL|README|CHANGELOG|LICENSE|CONTRIBUTING|htaccess|nginx|caddy)\.(txt|md|textile)$") {
     set $pw_deny 1;
