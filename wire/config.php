@@ -820,7 +820,7 @@ $config->chmodWarn = true;
  * @var string
  *
  */
-$config->uploadBadExtensions = 'php php3 phtml exe cfm shtml asp pl cgi sh vbs jsp';
+$config->uploadBadExtensions = 'php php3 php4 php5 php7 php8 phtml phps phar pht htaccess exe cfm shtml asp pl cgi sh vbs jsp';
 
 /**
  * Secure page files?

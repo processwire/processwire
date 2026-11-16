@@ -268,8 +268,8 @@ example.com {
 		@pw_15a_8 path_regexp `(?i)(^|/)(site|site-[^/]+)/classes($|/.*)`
 		vars @pw_15a_8 pw_deny 1
 
-		# Block access to any PHP files within /site/assets/ and further
-		@pw_15a_9 path_regexp `(?i)(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/)`
+		# Block access to any PHP files within /site/assets/ and further (including i.e. file.php.jpg)
+		@pw_15a_9 path_regexp `(?i)(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|ar|t|p[0-9])(\.[^/]*)?)($|/)`
 		vars @pw_15a_9 pw_deny 1
 
 		# Block access to any PHP, module, inc or info files in core or core modules directories
@@ -295,6 +295,10 @@ example.com {
 		# Block access to names of potential backup file extensions within wire or site directories
 		@pw_15a_15 path_regexp `(?i)(^|/)(wire/|site[-/]).+\.(bak|old|sql|sw[op]|(bak|php|sql)[./]+.*)[\d.]*$`
 		vars @pw_15a_15 pw_deny 1
+
+		# Block access to PHP files in /vendor/ directories (i.e. Composer packages)
+		@pw_15a_17 path_regexp `(?i)(^|/)vendor/.*\.(php|phtml|phar|inc)($|/)`
+		vars @pw_15a_17 pw_deny 1
 
 		# Block all http access to the default/uninstalled site-default directory
 		@pw_15a_16 path_regexp `(^|/)site-default/`

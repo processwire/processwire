@@ -356,8 +356,8 @@ server {
     set $pw_deny 1;
   }
 
-  # Block access to any PHP files within /site/assets/ and further
-  if ($uri ~* "(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/)") {
+  # Block access to any PHP files within /site/assets/ and further (including i.e. file.php.jpg)
+  if ($uri ~* "(^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|ar|t|p[0-9])(\.[^/]*)?)($|/)") {
     set $pw_deny 1;
   }
 
@@ -388,6 +388,11 @@ server {
 
   # Block access to names of potential backup file extensions within wire or site directories
   if ($uri ~* "(^|/)(wire/|site[-/]).+\.(bak|old|sql|sw[op]|(bak|php|sql)[./]+.*)[\d.]*$") {
+    set $pw_deny 1;
+  }
+
+  # Block access to PHP files in /vendor/ directories (i.e. Composer packages)
+  if ($uri ~* "(^|/)vendor/.*\.(php|phtml|phar|inc)($|/)") {
     set $pw_deny 1;
   }
 

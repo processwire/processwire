@@ -46,6 +46,7 @@ class WireTest_WebAccess extends WireTest {
 		$config = $this->wire()->config;
 		$filesPath = $this->getTestPage()->filesManager()->path();
 		$this->addFile($filesPath . 'wire-test-access.txt', 'wire-test-access');
+		$this->addFile($filesPath . 'wire-test-access.photo.txt', 'wire-test-access');
 		$this->addFile($filesPath . 'wire-test-access.php', "<?php echo 'wire-test-' . 'executed';");
 		$this->addFile($filesPath . 'wire-test-access.sqlite', 'wire-test-access');
 		$this->addFile($filesPath . 'wire-test-access.log', 'wire-test-access');
@@ -81,6 +82,8 @@ class WireTest_WebAccess extends WireTest {
 		$this->check('Core JS file loads', 200, $this->status($config->urls->modules . 'Jquery/JqueryCore/JqueryCore.js'));
 		$url = $this->getTestPage()->filesManager()->url() . 'wire-test-access.txt';
 		$this->check('Page file loads', 'wire-test-access', trim($this->get($url)));
+		$url = $this->getTestPage()->filesManager()->url() . 'wire-test-access.photo.txt';
+		$this->check('Page file with .ph* in name (not a PHP extension) loads', 'wire-test-access', trim($this->get($url)));
 		$this->check('Missing page is 404', 404, $this->status($config->urls->root . 'wire-test-missing-page/'));
 		$this->check('.well-known is not blocked', 403, $this->status($config->urls->root . '.well-known/acme-challenge/wire-test'), '!==');
 	}
@@ -140,6 +143,7 @@ class WireTest_WebAccess extends WireTest {
 			$urls->siteModules . 'wire-test/wire-test.module',
 			$urls->siteModules . 'wire-test/wire-test.info.json',
 			$urls->root . 'site-default/',
+			$urls->root . 'vendor/wire-test/wire-test.php',
 		];
 		foreach($blocked as $url) $this->checkBlocked($url);
 	}
@@ -162,6 +166,10 @@ class WireTest_WebAccess extends WireTest {
 			$urls->assets . 'wire-test.php',
 			$urls->files . '-1/wire-test.txt',
 			$filesUrl . 'wire-test-access.php',
+			$filesUrl . 'wire-test-access.phtml.jpg',
+			$filesUrl . 'wire-test-access.php7.jpg',
+			$filesUrl . 'wire-test-access.phar',
+			$filesUrl . 'wire-test-access.pht',
 			$filesUrl . 'wire-test-access.sqlite',
 			$filesUrl . 'wire-test-access.log',
 			$filesUrl . 'wire-test-access.sql',
