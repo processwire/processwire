@@ -691,7 +691,7 @@ echo $sanitizer->entities($url); // always entity-encode URLs for HTML output
 ```
 
 - **Key options:** `allowRelative` (bool, default=true), `allowIDN` (bool), `allowSchemes` (array),
-`disallowSchemes` (array, default=`['file','javascript']`), `requireScheme` (bool, default=true),
+`disallowSchemes` (array, default=`['file','javascript','vbscript','data']`), `requireScheme` (bool, default=true),
 `allowQuerystring` (bool, default=true), `maxLength` (int, default=4096).
 - **Details:** [url sanitizer](https://processwire.com/api/ref/sanitizer/url/)
 

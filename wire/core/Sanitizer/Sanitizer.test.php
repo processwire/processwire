@@ -137,6 +137,13 @@ class WireTest_Sanitizer extends WireTest {
 		$t->check("url() allows relative paths by default", '/path/to/page', $s->url('/path/to/page'));
 		$t->check("url() rejects relative when allowRelative=false", '', $s->url('/path/to/page', ['allowRelative' => false]));
 		$t->check("url() strips disallowed javascript: scheme", false, stripos($s->url('javascript:alert(1)'), 'javascript') !== false);
+		$t->check("url() rejects disallowed scheme produced by decoding", '', $s->url('%6Aavascript:alert(1)'));
+		$t->check("url() rejects disallowed scheme containing encoded tab", '', $s->url('jav%09ascript:alert(1)'));
+		$t->check("url() rejects disallowed scheme containing tab", '', $s->url("java\tscript:alert(1)"));
+		$t->check("url() rejects disallowed scheme with leading control character", '', $s->url("\x01javascript:alert(1)"));
+		$t->check("url() rejects vbscript: scheme by default", '', $s->url('vbscript:msgbox(1)'));
+		$t->check("url() rejects data: scheme by default", '', $s->url('data:text/html;base64,PHNjcmlwdD4='));
+		$t->check("url() keeps scheme:value URLs with allowed schemes", 'mailto:user@example.com', $s->url('mailto:user@example.com'));
 		$t->check("httpUrl() accepts https URL", 'https://processwire.com/', $s->httpUrl('https://processwire.com/'));
 		$t->check("httpUrl() rejects relative paths", '', $s->httpUrl('/relative/path'));
 		$t->check("email() accepts valid address", 'user@example.com', $s->email('user@example.com'));

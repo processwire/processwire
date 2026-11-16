@@ -2286,7 +2286,7 @@ class Sanitizer extends Wire {
 	 *  - `allowIDN` (boolean): Whether to allow internationalized domain names (default=false).
 	 *  - `allowQuerystring` (boolean): Whether to allow query strings (default=true).
 	 *  - `allowSchemes` (array): Array of allowed schemes, lowercase (default=[] any).
-	 *  - `disallowSchemes` (array): Array of disallowed schemes, lowercase (default=['file']).
+	 *  - `disallowSchemes` (array): Array of disallowed schemes, lowercase (default=['file', 'javascript', 'vbscript', 'data']).
 	 *  - `requireScheme` (bool): Specify true to require a scheme in the URL, if one not present, it will be added to non-relative URLs (default=true).
 	 *  - `convertEncoded` (boolean): Convert most encoded hex characters characters (i.e. “%2F”) to non-encoded? (default=true)
 	 *  - `encodeSpace` (boolean): Encoded space to “%20” or allow “%20“ in URL? Only useful if convertEncoded is true. (default=false)
@@ -2306,7 +2306,7 @@ class Sanitizer extends Wire {
 			'allowIDN' => false,
 			'allowQuerystring' => true,
 			'allowSchemes' => array(),
-			'disallowSchemes' => array('file', 'javascript'),
+			'disallowSchemes' => array('file', 'javascript', 'vbscript', 'data'),
 			'requireScheme' => true,
 			'reduceScheme' => false, // reduce "scheme://" to "scheme:" in return value? (internal use only)
 			'convertEncoded' => true, 
@@ -2514,7 +2514,23 @@ class Sanitizer extends Wire {
 			list($scheme, $value) = explode('://', $value, 2);
 			$value = "$scheme:$value";
 		}
-		
+
+		if(!empty($options['allowSchemes']) || !empty($options['disallowSchemes'])) {
+			// check scheme again since decoding above may have changed it (i.e. "%6Aavascript:")
+			// using the same normalization as browsers: leading C0/space trimmed, tabs/newlines removed
+			$test = preg_replace('/[\t\n\r]+/', '', ltrim($value, "\x00..\x20"));
+			if(preg_match('/^([a-z][-a-z0-9+.]*):/i', $test, $matches)) {
+				$scheme = strtolower($matches[1]);
+				if((!empty($options['allowSchemes']) && !in_array($scheme, $options['allowSchemes']))
+					|| (!empty($options['disallowSchemes']) && in_array($scheme, $options['disallowSchemes']))) {
+					$error = sprintf($this->_('URL: Scheme "%s" is not allowed'), $scheme);
+					if($options['throw']) throw new WireException($error);
+					$this->error($error);
+					return '';
+				}
+			}
+		}
+
 		return $value;
 	}
 
