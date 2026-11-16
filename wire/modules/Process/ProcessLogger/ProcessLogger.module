@@ -114,8 +114,10 @@ class ProcessLogger extends Process {
 		}
 	
 		if($action != 'download' && !$this->wire()->user->hasPermission('logs-edit')) {
-			throw new WirePermissionException("You don't have permission to execute that action"); 
+			throw new WirePermissionException("You don't have permission to execute that action");
 		}
+
+		if($action != 'download') $session->CSRF->validate();
 			
 		switch($action) {
 			

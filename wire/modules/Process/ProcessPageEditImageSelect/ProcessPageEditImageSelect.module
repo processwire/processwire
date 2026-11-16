@@ -1594,6 +1594,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$delete = $input->post('delete');
 		
 		if(is_array($delete) && count($delete) && $hasEditPermission) {
+			$this->wire()->session->CSRF->validate();
 			$deleteUrls = array();
 			$deleteErrors = array();
 			$extras = array();

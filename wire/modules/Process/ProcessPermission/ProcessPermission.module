@@ -133,6 +133,8 @@ class ProcessPermission extends ProcessPageType {
 	
 	protected function ___executeInstallPermissions() {
 
+		$this->wire()->session->CSRF->validate();
+
 		$user = $this->wire()->user;
 		$permissions = $this->wire()->permissions;
 		$languages = $this->wire()->languages;
