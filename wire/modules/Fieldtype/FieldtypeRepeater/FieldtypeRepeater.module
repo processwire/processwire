@@ -529,7 +529,20 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 			$this->error("Repeater item $repeaterPage not valid for owner page $ownerPage");
 			return;
 		}
-		
+
+		// check field-level edit access for the repeater field(s) containing the item, up to the root owner page
+		// (field-level access for fields within the item is enforced by Field::getInputfield)
+		$item = $repeaterPage;
+		while($item instanceof RepeaterPage) {
+			$forPage = $item->getForPage();
+			$forField = $item->getForField();
+			if(!$forPage->id || !$forField || !$forPage->editable($forField, false)) {
+				$this->error("Repeater item $repeaterPage is not editable");
+				return;
+			}
+			$item = $forPage;
+		}
+
 		// repopulate the ProcessPageEdit::ajaxSave function's argument to be the repeaterPage rather than the ownerPage
 		$args = $event->arguments; 
 		$args[0] = $repeaterPage; 
