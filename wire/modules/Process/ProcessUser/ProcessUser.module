@@ -316,12 +316,24 @@ class ProcessUser extends ProcessPageType {
 		$superuser = $user->isSuperuser();
 		$editableRoles = array();
 		$userAdminAll = $this->wire()->permissions->get('user-admin-all');
-		
+		$pageIsUserAdmin = false;
+
+		if(!$superuser) {
+			// determine if user being edited has user-admin from roles prior to any posted changes
+			$pageRoles = $page->get('_rolesPrevious');
+			if(!$pageRoles instanceof PageArray) $pageRoles = $page->roles;
+			foreach($pageRoles as $role) {
+				if(!$role->hasPermission('user-admin')) continue;
+				$pageIsUserAdmin = true;
+				break;
+			}
+		}
+
 		foreach($this->wire()->roles as $role) {
 			if($role->name == 'guest') continue;
-			// if non-superuser editing a user, don't allow them to assign new roles with user-admin permission, 
+			// if non-superuser editing a user, don't allow them to assign new roles with user-admin permission,
 			// unless the user already has the role checked, OR the non-superuser has user-admin-all permission
-			if(!$superuser && $role->hasPermission('user-admin') && !$page->hasPermission('user-admin')) {
+			if(!$superuser && $role->hasPermission('user-admin') && !$pageIsUserAdmin) {
 				if($userAdminAll->id && $user->hasPermission($userAdminAll)) {
 					// allow it if the non-superuser making edits has user-admin-all
 				} else {
