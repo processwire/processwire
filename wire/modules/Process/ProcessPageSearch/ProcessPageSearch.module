@@ -301,8 +301,18 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$lister->columns = $this->getDisplayFields();
 			return $lister->execute();
 		} else {
-			$selector = $this->findReady($selector); 
+			$selector = $this->findReady($selector);
 			$matches = $this->pages->find($selector);
+			if(!$this->wire()->user->isSuperuser()) {
+				// filter out non-editable unpublished pages, since they may be included via include=unpublished
+				$total = $matches->getTotal();
+				foreach($matches->getArray() as $match) {
+					if(!$match->isUnpublished() || $match->editable()) continue;
+					$matches->remove($match);
+					$total--;
+				}
+				$matches->setTotal($total);
+			}
 			return $this->render($matches, $displaySelector);
 		}
 	}

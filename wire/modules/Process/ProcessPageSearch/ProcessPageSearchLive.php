@@ -787,7 +787,10 @@ class ProcessPageSearchLive extends Wire {
 			
 			foreach($pageItems as $page) {
 				/** @var Page $page */
-				if(!$superuser && $page->isUnpublished() && !$page->editable()) continue;
+				if(!$superuser && $page->isUnpublished() && !$page->editable()) {
+					$total--;
+					continue;
+				}
 				$isAdmin = $page->template == 'admin';
 				$title = (string) $page->get('title|name');
 				
