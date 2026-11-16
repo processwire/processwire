@@ -185,13 +185,11 @@ class InputfieldTinyMCETools extends InputfieldTinyMCEClass {
 					break;
 				case InputfieldTinyMCE::toggleRemoveStyles:
 					// remove all style attributes
-					if(strpos($value, 'style=')) {
-						if(preg_match_all('!(<.+?)\sstyle=(["\']).*?\2!i', $value, $matches)) {
-							foreach($matches[0] as $key => $fullMatch) {
-								$startMatch = $matches[1][$key];
-								$value = str_replace($fullMatch, $startMatch, $value);
-							}
-						}
+					if(stripos($value, 'style=') !== false) {
+						// match style attributes only within tags (not text) and only as complete quoted values
+						$value = preg_replace_callback('!<[a-z][^<>]*>!i', function($m) {
+							return preg_replace('!\sstyle=("[^"]*"|\'[^\']*\')!i', '', $m[0]);
+						}, $value);
 					}
 					break;
 			}

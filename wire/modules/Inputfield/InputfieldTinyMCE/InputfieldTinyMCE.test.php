@@ -138,6 +138,16 @@ class WireTest_InputfieldTinyMCE extends WireTest {
 		$this->check('purifier removes disallowed HTML', $previous, $f->tools->purifyValue($submitted));
 		$this->processInput($f, $submitted);
 		$this->check('processInput retains purified value when unchanged', $previous, $f->val());
+
+		$f = $this->newInputfield('purify_styles');
+		$f->toggles = array(InputfieldTinyMCE::toggleRemoveStyles);
+		$tools = $f->tools;
+		$this->check('remove styles toggle removes style attributes', '<p class="c">a</p><p>b</p>',
+			$tools->purifyValueToggles('<p class="c" style="color:red">a</p><p style="color:red">b</p>'));
+		$this->check('remove styles toggle leaves text alone', '<p>Use style="x" here</p>',
+			$tools->purifyValueToggles('<p>Use style="x" here</p>'));
+		$value = '<p title="a style=\'">b\' " onmouseover="x" z</p>';
+		$this->check('remove styles toggle does not match across attribute values', $value, $tools->purifyValueToggles($value));
 	}
 
 
