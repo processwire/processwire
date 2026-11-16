@@ -388,8 +388,10 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 */
 	public function wrapInputfieldOutput($out, $id, Language $language) {
 		
+		$sanitizer = $this->wire()->sanitizer;
 		$label = (string) $language->title;
-		if(!strlen($label)) $label = $language->name; 
+		if(!strlen($label)) $label = $language->name;
+		$label = $sanitizer->entities1($label);
 		$class = 'LanguageSupport';
 		$labelClass = 'LanguageSupportLabel detail';
 		
@@ -400,7 +402,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 			$out = 
 				"<p class='detail'>" . 
 				sprintf($this->_('Changes to this field will not be saved because you do not have permission for language: %s.'), 
-					$language->get('title|name')) . 
+					$sanitizer->entities1($language->get('title|name'))) .
 				"</p>" . 
 				$out;
 		}

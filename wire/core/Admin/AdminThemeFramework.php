@@ -334,7 +334,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function getHeadJS() {
 		$config = $this->wire()->config;
 		return
-			"var ProcessWire = { config: " . wireEncodeJSON($config->js(), true, $config->debug) . " }; " .
+			"var ProcessWire = { config: " . str_replace('</', '<\/', wireEncodeJSON($config->js(), true, $config->debug)) . " }; " .
 			"var config = ProcessWire.config;\n"; // legacy support
 	}
 
@@ -609,8 +609,11 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$modal = $this->wire()->input->get('modal');
 
 		if(!$browserTitle) {
-			if($modal) return $this->wire('processHeadline');
-			$browserTitle = $this->_(strip_tags($this->wire()->page->get('title|name'))) . ' • ProcessWire';
+			if($modal) {
+				$browserTitle = (string) $this->wire('processHeadline');
+			} else {
+				$browserTitle = $this->_(strip_tags($this->wire()->page->get('title|name'))) . ' • ProcessWire';
+			}
 		}
 
 		if(!$modal) {

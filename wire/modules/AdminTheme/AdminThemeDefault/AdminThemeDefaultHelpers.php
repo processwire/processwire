@@ -570,7 +570,7 @@ class AdminThemeDefaultHelpers extends WireData {
 			); 
 
 		$out = 
-			"var ProcessWire = { config: " . wireEncodeJSON($jsConfig, true, $config->debug) . " }; " . 
+			"var ProcessWire = { config: " . str_replace('</', '<\/', wireEncodeJSON($jsConfig, true, $config->debug)) . " }; " .
 			"var config = ProcessWire.config; "; // legacy support
 		
 		return $out;

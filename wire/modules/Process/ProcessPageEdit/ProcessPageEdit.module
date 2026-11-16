@@ -1769,7 +1769,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				/** @var Language $language */
 				$language = $item['language'];
 				if($language && $language->id) {
-					$langLabel = $language->get('title|name');
+					$langLabel = $sanitizer->entities1($language->get('title|name'));
 					if(!$language->isDefault() && !$this->page->get("status$language")) $langLabel = "<s>$langLabel</s>";
 					$row[] = $langLabel;
 				} else {
