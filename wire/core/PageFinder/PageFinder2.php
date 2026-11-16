@@ -2272,7 +2272,9 @@ class PageFinder2 extends Wire {
 		if(!$field->type instanceof FieldtypePage) return false;
 		
 		if(empty($subfield)) $subfield = 'data';
-		
+		$subfield = $this->wire()->database->escapeCol($this->wire()->sanitizer->fieldName($subfield));
+		if(!strlen($subfield)) return false;
+
 		$table = $field->getTable();
 		
 		$q->select(null); // clear
