@@ -1453,9 +1453,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
 
 		$field = $query->field;
+		$database = $this->wire()->database;
 
 		if($subfield == 'count') { 
 			$value = (int) $value; 
+			if(!$database->isOperator($operator)) throw new WireException("Operator '$operator' is not supported for $field->name.count");
 
 			if(	($operator == '=' && $value == 0) || 
 				(in_array($operator, array('<', '<=')) && $value > -1) ||
@@ -1492,6 +1494,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		} else if($subfield == 'parent_id' || $subfield == 'parent') {  
 
 			$subfield = 'parent_id';
+			if(!$database->isOperator($operator)) throw new WireException("Operator '$operator' is not supported for $field->name.$subfield");
 			if(is_object($value)) $value = (string) $value; 
 			$value = (int) $value;
 			$query->where("($table.$subfield{$operator}$value)"); 
@@ -1521,6 +1524,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 
 			} else if(empty($value)) {
 				// empty/0 value
+				if(!$database->isOperator($operator)) throw new WireException("Operator '$operator' is not supported for $field->name");
 				if($operator === '=' && $subfield === 'id') {
 					$query->where('1>2'); // force non-match
 				} else {
