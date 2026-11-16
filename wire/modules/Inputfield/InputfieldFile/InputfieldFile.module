@@ -1113,8 +1113,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		if(strlen($rename) && $rename != $pagefile->basename(false)) {
 			$name = $pagefile->basename();
 			$rename .= "." . $pagefile->ext();
-			// cleanBasename($basename, $originalize = false, $allowDots = true, $translate = false) 
-			$rename = $pagefile->pagefiles->cleanBasename($rename, true, true, true);
+			// cleanBasename($basename, $originalize = false, $allowDots = true, $translate = false)
+			// dots are not allowed in basename, consistent with WireUpload::validateFilename()
+			$rename = $pagefile->pagefiles->cleanBasename($rename, true, false, true);
 			if(strlen($rename)) {
 				$message = sprintf($this->_('Renamed file "%1$s" to "%2$s"'), $name, $rename);
 				if($pagefile->rename($rename) !== false) {
