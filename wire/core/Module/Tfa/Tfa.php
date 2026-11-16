@@ -328,7 +328,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$sanitizer = $this->wire('sanitizer');
 		/** @var Session $session */
 		$session = $this->wire('session');
-		$name = $sanitizer->pageName($name);
+		$name = $sanitizer->pageNameUTF8($name); // same as Session::login()
 		$this->sessionReset();
 
 		/** @var User $user */
@@ -347,6 +347,9 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$settings = $tfaModule->getUserSettings($user);
 		if(!$tfaModule->enabledForUser($user, $settings)) return true;
 		
+		// check if login attempt is allowed (i.e. login throttle), as Session::login() does
+		if(!$session->allowLoginAttempt($name)) return false;
+
 		// check if user name and pass authenticate
 		if(!$session->authenticate($user, $pass)) return false;
 		
