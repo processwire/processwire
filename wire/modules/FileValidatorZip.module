@@ -95,7 +95,7 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 	/**
 	 * Runtime count of total megabytes
 	 * 
-	 * @var int 
+	 * @var int|float 
 	 * 
 	 */
 	protected $totalMegabytes = 0;
@@ -309,7 +309,7 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		
 		$name = $info['name'];
 		$bytes = (int) $info['size'];
-		$megabytes = $bytes > 0 ? (int) ($bytes / 1000000) : 0;
+		$megabytes = $bytes > 0 ? $bytes / 1000000 : 0; // float, so that files under 1 MB count toward total
 		$comp = $info['comp_size'];
 		$errors = [];
 
@@ -329,12 +329,12 @@ class FileValidatorZip extends FileValidatorModule implements ConfigurableModule
 		if(!$this->isUpgrade) {
 			if($this->totalMegabytes > $this->maxTotalMegabytes) {
 				$errors[] = $this->_('Total extracted ZIP size exceeds max allowed size') .
-					($this->verbose ? " ($this->totalMegabytes MB > $this->maxTotalMegabytes MB)" : "");
+					($this->verbose ? " (" . round($this->totalMegabytes, 2) . " MB > $this->maxTotalMegabytes MB)" : "");
 			}
 			
 			if($megabytes > $this->maxFileMegabytes) {
 				$errors[] = $this->_('Exceeds max allowed size') .
-					($this->verbose ? " ($megabytes MB > $this->maxFileMegabytes MB)" : "");
+					($this->verbose ? " (" . round($megabytes, 2) . " MB > $this->maxFileMegabytes MB)" : "");
 			}
 			
 			if($depth > $this->maxDepth) {

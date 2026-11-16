@@ -629,8 +629,15 @@ class WireUpload extends Wire {
 			$pathname = $tmpDir . $file;
 
 			if(!$this->isValidUpload($file, filesize($pathname), UPLOAD_ERR_OK)) {
-				$fileTools->unlink($pathname, $tmpDir); 
-				continue; 
+				$fileTools->unlink($pathname, $tmpDir);
+				continue;
+			}
+
+			if(!$this->hasValidMimeType($pathname)) {
+				$fname = $this->wire()->sanitizer->name(basename($pathname));
+				$this->error("$fname - " . $this->_('File content does not match its extension'));
+				$fileTools->unlink($pathname, $tmpDir);
+				continue;
 			}
 
 			$basename = $file;
