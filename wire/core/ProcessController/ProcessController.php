@@ -270,7 +270,7 @@ class ProcessController extends Wire {
 			if(empty($navItem['permission'])) continue;
 			$navSegment = strtolower(trim($navItem['url'], './'));
 			if(empty($navSegment)) continue;
-			if(strpos($navSegment, '/') !== false) list($navSegment,) = explode($navSegment, '/', 2);
+			if(strpos($navSegment, '/') !== false) list($navSegment,) = explode('/', $navSegment, 2);
 			$navSegmentAlt = str_replace('-', '', $navSegment);
 			if($urlSegment === $navSegment || $urlSegment === $navSegmentAlt) {
 				$hasPermission = $this->hasPermission($navItem['permission'], $throw);
