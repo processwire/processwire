@@ -255,7 +255,10 @@ class WireUpload extends Wire {
 			// single file upload, including ajax
 			if($this->isValidUpload($f['name'], $f['size'], $f['error'])) {
 				$this->saveUpload($f['tmp_name'], $f['name'], !empty($f['ajax']));  // returns filename or false
-				$uploadFiles = $this->completedFilenames; 
+				$uploadFiles = $this->completedFilenames;
+			} else if(!empty($f['ajax']) && is_file($f['tmp_name'])) {
+				// remove temporary file created by getPhpFilesAjax() since PHP will not remove it
+				$this->wire()->files->unlink($f['tmp_name']);
 			}
 		}
 
