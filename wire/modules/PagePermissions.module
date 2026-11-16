@@ -785,7 +785,22 @@ class PagePermissions extends WireData implements Module {
 		} else if($pagefile) { 
 			if(!$viewable && wireInstanceOf($page, 'RepeaterPage')) {
 				/** @var RepeaterPage $page */
-				$viewable = $page->getForPageRoot()->viewable($checkTemplateFile); 
+				// if repeater item (or a repeater item it is nested within) is unpublished,
+				// then its files are viewable only to users that can edit the root page
+				$unpublished = false;
+				$item = $page;
+				while($item instanceof RepeaterPage) {
+					if($item->isUnpublished()) {
+						$unpublished = true;
+						break;
+					}
+					$item = $item->getForPage();
+				}
+				if($unpublished) {
+					$viewable = !$user->isGuest() && $page->getForPageRoot()->editable();
+				} else {
+					$viewable = $page->getForPageRoot()->viewable($checkTemplateFile);
+				}
 			}
 			if($viewable) {
 				$viewable = $this->fileViewable($page, $pagefile);
