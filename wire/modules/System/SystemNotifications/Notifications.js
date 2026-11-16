@@ -588,7 +588,8 @@ var Notifications = {
 		if(Notifications.$menu.hasClass('open')) return;
 
 		var $icon = $('<i class="fa fa-fw fa-' + notification.icon + '"></i>'); 
-		var $ghost = $("<div class='NotificationGhost'></div>").append($icon).append(' ' + $("<span>" + notification.title + "</span>").text());
+		var ghostText = ' ' + $("<span>" + notification.title + "</span>").text();
+		var $ghost = $("<div class='NotificationGhost'></div>").append($icon).append(document.createTextNode(ghostText));
 		var $li = $("<li></li>").append($ghost); 
 		var delay = Notifications.options.ghostDelay; 
 
