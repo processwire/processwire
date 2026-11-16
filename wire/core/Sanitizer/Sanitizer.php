@@ -3303,8 +3303,15 @@ class Sanitizer extends Wire {
 			
 			if(strpos($str, '](') && in_array('a', $options['allow']) && !in_array('a', $options['disallow'])) {
 				// link
-				$linkMarkup = str_replace(array('{url}', '{text}'), array('$2', '$1'), $options['linkMarkup']);
-				$str = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', $linkMarkup, $str);
+				$linkMarkup = $options['linkMarkup'];
+				$str = preg_replace_callback('/\[([^\]]+)\]\(([^)]+)\)/', function($m) use($linkMarkup) {
+					// disallow links with script/data/file schemes, checking the decoded URL as a browser would
+					$test = preg_replace('/[\t\n\r]+/', '', ltrim($this->unentities($m[2]), "\x00..\x20"));
+					if(preg_match('/^([a-z][-a-z0-9+.]*):/i', $test, $matches)) {
+						if(in_array(strtolower($matches[1]), array('javascript', 'vbscript', 'data', 'file'))) return $m[1];
+					}
+					return str_replace(array('{url}', '{text}'), array($m[2], $m[1]), $linkMarkup);
+				}, $str);
 			}
 			
 			if(strpos($str, '**') !== false && in_array('strong', $options['allow']) && !in_array('strong', $options['disallow'])) {

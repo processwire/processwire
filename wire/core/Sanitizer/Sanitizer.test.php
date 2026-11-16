@@ -81,6 +81,10 @@ class WireTest_Sanitizer extends WireTest {
 		$t->check("entitiesMarkdown() converts **bold**", '<strong>bold</strong>', $r, '*=');
 		$t->check("entitiesMarkdown() converts *em*", '<em>em</em>', $r, '*=');
 		$t->check("entitiesMarkdown() converts backtick code", '<code>code</code>', $r, '*=');
+		$t->check("entitiesMarkdown() converts https links", '<a href="https://processwire.com/"', $s->entitiesMarkdown('[pw](https://processwire.com/)'), '*=');
+		$t->check("entitiesMarkdown() omits javascript: links", false, strpos($s->entitiesMarkdown('[x](javascript:alert(1))'), '<a ') !== false);
+		$t->check("entitiesMarkdown() omits entity-encoded javascript: links", false,
+			strpos($s->entitiesMarkdown('[x](javascript&#58;alert(1))', array('doubleEncode' => false)), '<a ') !== false);
 		if($this->wire()->modules->isInstalled('TextformatterMarkdownExtra')) {
 			$markdown = $this->wire()->modules->get('TextformatterMarkdownExtra');
 			$flavor = $markdown->flavor;
