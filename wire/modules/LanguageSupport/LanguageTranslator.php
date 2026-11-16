@@ -143,6 +143,10 @@ class LanguageTranslator extends Wire {
 			// file has MS-DOS style slashes and they are not escapes, convert to unix
 			$file = str_replace("\\", '/', $file);
 		}
+		if(preg_match('!(^|[/\\\\])\.\.([/\\\\]|$)!', $file)) {
+			// file is relative to the installation root and must not traverse outside of it
+			$file = '';
+		}
 		return array(
 			'file' => $file, 
 			'textdomain' => $textdomain, 
