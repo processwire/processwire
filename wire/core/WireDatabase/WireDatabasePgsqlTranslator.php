@@ -679,6 +679,12 @@ class WireDatabasePgsqlTranslator {
 		$sql = '';
 		foreach($tokens as $t) {
 			$str = $t[0] === 'id' ? $this->quoteId($t[1]) : $t[1];
+			if($t[0] === 'str' && strpos($str, '\\') !== false) {
+				// use escape string syntax with doubled backslashes for literals containing a backslash, so that
+				// parsers that treat backslash as an escape (i.e. PDO placeholder parsing before PHP 8.4) agree
+				// with PostgreSQL on where the literal ends
+				$str = 'E' . str_replace('\\', '\\\\', $str);
+			}
 			// never produce "--" from separate tokens (i.e. "5 - -2"), since SQL treats it as a comment
 			if($str !== '' && $str[0] === '-' && substr($sql, -1) === '-') $sql .= ' ';
 			$sql .= $str;

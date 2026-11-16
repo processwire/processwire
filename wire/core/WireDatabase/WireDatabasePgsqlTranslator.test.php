@@ -551,7 +551,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 	protected function testShow() {
 		$t = function($sql) { return $this->translator->translateStatements($sql)[0]; };
 		$this->check('SHOW TABLES', "SELECT table_name AS \"Tables_in_db\" FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE' ORDER BY table_name", $t('SHOW TABLES'));
-		$this->check('SHOW TABLES LIKE', "SELECT table_name AS \"Tables_in_db\" FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE' AND table_name ILIKE 'field\\_%' ORDER BY table_name", $t("SHOW TABLES LIKE 'field\\_%'"));
+		$this->check('SHOW TABLES LIKE', "SELECT table_name AS \"Tables_in_db\" FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE' AND table_name ILIKE E'field\\\\_%' ORDER BY table_name", $t("SHOW TABLES LIKE 'field\\_%'"));
 		$columns = $t('SHOW COLUMNS FROM pages');
 		$this->check('SHOW COLUMNS has MySQL column names', true, strpos($columns, 'AS "Field"') !== false && strpos($columns, 'AS "Type"') !== false && strpos($columns, 'AS "Extra"') !== false);
 		$this->check('SHOW COLUMNS WHERE Field', true, strpos($t("SHOW COLUMNS FROM pages WHERE Field='id'"), "WHERE \"Field\"='id'") !== false);
@@ -911,14 +911,20 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 		$this->check('double-quoted MySQL string becomes single-quoted literal',
 			"SELECT 'text'",
 			$this->translate('SELECT "text"'));
-		$this->check('escaped backslash becomes one backslash (standard_conforming_strings)',
-			"SELECT 'a\\b'",
+		$this->check('escaped backslash becomes an E string literal with doubled backslash',
+			"SELECT E'a\\\\b'",
 			$this->translate("SELECT 'a\\\\b'"));
+		$this->check('trailing backslash literal does not hide a later placeholder from PDO',
+			"SELECT E'x\\\\', ':b', :b",
+			$this->translate("SELECT 'x\\\\', ':b', :b"));
+		$this->check('literal without backslash stays a standard literal',
+			"SELECT 'it''s'",
+			$this->translate("SELECT 'it\\'s'"));
 		$this->check('escaped newline becomes literal newline',
 			"SELECT 'a\nb'",
 			$this->translate("SELECT 'a\\nb'"));
 		$this->check('escaped percent keeps its backslash for LIKE',
-			"SELECT 'a\\%b'",
+			"SELECT E'a\\\\%b'",
 			$this->translate("SELECT 'a\\%b'"));
 		$this->check('NUL byte is removed (Postgres text cannot hold it)',
 			"SELECT 'ab'",
@@ -927,7 +933,7 @@ class WireTest_WireDatabasePgsqlTranslator extends WireTest {
 			"'O\\'Reilly \\\\ \\n'",
 			WireDatabasePgsqlTranslator::quote("O'Reilly \\ \n"));
 		$this->check('quote() round-trips through translation',
-			"SELECT 'O''Reilly \\ \n'",
+			"SELECT E'O''Reilly \\\\ \n'",
 			$this->translate('SELECT ' . WireDatabasePgsqlTranslator::quote("O'Reilly \\ \n")));
 		$this->check('named parameters pass through', 'SELECT :i0X, :name', $this->translate('SELECT :i0X, :name'));
 		$this->check('positional parameters pass through', 'SELECT ?', $this->translate('SELECT ?'));
