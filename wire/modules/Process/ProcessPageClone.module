@@ -281,7 +281,12 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 		$field->icon = 'eye-slash';
 		$field->label = $this->_("Make the new page unpublished?");
 		if($this->wire()->input->requestMethod('GET')) $field->attr('checked', 'checked');
-		$field->description = $this->_("If checked, the cloned page will be given an unpublished status so that it can't yet be seen on the front-end of your site."); 
+		$field->description = $this->_("If checked, the cloned page will be given an unpublished status so that it can't yet be seen on the front-end of your site.");
+		if(!$this->canPublishClone()) {
+			// user does not have page-publish permission, so clone is always unpublished
+			$field->attr('checked', 'checked');
+			$field->collapsed = Inputfield::collapsedNoLocked;
+		}
 		$form->add($field);
 
 		if($page->numChildren && $this->user->hasPermission('page-clone-tree', $page)) { 
@@ -366,7 +371,7 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 			throw new WirePermissionException($this->_('You do not have permission to copy this page and its children.'));
 		}
 		
-		if($input->post('clone_page_unpublished')) {
+		if($input->post('clone_page_unpublished') || !$this->canPublishClone()) {
 			$page->addStatus(Page::statusUnpublished);
 		}
 		
@@ -429,6 +434,24 @@ class ProcessPageClone extends Process implements ConfigurableModule {
 		}
 
 		$this->wire()->session->location($redirectURL);
+	}
+
+	/**
+	 * Can the current user publish the clone of the page being cloned?
+	 *
+	 * This intentionally does not use `$page->publishable()`, which also requires that the
+	 * source page is editable. Cloning only requires page-create and view access to the
+	 * source page, so a user that can clone (but not edit) the source page and has the
+	 * page-publish permission would otherwise always get an unpublished clone.
+	 *
+	 * @return bool
+	 *
+	 */
+	protected function canPublishClone() {
+		$user = $this->wire()->user;
+		if($user->isSuperuser()) return true;
+		if(!$this->wire()->permissions->has('page-publish')) return true;
+		return $user->hasPermission('page-publish', $this->page);
 	}
 
 	/**
