@@ -49,6 +49,15 @@ function _hookSessionRedirectModal(HookEvent $event) {
  */
 function _checkForHttpHostError(Config $config) {
 
+	if(empty($config->httpHosts) && !$config->ajax) {
+		$config->warning(
+			__('Please populate your $config->httpHosts setting in /site/config.php') . ' ' .
+			__('(password reset is not available until it is populated)') . ' - ' .
+			"<a target='_blank' href='https://processwire.com/api/variables/config/#httphosts'>" . __('read more') . "</a>",
+			Notice::allowMarkup
+		);
+	}
+
 	$valid = false;
 	$httpHost = strtolower($config->httpHost); 
 
