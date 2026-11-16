@@ -1378,7 +1378,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if($query->pageFinder) {
 			$pf = $query->pageFinder;
 			$pfo = $pf->getOptions();
-			if(empty($pfo['findAll']) === true) {
+			if(!empty($pfo['findAll'])) {
 				$selector = "include=all, $selector";
 			} else if($pf->includeMode) {
 				$selector = "include=$pf->includeMode, $selector";
