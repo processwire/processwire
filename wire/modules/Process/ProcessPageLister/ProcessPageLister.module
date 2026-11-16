@@ -1053,8 +1053,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$parents = array();
 		$changed = false;
 		$templateSelector = null;
-		$includeSelector = null;
-		
+		$includeSelectors = array();
+		$hasStatus = false;
+
 		foreach($selectors as $s) {
 			
 			$fields = is_array($s->field) ? $s->field : array($s->field);
@@ -1116,32 +1117,41 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				}
 			}
 			
+			if(in_array('status', $fields)) $hasStatus = true;
+
 			if(in_array('include', $fields)) {
-				
+
 				if(count($values) > 1) throw new WireException("The 'include=' selector may not have more than 1 value.");
-				$includeSelector = $s; 
-				$value = strtolower(trim(reset($values))); 
+				$value = strtolower(trim(reset($values)));
 				if($value != 'unpublished' && $value != 'hidden') {
 					// value must be 'all' or 'trash', which we don't allow
-					if($value == 'all' && $this->allowIncludeAll) { 
+					if($value == 'all' && $this->allowIncludeAll) {
 						// ok, override
-					} else { 
+					} else {
 						$selectors->remove($s);
 						if($value && $showIncludeWarnings) {
 							$this->resultNotes[] = $this->_("Specified 'include=' mode is not allowed here.") . " (include=$value)";
 						}
-						$changed = true; 
+						$changed = true;
+						continue;
 					}
 				}
-				
+				$includeSelectors[] = $s;
 			}
 		}
-		
+
 		if($templateSelector) {
 			// not currently used
 		}
-		
-		if($includeSelector) {
+
+		if($hasStatus && !count($includeSelectors) && !$this->allowIncludeAll) {
+			// without an include mode, PageFinder uses status values to determine the max allowed status,
+			// so specify an include mode that limits it to what non-superusers may otherwise specify
+			$selectors->add(new SelectorEqual('include', 'hidden'));
+			$changed = true;
+		}
+
+		foreach($includeSelectors as $includeSelector) {
 			$includeMode = $includeSelector->value; 
 			
 			if(count($templates)) {

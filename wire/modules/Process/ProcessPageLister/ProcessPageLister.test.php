@@ -120,10 +120,22 @@ class WireTest_ProcessPageLister extends WireTest {
 			$this->check('Lister access test account is non-superuser', false, $user->isSuperuser());
 			$this->check('Lister access test account has required permission', true, $user->hasPermission('page-lister'));
 			foreach(array('private', 'draft', 'trash') as $kind) {
-				foreach(array('', ', include=all', ', check_access=0') as $modifier) {
+				foreach(array('', ', include=all', ', check_access=0', ', status=unpublished', ', status>=' . Page::statusTrash,
+					', status!=published', ', include=unpublished, include=all') as $modifier) {
 					$this->check("Lister excludes $kind source with modifier '$modifier'", 0, $lister->countForTest('id=' . $pages[$kind]->id . $modifier));
 				}
 			}
+			// without page-edit no include mode is added, so status selectors must not raise the max status
+			$role->removePermission('page-edit');
+			$role->save();
+			$this->check('Lister access test account lacks page-edit', false, $user->hasPermission('page-edit'));
+			foreach(array('draft', 'trash') as $kind) {
+				foreach(array(', status=unpublished', ', status>=' . Page::statusTrash, ', status!=published') as $modifier) {
+					$this->check("Lister without page-edit excludes $kind source with modifier '$modifier'", 0, $lister->countForTest('id=' . $pages[$kind]->id . $modifier));
+				}
+			}
+			$role->addPermission('page-edit');
+			$role->save();
 			$ids = $pages['allowed']->id . '|' . $pages['denied']->id;
 			$base = "id=$ids";
 			$normal = $fields['normal']->name;
