@@ -395,7 +395,7 @@ $(document).ready(function() {
 				// Present file info and append it to the list of files
 				fileData = '' + 
 					"<i class='fa fa-fw fa-spin fa-spinner'></i> " + 
-					'<span class="InputfieldFileName">' + file.name + '</span>' + 
+					'<span class="InputfieldFileName">' + $('<span />').text(file.name).html() + '</span>' +
 					'<span class="InputfieldFileStats"> &bull; ' + parseInt(file.size / 1024, 10) + " kb</span>";
 				
 				$progressItem.find('p.ui-widget-header').html(fileData);
@@ -415,7 +415,7 @@ $(document).ready(function() {
 
 				function errorItem(filename, message) { 
 					return 	'<li class="InputfieldFile ui-widget AjaxUpload">' + 
-						'<p class="InputfieldFileInfo ui-widget ui-widget-header InputfieldItemHeader ui-state-error">&nbsp; ' + filename  + ' ' + 
+						'<p class="InputfieldFileInfo ui-widget ui-widget-header InputfieldItemHeader ui-state-error">&nbsp; ' + $('<span />').text(filename).html()  + ' ' +
 						'<span class="InputfieldFileStats"> &bull; ' + message + '</span></p></li>';
 				}
 				

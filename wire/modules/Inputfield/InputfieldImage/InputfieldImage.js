@@ -1708,7 +1708,7 @@ function InputfieldImage($) {
 			 * 
 			 */
 			function errorItem(message, filename) {
-				if(typeof filename !== "undefined") message = '<b>' + filename + ':</b> ' + message;
+				if(typeof filename !== "undefined") message = '<b>' + $('<span />').text(filename).html() + ':</b> ' + message;
 				var icon = "<i class='fa fa-fw fa-warning'></i> ";
 				return '<li>' + icon + message + '</li>';
 			}
@@ -1931,7 +1931,7 @@ function InputfieldImage($) {
 					$imageData = $('<div class="ImageData"></div>'),
 					$hover = $("<div class='gridImage__hover'><div class='gridImage__inner'></div></div>"),
 					$progressBar = $("<progress class='gridImage__progress' min='-1' max='100' value='0'></progress>"),
-					$edit = $('<a class="gridImage__edit" title="' + file.name + '"><span>&nbsp;</span></a>'),
+					$edit = $('<a class="gridImage__edit"><span>&nbsp;</span></a>').attr('title', file.name),
 					$spinner = $('<div class="gridImage__resize"><i class="fa fa-spinner fa-spin fa-2x fa-fw"></i></div>'),
 					reader,
 					xhr,
@@ -1950,7 +1950,7 @@ function InputfieldImage($) {
 				$hover.find(".gridImage__inner").append($spinner.css('display', 'none'));
 				$hover.find(".gridImage__inner").append($progressBar);
 				$imageData.append($('' + 
-					'<h2 class="InputfieldImageEdit__name">' + file.name + '</h2>' +
+					'<h2 class="InputfieldImageEdit__name">' + $('<span />').text(file.name).html() + '</h2>' +
 					'<span class="InputfieldImageEdit__info">' + filesizeStr + '</span>')
 				);
 
