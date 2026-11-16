@@ -618,13 +618,19 @@ class Installer {
 	/**
 	 * Does the normalized database configuration identify a local connection?
 	 *
+	 * Local connections need no activation token because their database credentials
+	 * serve as the proof. SQLite has no credentials, so it is not considered local here.
+	 *
 	 * @param array $values
 	 * @return bool
 	 *
 	 */
 	protected function isLocalDatabaseConnection(array $values) {
-		if(isset($values['dbType']) && $values['dbType'] === 'sqlite') return true;
-		if(isset($values['dbCon']) && $values['dbCon'] === 'Socket') return true;
+		if(isset($values['dbType']) && $values['dbType'] === 'sqlite') return false;
+		if(isset($values['dbCon']) && $values['dbCon'] === 'Socket') {
+			// libpq treats a host value that is not an absolute path as a hostname
+			return isset($values['dbSocket']) && strpos((string) $values['dbSocket'], '/') === 0;
+		}
 		$host = isset($values['dbHost']) && is_string($values['dbHost'])
 			? strtolower(trim($values['dbHost']))
 			: '';
@@ -1547,7 +1553,7 @@ class Installer {
 		}
 		$this->sectionStart('fa-key Installer activation token', [ 'id' => 'installer-activation', 'class' => (self::TEST_ACTIVATION ? 'pwi-test-activation' : '') ]);
 		$this->p(
-			'A remote database host requires proof of filesystem access. ' .
+			'SQLite and remote database hosts require proof of filesystem access. ' .
 			'Copy the activation token from the PHP comment at the top of the <code>/site/config.php</code> file and paste it below.'
 		);
 		$this->input('installerActivationToken',
@@ -1767,8 +1773,13 @@ class Installer {
 		// under the section heading below, which is only output once the connection works
 		ob_start();
 
-		if($values['dbType'] === 'sqlite') {
-			// SQLite: local database file, so no credentials or activation token needed
+		if($values['dbType'] === 'sqlite' && !$activationTokenReady) {
+			// Manual filesystem intervention is required before any database connection.
+
+		} else if($values['dbType'] === 'sqlite' && !$this->validateInstallerActivationToken($values)) {
+			// SQLite has no credentials, so filesystem proof is required before creating the database.
+
+		} else if($values['dbType'] === 'sqlite') {
 			$database = $this->sqliteConnect($values);
 
 		} else if($values['dbType'] === 'pgsql' && (empty($values['dbUser']) || empty($values['dbName']))) {

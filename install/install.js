@@ -74,15 +74,17 @@ function pwiInitDatabaseFields() {
 		if(po) { po.required = !sqlite && useHost; display(row(po), useHost); }
 		if(so) { so.required = !sqlite && !useHost; display(row(so), !useHost); }
 		var host = (ho ? ho.value : '').trim().toLowerCase(),
+			socket = (so ? so.value : '').trim(),
 			localHosts = ['localhost', '127.0.0.1', '::1', '[::1]'],
-			activationRequired = !sqlite && (testActivation ||
-				(useHost && localHosts.indexOf(host) === -1));
+			activationRequired = testActivation || sqlite ||
+				(useHost ? localHosts.indexOf(host) === -1 : socket.charAt(0) !== '/');
 		if(ao) ao.required = activationRequired;
 		display(activation, activationRequired);
 	}
 	co.addEventListener('change', updateConnectionFields);
 	if(to) to.addEventListener('change', function() { updatePort(); updateConnectionFields(); });
 	if(ho) ho.addEventListener('input', updateConnectionFields);
+	if(so) so.addEventListener('input', updateConnectionFields);
 	updateConnectionFields();
 }
 
