@@ -1315,7 +1315,8 @@ class Session extends Wire implements \IteratorAggregate {
 
 		} else if(!$user || !$user->id) {
 			$failReason = 'Unknown user';
-			
+			$this->authenticateUnknownUser($pass);
+
 		} else if($user->id == $guestUserID) {
 			$failReason = 'Guest user may not login';
 			
@@ -1479,6 +1480,20 @@ class Session extends Wire implements \IteratorAggregate {
 	 */
 	public function ___authenticate(User $user, $pass) {
 		return $user->pass->matches($pass);
+	}
+
+	/**
+	 * Perform a password hash for a login attempt with an unknown user name
+	 *
+	 * This takes about the same time as authenticating a known user (blowfish cost 11, as in Password),
+	 * so that response times do not reveal whether a user name exists. The result is not used.
+	 *
+	 * @param string $pass
+	 *
+	 */
+	protected function authenticateUnknownUser($pass) {
+		if(!strlen("$pass") || !defined('CRYPT_BLOWFISH') || !CRYPT_BLOWFISH) return;
+		crypt(substr("$pass", 0, 128), '$2y$11$ProcessWireUnknownUser$');
 	}
 
 	/**
