@@ -2275,6 +2275,10 @@ $config->adminIcons = [
 /**
  * https: This is automatically set to TRUE when the request is an HTTPS request, null when not determined.
  *
+ * When null, HTTPS is detected from `$_SERVER['HTTPS']`, port 443, or an `X-Forwarded-Proto: https`
+ * request header (as sent by load balancers and proxies). Since that header can also be sent by any
+ * client, you may set this to true or false in /site/config.php if your site is not behind such a proxy.
+ *
  */
 $config->https = null;
 
