@@ -130,7 +130,8 @@ class WireTest_ProcessPageLister extends WireTest {
 			$role->save();
 			$this->check('Lister access test account lacks page-edit', false, $user->hasPermission('page-edit'));
 			foreach(array('draft', 'trash') as $kind) {
-				foreach(array(', status=unpublished', ', status>=' . Page::statusTrash, ', status!=published') as $modifier) {
+				foreach(array(', status=unpublished', ', status>=' . Page::statusTrash, ', status!=published',
+					', status<' . Page::statusTrash . ', name!=x\\, include=all') as $modifier) {
 					$this->check("Lister without page-edit excludes $kind source with modifier '$modifier'", 0, $lister->countForTest('id=' . $pages[$kind]->id . $modifier));
 				}
 			}

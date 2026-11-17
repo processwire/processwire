@@ -41,6 +41,26 @@ class WireTest_Selectors extends WireTest {
 
 		$not = $this->wire(new Selectors('!status=hidden'))->first();
 		$this->check('Selector detects NOT prefix', true, $not->not);
+
+		// string conversion must parse back to the same selectors, including escaped separators and quotes
+		$roundTrips = array(
+			'title=a\,b' => 'escaped comma',
+			'title=a\|b|c' => 'escaped pipe in OR values',
+			'title="x\", include=all, y=\""' => 'escaped double quote',
+			"title='x\\', include=all, y=\\''" => 'escaped single quote',
+			'status=hidden, title=x\, include=all' => 'escaped comma before another selector',
+		);
+		foreach($roundTrips as $str => $label) {
+			$a = $this->wire(new Selectors($str));
+			$b = $this->wire(new Selectors((string) $a));
+			$this->check("Selectors string round-trip: $label (count)", $a->count(), $b->count());
+			$this->check("Selectors string round-trip: $label (values)", $a->first()->values(), $b->first()->values());
+		}
+		$selectors = $this->wire(new Selectors('title=x'));
+		$selectors->first()->value = 'x\\';
+		$selectors->add($this->wire(new SelectorNotEqual('templates_id', 5)));
+		$this->check('Selector value with trailing backslash does not absorb the next selector', 2,
+			$this->wire(new Selectors((string) $selectors))->count());
 	}
 
 	/**

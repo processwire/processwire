@@ -657,6 +657,19 @@ abstract class Selector extends WireData {
 	}
 
 	/**
+	 * Get value(s) for __toString(), retaining values like integer 0 that values() omits
+	 * 
+	 * @return array
+	 * 
+	 */
+	protected function toStringValues() {
+		$value = parent::get('value');
+		if(is_array($value)) return $value;
+		if(is_object($value)) return $this->values();
+		return array($value);
+	}
+
+	/**
 	 * The string value of Selector is always the selector string that it originated from
 	 *
 	 */
@@ -671,9 +684,28 @@ abstract class Selector extends WireData {
 				else if($openingQuote == '(') $closingQuote = ')';
 		}
 		
-		$value = $this->value();
-		if($openingQuote) $value = trim($value, $openingQuote . $closingQuote);
-		$value = $openingQuote . $value . $closingQuote;
+		if($openingQuote === '"' || $openingQuote === "'") {
+			// escape unescaped closing quotes so that the string parses back to the same value(s)
+			$values = array();
+			foreach($this->toStringValues() as $v) {
+				$v = rtrim((string) $v, '\\'); // a trailing backslash would escape the closing quote
+				$v = preg_replace('/(?<!\\\\)' . preg_quote($closingQuote, '/') . '/', '\\\\' . $closingQuote, $v);
+				$values[] = $openingQuote . $v . $closingQuote;
+			}
+			$value = implode('|', $values);
+		} else if($openingQuote) {
+			$value = $this->value();
+			$value = trim($value, $openingQuote . $closingQuote);
+			$value = $openingQuote . $value . $closingQuote;
+		} else {
+			// escape commas and pipes so they are not seen as separators when the string is parsed again
+			$values = array();
+			foreach($this->toStringValues() as $v) {
+				$v = rtrim((string) $v, '\\'); // a trailing backslash would escape the separator that follows
+				$values[] = preg_replace('/(?<!\\\\)([,|])/', '\\\\$1', $v);
+			}
+			$value = implode('|', $values);
+		}
 		
 		$str = 	
 			($this->not ? '!' : '') . 
