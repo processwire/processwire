@@ -249,14 +249,33 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 */
 	public function hasCookie($checkLogin = false) {
+		$name = $this->sessionName();
+		if($checkLogin) $name .= self::challengeSuffix;
+		return !empty($_COOKIE[$name]);
+	}
+
+	/**
+	 * Get the session (cookie) name that ProcessWire uses for the current request
+	 *
+	 * This is the name given to session_name() when the session starts: `$config->sessionNameSecure`
+	 * (or `$config->sessionName` plus 's') on HTTPS with `$config->sessionCookieSecure`, otherwise
+	 * `$config->sessionName`. Unlike session_name(), it is known even when no session was started,
+	 * i.e. when `$config->sessionAllow` disallowed one.
+	 *
+	 * #pw-group-info
+	 *
+	 * @return string
+	 * @since 3.0.275
+	 *
+	 */
+	public function sessionName() {
 		if($this->config->https && $this->config->sessionCookieSecure) {
 			$name = $this->config->sessionNameSecure;
 			if(!$name) $name = $this->config->sessionName . 's';
 		} else {
 			$name = $this->config->sessionName;
 		}
-		if($checkLogin) $name .= self::challengeSuffix;
-		return !empty($_COOKIE[$name]);
+		return (string) $name;
 	}
 
 	/**
@@ -303,15 +322,9 @@ class Session extends Wire implements \IteratorAggregate {
 
 		if($this->config->https && $this->config->sessionCookieSecure) {
 			ini_set('session.cookie_secure', 1); // #1264
-			if($this->config->sessionNameSecure) {
-				session_name($this->config->sessionNameSecure);
-			} else {
-				session_name($this->config->sessionName . 's');
-			}
-		} else {
-			session_name($this->config->sessionName);
 		}
-		
+		session_name($this->sessionName());
+
 		ini_set('session.use_cookies', true);
 		if(PHP_VERSION_ID < 80400) ini_set('session.use_only_cookies', 1);
 		ini_set('session.cookie_httponly', 1);

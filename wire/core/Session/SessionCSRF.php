@@ -56,7 +56,7 @@
 class SessionCSRF extends Wire {
 
 	/**
-	 * Suffix appended to session_name() for the signed-mode binding cookie name
+	 * Suffix appended to the session name for the signed-mode binding cookie name
 	 *
 	 */
 	const bindingCookieSuffix = '_csrf';
@@ -394,13 +394,19 @@ class SessionCSRF extends Wire {
 	/**
 	 * Get the name of the signed-mode binding cookie
 	 *
+	 * Based on the active session's name, or, when no session is active (`$config->sessionAllow`
+	 * disallowed one), the name ProcessWire gives a session: session_name() is only set when a
+	 * session starts, so it would name the cookie differently on session-less requests and the
+	 * tokens they render would not validate on requests that have a session.
+	 *
 	 * #pw-internal
 	 *
 	 * @return string
 	 *
 	 */
 	public function bindingCookieName() {
-		$name = session_name() . self::bindingCookieSuffix;
+		$sessionName = session_status() === PHP_SESSION_ACTIVE ? session_name() : $this->wire()->session->sessionName();
+		$name = $sessionName . self::bindingCookieSuffix;
 		return $this->bindingCookieHostOnly() ? "__Host-$name" : $name;
 	}
 
