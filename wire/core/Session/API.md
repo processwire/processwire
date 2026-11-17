@@ -372,6 +372,10 @@ Notes on signed mode:
   visitor's browser and submit a token they fetched for that same value (the known
   weakness of cookie-bound tokens, shared by Django). Use `session` mode if you do not
   trust all subdomains, or if the site is not on HTTPS.
+- The binding cookie needs no session, so signed mode suits sites that start sessions only
+  for some visitors via `$config->sessionAllow`: forms rendered without a session still
+  validate once a session starts. The cookie is named after `$session->sessionName()`, not
+  `session_name()`, which PHP only sets when a session starts.
 
 ### Origin fallback
 
@@ -502,6 +506,23 @@ at some point. Does not verify that the session is currently valid.
 if($session->hasLoginCookie()) {
     // likely a logged-in or recently logged-in user
 }
+~~~~~
+
+---
+
+### $session->sessionName()
+
+Get the session (cookie) name ProcessWire uses for the current request:
+`$config->sessionNameSecure` (or `$config->sessionName` plus `s`) on HTTPS with
+`$config->sessionCookieSecure`, otherwise `$config->sessionName`. Unlike PHP's
+`session_name()`, it is known before or without a session start, e.g. inside a
+`$config->sessionAllow` callable or when that callable disallowed a session.
+
+- **Returns:** `string`
+- Available since 3.0.275.
+
+~~~~~php
+$name = $session->sessionName(); // "wires" on HTTPS with default config
 ~~~~~
 
 ---
