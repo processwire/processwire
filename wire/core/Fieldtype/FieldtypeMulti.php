@@ -5,7 +5,7 @@
  *
  * Interface and some functionality for Fieldtypes that can contain multiple values.
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool savePageFieldRows(Page $page, Field $field, $value)
@@ -736,8 +736,10 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$sql = implode(', ', $sqls);
 			
 			if($id) {
+				// limit to rows already owned by $page, so that an id belonging to another page is not updated
 				$binds[':primaryKey'] = $id;
-				$sql = "UPDATE `$table` SET $sql WHERE `$primaryKey`=:primaryKey LIMIT 1";
+				$binds[':where_pages_id'] = (int) $page->id;
+				$sql = "UPDATE `$table` SET $sql WHERE `$primaryKey`=:primaryKey AND pages_id=:where_pages_id LIMIT 1";
 			} else {
 				$sql = "INSERT INTO `$table` SET $sql";
 			}
@@ -871,15 +873,19 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$ids = array();
 
 		foreach($this->sleepValue($page, $field, $value) as $item) {
-			$id = $item[$primaryKey];
+			$id = isset($item[$primaryKey]) ? $item[$primaryKey] : 0;
 			if(empty($id) || !ctype_digit("$id")) continue;
 			$ids[$id] = (int) $id;
 		}
 		
-		$sql = "DELETE FROM `$table` WHERE $primaryKey IN(" . implode(',', $ids) . ")";
+		if(!count($ids)) return 0;
+
+		// limit to rows owned by $page, so that an id belonging to another page is not deleted
+		$sql = "DELETE FROM `$table` WHERE pages_id=:pages_id AND $primaryKey IN(" . implode(',', $ids) . ")";
 		$query = $database->prepare($sql);
-		
-		return $database->execute($query) ? count($ids) : 0;
+		$query->bindValue(':pages_id', (int) $page->id, \PDO::PARAM_INT);
+
+		return $database->execute($query) ? $query->rowCount() : 0;
 	}
 	
 	/**
