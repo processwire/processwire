@@ -264,6 +264,22 @@ $log->save('search', 'This will be written again');
 
 ---
 
+### $log->disableQueryString()
+
+Omit the query string from automatically detected log URLs for the rest of the current
+request. The URL path is still recorded. This applies to all logs, including queued entries
+when written. The caller controls any URL supplied explicitly through the `url` option.
+
+- **Arguments:** `disableQueryString()`
+- **Returns:** `$this`
+
+~~~~~php
+$log->disableQueryString();
+$log->save('account', 'Processed account request');
+~~~~~
+
+---
+
 ### $log->getFilename($name)
 
 Get the full filesystem path to a log file.

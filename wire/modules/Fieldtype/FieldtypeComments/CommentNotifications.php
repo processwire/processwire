@@ -282,6 +282,7 @@ class CommentNotifications extends Wire {
 		
 		$action = $get->comment_success;
 		if(!$action) return $info;
+		if(isset($get->code) || isset($get->subcode)) $this->wire()->log->disableQueryString();
 		$action = $this->wire('sanitizer')->pageName($action);
 		$status = null;
 		

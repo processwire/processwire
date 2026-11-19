@@ -40,6 +40,9 @@ class WireLog extends Wire {
 	 */
 	protected $disabled = array();
 	
+	/** @var bool Omit the query string from automatically detected URLs for this request */
+	protected $queryStringDisabled = false;
+
 	/**
 	 * Queued log entries to save at finished state
 	 * 
@@ -200,14 +203,19 @@ class WireLog extends Wire {
 				$input = $this->wire()->input;
 				$url = $input ? $input->httpUrl() : '';
 				if(strlen($url) && $input) {
-					if(count($input->get)) {
-						$url .= "?";
+					if(!$this->queryStringDisabled && count($input->get)) {
+						$query = array();
 						foreach($input->get as $k => $v) {
 							$k = $sanitizer->name($k);
-							$v = rawurlencode($sanitizer->text((string) $v));
-							$url .= "$k=$v&";
+							if(is_array($v)) {
+								$v = $sanitizer->textArray($v, array('keySanitizer' => 'name', 'maxDepth' => 0));
+								$part = http_build_query(array($k => $v), '', '&', PHP_QUERY_RFC3986);
+								if($part !== '') $query[] = $part;
+							} else {
+								$query[] = $k . '=' . rawurlencode($sanitizer->text((string) $v));
+							}
 						}
-						$url = rtrim($url, "&");
+						if(count($query)) $url .= '?' . implode('&', $query);
 					}
 					if(strlen($url) > 500) {
 						$url = substr($url, 0, 500);
@@ -686,6 +694,18 @@ class WireLog extends Wire {
 	 */
 	public function enable($name) {
 		unset($this->disabled[$name]); 
+		return $this;
+	}
+
+	/**
+	 * Omit the query string from automatically detected log URLs for the rest of this request.
+	 *
+	 * Applies to all logs, including queued entries when written. Explicit `url` options are unaffected.
+	 *
+	 * @return self
+	 */
+	public function disableQueryString() {
+		$this->queryStringDisabled = true;
 		return $this;
 	}
 
