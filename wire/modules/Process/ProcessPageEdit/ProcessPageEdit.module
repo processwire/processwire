@@ -370,7 +370,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->set('useBookmarks', false);
 		$this->set('useMeta', '');
 		$this->set('viewAction', 'this');
-		return parent::__construct();
+		parent::__construct();
 	}
 
 	/**
