@@ -229,12 +229,13 @@ These are all the variables defined in `admin-custom.css`. Override any of them 
 
 #### Core palette
 
-| Name                | Summary                                                                                                                                                        |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--pw-main-color`   | Primary brand color. Used for active states, the logo, and focus indicators. Can be set to `light-dark(lightValue, darkValue)` for separate light/dark colors. |
-| `--pw-text-color`   | Primary text color                                                                                                                                             |
-| `--pw-muted-color`  | Secondary/muted text, labels, helper text                                                                                                                      |
-| `--pw-border-color` | All structural borders and dividers                                                                                                                            |
+| Name                       | Summary                                                                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--pw-main-color`          | Primary brand color. Used for active states, the logo, and focus indicators. Can be set to `light-dark(lightValue, darkValue)` for separate light/dark colors. |
+| `--pw-main-contrast-color` | Text color used on a `--pw-main-color` background, such as page-list action buttons when enabled (default `#fff`). Set it for a light main color.              |
+| `--pw-text-color`          | Primary text color                                                                                                                                             |
+| `--pw-muted-color`         | Secondary/muted text, labels, helper text                                                                                                                      |
+| `--pw-border-color`        | All structural borders and dividers                                                                                                                            |
 
 #### Backgrounds
 

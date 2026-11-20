@@ -36,6 +36,7 @@
 	color-scheme: light dark;
 
 	--pw-main-color: #eb1d61;
+	--pw-main-contrast-color: #fff; /* text on a main-color background */
 
 	--pw-text-color: light-dark(#111, white);
 	--pw-muted-color: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));
