@@ -737,6 +737,9 @@ class InstallerAi {
 			'ignore_errors' => true,
 		]]);
 		$result = @file_get_contents($url, false, $context);
+		if(function_exists('http_get_last_response_headers')) {
+			$http_response_header = http_get_last_response_headers(); // PHP 8.4+
+		}
 		$status = 0;
 		if(isset($http_response_header) && is_array($http_response_header)) {
 			foreach($http_response_header as $header) {
@@ -796,6 +799,9 @@ class InstallerAi {
 		]]);
 
 		$responseBody = @file_get_contents($url, false, $context);
+		if(function_exists('http_get_last_response_headers')) {
+			$http_response_header = http_get_last_response_headers(); // PHP 8.4+
+		}
 		$status = 0;
 
 		if(isset($http_response_header) && is_array($http_response_header)) {
