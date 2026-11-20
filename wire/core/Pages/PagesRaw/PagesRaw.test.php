@@ -10,6 +10,7 @@ class WireTest_PagesRaw extends WireTest {
 
 	public function execute() {
 		$this->testPageReferenceStatus();
+		$this->testFieldtypeRawValue();
 	}
 
 	/**
@@ -22,15 +23,38 @@ class WireTest_PagesRaw extends WireTest {
 		$templates = $this->wire()->templates;
 		$fieldgroups = $this->wire()->fieldgroups;
 		$name = str_replace('-', '_', $this->prefix);
-		foreach($pages->find("name^=$this->prefix-, include=all") as $page) {
+		foreach($pages->find("name^=$this->prefix-, include=all", array('cache' => false)) as $page) {
 			$pages->delete($page);
 		}
 		$template = $templates->get($name);
-		if($template) $templates->delete($template);
+		if($template && $template->id) $templates->delete($template);
 		$fieldgroup = $fieldgroups->get($name);
-		if($fieldgroup) $fieldgroups->delete($fieldgroup);
-		$field = $fields->get("{$name}_ref");
-		if($field) $fields->delete($field);
+		if($fieldgroup && $fieldgroup->id) $fieldgroups->delete($fieldgroup);
+		foreach(array("{$name}_ref", "{$name}_raw") as $fieldName) {
+			$field = $fields->get($fieldName);
+			if($field && $field->id) $fields->delete($field);
+		}
+	}
+
+	/**
+	 * Create a template (and fieldgroup) for test pages having title and given field
+	 * 
+	 * @param Field $field
+	 * @return Template
+	 *
+	 */
+	protected function createTemplate(Field $field) {
+		$name = str_replace('-', '_', $this->prefix);
+		$fieldgroup = new Fieldgroup();
+		$fieldgroup->name = $name;
+		$fieldgroup->add($this->wire()->fields->get('title'));
+		$fieldgroup->add($field);
+		$fieldgroup->save();
+		$template = new Template();
+		$template->name = $name;
+		$template->fieldgroup = $fieldgroup;
+		$template->save();
+		return $template;
 	}
 
 	/**
@@ -56,16 +80,7 @@ class WireTest_PagesRaw extends WireTest {
 			$field->set('derefAsPage', 0);
 			$fields->save($field);
 
-			$fieldgroup = new Fieldgroup();
-			$fieldgroup->name = $name;
-			$fieldgroup->add($fields->get('title'));
-			$fieldgroup->add($field);
-			$fieldgroup->save();
-
-			$template = new Template();
-			$template->name = $name;
-			$template->fieldgroup = $fieldgroup;
-			$template->save();
+			$template = $this->createTemplate($field);
 
 			$home = $pages->get(1);
 			$pub = $pages->add($template, $home, "$prefix-pub", array('title' => 'Published'));
@@ -148,5 +163,73 @@ class WireTest_PagesRaw extends WireTest {
 		} finally {
 			$this->cleanup();
 		}
+	}
+
+	/**
+	 * Fieldtype::getRawValue() converts encoded values from the field's table
+	 *
+	 * processwire/processwire-issues#1968
+	 *
+	 */
+	protected function testFieldtypeRawValue() {
+		$wire = $this->wire();
+		$pages = $wire->pages;
+		$fields = $wire->fields;
+		$prefix = $this->prefix;
+		$name = str_replace('-', '_', $prefix);
+		$rawName = "{$name}_raw";
+
+		$this->cleanup();
+
+		try {
+			$field = new Field();
+			$field->type = $wire->wire(new FieldtypeWireTestRawValue());
+			$field->name = $rawName;
+			$fields->save($field);
+			$template = $this->createTemplate($field);
+			$page = $pages->add($template, $pages->get(1), "$prefix-raw", array('title' => 'Raw'));
+			$page->of(false);
+			$page->set($rawName, 'pid2,pid3');
+			$page->save();
+			$pages->uncacheAll();
+			FieldtypeWireTestRawValue::$pageIds = array();
+
+			$sel = "id=$page->id";
+			$expected = array(2, 3);
+			$this->check('stored value is encoded', 'pid2,pid3', $wire->database->query("SELECT data FROM field_$rawName WHERE pages_id=$page->id")->fetchColumn());
+			$this->check('getRaw(field) uses getRawValue()', $expected, $pages->getRaw($sel, $rawName));
+			$this->check('getRaw([field]) uses getRawValue()', array($rawName => $expected), $pages->getRaw($sel, array($rawName)));
+			$this->check('getRaw(field.data) uses getRawValue()', $expected, $pages->getRaw($sel, "$rawName.data"));
+			$value = $pages->getRaw($sel);
+			$this->check('getRaw() all fields uses getRawValue()', $expected, $value[$rawName]);
+			$value = $pages->findRaw($sel, "$rawName.*");
+			$this->check('findRaw(field.*) uses getRawValue()', $expected, $value[$page->id]['data']);
+			$this->check('getRawValue() receives pages_id', array($page->id), array_values(array_unique(FieldtypeWireTestRawValue::$pageIds)));
+			$this->check('getRawValue() does not affect unformatted value', 'pid2,pid3', $pages->get($sel)->getUnformatted($rawName));
+
+		} finally {
+			$this->cleanup();
+		}
+	}
+}
+
+/**
+ * Fieldtype for testing Fieldtype::getRawValue(), which stores lists of page IDs like "pid2,pid3"
+ *
+ */
+class FieldtypeWireTestRawValue extends FieldtypeText {
+
+	/**
+	 * @var array Page IDs that getRawValue() was called for
+	 *
+	 */
+	public static $pageIds = array();
+
+	public function getRawValue(Field $field, array $row, array $options = array()) {
+		if(isset($row['pages_id'])) self::$pageIds[] = (int) $row['pages_id'];
+		if(isset($row['data']) && is_string($row['data']) && strpos($row['data'], 'pid') === 0) {
+			$row['data'] = array_map('intval', explode(',', str_replace('pid', '', $row['data'])));
+		}
+		return $row;
 	}
 }

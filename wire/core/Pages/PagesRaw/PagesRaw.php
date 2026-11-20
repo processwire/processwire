@@ -1142,6 +1142,10 @@ class PagesRawFinder extends Wire {
 			
 			$id = $row['pages_id'];
 			
+			// let the Fieldtype convert any encoded column values
+			$row = $fieldtype->getRawValue($field, $row);
+			if(!is_array($row)) throw new WireException("$fieldtype::getRawValue() must return an array");
+			
 			if(!$getAllCols && !isset($getCols['pages_id'])) unset($row['pages_id']);
 			
 			foreach($skipCols as $skipCol) {

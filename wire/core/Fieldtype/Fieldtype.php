@@ -15,7 +15,7 @@
  * of most other methods provided in this Fieldtype class accounts for most situations already. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * 
@@ -622,6 +622,34 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
 		return $value; 
+	}
+
+	/**
+	 * Convert a row from the field’s table to the value returned by `$pages->findRaw()` and `$pages->getRaw()`
+	 *
+	 * Override this when the field’s table stores values in an encoded form that callers should
+	 * not have to decode, for instance a list of page IDs stored as `"pid123,pid456"` could be
+	 * returned as `[123, 456]`. Unlike `Fieldtype::wakeupValue()`, no Page is available and the
+	 * returned values should remain plain (arrays, strings, numbers), not objects.
+	 *
+	 * The given row contains the requested columns from the field’s table (column name => value),
+	 * and may also contain `pages_id`. For FieldtypeMulti types it is called once for each row.
+	 * Return the row (array) with any columns converted, and without adding or removing columns.
+	 *
+	 * The default implementation returns the row unchanged. This method is not hookable since it
+	 * may be called many times per request.
+	 *
+	 * #pw-group-loading
+	 *
+	 * @param Field $field
+	 * @param array $row Associative array of column values for one row from the field’s table
+	 * @param array $options Reserved for future use
+	 * @return array
+	 * @since 3.0.276
+	 *
+	 */
+	public function getRawValue(Field $field, array $row, array $options = array()) {
+		return $row;
 	}
 
 	/**

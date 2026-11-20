@@ -139,6 +139,29 @@ public function ___formatValue(Page $page, Field $field, $value) {
 }
 ```
 
+### getRawValue()
+
+Converts a row from the field's table to the value returned by `$pages->findRaw()` and
+`$pages->getRaw()` (3.0.276+). These methods read field tables directly and do not call
+`wakeupValue()`, so implement this when values are stored in an encoded form that callers
+should not have to decode. Default returns the row unchanged.
+
+The `$row` argument is an associative array of the requested columns (column name => value)
+for one row, and may also contain `pages_id`. For FieldtypeMulti types it is called once per row.
+Return the row (an array) with the same columns, converted as needed. No Page is available
+and the result should stay plain (arrays, strings, numbers), not objects. This method is not
+hookable. PagesRaw throws a `WireException` if it does not return an array.
+
+```php
+public function getRawValue(Field $field, array $row, array $options = []) {
+    // example: stored as "pid123,pid456", return [123, 456]
+    if(!empty($row['data']) && is_string($row['data'])) {
+        $row['data'] = array_map('intval', explode(',', str_replace('pid', '', $row['data'])));
+    }
+    return $row;
+}
+```
+
 ---
 
 ## Database schema

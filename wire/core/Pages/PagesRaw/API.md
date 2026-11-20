@@ -136,6 +136,10 @@ Unknown columns on ordinary field tables throw `WireException` (3.0.261+). Page 
 Repeater, and Options fields (as examples) support special subfield lookups. Many non-core
 Fieldtypes also support them as well. 
 
+Fieldtypes that store values in an encoded form can convert them for raw results by implementing
+`Fieldtype::getRawValue()` (3.0.276+). For instance, a Fieldtype storing a list of page IDs as
+`"pid123,pid456"` can return `[123, 456]`. Values are otherwise returned as stored.
+
 ### Page References And Repeaters
 
 For Page reference and Repeater fields, subfields are loaded from the referenced pages.
