@@ -71,7 +71,7 @@ class PagefileExtra extends WireData {
 		$this->useSrcUrlOnFail = true;
 		$this->useSrcUrlOnSize = false;
 		$this->useSrcExt = false;
-		return parent::__construct();
+		parent::__construct();
 	}
 
 	/**

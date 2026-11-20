@@ -36,7 +36,7 @@ class ProcessUser extends ProcessPageType {
 	 */
 	public function __construct() {
 		$this->set("maxAjaxQty", 25);
-		return parent::__construct();
+		parent::__construct();
 	}
 
 	/**
