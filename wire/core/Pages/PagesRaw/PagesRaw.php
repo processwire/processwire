@@ -873,7 +873,7 @@ class PagesRawFinder extends Wire {
 			} else if($fieldName === 'template') {
 				$this->templateFields[$fullName] = $colName;
 
-			} else if($fullName === 'url' || $fullName === 'path') {
+			} else if($fullName === 'url' || $fullName === 'path' || (!$fieldObject && ($fullName === 'urls' || $fullName === 'paths'))) {
 				if($this->wire()->modules->isInstalled('PagePaths')) {
 					$this->runtimeFields[$fullName] = $fullName;
 					$this->getPaths = true;
@@ -963,16 +963,23 @@ class PagesRawFinder extends Wire {
 		
 		if(!count($getNatives) && !$getPaths) return;
 		
+		// language-specific paths, when applicable
+		list($pathLanguages, $userLanguageId, $languagePaths) = $getPaths ? $this->findLanguagePaths() : array(array(), 0, array());
+		$getAllPaths = isset($this->runtimeFields['paths']) || isset($this->runtimeFields['urls']);
+		
 		// remove any native data that is present but was not requested and populate any runtime fields 
 		foreach($this->values as $id => $row) {
 			$templateId = (int) $row['templates_id'];
 			foreach($row as $colName => $value) {
 				if($getPaths && $colName === 'path') {
-					// populate path and/or url runtime properties 
+					// populate path, url, paths and/or urls runtime properties 
 					if(!isset($templatesById[$templateId])) $templatesById[$templateId] = $templates->get($templateId);
 					$template = $templatesById[$templateId]; /** @var Template $template */
 					$slash = $template->slashUrls ? '/' : '';
-					$path = strlen("$value") && $value !== '/' ? "$value$slash" : '';
+					$defaultPath = (string) $value; // default language path
+					// path in current user language, or default language path if not present
+					$path = $userLanguageId && isset($languagePaths[$id][$userLanguageId]) ? $languagePaths[$id][$userLanguageId] : $defaultPath;
+					$path = strlen($path) && $path !== '/' ? "$path$slash" : '';
 					if(isset($this->runtimeFields['url'])) {
 						$this->values[$id]['url'] = $rootUrl . $path;
 					}
@@ -981,12 +988,82 @@ class PagesRawFinder extends Wire {
 					} else {
 						unset($this->values[$id]['path']); 
 					}
+					if($getAllPaths) {
+						// paths and urls for all languages, indexed by language ID
+						$paths = array();
+						$urls = array();
+						foreach($pathLanguages as $languageId => $isDefault) {
+							$path = !$isDefault && isset($languagePaths[$id][$languageId]) ? $languagePaths[$id][$languageId] : $defaultPath;
+							$path = strlen($path) && $path !== '/' ? "$path$slash" : '';
+							$paths[$languageId] = "/$path";
+							$urls[$languageId] = $rootUrl . $path;
+						}
+						if(isset($this->runtimeFields['paths'])) $this->values[$id]['paths'] = $paths;
+						if(isset($this->runtimeFields['urls'])) $this->values[$id]['urls'] = $urls;
+					}
 				} else if(!isset($getNatives[$colName])) {
 					unset($this->values[$id][$colName]);
 				}
 			}
 		}
 	
+	}
+
+	/**
+	 * Get languages and non-default language paths for populating path, url, paths and urls
+	 * 
+	 * Paths for the default language are joined from the pages_paths table when the pages are found. 
+	 * This gets the paths for other languages from the same table, but only when they are needed:
+	 * when the current user language is not the default, or when `paths` or `urls` are requested. 
+	 * 
+	 * @return array Returns array with these 3 items:
+	 *  - Languages as `[ languageId => isDefault ]`, or `[ 0 => true ]` when there is no multi-language support.
+	 *  - ID of current user language, or 0 when it is the default (or not applicable).
+	 *  - Non-default language paths found, as `[ pageId => [ languageId => path ] ]`, without slashes.
+	 * @since 3.0.276
+	 * 
+	 */
+	protected function findLanguagePaths() {
+		
+		$languages = $this->wire()->languages;
+		$pathLanguages = array();
+		$userLanguageId = 0;
+		$languagePaths = array();
+		
+		if(!$languages) return array(array(0 => true), 0, array());
+		
+		foreach($languages as $language) {
+			$pathLanguages[(int) $language->id] = $language->isDefault();
+		}
+		
+		if(!$this->wire()->modules->isInstalled('LanguageSupportPageNames')) {
+			return array($pathLanguages, 0, array());
+		}
+		
+		$language = $this->wire()->user->language;
+		if($language && $language->id && !$language->isDefault()) $userLanguageId = (int) $language->id;
+		
+		$getAllPaths = isset($this->runtimeFields['paths']) || isset($this->runtimeFields['urls']);
+		$getUserPath = $userLanguageId && (isset($this->runtimeFields['path']) || isset($this->runtimeFields['url']));
+		$ids = array_map('intval', array_keys($this->values));
+		
+		if((!$getAllPaths && !$getUserPath) || !count($ids)) {
+			return array($pathLanguages, $userLanguageId, array());
+		}
+		
+		$sql = 
+			'SELECT pages_id, language_id, path FROM pages_paths ' . 
+			'WHERE pages_id IN(' . implode(',', $ids) . ') ' . 
+			'AND language_id' . ($getAllPaths ? '>0' : "=$userLanguageId");
+		
+		$query = $this->wire()->database->prepare($sql);
+		$query->execute();
+		while($row = $query->fetch(\PDO::FETCH_NUM)) {
+			$languagePaths[(int) $row[0]][(int) $row[1]] = (string) $row[2];
+		}
+		$query->closeCursor();
+		
+		return array($pathLanguages, $userLanguageId, $languagePaths);
 	}
 
 	/**
@@ -1426,7 +1503,7 @@ class PagesRawFinder extends Wire {
 		$runtimeFields = array();
 		$fieldNames = $this->runtimeFields;
 
-		unset($fieldNames['url'], $fieldNames['path']);
+		unset($fieldNames['url'], $fieldNames['path'], $fieldNames['urls'], $fieldNames['paths']);
 
 		if(empty($fieldNames)) return;
 
@@ -1652,7 +1729,7 @@ class PagesRawFinder extends Wire {
 		
 		if($this->getPaths) {
 			$selects[] = 'pages_paths.path AS path';
-			$joins[] = 'LEFT JOIN pages_paths ON pages_paths.pages_id=pages.id';
+			$joins[] = 'LEFT JOIN pages_paths ON pages_paths.pages_id=pages.id AND pages_paths.language_id=0';
 		}
 
 		$sql = 

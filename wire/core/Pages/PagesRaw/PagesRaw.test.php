@@ -11,6 +11,7 @@ class WireTest_PagesRaw extends WireTest {
 	public function execute() {
 		$this->testPageReferenceStatus();
 		$this->testFieldtypeRawValue();
+		$this->testPaths();
 	}
 
 	/**
@@ -39,16 +40,16 @@ class WireTest_PagesRaw extends WireTest {
 	/**
 	 * Create a template (and fieldgroup) for test pages having title and given field
 	 * 
-	 * @param Field $field
+	 * @param Field|null $field
 	 * @return Template
 	 *
 	 */
-	protected function createTemplate(Field $field) {
+	protected function createTemplate(?Field $field = null) {
 		$name = str_replace('-', '_', $this->prefix);
 		$fieldgroup = new Fieldgroup();
 		$fieldgroup->name = $name;
 		$fieldgroup->add($this->wire()->fields->get('title'));
-		$fieldgroup->add($field);
+		if($field) $fieldgroup->add($field);
 		$fieldgroup->save();
 		$template = new Template();
 		$template->name = $name;
@@ -208,6 +209,85 @@ class WireTest_PagesRaw extends WireTest {
 			$this->check('getRawValue() does not affect unformatted value', 'pid2,pid3', $pages->get($sel)->getUnformatted($rawName));
 
 		} finally {
+			$this->cleanup();
+		}
+	}
+
+	/**
+	 * Path and url follow the user language, and paths and urls return all languages
+	 *
+	 * processwire/processwire-issues#1964
+	 *
+	 */
+	protected function testPaths() {
+		$wire = $this->wire();
+		$pages = $wire->pages;
+		$languages = $wire->languages;
+		$prefix = $this->prefix;
+
+		if(!$wire->modules->isInstalled('PagePaths')) {
+			$this->li('Skipping path tests because PagePaths module is not installed');
+			return;
+		}
+
+		$multi = $languages && $wire->modules->isInstalled('LanguageSupportPageNames');
+		$user = $wire->user;
+		$userLanguage = $languages ? $user->language : null;
+
+		$this->cleanup();
+
+		try {
+			$template = $this->createTemplate();
+			$page = $pages->add($template, $pages->get(1), "$prefix-paths", array('title' => 'Paths'));
+			if($multi) {
+				$page->of(false);
+				foreach($languages as $language) {
+					if($language->isDefault()) continue;
+					$page->set("name$language->id", "$prefix-paths-$language->name");
+					$page->set("status$language->id", 1);
+				}
+				$page->save();
+			}
+			$pages->uncacheAll();
+			$page = $pages->get($page->id);
+			$sel = "id=$page->id, include=all";
+
+			$this->check('path matches $page->path', $page->path, $pages->getRaw($sel, 'path'));
+			$this->check('url matches $page->url', $page->url, $pages->getRaw($sel, 'url'));
+			$value = $pages->findRaw(array($page->id), array('path', 'url'));
+			$this->check('path for page ID array matches $page->path', $page->path, $value[$page->id]['path']);
+
+			$paths = $pages->getRaw($sel, 'paths');
+			$urls = $pages->getRaw($sel, 'urls');
+
+			if(!$multi) {
+				$this->check('paths without multi-language page names', array(0 => $page->path), $paths);
+				$this->check('urls without multi-language page names', array(0 => $page->url), $urls);
+				return;
+			}
+
+			$expectPaths = array();
+			$expectUrls = array();
+			$otherLanguage = null;
+			foreach($languages as $language) {
+				$expectPaths[$language->id] = $page->localPath($language);
+				$expectUrls[$language->id] = $page->localUrl($language);
+				if(!$language->isDefault() && !$otherLanguage) $otherLanguage = $language;
+			}
+			$this->check('paths indexed by language ID', $expectPaths, $paths);
+			$this->check('urls indexed by language ID', $expectUrls, $urls);
+			if(!$otherLanguage) return;
+
+			$user->language = $otherLanguage;
+			$expectPath = $page->localPath($otherLanguage);
+			$this->check('path follows user language', $expectPath, $pages->getRaw($sel, 'path'));
+			$this->check('url follows user language', $page->localUrl($otherLanguage), $pages->getRaw($sel, 'url'));
+			$value = $pages->findRaw(array($page->id), 'path');
+			$this->check('path for page ID array follows user language', $expectPath, $value[$page->id]);
+			$this->check('paths do not depend on user language', $expectPaths, $pages->getRaw($sel, 'paths'));
+
+		} finally {
+			if($userLanguage) $user->language = $userLanguage;
 			$this->cleanup();
 		}
 	}

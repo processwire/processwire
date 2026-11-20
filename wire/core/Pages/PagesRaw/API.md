@@ -226,6 +226,21 @@ $rows = $pages->findRaw("template=blog-post", ['title', 'template.name']);
 $rows = $pages->findRaw("template=blog-post", ['title', 'url', 'path']);
 ```
 
+On multi-language sites (with `LanguageSupportPageNames`), `url` and `path` are for the current
+user's language, as with `$page->url` and `$page->path`, falling back to the default language
+when the page has no path for the user's language (3.0.276+). Use `urls` or `paths` to get them
+for all languages, indexed by language ID (3.0.276+).
+
+```php
+$rows = $pages->findRaw("template=blog-post", ['title', 'paths']);
+// [ 1234 => [ 'title' => 'About', 'paths' => [ 1010 => '/en/about/', 1012 => '/de/uber/' ] ] ]
+
+// default language path, regardless of user language
+$defaultPath = $rows[1234]['paths'][$languages->getDefault()->id];
+```
+
+Without multi-language page names, `urls` and `paths` contain one value indexed by `0`.
+
 ### Meta
 
 Use `meta` for all page meta data, or `meta.name` for specific meta names.

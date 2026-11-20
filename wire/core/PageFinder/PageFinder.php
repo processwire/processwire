@@ -1759,7 +1759,7 @@ class PageFinder extends Wire {
 					throw new PageFinderException('Requested option for URL or path (joinPath) requires the PagePaths module be installed'); 
 				}
 				$columns[] = 'pages_paths.path AS path';
-				$query->leftjoin('pages_paths ON pages_paths.pages_id=pages.id'); 
+				$query->leftjoin('pages_paths ON pages_paths.pages_id=pages.id AND pages_paths.language_id=0'); 
 			}
 			if(!empty($opts['joinFields'])) {
 				$this->pageArrayData['joinFields'] = array(); // identify whether each field supported autojoin
@@ -2598,7 +2598,7 @@ class PageFinder extends Wire {
 					$query->orderby("if($pathsLangTable.pages_id IS NULL, $pathsTable.path, $pathsLangTable.path) $asc");
 					$value = false;
 				} else {
-					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id");
+					$query->leftjoin("pages_paths AS $pathsTable ON $pathsTable.pages_id=pages.id AND $pathsTable.language_id=0");
 					$value = "$pathsTable.path";
 					$textSort = true;
 				}
