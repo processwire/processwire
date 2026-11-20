@@ -11,6 +11,9 @@ retry arrives too soon, the login is blocked and an error is shown.
 
 The delay is calculated as `(attempts - 1) × seconds`, capped at `maxSeconds`. After
 `maxSeconds` of inactivity, the attempt counter resets.
+A successful login clears the counter for that user name, so only failed attempts add to
+the delay. Forced logins (`$session->forceLogin()`) are not throttled, as there is no
+password to guess.
 
 ```php
 // The module is installed and configured in the admin.
@@ -85,6 +88,11 @@ $this->wire()->session->addHookAfter(
 The hook checks whether the login name (and optionally IP) has exceeded the allowed
 attempt frequency. If another module has already disallowed the login, this module
 does nothing (it only acts when `$event->return` is `true`).
+
+It also hooks after `Session::loginSuccess` to delete the row for the user name that
+logged in. The IP address row (when `checkIP` is enabled) is not deleted, as otherwise
+logging in to one account could reset the throttle for attempts on other accounts from
+the same IP address.
 
 ### Database table
 

@@ -1280,6 +1280,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * @param string $pass Raw, non-hashed password.
 	 * @param bool $force Specify boolean true to login user without requiring a password ($pass argument can be blank, or anything).
 	 * 	You can also use the `$session->forceLogin($user)` method to force a login without a password. 
+	 * 	A forced login does not call `Session::allowLoginAttempt()`, so it is not subject to login throttling.
 	 * @return User|null Return the $user if the login was successful or null if not. 
 	 * @throws WireException
 	 *
@@ -1304,7 +1305,9 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		if(!strlen($name)) return null;
 		
-		$allowAttempt = $this->allowLoginAttempt($name); 
+		// a forced login involves no password, so it is not subject to allowLoginAttempt() hooks (i.e. login
+		// throttle) since the caller has verified the user by other means (processwire/processwire-issues#2379)
+		$allowAttempt = $force === true ? true : $this->allowLoginAttempt($name);
 		
 		if($allowAttempt && is_null($user)) {
 			$user = $users->get('name=' . $sanitizer->selectorValue($name));
@@ -1373,6 +1376,9 @@ class Session extends Wire implements \IteratorAggregate {
 	 * // login bob without knowing his password
 	 * $u = $session->forceLogin('bob'); 
 	 * ~~~~~
+	 * 
+	 * Since there is no password to guess, a forced login is not subject to `Session::allowLoginAttempt()`
+	 * hooks such as the login throttle. The `Session::allowLogin()` method still applies. 
 	 * 
 	 * #pw-group-authentication
 	 * 

@@ -220,6 +220,7 @@ Log in a user by name and password.
 - **Returns:** `User|null` — the logged-in `User` on success, `null` on failure
 - Automatically sets the current user on success.
 - Specify `$force = true` to skip password check (or use `forceLogin()` instead).
+- A forced login does not call `allowLoginAttempt()`, so it is not subject to login throttling. `allowLogin()` still applies.
 
 Authenticated sessions are bound to the account's local password. Changing that password
 invalidates prior sessions on their next request. The Profile and Users editors preserve
@@ -298,6 +299,8 @@ $session->redirect('/login/');
 
 Log in a user without requiring a password. Useful for admin tools, programmatic
 user-switching, etc.
+Since there is no password to guess, a forced login is not subject to
+`allowLoginAttempt()` hooks such as SessionLoginThrottle. `allowLogin()` still applies.
 
 - **Arguments:** `forceLogin(string|User $user)`
 - **Returns:** `User|null`
@@ -548,7 +551,7 @@ Hook before or after any of these methods using
 | `logout($startNew)` | Before/after logout |
 | `redirect($url, $status)` | Before a redirect is issued |
 | `allowLogin($name, $user)` | Return `false` to block a login; filter by role, IP, etc. |
-| `allowLoginAttempt($name)` | Return `false` to block before user object is loaded |
+| `allowLoginAttempt($name)` | Return `false` to block before user object is loaded (not called for forced logins) |
 | `authenticate(User $user, $pass)` | Return bool to override password verification |
 | `loginSuccess(User $user)` | After a successful login |
 | `loginFailure($name, $reason)` | After a failed login attempt |

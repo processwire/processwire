@@ -21,7 +21,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Session Login Throttle', 
-			'version' => 105, 
+			'version' => 106, 
 			'summary' => 'Throttles login attempts to help prevent dictionary attacks.',
 			'permanent' => false, 
 			'singular' => true, 
@@ -70,6 +70,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	public function init() {
 		if($this->wire()->config->demo) return;
 		$this->wire()->session->addHookAfter('allowLoginAttempt', $this, 'hookSessionAllowLoginAttempt'); 
+		$this->wire()->session->addHookAfter('loginSuccess', $this, 'hookSessionLoginSuccess');
 	}
 
 	/**
@@ -98,6 +99,29 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		}
 
 		$event->return = $allowed;
+	}
+
+	/**
+	 * Hook after Session::loginSuccess to clear the throttle for the user name that logged in
+	 * 
+	 * Only failed attempts should add to the delay, so that a user logging in more than once 
+	 * within maxSeconds is not throttled for it (processwire/processwire-issues#2379). 
+	 * The IP address entry (checkIP option) is not cleared, as otherwise logging in to one 
+	 * account could be used to reset the throttle for attempts on other accounts from that IP.
+	 * 
+	 * @param HookEvent $event
+	 * @since 3.0.276
+	 * 
+	 */
+	public function hookSessionLoginSuccess(HookEvent $event) {
+		$user = $event->arguments(0);
+		if(!$user instanceof User) return;
+		$name = $this->wire()->sanitizer->pageName($user->name, Sanitizer::toAscii);
+		if(!strlen($name)) return;
+		$query = $this->wire()->database->prepare('DELETE FROM session_login_throttle WHERE name=:name');
+		$query->bindValue(':name', $name);
+		$query->execute();
+		unset($this->allowLoginResults[$name]);
 	}
 
 	/**
