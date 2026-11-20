@@ -55,7 +55,18 @@ $nonDefault = $languages->findNonDefault();
 
 // All languages except a specific one
 $others = $languages->findOther($languages->get('de'));
+
+// Languages matching a selector
+$found = $languages->find('name=de|fi');
+
+// All languages, including hidden (inactive) languages
+$all = $languages->getAll();
+$found = $languages->find('name=de|fi, include=hidden');
 ```
+
+Hidden languages are treated as inactive: iterating `$languages`, `findOther()`,
+`findNonDefault()` and `find()` exclude them, while `get()` and `getAll()` include them.
+Prior to 3.0.276, `find()` included hidden languages.
 
 ---
 

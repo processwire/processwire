@@ -72,6 +72,7 @@ class WireTest_LanguageSupport extends WireTest {
 	 */
 	public function execute() {
 		$this->testLanguagesApi();
+		$this->testHiddenLanguages();
 		$this->testLanguageObject();
 		$this->testLanguageSwitching();
 		$this->testLanguagesPageFieldValue();
@@ -118,6 +119,46 @@ class WireTest_LanguageSupport extends WireTest {
 		$this->check('getAll() includes default language', true, $languages->getAll()->has($default));
 		$this->check('findNonDefault() count matches non-default languages', $this->countNonDefaultLanguages(), count($languages->findNonDefault()));
 		$this->check('findOther(default) excludes default language', false, $languages->findOther($default)->has($default));
+	}
+
+	/**
+	 * $languages->find() excludes hidden languages, as iteration does
+	 * 
+	 * processwire/processwire-issues#1955
+	 *
+	 */
+	protected function testHiddenLanguages() {
+		$languages = $this->wire()->languages;
+		$pages = $this->wire()->pages;
+		$language = $this->getOtherLanguage();
+		if(!$language) {
+			$this->li('Skipping hidden language tests because there is no non-default language');
+			return;
+		}
+		$name = $language->name;
+		$status = $language->status;
+		try {
+			$language->of(false);
+			$language->addStatus(Page::statusHidden);
+			$language->save();
+			$languages->reloadLanguages();
+			$found = array();
+			foreach($languages as $l) $found[] = $l->name;
+			$this->check('iteration excludes hidden language', false, in_array($name, $found));
+			$this->check('find() excludes hidden language', 0, $languages->find("name=$name")->count());
+			$this->check('find() includes other languages', true, $languages->find('')->has($languages->getDefault()));
+			$this->check('find(include=hidden) includes hidden language', 1, $languages->find("name=$name, include=hidden")->count());
+			$this->check('find(status=hidden) finds hidden language', true, $languages->find('status=hidden')->has($language));
+			$this->check('find() with findAll option includes hidden language', 1, $languages->find("name=$name", array('findAll' => true))->count());
+			$this->check('get() returns hidden language', $language->id, $languages->get($name)->id);
+			$this->check('getAll() includes hidden language', true, $languages->getAll()->has($language));
+		} finally {
+			$language = $pages->get("id=$language->id, include=all");
+			$language->of(false);
+			$language->status = $status;
+			$language->save();
+			$languages->reloadLanguages();
+		}
 	}
 
 	/**

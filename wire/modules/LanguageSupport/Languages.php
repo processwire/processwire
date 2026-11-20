@@ -18,7 +18,7 @@
  * 
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2023 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  * 
  * @property LanguageTabs|null $tabs Current LanguageTabs module instance, if installed #pw-internal
@@ -179,6 +179,34 @@ class Languages extends PagesType {
 	 */
 	public function getJoinFieldNames() {
 		return array();
+	}
+
+	/**
+	 * Find languages matching the given selector
+	 *
+	 * Hidden (inactive) languages are excluded, as when iterating the `$languages` API variable,
+	 * unless the selector specifies an `include` or `status`, or the `findAll` option is specified.
+	 * To include hidden languages, add `include=hidden` to the selector, or use `$languages->getAll()`.
+	 *
+	 * ~~~~~
+	 * $languages->find("name=de|fi"); // active languages named de or fi
+	 * $languages->find("name=de|fi, include=hidden"); // including hidden (inactive) languages
+	 * ~~~~~
+	 *
+	 * @param string $selectorString
+	 * @param array $options See `PagesType::find()`
+	 * @return PageArray
+	 * @since 3.0.276 Prior versions included hidden languages
+	 *
+	 */
+	public function find($selectorString, $options = array()) {
+		$selectorString = (string) $selectorString;
+		if(!isset($options['findAll']) && !Selectors::selectorHasField($selectorString, array('include', 'status'))) {
+			if(ctype_digit($selectorString)) $selectorString = "id=$selectorString";
+			$selectorString = trim($selectorString, ', ');
+			$selectorString .= (strlen($selectorString) ? ', ' : '') . 'status<' . Page::statusHidden;
+		}
+		return parent::find($selectorString, $options);
 	}
 
 	/**
