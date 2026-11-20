@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2024 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  * @todo: automatic sorting.
@@ -1318,7 +1318,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 	public function sanitizeValue(Page $page, Field $field, $value) {
 
 		// if they are setting it to a PageArray, then we'll take it
-		if($value instanceof PageArray) return $value; 
+		if($value instanceof PageArray) {
+			// copy a PageArray that is not this page’s own value (i.e. another page’s value), so that
+			// replacing its items with clones for this page when saved does not modify the original
+			if(!$this->isValueForPage($page, $value)) $value = clone $value;
+			return $value;
+		}
 
 		// otherwise, lets get the current value so we can add to it or return it
 		$pageArray = $page->get($field->name); /** @var RepeaterPageArray $pageArray */
@@ -1721,6 +1726,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		}
 
 		$version = $this->getPageVersionNum($page);
+
+		if(!$version && !$this->isValueForPage($page, $value)) {
+			// value was replaced rather than modified (i.e. $page->field = $otherPage->field), so
+			// the removals above do not include items from the previous value: delete them now
+			$this->deleteItemsNotInValue($page, $field, $value, $repeaterParent, $saveOptions);
+		}
+
 		$pagesVersions = $version ? $this->wire('pagesVersions') : null;
 		if($version && $pagesVersions) {
 			/** @var PagesVersions $pagesVersions */
@@ -1745,6 +1757,80 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule, Fieldty
 		}
 		
 		return $result;
+	}
+
+	/**
+	 * Is the given value the page’s own value (as loaded for or created for it) rather than another page’s?
+	 * 
+	 * @param Page $page
+	 * @param PageArray $value
+	 * @return bool
+	 * @since 3.0.276
+	 * 
+	 */
+	protected function isValueForPage(Page $page, PageArray $value) {
+		if(!$value instanceof RepeaterPageArray) return false;
+		$forPage = $value->getForPage();
+		if(!$forPage) return false;
+		if($forPage === $page) return true;
+		return $forPage->id > 0 && $forPage->id === $page->id;
+	}
+
+	/**
+	 * Delete repeater items for the page that are not present in the given value
+	 * 
+	 * Used when the field’s value was replaced with another PageArray, since the items from 
+	 * the previous value are not present in the new value’s list of removed items. 
+	 * Ready pages (hidden and unpublished) are not deleted. 
+	 * 
+	 * Based on the analysis and suggested fix by Matjaž Potočnik in processwire/processwire-issues#1959
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param PageArray $value Value that was saved
+	 * @param Page|null $repeaterParent Repeater parent for page if already known
+	 * @param array $saveOptions Options for Pages::delete()
+	 * @return int Number of items deleted
+	 * @since 3.0.276
+	 * 
+	 */
+	protected function deleteItemsNotInValue(Page $page, Field $field, PageArray $value, $repeaterParent, array $saveOptions) {
+		
+		if(!$repeaterParent || !$repeaterParent->id) {
+			// do not create a repeater parent just to check it
+			$repeaterParent = $this->getRepeaterPageParent($page, $field, false);
+		}
+		
+		if(!$repeaterParent || !$repeaterParent->id) return 0;
+		
+		$templateId = (int) $field->get('template_id');
+		if(!$templateId) {
+			$template = $this->getRepeaterTemplate($field);
+			$templateId = $template ? (int) $template->id : 0;
+		}
+		
+		if(!$templateId) return 0;
+		
+		$pages = $this->wire()->pages;
+		$valueIds = array();
+		$numDeleted = 0;
+		
+		foreach($value as $p) {
+			if($p->id) $valueIds[$p->id] = true;
+		}
+		
+		$selector = "parent_id=$repeaterParent->id, templates_id=$templateId, include=all";
+		
+		foreach($pages->find($selector, array('cache' => false)) as $item) {
+			/** @var Page|RepeaterPage $item */
+			if(isset($valueIds[$item->id])) continue; // present in value
+			if($item->isHidden() && $item->isUnpublished()) continue; // ready page
+			$this->bd("Deleted '$field' page not in replacement value: $item->path", __FUNCTION__);
+			$pages->delete($item, $saveOptions);
+			$numDeleted++;
+		}
+		
+		return $numDeleted;
 	}
 
 	/**

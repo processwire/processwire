@@ -133,6 +133,7 @@ class WireTest_FieldtypeRepeater extends WireTest {
 		$item->save();
 		$this->testPendingPublication($field, $subTextField);
 		$this->testImport($field, $subTextField);
+		$this->testReplaceValue($field, $subTextField);
 
 		$page = $pages->getFresh($page->id);
 		$page->of(false);
@@ -430,6 +431,102 @@ class WireTest_FieldtypeRepeater extends WireTest {
 			$this->check('import does not create duplicate repeater items', 2, $pages->count("parent=$parent, include=all"));
 		} finally {
 			$pages->delete($owner, true);
+		}
+	}
+
+	/**
+	 * Assigning another page's value replaces the items rather than adding to them
+	 * 
+	 * processwire/processwire-issues#1959
+	 * 
+	 */
+	protected function testReplaceValue(Field $field, Field $subField) {
+		$pages = $this->wire()->pages;
+		$name = $field->name;
+		$owners = array();
+		
+		$addOwner = function(array $headlines) use($pages, $field, $subField, &$owners) {
+			$owner = $pages->add($this->getTestTemplate(), $this->getTestPage(), [
+				'name' => uniqid('repeater-replace-'), 'title' => 'Repeater replace fixture',
+			]);
+			$owners[] = $owner;
+			$owner->of(false);
+			foreach($headlines as $headline) {
+				$item = $owner->get($field->name)->getNew();
+				$item->set($subField->name, $headline);
+				$item->save();
+				$owner->get($field->name)->add($item);
+			}
+			$owner->save($field->name);
+			return $owner;
+		};
+		
+		$headlines = function(Page $owner) use($pages, $name, $subField) {
+			$owner = $pages->getFresh($owner->id);
+			$owner->of(false);
+			$a = array();
+			foreach($owner->get($name) as $item) $a[] = (string) $item->get($subField->name);
+			return $a;
+		};
+		
+		$countItems = function(Page $owner) use($pages, $field) {
+			$parent = $field->type->getRepeaterPageParent($owner, $field);
+			return $pages->count("parent=$parent, include=all, status<" . Page::statusHidden);
+		};
+		
+		try {
+			$from = $addOwner(array('F1', 'F2'));
+			$to = $addOwner(array('T1', 'T2', 'T3'));
+			
+			// removeAll() and then assign a clone of another page's value (as in the report)
+			$from = $pages->getFresh($from->id);
+			$to = $pages->getFresh($to->id);
+			$from->of(false);
+			$to->of(false);
+			$to->get($name)->removeAll();
+			$to->set($name, clone $from->get($name));
+			$to->save($name);
+			$this->check('removeAll then assign clone replaces items', array('F1', 'F2'), $headlines($to));
+			$this->check('removeAll then assign clone leaves no old items', 2, $countItems($to));
+			$this->check('source items unchanged', array('F1', 'F2'), $headlines($from));
+			
+			// assign another page's value without accessing the previous value first
+			$from = $pages->getFresh($from->id);
+			$to = $pages->getFresh($to->id);
+			$from->of(false);
+			$to->of(false);
+			$fromIds = $from->get($name)->implode(',', 'id');
+			$to->set($name, $from->get($name));
+			$to->save($name);
+			$this->check('assigning value replaces items', array('F1', 'F2'), $headlines($to));
+			$this->check('assigning value does not accumulate items', 2, $countItems($to));
+			$this->check('assigned value of source page is not modified in memory', $fromIds, $from->get($name)->implode(',', 'id'));
+			
+			// modifying the value in place still works as before
+			$to = $pages->getFresh($to->id);
+			$to->of(false);
+			$to->get($name)->remove($to->get($name)->first());
+			$item = $to->get($name)->getNew();
+			$item->set($subField->name, 'N1');
+			$item->save();
+			$to->get($name)->add($item);
+			$to->save($name);
+			$this->check('in place modification', array('F2', 'N1'), $headlines($to));
+			
+			// replacing the value does not delete ready pages (hidden + unpublished)
+			$to = $pages->getFresh($to->id);
+			$to->of(false);
+			$readyPage = $field->type->getBlankRepeaterPage($to, $field);
+			$pages->save($readyPage);
+			$this->check('ready page exists', true, $readyPage->id > 0 && $readyPage->isHidden() && $readyPage->isUnpublished());
+			$to = $pages->getFresh($to->id);
+			$to->of(false);
+			$to->set($name, clone $pages->getFresh($from->id)->get($name));
+			$to->save($name);
+			$this->check('replacing value keeps ready pages', true, $pages->get("id=$readyPage->id, include=all")->id > 0);
+			
+		} finally {
+			foreach($owners as $owner) $pages->delete($owner, true);
 		}
 	}
 
