@@ -10,7 +10,7 @@
  * #pw-body =
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2025 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2026 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -50,6 +50,8 @@ class PagesRaw extends Wire {
 	 *  - `indexed` (bool): Index by page ID? (default=true)
 	 *  - `flat` (bool|string): Flatten return value as `["field.subfield" => "value"]` rather than `["field" => ["subfield" => "value"]]`?
 	 *     Optionally specify field delimiter, otherwise a period `.` will be used as the delimiter. (default=false) 3.0.193+
+	 *  - `page_reference_status` (string): Operator and Page status that referenced pages in Page reference fields must match,
+	 *     i.e. `<unpublished` or `<=max` (all). When not specified, unpublished pages are excluded unless the field allows them. (default=null) 3.0.276+
 	 *  - Note the `objects` and `flat` options are not meant to be used together. 
 	 * 
 	 * @return array
@@ -295,6 +297,7 @@ class PagesRawFinder extends Wire {
 		'nulls' => false,
 		'findOne' => false,
 		'flat' => false,
+		'page_reference_status' => null,
 	);
 
 	/**
@@ -563,8 +566,90 @@ class PagesRawFinder extends Wire {
 				$this->options['entities'][$value] = $value;
 			}
 		}
+
+		// detect page_reference_status in selector, which may use any operator
+		$name = 'page_reference_status';
+		if(!$this->selectorIsPageIDs && (!$selectorString || strpos($selectorString, $name) !== false) && !$fields->get($name)) {
+			$result = Selectors::selectorHasField($this->selector, $name, array(
+				'verbose' => true,
+				'remove' => true,
+			));
+			if($result['result']) {
+				if(!isset($options[$name])) {
+					if(is_array($result['value'])) throw new WireException("$name accepts only one value");
+					$this->options[$name] = $result['operator'] . $result['value'];
+				}
+				if(!empty($result['selectors'])) $this->selector = $result['selectors'];
+			}
+		}
+		if($this->options[$name] !== null) {
+			$this->options[$name] = $this->pageReferenceStatus($this->options[$name]);
+		}
 	}
 	
+	/**
+	 * Get normalized page_reference_status option from given value
+	 *
+	 * @param string|int|array $value Status with optional operator, i.e. '<unpublished', '<=max', '=hidden', '<2048'
+	 * @return array Array with 'operator', 'status' (int) and 'bitwise' (bool)
+	 * @throws WireException
+	 * @since 3.0.276
+	 *
+	 */
+	protected function pageReferenceStatus($value) {
+		if(is_array($value) && isset($value['operator'])) return $value; // already normalized
+		if(!is_string($value) && !is_int($value)) {
+			throw new WireException('page_reference_status must be a status with optional operator, i.e. "<unpublished"');
+		}
+		$operator = '=';
+		$value = trim("$value");
+		if(preg_match('/^(<=|>=|!=|<|>|=)\s*(.*)$/', $value, $matches)) {
+			$operator = $matches[1];
+			$value = trim($matches[2]);
+		} else if($value !== '' && !ctype_alnum($value[0])) {
+			throw new WireException("Unsupported operator for page_reference_status: $value");
+		}
+		$bitwise = false;
+		if(ctype_digit($value)) {
+			$status = (int) $value;
+		} else {
+			$statuses = Page::getStatuses();
+			if(!isset($statuses[$value])) throw new WireException("Unknown Page status for page_reference_status: '$value'");
+			$status = (int) $statuses[$value];
+			// named status with = or != matches pages having or not having that status (as in PageFinder)
+			$bitwise = $operator === '=' || $operator === '!=';
+		}
+		return array('operator' => $operator, 'status' => $status, 'bitwise' => $bitwise);
+	}
+
+	/**
+	 * Get SQL condition that limits Page reference field rows by the status of the referenced pages
+	 *
+	 * Uses the page_reference_status option when specified. Otherwise excludes unpublished
+	 * (and trashed) pages unless the field allows them, as `FieldtypePage::wakeupValue()` does.
+	 *
+	 * @param Field $field
+	 * @param string $col Column containing referenced page IDs, i.e. "`field_categories`.data"
+	 * @return string SQL condition or blank string when no condition is needed
+	 * @since 3.0.276
+	 *
+	 */
+	protected function pageReferenceStatusSQL(Field $field, $col) {
+		$status = $this->options['page_reference_status'];
+		if($status === null) {
+			if($field->get('allowUnpub')) return '';
+			$status = array('operator' => '<', 'status' => Page::statusUnpublished, 'bitwise' => false);
+		}
+		$operator = $status['operator'];
+		$value = (int) $status['status'];
+		if($status['bitwise']) {
+			$where = "(pages.status & $value)" . ($operator === '!=' ? '=0' : '>0');
+		} else {
+			$where = "pages.status$operator$value";
+		}
+		return "EXISTS(SELECT 1 FROM pages WHERE pages.id=$col AND $where)";
+	}
+
 	/**
 	 * Does given selector represent a page ID or page path?
 	 * 
@@ -1043,6 +1128,11 @@ class PagesRawFinder extends Wire {
 		if(count($sorts)) $orderby[] = implode(',', $sorts);
 		
 		$sql = "SELECT $colSQL FROM `$table` WHERE pages_id IN($idsCSV) ";
+		if($fieldtypePage) {
+			// limit to referenced pages having allowed status
+			$statusSQL = $this->pageReferenceStatusSQL($field, "`$table`.data");
+			if($statusSQL) $sql .= "AND $statusSQL ";
+		}
 		if(count($orderby)) $sql .= "ORDER BY " . implode(',', $orderby);
 		
 		$query = $database->prepare($sql);

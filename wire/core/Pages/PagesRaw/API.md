@@ -151,6 +151,36 @@ $rows = $pages->findRaw("template=blog-post", [
 ]);
 ```
 
+#### Status of referenced pages
+
+Page reference values exclude unpublished (and trashed) pages unless the field's "Allow unpublished pages"
+(`allowUnpub`) setting is enabled, matching the unformatted `$page->field` value. This applies to the
+referenced page IDs, to `field.*` and other field columns, and to subfields of the referenced pages (3.0.276+).
+
+To choose which referenced pages are included, specify `page_reference_status` with an operator and a
+Page status name or number, in the selector or as an option. It applies to all Page reference fields in
+the request, not to Repeaters.
+
+```php
+// Include all referenced pages, including unpublished
+$rows = $pages->findRaw("template=blog-post, page_reference_status<=max", 'categories.title');
+
+// Only published referenced pages that are not hidden
+$rows = $pages->findRaw("template=blog-post, page_reference_status<hidden", 'categories');
+
+// Only hidden referenced pages, specified as an option
+$rows = $pages->findRaw("template=blog-post", 'categories', [
+    'page_reference_status' => '=hidden',
+]);
+```
+
+Supported operators are `<`, `<=`, `>`, `>=`, `=` and `!=`. As in `$pages->find()`, `=` and `!=` with a
+status name match pages that have, or do not have, that status. Unknown statuses or other operators throw
+`WireException`.
+
+`page_reference_status` filters the values returned. It is different from a `categories.status<unpublished`
+selector, which (as in `$pages->find()`) chooses which pages are found and does not change their values.
+
 ### Options Fields
 
 Options fields can return selected option IDs, titles, values, or all option properties.
@@ -238,6 +268,7 @@ $rows = $pages->findRaw("template=blog-post, field=title|summary, options=object
 | `entities` | `false` | Entity encode string values. Use `true` for all strings or an array/list of field names. |
 | `nulls`    | `false` | Populate missing requested fields with `null`. |
 | `flat`     | `false` | Flatten nested arrays to `field.subfield` keys. Use a string to set the delimiter. |
+| `page_reference_status` | `null` | Operator and status that pages referenced by Page reference fields must match, i.e. `<=max` or `<hidden`. When `null`, unpublished pages are excluded unless the field allows them. See [Status of referenced pages](#status-of-referenced-pages). 3.0.276+ |
 
 `objects` and `flat` are not intended to be used together.
 

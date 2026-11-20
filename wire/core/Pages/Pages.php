@@ -606,6 +606,11 @@ class Pages extends Wire {
 	 * 
 	 * // If you prefer, options can also be enabled this way (3.0.174+):
 	 * $a = $pages->findRaw("template=blog, options=objects|entities"); 
+	 *
+	 * // Page references exclude unpublished pages unless the field allows them, as the
+	 * // unformatted field value does. Specify “page_reference_status” with an operator
+	 * // and Page status to choose which referenced pages are included (3.0.276+):
+	 * $a = $pages->findRaw("template=blog, field=categories.title, page_reference_status<=max");
 	 * ~~~~~
 	 * 
 	 * In 3.0.193 the following additional options were added for the `$field` argument:
@@ -627,6 +632,9 @@ class Pages extends Wire {
 	 *  - `indexed` (bool): Index by page ID? (default=true)
 	 *  - `flat` (bool|string): Flatten return value as `["field.subfield" => "value"]` rather than `["field" => ["subfield" => "value"]]`?
 	 *     Optionally specify field delimiter for the value, otherwise a period `.` will be used as the delimiter. (default=false) 3.0.193+
+	 *  - `page_reference_status` (string): Operator and Page status that referenced pages in Page reference fields must match,
+	 *     i.e. `<unpublished`, `<=max` (all), `<hidden`, `=hidden`, `!=hidden`. When not specified, unpublished pages are
+	 *     excluded unless the field’s “allow unpublished” setting is enabled. In the selector use i.e. `page_reference_status<=max`. (default=null) 3.0.276+
 	 *  - Any of these options above can be specified in the $selector argument as a string, i.e. `…, flat=1, entities=1`. 
 	 *  - Note the `objects` and `flat` options are not meant to be used together.
 	 * @return array
