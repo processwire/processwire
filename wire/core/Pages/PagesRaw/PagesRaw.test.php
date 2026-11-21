@@ -24,10 +24,15 @@ class WireTest_PagesRaw extends WireTest {
 		$templates = $this->wire()->templates;
 		$fieldgroups = $this->wire()->fieldgroups;
 		$name = str_replace('-', '_', $this->prefix);
-		foreach($pages->find("name^=$this->prefix-, include=all", array('cache' => false)) as $page) {
-			$pages->delete($page);
-		}
 		$template = $templates->get($name);
+		// by template too, since a trashed page's name is prefixed with its ID
+		$selector = "name^=$this->prefix-" . ($template && $template->id ? ", template!=$template->id" : '');
+		$found = $pages->find("$selector, include=all", array('cache' => false));
+		if($template && $template->id) $found->import($pages->find("template=$template, include=all", array('cache' => false)));
+		foreach($found as $page) {
+			// recursive, since path tests nest pages; skip children already deleted with their parent
+			if($pages->count("id=$page->id, include=all")) $pages->delete($page, true);
+		}
 		if($template && $template->id) $templates->delete($template);
 		$fieldgroup = $fieldgroups->get($name);
 		if($fieldgroup && $fieldgroup->id) $fieldgroups->delete($fieldgroup);
@@ -215,6 +220,9 @@ class WireTest_PagesRaw extends WireTest {
 
 	/**
 	 * Path and url follow the user language, and paths and urls return all languages
+	 * 
+	 * Without the PagePaths module, paths are built from page names (3.0.277+), except with 
+	 * multi-language page names, which still require PagePaths.
 	 *
 	 * processwire/processwire-issues#1964
 	 *
@@ -225,12 +233,15 @@ class WireTest_PagesRaw extends WireTest {
 		$languages = $wire->languages;
 		$prefix = $this->prefix;
 
-		if(!$wire->modules->isInstalled('PagePaths')) {
-			$this->li('Skipping path tests because PagePaths module is not installed');
-			return;
-		}
-
 		$multi = $languages && $wire->modules->isInstalled('LanguageSupportPageNames');
+
+		if(!$wire->modules->isInstalled('PagePaths')) {
+			if($multi) {
+				$this->li('Skipping path tests because multi-language page names require the PagePaths module');
+				return;
+			}
+			$this->li('Testing paths built from page names (PagePaths module is not installed)');
+		}
 		$user = $wire->user;
 		$userLanguage = $languages ? $user->language : null;
 
@@ -256,6 +267,25 @@ class WireTest_PagesRaw extends WireTest {
 			$this->check('url matches $page->url', $page->url, $pages->getRaw($sel, 'url'));
 			$value = $pages->findRaw(array($page->id), array('path', 'url'));
 			$this->check('path for page ID array matches $page->path', $page->path, $value[$page->id]['path']);
+
+			// nested pages, siblings sharing ancestors, and the homepage, in one call
+			$child = $pages->add($template, $page, "$prefix-paths-child", array('title' => 'Child'));
+			$grandchild = $pages->add($template, $child, "$prefix-paths-grandchild", array('title' => 'Grandchild'));
+			$sibling = $pages->add($template, $child, "$prefix-paths-sibling", array('title' => 'Sibling'));
+			$home = $pages->get(1);
+			$value = $pages->findRaw("id=1|$page->id|$child->id|$grandchild->id|$sibling->id, include=all", array('path', 'url'));
+			foreach(array($home, $page, $child, $grandchild, $sibling) as $p) {
+				$this->check("path of $p->name matches \$page->path", $p->path, $value[$p->id]['path']);
+				$this->check("url of $p->name matches \$page->url", $p->url, $value[$p->id]['url']);
+			}
+			$pages->trash($sibling);
+			$sibling = $pages->get($sibling->id);
+			$this->check('path of trashed page matches $page->path', $sibling->path, $pages->getRaw("id=$sibling->id, include=all", 'path'));
+			$template->slashUrls = 0;
+			$template->save();
+			$this->check('url without trailing slash matches $page->url', $grandchild->url, $pages->getRaw("id=$grandchild->id, include=all", 'url'));
+			$template->slashUrls = 1;
+			$template->save();
 
 			$paths = $pages->getRaw($sel, 'paths');
 			$urls = $pages->getRaw($sel, 'urls');
