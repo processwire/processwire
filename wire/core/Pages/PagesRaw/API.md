@@ -220,7 +220,11 @@ $rows = $pages->findRaw("template=blog-post", ['title', 'template.name']);
 
 ### URL And Path
 
-`url` and `path` are runtime values and require the `PagePaths` module.
+`url` and `path` are runtime values. With the `PagePaths` module they are joined from its table.
+Without it, they are built from page names (3.0.277+), walking up the tree one query per level
+for all found pages together. Multi-language page names (`LanguageSupportPageNames`) still require
+`PagePaths`. Either way, hooks to `Page::path()` are not applied, and when no fields are requested
+(all fields), `url` and `path` are included only when `PagePaths` is installed.
 
 ```php
 $rows = $pages->findRaw("template=blog-post", ['title', 'url', 'path']);

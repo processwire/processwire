@@ -619,7 +619,8 @@ class Pages extends Wire {
 	 *  - Specify `references` or `references.field_name`, etc. to also return values from pages referencing found pages.
 	 *  - Specify `meta` or `meta.name` to also return values from page meta data.
 	 * 
-	 * The `url` and `path` properties require the PagePaths module. On multi-language sites they are for the
+	 * The `url` and `path` properties come from the PagePaths module when installed, or are built from page names
+	 * otherwise (3.0.277+); multi-language page names require PagePaths. On multi-language sites they are for the
 	 * current user language (3.0.276+). Specify `urls` or `paths` to get them for all languages, indexed by
 	 * language ID (3.0.276+).
 	 *

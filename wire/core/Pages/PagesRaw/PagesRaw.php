@@ -419,6 +419,14 @@ class PagesRawFinder extends Wire {
 	protected $getPaths = false;
 
 	/**
+	 * Build paths from page names, rather than joining them from the PagePaths module's table?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $buildPaths = false;
+
+	/**
 	 * IDs of pages to find, becomes array once known
 	 * 
 	 * @var null|array|string
@@ -874,11 +882,17 @@ class PagesRawFinder extends Wire {
 				$this->templateFields[$fullName] = $colName;
 
 			} else if($fullName === 'url' || $fullName === 'path' || (!$fieldObject && ($fullName === 'urls' || $fullName === 'paths'))) {
-				if($this->wire()->modules->isInstalled('PagePaths')) {
+				$modules = $this->wire()->modules;
+				if($modules->isInstalled('PagePaths')) {
 					$this->runtimeFields[$fullName] = $fullName;
 					$this->getPaths = true;
+				} else if($modules->isInstalled('LanguageSupportPageNames')) {
+					$fails[] = "Property '$fullName' requires the PagePaths module be installed when using multi-language page names";
 				} else {
-					$fails[] = "Property '$fullName' requires the PagePaths module be installed";
+					// build paths from page names (3.0.277+)
+					$this->runtimeFields[$fullName] = $fullName;
+					$this->getPaths = true;
+					$this->buildPaths = true;
 				}
 
 			} else if($fieldObject instanceof Field) {
@@ -963,6 +977,9 @@ class PagesRawFinder extends Wire {
 		
 		if(!count($getNatives) && !$getPaths) return;
 		
+		// default language paths built from page names, when PagePaths is not installed
+		if($this->buildPaths) $this->buildPaths();
+		
 		// language-specific paths, when applicable
 		list($pathLanguages, $userLanguageId, $languagePaths) = $getPaths ? $this->findLanguagePaths() : array(array(), 0, array());
 		$getAllPaths = isset($this->runtimeFields['paths']) || isset($this->runtimeFields['urls']);
@@ -1010,6 +1027,77 @@ class PagesRawFinder extends Wire {
 	}
 
 	/**
+	 * Build default language paths from page names, for when the PagePaths module is not installed
+	 * 
+	 * Populates a 'path' value for each found page, in the same form the pages_paths table stores it 
+	 * (no leading or trailing slash, blank for the homepage). It walks up the tree one level per query, 
+	 * loading the name and parent of every ancestor not already known, so the number of queries is 
+	 * the depth of the deepest page found, regardless of how many pages were found. 
+	 * 
+	 * As with the PagePaths module, hooks to `Page::path()` are not applied. 
+	 * 
+	 * @since 3.0.277
+	 * 
+	 */
+	protected function buildPaths() {
+		
+		$rootPageId = (int) $this->wire()->config->rootPageID;
+		$database = $this->wire()->database;
+		$nodes = array(); // [ pageId => [ parentId, name ] ]
+		$paths = array(); // [ pageId => path ]
+		
+		foreach($this->values as $id => $row) {
+			$nodes[(int) $id] = array((int) $row['parent_id'], (string) $row['name']);
+		}
+		
+		// load ancestors one level at a time
+		$ids = array_keys($nodes);
+		while(count($ids)) {
+			$parentIds = array();
+			foreach($ids as $id) {
+				$parentId = $nodes[$id][0];
+				if($id !== $rootPageId && $parentId > 0 && !isset($nodes[$parentId])) $parentIds[$parentId] = $parentId;
+			}
+			$ids = array();
+			if(!count($parentIds)) break;
+			$query = $database->prepare('SELECT id, parent_id, name FROM pages WHERE id IN(' . implode(',', $parentIds) . ')');
+			$query->execute();
+			while($row = $query->fetch(\PDO::FETCH_NUM)) {
+				$id = (int) $row[0];
+				$nodes[$id] = array((int) $row[1], (string) $row[2]);
+				$ids[] = $id;
+			}
+			$query->closeCursor();
+		}
+		
+		foreach(array_keys($this->values) as $id) {
+			// collect names from the page up to (not including) the homepage, then use the known path of 
+			// the closest ancestor already built, if any
+			$names = array();
+			$parentPath = '';
+			$walkId = (int) $id;
+			$chain = array();
+			while($walkId !== $rootPageId && isset($nodes[$walkId])) {
+				if(isset($paths[$walkId])) {
+					$parentPath = $paths[$walkId];
+					break;
+				}
+				$chain[] = $walkId;
+				$names[] = $nodes[$walkId][1];
+				$walkId = $nodes[$walkId][0];
+				if(count($chain) > 100) break; // guard against a parent loop
+			}
+			// build and remember paths from the top of the chain down
+			$path = $parentPath;
+			for($n = count($chain) - 1; $n >= 0; $n--) {
+				$path = strlen($path) ? "$path/{$names[$n]}" : $names[$n];
+				$paths[$chain[$n]] = $path;
+			}
+			$this->values[$id]['path'] = (int) $id === $rootPageId ? '' : $path;
+		}
+	}
+
+	/**
 	 * Get languages and non-default language paths for populating path, url, paths and urls
 	 * 
 	 * Paths for the default language are joined from the pages_paths table when the pages are found. 
@@ -1037,7 +1125,8 @@ class PagesRawFinder extends Wire {
 		}
 		
 		if(!$this->wire()->modules->isInstalled('LanguageSupportPageNames')) {
-			return array($pathLanguages, 0, array());
+			// without multi-language page names there is one path, indexed by 0
+			return array(array(0 => true), 0, array());
 		}
 		
 		$language = $this->wire()->user->language;
@@ -1688,7 +1777,7 @@ class PagesRawFinder extends Wire {
 		$options = array_merge($this->options, $options); 
 		$options['verbose'] = $verbose;
 		$options['indexed'] = true;
-		$options['joinPath'] = $this->getPaths;
+		$options['joinPath'] = $this->getPaths && !$this->buildPaths;
 	
 		// if selector was just a page ID, return it in an id indexed array
 		if(is_int($selector) || (is_string($selector) && ctype_digit($selector))) {
@@ -1727,7 +1816,7 @@ class PagesRawFinder extends Wire {
 			$selects = array('pages.id', 'pages.templates_id', 'pages.parent_id'); 
 		}
 		
-		if($this->getPaths) {
+		if($this->getPaths && !$this->buildPaths) {
 			$selects[] = 'pages_paths.path AS path';
 			$joins[] = 'LEFT JOIN pages_paths ON pages_paths.pages_id=pages.id AND pages_paths.language_id=0';
 		}
