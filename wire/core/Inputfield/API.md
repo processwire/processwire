@@ -186,6 +186,13 @@ $f->columnWidth = 50;
 When matching Page reference fields in a showIf or requiredIf selector, note 
 that you are matching by page ID. 
 
+A showIf or requiredIf condition can also depend on a locked or non-editable field, 
+which renders its value rather than an input. Since that value can't change in the 
+browser, `InputfieldForm` evaluates the condition when the form is rendered: a field 
+whose showIf can't match is rendered already hidden, one whose requiredIf can't match
+is rendered as not required, and conditions on editable fields in the same selector are 
+left for the browser (3.0.275+).
+
 ---
 
 ### Field context properties
