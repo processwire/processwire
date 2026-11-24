@@ -436,9 +436,10 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 * site's page tree, and then the admin path says nothing about where it actually is.
 	 *
 	 * For that case we replace the breadcrumbs with the page tree path of the page being
-	 * edited, much like it would get in the regular page editor. The exception is the first
-	 * breadcrumb, where this Process (i.e. “Users”) is used in place of the site root, since
-	 * that is where the page was navigated from and is the more useful link here.
+	 * edited, exactly as it would get in the regular page editor: one breadcrumb per parent,
+	 * starting from the site root, each linking to the page tree opened at that parent. This
+	 * keeps the breadcrumbs a 1:1 mirror of the page's parents, which tools that map
+	 * breadcrumbs back to the page tree (i.e. breadcrumb dropdown modules) depend on.
 	 *
 	 * @param Page $editPage Page being edited
 	 * @return bool True if breadcrumbs were replaced, false if left as-is
@@ -457,23 +458,13 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		// page is under the admin where it normally lives, so existing breadcrumbs are fine
 		if($parent->rootParent()->id == $config->adminRootPageID) return false;
 
-		// site root is represented by the breadcrumb to this Process instead
-		$parents = $this->wire()->pages->newPageArray();
-		foreach($editPage->parents() as $p) {
-			if($p->id == $config->rootPageID) continue;
-			$parents->add($p);
-		}
+		$parents = $editPage->parents();
 
-		// nothing left to show a tree path with, so leave the existing breadcrumbs alone
+		// nothing to show a tree path with, so leave the existing breadcrumbs alone
 		if(!count($parents)) return false;
 
 		$adminUrl = $config->urls->admin;
 		$this->wire()->breadcrumbs->removeAll();
-
-		// note: this Process page's own URL rather than a relative '../', since admin URLs
-		// can be requested without a trailing slash, where '../' would resolve one level
-		// higher than intended
-		$this->breadcrumb($this->page->url, $this->page->get('title|name'));
 
 		foreach($parents as $p) {
 			$this->breadcrumb($adminUrl . "page/?open=$p->id", $p->get('title|name'));
