@@ -673,5 +673,8 @@ var InputfieldSelector = {
 }; 
 
 $(document).ready(function() {
+	$(document).on('reloaded', '.InputfieldRepeaterItem', function() {
+		InputfieldSelector.init();
+	});
 	InputfieldSelector.init();
 }); 
