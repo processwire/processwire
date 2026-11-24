@@ -50,6 +50,7 @@ class WireTest_SessionCSRF extends WireTest {
 			$this->testSignedModeRotation();
 			$this->testSingleUseInSignedMode();
 			$this->testHostPrefixedCookie();
+			$this->testSessionName();
 		} finally {
 			// restore state
 			$config->SessionCSRF = $this->originalSettings;
@@ -345,7 +346,12 @@ class WireTest_SessionCSRF extends WireTest {
 		$config = $this->wire()->config;
 		$originalHttps = $config->https;
 		$originalDomain = $config->sessionCookieDomain;
-		$plainName = session_name() . SessionCSRF::bindingCookieSuffix;
+		$originalSecure = $config->sessionCookieSecure;
+		// keep the session name the same over http and https, so only the prefix differs
+		$config->sessionCookieSecure = false;
+		$session = $this->wire()->session;
+		$sessionName = session_status() === PHP_SESSION_ACTIVE ? session_name() : $session->sessionName();
+		$plainName = $sessionName . SessionCSRF::bindingCookieSuffix;
 		$csrf = $this->wire(new SessionCSRF());
 
 		try {
@@ -372,6 +378,45 @@ class WireTest_SessionCSRF extends WireTest {
 			unset($_COOKIE["__Host-$plainName"]);
 			$config->https = $originalHttps;
 			$config->sessionCookieDomain = $originalDomain;
+			$config->sessionCookieSecure = $originalSecure;
+		}
+	}
+
+	/**
+	 * Test that the session name is known without a session (binding cookie name source)
+	 *
+	 */
+	protected function testSessionName() {
+		$config = $this->wire()->config;
+		$session = $this->wire()->session;
+		$originalHttps = $config->https;
+		$originalSecure = $config->sessionCookieSecure;
+		$originalNameSecure = $config->sessionNameSecure;
+
+		try {
+			$config->https = false;
+			$config->sessionCookieSecure = true;
+			$this->check('session name over http', $config->sessionName, $session->sessionName());
+
+			$config->https = true;
+			$config->sessionNameSecure = '';
+			$this->check('secure session name defaults to sessionName plus s', $config->sessionName . 's', $session->sessionName());
+
+			$config->sessionNameSecure = 'wiresecure';
+			$this->check('secure session name from sessionNameSecure', 'wiresecure', $session->sessionName());
+
+			$config->sessionCookieSecure = false;
+			$this->check('no secure session name without sessionCookieSecure', $config->sessionName, $session->sessionName());
+
+			if(session_status() !== PHP_SESSION_ACTIVE) {
+				$this->check('binding cookie named after the session name without a session',
+					$session->sessionName() . SessionCSRF::bindingCookieSuffix,
+					preg_replace('/^__Host-/', '', $this->wire(new SessionCSRF())->bindingCookieName()));
+			}
+		} finally {
+			$config->https = $originalHttps;
+			$config->sessionCookieSecure = $originalSecure;
+			$config->sessionNameSecure = $originalNameSecure;
 		}
 	}
 
