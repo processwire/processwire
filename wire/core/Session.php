@@ -383,6 +383,9 @@ class Session extends Wire implements \IteratorAggregate {
 			if(!$user || !$user->id || $user->isGuest() || $user->isUnpublished()) {
 				$valid = false;
 				$reason = 'Session account is no longer available';
+			} else if($this->hasLoginDisabledRole($user)) {
+				$valid = false;
+				$reason = 'Session account has a login disabled role';
 			} else if(!is_string($authHash) || !hash_equals($this->getUserAuthHash($user), $authHash)) {
 				// Missing hashes also require reauthentication for sessions created before this check.
 				$valid = false;
@@ -1181,19 +1184,28 @@ class Session extends Wire implements \IteratorAggregate {
 		}
 		if(!$user instanceof User || !$user->id) return false;
 		if($user->isGuest() || $user->isUnpublished()) return false;
+		if($this->hasLoginDisabledRole($user)) $allow = false;
+		return $allow;
+	}
+
+	/**
+	 * Does given user have one of the roles in $config->loginDisabledRoles?
+	 *
+	 * @param User $user
+	 * @return bool
+	 *
+	 */
+	protected function hasLoginDisabledRole(User $user) {
 		$xroles = $this->config->loginDisabledRoles;
 		if(!is_array($xroles) && !empty($xroles)) {
 			$xroles = array($xroles);
 		}
 		if(is_array($xroles)) {
 			foreach($xroles as $xrole) {
-				if($user->hasRole($xrole)) {
-					$allow = false;
-					break;
-				}
+				if($user->hasRole($xrole)) return true;
 			}
 		}
-		return $allow; 
+		return false;
 	}
 
 	/**
