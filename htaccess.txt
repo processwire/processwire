@@ -380,8 +380,8 @@ DirectoryIndex index.php index.html index.htm
   # Block access to any files in /site/classes/ or /site-*/classes/
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/classes($|/.*) [NC,OR]
   
-  # Block access to any PHP files within /site/assets/ and further
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/) [NC,OR]
+  # Block access to any PHP files within /site/assets/ and further (including i.e. file.php.jpg)
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|ar|t|p[0-9])(\.[^/]*)?)($|/) [NC,OR]
   
   # Block access to any PHP, module, inc or info files in core or core modules directories
   RewriteCond %{REQUEST_URI} (^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)($|/) [NC,OR]
@@ -400,6 +400,9 @@ DirectoryIndex index.php index.html index.htm
   
   # Block access to names of potential backup file extensions within wire or site directories
   RewriteCond %{REQUEST_URI} (^|/)(wire/|site[-/]).+\.(bak|old|sql|sw[op]|(bak|php|sql)[./]+.*)[\d.]*$ [NC,OR]
+  
+  # Block access to PHP files in /vendor/ directories (i.e. Composer packages)
+  RewriteCond %{REQUEST_URI} (^|/)vendor/.*\.(php|phtml|phar|inc)($|/) [NC,OR]
   
   # Block all http access to the default/uninstalled site-default directory
   RewriteCond %{REQUEST_URI} (^|/)site-default/
