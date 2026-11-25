@@ -412,7 +412,37 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			throw new WireException("Unrecognized variation file: $file");
 		}	
 		
-		return $pageimage; 
+		return $pageimage;
+	}
+
+	/**
+	 * Is the given field on the given page allowed for image selection (RTE) or editing?
+	 *
+	 * RTE selection needs view access; direct image editing also needs field edit access.
+	 * For repeater items, page access is determined by the page the repeater lives on, as it
+	 * is when editing that page, while field access applies to each field from that page down
+	 * to the item (processwire/processwire-issues#2375).
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 *
+	 */
+	protected function allowField(Page $page, Field $field) {
+		/** @var PagePermissions $pagePermissions */
+		$pagePermissions = $this->wire()->modules->get('PagePermissions');
+		$n = 0;
+		while($page instanceof RepeaterPage) {
+			// field access only, as repeater items are not editable or viewable on their own
+			$editable = $pagePermissions->fieldEditable($page, $field, false);
+			if(!$this->rte && !$editable) return false;
+			if(!$editable && !$pagePermissions->fieldViewable($page, $field, false)) return false;
+			$field = $page->getForField();
+			$page = $page->getForPage();
+			if(!$field || !$page || !$page->id || ++$n > 20) return false;
+		}
+		if(!$page->viewable($field)) return false;
+		return $this->rte || $page->editable($field);
 	}
 
 	/**
@@ -444,9 +474,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		foreach($fields as $field) {
 
-			if(!$page->viewable($field)) continue;
-			// RTE selection needs view access; direct image editing also needs field edit access.
-			if(!$this->rte && !$page->editable($field)) continue;
+			if(!$this->allowField($page, $field)) continue;
 
 			$fieldtype = $field->type;
 			
