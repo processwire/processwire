@@ -324,7 +324,10 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			$message = $this->_('Profile saved') . ' - ' . $changes; 
 			$this->message($message);
 			$this->wire()->log->message($message); 
-			$this->wire()->users->save($user);
+			$passwordChanged = $user->isChanged('pass');
+			if($this->wire()->users->save($user) && $passwordChanged) {
+				$this->wire()->session->refreshUserAuthHash($user);
+			}
 		}
 
 		$user->of(true); 

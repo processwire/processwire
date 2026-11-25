@@ -377,7 +377,20 @@ class ProcessUser extends ProcessPageType {
 		
 		$this->addHookAfter('ProcessPageEdit::buildForm', $this, 'hookPageEditBuildForm'); 
 		
-		$out = parent::___executeEdit();
+		// Only this authorized UI workflow may preserve a session after changing its own password.
+		$pages = $this->wire()->pages;
+		$session = $this->wire()->session;
+		$hook = $pages->addHookAfter('saved', function(HookEvent $event) use ($user, $session) {
+			$page = $event->arguments(0);
+			if($page instanceof User && $page->id === $user->id && in_array('pass', $event->arguments(1))) {
+				$session->refreshUserAuthHash($page);
+			}
+		});
+		try {
+			$out = parent::___executeEdit();
+		} finally {
+			$pages->removeHook($hook);
+		}
 		
 		/** @var User $page Available only after executeEdit() */
 		$page = $this->getPage();
