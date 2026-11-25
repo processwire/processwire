@@ -894,9 +894,12 @@ $.layout.transformData = function (hash, addKeys) {
 
 	// convert all 'flat-keys' to 'sub-key' format
 	for (optKey in hash) {
+		if (!Object.prototype.hasOwnProperty.call(hash, optKey) || optKey === "__proto__") continue;
 		branch	= json;
 		val		= hash[ optKey ];
 		keys	= optKey.split("__"); // eg: west__size or north__fxSettings__duration
+		// State and option paths must never traverse JavaScript prototype properties.
+		if ($.inArray("__proto__", keys) >= 0 || $.inArray("constructor", keys) >= 0 || $.inArray("prototype", keys) >= 0) continue;
 		c		= keys.length - 1;
 		// convert underscore-delimited to subkeys
 		for (i=0; i <= c; i++) {
@@ -908,7 +911,7 @@ $.layout.transformData = function (hash, addKeys) {
 					branch[key] = val;
 			}
 			else {
-				if (!branch[key])
+				if (!Object.prototype.hasOwnProperty.call(branch, key) || !branch[key])
 					branch[key] = {}; // create the subkey
 				// recurse to sub-key for next loop - if not done
 				branch = branch[key];
@@ -5341,7 +5344,8 @@ $.layout.state = {
 	 * @param {Object}	inst
 	 */
 ,	loadCookie: function (inst) {
-		var c = $.layout.state.readCookie(inst); // READ the cookie
+		// Normalize untrusted cookie paths before any deep copy (including older jQuery versions).
+		var c = $.layout.transformData($.layout.state.readCookie(inst));
 		if (c && !$.isEmptyObject( c )) {
 			inst.state.stateData = $.extend(true, {}, c); // SET state.stateData
 			inst.loadState(c); // LOAD the retrieved state

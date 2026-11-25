@@ -207,7 +207,8 @@ $.layout.state = {
 	 * @param {Object}	inst
 	 */
 ,	loadCookie: function (inst) {
-		var c = $.layout.state.readCookie(inst); // READ the cookie
+		// Normalize untrusted cookie paths before any deep copy (including older jQuery versions).
+		var c = $.layout.transformData($.layout.state.readCookie(inst));
 		if (c && !$.isEmptyObject( c )) {
 			inst.state.stateData = $.extend(true, {}, c); // SET state.stateData
 			inst.loadState(c); // LOAD the retrieved state
