@@ -292,6 +292,7 @@ class ProcessCommentsManager extends Process {
 		$fieldtype = $field->type; 
 		$comments = $fieldtype->find($field, $selector); 
 		if($input->post('processComments')) {
+			$this->wire()->session->CSRF->validate();
 			$this->processComments($comments, $field);
 		}
 		if($filterOut) {
@@ -1495,9 +1496,10 @@ class ProcessCommentsManager extends Process {
 				"<div class='CommentItems ui-helper-clearfix'>" . 
 					$commentsBody . 
 				"</div>" . 
-				$pagerOut . 
-				$button . 
-			"</form>"; 
+				$pagerOut .
+				$button .
+				$this->wire()->session->CSRF->renderInput() .
+			"</form>";
 	}
 	
 	protected function getQueryString() {
