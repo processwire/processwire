@@ -431,7 +431,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 * @param User $user
 	 * @return bool True on success, false if account/session identity does not match or ID regeneration fails
-	 * @since 3.0.275
+	 * @since 3.0.261
 	 * #pw-group-authentication
 	 */
 	public function refreshUserAuthHash(User $user) {
