@@ -27,6 +27,9 @@ class WireSessionHandlerAdaptor implements \SessionHandlerInterface {
 	 * 
 	 */
 	protected $handler;
+
+	/** @var array Data read while validating a legacy handler, consumed by read(). */
+	protected $validatedRead = [];
 	
 	/**
 	 * Construct
@@ -48,7 +51,44 @@ class WireSessionHandlerAdaptor implements \SessionHandlerInterface {
 	 * 
 	 */
 	public function close(): bool {
+		$this->validatedRead = [];
 		return (bool) $this->handler->close();
+	}
+
+	/**
+	 * Create a session ID using PHP's native generator.
+	 *
+	 * Required for custom handlers in PHP 9.0; absence is deprecated in PHP 8.6.
+	 *
+	 * @return string
+	 *
+	 */
+	public function create_sid(): string {
+		$id = session_create_id();
+		if($id === false) throw new WireException('Unable to create session ID');
+		return $id;
+	}
+
+	/**
+	 * Check whether a session ID already exists, for PHP's strict session mode.
+	 *
+	 * Handlers can provide validateId() to check storage without reading or locking it.
+	 * Older handlers can establish existence with nonempty data; their read is reused.
+	 * A handler that distinguishes existing empty sessions should provide validateId().
+	 *
+	 * @param string $id
+	 * @return bool
+	 *
+	 */
+	public function validateId(string $id): bool {
+		$this->validatedRead = [];
+		if($id === '') return false;
+		if(method_exists($this->handler, 'validateId') && (new \ReflectionMethod($this->handler, 'validateId'))->isPublic()) {
+			return (bool) $this->handler->validateId($id);
+		}
+		$data = $this->read($id);
+		$this->validatedRead[$id] = $data;
+		return $data !== false && $data !== '';
 	}
 	
 	/**
@@ -62,6 +102,7 @@ class WireSessionHandlerAdaptor implements \SessionHandlerInterface {
 	 * 
 	 */
 	public function destroy(string $id): bool {
+		$this->validatedRead = [];
 		return (bool) $this->handler->destroy($id);
 	}
 	
@@ -91,6 +132,7 @@ class WireSessionHandlerAdaptor implements \SessionHandlerInterface {
 	 * 
 	 */
 	public function open(string $path, string $name): bool {
+		$this->validatedRead = [];
 		return (bool) $this->handler->open($path, $name);
 	}
 	
@@ -104,7 +146,10 @@ class WireSessionHandlerAdaptor implements \SessionHandlerInterface {
 	 * 
 	 */
 	public function read(string $id): string|false {
-		$data = $this->handler->read($id); 
+		$cached = isset($this->validatedRead[$id]);
+		$data = $cached ? $this->validatedRead[$id] : null;
+		$this->validatedRead = [];
+		if(!$cached) $data = $this->handler->read($id);
 		return $data === false ? false : (string) $data;
 	}
 	
@@ -120,6 +165,7 @@ class WireSessionHandlerAdaptor implements \SessionHandlerInterface {
 	 * 
 	 */
 	public function write(string $id, string $data): bool {
+		$this->validatedRead = [];
 		return (bool) $this->handler->write($id, $data);
 	}
 }

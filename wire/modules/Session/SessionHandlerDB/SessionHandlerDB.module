@@ -67,6 +67,25 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	}
 
 	/**
+	 * Check that a session exists without acquiring the lock used by read().
+	 *
+	 * An existing session can have empty data, so check the row rather than its contents.
+	 *
+	 * @param string $id
+	 * @return bool
+	 *
+	 */
+	public function validateId($id) {
+		$table = self::dbTableName;
+		$query = $this->database->prepare("SELECT 1 FROM `$table` WHERE id=:id");
+		$query->bindValue(':id', $id, \PDO::PARAM_STR);
+		$this->database->execute($query);
+		$exists = $query->fetchColumn() !== false;
+		$query->closeCursor();
+		return $exists;
+	}
+
+	/**
 	 * Read and return data for session indicated by $id
 	 *
 	 * @param string $id Session ID
