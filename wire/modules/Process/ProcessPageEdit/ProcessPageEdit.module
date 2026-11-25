@@ -2389,10 +2389,15 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$this->processInputUser($inputfield);
 					continue;
 					
-				} else if($name == 'parent_id' && count($this->predefinedParents)) {
-					if(!$this->predefinedParents->has("id=$inputfield->value")) {
-						$this->error("Parent $inputfield->value is not allowed for $page"); 
-						continue; 
+				} else if($name == 'parent_id') {
+					if(count($this->predefinedParents) && !$this->predefinedParents->has("id=$inputfield->value")) {
+						$this->error("Parent $inputfield->value is not allowed for $page");
+						continue;
+					}
+					$parentId = (int) $inputfield->val();
+					if($parentId && $parentId !== (int) $page->parent_id && !$page->moveable($this->pages->get($parentId))) {
+						$this->error("Parent $parentId is not allowed for $page");
+						continue;
 					}
 				}
 
