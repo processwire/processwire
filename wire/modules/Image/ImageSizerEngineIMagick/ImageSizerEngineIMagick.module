@@ -147,7 +147,9 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 */
 	protected function validSourceImageFormats() {
 		// 2019/06/07: “PNG8” removed because some versions of ImageMagick have some bug, may be able to add back later
-		return array('JPG', 'JPEG', 'PNG24', 'PNG', 'GIF', 'GIF87');
+		$formats = array('JPG', 'JPEG', 'PNG24', 'PNG', 'GIF', 'GIF87');
+		if($this->supportsFormat('WEBP')) $formats[] = 'WEBP';
+		return $formats;
 	}
 
 	/**
@@ -158,7 +160,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 */
 	protected function validTargetImageFormats() {
 		$formats = $this->validSourceImageFormats();
-		if($this->supportsFormat('WEBP')) $formats[] = 'WEBP';
+		if($this->supportsFormat('WEBP') && !in_array('WEBP', $formats)) $formats[] = 'WEBP';
 		return $formats;
 	}
 
@@ -441,8 +443,10 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		}
 		
 		// determine whether webp should be created as well (or on its own)
-		$webpOnly = $this->webpOnly && $this->supported('webp');
-		$webpAdd = $webpOnly || ($this->webpAdd && $this->supported('webp'));
+		// (a WebP source is written as WebP already, so no extra copy is made)
+		$isWebpSource = strtoupper($this->imageFormat) === 'WEBP';
+		$webpOnly = !$isWebpSource && $this->webpOnly && $this->supported('webp');
+		$webpAdd = $webpOnly || (!$isWebpSource && $this->webpAdd && $this->supported('webp'));
 		
 		if($webpOnly) {
 			// only a webp file will be created
@@ -457,6 +461,9 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			} else if(in_array(strtoupper($this->imageFormat), array('PNG', 'PNG8', 'PNG24'))) {
 				$this->im->setImageCompression(\Imagick::COMPRESSION_ZIP);
 				$this->im->setImageCompressionQuality($this->quality);
+			} else if($isWebpSource) {
+				$this->im->setImageCompressionQuality($this->webpQuality);
+				$this->im->setOption('webp:method', '6');
 			} else {
 				$this->im->setImageCompression(\Imagick::COMPRESSION_UNDEFINED);
 				$this->im->setImageCompressionQuality($this->quality);
@@ -477,10 +484,10 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->modified = true;
 		$return = true;
 		
-		// if there is a corresponding webp file present, remove it
+		// if there is a corresponding webp file present, remove it (unless it is the file just written)
 		$pathinfo = pathinfo($srcFilename);
 		$webpFilename = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.webp';
-		if(file_exists($webpFilename)) $this->wire('files')->unlink($webpFilename);
+		if(!$isWebpSource && file_exists($webpFilename)) $this->wire('files')->unlink($webpFilename);
 			
 		// optionally create a WebP dependency file
 		if($webpAdd) {

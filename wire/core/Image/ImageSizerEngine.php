@@ -570,6 +570,11 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$this->extension = $this->inspectionResult['extension'];
 		$this->imageType = $this->inspectionResult['imageType'];
 
+		if($this->imageType == \IMAGETYPE_WEBP && !in_array(\IMAGETYPE_WEBP, $this->supportedImageTypes) && $this->supported('webp')) {
+			// WebP source images are supported when the engine can read and write WebP
+			$this->supportedImageTypes['webp'] = \IMAGETYPE_WEBP;
+		}
+
 		if(!in_array($this->imageType, $this->supportedImageTypes)) {
 			throw new WireException(basename($filename) . " - not a supported image type");
 		}
@@ -617,6 +622,12 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 				$trans = is_array($this->inspectionResult['info']['trans']) ? '-trans' : '';
 				$trans = $this->inspectionResult['info']['alpha'] ? '-alpha' : $trans;
 				$animated = '';
+				break;
+			case \IMAGETYPE_WEBP:
+				$type = 'webp';
+				$indexed = '';
+				$trans = !empty($this->inspectionResult['info']['alpha']) ? '-alpha' : '';
+				$animated = !empty($this->inspectionResult['info']['animated']) ? '-anim' : '';
 				break;
 		}
 		
