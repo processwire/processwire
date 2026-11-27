@@ -67,7 +67,7 @@ class InputfieldText extends Inputfield {
 		$languages = $this->wire()->languages;
 		if($languages) {
 			foreach($languages as $language) {
-				// set to blank value so that Field::getInputfield() will recogize this setting is for InputfieldText 
+				// set to blank value so that Field::getInputfield() will recognize this setting is for InputfieldText 
 				if(!$language->isDefault()) $this->set("placeholder$language", '');
 			}
 		}
